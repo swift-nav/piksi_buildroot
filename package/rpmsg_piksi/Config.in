@@ -1,0 +1,3 @@
+config BR2_PACKAGE_RPMSG_PIKSI
+	bool "rpmsg_piksi"
+	depends on BR2_LINUX_KERNEL
