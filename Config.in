@@ -1,0 +1,4 @@
+source "$BR2_EXTERNAL/package/libsbp/Config.in"
+source "$BR2_EXTERNAL/package/libskylark/Config.in"
+source "$BR2_EXTERNAL/package/libswiftnav/Config.in"
+source "$BR2_EXTERNAL/package/navengine/Config.in"

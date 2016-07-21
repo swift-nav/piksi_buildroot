@@ -1,0 +1,7 @@
+config BR2_PACKAGE_LIBSBP
+	bool "libsbp"
+	help
+	  Swift Navigation libsbp
+
+	  https://github.com/swift-nav/libsbp
+

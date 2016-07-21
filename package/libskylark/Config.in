@@ -1,0 +1,9 @@
+config BR2_PACKAGE_LIBSKYLARK
+	bool "libskylark"
+	select BR2_PACKAGE_LIBCURL
+	select BR2_PACKAGE_LIBSERIALPORT
+	help
+	  Swift Navigation libskylark
+
+	  https://github.com/swift-nav/libskylark
+
