@@ -1,0 +1,4 @@
+source "package/libsbp/Config.in"
+source "package/libskylark/Config.in"
+source "package/libswiftnav/Config.in"
+source "package/navengine/Config.in"
