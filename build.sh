@@ -3,7 +3,6 @@
 set -e
 
 export BR2_EXTERNAL=..
-export PING_SLEEP=30s
 export WORKDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export BUILD_OUTPUT=$WORKDIR/build.out
 
@@ -21,11 +20,6 @@ error_handler() {
 # If an error occurs, run our error handler to output a tail of the build
 trap 'error_handler' ERR
 
-# Set up a repeating loop to send some output to Travis.
-
-bash -c "while true; do echo \$(date) - building ...; sleep $PING_SLEEP; done" &
-PING_LOOP_PID=$!
-
 git clone --depth=1 git://git.buildroot.net/buildroot -b 2016.02
 pushd buildroot
 make piksiv3_defconfig >> $BUILD_OUTPUT 2>&1
@@ -34,7 +28,4 @@ popd
 
 # The build finished without returning an error so dump a tail of the output
 dump_output
-
-# nicely terminate the ping output loop
-kill $PING_LOOP_PID
 
