@@ -35,15 +35,17 @@ static const framer_interface_t framer_interfaces[] = {
   }
 };
 
-void framer_init(framer_t framer, framer_state_t *s)
+void framer_state_init(framer_state_t *s, framer_t framer)
 {
-  framer_interfaces[framer].init(s);
+  s->framer = framer;
+  framer_interfaces[s->framer].init(&s->impl_framer_state);
 }
 
-uint32_t framer_process(framer_t framer, framer_state_t *s,
+uint32_t framer_process(framer_state_t *s,
                         const uint8_t *data, uint32_t data_length,
                         const uint8_t **frame, uint32_t *frame_length)
 {
-  return framer_interfaces[framer].process(s, data, data_length,
-                                           frame, frame_length);
+  return framer_interfaces[s->framer].process(&s->impl_framer_state,
+                                              data, data_length,
+                                              frame, frame_length);
 }

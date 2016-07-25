@@ -24,13 +24,16 @@ typedef enum {
   FRAMER_SBP
 } framer_t;
 
-typedef union {
-  framer_none_state_t framer_none_state;
-  framer_sbp_state_t framer_sbp_state;
+typedef struct {
+  framer_t framer;
+  union {
+    framer_none_state_t framer_none_state;
+    framer_sbp_state_t framer_sbp_state;
+  } impl_framer_state;
 } framer_state_t;
 
-void framer_init(framer_t framer, framer_state_t *s);
-uint32_t framer_process(framer_t framer, framer_state_t *s,
+void framer_state_init(framer_state_t *s, framer_t framer);
+uint32_t framer_process(framer_state_t *s,
                         const uint8_t *data, uint32_t data_length,
                         const uint8_t **frame, uint32_t *frame_length);
 

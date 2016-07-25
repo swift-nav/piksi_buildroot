@@ -18,10 +18,17 @@
 #define READ_BUFFER_SIZE 65536
 
 typedef enum {
-  MODE_INVALID,
-  MODE_FILE,
-  MODE_TCP_LISTEN
-} prog_mode_t;
+  IO_INVALID,
+  IO_FILE,
+  IO_TCP_LISTEN
+} io_mode_t;
+
+typedef enum {
+  ZSOCK_INVALID,
+  ZSOCK_PUBSUB,
+  ZSOCK_REQ,
+  ZSOCK_REP
+} zsock_mode_t;
 
 typedef struct {
   zsock_t *zsock;
@@ -32,54 +39,105 @@ typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer,
                               size_t count);
 
-static prog_mode_t mode = MODE_INVALID;
+static io_mode_t io_mode = IO_INVALID;
+static zsock_mode_t zsock_mode = ZSOCK_INVALID;
 static framer_t framer = FRAMER_NONE;
 
 static const char *zmq_pub_addr = NULL;
 static const char *zmq_sub_addr = NULL;
+static const char *zmq_req_addr = NULL;
+static const char *zmq_rep_addr = NULL;
 static const char *file_path = NULL;
 static int tcp_listen_port = -1;
 
 static void usage(char *command)
 {
-  printf("usage: %s -m <mode> -t <target> [-f <framer>] "
-         "[-p zmq_pub_addr] [-s zmq_sub_addr]\n", command);
+  printf("Usage: %s\n", command);
+
+  puts("\nZMQ Modes - select one or two (see notes)");
+  puts("\t-p, --pub <addr>");
+  puts("\t\tsink socket, may be combined with --sub");
+  puts("\t-s, --sub <addr>");
+  puts("\t\tsource socket, may be combined with --pub");
+  puts("\t-r, --req <addr>");
+  puts("\t\tbidir socket, may not be combined");
+  puts("\t-y, --rep <addr>");
+  puts("\t\tbidir socket, may not be combined");
+
+  puts("\nFramer Mode - optional");
+  puts("\t-f, --framer <framer>");
+  puts("\t\tavailable framers: sbp");
+
+  puts("\nIO Modes - select one");
+  puts("\t--file <file>");
+  puts("\t--tcp-l <port>");
 }
 
 static int parse_options(int argc, char *argv[])
 {
-  const char *target = NULL;
+  enum {
+    OPT_ID_FILE = 1,
+    OPT_ID_TCP_LISTEN,
+  };
+
+  const struct option long_opts[] = {
+    {"pub",     required_argument, 0, 'p'},
+    {"sub",     required_argument, 0, 's'},
+    {"req",     required_argument, 0, 'r'},
+    {"rep",     required_argument, 0, 'y'},
+    {"framer",  required_argument, 0, 'f'},
+    {"file",    required_argument, 0, OPT_ID_FILE},
+    {"tcp-l",   required_argument, 0, OPT_ID_TCP_LISTEN},
+    {0, 0, 0, 0}
+  };
 
   int c;
-  while ((c = getopt(argc, argv, "m:t:p:s:f:")) != -1) {
+  int opt_index;
+  while ((c = getopt_long(argc, argv, "p:s:r:y:f:",
+                          long_opts, &opt_index)) != -1) {
     switch (c) {
-      case 'm': {
-        if (strcmp(optarg, "file") == 0) {
-          mode = MODE_FILE;
-        } else if (strcmp(optarg, "tcp-l") == 0) {
-          mode = MODE_TCP_LISTEN;
-        }
+      case OPT_ID_FILE: {
+        io_mode = IO_FILE;
+        file_path = optarg;
       }
       break;
 
-      case 't': {
-        target = optarg;
+      case OPT_ID_TCP_LISTEN: {
+        io_mode = IO_TCP_LISTEN;
+        tcp_listen_port = strtol(optarg, NULL, 10);
       }
       break;
 
       case 'p': {
+        zsock_mode = ZSOCK_PUBSUB;
         zmq_pub_addr = optarg;
       }
       break;
 
       case 's': {
+        zsock_mode = ZSOCK_PUBSUB;
         zmq_sub_addr = optarg;
       }
       break;
 
+      case 'r': {
+        zsock_mode = ZSOCK_REQ;
+        zmq_req_addr = optarg;
+      }
+      break;
+
+      case 'y': {
+        zsock_mode = ZSOCK_REP;
+        zmq_rep_addr = optarg;
+      }
+      break;
+
       case 'f': {
-        if (strcmp(optarg, "sbp") == 0) {
+        if (strcasecmp(optarg, "SBP") == 0) {
           framer = FRAMER_SBP;
+        } else {
+          printf("invalid framer\n");
+          return -1;
         }
       }
       break;
@@ -92,34 +150,14 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
-  if (mode == MODE_INVALID) {
+  if (io_mode == IO_INVALID) {
     printf("invalid mode\n");
     return 1;
   }
 
-  if (!zmq_pub_addr && !zmq_sub_addr) {
-    printf("ZMQ PUB or SUB not specified\n");
+  if (zsock_mode == ZSOCK_INVALID) {
+    printf("ZMQ address(es) not specified\n");
     return 1;
-  }
-
-  if (target == NULL) {
-    printf("target not specifed\n");
-    return 1;
-  }
-
-  switch (mode) {
-    case MODE_FILE: {
-      file_path = target;
-    }
-    break;
-
-    case MODE_TCP_LISTEN: {
-      tcp_listen_port = strtol(target, NULL, 10);
-    }
-    break;
-
-    default:
-      break;
   }
 
   return 0;
@@ -214,9 +252,8 @@ static ssize_t handle_write_all(handle_t *handle,
   return buffer_index;
 }
 
-static ssize_t handle_write_all_via_framer(handle_t *handle,
+static ssize_t handle_write_one_via_framer(handle_t *handle,
                                            const void *buffer, size_t count,
-                                           framer_t framer,
                                            framer_state_t *framer_state)
 {
   /* Pass data through framer */
@@ -225,7 +262,7 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
     const uint8_t *frame;
     uint32_t frame_length;
     buffer_index +=
-        framer_process(framer, framer_state,
+        framer_process(framer_state,
                        &((uint8_t *)buffer)[buffer_index],
                        count - buffer_index,
                        &frame, &frame_length);
@@ -244,17 +281,38 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
       printf("warning: write_count != frame_length\n");
     }
 
+    return buffer_index;
   }
   return buffer_index;
 }
 
-static void io_loop(handle_t *read_handle, handle_t *write_handle,
-                    framer_t framer)
+static ssize_t handle_write_all_via_framer(handle_t *handle,
+                                           const void *buffer, size_t count,
+                                           framer_state_t *framer_state)
+{
+  uint32_t buffer_index = 0;
+  while (buffer_index < count) {
+    ssize_t write_count =
+        handle_write_one_via_framer(handle,
+                                    &((uint8_t *)buffer)[buffer_index],
+                                    count - buffer_index,
+                                    framer_state);
+    if (write_count <= 0) {
+      return write_count;
+    }
+
+    buffer_index += write_count;
+  }
+  return buffer_index;
+}
+
+static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle,
+                           framer_t framer)
 {
   printf("io loop begin\n");
 
   framer_state_t framer_state;
-  framer_init(framer, &framer_state);
+  framer_state_init(&framer_state, framer);
 
   while (1) {
     /* Read from read_handle */
@@ -268,7 +326,7 @@ static void io_loop(handle_t *read_handle, handle_t *write_handle,
     /* Write to write handle via framer */
     ssize_t write_count = handle_write_all_via_framer(write_handle,
                                                       buffer, read_count,
-                                                      framer, &framer_state);
+                                                      &framer_state);
     if (write_count <= 0) {
       break;
     }
@@ -280,45 +338,147 @@ static void io_loop(handle_t *read_handle, handle_t *write_handle,
   printf("io loop end\n");
 }
 
-void io_loop_start(int fd)
+static ssize_t frame_transfer(handle_t *read_handle, handle_t *write_handle,
+                              framer_state_t *framer_state)
 {
-  /* TODO: switch on ZSOCK type */
+  while (1) {
+    /* Read from read_handle */
+    uint8_t buffer[READ_BUFFER_SIZE];
+    ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
+    printf("read %zd bytes\n", read_count);
+    if (read_count <= 0) {
+      return read_count;
+    }
 
-  if (zmq_pub_addr != NULL) {
-    if (fork() == 0) {
-      /* child process */
-      zsock_t *pub = zsock_new_pub(zmq_pub_addr);
-      if (pub != NULL) {
-        printf("opened PUB socket: %s\n", zmq_pub_addr);
-        handle_t pub_handle = {.zsock = pub, .fd = -1};
-        handle_t fd_handle = {.zsock = NULL, .fd = fd};
-        io_loop(&fd_handle, &pub_handle, framer);
-        zsock_destroy(&pub);
-        assert(pub == NULL);
-      } else {
-        printf("error opening PUB socket: %s\n", zmq_pub_addr);
-      }
-      return;
+    /* Write to write handle via framer */
+    ssize_t write_count = handle_write_one_via_framer(write_handle,
+                                                      buffer, read_count,
+                                                      framer_state);
+    if (write_count <= 0) {
+      return read_count;
+    }
+    if (write_count != read_count) {
+      printf("warning: write_count != read_count\n");
+    }
+
+    return write_count;
+  }
+}
+
+static void io_loop_reqrep(handle_t *outer_handle, framer_t outer_framer,
+                           handle_t *inner_handle, framer_t inner_framer)
+{
+  printf("io loop begin\n");
+
+  framer_state_t outer_framer_state;
+  framer_state_init(&outer_framer_state, outer_framer);
+  framer_state_t inner_framer_state;
+  framer_state_init(&inner_framer_state, inner_framer);
+
+  while (1) {
+    /* Transfer one frame from outer_handle to inner_handle */
+    if (frame_transfer(outer_handle, inner_handle, &outer_framer_state) <= 0) {
+      break;
+    }
+
+    /* Transfer one frame from inner_handle to outer_handle */
+    if (frame_transfer(inner_handle, outer_handle, &inner_framer_state) <= 0) {
+      break;
     }
   }
 
-  if (zmq_sub_addr != NULL) {
-    if (fork() == 0) {
-      /* child process */
-      zsock_t *sub = zsock_new_sub(zmq_sub_addr, "");
-      if (sub != NULL) {
-        printf("opened SUB socket: %s\n", zmq_sub_addr);
-        handle_t sub_handle = {.zsock = sub, .fd = -1};
-        handle_t fd_handle = {.zsock = NULL, .fd = fd};
-        /* SUB loop should never need a framer */
-        io_loop(&sub_handle, &fd_handle, FRAMER_NONE);
-        zsock_destroy(&sub);
-        assert(sub == NULL);
-      } else {
-        printf("error opening SUB socket: %s\n", zmq_sub_addr);
+  printf("io loop end\n");
+}
+
+void io_loop_start(int fd)
+{
+  switch (zsock_mode) {
+    case ZSOCK_PUBSUB: {
+
+      if (zmq_pub_addr != NULL) {
+        if (fork() == 0) {
+          /* child process */
+          zsock_t *pub = zsock_new_pub(zmq_pub_addr);
+          if (pub != NULL) {
+            printf("opened PUB socket: %s\n", zmq_pub_addr);
+            handle_t pub_handle = {.zsock = pub, .fd = -1};
+            handle_t fd_handle = {.zsock = NULL, .fd = fd};
+            io_loop_pubsub(&fd_handle, &pub_handle, framer);
+            zsock_destroy(&pub);
+            assert(pub == NULL);
+          } else {
+            printf("error opening PUB socket: %s\n", zmq_pub_addr);
+          }
+          return;
+        }
       }
-      return;
+
+      if (zmq_sub_addr != NULL) {
+        if (fork() == 0) {
+          /* child process */
+          zsock_t *sub = zsock_new_sub(zmq_sub_addr, "");
+          if (sub != NULL) {
+            printf("opened SUB socket: %s\n", zmq_sub_addr);
+            handle_t sub_handle = {.zsock = sub, .fd = -1};
+            handle_t fd_handle = {.zsock = NULL, .fd = fd};
+            /* SUB loop should never need a framer */
+            io_loop_pubsub(&sub_handle, &fd_handle, FRAMER_NONE);
+            zsock_destroy(&sub);
+            assert(sub == NULL);
+          } else {
+            printf("error opening SUB socket: %s\n", zmq_sub_addr);
+          }
+          return;
+        }
+      }
+
     }
+    break;
+
+    case ZSOCK_REQ: {
+
+      if (fork() == 0) {
+        /* child process */
+        zsock_t *req = zsock_new_req(zmq_req_addr);
+        if (req != NULL) {
+          printf("opened REQ socket: %s\n", zmq_req_addr);
+          handle_t req_handle = {.zsock = req, .fd = -1};
+          handle_t fd_handle = {.zsock = NULL, .fd = fd};
+          io_loop_reqrep(&fd_handle, framer, &req_handle, FRAMER_NONE);
+          zsock_destroy(&req);
+          assert(req == NULL);
+        } else {
+          printf("error opening REQ socket: %s\n", zmq_req_addr);
+        }
+        return;
+      }
+
+    }
+    break;
+
+    case ZSOCK_REP: {
+
+      if (fork() == 0) {
+        /* child process */
+        zsock_t *rep = zsock_new_rep(zmq_rep_addr);
+        if (rep != NULL) {
+          printf("opened REP socket: %s\n", zmq_rep_addr);
+          handle_t rep_handle = {.zsock = rep, .fd = -1};
+          handle_t fd_handle = {.zsock = NULL, .fd = fd};
+          io_loop_reqrep(&rep_handle, FRAMER_NONE, &fd_handle, framer);
+          zsock_destroy(&rep);
+          assert(rep == NULL);
+        } else {
+          printf("error opening REP socket: %s\n", zmq_rep_addr);
+        }
+        return;
+      }
+
+    }
+    break;
+
+    default:
+      break;
   }
 }
 
@@ -337,14 +497,14 @@ int main(int argc, char *argv[])
 
   int ret = 0;
 
-  switch (mode) {
-    case MODE_FILE: {
+  switch (io_mode) {
+    case IO_FILE: {
       extern int file_loop(const char *file_path);
       ret = file_loop(file_path);
     }
     break;
 
-    case MODE_TCP_LISTEN: {
+    case IO_TCP_LISTEN: {
       extern int tcp_listen_loop(int port);
       ret = tcp_listen_loop(tcp_listen_port);
     }
