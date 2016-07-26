@@ -1,2 +1,4 @@
+source "$BR2_EXTERNAL/package/libsbp/Config.in"
 source "$BR2_EXTERNAL/package/rpmsg_piksi/Config.in"
 source "$BR2_EXTERNAL/package/zmq_router/Config.in"
+source "$BR2_EXTERNAL/package/zmq_adapter/Config.in"
