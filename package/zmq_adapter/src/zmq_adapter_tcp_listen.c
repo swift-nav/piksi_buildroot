@@ -55,7 +55,6 @@ err:
 
 static void handle_client(int client_fd, const struct sockaddr_in *client_addr)
 {
-  printf("incoming connection\n");
   io_loop_start(client_fd);
 }
 
