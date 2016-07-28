@@ -6,7 +6,7 @@ SOURCES= \
 	framer.c \
 	framer_none.c \
 	framer_sbp.c
-LIBS=-lczmq -lsbp
+LIBS=-lczmq -lzmq -lsbp
 CFLAGS=-std=gnu11
 
 CROSS=
