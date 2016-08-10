@@ -1,0 +1,26 @@
+#!/bin/sh
+
+name="piksi_firmware"
+
+start() {
+  # Copy firmware from SD card if present
+  mmc_fw="/media/mmcblk0p1/piksi_firmware.elf"
+  if [ -f "$mmc_fw" ]; then
+    echo "Using firmware $mmc_fw"
+    mkdir -p "/lib/firmware/"
+    cp "$mmc_fw" "/lib/firmware/"
+  fi
+
+  if [ -f "/lib/firmware/piksi_firmware.elf" ]; then
+    modprobe zynq_remoteproc
+  else
+    echo "ERROR: firmware not found"
+  fi
+}
+
+stop() {
+  rmmod zynq_remoteproc
+}
+
+source /etc/init.d/template_command.inc.sh
+

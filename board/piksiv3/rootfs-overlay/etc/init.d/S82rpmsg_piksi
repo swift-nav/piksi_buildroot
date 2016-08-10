@@ -1,0 +1,16 @@
+#!/bin/sh
+
+name="rpmsg_piksi"
+
+start() {
+  modprobe virtio_rpmsg_bus
+  modprobe rpmsg_piksi
+}
+
+stop() {
+  rmmod rpmsg_piksi
+  rmmod virtio_rpmsg_bus
+}
+
+source /etc/init.d/template_command.inc.sh
+
