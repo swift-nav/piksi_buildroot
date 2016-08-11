@@ -129,8 +129,11 @@ static ssize_t ept_cdev_read(struct file *p_file, char __user *ubuff,
     }
 
     /* Block the calling context until data becomes available */
-    wait_event_interruptible(ept_params->usr_wait_q,
-                             !kfifo_is_empty(&ept_params->rx_fifo));
+    retval = wait_event_interruptible(ept_params->usr_wait_q,
+                                      !kfifo_is_empty(&ept_params->rx_fifo));
+    if (retval) {
+      return retval;
+    }
 
     /* Acquire lock */
     retval = mutex_lock_interruptible(&ept_params->rx_lock);
