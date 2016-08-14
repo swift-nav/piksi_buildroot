@@ -199,6 +199,15 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static void signal_handler(int signum)
+{
+  /* Ignore this signal from now on */
+  signal(signum, SIG_IGN);
+
+  /* Send this signal to the entire process group */
+  killpg(0, signum);
+}
+
 static zmq_pollitem_t handle_to_pollitem(const handle_t *handle, short events)
 {
   zmq_pollitem_t pollitem = {
@@ -681,6 +690,8 @@ void io_loop_start(int fd)
 
 int main(int argc, char *argv[])
 {
+  setpgid(0, 0); /* Set PGID = PID */
+
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
     exit(1);
@@ -688,6 +699,15 @@ int main(int argc, char *argv[])
 
   signal(SIGCHLD, SIG_IGN); /* Automatically reap child processes */
   signal(SIGPIPE, SIG_IGN); /* Allow write to return an error */
+
+  /* Set up handler for signals which should terminate the program */
+  struct sigaction sa;
+  sa.sa_handler = signal_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+  sigaction(SIGQUIT, &sa, NULL);
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
