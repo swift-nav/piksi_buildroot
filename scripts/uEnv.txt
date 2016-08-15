@@ -1,0 +1,8 @@
+ethaddr=00:0a:35:00:01:df
+kernel_image=zImage
+devicetree_image=piksiv3.dtb
+fdt_high=0xffffffff
+initrd_high=0xffffffff
+bootargs=maxcpus=2 mem=480M
+customboot=echo Loading FPGA bitstream... && load mmc 0 0x100000 piksi.bit && fpga loadb 0 0x100000 4045673 && echo Copying Linux from SD to RAM... && load mmc 0 ${kernel_load_address} ${kernel_image} && load mmc 0 ${devicetree_load_address} ${devicetree_image} && bootz ${kernel_load_address} - ${devicetree_load_address};
+uenvcmd=run customboot
