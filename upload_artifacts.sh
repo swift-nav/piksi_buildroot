@@ -14,16 +14,13 @@ sudo ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
 
 BUILD_VERSION=$(git rev-parse --short HEAD)
 BUILD_DIR=commit_$BUILD_VERSION
-mkdir -p $BUILD_DIR
-
 # "folders" on S3 are prefix keys
+# http://stackoverflow.com/questions/33113354/how-to-create-a-folder-like-i-e-prefix-object-on-s3-using-the-aws-cli
 aws s3api put-object --bucket $BUCKET --key $PIKSI_VERSION/$BUILD_DIR/
-UPLOAD_DIR="$BUCKET/$PIKSI_VERSION/$BUILD_DIR"
-
-cp "./output/images/boot.bin" "$BUILD_DIR"
-cp "./output/images/u-boot.img" "$BUILD_DIR"
-cp "./output/images/piksiv3.dtb" "$BUILD_DIR"
-cp "./output/images/zImage" "$BUILD_DIR"
+UPLOAD_DIR="s3://$BUCKET/$PIKSI_VERSION/$BUILD_DIR"
 
 echo "Uploading images to $UPLOAD_DIR"
-aws s3 cp $BUILD_DIR s3://$UPLOAD_DIR --include '*'
+aws s3 cp "./output/images/boot.bin" "$UPLOAD_DIR"
+aws s3 cp "./output/images/u-boot.img" "$UPLOAD_DIR"
+aws s3 cp "./output/images/piksiv3.dtb" "$UPLOAD_DIR"
+aws s3 cp "./output/images/zImage" "$UPLOAD_DIR"
