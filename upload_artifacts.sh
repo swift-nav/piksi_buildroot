@@ -7,11 +7,6 @@ PIKSI_VERSION=v3
 
 set -e
 
-# Install the AWS command line interface
-curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
-unzip awscli-bundle.zip
-sudo ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
-
 BUILD_VERSION=$(git rev-parse --short HEAD)
 BUILD_DIR=commit_$BUILD_VERSION
 # "folders" on S3 are prefix keys
