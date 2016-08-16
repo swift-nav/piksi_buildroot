@@ -8,5 +8,7 @@ before_install:
 
 install: true
 
-script: travis_wait 60 ./build.sh
+script: 
+  - travis_wait 60 ./build.sh
+  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && ./upload_artifacts.sh
 
