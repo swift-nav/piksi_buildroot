@@ -26,9 +26,15 @@
 #include <linux/errno.h>
 #include <linux/poll.h>
 
-#define DEV_CLASS_NAME "rpmsg_piksi"
-#define DEV_CLASS_MAX_MINORS 10
+/* rpmsg_piksi driver
+ * - character devices are created on module init
+ * - rpmsg endpoints are created and attached when probed by rpmsg bus
+ * - if rpmsg is not attached:
+ *     - character device reads block
+ *     - character device writes silently drop data
+ */
 
+#define DEV_CLASS_NAME "rpmsg_piksi"
 #define CHANNEL_NAME "piksi"
 #define NUM_ENDPOINTS 3
 
@@ -47,25 +53,31 @@ static const u32 endpoint_addr_config[NUM_ENDPOINTS] = {
 };
 
 struct ept_params {
-  int dev_minor;
+  dev_t dev;
   u32 addr;
   struct cdev cdev;
-  struct device *rpmsg_dev;
+  struct device *device;
+  /* mutex used to protect rx_fifo and rx_wait_queue */
+  struct mutex rx_fifo_lock;
+  wait_queue_head_t rx_wait_queue;
+  STRUCT_KFIFO_REC_2(RX_FIFO_SIZE) rx_fifo;
+  /* mutex used to protect tx_buff and rpmsg parameters */
+  struct mutex tx_rpmsg_lock;
+  char tx_buff[TX_BUFF_SIZE];
+  /* rpmsg parameters */
   struct rpmsg_channel *rpmsg_chnl;
   struct rpmsg_endpoint *rpmsg_ept;
-  wait_queue_head_t usr_wait_q;
-  struct mutex rx_lock;
-  STRUCT_KFIFO_REC_2(RX_FIFO_SIZE) rx_fifo;
-  char tx_buff[TX_BUFF_SIZE];
+  bool rpmsg_ready;
 };
 
 struct dev_params {
   struct ept_params epts[NUM_ENDPOINTS];
 };
 
-static struct class *dev_class;
-static int dev_major;
-static int dev_minor_next = 0;
+static bool probed = false;
+static struct class *dev_class = NULL;
+static dev_t dev_start;
+static struct dev_params *dev_params = NULL;
 
 static int ept_cdev_open(struct inode *inode, struct file *p_file)
 {
@@ -80,8 +92,20 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
                               size_t len, loff_t *p_off)
 {
   struct ept_params *ept_params = p_file->private_data;
-  int err;
   unsigned int size;
+  ssize_t retval;
+
+  /* Acquire TX / rpmsg lock */
+  retval = mutex_lock_interruptible(&ept_params->tx_rpmsg_lock);
+  if (retval) {
+    return retval;
+  }
+
+  /* If rpmsg is not attached, drop the data and return success */
+  if (!ept_params->rpmsg_ready) {
+    retval = len;
+    goto done_locked;
+  }
 
   if (len < sizeof(ept_params->tx_buff)) {
     size = len;
@@ -90,38 +114,43 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
   }
 
   if (copy_from_user(ept_params->tx_buff, ubuff, size)) {
-    dev_err(ept_params->rpmsg_dev, "user to kernel buff copy error.\n");
-    return -1;
+    dev_err(ept_params->device, "User to kernel buff copy error.\n");
+    retval = -1;
+    goto done_locked;
   }
 
   /* TODO: support non-blocking write */
-  err = rpmsg_sendto(ept_params->rpmsg_chnl, ept_params->tx_buff,
-                     size, ept_params->addr);
+  retval = rpmsg_sendto(ept_params->rpmsg_chnl, ept_params->tx_buff,
+                        size, ept_params->addr);
 
-  if (err) {
-    dev_err(ept_params->rpmsg_dev, "rpmsg_sendto (size = %d) error: %d\n",
-            size, err);
-    size = 0;
+  if (retval) {
+    dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n",
+            size, retval);
+    goto done_locked;
   }
 
-  return size;
+  retval = size;
+
+done_locked:
+  mutex_unlock(&ept_params->tx_rpmsg_lock);
+  return retval;
 }
 
 static ssize_t ept_cdev_read(struct file *p_file, char __user *ubuff,
                              size_t len, loff_t *p_off)
 {
   struct ept_params *ept_params = p_file->private_data;
-  int retval;
+  ssize_t retval;
   unsigned int bytes_copied;
 
-  /* Acquire lock */
-  retval = mutex_lock_interruptible(&ept_params->rx_lock);
+  /* Acquire RX lock */
+  retval = mutex_lock_interruptible(&ept_params->rx_fifo_lock);
   if (retval) {
     return retval;
   }
 
   while (kfifo_is_empty(&ept_params->rx_fifo)) {
-    mutex_unlock(&ept_params->rx_lock);
+    mutex_unlock(&ept_params->rx_fifo_lock);
 
     /* If non-blocking read is requested return error */
     if (p_file->f_flags & O_NONBLOCK) {
@@ -129,14 +158,14 @@ static ssize_t ept_cdev_read(struct file *p_file, char __user *ubuff,
     }
 
     /* Block the calling context until data becomes available */
-    retval = wait_event_interruptible(ept_params->usr_wait_q,
+    retval = wait_event_interruptible(ept_params->rx_wait_queue,
                                       !kfifo_is_empty(&ept_params->rx_fifo));
     if (retval) {
       return retval;
     }
 
-    /* Acquire lock */
-    retval = mutex_lock_interruptible(&ept_params->rx_lock);
+    /* Acquire RX lock */
+    retval = mutex_lock_interruptible(&ept_params->rx_fifo_lock);
     if (retval) {
       return retval;
     }
@@ -145,7 +174,7 @@ static ssize_t ept_cdev_read(struct file *p_file, char __user *ubuff,
   /* Provide requested data size to user space */
   retval = kfifo_to_user(&ept_params->rx_fifo, ubuff, len, &bytes_copied);
 
-  mutex_unlock(&ept_params->rx_lock);
+  mutex_unlock(&ept_params->rx_fifo_lock);
 
   return retval ? retval : bytes_copied;
 }
@@ -156,7 +185,7 @@ static unsigned int ept_cdev_poll(struct file *p_file,
   struct ept_params *ept_params = p_file->private_data;
   unsigned int result = 0;
 
-  poll_wait(p_file, &ept_params->usr_wait_q, poll_table);
+  poll_wait(p_file, &ept_params->rx_wait_queue, poll_table);
 
   if (!kfifo_is_empty(&ept_params->rx_fifo)) {
     result |= POLLIN | POLLRDNORM;
@@ -248,7 +277,7 @@ static void ept_rpmsg_cb(struct rpmsg_channel *rpdev, void *data,
   }
 
   /* Wake up any blocking contexts waiting for data */
-  wake_up_interruptible(&ept_params->usr_wait_q);
+  wake_up_interruptible(&ept_params->rx_wait_queue);
 }
 
 static int drv_probe(struct rpmsg_channel *rpdev);
@@ -268,73 +297,102 @@ static struct rpmsg_driver rpmsg_driver = {
   .callback = ept_rpmsg_default_cb,
 };
 
-static int ept_setup(struct ept_params *ept_params,
-                     struct rpmsg_channel *rpdev, u32 addr)
+static int ept_rpmsg_setup(struct ept_params *ept_params,
+                           struct rpmsg_channel *rpdev)
 {
-  /* Initialize mutex */
-  mutex_init(&ept_params->rx_lock);
+  int retval;
 
-  /* Initialize wait queue head that provides blocking rx for userspace */
-  init_waitqueue_head(&ept_params->usr_wait_q);
+  /* Acquire TX / rpmsg lock */
+  retval = mutex_lock_interruptible(&ept_params->tx_rpmsg_lock);
+  if (retval) {
+    return retval;
+  }
+
+  ept_params->rpmsg_chnl = rpdev;
+
+  /* Create rpmsg endpoint */
+  ept_params->rpmsg_ept = rpmsg_create_ept(ept_params->rpmsg_chnl, ept_rpmsg_cb,
+                                           ept_params, ept_params->addr);
+  if (ept_params->rpmsg_ept == NULL) {
+    dev_err(&rpdev->dev, "Failed to create rpmsg endpoint.\n");
+    retval = -ENODEV;
+    goto done_locked;
+  }
+
+  ept_params->rpmsg_ready = true;
+  retval = 0;
+
+done_locked:
+  mutex_unlock(&ept_params->tx_rpmsg_lock);
+  return retval;
+}
+
+static void ept_rpmsg_remove(struct ept_params *ept_params)
+{
+  /* Acquire TX / rpmsg lock */
+  mutex_lock(&ept_params->tx_rpmsg_lock);
+
+  ept_params->rpmsg_ready = false;
+  rpmsg_destroy_ept(ept_params->rpmsg_ept);
+
+  mutex_unlock(&ept_params->tx_rpmsg_lock);
+}
+
+static int ept_cdev_setup(struct ept_params *ept_params, dev_t dev, u32 addr)
+{
+  ept_params->dev = dev;
+  ept_params->addr = addr;
+  ept_params->rpmsg_ready = false;
+
+  /* Initialize mutexes */
+  mutex_init(&ept_params->rx_fifo_lock);
+  mutex_init(&ept_params->tx_rpmsg_lock);
+
+  /* Initialize wait queue head that provides blocking RX for userspace */
+  init_waitqueue_head(&ept_params->rx_wait_queue);
 
   /* Initialize kfifo for RX */
   INIT_KFIFO(ept_params->rx_fifo);
 
-  ept_params->rpmsg_chnl = rpdev;
-  ept_params->addr = addr;
-
-  /* Create RPMSG endpoint */
-  ept_params->rpmsg_ept = rpmsg_create_ept(ept_params->rpmsg_chnl, ept_rpmsg_cb,
-                                           ept_params, ept_params->addr);
-  if (!ept_params->rpmsg_ept) {
-    dev_err(&rpdev->dev, "Failed to create rpmsg endpoint.\n");
-    goto error0;
-  }
-
-  /* Get device minor number */
-  if (dev_minor_next < DEV_CLASS_MAX_MINORS) {
-    ept_params->dev_minor = dev_minor_next++;
-  } else {
-    dev_err(&rpdev->dev, "Minor file number %d exceeded the max minors %d.\n",
-            dev_minor_next, DEV_CLASS_MAX_MINORS);
-    goto error1;
-  }
-
   /* Initialize character device */
   cdev_init(&ept_params->cdev, &ept_cdev_fops);
   ept_params->cdev.owner = THIS_MODULE;
-  if (cdev_add(&ept_params->cdev, MKDEV(dev_major, ept_params->dev_minor), 1)) {
-    dev_err(&rpdev->dev, "Failed to add character device.\n");
-    goto error1;
+  if (cdev_add(&ept_params->cdev, ept_params->dev, 1)) {
+    printk(KERN_ERR "Failed to add character device.\n");
+    goto error0;
   }
 
   /* Create device */
-  ept_params->rpmsg_dev =
-      device_create(dev_class, &rpdev->dev,
-                    MKDEV(dev_major, ept_params->dev_minor), NULL,
-                    DEV_CLASS_NAME "%u", ept_params->dev_minor);
-  if (ept_params->rpmsg_dev == NULL) {
-    dev_err(&rpdev->dev, "Failed to create device.\n");
-    goto error2;
+  ept_params->device = device_create(dev_class, NULL, ept_params->dev, NULL,
+                                     DEV_CLASS_NAME "%u", ept_params->addr);
+  if (ept_params->device == NULL) {
+    printk(KERN_ERR "Failed to create device.\n");
+    goto error1;
   }
 
   goto out;
 
-error2:
-  cdev_del(&ept_params->cdev);
 error1:
-  rpmsg_destroy_ept(ept_params->rpmsg_ept);
+  cdev_del(&ept_params->cdev);
 error0:
   return -ENODEV;
 out:
   return 0;
 }
 
-static void ept_remove(struct ept_params *ept_params)
+static void ept_cdev_remove(struct ept_params *ept_params)
 {
-  device_destroy(dev_class, MKDEV(dev_major, ept_params->dev_minor));
-  rpmsg_destroy_ept(ept_params->rpmsg_ept);
+  device_destroy(dev_class, ept_params->dev);
   cdev_del(&ept_params->cdev);
+}
+
+static void ept_cdevs_remove(struct dev_params *dev_params)
+{
+  int i;
+
+  for (i=0; i<NUM_ENDPOINTS; i++) {
+    ept_cdev_remove(&dev_params->epts[i]);
+  }
 }
 
 static void startup_message_send(struct rpmsg_channel *rpdev)
@@ -345,25 +403,24 @@ static void startup_message_send(struct rpmsg_channel *rpdev)
 
 static int drv_probe(struct rpmsg_channel *rpdev)
 {
-  struct dev_params *dev_params;
-  int status;
   int i;
+  int status;
 
-  dev_params = devm_kzalloc(&rpdev->dev, sizeof(struct dev_params), GFP_KERNEL);
-  if (!dev_params) {
-    dev_err(&rpdev->dev, "Failed to allocate memory for device.\n");
-    return -ENOMEM;
+  if (probed) {
+    dev_err(&rpdev->dev, "Already attached.\n");
+    return -ENODEV;
   }
-  memset(dev_params, 0x0, sizeof(struct dev_params));
+  probed = true;
 
   dev_set_drvdata(&rpdev->dev, dev_params);
 
+  /* Create and attach rpmsg endpoints */
   for (i=0; i<NUM_ENDPOINTS; i++) {
-    status = ept_setup(&dev_params->epts[i], rpdev, endpoint_addr_config[i]);
+    status = ept_rpmsg_setup(&dev_params->epts[i], rpdev);
     if (status) {
       /* Remove any endpoints that were successfully set up */
       while (--i >= 0) {
-        ept_remove(&dev_params->epts[i]);
+        ept_rpmsg_remove(&dev_params->epts[i]);
       }
       return -ENODEV;
     }
@@ -376,43 +433,85 @@ static int drv_probe(struct rpmsg_channel *rpdev)
 
 static void drv_remove(struct rpmsg_channel *rpdev)
 {
-  struct dev_params *dev_params = dev_get_drvdata(&rpdev->dev);
   int i;
+  struct dev_params *dev_params = dev_get_drvdata(&rpdev->dev);
 
   for (i=0; i<NUM_ENDPOINTS; i++) {
-    ept_remove(&dev_params->epts[i]);
+    ept_rpmsg_remove(&dev_params->epts[i]);
   }
+
+  probed = false;
 }
 
 static int __init init(void)
 {
-  dev_t dev;
+  int i;
+  int status;
+
+  /* Initialize device params structure */
+  dev_params = kzalloc(sizeof(struct dev_params), GFP_KERNEL);
+  if (dev_params == NULL) {
+    printk(KERN_ERR "Failed to allocate memory for device.\n");
+    goto error0;
+  }
 
   /* Create device class for this device */
   dev_class = class_create(THIS_MODULE, DEV_CLASS_NAME);
-
   if (dev_class == NULL) {
     printk(KERN_ERR "Failed to register " DEV_CLASS_NAME " class.\n");
-    return -1;
+    goto error1;
   }
 
   /* Allocate character device region for this driver */
-  if (alloc_chrdev_region(&dev, 0, DEV_CLASS_MAX_MINORS, DEV_CLASS_NAME) < 0) {
+  if (alloc_chrdev_region(&dev_start, 0, NUM_ENDPOINTS, DEV_CLASS_NAME)) {
     printk(KERN_ERR "Failed to allocate character device region for "
            DEV_CLASS_NAME ".\n");
-    class_destroy(dev_class);
-    return -1;
+    goto error2;
   }
 
-  dev_major = MAJOR(dev);
-  return register_rpmsg_driver(&rpmsg_driver);
+  /* Create character devices */
+  for (i=0; i<NUM_ENDPOINTS; i++) {
+    status = ept_cdev_setup(&dev_params->epts[i],
+                            MKDEV(MAJOR(dev_start), MINOR(dev_start) + i),
+                            endpoint_addr_config[i]);
+    if (status) {
+      /* Remove any character devices that were successfully set up */
+      while (--i >= 0) {
+        ept_cdev_remove(&dev_params->epts[i]);
+      }
+      goto error3;
+    }
+  }
+
+  /* Register rpmsg driver */
+  if (register_rpmsg_driver(&rpmsg_driver)) {
+    printk(KERN_ERR "Failed to register rpmsg driver.\n");
+    goto error4;
+  }
+
+  goto out;
+
+error4:
+  ept_cdevs_remove(dev_params);
+error3:
+  unregister_chrdev_region(dev_start, NUM_ENDPOINTS);
+error2:
+  class_destroy(dev_class);
+error1:
+  kfree(dev_params);
+error0:
+  return -ENODEV;
+out:
+  return 0;
 }
 
 static void __exit fini(void)
 {
   unregister_rpmsg_driver(&rpmsg_driver);
-  unregister_chrdev_region(MKDEV(dev_major, 0), DEV_CLASS_MAX_MINORS);
+  ept_cdevs_remove(dev_params);
+  unregister_chrdev_region(dev_start, NUM_ENDPOINTS);
   class_destroy(dev_class);
+  kfree(dev_params);
 }
 
 module_init(init);
