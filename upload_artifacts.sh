@@ -18,7 +18,7 @@ else
   fi
 fi
 
-BUILD_DIR="UTC-$(date -u +%T)_TRAVIS-$(echo $TRAVIS_BUILD_NUMBER)_COMMIT-$(echo $BUILD_VERSION)"
+BUILD_DIR="UTC-$(date -u +%Y-%m-%d-%T)_TRAVIS-$(echo $TRAVIS_BUILD_NUMBER)_COMMIT-$(echo $BUILD_VERSION)"
 
 mkdir -p uploads/$BUILD_DIR
 
