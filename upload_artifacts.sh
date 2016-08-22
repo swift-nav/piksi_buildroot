@@ -10,7 +10,7 @@ BUILD_VERSION=$(git describe --tags --dirty --always)
 
 FOLDER=$TRAVIS_BRANCH
 if [ "$TRAVIS_PULL_REQUEST" == "true" ]; then
-  FOLDER="pull_requests/$FOLDER"
+  $FOLDER="pull_requests/$FOLDER"
 fi
 
 BUILD_DIR="$(date -u +%Y-%m-%dT%H:%M:%SZ)_${TRAVIS_BUILD_NUMBER}_${BUILD_VERSION}"
