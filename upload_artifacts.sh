@@ -6,7 +6,7 @@ set -e
 
 BUCKET=piksi-buildroot-images
 PIKSI_VERSION=v3
-BUILD_VERSION=$(git rev-parse --short HEAD)
+BUILD_VERSION=$(git describe --tags --dirty --always)
 
 if [ "$TRAVIS_PULL_REQUEST" == "true" ]; then
   FOLDER=pull_requests
@@ -18,7 +18,7 @@ else
   fi
 fi
 
-BUILD_DIR="UTC-$(date -u +%Y-%m-%d-%T)_TRAVIS-$(echo $TRAVIS_BUILD_NUMBER)_COMMIT-$(echo $BUILD_VERSION)"
+BUILD_DIR="UTC-$(date -u +%Y-%m-%dT%H:%M:%SZ)_$(echo $TRAVIS_BUILD_NUMBER)_$(echo $BUILD_VERSION)"
 
 mkdir -p uploads/$BUILD_DIR
 
