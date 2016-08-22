@@ -1,21 +1,26 @@
 #!/bin/bash
 
-# Used in .travis.yml
-
-BUCKET=piksi-buildroot-images
-PIKSI_VERSION=v3
+# This script is used in .travis.yml
 
 set -e
 
-BUILD_VERSION=$(git rev-parse --short HEAD)
-BUILD_DIR=commit_$BUILD_VERSION
-# "folders" on S3 are prefix keys
-# http://stackoverflow.com/questions/33113354/how-to-create-a-folder-like-i-e-prefix-object-on-s3-using-the-aws-cli
-aws s3api put-object --bucket $BUCKET --key $PIKSI_VERSION/$BUILD_DIR/
-UPLOAD_DIR="s3://$BUCKET/$PIKSI_VERSION/$BUILD_DIR"
+BUCKET=piksi-buildroot-images
+PIKSI_VERSION=v3
+BUILD_VERSION=$(git describe --tags --dirty --always)
+
+FOLDER=$TRAVIS_BRANCH
+if [ "$TRAVIS_PULL_REQUEST" == "true" ]; then
+  FOLDER="pull_requests/$FOLDER"
+fi
+
+BUILD_DIR="$(date -u +%Y-%m-%dT%H:%M:%SZ)_${TRAVIS_BUILD_NUMBER}_${BUILD_VERSION}"
+
+UPLOAD_DIR="s3://$BUCKET/$PIKSI_VERSION/$FOLDER/$BUILD_DIR/"
+
+FILES="boot.bin u-boot.img piksiv3.dtb zImage"
 
 echo "Uploading images to $UPLOAD_DIR"
-aws s3 cp "./output/images/boot.bin" "$UPLOAD_DIR"
-aws s3 cp "./output/images/u-boot.img" "$UPLOAD_DIR"
-aws s3 cp "./output/images/piksiv3.dtb" "$UPLOAD_DIR"
-aws s3 cp "./output/images/zImage" "$UPLOAD_DIR"
+for file in $FILES
+do
+  aws s3 cp --no-sign-request "./buildroot/output/images/$file" "$UPLOAD_DIR"
+done

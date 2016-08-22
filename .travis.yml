@@ -13,4 +13,4 @@ script:
   - travis_wait 60 ./build.sh
 
 after_success:
-  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && ./upload_artifacts.sh
+  - ./upload_artifacts.sh
