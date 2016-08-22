@@ -8,14 +8,9 @@ BUCKET=piksi-buildroot-images
 PIKSI_VERSION=v3
 BUILD_VERSION=$(git describe --tags --dirty --always)
 
+FOLDER=$TRAVIS_BRANCH
 if [ "$TRAVIS_PULL_REQUEST" == "true" ]; then
-  FOLDER=pull_requests
-else
-  if [ "$TRAVIS_BRANCH" == "master" ]; then
-    FOLDER=master
-  else
-    FOLDER=misc
-  fi
+  FOLDER="pull_requests/$FOLDER"
 fi
 
 BUILD_DIR="UTC-$(date -u +%Y-%m-%dT%H:%M:%SZ)_$(echo $TRAVIS_BUILD_NUMBER)_$(echo $BUILD_VERSION)"
@@ -29,4 +24,3 @@ for file in "${files[@]}"
 do
   aws s3 cp --no-sign-request "./buildroot/output/images/$file" "$UPLOAD_DIR/"
 done
-
