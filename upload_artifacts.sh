@@ -10,12 +10,12 @@ BUILD_VERSION=$(git describe --tags --dirty --always)
 
 FOLDER=$TRAVIS_BRANCH
 if [ "$TRAVIS_PULL_REQUEST" == "true" ]; then
-  $FOLDER="pull_requests/$FOLDER"
+  FOLDER="pull_requests/$FOLDER"
 fi
 
 BUILD_DIR="$(date -u +%Y-%m-%dT%H:%M:%SZ)_${TRAVIS_BUILD_NUMBER}_${BUILD_VERSION}"
 
-UPLOAD_DIR="s3://$BUCKET/$PIKSI_VERSION/$FOLDER/"
+UPLOAD_DIR="s3://$BUCKET/$PIKSI_VERSION/$FOLDER/$BUILD_DIR/"
 
 FILES="boot.bin u-boot.img piksiv3.dtb zImage"
 
