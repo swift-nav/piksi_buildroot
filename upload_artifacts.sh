@@ -17,10 +17,10 @@ BUILD_DIR="UTC-$(date -u +%Y-%m-%dT%H:%M:%SZ)_$(echo $TRAVIS_BUILD_NUMBER)_$(ech
 
 UPLOAD_DIR="s3://$BUCKET/$PIKSI_VERSION/$FOLDER/"
 
-declare -a files=("boot.bin" "u-boot.img" "piksiv3.dtb" "zImage")
+FILES="boot.bin u-boot.img piksiv3.dtb zImage"
 
 echo "Uploading images to $UPLOAD_DIR"
-for file in "${files[@]}"
+for file in $FILES
 do
-  aws s3 cp --no-sign-request "./buildroot/output/images/$file" "$UPLOAD_DIR/"
+  aws s3 cp --no-sign-request "./buildroot/output/images/$file" "$UPLOAD_DIR"
 done
