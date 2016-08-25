@@ -9,8 +9,10 @@ before_install:
 
 install: true
 
-script: 
+script:
   - travis_wait 60 ./build.sh
 
 after_success:
-  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && ./upload_artifacts.sh
+  - git fetch --tags --unshallow
+  - test $TRAVIS_PULL_REQUEST != "false" && export BUCKET=swiftnav-artifacts-pull-requests && export ANONYMOUS=true || true
+  - ./publish.sh v3 images/* || true
