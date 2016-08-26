@@ -14,27 +14,18 @@
 
 set -e
 
-function usage () {
-    echo "Usage: $0 <VERSION> [FILES]"
-    exit -1
-}
-
 REPO="${PWD##*/}"
 BUCKET="${BUCKET:-swiftnav-artifacts}"
 
-PRODUCT_VERSION="$1"
-if [[ -z "$PRODUCT_VERSION" ]]; then
-    usage
+BUILD_VERSION="$(git describe --tags --dirty --always)"
+BUILD_PATH="$REPO/$BUILD_VERSION"
+if [[ ! -z "$PRODUCT_VERSION" ]]; then
+    BUILD_PATH="$BUILD_PATH/$PRODUCT_VERSION"
 fi
 
-BUILD_VERSION="$(git describe --tags --dirty --always)"
-BUILD_PATH="$REPO/$BUILD_VERSION/$PRODUCT_VERSION"
+echo "Uploading $@ to $BUILD_PATH"
 
-FILES=${@:2}
-
-echo "Uploading $FILES to $BUILD_PATH"
-
-for file in $FILES
+for file in "$@"
 do
     key="$BUILD_PATH/$(basename $file)"
     object="s3://$BUCKET/$key"
