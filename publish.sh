@@ -36,10 +36,11 @@ echo "Uploading $FILES to $BUILD_PATH"
 
 for file in $FILES
 do
-    object="s3://$BUCKET/$BUILD_PATH/$(basename $file)"
+    key="$BUILD_PATH/$(basename $file)"
+    object="s3://$BUCKET/$key"
     if [[ -z "$ANONYMOUS" ]]; then
         aws s3 cp "$file" "$object"
     else
-        aws s3 cp --no-sign-request "$file" "$object"
+        aws s3api put-object --no-sign-request --bucket "$BUCKET" --key "$key" --body "$file"
     fi
 done
