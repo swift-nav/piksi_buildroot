@@ -18,3 +18,13 @@ after_success:
   - git fetch --tags --unshallow
   - test $TRAVIS_PULL_REQUEST != "false" && export BUCKET=swiftnav-artifacts-pull-requests && export ANONYMOUS=true || true
   - ./publish.sh v3 buildroot/output/images/* || true
+
+env:
+  global:
+    # Secure keys below are encrypted with travis encrypt gem
+    # Example encryption: travis encrypt AWS_SECRET_ACCESS_KEY=foo
+    # See https://docs.travis-ci.com/user/encryption-keys/
+    # AWS_ACCESS_KEY_ID
+    - secure: Ls9hEi04qvyDOEBbmDeNCjP7yfrQdke0EMFB8289xZPDrYNnysJmKzyh4Pt9PUyT7Y9pzrI1HKSziisshfQZWhhvG6K1fnM5glChoesK2pg4zeoz44gCsU/zGJqBNBH8z6VQgmAzeHvBPvOO9UJMy7ywD2Wz9+nQsYbWLgVE/63YuzEFsHI3jqLz5EyM4umpq2i6joQcD3Pdlvgs8KZj56lQ2IxrkTf1QMlwFN2/xmKa0eQctonCP7MwVyVCZEILUgpk7e0glfn86A+53fej/S8UhmCH6XHwUw9FQrmtEl4pwPmU1bna1pncWIorGChhcPorWD0ePfOCT4AKIrQAveaiSN/tnCzcmccVnGpe8WWXoRwFQ6B8110PbSwZlB9H5UUmZcpwmvIXnPyedbGVSXT2p2ubsjGBWbtnFj/uAms4izGAmOLUrvOx+rCb4ol2rP4WEnW22U927y6sotSAuj1BOkt4/x4nP6CZQNDXIOS4+kLRDjtNUrMFENhxbsdXbQ5ANZO5ssDPwI3hqNYamQWYKyasXgueLMBQdfaQ32nxBMQmN8dbvThsT/klQmsp5YoihndK6SGuF2IEIuWZG0cWACGnjHzrcv4dfBO2V5/7aoVhmSMKTUAvxkZsITYZuorUe+2HwQl6n59+0A2FhQdRLDMAXrOK7AN2faoJFhw=
+    # AWS_SECRET_ACCESS_KEY
+    - secure: vNHhGAZoaGmTiZ/Bjf0pqx4w9T37sDJNUOp6C5EXCapXAsYx+4G8v3xNlWBHWrPAs5q4XHJgbcNH7k1tRAI3nwd0RCv14SBNsVv5eouzpPd+o2ploDGCW++p/CL1kjQJBOqmz9sYCwxqra9LG7MCA/MzTG3eNa4/3lCf2tut7yhtxHbhIrVBaFgiHPYoZ1Pe6DPTQjjp32Xf2UHElHfa3oDQ/pw45hKWdwBx+fQjfLl1fVbHE3AhuXd7Q51tmL3qPNVox4/oLkmwpggzF0LoDQDZbZmOFSzcIiv/cpnqkaP9iy3TVQelrZivN9EXiyZsyhcrXll2pll/hvbg+cPVxBnC+p+yrPyZ4CaNwgID3c8ZRiPjJoyo+z4wxse3AaMv2AGsHVNGavYm61nFcJsRc0FQUfvkksdDu3LdfQbxkAKK7vgM7k4jWlcHe8wmQOXf/EPl5Hd2RNwHDfSEfR8YGPBDqsrdDFRO1fi/+kwpkLTfgN7WqbBBHCax54gQ1GZAEJC3nPqqnajKU/oduA4lXB2VJXlFl/NMeoX/z508Kc9wxaATCUFhGB68H2kKx8WT1ZMuBo9Eu7nXYSXg9jA+kCcb7GW3QgWk9h1Klcf6v5vw59UCFCEGfnPYinnWp6LMPHIY8q7ChpfEYq6rDma7o4bYExUHGo9Qip/qeEypetI=
