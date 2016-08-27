@@ -32,6 +32,6 @@ do
     if [[ -z "$ANONYMOUS" ]]; then
         aws s3 cp "$file" "$object"
     else
-        aws s3api put-object --no-sign-request --bucket "$BUCKET" --key "$key" --body "$file"
+        aws s3api put-object --no-sign-request --bucket "$BUCKET" --key "$key" --body "$file" --acl public-read
     fi
 done
