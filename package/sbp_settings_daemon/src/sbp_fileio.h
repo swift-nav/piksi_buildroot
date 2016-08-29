@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Gareth McMullin <gareth@swiftnav.com>
+ * Copyright (C) 2012-2014 Swift Navigation Inc.
+ * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,21 +10,12 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#ifndef SWIFTNAV_SBP_FILEIO_H
+#define SWIFTNAV_SBP_FILEIO_H
+
 #include <libsbp/sbp.h>
 
-#include "sbp_zmq.h"
-#include "settings.h"
-#include "sbp_fileio.h"
+void sbp_fileio_setup(sbp_state_t *);
 
-int main(void)
-{
-  sbp_state_t *sbp = sbp_zmq_init();
-
-  settings_setup(sbp);
-  sbp_fileio_setup(sbp);
-
-  sbp_zmq_loop(sbp);
-
-  return 0;
-}
+#endif
 

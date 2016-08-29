@@ -3,6 +3,7 @@ SOURCES= \
 	main.c \
 	minIni/minIni.c \
 	sbp_zmq.c \
+	sbp_fileio.c \
 	settings.c \
 
 LIBS=-lczmq -lsbp
