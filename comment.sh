@@ -24,19 +24,16 @@ PRS_BUCKET="${PRS_BUCKET:-swiftnav-artifacts-pull-requests}"
 
 BUILD_VERSION="$(git describe --tags --dirty --always)"
 BUILD_PATH="$REPO/$BUILD_VERSION"
-if [[ ! -z "$PRODUCT_VERSION" ]]; then
-    BUILD_PATH="$BUILD_PATH/$PRODUCT_VERSION"
+
+if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
+    COMMENT="$BUILD_PATH
+https://console.aws.amazon.com/s3/home?region=us-west-2&bucket=swiftnav-artifacts&prefix=$BUILD_PATH/"
+    URL="https://slack.com/api/chat.postMessage?token=$SLACK_TOKEN&channel=$SLACK_CHANNEL"
+    DATA="text=$COMMENT"
+    curl --data-urlencode "$DATA" "$URL"
+elif [ ! -z "$GITHUB_TOKEN" ]; then
+    COMMENT="## $BUILD_VERSION\n+ [s3://$PRS_BUCKET/$BUILD_PATH](https://console.aws.amazon.com/s3/home?region=us-west-2&bucket=swiftnav-artifacts-pull-requests&prefix=$BUILD_PATH/)"
+    URL="https://api.github.com/repos/swift-nav/$REPO/issues/$TRAVIS_PULL_REQUEST/comments"
+    curl -u "$GITHUB_TOKEN:" -X POST "$URL" -d "{\"body\":\"$COMMENT\"}"
 fi
 
-echo "Uploading $@ to $BUILD_PATH"
-
-for file in "$@"
-do
-    KEY="$BUILD_PATH/$(basename $file)"
-    if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-        OBJECT="s3://$BUCKET/$KEY"
-        aws s3 cp "$file" "$OBJECT"
-    else
-        aws s3api put-object --no-sign-request --bucket "$PRS_BUCKET" --key "$KEY" --body "$file" --acl public-read
-    fi
-done
