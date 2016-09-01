@@ -16,8 +16,7 @@ script:
 
 after_success:
   - git fetch --tags --unshallow
-  - test $TRAVIS_PULL_REQUEST != "false" && export BUCKET=swiftnav-artifacts-pull-requests && export ANONYMOUS=true || true
-  - PRODUCT_VERSION=v3 ./publish.sh buildroot/output/images/* || true
+  - PRODUCT_VERSION=v3 ./publish.sh buildroot/output/images/*
 
 env:
   global:
