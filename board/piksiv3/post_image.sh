@@ -10,5 +10,5 @@ $UBOOT_DIR/tools/image_table_util                                             \
 --out $BINARIES_DIR/image_set.bin                                             \
 --image $BINARIES_DIR/u-boot-spl-dtb.img --image-type uboot-spl               \
 --image $BINARIES_DIR/u-boot.img --image-type uboot                           \
---image $BINARIES_DIR/uImage.piksiv3 --image-type linux
+--image $BINARIES_DIR/uImage.piksiv3_microzed --image-type linux
 
