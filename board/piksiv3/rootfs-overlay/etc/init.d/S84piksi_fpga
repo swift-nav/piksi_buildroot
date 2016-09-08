@@ -1,0 +1,31 @@
+#!/bin/sh
+
+name="piksi_fpga"
+
+start() {
+  # Copy firmware from SD card if present
+  mmc_fw="/media/mmcblk0p1/piksi_fpga.bit"
+  if [ -f "$mmc_fw" ]; then
+    echo "Using fpga $mmc_fw"
+    mkdir -p "/lib/firmware/"
+    cp "$mmc_fw" "/lib/firmware/"
+  fi
+
+  fw="/lib/firmware/piksi_fpga.bit"
+  if [ -f "$fw" ]; then
+    cat "$fw" > /dev/xdevcfg
+    prog_done=`cat /sys/devices/soc0/amba/f8007000.devcfg/prog_done`
+    if [ "$prog_done" != "1" ]; then
+      echo "ERROR configuration failed"
+    fi
+  else
+    echo "ERROR: firmware not found"
+  fi
+}
+
+stop() {
+  :
+}
+
+source /etc/init.d/template_command.inc.sh
+
