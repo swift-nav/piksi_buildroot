@@ -34,8 +34,10 @@ for file in "$@"
 do
     KEY="$BUILD_PATH/$(basename $file)"
     if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-        OBJECT="s3://$BUCKET/$KEY"
-        aws s3 cp "$file" "$OBJECT"
+        if [ "$TRAVIS_BRANCH" == "master" ]; then
+            OBJECT="s3://$BUCKET/$KEY"
+            aws s3 cp "$file" "$OBJECT"
+        fi
     else
         aws s3api put-object --no-sign-request --bucket "$PRS_BUCKET" --key "$KEY" --body "$file" --acl public-read
     fi

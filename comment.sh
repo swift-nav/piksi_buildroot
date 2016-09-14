@@ -26,11 +26,13 @@ BUILD_VERSION="$(git describe --tags --dirty --always)"
 BUILD_PATH="$REPO/$BUILD_VERSION"
 
 if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-    COMMENT="$BUILD_PATH
+    if [ "$TRAVIS_BRANCH" == "master" ]; then
+        COMMENT="$BUILD_PATH
 https://console.aws.amazon.com/s3/home?region=us-west-2&bucket=swiftnav-artifacts&prefix=$BUILD_PATH/"
-    URL="https://slack.com/api/chat.postMessage?token=$SLACK_TOKEN&channel=$SLACK_CHANNEL"
-    DATA="text=$COMMENT"
-    curl --data-urlencode "$DATA" "$URL"
+        URL="https://slack.com/api/chat.postMessage?token=$SLACK_TOKEN&channel=$SLACK_CHANNEL"
+        DATA="text=$COMMENT"
+        curl --data-urlencode "$DATA" "$URL"
+    fi
 elif [ ! -z "$GITHUB_TOKEN" ]; then
     COMMENT="## $BUILD_VERSION\n+ [s3://$PRS_BUCKET/$BUILD_PATH](https://console.aws.amazon.com/s3/home?region=us-west-2&bucket=swiftnav-artifacts-pull-requests&prefix=$BUILD_PATH/)"
     URL="https://api.github.com/repos/swift-nav/$REPO/issues/$TRAVIS_PULL_REQUEST/comments"
