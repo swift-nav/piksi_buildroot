@@ -22,7 +22,7 @@ trap 'error_handler' ERR
 
 git clone --depth=1 git://git.buildroot.net/buildroot -b 2016.08
 pushd buildroot
-make piksiv3_microzed_qspi_defconfig >> $BUILD_OUTPUT 2>&1
+make piksiv3_defconfig >> $BUILD_OUTPUT 2>&1
 make >> $BUILD_OUTPUT 2>&1
 popd
 

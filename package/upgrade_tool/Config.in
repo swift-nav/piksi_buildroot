@@ -1,4 +1,4 @@
 config BR2_PACKAGE_UPGRADE_TOOL
 	bool "upgrade_tool"
-	select BR2_PACKAGE_UBOOT
+	select BR2_PACKAGE_UBOOT_CUSTOM
 	select BR2_PACKAGE_ZLIB
