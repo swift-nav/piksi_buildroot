@@ -1,0 +1,9 @@
+config BR2_PACKAGE_UBOOT_CUSTOM
+	bool "uboot_custom"
+	select BR2_PACKAGE_HOST_DTC
+	select BR2_PACKAGE_HOST_UBOOT_TOOLS
+
+if BR2_PACKAGE_UBOOT_CUSTOM
+config BR2_PACKAGE_UBOOT_CUSTOM_CONFIGS
+	string "Configs to build"
+endif

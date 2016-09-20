@@ -7,10 +7,10 @@
 UPGRADE_TOOL_VERSION = 0.1
 UPGRADE_TOOL_SITE = "${BR2_EXTERNAL}/package/upgrade_tool/src"
 UPGRADE_TOOL_SITE_METHOD = local
-UPGRADE_TOOL_DEPENDENCIES = uboot zlib
+UPGRADE_TOOL_DEPENDENCIES = uboot_custom zlib
 
 UPGRADE_TOOL_UBOOT_DIR = \
-	$(shell find $(BUILD_DIR) -maxdepth 1 -type d -name uboot-*)
+	$(shell find $(BUILD_DIR) -maxdepth 1 -type d -name uboot_custom-*)
 
 define UPGRADE_TOOL_BUILD_CMDS
 	# copy source files from uboot folder
