@@ -21,7 +21,7 @@
 
 #include "minIni/minIni.h"
 
-#define SETTINGS_FILE "config"
+#define SETTINGS_FILE "/persistent/config.ini"
 #define BUFSIZE 256
 
 #define log_error(...) fprintf(stderr, __VA_ARGS__)
