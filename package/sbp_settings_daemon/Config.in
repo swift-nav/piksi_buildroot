@@ -1,0 +1,4 @@
+config BR2_PACKAGE_SBP_SETTINGS_DAEMON
+	bool "sbp_settings_daemon"
+	select BR2_PACKAGE_CZMQ
+	select BR2_PACKAGE_LIBSBP
