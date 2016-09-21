@@ -80,9 +80,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void* sbp)
  * list.
  *
  * Returns a SBP_MSG_FILEIO_READ_DIR_RESP message containing the directory
- * listings as a NULL delimited list. The listing is chunked over multiple SBP
- * packets and the end of the list is identified by an entry containing just
- * the character 0xFF.
+ * listings as a NULL delimited list.
  */
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void* sbp)
 {
