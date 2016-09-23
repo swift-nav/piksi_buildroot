@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# symlink qspi-factory partition
+#
+
+case "$1" in
+  start)
+  MTD_NAME=`cat /proc/mtd | grep qspi-factory | cut -d ':' -f1`
+  ln -s /dev/$MTD_NAME /factory
+  ;;
+  stop)
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?
