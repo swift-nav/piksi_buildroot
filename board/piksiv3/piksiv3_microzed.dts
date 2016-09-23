@@ -481,10 +481,12 @@
     partition@qspi-loader {
       label = "qspi-loader";
       reg = <0x0 0x40000>;
+      read-only;
     };
     partition@qspi-factory {
       label = "qspi-factory";
       reg = <0x40000 0x80000>;
+      read-only;
     };
     partition@qspi-image-table {
       label = "qspi-image-table";
