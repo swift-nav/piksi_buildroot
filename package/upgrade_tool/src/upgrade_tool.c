@@ -16,6 +16,7 @@
 #include "partition_info.h"
 #include "upgrade_data.h"
 #include "mtd.h"
+#include "factory_params.h"
 #include "uboot/image_table.h"
 
 #define IMAGE_TABLE_ELEMENT_SIZE  0x00010000U
@@ -648,6 +649,18 @@ int main(int argc, char *argv[])
 
   /* get upgrade image set */
   const image_set_t *upgrade_image_set = (const image_set_t *)upgrade_data;
+
+  /* get factory params */
+  uint32_t factory_hardware;
+  if (factory_params_read(&factory_hardware) != 0) {
+    exit(EXIT_FAILURE);
+  }
+
+  /* verify factory params */
+  if (factory_hardware != image_set_hardware_get(upgrade_image_set)) {
+    printf("error: invalid hardware type\n");
+    exit(EXIT_FAILURE);
+  }
 
   /* populate image map table */
   if (image_map_table_populate(upgrade_image_set, target_image_table_index,

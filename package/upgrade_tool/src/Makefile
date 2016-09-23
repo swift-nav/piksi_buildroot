@@ -5,7 +5,9 @@ SOURCES= \
 	partition_info.c \
 	upgrade_data.c \
 	mtd.c \
-	uboot/image_table.c
+	factory_params.c \
+	uboot/image_table.c \
+	uboot/factory_data.c
 LIBS=-lz
 CFLAGS=-std=gnu11
 
