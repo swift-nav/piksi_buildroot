@@ -13,8 +13,8 @@
 /include/ "piksiv3.dtsi"
 
 / {
-  model = "Piksiv3 Microzed Board";
-  compatible = "xlnx,zynq-piksiv3-microzed", "xlnx,zynq-7000";
+  model = "Piksiv3 EVT1 Board";
+  compatible = "xlnx,zynq-piksiv3-evt1", "xlnx,zynq-7000";
 
   aliases {
     ethernet0 = &gem0;
@@ -36,6 +36,14 @@
     compatible = "ulpi-phy";
     #phy-cells = <0>;
     reg = <0xe0002000 0x1000>;
+    view-port = <0x0170>;
+    drv-vbus;
+  };
+
+  usb_phy1: phy1 {
+    compatible = "ulpi-phy";
+    #phy-cells = <0>;
+    reg = <0xe0003000 0x1000>;
     view-port = <0x0170>;
     drv-vbus;
   };
@@ -118,6 +126,12 @@
 
 &usb0 {
   status = "okay";
-  dr_mode = "host";
+  dr_mode = "peripheral";
   usb-phy = <&usb_phy0>;
+};
+
+&usb1 {
+  status = "okay";
+  dr_mode = "host";
+  usb-phy = <&usb_phy1>;
 };
