@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# mount qspi-persistent partition
+#
+
+case "$1" in
+  start)
+  MTD_NAME=`cat /proc/mtd | grep qspi-persistent | \
+            cut -d ':' -f1 | sed s/mtd/mtdblock/g`
+  mkdir -p /persistent
+  mount -t jffs2 /dev/$MTD_NAME /persistent
+  ;;
+  stop)
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?

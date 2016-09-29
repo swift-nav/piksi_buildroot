@@ -16,7 +16,9 @@ define UPGRADE_TOOL_BUILD_CMDS
 	# copy source files from uboot folder
 	mkdir -p $(@D)/uboot
 	cp $(UPGRADE_TOOL_UBOOT_DIR)/include/image_table.h $(@D)/uboot
+	cp $(UPGRADE_TOOL_UBOOT_DIR)/include/factory_data.h $(@D)/uboot
 	cp $(UPGRADE_TOOL_UBOOT_DIR)/common/image_table.c $(@D)/uboot
+	cp $(UPGRADE_TOOL_UBOOT_DIR)/common/factory_data.c $(@D)/uboot
 
 	$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef
