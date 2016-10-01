@@ -21,7 +21,7 @@ BR2_LINUX_KERNEL_APPENDED_UIMAGE=y
 BR2_LINUX_KERNEL_XZ=y
 BR2_LINUX_KERNEL_UIMAGE_LOADADDR="0x08008000"
 BR2_LINUX_KERNEL_USE_CUSTOM_DTS=y
-BR2_LINUX_KERNEL_CUSTOM_DTS_PATH="$(BR2_EXTERNAL)/board/piksiv3/piksiv3_microzed.dts"
+BR2_LINUX_KERNEL_CUSTOM_DTS_PATH="$(BR2_EXTERNAL)/board/piksiv3/piksiv3.dtsi $(BR2_EXTERNAL)/board/piksiv3/piksiv3_microzed.dts $(BR2_EXTERNAL)/board/piksiv3/piksiv3_evt1.dts $(BR2_EXTERNAL)/board/piksiv3/piksiv3_evt2.dts"
 BR2_PACKAGE_MTD=y
 BR2_PACKAGE_MTD_MKFSJFFS2=y
 # BR2_PACKAGE_MTD_NANDDUMP is not set
@@ -49,5 +49,5 @@ BR2_PACKAGE_RPMSG_PIKSI=y
 BR2_PACKAGE_ZMQ_ROUTER=y
 BR2_PACKAGE_ZMQ_ADAPTER=y
 BR2_PACKAGE_UPGRADE_TOOL=y
-BR2_PACKAGE_UBOOT_CUSTOM_CONFIGS="piksiv3_microzed_prod piksiv3_microzed_dev"
+BR2_PACKAGE_UBOOT_CUSTOM_CONFIGS="piksiv3_microzed_prod piksiv3_microzed_dev piksiv3_evt1_prod piksiv3_evt1_dev piksiv3_evt2_prod piksiv3_evt2_dev"
 BR2_PACKAGE_SBP_SETTINGS_DAEMON=y
