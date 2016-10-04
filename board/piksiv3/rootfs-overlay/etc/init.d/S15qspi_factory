@@ -6,7 +6,8 @@
 case "$1" in
   start)
   MTD_NAME=`cat /proc/mtd | grep qspi-factory | cut -d ':' -f1`
-  ln -s /dev/$MTD_NAME /factory
+  mkdir -p /factory
+  ln -s /dev/$MTD_NAME /factory/mtd
   ;;
   stop)
   ;;
