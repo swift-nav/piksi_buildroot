@@ -1,0 +1,23 @@
+#!/bin/sh
+
+name="dev_boot_config"
+
+start() {
+  # Get 'dev_boot' bootarg
+  dev_boot=`cat /proc/device-tree/chosen/bootargs |
+            sed -n -e 's/^.*dev_boot=\([^ ]*\).*/\1/p'`
+
+  if [ "$dev_boot" == "net" ]; then
+    # remove eth0 section from /etc/network/interfaces
+    sed -i -e '/^.*eth0.*/,/^$/d' "/etc/network/interfaces"
+    # set eth0 to manual
+    printf "iface eth0 inet manual\n\n" >> "/etc/network/interfaces"
+  fi
+}
+
+stop() {
+  :
+}
+
+source /etc/init.d/template_command.inc.sh
+
