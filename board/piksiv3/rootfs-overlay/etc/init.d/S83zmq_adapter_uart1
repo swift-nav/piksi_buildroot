@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ttydev="ttyPS1"
-baudrate="115200"
+baudrate="921600"
 
 source /etc/init.d/adapter_uart.inc.sh
 
