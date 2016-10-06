@@ -16,9 +16,9 @@
 int factory_params_read(uint32_t *hardware)
 {
   /* open file */
-  int fd = open("/factory", O_RDONLY);
+  int fd = open("/factory/mtd", O_RDONLY);
   if (fd < 0) {
-    printf("error opening /factory\n");
+    printf("error opening /factory/mtd\n");
     return -1;
   }
 
@@ -33,7 +33,7 @@ int factory_params_read(uint32_t *hardware)
   /* read header */
   if (read(fd, factory_data, sizeof(factory_data_t)) !=
           sizeof(factory_data_t)) {
-    printf("error reading /factory\n");
+    printf("error reading /factory/mtd\n");
     return -1;
   }
 
@@ -57,7 +57,7 @@ int factory_params_read(uint32_t *hardware)
   /* read body */
   if (read(fd, &factory_data->body[0], factory_data_body_size) !=
           factory_data_body_size) {
-    printf("error reading /factory\n");
+    printf("error reading /factory/mtd\n");
     return -1;
   }
 

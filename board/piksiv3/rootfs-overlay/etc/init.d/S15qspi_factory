@@ -1,12 +1,16 @@
 #!/bin/sh
 #
-# symlink qspi-factory partition
+# initialize factory data
 #
 
 case "$1" in
   start)
+  # symlink mtd to /factory/mtd
   MTD_NAME=`cat /proc/mtd | grep qspi-factory | cut -d ':' -f1`
-  ln -s /dev/$MTD_NAME /factory
+  mkdir -p /factory
+  ln -s /dev/$MTD_NAME /factory/mtd
+  # run factory data tool
+  factory_data_tool
   ;;
   stop)
   ;;

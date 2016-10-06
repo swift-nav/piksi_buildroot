@@ -3,23 +3,15 @@
 name="piksi_fpga"
 
 start() {
-  # Copy firmware from SD card if present
-  mmc_fw="/media/mmcblk0p1/piksi_fpga.bit"
-  if [ -f "$mmc_fw" ]; then
-    echo "Using fpga $mmc_fw"
-    mkdir -p "/lib/firmware/"
-    cp "$mmc_fw" "/lib/firmware/"
-  fi
-
-  fw="/lib/firmware/piksi_fpga.bit"
-  if [ -f "$fw" ]; then
-    cat "$fw" > /dev/xdevcfg
+  bit="/lib/firmware/piksi_fpga.bit"
+  if [ -f "$bit" ]; then
+    cat "$bit" > /dev/xdevcfg
     prog_done=`cat /sys/devices/soc0/amba/f8007000.devcfg/prog_done`
     if [ "$prog_done" != "1" ]; then
-      echo "ERROR configuration failed"
+      echo "ERROR: configuration failed"
     fi
   else
-    echo "ERROR: firmware not found"
+    echo "ERROR: bitstream not found"
   fi
 }
 

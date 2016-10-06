@@ -1,0 +1,65 @@
+#!/bin/sh
+
+name="dev_boot"
+
+output_path="/lib/firmware"
+
+copy_from_sd() {
+  local sd_path=$1
+  local filename=$2
+  local sd_file="$sd_path/$filename"
+  local output_file="$output_path/$filename"
+
+  rm -f "$output_file"
+  echo "Copying $filename from SD card"
+  mkdir -p "$output_path"
+  cp "$sd_file" "$output_file"
+
+  if [ ! -f "$output_file" ]; then
+    echo "ERROR: copy failed"
+  fi
+}
+
+copy_from_net() {
+  local server_ip=$1
+  local filename=$2
+  local serial_number=`cat /factory/serial_number`
+  local net_file="/PK$serial_number/$filename"
+  local output_file="$output_path/$filename"
+
+  rm -f "$output_file"
+  echo "Copying $filename from network"
+  mkdir -p "$output_path"
+  tftp -g -r "$net_file" -l "$output_file" -b 65464 "$server_ip"
+
+  if [ ! -f "$output_file" ]; then
+    echo "ERROR: copy failed"
+  fi
+}
+
+start() {
+  # Get 'dev_boot' bootarg
+  dev_boot=`cat /proc/device-tree/chosen/bootargs |
+            sed -n -e 's/^.*dev_boot=\([^ ]*\).*/\1/p'`
+
+  if [ "$dev_boot" == "sd" ]; then
+    sd_path="/media/mmcblk0p1"
+    copy_from_sd $sd_path "piksi_firmware.elf"
+    copy_from_sd $sd_path "piksi_fpga.bit"
+  fi
+
+  if [ "$dev_boot" == "net" ]; then
+    # Get server ip from 'ip' bootarg
+    server_ip=`cat /proc/device-tree/chosen/bootargs |
+               sed -n -e 's/^.*ip=[^:]*:\([^:]*\).*/\1/p'`
+    copy_from_net $server_ip "piksi_firmware.elf"
+    copy_from_net $server_ip "piksi_fpga.bit"
+  fi
+}
+
+stop() {
+  :
+}
+
+source /etc/init.d/template_command.inc.sh
+
