@@ -1,0 +1,15 @@
+#!/bin/sh
+
+name="gigabit_disable"
+
+start() {
+  # Disable advertisement of gigabit
+  ethtool -s eth0 advertise 0xf
+}
+
+stop() {
+  :
+}
+
+source /etc/init.d/template_command.inc.sh
+
