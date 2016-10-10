@@ -27,11 +27,16 @@ BUILD_PATH="$REPO/$BUILD_VERSION"
 if [[ ! -z "$PRODUCT_VERSION" ]]; then
     BUILD_PATH="$BUILD_PATH/$PRODUCT_VERSION"
 fi
+if [[ ! -z "$PRODUCT_REV" ]]; then
+    BUILD_PATH="$BUILD_PATH/$PRODUCT_REV"
+fi
+if [[ ! -z "$PRODUCT_TYPE" ]]; then
+    BUILD_PATH="$BUILD_PATH/$PRODUCT_TYPE"
+fi
 
 echo "Uploading $@ to $BUILD_PATH"
 
-for file in "$@"
-do
+for file in "$@"; do
     KEY="$BUILD_PATH/$(basename $file)"
     if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
         if [ "$TRAVIS_BRANCH" == "master" ]; then
