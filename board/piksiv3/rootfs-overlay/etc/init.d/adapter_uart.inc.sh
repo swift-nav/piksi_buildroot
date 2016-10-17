@@ -7,7 +7,7 @@ user=""
 
 case "$1" in
   start)
-    /bin/stty -F /dev/$ttydev $baudrate raw -echo 
+    /bin/stty -F /dev/$ttydev $baudrate raw -echo -onlcr
     ;;
 esac
 
