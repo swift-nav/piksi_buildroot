@@ -12,7 +12,7 @@
 
 #include "partition_info.h"
 
-#define EXPECTED_ERASE_SIZE 0x00010000U
+#define EXPECTED_ERASE_SIZE 4096
 
 static int mtd_sysfs_read_int(uint32_t mtd_num, const char *property,
                               uint32_t *value)
