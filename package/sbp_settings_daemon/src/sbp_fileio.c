@@ -84,12 +84,8 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void* sbp)
  */
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void* sbp)
 {
+  (void)sender_id;
   msg_fileio_read_dir_req_t *msg = (msg_fileio_read_dir_req_t *)msg_;
-
-  if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender!");
-    return;
-  }
 
   if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
     log_error("Invalid fileio read dir message!");
@@ -128,11 +124,7 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void* sbp)
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)context;
-
-  if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender!");
-    return;
-  }
+  (void)sender_id;
 
   if ((len < 1) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
     log_error("Invalid fileio remove message!");
