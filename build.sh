@@ -6,7 +6,8 @@ export BR2_EXTERNAL=..
 export WORKDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export BUILD_OUTPUT=$WORKDIR/build.out
 
-touch $BUILD_OUTPUT
+# Create empty output file, or clear it if it already exists
+echo -n > $BUILD_OUTPUT
 
 dump_output() {
    echo Tailing the last 500 lines of output:
