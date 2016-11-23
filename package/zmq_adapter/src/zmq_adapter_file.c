@@ -10,6 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <termios.h>
+#include <unistd.h>
+
 #include "zmq_adapter.h"
 
 int file_loop(const char *file_path)
@@ -18,6 +21,15 @@ int file_loop(const char *file_path)
   if (fd < 0) {
     printf("error opening file\n");
     return 1;
+  }
+
+  if (isatty(fd)) {
+    struct termios tio;
+    tcgetattr(fd, &tio);
+    cfmakeraw(&tio);
+    tio.c_lflag &= ~ECHO;
+    tio.c_oflag &= ~ONLCR;
+    tcsetattr(fd, TCSANOW, &tio);
   }
 
   io_loop_start(fd);
