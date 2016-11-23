@@ -15,8 +15,8 @@
 #include "settings.h"
 #include "sbp_zmq.h"
 
-int uart0_baudrate = 115200;
-int uart1_baudrate = 115200;
+static int uart0_baudrate = 115200;
+static int uart1_baudrate = 115200;
 
 bool baudrate_notify(struct setting *s, const char *val)
 {
@@ -44,6 +44,54 @@ bool baudrate_notify(struct setting *s, const char *val)
   return ret;
 }
 
+static const char const * ip_mode_enum[] = {"Static", "DHCP", NULL};
+static struct setting_type ip_mode_settings_type;
+static int TYPE_IP_MODE = 0;
+static enum {IP_CFG_STATIC, IP_CFG_DHCP};
+u8 eth_ip_mode = IP_CFG_STATIC;
+static char eth_ip_addr[16] = "192.168.0.222";
+static char eth_netmask[16] = "255.255.255.0";
+static char eth_gateway[16] = "192.168.0.1";
+
+static void eth_update_config(void)
+{
+  system("ifdown eth0");
+
+  FILE *interfaces = fopen("/etc/network/interfaces", "w");
+  if (eth_ip_mode == IP_CFG_DHCP) {
+    fprintf(interfaces, "iface eth0 inet dhcp\n");
+  } else {
+    fprintf(interfaces, "iface eth0 inet static\n");
+    fprintf(interfaces, "\taddress %s\n", eth_ip_addr);
+    fprintf(interfaces, "\tnetmask %s\n", eth_netmask);
+    fprintf(interfaces, "\tgateway %s\n", eth_gateway);
+  }
+  fclose(interfaces);
+
+  system("ifup eth0");
+}
+
+static bool eth_ip_mode_notify(struct setting *s, const char *val)
+{
+  bool ret = settings_default_notify(s, val);
+  if (ret) {
+    eth_update_config();
+  }
+  return ret;
+}
+
+static bool eth_ip_config_notify(struct setting *s, const char *val)
+{
+  if (inet_addr(val) == INADDR_NONE)
+    return false;
+
+  bool ret = settings_default_notify(s, val);
+  if (ret) {
+    eth_update_config();
+  }
+  return ret;
+}
+
 int main(void)
 {
   sbp_state_t *sbp = sbp_zmq_init();
@@ -52,6 +100,12 @@ int main(void)
 
   SETTING_NOTIFY("uart", "uart0_baudrate", uart0_baudrate, TYPE_INT, baudrate_notify);
   SETTING_NOTIFY("uart", "uart1_baudrate", uart1_baudrate, TYPE_INT, baudrate_notify);
+
+  TYPE_IP_MODE = settings_type_register_enum(ip_mode_enum, &ip_mode_settings_type);
+  SETTING_NOTIFY("ethernet", "ip_config_mode", eth_ip_mode, TYPE_IP_MODE, eth_ip_mode_notify);
+  SETTING_NOTIFY("ethernet", "ip_address", eth_ip_addr, TYPE_STRING, eth_ip_config_notify);
+  SETTING_NOTIFY("ethernet", "netmask", eth_netmask, TYPE_STRING, eth_ip_config_notify);
+  SETTING_NOTIFY("ethernet", "gateway", eth_gateway, TYPE_STRING, eth_ip_config_notify);
 
   sbp_zmq_loop(sbp);
 
