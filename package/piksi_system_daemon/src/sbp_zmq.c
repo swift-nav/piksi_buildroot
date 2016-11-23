@@ -88,8 +88,8 @@ sbp_state_t *sbp_zmq_init(void)
 
   /* Setup ZMQ sockets and SBP state */
   sbp_state_init(sbp);
-  ctx->pub =  zsock_new_pub(">tcp://localhost:43021");
-  ctx->sub = zsock_new_sub(">tcp://localhost:43020", "");
+  ctx->pub =  zsock_new_pub(">tcp://localhost:43011");
+  ctx->sub = zsock_new_sub(">tcp://localhost:43010", "");
   sbp_state_set_io_context(sbp, ctx);
 
   return sbp;
@@ -137,6 +137,7 @@ bool sbp_zmq_wait_msg(sbp_state_t *sbp, u16 msg_type, size_t timeout)
 
   /* Run message handler loop */
   zloop_t *loop = zloop_new();
+  closure.loop = loop;
   zloop_reader(loop, ctx->sub, reader_fn, sbp);
   zloop_timer(loop, timeout, 1, timeout_fn, NULL);
   zloop_start(loop);
@@ -163,8 +164,7 @@ void sbp_zmq_loop(sbp_state_t *sbp)
     sbp_msg_callbacks_node_t *n = sbp->sbp_msg_callbacks_head;
     sbp->sbp_msg_callbacks_head = n->next;
     free(n);
-  } 
+  }
   free(ctx);
   free(sbp);
 }
-

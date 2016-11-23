@@ -386,4 +386,3 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* contex
   sbp_zmq_send_msg(context, SBP_MSG_SETTINGS_READ_RESP, buflen, (void*)buf);
   return;
 }
-
