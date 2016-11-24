@@ -20,6 +20,7 @@ NAP_VERSION=v3.6.0
 
 FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION/v3
+export AWS_DEFAULT_REGION="us-west-2"
 
 download_fw() {
   HW_CONFIG=$1
@@ -31,13 +32,14 @@ download_fw() {
   # Download piksi_firmware
   aws s3 cp $FW_S3_PATH/piksi_firmware_v3_$HW_CONFIG.elf $FIRMWARE_DIR/piksi_firmware.elf
 
-  # Microzed FPGA image breaks the naming convention so deal with it as a special case
+  # Download piksi_fpga
   if [ "$HW_CONFIG" == "microzed" ]; then
-    HW_CONFIG="microzed_nt1065"
+    # Microzed FPGA image breaks the naming convention so deal with it as a special case
+    aws s3 cp $NAP_S3_PATH/piksi_microzed_nt1065_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
+  else
+    aws s3 cp $NAP_S3_PATH/piksi_${HW_CONFIG}_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
   fi
 
-  # Download piksi_fpga
-  aws s3 cp $NAP_S3_PATH/piksi_${HW_CONFIG}_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
 }
 
 download_fw "evt2"

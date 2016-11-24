@@ -1,5 +1,4 @@
 sudo: required
-#dist: trusty
 
 language: c
 
@@ -9,7 +8,9 @@ services:
 before_install:
   - pip install --user --upgrade awscli
 
-install: true
+install:
+  - env
+  - ./fetch_firmware.sh
 
 script:
   - travis_wait 60 docker build -t piksi-buildroot .
