@@ -11,6 +11,7 @@ BR2_ROOTFS_DEVICE_TABLE="$(BR2_EXTERNAL)/board/piksiv3/device_table.txt"
 # BR2_TARGET_GENERIC_GETTY is not set
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL)/board/piksiv3/rootfs-overlay"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL)/board/piksiv3/post_image.sh"
+BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL)/board/piksiv3/post_build.sh"
 BR2_LINUX_KERNEL=y
 BR2_LINUX_KERNEL_CUSTOM_GIT=y
 BR2_LINUX_KERNEL_CUSTOM_REPO_URL="git://github.com/Xilinx/linux-xlnx.git"
