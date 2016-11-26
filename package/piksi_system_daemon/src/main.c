@@ -11,6 +11,11 @@
  */
 
 #include <libsbp/sbp.h>
+#include <libsbp/piksi.h>
+#include <libsbp/logging.h>
+#include <czmq.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "settings.h"
 #include "sbp_zmq.h"
@@ -47,7 +52,7 @@ bool baudrate_notify(struct setting *s, const char *val)
 static const char const * ip_mode_enum[] = {"Static", "DHCP", NULL};
 static struct setting_type ip_mode_settings_type;
 static int TYPE_IP_MODE = 0;
-static enum {IP_CFG_STATIC, IP_CFG_DHCP};
+enum {IP_CFG_STATIC, IP_CFG_DHCP};
 u8 eth_ip_mode = IP_CFG_STATIC;
 static char eth_ip_addr[16] = "192.168.0.222";
 static char eth_netmask[16] = "255.255.255.0";
@@ -92,6 +97,70 @@ static bool eth_ip_config_notify(struct setting *s, const char *val)
   return ret;
 }
 
+struct shell_cmd_ctx {
+  sbp_state_t *sbp;
+  FILE *pipe;
+  u32 sequence;
+  zloop_t *loop;
+  zmq_pollitem_t pollitem;
+};
+
+/* We use this unbuffered fgets function alternative so that the czmq loop
+ * will keep calling us with output until we've read it all.
+ */
+int raw_fgets(char *str, size_t len, FILE *stream)
+{
+  int fd = fileno(stream);
+  size_t i;
+  len--;
+  for (i = 0; i < len; i++) {
+    int r = read(fd, &str[i], 1);
+    if (r < 0)
+      return r;
+    if ((r == 0) || (str[i] == '\n'))
+      break;
+  }
+  str[i++] = 0;
+  return i > 1 ? i : 0;
+}
+
+int shell_command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
+{
+  struct shell_cmd_ctx *ctx = arg;
+  msg_log_t *msg = alloca(256);
+  msg->level = 6;
+
+  if (raw_fgets(msg->text, 254, ctx->pipe) > 0) {
+    sbp_zmq_send_msg(ctx->sbp, SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
+  } else {
+    /* Broken pipe, clean up and send exit code */
+    msg_shell_command_resp_t resp = {
+      .sequence = ctx->sequence,
+      .code = pclose(ctx->pipe),
+    };
+    sbp_zmq_send_msg(ctx->sbp, SBP_MSG_SHELL_COMMAND_RESP, sizeof(resp), (void*)&resp);
+    zloop_poller_end(ctx->loop, item);
+    free(ctx);
+  }
+  return 0;
+}
+
+static void sbp_shell_command(u16 sender_id, u8 len, u8 msg_[], void* context)
+{
+  msg_[len] = 0;
+  msg_shell_command_req_t *msg = (msg_shell_command_req_t *)msg_;
+  struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
+  ctx->sbp = context;
+  ctx->pipe = popen(msg->command, "r");
+  ctx->sequence = msg->sequence;
+  ctx->loop = sbp_zmq_get_loop(context);
+  ctx->pollitem.fd = fileno(ctx->pipe);
+  ctx->pollitem.events = ZMQ_POLLIN;
+  int arg = O_NONBLOCK;
+  fcntl(fileno(ctx->pipe), F_SETFL, &arg);
+  zloop_poller(ctx->loop, &ctx->pollitem, shell_command_output, ctx);
+}
+
 int main(void)
 {
   sbp_state_t *sbp = sbp_zmq_init();
@@ -106,6 +175,8 @@ int main(void)
   SETTING_NOTIFY("ethernet", "ip_address", eth_ip_addr, TYPE_STRING, eth_ip_config_notify);
   SETTING_NOTIFY("ethernet", "netmask", eth_netmask, TYPE_STRING, eth_ip_config_notify);
   SETTING_NOTIFY("ethernet", "gateway", eth_gateway, TYPE_STRING, eth_ip_config_notify);
+
+  sbp_zmq_register_callback(sbp, SBP_MSG_SHELL_COMMAND_REQ, sbp_shell_command);
 
   sbp_zmq_loop(sbp);
 

@@ -21,11 +21,14 @@ static u16 sender_id = SBP_SENDER_ID;
 
 static struct sbp_zmq_ctx {
   zsock_t *pub, *sub;
+  zloop_t *loop;
   u8 send_buf[256];
   u8 send_len;
   u8 *recv_buf;
   u8 recv_len;
 } sbp_zmq_ctx;
+
+static int reader_fn(zloop_t *loop, zsock_t *reader, void *arg);
 
 static u32 sbp_write(u8 *buf, u32 n, void *context)
 {
@@ -92,6 +95,9 @@ sbp_state_t *sbp_zmq_init(void)
   ctx->sub = zsock_new_sub(">tcp://localhost:43010", "");
   sbp_state_set_io_context(sbp, ctx);
 
+  ctx->loop = zloop_new();
+  zloop_reader(ctx->loop, ctx->sub, reader_fn, sbp);
+
   return sbp;
 }
 
@@ -138,10 +144,8 @@ bool sbp_zmq_wait_msg(sbp_state_t *sbp, u16 msg_type, size_t timeout)
   /* Run message handler loop */
   zloop_t *loop = zloop_new();
   closure.loop = loop;
-  zloop_reader(loop, ctx->sub, reader_fn, sbp);
   zloop_timer(loop, timeout, 1, timeout_fn, NULL);
   zloop_start(loop);
-  zloop_destroy(&loop);
 
   sbp_remove_callback(sbp, &node);
 
@@ -153,9 +157,7 @@ void sbp_zmq_loop(sbp_state_t *sbp)
   struct sbp_zmq_ctx *ctx = sbp->io_context;
 
   /* Run message handler loop */
-  zloop_t *loop = zloop_new();
-  zloop_reader(loop, ctx->sub, reader_fn, sbp);
-  zloop_start(loop);
+  zloop_start(ctx->loop);
 
   /* Cleanup */
   zsock_destroy(&ctx->pub);
@@ -167,4 +169,10 @@ void sbp_zmq_loop(sbp_state_t *sbp)
   }
   free(ctx);
   free(sbp);
+}
+
+zloop_t *sbp_zmq_get_loop(sbp_state_t *sbp)
+{
+  struct sbp_zmq_ctx *ctx = sbp->io_context;
+  return ctx->loop;
 }
