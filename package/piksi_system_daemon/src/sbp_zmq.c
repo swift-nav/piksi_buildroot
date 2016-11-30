@@ -118,8 +118,9 @@ static int timeout_fn(zloop_t *loop, int timer, void *arg)
 }
 
 struct wait_closure {
-  bool ret;
+  int ret;
   zloop_t *loop;
+  u8 buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 };
 
 static void sbp_zmq_wait_msg_cb(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -128,15 +129,16 @@ static void sbp_zmq_wait_msg_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)len;
   (void)msg;
   struct wait_closure *ctx = context;
-  ctx->ret = true;
+  memcpy(ctx->buf, msg, len);
+  ctx->ret = len;
   /* Trigger a timeout immediately to exit the loop */
   zloop_timer(ctx->loop, 0, 1, timeout_fn, NULL);
 }
 
-bool sbp_zmq_wait_msg(sbp_state_t *sbp, u16 msg_type, size_t timeout)
+int sbp_zmq_wait_msg(sbp_state_t *sbp, u16 msg_type, u8 *reply_buf, size_t timeout)
 {
   struct sbp_zmq_ctx *ctx = sbp->io_context;
-  struct wait_closure closure = {0};
+  struct wait_closure closure = {.ret = -1};
 
   sbp_msg_callbacks_node_t node;
   sbp_register_callback(sbp, msg_type, sbp_zmq_wait_msg_cb, &closure, &node);

@@ -213,12 +213,17 @@ void settings_register(struct setting *setting, enum setting_types type)
     s->next = setting;
   }
   /* Register setting with daemon */
-  char buf[256];
+  char buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
   u8 buflen = settings_format_setting(setting, buf, sizeof(buf));
+  char reply_buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
+  int reply_len;
+  int prefix_len = strlen(setting->section) + strlen(setting->name) + 2;
   u8 tries = 0;
   do {
     sbp_zmq_send_msg(settings_sbp_state, SBP_MSG_SETTINGS_REGISTER, buflen, (void*)buf);
-  } while (!sbp_zmq_wait_msg(settings_sbp_state, SBP_MSG_SETTINGS_WRITE, SETTINGS_REGISTER_TIMEOUT) &&
+    reply_len = sbp_zmq_wait_msg(settings_sbp_state, SBP_MSG_SETTINGS_WRITE,
+                                 reply_buf, SETTINGS_REGISTER_TIMEOUT);
+  } while (((reply_len < 0) || (memcmp(buf, reply_buf, prefix_len) != 0)) &&
            (++tries < SETTINGS_REGISTER_TRIES));
 }
 

@@ -16,6 +16,7 @@
 #include <czmq.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stddef.h>
 
 #include "settings.h"
 #include "sbp_zmq.h"
@@ -124,31 +125,32 @@ int raw_fgets(char *str, size_t len, FILE *stream)
   return i > 1 ? i : 0;
 }
 
-int shell_command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
+int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 {
   struct shell_cmd_ctx *ctx = arg;
   msg_log_t *msg = alloca(256);
   msg->level = 6;
 
-  if (raw_fgets(msg->text, 254, ctx->pipe) > 0) {
+  if (raw_fgets(msg->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text),
+                ctx->pipe) > 0) {
     sbp_zmq_send_msg(ctx->sbp, SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
   } else {
     /* Broken pipe, clean up and send exit code */
-    msg_shell_command_resp_t resp = {
+    msg_command_resp_t resp = {
       .sequence = ctx->sequence,
       .code = pclose(ctx->pipe),
     };
-    sbp_zmq_send_msg(ctx->sbp, SBP_MSG_SHELL_COMMAND_RESP, sizeof(resp), (void*)&resp);
+    sbp_zmq_send_msg(ctx->sbp, SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
     zloop_poller_end(ctx->loop, item);
     free(ctx);
   }
   return 0;
 }
 
-static void sbp_shell_command(u16 sender_id, u8 len, u8 msg_[], void* context)
+static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   msg_[len] = 0;
-  msg_shell_command_req_t *msg = (msg_shell_command_req_t *)msg_;
+  msg_command_req_t *msg = (msg_command_req_t *)msg_;
   struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
   ctx->sbp = context;
   ctx->pipe = popen(msg->command, "r");
@@ -158,7 +160,7 @@ static void sbp_shell_command(u16 sender_id, u8 len, u8 msg_[], void* context)
   ctx->pollitem.events = ZMQ_POLLIN;
   int arg = O_NONBLOCK;
   fcntl(fileno(ctx->pipe), F_SETFL, &arg);
-  zloop_poller(ctx->loop, &ctx->pollitem, shell_command_output, ctx);
+  zloop_poller(ctx->loop, &ctx->pollitem, command_output, ctx);
 }
 
 int main(void)
@@ -176,7 +178,7 @@ int main(void)
   SETTING_NOTIFY("ethernet", "netmask", eth_netmask, TYPE_STRING, eth_ip_config_notify);
   SETTING_NOTIFY("ethernet", "gateway", eth_gateway, TYPE_STRING, eth_ip_config_notify);
 
-  sbp_zmq_register_callback(sbp, SBP_MSG_SHELL_COMMAND_REQ, sbp_shell_command);
+  sbp_zmq_register_callback(sbp, SBP_MSG_COMMAND_REQ, sbp_command);
 
   sbp_zmq_loop(sbp);
 

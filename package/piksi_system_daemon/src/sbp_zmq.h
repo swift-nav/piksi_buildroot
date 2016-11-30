@@ -20,7 +20,7 @@
 
 sbp_state_t *sbp_zmq_init(void);
 void sbp_zmq_send_msg(sbp_state_t *s, u16 msg_type, u8 len, u8 buff[]);
-bool sbp_zmq_wait_msg(sbp_state_t *sbp, u16 msg_type, size_t timeout);
+int sbp_zmq_wait_msg(sbp_state_t *sbp, u16 msg_type, u8 *msg_buf, size_t timeout);
 s8 sbp_zmq_register_callback(sbp_state_t *s, u16 msg_type, sbp_msg_callback_t cb);
 void sbp_zmq_loop(sbp_state_t *s);
 zloop_t *sbp_zmq_get_loop(sbp_state_t *sbp);
