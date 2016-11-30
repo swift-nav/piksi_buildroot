@@ -25,6 +25,7 @@ static const struct {
   { IMAGE_HARDWARE_MICROZED,    "microzed"  },
   { IMAGE_HARDWARE_EVT1,        "evt1"      },
   { IMAGE_HARDWARE_EVT2,        "evt2"      },
+  { IMAGE_HARDWARE_DVT1,        "dvt1"      },
 };
 
 static const factory_data_t * factory_data_get(void)
@@ -87,6 +88,27 @@ static const factory_data_t * factory_data_get(void)
   return factory_data;
 }
 
+static char nibble_to_char(uint8_t nibble)
+{
+  if (nibble < 10) {
+    return '0' + nibble;
+  } else if (nibble < 16) {
+    return 'a' + nibble - 10;
+  } else {
+    return '?';
+  }
+}
+
+static void print_hex_string(char *str, const uint8_t *data, uint32_t data_size)
+{
+  int i;
+  for (i=0; i<data_size; i++) {
+    str[2*i + 0] = nibble_to_char((data[data_size - 1 - i] >> 4) & 0xf);
+    str[2*i + 1] = nibble_to_char((data[data_size - 1 - i] >> 0) & 0xf);
+  }
+  str[2*i] = 0;
+}
+
 static int factory_file_write(const char *filename, const char *data)
 {
   /* generate file path */
@@ -112,10 +134,19 @@ static int factory_file_write(const char *filename, const char *data)
   return 0;
 }
 
-int factory_file_write_u32(const char *filename, uint32_t data)
+static int factory_file_write_u32(const char *filename, uint32_t data)
 {
   char buffer[32];
   snprintf(buffer, sizeof(buffer), "%d", data);
+  return factory_file_write(filename, buffer);
+}
+
+static int factory_file_write_hex_string(const char *filename,
+                                         const uint8_t *data,
+                                         uint32_t data_size)
+{
+  char buffer[2 * data_size + 1];
+  print_hex_string(buffer, data, data_size);
   return factory_file_write(filename, buffer);
 }
 
@@ -139,14 +170,30 @@ int main(int argc, char *argv[])
     }
   }
 
-  uint32_t serial_number;
-  if (factory_data_serial_number_get(factory_data, &serial_number) == 0) {
-    factory_file_write_u32("serial_number", serial_number);
+  uint8_t mfg_id[17];
+  if (factory_data_mfg_id_get(factory_data, mfg_id) == 0) {
+    factory_file_write("mfg_id", mfg_id);
+  }
+
+  uint8_t uuid[16];
+  if (factory_data_uuid_get(factory_data, uuid) == 0) {
+    factory_file_write_hex_string("uuid", uuid, sizeof(uuid));
   }
 
   uint32_t timestamp;
   if (factory_data_timestamp_get(factory_data, &timestamp) == 0) {
     factory_file_write_u32("timestamp", timestamp);
+  }
+
+  uint8_t nap_key[16];
+  if (factory_data_nap_key_get(factory_data, nap_key) == 0) {
+    factory_file_write_hex_string("nap_key", nap_key, sizeof(nap_key));
+  }
+
+  uint8_t mac_address[6];
+  if (factory_data_mac_address_get(factory_data, mac_address) == 0) {
+    factory_file_write_hex_string("mac_address",
+                                   mac_address, sizeof(mac_address));
   }
 
   exit(EXIT_SUCCESS);
