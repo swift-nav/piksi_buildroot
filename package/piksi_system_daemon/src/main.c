@@ -151,6 +151,19 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   msg_[len] = 0;
   msg_command_req_t *msg = (msg_command_req_t *)msg_;
+  /* TODO As more commands are added in the future the command field will need
+   * to be parsed into a command and arguments, and restrictions imposed
+   * on what commands and arguments are legal.  For now we only accept one
+   * canned command.
+   */
+  if (strcmp(msg->command, "upgrade_tool upgrade.image_set.bin") != 0) {
+    msg_command_resp_t resp = {
+      .sequence = msg->sequence,
+      .code = (u32)-1,
+    };
+    sbp_zmq_send_msg(context, SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
+    return;
+  }
   struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
   ctx->sbp = context;
   ctx->pipe = popen(msg->command, "r");
