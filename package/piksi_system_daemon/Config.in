@@ -1,0 +1,4 @@
+config BR2_PACKAGE_PIKSI_SYSTEM_DAEMON
+	bool "piksi_system_daemon"
+	select BR2_PACKAGE_CZMQ
+	select BR2_PACKAGE_LIBSBP

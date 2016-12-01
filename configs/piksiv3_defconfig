@@ -54,3 +54,4 @@ BR2_PACKAGE_UPGRADE_TOOL=y
 BR2_PACKAGE_UBOOT_CUSTOM_CONFIGS="piksiv3_microzed_prod piksiv3_microzed_dev piksiv3_evt1_prod piksiv3_evt1_dev piksiv3_evt2_prod piksiv3_evt2_dev"
 BR2_PACKAGE_SBP_SETTINGS_DAEMON=y
 BR2_PACKAGE_FACTORY_DATA_TOOL=y
+BR2_PACKAGE_PIKSI_SYSTEM_DAEMON=y
