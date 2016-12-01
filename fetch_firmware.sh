@@ -30,7 +30,8 @@ download_fw() {
   mkdir -p $FIRMWARE_DIR
 
   # Download piksi_firmware
-  aws s3 cp $FW_S3_PATH/piksi_firmware_v3_$HW_CONFIG.elf $FIRMWARE_DIR/piksi_firmware.elf
+  aws s3 cp $FW_S3_PATH/piksi_firmware_v3_$HW_CONFIG.stripped.elf \
+    $FIRMWARE_DIR/piksi_firmware.elf
 
   # Download piksi_fpga
   if [ "$HW_CONFIG" == "microzed" ]; then
