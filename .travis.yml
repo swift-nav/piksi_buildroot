@@ -1,20 +1,24 @@
 sudo: required
-dist: trusty
 
 language: c
 
+services:
+  - docker
+
 before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -y build-essential unzip
-  - sudo apt-get build-dep -y gcc
   - pip install --user --upgrade awscli
 
-install: true
+install:
+  - env
+  - ./fetch_firmware.sh
 
 script:
-  - travis_wait 60 ./build.sh
+  - travis_wait 60 docker build -t piksi-buildroot .
 
 after_success:
+  - mkdir -p buildroot/output
+  - export CONTAINER=`docker create piksi-buildroot`
+  - docker cp $CONTAINER:/app/buildroot/output/images buildroot/output
   - git fetch --tags --unshallow
   - PRODUCT_VERSION=v3 PRODUCT_REV=evt1 PRODUCT_TYPE=dev ./publish.sh buildroot/output/images/piksiv3_evt1_dev/*
   - PRODUCT_VERSION=v3 PRODUCT_REV=evt1 PRODUCT_TYPE=prod ./publish.sh buildroot/output/images/piksiv3_evt1_prod/*
