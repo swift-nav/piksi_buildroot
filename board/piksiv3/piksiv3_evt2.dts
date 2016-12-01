@@ -81,19 +81,19 @@
     };
     partition@qspi-img-std-a {
       label = "qspi-img-std-a";
-      reg = <0x200000 0xbf0000>;
+      reg = <0x200000 0x3e00000>;
     };
     partition@qspi-img-std-b {
       label = "qspi-img-std-b";
-      reg = <0xdf0000 0x10000>;
+      reg = <0x4000000 0x3e00000>;
     };
     partition@qspi-img-failsafe {
       label = "qspi-img-failsafe";
-      reg = <0xe00000 0x100000>;
+      reg = <0x7e00000 0x100000>;
     };
     partition@qspi-persistent {
       label = "qspi-persistent";
-      reg = <0xf00000 0x100000>;
+      reg = <0x7f00000 0x100000>;
     };
   };
 };
