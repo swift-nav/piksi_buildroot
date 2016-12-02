@@ -16,10 +16,8 @@ script:
 
 after_success:
   - git fetch --tags --unshallow
-  - PRODUCT_VERSION=v3 PRODUCT_REV=evt1 PRODUCT_TYPE=dev ./publish.sh buildroot/output/images/piksiv3_evt1_dev/*
-  - PRODUCT_VERSION=v3 PRODUCT_REV=evt1 PRODUCT_TYPE=prod ./publish.sh buildroot/output/images/piksiv3_evt1_prod/*
-  - PRODUCT_VERSION=v3 PRODUCT_REV=evt2 PRODUCT_TYPE=dev ./publish.sh buildroot/output/images/piksiv3_evt2_dev/*
-  - PRODUCT_VERSION=v3 PRODUCT_REV=evt2 PRODUCT_TYPE=prod ./publish.sh buildroot/output/images/piksiv3_evt2_prod/*
+  - PRODUCT_VERSION=v3 PRODUCT_REV=prod PRODUCT_TYPE=dev ./publish.sh buildroot/output/images/piksiv3_prod_dev/*
+  - PRODUCT_VERSION=v3 PRODUCT_REV=prod PRODUCT_TYPE=prod ./publish.sh buildroot/output/images/piksiv3_prod_prod/*
   - PRODUCT_VERSION=v3 PRODUCT_REV=microzed PRODUCT_TYPE=dev ./publish.sh buildroot/output/images/piksiv3_microzed_dev/*
   - PRODUCT_VERSION=v3 PRODUCT_REV=microzed PRODUCT_TYPE=prod ./publish.sh buildroot/output/images/piksiv3_microzed_prod/*
   - SLACK_CHANNEL=github ./comment.sh
