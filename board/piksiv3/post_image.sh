@@ -37,7 +37,5 @@ generate_prod() {
 
 generate_dev "microzed"
 generate_prod "microzed"
-generate_dev "evt1"
-generate_prod "evt1"
 generate_dev "evt2"
 generate_prod "evt2"
