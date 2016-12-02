@@ -40,8 +40,8 @@ generate_prod() {
 generate_dev $HW_CONFIG
 
 FIRMWARE_DIR=$TARGET_DIR/lib/firmware
-if [ -e $FIRMWARE_DIR/piksi_firmware.elf && \
-     -e $FIRMWARE_DIR/piksi_fpga.bit ]; then
+if [ -e $FIRMWARE_DIR/piksi_firmware.elf ] && \
+   [ -e $FIRMWARE_DIR/piksi_fpga.bit ]; then
   generate_prod $HW_CONFIG
 else
   echo "*** NO FIRMWARE FILES FOUND, NOT BUILDING PRODUCTION IMAGE ***"
