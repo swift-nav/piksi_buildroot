@@ -29,7 +29,7 @@ generate_prod() {
   --out $OUTPUT_DIR/image_set.bin                                             \
   --name "Piksi Buildroot $BR_GIT_VERSION"                                    \
   --timestamp $(date +%s)                                                     \
-  --hardware $HW                                                              \
+  --hardware v3_$HW                                                              \
   --image $UBOOT_BUILD_DIR/spl/u-boot-spl-dtb.img --image-type uboot-spl      \
   --image $UBOOT_BUILD_DIR/u-boot.img --image-type uboot                      \
   --image $BINARIES_DIR/uImage.$CFG --image-type linux
