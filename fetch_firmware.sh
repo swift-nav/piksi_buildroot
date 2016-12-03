@@ -15,11 +15,11 @@
 
 set -xe
 
-FW_VERSION=beta_rc2
-NAP_VERSION=v3.6.0
+FW_VERSION=beta_rc2-14-g12b4e7e
+NAP_VERSION=v3.6.2
 
 FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
-NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION/v3
+NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 export AWS_DEFAULT_REGION="us-west-2"
 
 download_fw() {
@@ -43,6 +43,6 @@ download_fw() {
 
 }
 
-download_fw "evt2"
+download_fw "prod"
 download_fw "microzed"
 
