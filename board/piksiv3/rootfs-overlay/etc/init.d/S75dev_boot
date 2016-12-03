@@ -24,7 +24,7 @@ copy_from_net() {
   local server_ip=$1
   local filename=$2
   local uuid=`cat /factory/uuid`
-  local net_file="/PK$uuid/$filename"
+  local net_file="PK$uuid/$filename"
   local output_file="$output_path/$filename"
 
   rm -f "$output_file"
