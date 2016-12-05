@@ -42,6 +42,18 @@ start() {
   dev_boot=`cat /proc/device-tree/chosen/bootargs |
             sed -n -e 's/^.*dev_boot=\([^ ]*\).*/\1/p'`
 
+  # Delete any firmware files that were already present in the rootfs.
+  # In the dev configuration we want to obtain the firmware from the SD card or
+  # network and this ensures if these files are not available from the SD card
+  # or network we will error out rather than silently falling back to the
+  # version present in the rootfs.
+  if [ -n "$dev_boot" ]; then
+    # If dev_boot is set to something (not null), then we are in the dev
+    # configuration
+    rm -f $output_path/piksi_firmware.elf
+    rm -f $output_path/piksi_fpga.bit
+  fi
+
   if [ "$dev_boot" == "sd" ]; then
     sd_path="/media/mmcblk0p1"
     copy_from_sd $sd_path "piksi_firmware.elf"
