@@ -12,7 +12,6 @@ generate_dev() {
   cp $UBOOT_BUILD_DIR/spl/boot.bin $OUTPUT_DIR
   cp $UBOOT_BUILD_DIR/u-boot.img $OUTPUT_DIR
   cp $BINARIES_DIR/uImage.${CFG} $OUTPUT_DIR
-  cp $BINARIES_DIR/rootfs.cpio $OUTPUT_DIR
 }
 
 generate_prod() {
@@ -24,7 +23,6 @@ generate_prod() {
 
   mkdir -p $OUTPUT_DIR
   cp $UBOOT_BUILD_DIR/tpl/boot.bin $OUTPUT_DIR
-  cp $BINARIES_DIR/rootfs.cpio $OUTPUT_DIR
 
   $UBOOT_BUILD_DIR/tools/image_table_util                                     \
   --append --print --print-images                                             \
