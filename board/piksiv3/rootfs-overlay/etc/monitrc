@@ -1,0 +1,50 @@
+set logfile syslog
+set daemon 10
+
+set httpd port 2812
+  allow piksi:piksi
+
+check process zmq_router with pidfile /var/run/zmq_router.pid
+    start program = "/etc/init.d/S80zmq_router start"
+    stop program = "/etc/init.d/S80zmq_router stop"
+
+check process sbp_settings_daemon with pidfile /var/run/sbp_settings_daemon.pid
+    start program = "/etc/init.d/S81sbp_settings_daemon start"
+    stop program = "/etc/init.d/S81sbp_settings_daemon stop"
+
+check process piksi_system_daemon with pidfile /var/run/piksi_system_daemon.pid
+    start program = "/etc/init.d/S82piksi_system_daemon start"
+    stop program = "/etc/init.d/S82piksi_system_daemon stop"
+
+check process zmq_adapter_gserial with pidfile /var/run/zmq_adapter_uart_ttyGS0.pid
+    start program = "/etc/init.d/S83zmq_adapter_gserial start"
+    stop program = "/etc/init.d/S83zmq_adapter_gserial stop"
+
+check process zmq_adapter_rpmsg_piksi100 with pidfile /var/run/zmq_adapter_rpmsg_piksi100.pid
+    start program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi100 start"
+    stop program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi100 stop"
+
+check process zmq_adapter_tcp_listen with pidfile /var/run/zmq_adapter_tcp_listen.pid
+    start program = "/etc/init.d/S83zmq_adapter_tcp_listen start"
+    stop program = "/etc/init.d/S83zmq_adapter_tcp_listen stop"
+
+check process zmq_adapter_uart0 with pidfile /var/run/zmq_adapter_uart_ttyPS0.pid
+    start program = "/etc/init.d/S83zmq_adapter_uart0 start"
+    stop program = "/etc/init.d/S83zmq_adapter_uart0 stop"
+
+check process zmq_adapter_uart1 with pidfile /var/run/zmq_adapter_uart_ttyPS1.pid
+    start program = "/etc/init.d/S83zmq_adapter_uart1 start"
+    stop program = "/etc/init.d/S83zmq_adapter_uart1 stop"
+
+check process sshd with pidfile /var/run/sshd.pid
+    start program = "/etc/init.d/S50sshd start"
+    stop program = "/etc/init.d/S50sshd stop"
+
+check process syslogd with pidfile /var/run/syslogd.pid
+    start program = "/etc/init.d/S01logging start"
+    stop program = "/etc/init.d/S01logging stop"
+
+check process klogd with pidfile /var/run/klogd.pid
+    start program = "/etc/init.d/S01logging start"
+    stop program = "/etc/init.d/S01logging stop"
+
