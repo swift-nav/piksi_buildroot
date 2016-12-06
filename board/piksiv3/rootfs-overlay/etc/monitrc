@@ -2,7 +2,7 @@ set logfile syslog
 # Change the pidfile name as the default conflicts with init.d
 # and causes monit to think its already been started
 set pidfile /var/run/monit_.pid
-set daemon 10
+set daemon 5
 
 set httpd port 2812
   allow piksi:piksi
