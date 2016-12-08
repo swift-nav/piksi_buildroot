@@ -34,7 +34,11 @@ https://console.aws.amazon.com/s3/home?region=us-west-2&bucket=swiftnav-artifact
         curl --data-urlencode "$DATA" "$URL"
     fi
 elif [ ! -z "$GITHUB_TOKEN" ]; then
-    COMMENT="## $BUILD_VERSION\n+ [s3://$PRS_BUCKET/$BUILD_PATH](https://console.aws.amazon.com/s3/home?region=us-west-2&bucket=swiftnav-artifacts-pull-requests&prefix=$BUILD_PATH/)"
+    COMMENT=\
+"## $BUILD_VERSION\n"\
+"+ [Artifacts (HITL Dashboard Page)](http://hitl-dashboard.swiftnav.com/files/swiftnav-artifacts-pull-requests/piksi_buildroot/$BUILD_VERSION/)\n"\
+"+ [Artifacts (S3 / AWS Console)](https://console.aws.amazon.com/s3/home?region=us-west-2&bucket=swiftnav-artifacts-pull-requests&prefix=$BUILD_PATH/)\n"\
+"+ s3://$PRS_BUCKET/$BUILD_PATH"
     URL="https://api.github.com/repos/swift-nav/$REPO/issues/$TRAVIS_PULL_REQUEST/comments"
     curl -u "$GITHUB_TOKEN:" -X POST "$URL" -d "{\"body\":\"$COMMENT\"}"
 fi
