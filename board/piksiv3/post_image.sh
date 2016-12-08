@@ -45,7 +45,3 @@ else
   echo "*** NO FIRMWARE FILES FOUND, NOT BUILDING PRODUCTION IMAGE ***"
 fi
 
-# Images for this HW_CONFIG have been moved into their relavant output folder,
-# remove the copies from the root of BINARIES_DIR
-rm -f $BINARIES_DIR/uImage.*
-rm -f $BINARIES_DIR/rootfs.cpio
