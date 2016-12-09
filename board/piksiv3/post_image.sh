@@ -19,14 +19,15 @@ generate_prod() {
   local CFG=piksiv3_$HW
   local UBOOT_BUILD_DIR=$UBOOT_DIR/build/${CFG}_prod
   local OUTPUT_DIR=$BINARIES_DIR/${CFG}_prod
-  local BR_GIT_VERSION=$(git -C $BR2_EXTERNAL rev-parse --short HEAD)
-
+  local BR_GIT_VERSION=$(git -C $BR2_EXTERNAL describe --tags --dirty --always --match 'v[0-9]\.[0-9]')
+  # remove the githash from the filename for useability (leave it in the header)
+  local FILE_GIT_VERSION=${BR_GIT_VERSION%%-g*} 
   mkdir -p $OUTPUT_DIR
   cp $UBOOT_BUILD_DIR/tpl/boot.bin $OUTPUT_DIR
 
   $UBOOT_BUILD_DIR/tools/image_table_util                                     \
   --append --print --print-images                                             \
-  --out $OUTPUT_DIR/image_set.bin                                             \
+  --out $OUTPUT_DIR/PiksiMulti-$FILE_GIT_VERSION.bin                           \
   --name "Piksi Buildroot $BR_GIT_VERSION"                                    \
   --timestamp $(date +%s)                                                     \
   --hardware v3_$HW                                                           \
