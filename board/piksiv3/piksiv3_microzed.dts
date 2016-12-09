@@ -29,7 +29,6 @@
 
   chosen {
     bootargs = "clk_ignore_unused";
-    stdout-path = "serial0:115200n8";
   };
 
   usb_phy0: phy0 {
