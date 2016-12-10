@@ -10,6 +10,7 @@ OUTPUT_DIR=$BINARIES_DIR/${CFG}
 FIRMWARE_DIR=$TARGET_DIR/lib/firmware
 UBOOT_BASE_DIR=`find $BUILD_DIR -maxdepth 1 -type d -name uboot_custom-*`
 UBOOT_PROD_DIR=$UBOOT_BASE_DIR/build/${CFG}_prod
+UBOOT_FAILSAFE_DIR=$UBOOT_BASE_DIR/build/${CFG}_failsafe
 UBOOT_DEV_DIR=$UBOOT_BASE_DIR/build/${CFG}_dev
 
 generate_dev() {
@@ -43,10 +44,23 @@ generate_prod() {
   --image $BINARIES_DIR/uImage.$CFG --image-type linux
 }
 
+generate_failsafe() {
+  $UBOOT_FAILSAFE_DIR/tools/image_table_util                                  \
+  --append --print --print-images                                             \
+  --out $OUTPUT_DIR/PiksiMulti-FAILSAFE-$FILE_GIT_VERSION.bin                 \
+  --name "Piksi Buildroot FAILSAFE $BR_GIT_VERSION"                           \
+  --timestamp $(date +%s)                                                     \
+  --hardware v3_$HW_CONFIG                                                    \
+  --image $UBOOT_FAILSAFE_DIR/spl/u-boot-spl-dtb.img --image-type uboot-spl   \
+  --image $UBOOT_FAILSAFE_DIR/u-boot.img --image-type uboot
+}
+
 mkdir -p $OUTPUT_DIR
 
 cp $UBOOT_PROD_DIR/tpl/boot.bin $OUTPUT_DIR
 cp $BINARIES_DIR/uImage.${CFG} $OUTPUT_DIR
+
+generate_failsafe
 
 if [ -e $FIRMWARE_DIR/piksi_fpga.bit ]; then
   generate_dev
