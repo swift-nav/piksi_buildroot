@@ -19,10 +19,8 @@ after_success:
   - export CONTAINER=`docker create piksi-buildroot`
   - docker cp $CONTAINER:/app/buildroot/output/images buildroot/output
   - git fetch --tags --unshallow
-  - PRODUCT_VERSION=v3 PRODUCT_REV=prod PRODUCT_TYPE=dev ./publish.sh buildroot/output/images/piksiv3_prod_dev/*
-  - PRODUCT_VERSION=v3 PRODUCT_REV=prod PRODUCT_TYPE=prod ./publish.sh buildroot/output/images/piksiv3_prod_prod/*
-  - PRODUCT_VERSION=v3 PRODUCT_REV=microzed PRODUCT_TYPE=dev ./publish.sh buildroot/output/images/piksiv3_microzed_dev/*
-  - PRODUCT_VERSION=v3 PRODUCT_REV=microzed PRODUCT_TYPE=prod ./publish.sh buildroot/output/images/piksiv3_microzed_prod/*
+  - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh buildroot/output/images/piksiv3_prod/*
+  - PRODUCT_VERSION=v3 PRODUCT_REV=microzed ./publish.sh buildroot/output/images/piksiv3_microzed/*
   - SLACK_CHANNEL=github ./comment.sh
 
 env:
