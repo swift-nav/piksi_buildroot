@@ -272,3 +272,7 @@ void settings_setup(sbp_state_t *sbp)
                             settings_register_callback);
 }
 
+void settings_reset_defaults(void)
+{
+  unlink(SETTINGS_FILE);
+}
