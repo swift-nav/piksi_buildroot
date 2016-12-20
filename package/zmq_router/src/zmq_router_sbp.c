@@ -35,7 +35,6 @@ static port_t ports_sbp[] = {
           .dst_port = &ports_sbp[SBP_PORT_EXTERNAL],
           .filters = (const filter_t *[]){
             &FILTER_REJECT(0x55, 0xAE, 0x00), /* Settings register */
-            &FILTER_REJECT(0x55, 0xA5, 0x00), /* Settings read response */
             &FILTER_REJECT(0x55, 0xA8, 0x00), /* File read */
             &FILTER_REJECT(0x55, 0xA9, 0x00), /* File read dir */
             &FILTER_REJECT(0x55, 0xAC, 0x00), /* File remove */
