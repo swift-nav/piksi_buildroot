@@ -12,7 +12,7 @@ install:
   - ./fetch_firmware.sh
 
 script:
-  - travis_wait 60 docker build -t piksi-buildroot .
+  - travis_wait 600 docker build -t piksi-buildroot .
 
 after_success:
   - mkdir -p buildroot/output
