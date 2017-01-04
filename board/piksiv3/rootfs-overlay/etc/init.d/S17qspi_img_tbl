@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# initialize image table data
+#
+
+case "$1" in
+  start)
+  # symlink mtd to /img_tbl/mtd
+  MTD_NAME=`cat /proc/mtd | grep qspi-image-table | cut -d ':' -f1`
+  mkdir -p /img_tbl
+  ln -s /dev/$MTD_NAME /img_tbl/mtd
+  # run image table tool
+  image_table_tool
+  ;;
+  stop)
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?
