@@ -15,9 +15,11 @@
 #include "zmq_router.h"
 
 extern const router_t router_sbp;
+extern const router_t router_nmea;
 
 static const router_t * const routers[] = {
-  &router_sbp
+  &router_sbp,
+  &router_nmea
 };
 
 static void router_setup(const router_t *router)
