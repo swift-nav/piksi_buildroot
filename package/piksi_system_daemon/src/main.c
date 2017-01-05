@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stddef.h>
+#include <signal.h>
 
 #include "whitelists.h"
 
@@ -78,6 +79,86 @@ static bool baudrate_notify(struct setting *s, const char *val)
     *(int*)s->addr = baudrate;
   }
   return ret;
+}
+
+static const char const * port_mode_enum[] = {"SBP", "NMEA", NULL};
+static struct setting_type port_mode_settings_type;
+static int TYPE_PORT_MODE = 0;
+enum {PORT_MODE_SBP, PORT_MODE_NMEA};
+u8 uart0_mode = PORT_MODE_SBP;
+u8 uart1_mode = PORT_MODE_SBP;
+pid_t uart0_adapter_pid = 0;
+pid_t uart1_adapter_pid = 0;
+
+bool port_mode_notify(struct setting *s, const char *val)
+{
+  u8 port_mode;
+  bool ret = s->type->from_string(s->type->priv, &port_mode, s->len, val);
+  if (!ret) {
+    return false;
+  }
+
+  const char *dev = NULL;
+  const char *opts = NULL;
+  pid_t *pid;
+  if (s->addr == &uart0_mode) {
+    dev = "/dev/ttyPS0";
+    opts = "";
+    pid = &uart0_adapter_pid;
+  } else if (s->addr == &uart1_mode) {
+    dev = "/dev/ttyPS1";
+    opts = "";
+    pid = &uart1_adapter_pid;
+  } else {
+    return false;
+  }
+
+  const char *mode_opts = NULL;
+  u16 zmq_port_pub = 0;
+  u16 zmq_port_sub = 0;
+  switch (port_mode) {
+  case PORT_MODE_SBP:
+    mode_opts = "-f sbp";
+    zmq_port_pub = 43031;
+    zmq_port_sub = 43030;
+    break;
+  case PORT_MODE_NMEA:
+    mode_opts = "";
+    zmq_port_pub = 44031;
+    zmq_port_sub = 44030;
+    break;
+  default:
+    return false;
+  }
+
+  /* Kill the old zmq_adapter, if it exists. */
+  if (*pid) {
+    int ret0 = kill(-1 * *pid, SIGTERM);
+    printf("Killing %d %d\n", *pid, ret0);
+  }
+
+  char cmd[200];
+  snprintf(cmd, sizeof(cmd), 
+           "zmq_adapter --file %s "
+           "-p \\>tcp://127.0.0.1:%d "
+           "-s \\>tcp://127.0.0.1:%d %s %s", 
+           dev, zmq_port_pub, zmq_port_sub, opts, mode_opts);
+
+  printf("CMD: %s\n", cmd);
+
+  /* Create a new zmq_adapter. */
+  if (!(*pid = fork())) {
+    setpgid(0, 0);
+    execlp("sh", "sh", "-c", cmd, (char *) NULL);
+  }
+
+  printf("New PID %d\n", *pid);
+  
+  if (*pid < 0) {
+    return false;
+  }
+
+  return true;
 }
 
 static const char const * ip_mode_enum[] = {"Static", "DHCP", NULL};
@@ -317,8 +398,11 @@ int main(void)
   };
   settings_setup(&settings_interface);
 
-  SETTING_NOTIFY("uart", "uart0_baudrate", uart0_baudrate, TYPE_INT, baudrate_notify);
-  SETTING_NOTIFY("uart", "uart1_baudrate", uart1_baudrate, TYPE_INT, baudrate_notify);
+  TYPE_PORT_MODE = settings_type_register_enum(port_mode_enum, &port_mode_settings_type);
+  SETTING_NOTIFY("uart0", "baudrate", uart0_baudrate, TYPE_INT, baudrate_notify);
+  SETTING_NOTIFY("uart1", "baudrate", uart1_baudrate, TYPE_INT, baudrate_notify);
+  SETTING_NOTIFY("uart0", "mode", uart0_mode, TYPE_PORT_MODE, port_mode_notify);
+  SETTING_NOTIFY("uart1", "mode", uart1_mode, TYPE_PORT_MODE, port_mode_notify);
 
   TYPE_IP_MODE = settings_type_register_enum(ip_mode_enum, &ip_mode_settings_type);
   SETTING_NOTIFY("ethernet", "ip_config_mode", eth_ip_mode, TYPE_IP_MODE, eth_ip_mode_notify);
