@@ -35,14 +35,6 @@ check process zmq_adapter_tcp_listen with pidfile /var/run/zmq_adapter_tcp_liste
     start program = "/etc/init.d/S83zmq_adapter_tcp_listen start"
     stop program = "/etc/init.d/S83zmq_adapter_tcp_listen stop"
 
-check process zmq_adapter_uart0 with pidfile /var/run/zmq_adapter_uart_ttyPS0.pid
-    start program = "/etc/init.d/S83zmq_adapter_uart0 start"
-    stop program = "/etc/init.d/S83zmq_adapter_uart0 stop"
-
-check process zmq_adapter_uart1 with pidfile /var/run/zmq_adapter_uart_ttyPS1.pid
-    start program = "/etc/init.d/S83zmq_adapter_uart1 start"
-    stop program = "/etc/init.d/S83zmq_adapter_uart1 stop"
-
 check process sshd with pidfile /var/run/sshd.pid
     start program = "/etc/init.d/S50sshd start"
     stop program = "/etc/init.d/S50sshd stop"
