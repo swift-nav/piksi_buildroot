@@ -133,27 +133,32 @@ bool port_mode_notify(struct setting *s, const char *val)
 
   /* Kill the old zmq_adapter, if it exists. */
   if (*pid) {
-    int ret0 = kill(-1 * *pid, SIGTERM);
-    printf("Killing %d %d\n", *pid, ret0);
+    pid_t lol = *pid;
+    nanosleep((const struct timespec[]){{0, 100000000L}}, NULL);
+    int ret0 = kill(lol, SIGTERM);
+    printf("Killing %d %d %d %d\n", *pid, lol, ret0, errno);
   }
 
   char cmd[200];
-  snprintf(cmd, sizeof(cmd), 
+  snprintf(cmd, sizeof(cmd),
            "zmq_adapter --file %s "
-           "-p \\>tcp://127.0.0.1:%d "
-           "-s \\>tcp://127.0.0.1:%d %s %s", 
+           "-p >tcp://127.0.0.1:%d "
+           "-s >tcp://127.0.0.1:%d %s %s",
            dev, zmq_port_pub, zmq_port_sub, opts, mode_opts);
 
   printf("CMD: %s\n", cmd);
 
+  char *args[100] = {0};
+  args[0] = strtok(cmd, " ");
+  for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 100; i++);
+
   /* Create a new zmq_adapter. */
   if (!(*pid = fork())) {
-    setpgid(0, 0);
-    execlp("sh", "sh", "-c", cmd, (char *) NULL);
+    execvp(args[0], args);
   }
 
   printf("New PID %d\n", *pid);
-  
+
   if (*pid < 0) {
     return false;
   }
@@ -378,6 +383,10 @@ static void img_tbl_settings_setup(void)
 
 int main(void)
 {
+  /* Ignore SIGCHLD to allow child processes to go quietly into the night
+   * without turning into zombies. */
+  signal(SIGCHLD, SIG_IGN);
+
   /* Set up SBP ZMQ */
   sbp_zmq_config_t sbp_zmq_config = {
     .sbp_sender_id = SBP_SENDER_ID,
