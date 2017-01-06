@@ -133,12 +133,16 @@ bool port_mode_notify(struct setting *s, const char *val)
 
   /* Kill the old zmq_adapter, if it exists. */
   if (*pid) {
-    pid_t lol = *pid;
+    /* TODO: This is an ugly hack to work around an apparent race condition in
+     * the way zmq_adapter handles SIGTERM while starting up. Delay before
+     * killing to give zmq_adapter time to get its act together. */
     nanosleep((const struct timespec[]){{0, 200000000L}}, NULL);
-    int ret0 = kill(lol, SIGTERM);
-    printf("Killing %d %d %d %d\n", *pid, lol, ret0, errno);
+    int ret = kill(*pid, SIGTERM);
+    printf("Killing zmq_adapter with PID: %d (kill returned %d, errno %d)\n",
+           *pid, ret, errno);
   }
 
+  /* Prepare the command used to launch zmq_adapter. */
   char cmd[200];
   snprintf(cmd, sizeof(cmd),
            "zmq_adapter --file %s "
@@ -146,8 +150,9 @@ bool port_mode_notify(struct setting *s, const char *val)
            "-s >tcp://127.0.0.1:%d %s %s",
            dev, zmq_port_pub, zmq_port_sub, opts, mode_opts);
 
-  printf("CMD: %s\n", cmd);
+  printf("Starting zmq_adapter: %s\n", cmd);
 
+  /* Split the command on each space for argv */
   char *args[100] = {0};
   args[0] = strtok(cmd, " ");
   for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 100; i++);
@@ -157,9 +162,10 @@ bool port_mode_notify(struct setting *s, const char *val)
     execvp(args[0], args);
   }
 
-  printf("New PID %d\n", *pid);
+  printf("zmq_adapter started with PID: %d\n", *pid);
 
   if (*pid < 0) {
+    /* fork() failed */
     return false;
   }
 
