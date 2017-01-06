@@ -27,6 +27,10 @@ check process zmq_adapter_rpmsg_piksi100 with pidfile /var/run/zmq_adapter_rpmsg
     start program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi100 start"
     stop program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi100 stop"
 
+check process zmq_adapter_rpmsg_piksi100 with pidfile /var/run/zmq_adapter_rpmsg_piksi101.pid
+    start program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi101 start"
+    stop program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi101 stop"
+
 check process zmq_adapter_tcp_listen with pidfile /var/run/zmq_adapter_tcp_listen.pid
     start program = "/etc/init.d/S83zmq_adapter_tcp_listen start"
     stop program = "/etc/init.d/S83zmq_adapter_tcp_listen stop"
