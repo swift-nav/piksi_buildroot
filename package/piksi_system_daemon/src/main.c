@@ -134,7 +134,7 @@ bool port_mode_notify(struct setting *s, const char *val)
   /* Kill the old zmq_adapter, if it exists. */
   if (*pid) {
     pid_t lol = *pid;
-    nanosleep((const struct timespec[]){{0, 100000000L}}, NULL);
+    nanosleep((const struct timespec[]){{0, 200000000L}}, NULL);
     int ret0 = kill(lol, SIGTERM);
     printf("Killing %d %d %d %d\n", *pid, lol, ret0, errno);
   }
