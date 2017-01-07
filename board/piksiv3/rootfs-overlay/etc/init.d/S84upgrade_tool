@@ -1,10 +1,22 @@
 #!/bin/sh
 
+_mount() {
+    [[ $# -lt 3 ]] && { 
+        echo "Usage: ${FUNCNAME} <timeout_ms> <dev> <mnt_point>"; return 1
+    }
+    repeats="${1}"
+    until mount "${2} ${3}" 2>/dev/null || [[ $repeats -lt 1 ]]; do
+       $(( repeats-- )) 
+       usleep 1000
+    done
+}
+
+
 start() {
   export FIRMWARE="/media/sda1/PiksiMulti-*.bin"
   export LOGLEVEL="--warn"
-  # Sleep briefly to allow the automounting of flashdrive
-  sleep 0.5 
+  # try and mount for up to 0.5 seconds or until success 
+  _mount 500 /dev/sda1 /media/sda1
   if [ `echo $FIRMWARE | wc -w` != '1' ]; then
     echo 'Upgrade requires exactly one firmware image' | sbp_log $LOGLEVEL
     exit
