@@ -1,10 +1,10 @@
 #!/bin/sh
 
 CFG=piksiv3_$HW_CONFIG
-BR_GIT_VERSION=$(git -C $BR2_EXTERNAL describe --tags --dirty                 \
-                     --always --match 'v[0-9]\.[0-9]')
-# remove the githash from the filename for useability (leave it in the header)
-FILE_GIT_VERSION=${BR_GIT_VERSION%%-g*}
+GIT_STRING=$(git -C $BR2_EXTERNAL describe --tags --dirty                     \
+                 --always --match 'v[0-9]*\.[0-9]*')
+# remove the githash from the filename for useability
+FILE_GIT_STRING=${GIT_STRING%%-g*}
 
 OUTPUT_DIR=$BINARIES_DIR/${CFG}
 FIRMWARE_DIR=$TARGET_DIR/lib/firmware
@@ -21,8 +21,8 @@ generate_dev() {
 
   $UBOOT_DEV_DIR/tools/image_table_util                                       \
   --append --print --print-images                                             \
-  --out $OUTPUT_DIR/PiksiMulti-DEV-$FILE_GIT_VERSION.bin                      \
-  --name "Piksi Buildroot DEV $BR_GIT_VERSION"                                \
+  --out "$OUTPUT_DIR/PiksiMulti-DEV-$FILE_GIT_STRING.bin"                     \
+  --name "DEV $GIT_STRING"                                                    \
   --timestamp $(date +%s)                                                     \
   --hardware v3_$HW_CONFIG                                                    \
   --image $UBOOT_DEV_DIR/spl/u-boot-spl-dtb.img --image-type uboot-spl        \
@@ -35,8 +35,8 @@ generate_dev() {
 generate_prod() {
   $UBOOT_PROD_DIR/tools/image_table_util                                      \
   --append --print --print-images                                             \
-  --out $OUTPUT_DIR/PiksiMulti-$FILE_GIT_VERSION.bin                          \
-  --name "Piksi Buildroot $BR_GIT_VERSION"                                    \
+  --out "$OUTPUT_DIR/PiksiMulti-$FILE_GIT_STRING.bin"                         \
+  --name "$GIT_STRING"                                                        \
   --timestamp $(date +%s)                                                     \
   --hardware v3_$HW_CONFIG                                                    \
   --image $UBOOT_PROD_DIR/spl/u-boot-spl-dtb.img --image-type uboot-spl       \
@@ -47,8 +47,8 @@ generate_prod() {
 generate_failsafe() {
   $UBOOT_FAILSAFE_DIR/tools/image_table_util                                  \
   --append --print --print-images                                             \
-  --out $OUTPUT_DIR/PiksiMulti-FAILSAFE-$FILE_GIT_VERSION.bin                 \
-  --name "Piksi Buildroot FAILSAFE $BR_GIT_VERSION"                           \
+  --out "$OUTPUT_DIR/PiksiMulti-FAILSAFE-$FILE_GIT_STRING.bin"                \
+  --name "FSF $GIT_STRING"                                                    \
   --timestamp $(date +%s)                                                     \
   --hardware v3_$HW_CONFIG                                                    \
   --image $UBOOT_FAILSAFE_DIR/spl/u-boot-spl-dtb.img --image-type uboot-spl   \
