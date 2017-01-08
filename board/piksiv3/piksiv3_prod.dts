@@ -61,6 +61,7 @@
 
   ethernet_phy: ethernet-phy@0 {
     reg = <0>;
+    max-speed = <100>;
   };
 };
 
