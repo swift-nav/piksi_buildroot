@@ -177,6 +177,63 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
   zloop_poller(ctx->loop, &ctx->pollitem, command_output, ctx);
 }
 
+static int file_read_string(const char *filename, char *str, size_t str_size)
+{
+  FILE *fp = fopen(filename, "r");
+  if (fp == NULL) {
+    printf("error opening %s\n", filename);
+    return -1;
+  }
+
+  bool success = (fgets(str, str_size, fp) != NULL);
+
+  fclose(fp);
+
+  if (!success) {
+    printf("error reading %s\n", filename);
+    return -1;
+  }
+
+  return 0;
+}
+
+static void img_tbl_settings_setup(void)
+{
+  char name_string[64];
+  if (file_read_string("/img_tbl/boot/name",
+                       name_string, sizeof(name_string)) == 0) {
+    /* firmware_build_id contains the full image name */
+    static char firmware_build_id[sizeof(name_string)];
+    strncpy(firmware_build_id, name_string, sizeof(firmware_build_id));
+    READ_ONLY_PARAMETER("system_info", "firmware_build_id",
+                        firmware_build_id, TYPE_STRING);
+
+    /* firmware_version contains everything before the git hash */
+    static char firmware_version[sizeof(name_string)];
+    strncpy(firmware_version, name_string, sizeof(firmware_version));
+    char *sep = strstr(firmware_version, "-g");
+    if (sep != NULL) {
+      *sep = 0;
+    }
+    READ_ONLY_PARAMETER("system_info", "firmware_version",
+                        firmware_version, TYPE_STRING);
+  }
+
+  char timestamp_string[32];
+  if (file_read_string("/img_tbl/boot/timestamp",
+                       timestamp_string, sizeof(timestamp_string)) == 0) {
+    static char firmware_build_date[128];
+    time_t timestamp = strtoul(timestamp_string, NULL, 10);
+    if (strftime(firmware_build_date, sizeof(firmware_build_date),
+                 "%Y-%m-%d %H:%M:%S %Z", localtime(&timestamp)) == 0) {
+      printf("error parsing timestamp\n");
+    } else {
+      READ_ONLY_PARAMETER("system_info", "firmware_build_date",
+                          firmware_build_date, TYPE_STRING);
+    }
+  }
+}
+
 int main(void)
 {
   sbp_state_t *sbp = sbp_zmq_init();
@@ -193,7 +250,7 @@ int main(void)
   SETTING_NOTIFY("ethernet", "gateway", eth_gateway, TYPE_STRING, eth_ip_config_notify);
 
   whitelists_init();
-
+  img_tbl_settings_setup();
   sbp_zmq_register_callback(sbp, SBP_MSG_COMMAND_REQ, sbp_command);
 
   sbp_zmq_loop(sbp);
