@@ -1,0 +1,4 @@
+config BR2_PACKAGE_LIBSBP_ZMQ
+	bool "libsbp_zmq"
+	select BR2_PACKAGE_CZMQ
+	select BR2_PACKAGE_LIBSBP
