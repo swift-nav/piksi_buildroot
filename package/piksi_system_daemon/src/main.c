@@ -20,6 +20,7 @@
 
 #include "settings.h"
 #include "sbp_zmq.h"
+#include "whitelists.h"
 
 static int uart0_baudrate = 115200;
 static int uart1_baudrate = 115200;
@@ -190,6 +191,8 @@ int main(void)
   SETTING_NOTIFY("ethernet", "ip_address", eth_ip_addr, TYPE_STRING, eth_ip_config_notify);
   SETTING_NOTIFY("ethernet", "netmask", eth_netmask, TYPE_STRING, eth_ip_config_notify);
   SETTING_NOTIFY("ethernet", "gateway", eth_gateway, TYPE_STRING, eth_ip_config_notify);
+
+  whitelists_init();
 
   sbp_zmq_register_callback(sbp, SBP_MSG_COMMAND_REQ, sbp_command);
 
