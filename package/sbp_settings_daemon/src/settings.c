@@ -155,14 +155,18 @@ static void settings_register_callback(u16 sender_id, u8 len, u8 msg[], void* co
   if (!settings_parse_setting(len, msg, &section, &setting, &value, &type))
     log_error("Error in register message");
 
-  struct setting *s = calloc(1, sizeof(*s));
-  strncpy(s->section, section, BUFSIZE);
-  strncpy(s->name, setting, BUFSIZE);
-  strncpy(s->value, value, BUFSIZE);
-  if (type != NULL)
-    strncpy(s->type, type, BUFSIZE);
+  struct setting *s = settings_lookup(section, setting);
+  /* Only register setting if it doesn't already exist */
+  if (s == NULL) {
+    s = calloc(1, sizeof(*s));
+    strncpy(s->section, section, BUFSIZE);
+    strncpy(s->name, setting, BUFSIZE);
+    strncpy(s->value, value, BUFSIZE);
+    if (type != NULL)
+      strncpy(s->type, type, BUFSIZE);
 
-  settings_register(s);
+    settings_register(s);
+  }
 
   /* Reply with write message with our value */
   char buf[256];
