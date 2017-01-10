@@ -1,44 +1,8 @@
 #!/bin/sh
 
-_mount() {
-    [[ $# -lt 3 ]] && { 
-        echo "Usage: ${FUNCNAME} <timeout_ms> <dev> <mnt_point>"; return 1
-    }
-    repeats="${1}"
-    until mount "${2} ${3}" 2>/dev/null || [[ $repeats -lt 1 ]]; do
-       $(( repeats-- )) 
-       usleep 1000
-    done
-}
+name="usb_upgrade"
+cmd="/etc/init.d/usb_upgrade.sh"
+dir="/"
+user=""
 
-
-start() {
-  export FIRMWARE="/media/sda1/PiksiMulti-*.bin"
-  export LOGLEVEL="--warn"
-  # try and mount for up to 0.5 seconds or until success 
-  _mount 500 /dev/sda1 /media/sda1
-  if [ `echo $FIRMWARE | wc -w` != '1' ]; then
-    echo 'Upgrade requires exactly one firmware image' | sbp_log $LOGLEVEL
-    exit
-  fi
-
-  if [ ! -x $FIRMWARE ]; then
-    exit
-  fi
-
-  echo "New firmware image set detected: `ls $FIRMWARE`" | sbp_log $LOGLEVEL
-  echo "Performing upgrade..." | sbp_log $LOGLEVEL
-  upgrade_tool --debug $FIRMWARE | sbp_log $LOGLEVEL
-  umount /media/sda1
-  sync
-  while [ 1 ]; do 
-    echo "Please remove upgrade media and reboot."  | sbp_log $LOGLEVEL
-    sleep 1
-  done
-}
-
-stop() {
-  :
-}
-
-source /etc/init.d/template_command.inc.sh
+source /etc/init.d/template_process.inc.sh
