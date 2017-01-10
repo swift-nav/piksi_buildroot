@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <sys/inotify.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #define SBP_MSG_TYPE_OFFSET 1
 #define SBP_MSG_SIZE_MIN    6
@@ -46,12 +47,13 @@ static int process_rule(filter_sbp_rule_t *rule)
 void filter_sbp_init(void *filter_sbp_state, const char *filename)
 {
   filter_sbp_state_t *s = (filter_sbp_state_t *)filter_sbp_state;
-  s->config_file = filename;
+  s->config_file = strdup(filename);
   filter_sbp_load_config(s);
-  s->config_inotify = inotify_init();
-  /* inotify_initl seems to be missing, so use fcntl to set non-blocking */
-  fcntl(s->config_inotify, F_SETFL, O_NONBLOCK);
-  inotify_add_watch(s->config_inotify, filename, IN_MODIFY);
+  s->config_inotify = inotify_init1(IN_NONBLOCK);
+  int wd = inotify_add_watch(s->config_inotify, filename, IN_CLOSE_WRITE);
+  if ((s->config_inotify < 0) || (wd < 0)) {
+    fprintf(stderr, "Error setting up inotify on config file: %s\n", filename);
+  }
 }
 
 static void filter_sbp_load_config(filter_sbp_state_t *s)
@@ -123,7 +125,8 @@ int filter_sbp_process(void *filter_sbp_state,
   filter_sbp_state_t *s = (filter_sbp_state_t *)filter_sbp_state;
 
   /* Reload config if changed */
-  char buf[4096] __attribute__ ((aligned(__alignof__(struct inotify_event))));
+  char buf[sizeof(struct inotify_event) + NAME_MAX + 1]
+    __attribute__ ((aligned(__alignof__(struct inotify_event))));
   if (read(s->config_inotify, buf, sizeof(buf)) > 0) {
     /* Any events on the config file trigger a reload.
      * We only subscribe to modify events. */
