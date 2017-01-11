@@ -3,6 +3,7 @@ SOURCES= \
 	main.c \
 	sbp_zmq.c \
 	settings.c \
+	whitelists.c \
 
 LIBS=-lczmq -lsbp
 CFLAGS=-std=gnu11
