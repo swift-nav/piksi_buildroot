@@ -1,0 +1,9 @@
+#!/bin/sh
+
+name="zmq_adapter_tcp_listen_nmea"
+cmd="zmq_adapter --tcp-l 55556 -p >tcp://127.0.0.1:44031 -s >tcp://127.0.0.1:44030 -f sbp"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh
+

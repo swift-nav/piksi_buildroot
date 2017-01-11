@@ -1,7 +1,0 @@
-#!/bin/sh
-
-ttydev="ttyPS0"
-filter_options="--filter-out sbp --filter-out-config /etc/uart0_filter_out_config"
-
-source /etc/init.d/adapter_uart.inc.sh
-
