@@ -100,14 +100,17 @@ bool port_mode_notify(struct setting *s, const char *val)
 
   const char *dev = NULL;
   const char *opts = NULL;
+  const char *opts_sbp = NULL;
   pid_t *pid;
   if (s->addr == &uart0_mode) {
     dev = "/dev/ttyPS0";
     opts = "";
+    opts_sbp = "-f sbp --filter-out sbp --filter-out-config /etc/uart0_filter_out_config";
     pid = &uart0_adapter_pid;
   } else if (s->addr == &uart1_mode) {
     dev = "/dev/ttyPS1";
     opts = "";
+    opts_sbp = "-f sbp --filter-out sbp --filter-out-config /etc/uart1_filter_out_config";
     pid = &uart1_adapter_pid;
   } else {
     return false;
@@ -118,7 +121,7 @@ bool port_mode_notify(struct setting *s, const char *val)
   u16 zmq_port_sub = 0;
   switch (port_mode) {
   case PORT_MODE_SBP:
-    mode_opts = "-f sbp";
+    mode_opts = opts_sbp;
     zmq_port_pub = 43031;
     zmq_port_sub = 43030;
     break;
