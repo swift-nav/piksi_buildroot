@@ -10,22 +10,51 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libsbp/sbp.h>
+#include <sbp_zmq.h>
+#include <sbp_settings.h>
 #include <libsbp/piksi.h>
 #include <libsbp/logging.h>
-#include <czmq.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stddef.h>
 
-#include "settings.h"
-#include "sbp_zmq.h"
 #include "whitelists.h"
+
+#define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
+
+static sbp_zmq_state_t sbp_zmq_state;
+
+static int settings_msg_send(u16 msg_type, u8 len, u8 *payload)
+{
+  return sbp_zmq_message_send(&sbp_zmq_state, msg_type, len, payload);
+}
+
+static int settings_msg_cb_register(u16 msg_type,
+                                    sbp_msg_callback_t cb, void *context,
+                                    sbp_msg_callbacks_node_t **node)
+{
+  return sbp_zmq_callback_register(&sbp_zmq_state, msg_type, cb, context, node);
+}
+
+static int settings_msg_cb_remove(sbp_msg_callbacks_node_t *node)
+{
+  return sbp_zmq_callback_remove(&sbp_zmq_state, node);
+}
+
+static int settings_msg_loop_timeout(u32 timeout_ms)
+{
+  return sbp_zmq_loop_timeout(&sbp_zmq_state, timeout_ms);
+}
+
+static int settings_msg_loop_interrupt(void)
+{
+  return sbp_zmq_loop_interrupt(&sbp_zmq_state);
+}
 
 static int uart0_baudrate = 115200;
 static int uart1_baudrate = 115200;
 
-bool baudrate_notify(struct setting *s, const char *val)
+static bool baudrate_notify(struct setting *s, const char *val)
 {
   int baudrate;
   bool ret = s->type->from_string(s->type->priv, &baudrate, s->len, val);
@@ -55,7 +84,7 @@ static const char const * ip_mode_enum[] = {"Static", "DHCP", NULL};
 static struct setting_type ip_mode_settings_type;
 static int TYPE_IP_MODE = 0;
 enum {IP_CFG_STATIC, IP_CFG_DHCP};
-u8 eth_ip_mode = IP_CFG_STATIC;
+static u8 eth_ip_mode = IP_CFG_STATIC;
 static char eth_ip_addr[16] = "192.168.0.222";
 static char eth_netmask[16] = "255.255.255.0";
 static char eth_gateway[16] = "192.168.0.1";
@@ -100,7 +129,6 @@ static bool eth_ip_config_notify(struct setting *s, const char *val)
 }
 
 struct shell_cmd_ctx {
-  sbp_state_t *sbp;
   FILE *pipe;
   u32 sequence;
   zloop_t *loop;
@@ -110,7 +138,7 @@ struct shell_cmd_ctx {
 /* We use this unbuffered fgets function alternative so that the czmq loop
  * will keep calling us with output until we've read it all.
  */
-int raw_fgets(char *str, size_t len, FILE *stream)
+static int raw_fgets(char *str, size_t len, FILE *stream)
 {
   int fd = fileno(stream);
   size_t i;
@@ -126,22 +154,25 @@ int raw_fgets(char *str, size_t len, FILE *stream)
   return i > 1 ? i : 0;
 }
 
-int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
+static int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 {
   struct shell_cmd_ctx *ctx = arg;
   msg_log_t *msg = alloca(256);
   msg->level = 6;
 
-  if (raw_fgets(msg->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text),
+  if (raw_fgets(msg->text,
+                SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text),
                 ctx->pipe) > 0) {
-    sbp_zmq_send_msg(ctx->sbp, SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
+    sbp_zmq_message_send(&sbp_zmq_state, SBP_MSG_LOG,
+                         sizeof(*msg) + strlen(msg->text), (void*)msg);
   } else {
     /* Broken pipe, clean up and send exit code */
     msg_command_resp_t resp = {
       .sequence = ctx->sequence,
       .code = pclose(ctx->pipe),
     };
-    sbp_zmq_send_msg(ctx->sbp, SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
+    sbp_zmq_message_send(&sbp_zmq_state, SBP_MSG_COMMAND_RESP,
+                         sizeof(resp), (void*)&resp);
     zloop_poller_end(ctx->loop, item);
     free(ctx);
   }
@@ -162,14 +193,14 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
       .sequence = msg->sequence,
       .code = (u32)-1,
     };
-    sbp_zmq_send_msg(context, SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
+    sbp_zmq_message_send(&sbp_zmq_state, SBP_MSG_COMMAND_RESP,
+                         sizeof(resp), (u8*)&resp);
     return;
   }
   struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
-  ctx->sbp = context;
   ctx->pipe = popen(msg->command, "r");
   ctx->sequence = msg->sequence;
-  ctx->loop = sbp_zmq_get_loop(context);
+  ctx->loop = sbp_zmq_loop_get(&sbp_zmq_state);
   ctx->pollitem.fd = fileno(ctx->pipe);
   ctx->pollitem.events = ZMQ_POLLIN;
   int arg = O_NONBLOCK;
@@ -266,9 +297,25 @@ static void img_tbl_settings_setup(void)
 
 int main(void)
 {
-  sbp_state_t *sbp = sbp_zmq_init();
+  /* Set up SBP ZMQ */
+  sbp_zmq_config_t sbp_zmq_config = {
+    .sbp_sender_id = SBP_SENDER_ID,
+    .pub_endpoint = ">tcp://localhost:43011",
+    .sub_endpoint = ">tcp://localhost:43010"
+  };
+  if (sbp_zmq_init(&sbp_zmq_state, &sbp_zmq_config) != 0) {
+    exit(EXIT_FAILURE);
+  }
 
-  settings_setup(sbp);
+  /* Set up settings */
+  settings_interface_t settings_interface = {
+    .msg_send = settings_msg_send,
+    .msg_cb_register = settings_msg_cb_register,
+    .msg_cb_remove = settings_msg_cb_remove,
+    .msg_loop_timeout = settings_msg_loop_timeout,
+    .msg_loop_interrupt = settings_msg_loop_interrupt
+  };
+  settings_setup(&settings_interface);
 
   SETTING_NOTIFY("uart", "uart0_baudrate", uart0_baudrate, TYPE_INT, baudrate_notify);
   SETTING_NOTIFY("uart", "uart1_baudrate", uart1_baudrate, TYPE_INT, baudrate_notify);
@@ -281,9 +328,10 @@ int main(void)
 
   whitelists_init();
   img_tbl_settings_setup();
-  sbp_zmq_register_callback(sbp, SBP_MSG_COMMAND_REQ, sbp_command);
+  sbp_zmq_callback_register(&sbp_zmq_state, SBP_MSG_COMMAND_REQ, sbp_command, NULL, NULL);
 
-  sbp_zmq_loop(sbp);
+  sbp_zmq_loop(&sbp_zmq_state);
 
-  return 0;
+  sbp_zmq_deinit(&sbp_zmq_state);
+  exit(EXIT_SUCCESS);
 }
