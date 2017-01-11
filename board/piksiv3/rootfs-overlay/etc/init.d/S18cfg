@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# initialize config data
+#
+
+case "$1" in
+  start)
+  mkdir -p /cfg
+  SBP_SENDER_ID_HEX=`cat /factory/uuid | tail -c 4`
+  printf "%u" "0x$SBP_SENDER_ID_HEX" > /cfg/sbp_sender_id
+  ;;
+  stop)
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?
