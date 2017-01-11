@@ -27,6 +27,8 @@ typedef struct {
 typedef struct {
   filter_sbp_rule_t *rules;
   uint32_t rules_count;
+  const char *config_file;
+  int config_inotify;
 } filter_sbp_state_t;
 
 void filter_sbp_init(void *filter_sbp_state, const char *filename);
