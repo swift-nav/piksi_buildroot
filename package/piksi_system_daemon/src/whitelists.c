@@ -27,7 +27,7 @@ enum port {
   PORT_MAX
 };
 
-const char *setting_names[PORT_MAX] = {
+const char *section_names[PORT_MAX] = {
   "uart0", "uart1", "usb", "ethernet",
 };
 
@@ -116,7 +116,7 @@ static bool whitelist_notify(struct setting *s, const char *val)
 
   /* Parsed successfully, write config file and accept setting */
   char fn[256];
-  sprintf(fn, "/etc/%s_filter_out_config", s->name);
+  sprintf(fn, "/etc/%s_filter_out_config", s->section);
   FILE *cfg = fopen(fn, "w");
   for (int i = 0; i < entries; i++) {
     fprintf(cfg, "%x %x\n", whitelist[i].id, whitelist[i].div);
@@ -133,8 +133,8 @@ int whitelists_init(void)
   static struct setting whitelist_settings[PORT_MAX];
   for (int i = 0; i < PORT_MAX; i++) {
     struct setting *s = &whitelist_settings[i];
-    s->section = "whitelists";
-    s->name = setting_names[i];
+    s->section = section_names[i];
+    s->name = "whitelist";
     s->addr = wl[i];
     s->len = sizeof(wl[i]);
     s->notify = whitelist_notify;
