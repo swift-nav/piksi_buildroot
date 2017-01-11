@@ -170,8 +170,9 @@ int main(int argc, char *argv[])
     }
   }
 
-  uint8_t mfg_id[17];
+  uint8_t mfg_id[17 + 1];
   if (factory_data_mfg_id_get(factory_data, mfg_id) == 0) {
+    mfg_id[sizeof(mfg_id) - 1] = 0;
     factory_file_write("mfg_id", mfg_id);
   }
 
