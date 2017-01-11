@@ -197,6 +197,19 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
+static int date_string_get(const char *timestamp_string,
+                           char *date_string, size_t date_string_size)
+{
+  time_t timestamp = strtoul(timestamp_string, NULL, 10);
+  if (strftime(date_string, date_string_size,
+               "%Y-%m-%d %H:%M:%S %Z", localtime(&timestamp)) == 0) {
+    printf("error parsing timestamp\n");
+    return -1;
+  }
+
+  return 0;
+}
+
 static void img_tbl_settings_setup(void)
 {
   char name_string[64];
@@ -220,16 +233,33 @@ static void img_tbl_settings_setup(void)
   }
 
   char timestamp_string[32];
-  if (file_read_string("/img_tbl/boot/timestamp",
-                       timestamp_string, sizeof(timestamp_string)) == 0) {
+  if (file_read_string("/img_tbl/boot/timestamp", timestamp_string,
+                       sizeof(timestamp_string)) == 0) {
     static char firmware_build_date[128];
-    time_t timestamp = strtoul(timestamp_string, NULL, 10);
-    if (strftime(firmware_build_date, sizeof(firmware_build_date),
-                 "%Y-%m-%d %H:%M:%S %Z", localtime(&timestamp)) == 0) {
-      printf("error parsing timestamp\n");
-    } else {
+    if (date_string_get(timestamp_string, firmware_build_date,
+                        sizeof(firmware_build_date)) == 0) {
       READ_ONLY_PARAMETER("system_info", "firmware_build_date",
                           firmware_build_date, TYPE_STRING);
+    }
+  }
+
+  char loader_name_string[64];
+  if (file_read_string("/img_tbl/loader/name",
+                       loader_name_string, sizeof(loader_name_string)) == 0) {
+    static char loader_build_id[sizeof(loader_name_string)];
+    strncpy(loader_build_id, loader_name_string, sizeof(loader_build_id));
+    READ_ONLY_PARAMETER("system_info", "loader_build_id",
+                        loader_build_id, TYPE_STRING);
+  }
+
+  char loader_timestamp_string[32];
+  if (file_read_string("/img_tbl/loader/timestamp", loader_timestamp_string,
+                       sizeof(loader_timestamp_string)) == 0) {
+    static char loader_build_date[128];
+    if (date_string_get(loader_timestamp_string, loader_build_date,
+                        sizeof(loader_build_date)) == 0) {
+      READ_ONLY_PARAMETER("system_info", "loader_build_date",
+                          loader_build_date, TYPE_STRING);
     }
   }
 }

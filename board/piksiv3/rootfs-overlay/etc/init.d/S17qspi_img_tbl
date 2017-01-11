@@ -5,10 +5,14 @@
 
 case "$1" in
   start)
-  # symlink mtd to /img_tbl/mtd
-  MTD_NAME=`cat /proc/mtd | grep qspi-image-table | cut -d ':' -f1`
+  # symlink qspi-image-table mtd to /img_tbl/mtd
+  MTD_IMG_TBL=`cat /proc/mtd | grep qspi-image-table | cut -d ':' -f1`
   mkdir -p /img_tbl
-  ln -s /dev/$MTD_NAME /img_tbl/mtd
+  ln -s /dev/$MTD_IMG_TBL /img_tbl/mtd
+  # symlink qspi-loader mtd to /img_tbl/loader/mtd
+  MTD_LOADER=`cat /proc/mtd | grep qspi-loader| cut -d ':' -f1`
+  mkdir -p /img_tbl/loader
+  ln -s /dev/$MTD_LOADER /img_tbl/loader/mtd
   # run image table tool
   image_table_tool
   ;;

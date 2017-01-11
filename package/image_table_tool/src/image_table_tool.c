@@ -20,6 +20,12 @@
 #define IMAGE_TABLE_ELEMENT_COUNT 4
 #define IMAGE_TABLE_SIZE (IMAGE_TABLE_ELEMENT_COUNT * IMAGE_TABLE_ELEMENT_SIZE)
 
+#define LOADER_SIZE 0x00040000U
+#define ZYNQ_IMAGE_USER_TIME_OFFSET 0x2CU
+#define ZYNQ_IMAGE_USER_TIME_SIZE 4
+#define ZYNQ_IMAGE_USER_NAME_OFFSET 0x8A0U
+#define ZYNQ_IMAGE_USER_NAME_SIZE 32
+
 #define REG_REBOOT_STATUS 0xF8000258U
 
 static int reboot_status_read(uint32_t *reboot_status)
@@ -52,32 +58,34 @@ static int reboot_status_read(uint32_t *reboot_status)
   return 0;
 }
 
-static const uint8_t * image_table_get(void)
+static int partition_data_load(const char *filename, uint32_t data_length,
+                               const void **data)
 {
   /* open file */
-  int fd = open("/img_tbl/mtd", O_RDONLY);
+  int fd = open(filename, O_RDONLY);
   if (fd < 0) {
-    printf("error opening /img_tbl/mtd\n");
-    return NULL;
+    printf("error opening %s\n", filename);
+    return -1;
   }
 
   /* allocate buffer */
-  uint8_t *image_table = (uint8_t *)malloc(IMAGE_TABLE_SIZE);
-  if (image_table == NULL) {
-    printf("error allocating buffer for image table\n");
-    return NULL;
+  void *buffer = malloc(data_length);
+  if (buffer == NULL) {
+    printf("error allocating buffer for partition data\n");
+    return -1;
   }
 
   /* read data */
-  if (read(fd, image_table, IMAGE_TABLE_SIZE) != IMAGE_TABLE_SIZE) {
-    printf("error reading /img_tbl/mtd\n");
-    return NULL;
+  if (read(fd, buffer, data_length) != data_length) {
+    printf("error reading %s\n", filename);
+    return -1;
   }
 
   /* close file */
   close(fd);
 
-  return image_table;
+  *data = buffer;
+  return 0;
 }
 
 static char nibble_to_char(uint8_t nibble)
@@ -147,11 +155,13 @@ static int img_tbl_file_write_hex_string(const char *filepath,
 
 static int img_set_output(const char *filepath, const image_set_t *image_set)
 {
+  /* name */
   uint8_t name[32 + 1];
   image_set_name_get(image_set, name);
   name[sizeof(name) - 1] = 0;
   img_tbl_file_write(filepath, "name", name);
 
+  /* timestamp */
   uint32_t timestamp = image_set_timestamp_get(image_set);
   img_tbl_file_write_u32(filepath, "timestamp", timestamp);
 }
@@ -159,8 +169,16 @@ static int img_set_output(const char *filepath, const image_set_t *image_set)
 int main(int argc, char *argv[])
 {
   /* get image table data */
-  const uint8_t *image_table = image_table_get();
-  if (image_table == NULL) {
+  const void *image_table;
+  if (partition_data_load("/img_tbl/mtd", IMAGE_TABLE_SIZE,
+                          &image_table) != 0) {
+    exit(EXIT_FAILURE);
+  }
+
+  /* get loader data */
+  const void *loader;
+  if (partition_data_load("/img_tbl/loader/mtd", LOADER_SIZE,
+                          &loader) != 0) {
     exit(EXIT_FAILURE);
   }
 
@@ -175,8 +193,9 @@ int main(int argc, char *argv[])
   uint32_t boot_image_table_index = reboot_status & 0x3;
 
   const image_set_t *image_set_boot =
-      (const image_set_t *)&image_table[boot_image_table_index *
-                                        IMAGE_TABLE_ELEMENT_SIZE];
+      (const image_set_t *)
+      &((const uint8_t *)image_table)[boot_image_table_index *
+                                      IMAGE_TABLE_ELEMENT_SIZE];
 
   if (image_set_verify(image_set_boot) == 0) {
     mkdir("/img_tbl/boot", 0777);
@@ -184,6 +203,19 @@ int main(int argc, char *argv[])
   } else {
     printf("warning: boot image set verification failed\n");
   }
+
+  /* loader version */
+  char loader_name[ZYNQ_IMAGE_USER_NAME_SIZE + 1];
+  memcpy(loader_name, &((const uint8_t *)loader)[ZYNQ_IMAGE_USER_NAME_OFFSET],
+         ZYNQ_IMAGE_USER_NAME_SIZE);
+  loader_name[ZYNQ_IMAGE_USER_NAME_SIZE] = 0;
+  img_tbl_file_write("loader", "name", loader_name);
+
+  /* loader timestamp */
+  uint32_t loader_timestamp =
+      le32_to_cpu(*(uint32_t *)
+                  &((const uint8_t *)loader)[ZYNQ_IMAGE_USER_TIME_OFFSET]);
+  img_tbl_file_write_u32("loader", "timestamp", loader_timestamp);
 
   exit(EXIT_SUCCESS);
 }
