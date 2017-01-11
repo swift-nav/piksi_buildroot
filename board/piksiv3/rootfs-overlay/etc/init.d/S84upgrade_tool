@@ -1,0 +1,28 @@
+#!/bin/sh
+
+start() {
+  export FIRMWARE="/media/sda1/PiksiMulti-*.bin"
+  export LOGLEVEL="--info"
+
+  if [ `echo $FIRMWARE | wc -w` != '1' ]; then
+    echo 'Upgrade requires exactly one firmware image' | sbp_log $LOGLEVEL
+    exit
+  fi
+
+  if [ ! -x $FIRMWARE ]; then
+    exit
+  fi
+
+  echo "New firmware image set detected: $FIRMWARE" | sbp_log $LOGLEVEL
+  echo "Performing upgrade..." | sbp_log $LOGLEVEL
+  upgrade_tool --debug $FIRMWARE | sbp_log $LOGLEVEL
+  rm $FIRMWARE
+  sync
+  reboot -f
+}
+
+stop() {
+  :
+}
+
+source /etc/init.d/template_command.inc.sh
