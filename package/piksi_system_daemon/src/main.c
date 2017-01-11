@@ -85,10 +85,10 @@ static const char const * port_mode_enum[] = {"SBP", "NMEA", NULL};
 static struct setting_type port_mode_settings_type;
 static int TYPE_PORT_MODE = 0;
 enum {PORT_MODE_SBP, PORT_MODE_NMEA};
-u8 uart0_mode = PORT_MODE_SBP;
-u8 uart1_mode = PORT_MODE_SBP;
-pid_t uart0_adapter_pid = 0;
-pid_t uart1_adapter_pid = 0;
+static u8 uart0_mode = PORT_MODE_SBP;
+static u8 uart1_mode = PORT_MODE_SBP;
+static pid_t uart0_adapter_pid = 0;
+static pid_t uart1_adapter_pid = 0;
 
 bool port_mode_notify(struct setting *s, const char *val)
 {
