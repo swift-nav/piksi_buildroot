@@ -11,36 +11,13 @@
  */
 
 #include <libsbp/sbp.h>
-#include <libsbp/piksi.h>
 
 #include "sbp_zmq.h"
 #include "settings.h"
 
-static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void* context)
-{
-  (void)sender_id; (void) context;
-
-  /* Reset settings to defaults if requested */
-  if (len == sizeof(msg_reset_t)) {
-    const msg_reset_t *msg = (const void*)msg_;
-    if (msg->flags & 1) {
-      settings_reset_defaults();
-    }
-  }
-
-  /* We use -f to force immediate reboot.  Orderly shutdown sometimes fails
-   * when unloading remoteproc drivers. */
-  system("reboot -f");
-}
-
 int main(void)
 {
   sbp_state_t *sbp = sbp_zmq_init();
-
-  sbp_zmq_register_callback(sbp, SBP_MSG_RESET,
-                            reset_callback);
-  sbp_zmq_register_callback(sbp, SBP_MSG_RESET_DEP,
-                            reset_callback);
 
   settings_setup(sbp);
 
