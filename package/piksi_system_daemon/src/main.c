@@ -415,8 +415,14 @@ int main(void)
   signal(SIGCHLD, SIG_IGN);
 
   /* Set up SBP ZMQ */
+  u16 sbp_sender_id = SBP_SENDER_ID;
+  char sbp_sender_id_string[32];
+  if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
+                        sizeof(sbp_sender_id_string)) == 0) {
+    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
+  }
   sbp_zmq_config_t sbp_zmq_config = {
-    .sbp_sender_id = SBP_SENDER_ID,
+    .sbp_sender_id = sbp_sender_id,
     .pub_endpoint = ">tcp://localhost:43011",
     .sub_endpoint = ">tcp://localhost:43010"
   };

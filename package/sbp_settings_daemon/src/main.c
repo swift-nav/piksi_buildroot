@@ -14,11 +14,37 @@
 
 #include "settings.h"
 
+static int file_read_string(const char *filename, char *str, size_t str_size)
+{
+  FILE *fp = fopen(filename, "r");
+  if (fp == NULL) {
+    printf("error opening %s\n", filename);
+    return -1;
+  }
+
+  bool success = (fgets(str, str_size, fp) != NULL);
+
+  fclose(fp);
+
+  if (!success) {
+    printf("error reading %s\n", filename);
+    return -1;
+  }
+
+  return 0;
+}
+
 int main(void)
 {
   /* Set up SBP ZMQ */
+  u16 sbp_sender_id = SBP_SENDER_ID;
+  char sbp_sender_id_string[32];
+  if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
+                        sizeof(sbp_sender_id_string)) == 0) {
+    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
+  }
   sbp_zmq_config_t sbp_zmq_config = {
-    .sbp_sender_id = SBP_SENDER_ID,
+    .sbp_sender_id = sbp_sender_id,
     .pub_endpoint = ">tcp://localhost:43021",
     .sub_endpoint = ">tcp://localhost:43020"
   };
