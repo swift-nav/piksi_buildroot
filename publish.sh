@@ -39,7 +39,7 @@ echo "Uploading $@ to $BUILD_PATH"
 for file in "$@"; do
     KEY="$BUILD_PATH/$(basename $file)"
     if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-        if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_BRANCH" == *-release ]]; then
+        if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_BRANCH" == v*-release ]]; then
             OBJECT="s3://$BUCKET/$KEY"
             aws s3 cp "$file" "$OBJECT"
         fi
