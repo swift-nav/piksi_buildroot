@@ -40,6 +40,8 @@ int sbp_zmq_callback_register(sbp_zmq_state_t *s, u16 msg_type,
 int sbp_zmq_callback_remove(sbp_zmq_state_t *s,
                             sbp_msg_callbacks_node_t *node);
 int sbp_zmq_message_send(sbp_zmq_state_t *s, u16 msg_type, u8 len, u8 *payload);
+int sbp_zmq_message_send_from(sbp_zmq_state_t *s, u16 msg_type, u8 len,
+                              u8 *payload, u16 sbp_sender_id);
 int sbp_zmq_loop(sbp_zmq_state_t *s);
 int sbp_zmq_loop_timeout(sbp_zmq_state_t *s, u32 timeout_ms);
 int sbp_zmq_loop_interrupt(sbp_zmq_state_t *s);

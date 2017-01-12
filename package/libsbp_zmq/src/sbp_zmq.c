@@ -206,8 +206,15 @@ int sbp_zmq_callback_remove(sbp_zmq_state_t *s,
 
 int sbp_zmq_message_send(sbp_zmq_state_t *s, u16 msg_type, u8 len, u8 *payload)
 {
+  return sbp_zmq_message_send_from(s, msg_type, len, payload,
+                                   s->sbp_sender_id);
+}
+
+int sbp_zmq_message_send_from(sbp_zmq_state_t *s, u16 msg_type, u8 len,
+                              u8 *payload, u16 sbp_sender_id)
+{
   sbp_send_buffer_reset(s);
-  if (sbp_send_message(s->sbp_state, msg_type, s->sbp_sender_id, len, payload,
+  if (sbp_send_message(s->sbp_state, msg_type, sbp_sender_id, len, payload,
                        sbp_send_buffer_write) != SBP_OK) {
     printf("error sending SBP message\n");
     return -1;
