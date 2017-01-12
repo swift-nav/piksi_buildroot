@@ -15,7 +15,6 @@
 
 #include "sbp_zmq.h"
 #include "settings.h"
-#include "sbp_fileio.h"
 
 static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
@@ -44,7 +43,6 @@ int main(void)
                             reset_callback);
 
   settings_setup(sbp);
-  sbp_fileio_setup(sbp);
 
   sbp_zmq_loop(sbp);
 
