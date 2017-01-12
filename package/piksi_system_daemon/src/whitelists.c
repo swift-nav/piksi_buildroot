@@ -15,8 +15,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sbp_settings.h>
 
-#include "settings.h"
 #include "whitelists.h"
 
 enum port {
