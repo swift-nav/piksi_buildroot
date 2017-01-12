@@ -44,5 +44,3 @@ download_fw() {
 }
 
 download_fw "prod"
-download_fw "microzed"
-
