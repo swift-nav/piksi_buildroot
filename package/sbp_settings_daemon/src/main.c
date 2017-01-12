@@ -10,19 +10,29 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libsbp/sbp.h>
+#include <sbp_zmq.h>
 
-#include "sbp_zmq.h"
 #include "settings.h"
 
 int main(void)
 {
-  sbp_state_t *sbp = sbp_zmq_init();
+  /* Set up SBP ZMQ */
+  sbp_zmq_config_t sbp_zmq_config = {
+    .sbp_sender_id = SBP_SENDER_ID,
+    .pub_endpoint = ">tcp://localhost:43021",
+    .sub_endpoint = ">tcp://localhost:43020"
+  };
 
-  settings_setup(sbp);
+  sbp_zmq_state_t sbp_zmq_state;
+  if (sbp_zmq_init(&sbp_zmq_state, &sbp_zmq_config) != 0) {
+    exit(EXIT_FAILURE);
+  }
 
-  sbp_zmq_loop(sbp);
+  settings_setup(&sbp_zmq_state);
 
-  return 0;
+  sbp_zmq_loop(&sbp_zmq_state);
+
+  sbp_zmq_deinit(&sbp_zmq_state);
+  exit(EXIT_SUCCESS);
 }
 
