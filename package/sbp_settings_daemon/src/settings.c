@@ -204,6 +204,62 @@ static void settings_read_reply_callback(u16 sender_id, u8 len, u8 msg[], void *
   return;
 }
 
+static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  sbp_zmq_state_t *sbp_zmq_state = (sbp_zmq_state_t *)context;
+
+ if (sender_id != SBP_SENDER_ID) {
+    log_error("Invalid sender");
+    return;
+  }
+
+  static struct setting *s = NULL;
+  const char *section = NULL, *setting = NULL;
+  char buf[256];
+  u8 buflen;
+
+  if (len == 0) {
+    log_error("Error in settings read message");
+    return;
+  }
+
+  if (msg[len-1] != '\0') {
+    log_error("Error in settings read message");
+    return;
+  }
+
+  /* Extract parameters from message:
+   * 2 null terminated strings: section, and setting
+   */
+  section = (const char *)msg;
+  for (int i = 0, tok = 0; i < len; i++) {
+    if (msg[i] == '\0') {
+      tok++;
+      switch (tok) {
+      case 1:
+        setting = (const char *)&msg[i+1];
+        break;
+      case 2:
+        if (i == len-1)
+          break;
+      default:
+        log_error("Error in settings read message");
+        return;
+      }
+    }
+  }
+
+  s = settings_lookup(section, setting);
+  if (s == NULL) {
+    log_error("Error in settings read message");
+    return;
+  }
+
+  buflen = settings_format_setting(s, buf, sizeof(buf), true);
+  sbp_zmq_message_send(sbp_zmq_state, SBP_MSG_SETTINGS_READ_RESP, buflen, (void*)buf);
+  return;
+}
+
 static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   sbp_zmq_state_t *sbp_zmq_state = (sbp_zmq_state_t *)context;
@@ -274,6 +330,8 @@ void settings_setup(sbp_zmq_state_t *sbp_zmq_state)
                             settings_save_callback, sbp_zmq_state, NULL);
   sbp_zmq_callback_register(sbp_zmq_state, SBP_MSG_SETTINGS_READ_RESP,
                             settings_read_reply_callback, sbp_zmq_state, NULL);
+  sbp_zmq_callback_register(sbp_zmq_state, SBP_MSG_SETTINGS_READ_REQ,
+                            settings_read_callback, sbp_zmq_state, NULL);
   sbp_zmq_callback_register(sbp_zmq_state, SBP_MSG_SETTINGS_READ_BY_INDEX_REQ,
                             settings_read_by_index_callback, sbp_zmq_state, NULL);
   sbp_zmq_callback_register(sbp_zmq_state, SBP_MSG_SETTINGS_REGISTER,

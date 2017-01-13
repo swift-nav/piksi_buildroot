@@ -168,7 +168,6 @@ static const struct setting_type type_int = {
 };
 
 static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* context);
-static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 
 int settings_type_register_enum(const char * const enumnames[], struct setting_type *type)
 {
@@ -196,12 +195,6 @@ void settings_setup(const settings_interface_t *interface)
                                          settings_write_callback, NULL,
                                          NULL) != 0) {
     log_error("error registering settings write callback");
-  }
-
-  if (settings_interface.msg_cb_register(SBP_MSG_SETTINGS_READ_REQ,
-                                         settings_read_callback, NULL,
-                                         NULL) != 0) {
-    log_error("error registering settings read callback");
   }
 }
 
@@ -366,62 +359,6 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* conte
 
   char buf[256];
   u8 buflen = settings_format_setting(s, buf, sizeof(buf));
-  settings_interface.msg_send(SBP_MSG_SETTINGS_READ_RESP, buflen, (void*)buf);
-  return;
-}
-
-static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* context)
-{
-  (void) context;
-
-  if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender");
-    return;
-  }
-
-  static struct setting *s = NULL;
-  const char *section = NULL, *setting = NULL;
-  char buf[256];
-  u8 buflen;
-
-  if (len == 0) {
-    log_error("Error in settings read message");
-    return;
-  }
-
-  if (msg[len-1] != '\0') {
-    log_error("Error in settings read message");
-    return;
-  }
-
-  /* Extract parameters from message:
-   * 2 null terminated strings: section, and setting
-   */
-  section = (const char *)msg;
-  for (int i = 0, tok = 0; i < len; i++) {
-    if (msg[i] == '\0') {
-      tok++;
-      switch (tok) {
-      case 1:
-        setting = (const char *)&msg[i+1];
-        break;
-      case 2:
-        if (i == len-1)
-          break;
-      default:
-        log_error("Error in settings read message");
-        return;
-      }
-    }
-  }
-
-  s = settings_lookup(section, setting);
-  if (s == NULL) {
-    log_error("Error in settings read message");
-    return;
-  }
-
-  buflen = settings_format_setting(s, buf, sizeof(buf));
   settings_interface.msg_send(SBP_MSG_SETTINGS_READ_RESP, buflen, (void*)buf);
   return;
 }
