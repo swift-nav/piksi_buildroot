@@ -15,7 +15,9 @@
 typedef enum {
   SBP_PORT_FIRMWARE,
   SBP_PORT_SETTINGS,
-  SBP_PORT_EXTERNAL
+  SBP_PORT_EXTERNAL,
+  SBP_PORT_FILEIO_FIRMWARE,
+  SBP_PORT_FILEIO_EXTERNAL,
 } sbp_port_id_t;
 
 static port_t ports_sbp[] = {
@@ -27,7 +29,9 @@ static port_t ports_sbp[] = {
         &(forwarding_rule_t){
           .dst_port = &ports_sbp[SBP_PORT_SETTINGS],
           .filters = (const filter_t *[]) {
-            &FILTER_ACCEPT(),
+            &FILTER_ACCEPT(0x55, 0xAE, 0x00), /* Settings register */
+            &FILTER_ACCEPT(0x55, 0xA5, 0x00), /* Settings read response */
+            &FILTER_REJECT(),
             NULL
           }
         },
@@ -40,6 +44,17 @@ static port_t ports_sbp[] = {
             &FILTER_REJECT(0x55, 0xAC, 0x00), /* File remove */
             &FILTER_REJECT(0x55, 0xAD, 0x00), /* File write */
             &FILTER_ACCEPT(),
+            NULL
+          }
+        },
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_FILEIO_FIRMWARE],
+          .filters = (const filter_t *[]){
+            &FILTER_ACCEPT(0x55, 0xA8, 0x00), /* File read */
+            &FILTER_ACCEPT(0x55, 0xA9, 0x00), /* File read dir */
+            &FILTER_ACCEPT(0x55, 0xAC, 0x00), /* File remove */
+            &FILTER_ACCEPT(0x55, 0xAD, 0x00), /* File write */
+            &FILTER_REJECT(),
             NULL
           }
         },
@@ -94,6 +109,53 @@ static port_t ports_sbp[] = {
           .filters = (const filter_t *[]) {
             &FILTER_REJECT(0x55, 0xAE, 0x00), /* Settings register */
             &FILTER_REJECT(0x55, 0xA5, 0x00), /* Settings read response */
+            &FILTER_ACCEPT(),
+            NULL
+          }
+        },
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_FILEIO_EXTERNAL],
+          .filters = (const filter_t *[]){
+            &FILTER_ACCEPT(0x55, 0xA8, 0x00), /* File read */
+            &FILTER_ACCEPT(0x55, 0xA9, 0x00), /* File read dir */
+            &FILTER_ACCEPT(0x55, 0xAC, 0x00), /* File remove */
+            &FILTER_ACCEPT(0x55, 0xAD, 0x00), /* File write */
+            &FILTER_REJECT(),
+            NULL
+          }
+        },
+        NULL
+      },
+    },
+    .pub_socket = NULL,
+    .sub_socket = NULL,
+  },
+  [SBP_PORT_FILEIO_FIRMWARE] = {
+    .config = {
+      .pub_addr = "@tcp://127.0.0.1:43040",
+      .sub_addr = "@tcp://127.0.0.1:43041",
+      .sub_forwarding_rules = (const forwarding_rule_t *[]) {
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_FIRMWARE],
+          .filters = (const filter_t *[]) {
+            &FILTER_ACCEPT(),
+            NULL
+          }
+        },
+        NULL
+      },
+    },
+    .pub_socket = NULL,
+    .sub_socket = NULL,
+  },
+  [SBP_PORT_FILEIO_EXTERNAL] = {
+    .config = {
+      .pub_addr = "@tcp://127.0.0.1:43050",
+      .sub_addr = "@tcp://127.0.0.1:43051",
+      .sub_forwarding_rules = (const forwarding_rule_t *[]) {
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_EXTERNAL],
+          .filters = (const filter_t *[]) {
             &FILTER_ACCEPT(),
             NULL
           }
