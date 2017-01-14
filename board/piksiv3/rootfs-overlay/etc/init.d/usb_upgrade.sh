@@ -1,6 +1,6 @@
 #!/bin/ash
 
-export FIRMWARE="/media/sda1/PiksiMulti-*.bin"
+export FIRMWARE="/media/sda*/PiksiMulti-*.bin"
 export LOGLEVEL="--warn"
 
 _dir_wait () {
