@@ -262,13 +262,22 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static void signal_handler(int signum)
+static void sigchld_handler(int signum)
 {
-  /* Ignore this signal from now on */
-  signal(signum, SIG_IGN);
+  int saved_errno = errno;
+  while (waitpid(-1, NULL, WNOHANG) > 0) {
+    ;
+  }
+  errno = saved_errno;
+}
 
+static void terminate_handler(int signum)
+{
   /* Send this signal to the entire process group */
   killpg(0, signum);
+
+  /* Exit */
+  _exit(EXIT_SUCCESS);
 }
 
 static zmq_pollitem_t handle_to_pollitem(const handle_t *handle, short events)
@@ -776,20 +785,32 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  signal(SIGCHLD, SIG_IGN); /* Automatically reap child processes */
-  signal(SIGPIPE, SIG_IGN); /* Allow write to return an error */
-
-  /* Set up handler for signals which should terminate the program */
-  struct sigaction sa;
-  sa.sa_handler = signal_handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = 0;
-  sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGTERM, &sa, NULL);
-  sigaction(SIGQUIT, &sa, NULL);
-
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
+
+  signal(SIGPIPE, SIG_IGN); /* Allow write to return an error */
+
+  /* Set up SIGCHLD handler */
+  struct sigaction sigchld_sa;
+  sigchld_sa.sa_handler = sigchld_handler;
+  sigemptyset(&sigchld_sa.sa_mask);
+  sigchld_sa.sa_flags = SA_NOCLDSTOP;
+  if (sigaction(SIGCHLD, &sigchld_sa, NULL) != 0) {
+    printf("error setting up sigchld handler\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* Set up handler for signals which should terminate the program */
+  struct sigaction terminate_sa;
+  terminate_sa.sa_handler = terminate_handler;
+  sigemptyset(&terminate_sa.sa_mask);
+  terminate_sa.sa_flags = 0;
+  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
+      (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
+      (sigaction(SIGQUIT, &terminate_sa, NULL) != 0)) {
+    printf("error setting up terminate handler\n");
+    exit(EXIT_FAILURE);
+  }
 
   int ret = 0;
 
