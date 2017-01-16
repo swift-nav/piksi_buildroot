@@ -172,6 +172,7 @@ bool port_mode_notify(struct setting *s, const char *val)
     return false;
   }
 
+  *(u8*)s->addr = port_mode;
   return true;
 }
 
