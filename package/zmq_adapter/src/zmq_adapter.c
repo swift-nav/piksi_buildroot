@@ -414,12 +414,38 @@ static ssize_t zsock_write(zsock_t *zsock, const void *buffer, size_t count)
   return count;
 }
 
+static ssize_t fd_read(int fd, void *buffer, size_t count)
+{
+  while (1) {
+    ssize_t ret = read(fd, buffer, count);
+    /* Retry if interrupted */
+    if ((ret == -1) && (errno == EINTR)) {
+      continue;
+    } else {
+      return ret;
+    }
+  }
+}
+
+static ssize_t fd_write(int fd, const void *buffer, size_t count)
+{
+  while (1) {
+    ssize_t ret = write(fd, buffer, count);
+    /* Retry if interrupted */
+    if ((ret == -1) && (errno == EINTR)) {
+      continue;
+    } else {
+      return ret;
+    }
+  }
+}
+
 static ssize_t handle_read(handle_t *handle, void *buffer, size_t count)
 {
   if (handle->zsock != NULL) {
     return zsock_read(handle->zsock, buffer, count);
   } else {
-    return read(handle->fd, buffer, count);
+    return fd_read(handle->fd, buffer, count);
   }
 }
 
@@ -428,7 +454,7 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
   if (handle->zsock != NULL) {
     return zsock_write(handle->zsock, buffer, count);
   } else {
-    return write(handle->fd, buffer, count);
+    return fd_write(handle->fd, buffer, count);
   }
 }
 
@@ -593,7 +619,11 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
     };
 
     int poll_ret = zmq_poll(pollitems, POLLITEM__COUNT, poll_timeout_ms);
-    if (poll_ret < 0) {
+    if ((poll_ret == -1) && (errno == EINTR)) {
+      /* Retry if interrupted */
+      continue;
+    } else if (poll_ret < 0) {
+      /* Break on error */
       break;
     }
 
