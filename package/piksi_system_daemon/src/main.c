@@ -147,10 +147,6 @@ bool port_mode_notify(struct setting *s, const char *val)
 
   /* Kill the old zmq_adapter, if it exists. */
   if (*pid) {
-    /* TODO: This is an ugly hack to work around an apparent race condition in
-     * the way zmq_adapter handles SIGTERM while starting up. Delay before
-     * killing to give zmq_adapter time to get its act together. */
-    nanosleep((const struct timespec[]){{0, 200000000L}}, NULL);
     int ret = kill(*pid, SIGTERM);
     printf("Killing zmq_adapter with PID: %d (kill returned %d, errno %d)\n",
            *pid, ret, errno);
