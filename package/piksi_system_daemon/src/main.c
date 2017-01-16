@@ -174,6 +174,8 @@ bool port_mode_notify(struct setting *s, const char *val)
   /* Create a new zmq_adapter. */
   if (!(*pid = fork())) {
     execvp(args[0], args);
+    printf("execvp error\n");
+    exit(EXIT_FAILURE);
   }
 
   printf("zmq_adapter started with PID: %d\n", *pid);
