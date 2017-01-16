@@ -18,12 +18,23 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <signal.h>
+#include <errno.h>
+#include <sys/wait.h>
 
 #include "whitelists.h"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
 static sbp_zmq_state_t sbp_zmq_state;
+
+static void sigchld_handler(int sig)
+{
+  int saved_errno = errno;
+  while (waitpid(-1, NULL, WNOHANG) > 0) {
+    ;
+  }
+  errno = saved_errno;
+}
 
 static int settings_msg_send(u16 msg_type, u8 len, u8 *payload)
 {
@@ -163,6 +174,8 @@ bool port_mode_notify(struct setting *s, const char *val)
   /* Create a new zmq_adapter. */
   if (!(*pid = fork())) {
     execvp(args[0], args);
+    printf("execvp error\n");
+    exit(EXIT_FAILURE);
   }
 
   printf("zmq_adapter started with PID: %d\n", *pid);
@@ -172,6 +185,7 @@ bool port_mode_notify(struct setting *s, const char *val)
     return false;
   }
 
+  *(u8*)s->addr = port_mode;
   return true;
 }
 
@@ -410,9 +424,15 @@ static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
 
 int main(void)
 {
-  /* Ignore SIGCHLD to allow child processes to go quietly into the night
-   * without turning into zombies. */
-  signal(SIGCHLD, SIG_IGN);
+  /* Set up SIGCHLD handler */
+  struct sigaction sigchld_sa;
+  sigchld_sa.sa_handler = sigchld_handler;
+  sigemptyset(&sigchld_sa.sa_mask);
+  sigchld_sa.sa_flags = SA_NOCLDSTOP;
+  if (sigaction(SIGCHLD, &sigchld_sa, NULL) != 0) {
+    printf("error setting up sigchld handler\n");
+    exit(EXIT_FAILURE);
+  }
 
   /* Set up SBP ZMQ */
   u16 sbp_sender_id = SBP_SENDER_ID;
