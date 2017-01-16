@@ -11,10 +11,8 @@ To build a production system image, the build process expects the following
 firmware and FPGA images to be present:
 
 ```
-firmware/evt2/piksi_firmware.elf
-firmware/evt2/piksi_fpga.bit
-firmware/microzed/piksi_firmware.elf
-firmware/microzed/piksi_fpga.bit
+firmware/prod/piksi_firmware.elf
+firmware/prod/piksi_fpga.bit
 ```
 
 You can use the following script to download these images from S3. Note that
