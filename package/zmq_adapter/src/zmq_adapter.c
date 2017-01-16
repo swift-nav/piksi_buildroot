@@ -724,7 +724,7 @@ void io_loop_start(int fd)
             zsock_destroy(&pub);
             assert(pub == NULL);
           }
-          return;
+          exit(EXIT_SUCCESS);
         }
       }
 
@@ -746,7 +746,7 @@ void io_loop_start(int fd)
             zsock_destroy(&sub);
             assert(sub == NULL);
           }
-          return;
+          exit(EXIT_SUCCESS);
         }
       }
 
@@ -771,7 +771,7 @@ void io_loop_start(int fd)
           zsock_destroy(&req);
           assert(req == NULL);
         }
-        return;
+        exit(EXIT_SUCCESS);
       }
 
     }
@@ -795,7 +795,7 @@ void io_loop_start(int fd)
           zsock_destroy(&rep);
           assert(rep == NULL);
         }
-        return;
+        exit(EXIT_SUCCESS);
       }
 
     }
@@ -861,5 +861,6 @@ int main(int argc, char *argv[])
       break;
   }
 
+  raise(SIGINT);
   return ret;
 }
