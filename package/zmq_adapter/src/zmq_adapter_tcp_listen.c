@@ -60,8 +60,7 @@ static void handle_client(int client_fd, const struct sockaddr_in *client_addr)
 
 static void server_loop(int server_fd)
 {
-  bool done = false;
-  do {
+  while (1) {
     struct sockaddr_in client_addr;
     int client_addr_len = sizeof(client_addr);
     int client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
@@ -71,7 +70,7 @@ static void server_loop(int server_fd)
       if (fork() == 0) {
         /* child process */
         handle_client(client_fd, &client_addr);
-        done = true;
+        exit(EXIT_SUCCESS);
       }
 
       close(client_fd);
@@ -81,9 +80,9 @@ static void server_loop(int server_fd)
       continue;
     } else {
       /* Break on error */
-      done = true;
+      break;
     }
-  } while(!done);
+  }
 }
 
 int tcp_listen_loop(int port)
