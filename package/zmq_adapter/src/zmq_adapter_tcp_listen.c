@@ -76,7 +76,11 @@ static void server_loop(int server_fd)
 
       close(client_fd);
       client_fd = -1;
+    } else if ((client_fd == -1) && (errno == EINTR)) {
+      /* Retry if interrupted */
+      continue;
     } else {
+      /* Break on error */
       done = true;
     }
   } while(!done);
