@@ -390,6 +390,24 @@ static void img_tbl_settings_setup(void)
   }
 }
 
+static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
+{
+  (void)sender_id; (void)context;
+
+  /* Reset settings to defaults if requested */
+  if (len == sizeof(msg_reset_t)) {
+    const msg_reset_t *msg = (const void*)msg_;
+    if (msg->flags & 1) {
+      /* Remove settings file */
+      unlink("/persistent/config.ini");
+    }
+  }
+
+  /* We use -f to force immediate reboot.  Orderly shutdown sometimes fails
+   * when unloading remoteproc drivers. */
+  system("reboot -f");
+}
+
 int main(void)
 {
   /* Ignore SIGCHLD to allow child processes to go quietly into the night
@@ -397,8 +415,14 @@ int main(void)
   signal(SIGCHLD, SIG_IGN);
 
   /* Set up SBP ZMQ */
+  u16 sbp_sender_id = SBP_SENDER_ID;
+  char sbp_sender_id_string[32];
+  if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
+                        sizeof(sbp_sender_id_string)) == 0) {
+    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
+  }
   sbp_zmq_config_t sbp_zmq_config = {
-    .sbp_sender_id = SBP_SENDER_ID,
+    .sbp_sender_id = sbp_sender_id,
     .pub_endpoint = ">tcp://localhost:43011",
     .sub_endpoint = ">tcp://localhost:43010"
   };
@@ -427,6 +451,11 @@ int main(void)
   SETTING_NOTIFY("ethernet", "ip_address", eth_ip_addr, TYPE_STRING, eth_ip_config_notify);
   SETTING_NOTIFY("ethernet", "netmask", eth_netmask, TYPE_STRING, eth_ip_config_notify);
   SETTING_NOTIFY("ethernet", "gateway", eth_gateway, TYPE_STRING, eth_ip_config_notify);
+
+  sbp_zmq_callback_register(&sbp_zmq_state, SBP_MSG_RESET,
+                            reset_callback, NULL, NULL);
+  sbp_zmq_callback_register(&sbp_zmq_state, SBP_MSG_RESET_DEP,
+                            reset_callback, NULL, NULL);
 
   whitelists_init();
   img_tbl_settings_setup();

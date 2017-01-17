@@ -17,7 +17,7 @@
 #include <unistd.h>
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
-static u16 sender_id = SBP_SENDER_ID;
+static u16 sbp_sender_id = SBP_SENDER_ID;
 static zsock_t *zpub;
 static sbp_state_t sbp;
 static u8 buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
@@ -40,15 +40,40 @@ static void sbp_write_flush(void)
   buf_len = 0;
 }
 
-void sbp_send_msg(sbp_state_t *sbp, u16 msg_type, u8 len, u8 buff[])
+static void sbp_send_msg(sbp_state_t *sbp, u16 msg_type, u8 len, u8 buff[])
 {
-  sbp_send_message(sbp, msg_type, sender_id, len, buff, sbp_write);
+  sbp_send_message(sbp, msg_type, sbp_sender_id, len, buff, sbp_write);
   sbp_write_flush();
 }
 
+static int file_read_string(const char *filename, char *str, size_t str_size)
+{
+  FILE *fp = fopen(filename, "r");
+  if (fp == NULL) {
+    fprintf(stderr, "error opening %s\n", filename);
+    return -1;
+  }
+
+  bool success = (fgets(str, str_size, fp) != NULL);
+
+  fclose(fp);
+
+  if (!success) {
+    fprintf(stderr, "error reading %s\n", filename);
+    return -1;
+  }
+
+  return 0;
+}
 
 int main(int argc, char *argv[])
 {
+  char sbp_sender_id_string[32];
+  if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
+                        sizeof(sbp_sender_id_string)) == 0) {
+    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
+  }
+
   msg_log_t *msg = alloca(SBP_FRAMING_MAX_PAYLOAD_SIZE);
   const static struct option long_options[] = {
     {"emerg", no_argument, NULL, 0},

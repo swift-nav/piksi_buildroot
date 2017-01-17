@@ -13,9 +13,9 @@
 #ifndef SWIFTNAV_SBP_FILEIO_H
 #define SWIFTNAV_SBP_FILEIO_H
 
-#include <libsbp/sbp.h>
+#include <sbp_zmq.h>
 
-void sbp_fileio_setup(sbp_state_t *);
+void sbp_fileio_setup(sbp_zmq_state_t *sbp_zmq_state);
 
 #endif
 

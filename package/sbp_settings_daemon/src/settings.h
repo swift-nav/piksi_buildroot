@@ -15,7 +15,7 @@
 
 #include <libsbp/sbp.h>
 
-void settings_setup(sbp_state_t *);
+void settings_setup(sbp_zmq_state_t *sbp_zmq_state);
 void settings_reset_defaults(void);
 
 #endif  /* SWIFTNAV_SETTINGS_H */
