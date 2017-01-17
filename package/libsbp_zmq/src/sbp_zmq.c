@@ -110,6 +110,9 @@ static int zloop_timer_handler(zloop_t *loop, int timer_id, void *arg)
 
 int sbp_zmq_init(sbp_zmq_state_t *s, const sbp_zmq_config_t *config)
 {
+  /* Prevent czmq from catching signals */
+  zsys_handler_set(NULL);
+
   s->sbp_state = malloc(sizeof(*s->sbp_state));
   if (s->sbp_state == NULL) {
     printf("error allocating SBP state\n");
@@ -225,13 +228,18 @@ int sbp_zmq_message_send_from(sbp_zmq_state_t *s, u16 msg_type, u8 len,
 
 int sbp_zmq_loop(sbp_zmq_state_t *s)
 {
-  int zloop_ret = zloop_start(s->zloop);
-  if (zloop_ret == -1) {
-    /* Canceled by a handler */
-    return 0;
-  } else {
-    /* Interrupted or an error occurred */
-    return -1;
+  while (1) {
+    int zloop_ret = zloop_start(s->zloop);
+    if (zloop_ret == 0) {
+      /* Interrupted */
+      continue;
+    } else if (zloop_ret == -1) {
+      /* Canceled by a handler */
+      return 0;
+    } else {
+      /* Error occurred */
+      return -1;
+    }
   }
 }
 
