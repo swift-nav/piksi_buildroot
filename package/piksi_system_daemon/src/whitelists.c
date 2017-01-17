@@ -134,7 +134,7 @@ int whitelists_init(void)
   for (int i = 0; i < PORT_MAX; i++) {
     struct setting *s = &whitelist_settings[i];
     s->section = section_names[i];
-    s->name = "whitelist";
+    s->name = "enabled_sbp_messages";
     s->addr = wl[i];
     s->len = sizeof(wl[i]);
     s->notify = whitelist_notify;
