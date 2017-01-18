@@ -38,12 +38,16 @@ echo "Uploading $@ to $BUILD_PATH"
 
 for file in "$@"; do
     KEY="$BUILD_PATH/$(basename $file)"
+    echo "$KEY"
+    echo "$TRAVIS_PULL_REQUEST"
+    echo "$TRAVIS_BRANCH"
     if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
         if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_BRANCH" == v*-release ]]; then
             OBJECT="s3://$BUCKET/$KEY"
             aws s3 cp "$file" "$OBJECT"
         fi
     else
+        echo "XXX: $KEY"
         aws s3api put-object --no-sign-request --bucket "$PRS_BUCKET" --key "$KEY" --body "$file" --acl public-read
     fi
 done
