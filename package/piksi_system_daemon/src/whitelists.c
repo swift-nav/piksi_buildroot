@@ -53,7 +53,7 @@ char wl[PORT_MAX][256] ={
                  "258,520,521,522,524,526,527,"\
                  "19,257,72,74,2304,2305,"\
                  "528,129,130,131,163,165,"\
-                 "166,170,171,181,2048",
+                 "166,167,170,171,181,2048",
  /*  We configure UART1 to the Msgs that Swift Console needs:
   *  MsgLog MsgFwd MsgThreadState MsgUartState, MsgStartup, MsgHeartbeat 
   *  MsgGPSTime MsgDops MsgPosECEF MsgPosLLH MsgBaselineNED MsgVelNED MsgBaselineHeading 
