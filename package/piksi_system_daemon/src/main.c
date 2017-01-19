@@ -81,19 +81,27 @@ static const u32 baudrate_val_table[] = {
 static struct setting_type baudrate_settings_type;
 static int TYPE_BAUDRATE = 0;
 
+static const char * const flow_control_enum[] = {"None", "RTS/CTS", NULL};
+enum {FLOW_CONTROL_NONE, FLOW_CONTROL_RTS_CTS};
+static struct setting_type flow_control_settings_type;
+static int TYPE_FLOW_CONTROL = 0;
+
 typedef struct {
   const char *tty_path;
   u8 baudrate;
+  u8 flow_control;
 } uart_t;
 
 static uart_t uart0 = {
   .tty_path = "/dev/ttyPS0",
-  .baudrate = BAUDRATE_115200
+  .baudrate = BAUDRATE_115200,
+  .flow_control = FLOW_CONTROL_NONE
 };
 
 static uart_t uart1 = {
   .tty_path = "/dev/ttyPS1",
-  .baudrate = BAUDRATE_115200
+  .baudrate = BAUDRATE_115200,
+  .flow_control = FLOW_CONTROL_NONE
 };
 
 static int uart_configure(const uart_t *uart)
@@ -114,6 +122,8 @@ static int uart_configure(const uart_t *uart)
   cfmakeraw(&tio);
   tio.c_lflag &= ~ECHO;
   tio.c_oflag &= ~ONLCR;
+  tio.c_cflag = ((tio.c_cflag & ~CRTSCTS) |
+                 (uart->flow_control == FLOW_CONTROL_RTS_CTS ? CRTSCTS : 0));
   cfsetispeed(&tio, baudrate_val_table[uart->baudrate]);
   cfsetospeed(&tio, baudrate_val_table[uart->baudrate]);
   tcsetattr(fd, TCSANOW, &tio);
@@ -128,7 +138,9 @@ static int uart_configure(const uart_t *uart)
   close(fd);
 
   if ((cfgetispeed(&tio) != baudrate_val_table[uart->baudrate]) ||
-      (cfgetospeed(&tio) != baudrate_val_table[uart->baudrate])) {
+      (cfgetospeed(&tio) != baudrate_val_table[uart->baudrate]) ||
+      ((tio.c_cflag & CRTSCTS) ? (uart->flow_control != FLOW_CONTROL_RTS_CTS) :
+                                 (uart->flow_control != FLOW_CONTROL_NONE))) {
     printf("error configuring tty\n");
     return -1;
   }
@@ -146,6 +158,28 @@ static bool baudrate_notify(struct setting *s, const char *val)
   if (s->addr == &uart0.baudrate) {
     uart = &uart0;
   } else if (s->addr == &uart1.baudrate) {
+    uart = &uart1;
+  } else {
+    return false;
+  }
+
+  if (uart_configure(uart) != 0) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool flow_control_notify(struct setting *s, const char *val)
+{
+  if (!s->type->from_string(s->type->priv, s->addr, s->len, val)) {
+    return false;
+  }
+
+  const uart_t *uart = NULL;
+  if (s->addr == &uart0.flow_control) {
+    uart = &uart0;
+  } else if (s->addr == &uart1.flow_control) {
     uart = &uart1;
   } else {
     return false;
@@ -523,9 +557,12 @@ int main(void)
   settings_setup(&settings_interface);
 
   TYPE_BAUDRATE = settings_type_register_enum(baudrate_enum, &baudrate_settings_type);
+  TYPE_FLOW_CONTROL = settings_type_register_enum(flow_control_enum, &flow_control_settings_type);
   TYPE_PORT_MODE = settings_type_register_enum(port_mode_enum, &port_mode_settings_type);
   SETTING_NOTIFY("uart0", "baudrate", uart0.baudrate, TYPE_BAUDRATE, baudrate_notify);
   SETTING_NOTIFY("uart1", "baudrate", uart1.baudrate, TYPE_BAUDRATE, baudrate_notify);
+  SETTING_NOTIFY("uart0", "flow_control", uart0.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
+  SETTING_NOTIFY("uart1", "flow_control", uart1.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
   SETTING_NOTIFY("uart0", "mode", uart0_mode, TYPE_PORT_MODE, port_mode_notify);
   SETTING_NOTIFY("uart1", "mode", uart1_mode, TYPE_PORT_MODE, port_mode_notify);
 
