@@ -1,0 +1,13 @@
+#!/bin/sh
+
+name="watchdog_disable"
+
+start() {
+  printf "V" > /dev/watchdog
+}
+
+stop() {
+  :
+}
+
+source /etc/init.d/template_command.inc.sh
