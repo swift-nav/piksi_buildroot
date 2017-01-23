@@ -2,6 +2,7 @@
 
 export FIRMWARE="/media/sda*/PiksiMulti-*.bin"
 export LOGLEVEL="--warn"
+export LOG_INTERVAL=10
 
 _dir_wait () {
     [[ $# -lt 3 ]] && {
@@ -17,7 +18,7 @@ _dir_wait () {
     done
 }
 
-# try and mount drive for up to 5 seconds or until success 
+# try and mount drive for up to 5 seconds or until success
 _dir_wait 20 250 $FIRMWARE
 
 if [ `echo $FIRMWARE | wc -w` != '1' ]; then
@@ -39,6 +40,14 @@ echo "Performing upgrade..."
 # Killing monit and USB logger
 monit stop standalone_file_logger
 monit stop zmq_adapter_rpmsg_piksi100
+
+# Send output to show the user what we're doing.
+while true; do
+  sleep $LOG_INTERVAL
+  let ELAPSED=$ELAPSED+$LOG_INTERVAL
+  echo "Upgrade in progress: $ELAPSED seconds elapsed"
+done | sbp_log $LOGLEVEL &
+
 upgrade_tool $FIRMWARE | sbp_log $LOGLEVEL
 RETVAL=$?
 umount /media/sda1
