@@ -20,6 +20,8 @@
 #define REP_TIMEOUT_DEFAULT_ms 10000
 #define ZSOCK_RESTART_RETRY_COUNT 3
 #define ZSOCK_RESTART_RETRY_DELAY_ms 1
+#define ZSOCK_WATERMARK_SEND_DEFAULT 1000
+#define ZSOCK_WATERMARK_RECEIVE_DEFAULT 1000
 
 typedef enum {
   IO_INVALID,
@@ -54,6 +56,8 @@ static filter_t filter_out = FILTER_NONE;
 const char *filter_in_config = NULL;
 const char *filter_out_config = NULL;
 static int rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
+static int watermark_send = ZSOCK_WATERMARK_SEND_DEFAULT;
+static int watermark_receive = ZSOCK_WATERMARK_RECEIVE_DEFAULT;
 
 static const char *zmq_pub_addr = NULL;
 static const char *zmq_sub_addr = NULL;
@@ -104,9 +108,13 @@ static void usage(char *command)
   puts("\t--file <file>");
   puts("\t--tcp-l <port>");
 
-  puts("\nMisc options");
+  puts("\nMisc Options");
   puts("\t--rep-timeout <ms>");
   puts("\t\tresponse timeout before resetting a REP socket");
+  puts("\t--watermark-send <count>");
+  puts("\t\tmaximum number of queued outgoing messages for ZMQ sockets");
+  puts("\t--watermark-receive <count>");
+  puts("\t\tmaximum number of queued incoming messages for ZMQ sockets");
   puts("\t--debug");
 }
 
@@ -120,7 +128,9 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILTER_IN,
     OPT_ID_FILTER_OUT,
     OPT_ID_FILTER_IN_CONFIG,
-    OPT_ID_FILTER_OUT_CONFIG
+    OPT_ID_FILTER_OUT_CONFIG,
+    OPT_ID_WATERMARK_SEND,
+    OPT_ID_WATERMARK_RECEIVE
   };
 
   const struct option long_opts[] = {
@@ -136,6 +146,8 @@ static int parse_options(int argc, char *argv[])
     {"filter-out",        required_argument, 0, OPT_ID_FILTER_OUT},
     {"filter-in-config",  required_argument, 0, OPT_ID_FILTER_IN_CONFIG},
     {"filter-out-config", required_argument, 0, OPT_ID_FILTER_OUT_CONFIG},
+    {"watermark-send",    required_argument, 0, OPT_ID_WATERMARK_SEND},
+    {"watermark-receive", required_argument, 0, OPT_ID_WATERMARK_RECEIVE},
     {"debug",             no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0}
   };
@@ -189,6 +201,16 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_FILTER_OUT_CONFIG: {
         filter_out_config = optarg;
+      }
+      break;
+
+      case OPT_ID_WATERMARK_SEND: {
+        watermark_send = strtol(optarg, NULL, 10);
+      }
+      break;
+
+      case OPT_ID_WATERMARK_RECEIVE: {
+        watermark_receive = strtol(optarg, NULL, 10);
       }
       break;
 
@@ -296,6 +318,10 @@ static zsock_t * zsock_start(int type)
   if (zsock == NULL) {
     return zsock;
   }
+
+  /* Set generic options */
+  zsock_set_sndhwm(zsock, watermark_send);
+  zsock_set_rcvhwm(zsock, watermark_receive);
 
   /* Set any type-specific options and get address */
   const char *addr = NULL;
