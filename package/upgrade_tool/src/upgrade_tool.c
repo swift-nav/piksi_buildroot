@@ -19,7 +19,7 @@
 #include "factory_params.h"
 #include "uboot/image_table.h"
 
-#define IMAGE_TABLE_ELEMENT_SIZE  0x00010000U
+#define IMAGE_TABLE_ELEMENT_SIZE  0x00040000U
 #define SPL_TABLE_ELEMENT_SIZE    0x00040000U
 
 #define IMAGE_ALIGN 16U
