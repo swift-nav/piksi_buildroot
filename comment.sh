@@ -26,7 +26,7 @@ BUILD_VERSION="$(git describe --tags --dirty --always)"
 BUILD_PATH="$REPO/$BUILD_VERSION"
 
 if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-    if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_BRANCH" == v*-release ]]; then
+    if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_TAG" == v* ]]; then
         COMMENT="$BUILD_PATH
 https://console.aws.amazon.com/s3/home?region=us-west-2&bucket=swiftnav-artifacts&prefix=$BUILD_PATH/"
         URL="https://slack.com/api/chat.postMessage?token=$SLACK_TOKEN&channel=$SLACK_CHANNEL"
