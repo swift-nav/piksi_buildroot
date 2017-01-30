@@ -12,7 +12,7 @@
 
 #include "partition_info.h"
 
-#define EXPECTED_ERASE_SIZE 4096
+#define ERASE_SIZE_MAX 0x00040000U
 
 static int mtd_sysfs_read_int(uint32_t mtd_num, const char *property,
                               uint32_t *value)
@@ -156,8 +156,8 @@ int partition_info_table_verify(const partition_info_t *info_table,
       return -1;
     }
 
-    if (p->erasesize != EXPECTED_ERASE_SIZE) {
-      printf("error: partition %s has unexpected erase size\n", c->name);
+    if (p->erasesize > ERASE_SIZE_MAX) {
+      printf("error: partition %s erase size too large\n", c->name);
       return -1;
     }
   }
