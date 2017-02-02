@@ -7,8 +7,8 @@
 # source template.inc.sh
 
 pid_file="/var/run/$name.pid"
-stdout_log="/var/log/$name.log"
-stderr_log="/var/log/$name.err"
+stdout_log="/media/sda1/$name.log"
+stderr_log="/media/sda1/$name.err"
 
 get_pid() {
     cat "$pid_file"
