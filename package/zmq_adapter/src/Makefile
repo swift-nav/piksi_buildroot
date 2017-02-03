@@ -4,6 +4,7 @@ SOURCES= \
 	zmq_adapter_stdio.c \
 	zmq_adapter_file.c \
 	zmq_adapter_tcp_listen.c \
+	zmq_adapter_tcp_connect.c \
 	framer.c \
 	framer_none.c \
 	filter.c \
