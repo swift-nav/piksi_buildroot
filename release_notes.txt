@@ -1,0 +1,47 @@
+===============================================================================
+                              Swift Navigation, Inc.
+                      Piksi Multi Firmware Release Notes
+
+Product Page:      swiftnav.com/piksi-multi
+Firmware Download: support.swiftnav.com
+===============================================================================
+
+
+-------------------------------------------------------------------------------
+Release 1.0.11  (Initial Release)                                    2017-02-06
+-------------------------------------------------------------------------------
+FEATURES:
+* Up to 10 Hz GPS L1/L2 RTK Operation
+* Low Latency and Time Matched RTK modes
+* Up to 200 Hz IMU raw data output
+* UART (two ports), USB (host and device), Ethernet interfaces
+* Swift Binary (SBP) and NMEA0183 protocols
+* Status LEDs (Power, Position, Link, Mode)
+* Active antenna supply control
+* Antenna input selection
+* External event trigger input (rising, falling or both edges)
+* 1 Pulse Per Second (PPS) output
+* Position Valid (PV) digital output
+* Surveyed position lat/lon/alt and all settings non-volatile storage
+* Simulator option
+
+KNOWN ISSUES:
+* [286] SBAS is not implemented. Changing SBAS settings has no effect.
+* [278] The USB device data buffer does not flush on new connection. As a result stale data is sometimes
+  transmitted after a new connection is made.
+* [233] NMEA messages may provide incorrect UTC time at start before the first fix.
+* [235] NMEA GGA message rate is not configurable. It is always output at a solution rate.
+* [269] NMEA protocol is not available on USB interface.
+* [234] NMEA GSA message reports tracked SVs instead of used SVs.
+* [274] NMEA GSV message reports used SVs instead of visible SVs and is sent only when fix is available.
+* [252] 1 PPS output is still generated after fix is lost.
+* [287] Incoming RTK corrections are echoed on the same port. It can create additional data traffic over the radio.
+* [283] SBP messages MSG_UTC_TIME, MSG_DGPS_STATUS, MSG_AGE_CORRECTIONS are not yet implemented.
+* [230] Ethernet port LED does not show activity during communication.
+* [227] LED indicators may show incorrect status during reset.
+* [282] External event input has no debouncing. A sharp input edges are required to avoid multiple messages with
+  the same time tag.
+
+NOTES:
+* Corresponding Swift Console version: 1.0.A.
+
