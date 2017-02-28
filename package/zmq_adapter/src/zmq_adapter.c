@@ -51,9 +51,10 @@ static zsock_mode_t zsock_mode = ZSOCK_INVALID;
 static framer_t framer = FRAMER_NONE;
 static filter_t filter_in = FILTER_NONE;
 static filter_t filter_out = FILTER_NONE;
-const char *filter_in_config = NULL;
-const char *filter_out_config = NULL;
+static const char *filter_in_config = NULL;
+static const char *filter_out_config = NULL;
 static int rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
+static bool ignore_error = false;
 
 static const char *zmq_pub_addr = NULL;
 static const char *zmq_sub_addr = NULL;
@@ -107,6 +108,8 @@ static void usage(char *command)
   puts("\nMisc options");
   puts("\t--rep-timeout <ms>");
   puts("\t\tresponse timeout before resetting a REP socket");
+  puts("\t--ignore-error");
+  puts("\t\tdo not terminate on IO errors");
   puts("\t--debug");
 }
 
@@ -116,6 +119,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILE = 1,
     OPT_ID_TCP_LISTEN,
     OPT_ID_REP_TIMEOUT,
+    OPT_ID_IGNORE_ERROR,
     OPT_ID_DEBUG,
     OPT_ID_FILTER_IN,
     OPT_ID_FILTER_OUT,
@@ -132,6 +136,7 @@ static int parse_options(int argc, char *argv[])
     {"file",              required_argument, 0, OPT_ID_FILE},
     {"tcp-l",             required_argument, 0, OPT_ID_TCP_LISTEN},
     {"rep-timeout",       required_argument, 0, OPT_ID_REP_TIMEOUT},
+    {"ignore-error",      no_argument,       0, OPT_ID_IGNORE_ERROR},
     {"filter-in",         required_argument, 0, OPT_ID_FILTER_IN},
     {"filter-out",        required_argument, 0, OPT_ID_FILTER_OUT},
     {"filter-in-config",  required_argument, 0, OPT_ID_FILTER_IN_CONFIG},
@@ -159,6 +164,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_REP_TIMEOUT: {
         rep_timeout_ms = strtol(optarg, NULL, 10);
+      }
+      break;
+
+      case OPT_ID_IGNORE_ERROR: {
+        ignore_error = true;
       }
       break;
 
@@ -580,7 +590,11 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
     debug_printf("read %zd bytes\n", read_count);
     if (read_count <= 0) {
-      break;
+      if (ignore_error) {
+        continue;
+      } else {
+        break;
+      }
     }
 
     /* Write to write_handle via framer */
@@ -589,7 +603,11 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
                                                       buffer, read_count,
                                                       &frames_written);
     if (write_count <= 0) {
-      break;
+      if (ignore_error) {
+        continue;
+      } else {
+        break;
+      }
     }
     if (write_count != read_count) {
       printf("warning: write_count != read_count\n");
@@ -654,7 +672,11 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
           ssize_t read_count = handle_read(req_handle, buffer, sizeof(buffer));
           debug_printf("read %zd bytes\n", read_count);
           if (read_count <= 0) {
-            break;
+            if (ignore_error) {
+              continue;
+            } else {
+              break;
+            }
           }
 
           continue;
@@ -663,7 +685,11 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
 
       bool ok;
       if (frame_transfer(req_handle, rep_handle, &ok) <= 0) {
-        break;
+        if (ignore_error) {
+          continue;
+        } else {
+          break;
+        }
       }
 
       if (ok) {
@@ -689,7 +715,11 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
 
       bool ok;
       if (frame_transfer(rep_handle, req_handle, &ok) <= 0) {
-        break;
+        if (ignore_error) {
+          continue;
+        } else {
+          break;
+        }
       }
 
       if (ok) {
