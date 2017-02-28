@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <termios.h>
 
 #include "whitelists.h"
 
@@ -63,33 +64,132 @@ static int settings_msg_loop_interrupt(void)
   return sbp_zmq_loop_interrupt(&sbp_zmq_state);
 }
 
-static int uart0_baudrate = 115200;
-static int uart1_baudrate = 115200;
+static const char * const baudrate_enum[] = {
+  "1200", "2400", "4800", "9600",
+  "19200", "38400", "57600", "115200",
+  "230400", NULL
+};
+enum {
+  BAUDRATE_1200, BAUDRATE_2400, BAUDRATE_4800, BAUDRATE_9600,
+  BAUDRATE_19200, BAUDRATE_38400, BAUDRATE_57600, BAUDRATE_115200,
+  BAUDRATE_230400};
+static const u32 baudrate_val_table[] = {
+  B1200, B2400, B4800, B9600,
+  B19200, B38400, B57600, B115200,
+  B230400
+};
+static struct setting_type baudrate_settings_type;
+static int TYPE_BAUDRATE = 0;
+
+static const char * const flow_control_enum[] = {"None", "RTS/CTS", NULL};
+enum {FLOW_CONTROL_NONE, FLOW_CONTROL_RTS_CTS};
+static struct setting_type flow_control_settings_type;
+static int TYPE_FLOW_CONTROL = 0;
+
+typedef struct {
+  const char *tty_path;
+  u8 baudrate;
+  u8 flow_control;
+} uart_t;
+
+static uart_t uart0 = {
+  .tty_path = "/dev/ttyPS0",
+  .baudrate = BAUDRATE_115200,
+  .flow_control = FLOW_CONTROL_NONE
+};
+
+static uart_t uart1 = {
+  .tty_path = "/dev/ttyPS1",
+  .baudrate = BAUDRATE_115200,
+  .flow_control = FLOW_CONTROL_NONE
+};
+
+static int uart_configure(const uart_t *uart)
+{
+  int fd = open(uart->tty_path, O_RDONLY);
+  if (fd < 0) {
+    printf("error opening tty device\n");
+    return -1;
+  }
+
+  struct termios tio;
+  if (tcgetattr(fd, &tio) != 0) {
+    printf("error in tcgetattr()\n");
+    close(fd);
+    return -1;
+  }
+
+  cfmakeraw(&tio);
+  tio.c_lflag &= ~ECHO;
+  tio.c_oflag &= ~ONLCR;
+  tio.c_cflag = ((tio.c_cflag & ~CRTSCTS) |
+                 (uart->flow_control == FLOW_CONTROL_RTS_CTS ? CRTSCTS : 0));
+  cfsetispeed(&tio, baudrate_val_table[uart->baudrate]);
+  cfsetospeed(&tio, baudrate_val_table[uart->baudrate]);
+  tcsetattr(fd, TCSANOW, &tio);
+
+  /* Check results */
+  if (tcgetattr(fd, &tio) != 0) {
+    printf("error in tcgetattr()\n");
+    close(fd);
+    return -1;
+  }
+
+  close(fd);
+
+  if ((cfgetispeed(&tio) != baudrate_val_table[uart->baudrate]) ||
+      (cfgetospeed(&tio) != baudrate_val_table[uart->baudrate]) ||
+      ((tio.c_cflag & CRTSCTS) ? (uart->flow_control != FLOW_CONTROL_RTS_CTS) :
+                                 (uart->flow_control != FLOW_CONTROL_NONE))) {
+    printf("error configuring tty\n");
+    return -1;
+  }
+
+  return 0;
+}
 
 static bool baudrate_notify(struct setting *s, const char *val)
 {
-  int baudrate;
-  bool ret = s->type->from_string(s->type->priv, &baudrate, s->len, val);
-  if (!ret) {
+  if (!s->type->from_string(s->type->priv, s->addr, s->len, val)) {
     return false;
   }
 
-  const char *dev = NULL;
-  if (s->addr == &uart0_baudrate) {
-    dev = "/dev/ttyPS0";
-  } else if (s->addr == &uart1_baudrate) {
-    dev = "/dev/ttyPS1";
+  const uart_t *uart = NULL;
+  if (s->addr == &uart0.baudrate) {
+    uart = &uart0;
+  } else if (s->addr == &uart1.baudrate) {
+    uart = &uart1;
   } else {
     return false;
   }
-  char cmd[80];
-  snprintf(cmd, sizeof(cmd), "stty -F %s %d", dev, baudrate);
-  ret = system(cmd) == 0;
 
-  if (ret) {
-    *(int*)s->addr = baudrate;
+  if (uart_configure(uart) != 0) {
+    return false;
   }
-  return ret;
+
+  return true;
+}
+
+static bool flow_control_notify(struct setting *s, const char *val)
+{
+  if (!s->type->from_string(s->type->priv, s->addr, s->len, val)) {
+    return false;
+  }
+
+  const uart_t *uart = NULL;
+  if (s->addr == &uart0.flow_control) {
+    uart = &uart0;
+  } else if (s->addr == &uart1.flow_control) {
+    uart = &uart1;
+  } else {
+    return false;
+  }
+
+  if (uart_configure(uart) != 0) {
+    return false;
+  }
+
+  return true;
 }
 
 static const char const * port_mode_enum[] = {"SBP", "NMEA", NULL};
@@ -456,9 +556,13 @@ int main(void)
   };
   settings_setup(&settings_interface);
 
+  TYPE_BAUDRATE = settings_type_register_enum(baudrate_enum, &baudrate_settings_type);
+  TYPE_FLOW_CONTROL = settings_type_register_enum(flow_control_enum, &flow_control_settings_type);
   TYPE_PORT_MODE = settings_type_register_enum(port_mode_enum, &port_mode_settings_type);
-  SETTING_NOTIFY("uart0", "baudrate", uart0_baudrate, TYPE_INT, baudrate_notify);
-  SETTING_NOTIFY("uart1", "baudrate", uart1_baudrate, TYPE_INT, baudrate_notify);
+  SETTING_NOTIFY("uart0", "baudrate", uart0.baudrate, TYPE_BAUDRATE, baudrate_notify);
+  SETTING_NOTIFY("uart1", "baudrate", uart1.baudrate, TYPE_BAUDRATE, baudrate_notify);
+  SETTING_NOTIFY("uart0", "flow_control", uart0.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
+  SETTING_NOTIFY("uart1", "flow_control", uart1.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
   SETTING_NOTIFY("uart0", "mode", uart0_mode, TYPE_PORT_MODE, port_mode_notify);
   SETTING_NOTIFY("uart1", "mode", uart1_mode, TYPE_PORT_MODE, port_mode_notify);
 
