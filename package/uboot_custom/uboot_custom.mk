@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-UBOOT_CUSTOM_VERSION = ccdd5b1856f3668ad68d213cbce2d51eb9e3a00c
+UBOOT_CUSTOM_VERSION = ac451bef610c4a58c6d9df20580e308e43ebd50e
 UBOOT_CUSTOM_SITE = https://github.com/swift-nav/u-boot-xlnx.git
 UBOOT_CUSTOM_SITE_METHOD = git
 UBOOT_CUSTOM_DEPENDENCIES = host-dtc host-uboot-tools

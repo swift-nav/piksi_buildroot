@@ -51,3 +51,8 @@
 &ttc1 {
   status = "disabled";
 };
+
+&watchdog0 {
+  timeout-sec = <10>;
+  reset-on-timeout;
+};
