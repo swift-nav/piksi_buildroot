@@ -11,10 +11,10 @@ RUN apt-get update && apt-get -y --force-yes install \
   python \
   unzip \
   bc \
-  cpio
+  cpio \
+  libssl-dev
 
 COPY . /app
 
-RUN make -C buildroot piksiv3_defconfig
-RUN HW_CONFIG=prod make -C buildroot 2>&1 | tee -a build.out | grep --line-buffered '^make'
-RUN HW_CONFIG=microzed make -C buildroot 2>&1 | tee -a build.out | grep --line-buffered '^make'
+RUN HW_CONFIG=prod make image 2>&1 | tee -a build.out | grep --line-buffered '^make'
+RUN HW_CONFIG=microzed make image 2>&1 | tee -a build.out | grep --line-buffered '^make'
