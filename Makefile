@@ -10,7 +10,7 @@ endif
 
 .PHONY: all firmware config image
 
-all: firmware config image
+all: firmware image
 
 firmware:
 	./fetch_firmware.sh
@@ -18,6 +18,6 @@ firmware:
 config:
 	make -C buildroot $(BUILDROOT_CONFIG)
 
-image:
+image: config
 	make -C buildroot
 
