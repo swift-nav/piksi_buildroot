@@ -196,10 +196,27 @@ static const char const * port_mode_enum[] = {"SBP", "NMEA", NULL};
 static struct setting_type port_mode_settings_type;
 static int TYPE_PORT_MODE = 0;
 enum {PORT_MODE_SBP, PORT_MODE_NMEA};
-static u8 uart0_mode = PORT_MODE_SBP;
-static u8 uart1_mode = PORT_MODE_SBP;
-static pid_t uart0_adapter_pid = 0;
-static pid_t uart1_adapter_pid = 0;
+
+typedef struct {
+  const char * const name;
+  const char * const opts;
+  u8 mode;
+  pid_t pid;
+} adapter_config_t;
+
+static adapter_config_t uart0_adapter_config = {
+  .name = "uart0",
+  .opts = "--file /dev/ttyPS0",
+  .mode = PORT_MODE_SBP,
+  .pid = 0
+};
+
+static adapter_config_t uart1_adapter_config = {
+  .name = "uart1",
+  .opts = "--file /dev/ttyPS1",
+  .mode = PORT_MODE_SBP,
+  .pid = 0
+};
 
 bool port_mode_notify(struct setting *s, const char *val)
 {
@@ -209,35 +226,29 @@ bool port_mode_notify(struct setting *s, const char *val)
     return false;
   }
 
-  const char *dev = NULL;
-  const char *opts = NULL;
-  const char *opts_sbp = NULL;
-  pid_t *pid;
-  if (s->addr == &uart0_mode) {
-    dev = "/dev/ttyPS0";
-    opts = "";
-    opts_sbp = "-f sbp --filter-out sbp --filter-out-config /etc/uart0_filter_out_config";
-    pid = &uart0_adapter_pid;
-  } else if (s->addr == &uart1_mode) {
-    dev = "/dev/ttyPS1";
-    opts = "";
-    opts_sbp = "-f sbp --filter-out sbp --filter-out-config /etc/uart1_filter_out_config";
-    pid = &uart1_adapter_pid;
+  adapter_config_t *adapter_config = NULL;
+  if (s->addr == &uart0_adapter_config.mode) {
+    adapter_config = &uart0_adapter_config;
+  } else if (s->addr == &uart1_adapter_config.mode) {
+    adapter_config = &uart1_adapter_config;
   } else {
     return false;
   }
 
-  const char *mode_opts = NULL;
+  char mode_opts[200] = {0};
   u16 zmq_port_pub = 0;
   u16 zmq_port_sub = 0;
   switch (port_mode) {
   case PORT_MODE_SBP:
-    mode_opts = opts_sbp;
+    snprintf(mode_opts, sizeof(mode_opts),
+             "-f sbp --filter-out sbp "
+             "--filter-out-config /etc/%s_filter_out_config",
+             adapter_config->name);
     zmq_port_pub = 43031;
     zmq_port_sub = 43030;
     break;
   case PORT_MODE_NMEA:
-    mode_opts = "";
+    snprintf(mode_opts, sizeof(mode_opts), "");
     zmq_port_pub = 44031;
     zmq_port_sub = 44030;
     break;
@@ -246,19 +257,19 @@ bool port_mode_notify(struct setting *s, const char *val)
   }
 
   /* Kill the old zmq_adapter, if it exists. */
-  if (*pid) {
-    int ret = kill(*pid, SIGTERM);
+  if (adapter_config->pid) {
+    int ret = kill(adapter_config->pid, SIGTERM);
     printf("Killing zmq_adapter with PID: %d (kill returned %d, errno %d)\n",
-           *pid, ret, errno);
+           adapter_config->pid, ret, errno);
   }
 
   /* Prepare the command used to launch zmq_adapter. */
   char cmd[200];
   snprintf(cmd, sizeof(cmd),
-           "zmq_adapter --file %s "
+           "zmq_adapter %s %s "
            "-p >tcp://127.0.0.1:%d "
-           "-s >tcp://127.0.0.1:%d %s %s",
-           dev, zmq_port_pub, zmq_port_sub, opts, mode_opts);
+           "-s >tcp://127.0.0.1:%d",
+           adapter_config->opts, mode_opts, zmq_port_pub, zmq_port_sub);
 
   printf("Starting zmq_adapter: %s\n", cmd);
 
@@ -268,15 +279,15 @@ bool port_mode_notify(struct setting *s, const char *val)
   for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 100; i++);
 
   /* Create a new zmq_adapter. */
-  if (!(*pid = fork())) {
+  if (!(adapter_config->pid = fork())) {
     execvp(args[0], args);
     printf("execvp error\n");
     exit(EXIT_FAILURE);
   }
 
-  printf("zmq_adapter started with PID: %d\n", *pid);
+  printf("zmq_adapter started with PID: %d\n", adapter_config->pid);
 
-  if (*pid < 0) {
+  if (adapter_config->pid < 0) {
     /* fork() failed */
     return false;
   }
@@ -563,8 +574,8 @@ int main(void)
   SETTING_NOTIFY("uart1", "baudrate", uart1.baudrate, TYPE_BAUDRATE, baudrate_notify);
   SETTING_NOTIFY("uart0", "flow_control", uart0.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
   SETTING_NOTIFY("uart1", "flow_control", uart1.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
-  SETTING_NOTIFY("uart0", "mode", uart0_mode, TYPE_PORT_MODE, port_mode_notify);
-  SETTING_NOTIFY("uart1", "mode", uart1_mode, TYPE_PORT_MODE, port_mode_notify);
+  SETTING_NOTIFY("uart0", "mode", uart0_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
+  SETTING_NOTIFY("uart1", "mode", uart1_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
 
   TYPE_IP_MODE = settings_type_register_enum(ip_mode_enum, &ip_mode_settings_type);
   SETTING_NOTIFY("ethernet", "ip_config_mode", eth_ip_mode, TYPE_IP_MODE, eth_ip_mode_notify);
