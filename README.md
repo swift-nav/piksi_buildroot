@@ -40,7 +40,7 @@ Ensure you have the dependencies, see `Dockerfile` for build dependencies.
 Run
 
 ``` sh
-./build.sh
+make
 ```
 
 ### Mac OS X
