@@ -2,8 +2,6 @@ FROM debian:jessie
 
 WORKDIR /app
 
-ENV BR2_EXTERNAL=/app
-
 RUN apt-get update && apt-get -y --force-yes install \
   build-essential \
   git \

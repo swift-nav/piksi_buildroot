@@ -16,8 +16,8 @@ firmware:
 	./fetch_firmware.sh
 
 config:
-	make -C buildroot $(BUILDROOT_CONFIG)
+	BR2_EXTERNAL=$(BR2_EXTERNAL) make -C buildroot $(BUILDROOT_CONFIG)
 
 image: config
-	make -C buildroot
+	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) make -C buildroot
 
