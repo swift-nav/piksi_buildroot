@@ -225,6 +225,20 @@ static adapter_config_t usb0_adapter_config = {
   .pid = 0
 };
 
+static adapter_config_t tcp_server0_adapter_config = {
+  .name = "tcp_server0",
+  .opts = "--tcp-l 55555",
+  .mode = PORT_MODE_SBP,
+  .pid = 0
+};
+
+static adapter_config_t tcp_server1_adapter_config = {
+  .name = "tcp_server1",
+  .opts = "--tcp-l 55556",
+  .mode = PORT_MODE_SBP,
+  .pid = 0
+};
+
 bool port_mode_notify(struct setting *s, const char *val)
 {
   u8 port_mode;
@@ -240,6 +254,10 @@ bool port_mode_notify(struct setting *s, const char *val)
     adapter_config = &uart1_adapter_config;
   } else if (s->addr == &usb0_adapter_config.mode) {
     adapter_config = &usb0_adapter_config;
+  } else if (s->addr == &tcp_server0_adapter_config.mode) {
+    adapter_config = &tcp_server0_adapter_config;
+  } else if (s->addr == &tcp_server1_adapter_config.mode) {
+    adapter_config = &tcp_server1_adapter_config;
   } else {
     return false;
   }
@@ -578,14 +596,17 @@ int main(void)
 
   TYPE_BAUDRATE = settings_type_register_enum(baudrate_enum, &baudrate_settings_type);
   TYPE_FLOW_CONTROL = settings_type_register_enum(flow_control_enum, &flow_control_settings_type);
-  TYPE_PORT_MODE = settings_type_register_enum(port_mode_enum, &port_mode_settings_type);
   SETTING_NOTIFY("uart0", "baudrate", uart0.baudrate, TYPE_BAUDRATE, baudrate_notify);
   SETTING_NOTIFY("uart1", "baudrate", uart1.baudrate, TYPE_BAUDRATE, baudrate_notify);
   SETTING_NOTIFY("uart0", "flow_control", uart0.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
   SETTING_NOTIFY("uart1", "flow_control", uart1.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
+
+  TYPE_PORT_MODE = settings_type_register_enum(port_mode_enum, &port_mode_settings_type);
   SETTING_NOTIFY("uart0", "mode", uart0_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
   SETTING_NOTIFY("uart1", "mode", uart1_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
   SETTING_NOTIFY("usb0", "mode", usb0_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
+  SETTING_NOTIFY("tcp_server0", "mode", tcp_server0_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
+  SETTING_NOTIFY("tcp_server1", "mode", tcp_server1_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
 
   TYPE_IP_MODE = settings_type_register_enum(ip_mode_enum, &ip_mode_settings_type);
   SETTING_NOTIFY("ethernet", "ip_config_mode", eth_ip_mode, TYPE_IP_MODE, eth_ip_mode_notify);
