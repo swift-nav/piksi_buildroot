@@ -1,7 +1,0 @@
-#!/bin/sh
-
-ttydev="ttyGS0"
-filter_options="--filter-out sbp --filter-out-config /etc/usb_filter_out_config"
-
-source /etc/init.d/adapter_uart.inc.sh
-

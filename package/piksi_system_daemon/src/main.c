@@ -218,6 +218,13 @@ static adapter_config_t uart1_adapter_config = {
   .pid = 0
 };
 
+static adapter_config_t usb0_adapter_config = {
+  .name = "usb0",
+  .opts = "--file /dev/ttyGS0",
+  .mode = PORT_MODE_SBP,
+  .pid = 0
+};
+
 bool port_mode_notify(struct setting *s, const char *val)
 {
   u8 port_mode;
@@ -231,6 +238,8 @@ bool port_mode_notify(struct setting *s, const char *val)
     adapter_config = &uart0_adapter_config;
   } else if (s->addr == &uart1_adapter_config.mode) {
     adapter_config = &uart1_adapter_config;
+  } else if (s->addr == &usb0_adapter_config.mode) {
+    adapter_config = &usb0_adapter_config;
   } else {
     return false;
   }
@@ -576,6 +585,7 @@ int main(void)
   SETTING_NOTIFY("uart1", "flow_control", uart1.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
   SETTING_NOTIFY("uart0", "mode", uart0_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
   SETTING_NOTIFY("uart1", "mode", uart1_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
+  SETTING_NOTIFY("usb0", "mode", usb0_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
 
   TYPE_IP_MODE = settings_type_register_enum(ip_mode_enum, &ip_mode_settings_type);
   SETTING_NOTIFY("ethernet", "ip_config_mode", eth_ip_mode, TYPE_IP_MODE, eth_ip_mode_notify);
