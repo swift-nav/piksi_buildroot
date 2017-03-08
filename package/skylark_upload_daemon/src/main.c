@@ -10,6 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <sbp_zmq.h>
+
 int main(int argc, char *argv[])
 {
   exit(EXIT_SUCCESS);

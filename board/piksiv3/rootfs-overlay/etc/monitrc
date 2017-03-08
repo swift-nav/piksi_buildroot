@@ -47,6 +47,14 @@ check process zmq_adapter_tcp_listen_nmea with pidfile /var/run/zmq_adapter_tcp_
     start program = "/etc/init.d/S83zmq_adapter_tcp_listen_nmea start"
     stop program = "/etc/init.d/S83zmq_adapter_tcp_listen_nmea stop"
 
+check process skylark_upload_daemon with pidfile /var/run/skylark_upload_daemon.pid
+    start program = "/etc/init.d/S86skylark_upload_daemon start"
+    stop program = "/etc/init.d/S86skylark_upload_daemon stop"
+
+check process skylark_download_daemon with pidfile /var/run/skylark_download_daemon.pid
+    start program = "/etc/init.d/S87skylark_download_daemon start"
+    stop program = "/etc/init.d/S87skylark_download_daemon stop"
+
 check process sshd with pidfile /var/run/sshd.pid
     start program = "/etc/init.d/S50sshd start"
     stop program = "/etc/init.d/S50sshd stop"
