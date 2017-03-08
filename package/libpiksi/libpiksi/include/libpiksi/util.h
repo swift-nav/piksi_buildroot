@@ -33,6 +33,16 @@
 u16 sbp_sender_id_get(void);
 
 /**
+ * @brief   Get the Device UUID for the system.
+ * @details Returns the board-specific UUID.
+ *
+ * @return                  The operation result..
+ * @retval 0                The value was returned successfully.
+ * @retval -1               An error occurred.
+ */
+int device_uuid_get(char *str, size_t str_size);
+
+/**
  * @brief   Run a ZMQ loop ignoring signals.
  * @details Run a ZMQ loop ignoring signals until an error occurs or a handler
  *          returns -1.

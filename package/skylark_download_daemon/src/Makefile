@@ -1,10 +1,6 @@
-TARGET=piksi_system_daemon
-SOURCES= \
-	main.c \
-	skylark.c \
-	whitelists.c
-
-LIBS=-lczmq -lsbp -lpiksi
+TARGET=skylark_download_daemon
+SOURCES=skylark_download_daemon.c
+LIBS=-lcurl  -lczmq -lsbp -lpiksi -lskylark
 CFLAGS=-std=gnu11
 
 CROSS=
