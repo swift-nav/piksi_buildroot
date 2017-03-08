@@ -36,3 +36,6 @@ docker-make-image:
 
 docker-run:
 	docker run $(DOCKER_ARGS) -ti piksi_buildroot
+
+test:
+	./run_tests.sh
