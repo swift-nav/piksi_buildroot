@@ -18,8 +18,8 @@
 #include <assert.h>
 #include <libsbp/settings.h>
 
-#define PUB_ENDPOINT ">tcp://127.0.0.1:43071"
-#define SUB_ENDPOINT ">tcp://127.0.0.1:43070"
+#define PUB_ENDPOINT ">tcp://127.0.0.1:43081"
+#define SUB_ENDPOINT ">tcp://127.0.0.1:43080"
 
 #define REGISTER_TIMEOUT_ms 100
 #define REGISTER_TRIES 5
