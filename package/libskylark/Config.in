@@ -1,0 +1,6 @@
+config BR2_PACKAGE_LIBSKYLARK
+  bool "libskylark"
+  select BR2_PACKAGE_CZMQ
+  select BR2_PACKAGE_LIBSBP
+  select BR2_PACKAGE_LIBPIKSI
+  select BR2_PACKAGE_LIBCURL
