@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="skylark_upload_daemon"
+cmd="skylark_upload_daemon --sub /tmp/skylark_upload --endpoint https://broker.skylark2.swiftnav.com -v"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh

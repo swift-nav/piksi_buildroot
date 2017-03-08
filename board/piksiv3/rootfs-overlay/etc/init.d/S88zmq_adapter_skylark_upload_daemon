@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="zmq_adapter_skylark_upload_daemon"
+cmd="zmq_adapter --file /tmp/skylark_upload -s >tcp://127.0.0.1:43080 --debug"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh
