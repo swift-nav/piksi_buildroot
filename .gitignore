@@ -1,4 +1,4 @@
 firmware/
 .*.sw*
 build.out
-
+package/build
