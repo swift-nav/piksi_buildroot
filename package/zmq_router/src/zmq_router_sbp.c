@@ -18,6 +18,7 @@ typedef enum {
   SBP_PORT_EXTERNAL,
   SBP_PORT_FILEIO_FIRMWARE,
   SBP_PORT_FILEIO_EXTERNAL,
+  SBP_PORT_SKYLARK,
 } sbp_port_id_t;
 
 static port_t ports_sbp[] = {
@@ -155,6 +156,24 @@ static port_t ports_sbp[] = {
       .sub_forwarding_rules = (const forwarding_rule_t *[]) {
         &(forwarding_rule_t){
           .dst_port = &ports_sbp[SBP_PORT_EXTERNAL],
+          .filters = (const filter_t *[]) {
+            &FILTER_ACCEPT(),
+            NULL
+          }
+        },
+        NULL
+      },
+    },
+    .pub_socket = NULL,
+    .sub_socket = NULL,
+  },
+  [SBP_PORT_SKYLARK] = {
+    .config = {
+      .pub_addr = "@tcp://127.0.0.1:43060",
+      .sub_addr = "@tcp://127.0.0.1:43061",
+      .sub_forwarding_rules = (const forwarding_rule_t *[]) {
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_FIRMWARE],
           .filters = (const filter_t *[]) {
             &FILTER_ACCEPT(),
             NULL

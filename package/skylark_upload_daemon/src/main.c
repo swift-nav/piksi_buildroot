@@ -15,16 +15,27 @@
 #include <curl/curl.h>
 
 #include <sbp_zmq.h>
+#include <libsbp/navigation.h>
 
-static size_t callback(void *p, size_t size, size_t n, void *up)
+//
+// Upload Daemon - connects to Skylark and sends SBP messages.
+//
+
+
+// Callback used by libcurl to pass data to write to Skylark. Reads from pipe.
+//
+static size_t upload_callback(void *p, size_t size, size_t n, void *up)
 {
-  ssize_t m = read((int)up, p, size*n);
+  int *fd = (int *)up;
+  ssize_t m = read(*fd, p, size*n);
   if (m < 0) {
     return CURL_READFUNC_ABORT;
   }
   return m;
 }
 
+// Upload process. Calls libcurl to connect to Skylark. Takes a pipe fd.
+//
 static void upload(int fd)
 {
   CURLcode res = curl_global_init(CURL_GLOBAL_ALL);
@@ -40,8 +51,8 @@ static void upload(int fd)
 
   curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000");
   curl_easy_setopt(curl, CURLOPT_PUT, 1L);
-  curl_easy_setopt(curl, CURLOPT_READFUNCTION, callback);
-  curl_easy_setopt(curl, CURLOPT_READDATA, fd);
+  curl_easy_setopt(curl, CURLOPT_READFUNCTION, &upload_callback);
+  curl_easy_setopt(curl, CURLOPT_READDATA, &fd);
 
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
@@ -60,6 +71,8 @@ static void upload(int fd)
   curl_global_cleanup();
 }
 
+// Test source process. Takes a pipe fd and writes to it from STDIN.
+//
 static void source(int fd)
 {
   for (;;) {
@@ -75,7 +88,64 @@ static void source(int fd)
   }
 }
 
-int main(int argc, char **argv)
+// SBP msg callback - writes message to pipe.
+//
+static void msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  int *fd = (int *)context;
+  // TODO I doubt this is right - won't I need to rebuild the rest of the SBP frame?
+  write(*fd, msg, len);
+}
+
+// zmq read loop process. Takes a pipe fd and writes messages to it from listening to SBP zmq.
+//
+static void msg_loop(int fd)
+{
+  sbp_zmq_config_t sbp_zmq_config = {
+    .sbp_sender_id = SBP_SENDER_ID,
+    .pub_endpoint = ">tcp://localhost:43061",
+    .sub_endpoint = ">tcp://localhost:43060"
+  };
+
+  sbp_zmq_state_t sbp_zmq_state;
+  if (sbp_zmq_init(&sbp_zmq_state, &sbp_zmq_config) < 0) {
+    exit(EXIT_FAILURE);
+  }
+
+  // TODO moar messages to register
+  sbp_zmq_callback_register(&sbp_zmq_state, SBP_MSG_POS_LLH, &msg_callback, &fd, NULL);
+  sbp_zmq_loop(&sbp_zmq_state);
+
+  sbp_zmq_deinit(&sbp_zmq_state);
+}
+
+// Main entry point - sets up a pipe and forks off a upload process and a message reader process.
+//
+int main(void)
+{
+  int fds[2], ret = pipe(fds);
+  if (ret < 0) {
+    exit(EXIT_FAILURE);
+  }
+
+  ret = fork();
+  if (ret < 0) {
+    exit(EXIT_FAILURE);
+  } else if (ret == 0) {
+    close(fds[1]);
+    upload(fds[0]);
+  } else {
+    close(fds[0]);
+    msg_loop(fds[1]);
+    waitpid(ret, &ret, 0);
+  }
+
+  exit(EXIT_SUCCESS);
+}
+
+// Test entry point - sets up a pipe and forks off a upload process and a message reader loop that reads from STDIN.
+//
+int test(void)
 {
   int fds[2], ret = pipe(fds);
   if (ret < 0) {

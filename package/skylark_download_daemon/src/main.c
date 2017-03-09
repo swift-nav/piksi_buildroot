@@ -13,14 +13,25 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <curl/curl.h>
-#include <sbp_zmq.h>
 
-static size_t callback(void *p, size_t size, size_t n, void *up)
+#include <sbp_zmq.h>
+#include <libsbp/observation.h>
+
+//
+// Download Daemon - connects to Skylark and receives SBP messages.
+//
+
+// Callback used by libcurl to pass data read from Skylark. Writes to pipe.
+//
+static size_t download_callback(void *p, size_t size, size_t n, void *up)
 {
-  ssize_t m = write((int)up, p, size*n);
+  int *fd = (int *)up;
+  ssize_t m = write(*fd, p, size*n);
   return m;
 }
 
+// Download process. Calls libcurl to connect to Skylark. Takes a pipe fd.
+//
 static void download(int fd)
 {
   CURLcode res = curl_global_init(CURL_GLOBAL_ALL);
@@ -35,8 +46,8 @@ static void download(int fd)
   }
 
   curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000");
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callback);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, fd);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &download_callback);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &fd);
 
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
@@ -55,6 +66,8 @@ static void download(int fd)
   curl_global_cleanup();
 }
 
+// Test sink process. Takes a pipe fd and reads from it to STDOUT.
+//
 static void sink(int fd)
 {
   for (;;) {
@@ -71,7 +84,86 @@ static void sink(int fd)
   }
 }
 
-int main(int argc, char *argv[])
+// Msg reading callback for sbp_process. Reads from pipe.
+//
+static u32 msg_read(u8 *buf, u32 n, void *context)
+{
+  int *fd = (int *)context;
+  ssize_t m = read(*fd, buf, n);
+  return n;
+}
+
+// SBP msg callback - sends message to SBP zmq.
+//
+static void msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  sbp_zmq_state_t *sbp_zmq_state = (sbp_zmq_state_t *)context;
+  // TODO is this right? Can I just pass through the msg and len like this?
+  sbp_zmq_message_send(sbp_zmq_state, SBP_MSG_OBS, len, msg);
+
+}
+
+// Read loop process. Takes a pipe fd and reads from it to send to SBP zmq.
+//
+static void msg_loop(int fd)
+{
+  // TODO sender id is not going to be right here, since we're relaying messages.
+  sbp_zmq_config_t sbp_zmq_config = {
+    .sbp_sender_id = SBP_SENDER_ID,
+    .pub_endpoint = ">tcp://localhost:43061",
+    .sub_endpoint = ">tcp://localhost:43060"
+  };
+
+  // SBP zmq state to use for sending messages from Skylark.
+  sbp_zmq_state_t sbp_zmq_state;
+  if (sbp_zmq_init(&sbp_zmq_state, &sbp_zmq_config) < 0) {
+    exit(EXIT_FAILURE);
+  }
+
+  // SBP state used for building messages out of data from Skylark.
+  sbp_state_t sbp_state;
+  sbp_msg_callbacks_node_t callback_node;
+  sbp_state_init(&sbp_state);
+  sbp_state_set_io_context(&sbp_state, &fd);
+  // TODO moar messages to register
+  sbp_register_callback(&sbp_state, SBP_MSG_OBS, &msg_callback, &sbp_zmq_state, &callback_node);
+
+
+  // SBP state processing loop - continuously reads from the pipe and builds messages to send to SBP zmq.
+  for (;;) {
+    sbp_process(&sbp_state, &msg_read);
+  }
+
+  sbp_zmq_deinit(&sbp_zmq_state);
+}
+
+// Main entry point - sets up a pipe and forks off a download process and a read loop forwarder process.
+//
+int main(void)
+{
+  int fds[2], ret = pipe(fds);
+  if (ret < 0) {
+    exit(EXIT_FAILURE);
+  }
+
+  ret = fork();
+  if (ret < 0) {
+    exit(EXIT_FAILURE);
+  } else if (ret == 0) {
+    close(fds[0]);
+    download(fds[1]);
+  } else {
+    close(fds[1]);
+    msg_loop(fds[0]);
+    waitpid(ret, &ret, 0);
+  }
+
+  exit(EXIT_SUCCESS);
+}
+
+// Test entry point - sets up a pipe and forks off a download process and a read loop that prints to STDOUT.
+//
+int test(void)
 {
   int fds[2], ret = pipe(fds);
   if (ret < 0) {
@@ -92,3 +184,4 @@ int main(int argc, char *argv[])
 
   exit(EXIT_SUCCESS);
 }
+
