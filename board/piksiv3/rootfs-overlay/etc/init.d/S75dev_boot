@@ -16,7 +16,11 @@ copy_from_sd() {
   cp "$sd_file" "$output_file"
 
   if [ ! -f "$output_file" ]; then
-    echo "ERROR: copy failed"
+    while [ 1 ]; do
+      echo "ERROR: copy of images from SD card failed. Please Reboot"
+      echo "ERROR: copy of images from SD card failed. Please Reboot" | SBP_LOG --error
+      sleep 1
+    done
   fi
 }
 
@@ -33,7 +37,11 @@ copy_from_net() {
   tftp -g -r "$net_file" -l "$output_file" -b 65464 "$server_ip"
 
   if [ ! -f "$output_file" ]; then
-    echo "ERROR: copy failed"
+    while [ 1 ]; do
+      echo "ERROR: copy of images from SD card failed. Please Reboot"
+      echo "ERROR: copy of images from SD card failed. Please Reboot" | SBP_LOG --error
+      sleep 1
+    done
   fi
 }
 
