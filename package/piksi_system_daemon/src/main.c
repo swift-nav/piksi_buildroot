@@ -352,12 +352,21 @@ static int raw_fgets(char *str, size_t len, FILE *stream)
     int r = read(fd, &str[i], 1);
     if (r < 0)
       return r;
-    if ((r == 0) || (str[i] == '\n'))
+    if (r == 0)
       break;
+    if (str[i] == '\n') {
+      if (i == 0) {
+        str[i] = ' ';
+        continue;
+      }
+      break;
+    }
   }
   str[i++] = 0;
   return i > 1 ? i : 0;
 }
+
+static const char * cmd_str;
 
 static int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 {
@@ -365,8 +374,10 @@ static int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
   msg_log_t *msg = alloca(256);
   msg->level = 6;
 
-  if (raw_fgets(msg->text,
-                SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text),
+  int n=sprintf (msg->text, "%s: ", cmd_str);
+
+  if (raw_fgets(&(msg->text[n]),
+                SBP_FRAMING_MAX_PAYLOAD_SIZE - n - offsetof(msg_log_t, text),
                 ctx->pipe) > 0) {
     sbp_zmq_message_send(&sbp_zmq_state, SBP_MSG_LOG,
                          sizeof(*msg) + strlen(msg->text), (void*)msg);
@@ -393,7 +404,29 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
    * on what commands and arguments are legal.  For now we only accept one
    * canned command.
    */
-  if (strcmp(msg->command, "upgrade_tool upgrade.image_set.bin") != 0) {
+  if (strcmp(msg->command, "upgrade_tool upgrade.image_set.bin") == 0) {
+    cmd_str = "UG";
+    struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
+    ctx->pipe = popen(msg->command, "r");
+    ctx->sequence = msg->sequence;
+    ctx->loop = sbp_zmq_loop_get(&sbp_zmq_state);
+    ctx->pollitem.fd = fileno(ctx->pipe);
+    ctx->pollitem.events = ZMQ_POLLIN;
+    int arg = O_NONBLOCK;
+    fcntl(fileno(ctx->pipe), F_SETFL, &arg);
+    zloop_poller(ctx->loop, &ctx->pollitem, command_output, ctx);
+  } else if(strcmp(msg->command, "ifconfig") == 0) {
+    cmd_str = "IF";
+    struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
+    ctx->pipe = popen(msg->command, "r");
+    ctx->sequence = msg->sequence;
+    ctx->loop = sbp_zmq_loop_get(&sbp_zmq_state);
+    ctx->pollitem.fd = fileno(ctx->pipe);
+    ctx->pollitem.events = ZMQ_POLLIN;
+    int arg = O_NONBLOCK;
+    fcntl(fileno(ctx->pipe), F_SETFL, &arg);
+    zloop_poller(ctx->loop, &ctx->pollitem, command_output, ctx);
+  } else {
     msg_command_resp_t resp = {
       .sequence = msg->sequence,
       .code = (u32)-1,
@@ -402,15 +435,6 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
                          sizeof(resp), (u8*)&resp);
     return;
   }
-  struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
-  ctx->pipe = popen(msg->command, "r");
-  ctx->sequence = msg->sequence;
-  ctx->loop = sbp_zmq_loop_get(&sbp_zmq_state);
-  ctx->pollitem.fd = fileno(ctx->pipe);
-  ctx->pollitem.events = ZMQ_POLLIN;
-  int arg = O_NONBLOCK;
-  fcntl(fileno(ctx->pipe), F_SETFL, &arg);
-  zloop_poller(ctx->loop, &ctx->pollitem, command_output, ctx);
 }
 
 static int file_read_string(const char *filename, char *str, size_t str_size)
