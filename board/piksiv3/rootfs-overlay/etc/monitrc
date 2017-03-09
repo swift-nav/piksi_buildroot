@@ -47,6 +47,10 @@ check process zmq_adapter_tcp_listen_nmea with pidfile /var/run/zmq_adapter_tcp_
     start program = "/etc/init.d/S83zmq_adapter_tcp_listen_nmea start"
     stop program = "/etc/init.d/S83zmq_adapter_tcp_listen_nmea stop"
 
+check process discovery_broadcaster with pidfile /var/run/discovery_broadcaster.pid
+    start program = "/etc/init.d/S83discovery_broadcaster start"
+    stop program = "/etc/init.d/S83discovery_broadcaster stop"
+
 check process sshd with pidfile /var/run/sshd.pid
     start program = "/etc/init.d/S50sshd start"
     stop program = "/etc/init.d/S50sshd stop"
