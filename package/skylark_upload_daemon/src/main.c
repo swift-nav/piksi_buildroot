@@ -49,7 +49,7 @@ static void upload(int fd)
     exit(EXIT_FAILURE);
   }
 
-  curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000");
+  curl_easy_setopt(curl, CURLOPT_URL, "https://broker.skylark2.swiftnav.com");
   curl_easy_setopt(curl, CURLOPT_PUT, 1L);
   curl_easy_setopt(curl, CURLOPT_READFUNCTION, &upload_callback);
   curl_easy_setopt(curl, CURLOPT_READDATA, &fd);

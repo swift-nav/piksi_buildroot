@@ -45,7 +45,7 @@ static void download(int fd)
     exit(EXIT_FAILURE);
   }
 
-  curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000");
+  curl_easy_setopt(curl, CURLOPT_URL, "https://broker.skylark2.swiftnav.com");
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &download_callback);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &fd);
 
