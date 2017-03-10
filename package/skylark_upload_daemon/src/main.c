@@ -26,8 +26,10 @@
 //
 static size_t upload_callback(void *p, size_t size, size_t n, void *up)
 {
+  printf("upload_callback: size=%d n=%d\n", size, n);
   int *fd = (int *)up;
   ssize_t m = read(*fd, p, size*n);
+  printf("upload_callback_READ: m=%d\n", m);
   if (m < 0) {
     return CURL_READFUNC_ABORT;
   }
@@ -53,6 +55,7 @@ static void upload(int fd)
   curl_easy_setopt(curl, CURLOPT_PUT, 1L);
   curl_easy_setopt(curl, CURLOPT_READFUNCTION, &upload_callback);
   curl_easy_setopt(curl, CURLOPT_READDATA, &fd);
+  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
@@ -75,8 +78,8 @@ static void upload(int fd)
 //
 static void source(int fd)
 {
+  char buf[1024];
   for (;;) {
-    char buf[1024];
     ssize_t n = fread(buf, 1, sizeof(buf), stdin);
     if (n <= 0) {
       break;
@@ -92,6 +95,7 @@ static void source(int fd)
 //
 static void msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
+  printf("msg_callback\n");
   int *fd = (int *)context;
   // TODO I doubt this is right - won't I need to rebuild the rest of the SBP frame?
   write(*fd, msg, len);

@@ -25,8 +25,10 @@
 //
 static size_t download_callback(void *p, size_t size, size_t n, void *up)
 {
+  printf("download_callback: size=%d n=%d\n", size, n);
   int *fd = (int *)up;
   ssize_t m = write(*fd, p, size*n);
+  printf("download_callback_WRITE: m=%d\n", m);
   return m;
 }
 
@@ -48,6 +50,7 @@ static void download(int fd)
   curl_easy_setopt(curl, CURLOPT_URL, "https://broker.skylark2.swiftnav.com");
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &download_callback);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &fd);
+  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
@@ -70,8 +73,8 @@ static void download(int fd)
 //
 static void sink(int fd)
 {
+  char buf[1024];
   for (;;) {
-    char buf[1024];
     ssize_t n = read(fd, buf, sizeof(buf));
     if (n <= 0) {
       break;
@@ -88,15 +91,18 @@ static void sink(int fd)
 //
 static u32 msg_read(u8 *buf, u32 n, void *context)
 {
+  printf("msg_read: n=%d\n", n);
   int *fd = (int *)context;
   ssize_t m = read(*fd, buf, n);
-  return n;
+  printf("msg_read_READ: m=%d\n", m);
+  return m;
 }
 
 // SBP msg callback - sends message to SBP zmq.
 //
 static void msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
+  printf("msg_callback\n");
   sbp_zmq_state_t *sbp_zmq_state = (sbp_zmq_state_t *)context;
   // TODO is this right? Can I just pass through the msg and len like this?
   sbp_zmq_message_send(sbp_zmq_state, SBP_MSG_OBS, len, msg);
@@ -127,7 +133,6 @@ static void msg_loop(int fd)
   sbp_state_set_io_context(&sbp_state, &fd);
   // TODO moar messages to register
   sbp_register_callback(&sbp_state, SBP_MSG_OBS, &msg_callback, &sbp_zmq_state, &callback_node);
-
 
   // SBP state processing loop - continuously reads from the pipe and builds messages to send to SBP zmq.
   for (;;) {
