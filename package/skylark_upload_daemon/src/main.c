@@ -26,10 +26,10 @@
 //
 static size_t upload_callback(void *p, size_t size, size_t n, void *up)
 {
-  printf("upload_callback: size=%d n=%d\n", size, n);
+  //  printf("upload_callback: size=%d n=%d\n", size, n);
   int *fd = (int *)up;
   ssize_t m = read(*fd, p, size*n);
-  printf("upload_callback_READ: m=%d\n", m);
+  //  printf("upload_callback_READ: m=%d\n", m);
   if (m < 0) {
     return CURL_READFUNC_ABORT;
   }

@@ -25,10 +25,10 @@
 //
 static size_t download_callback(void *p, size_t size, size_t n, void *up)
 {
-  printf("download_callback: size=%d n=%d\n", size, n);
+  //  printf("download_callback: size=%d n=%d\n", size, n);
   int *fd = (int *)up;
   ssize_t m = write(*fd, p, size*n);
-  printf("download_callback_WRITE: m=%d\n", m);
+  //  printf("download_callback_WRITE: m=%d\n", m);
   return m;
 }
 
@@ -140,7 +140,9 @@ static void msg_loop(int fd)
   sbp_register_callback(&sbp_state, SBP_MSG_OBS, &msg_callback, &sbp_zmq_state, &callback_node);
 
   // SBP state processing loop - continuously reads from the pipe and builds messages to send to SBP zmq.
-  while (sbp_process(&sbp_state, &msg_read) == SBP_OK);
+  for (;;) {
+    sbp_process(&sbp_state, &msg_read);
+  }
 
   sbp_zmq_deinit(&sbp_zmq_state);
 }
