@@ -96,9 +96,9 @@ static void source(int fd)
 static u32 msg_write(u8 *buf, u32 n, void *context)
 {
   int *fd = (int *)context;
-  printf("msg_write: n=%d\n", n);
+  //printf("msg_write: n=%d\n", n);
   ssize_t m = write(*fd, buf, n);
-  printf("msg_write_WRITE: m=%d\n", m);
+  //printf("msg_write_WRITE: m=%d\n", m);
   return m;
 }
 

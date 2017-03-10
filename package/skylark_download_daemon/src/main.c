@@ -91,10 +91,10 @@ static void sink(int fd)
 //
 static u32 msg_read(u8 *buf, u32 n, void *context)
 {
-  printf("msg_read: n=%d\n", n);
+  //printf("msg_read: n=%d\n", n);
   int *fd = (int *)context;
   ssize_t m = read(*fd, buf, n);
-  printf("msg_read_READ: m=%d\n", m);
+  //printf("msg_read_READ: m=%d\n", m);
   return m;
 }
 
