@@ -91,14 +91,31 @@ static void source(int fd)
   }
 }
 
+static u32 msg_write(u8 *buf, u32 n, void *context)
+{
+  printf("msg_write: n=%d\n", n);
+  int *fd = (int *)context;
+  ssize_t m = write(*fd, buf, n);
+  printf("msg_write_WRITE: m=%d\n", m);
+  return m;
+}
+
 // SBP msg callback - writes message to pipe.
 //
 static void msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
+  // TODO this should be made more generic so that the same callback can service
+  //      multiple message types - e.g., the context should be a struct of both
+  //      the sbp_zmq_state_t and the msg type.
   printf("msg_callback\n");
   int *fd = (int *)context;
   // TODO I doubt this is right - won't I need to rebuild the rest of the SBP frame?
-  write(*fd, msg, len);
+  //      ok - now I'm going to do something probably inefficient - going to setup a
+  //      new sbp_state_t object here for writing and then call sbp_send_message.
+  sbp_state_t sbp_state;
+  sbp_state_init(&sbp_state);
+  sbp_state_set_io_context(&sbp_state, &fd);
+  sbp_send_message(&sbp_state, SBP_MSG_POS_LLH, sender_id, len, msg, &msg_write);
 }
 
 // zmq read loop process. Takes a pipe fd and writes messages to it from listening to SBP zmq.
@@ -106,7 +123,7 @@ static void msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 static void msg_loop(int fd)
 {
   sbp_zmq_config_t sbp_zmq_config = {
-    .sbp_sender_id = SBP_SENDER_ID,
+    .sbp_sender_id = SBP_SENDER_ID, // TODO problem? don't think this will end up getting used.
     .pub_endpoint = ">tcp://localhost:43061",
     .sub_endpoint = ">tcp://localhost:43060"
   };

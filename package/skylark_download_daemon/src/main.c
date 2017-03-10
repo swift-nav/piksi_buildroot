@@ -102,9 +102,14 @@ static u32 msg_read(u8 *buf, u32 n, void *context)
 //
 static void msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
+  // TODO this should be made more generic so that the same callback can service
+  //      multiple message types - e.g., the context should be a struct of both
+  //      the sbp_zmq_state_t and the msg type.
   printf("msg_callback\n");
   sbp_zmq_state_t *sbp_zmq_state = (sbp_zmq_state_t *)context;
   // TODO is this right? Can I just pass through the msg and len like this?
+  //      I think this is ok - with the exception of fixing the SENDER_ID
+  //      not sure the best way to fix sender id.
   sbp_zmq_message_send(sbp_zmq_state, SBP_MSG_OBS, len, msg);
 
 }
@@ -135,9 +140,7 @@ static void msg_loop(int fd)
   sbp_register_callback(&sbp_state, SBP_MSG_OBS, &msg_callback, &sbp_zmq_state, &callback_node);
 
   // SBP state processing loop - continuously reads from the pipe and builds messages to send to SBP zmq.
-  for (;;) {
-    sbp_process(&sbp_state, &msg_read);
-  }
+  while (sbp_process(&sbp_state, &msg_read) == SBP_OK);
 
   sbp_zmq_deinit(&sbp_zmq_state);
 }
