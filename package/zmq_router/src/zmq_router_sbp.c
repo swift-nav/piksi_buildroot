@@ -59,6 +59,13 @@ static port_t ports_sbp[] = {
             NULL
           }
         },
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_SKYLARK],
+          .filters = (const filter_t *[]) {
+            &FILTER_ACCEPT(),
+            NULL
+          }
+        },
         NULL
       },
     },
