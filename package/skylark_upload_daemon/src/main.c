@@ -95,8 +95,8 @@ static void source(int fd)
 //
 static u32 msg_write(u8 *buf, u32 n, void *context)
 {
-  printf("msg_write: n=%d\n", n);
   int *fd = (int *)context;
+  printf("msg_write: n=%d\n", n);
   ssize_t m = write(*fd, buf, n);
   printf("msg_write_WRITE: m=%d\n", m);
   return m;
@@ -109,14 +109,14 @@ static void msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   // TODO this should be made more generic so that the same callback can service
   //      multiple message types - e.g., the context should be a struct of both
   //      the sbp_zmq_state_t and the msg type.
-  printf("msg_callback\n");
   int *fd = (int *)context;
+  printf("msg_callback len=%d\n", len);
   // TODO I doubt this is right - won't I need to rebuild the rest of the SBP frame?
   //      ok - now I'm going to do something probably inefficient - going to setup a
   //      new sbp_state_t object here for writing and then call sbp_send_message.
   sbp_state_t sbp_state;
   sbp_state_init(&sbp_state);
-  sbp_state_set_io_context(&sbp_state, &fd);
+  sbp_state_set_io_context(&sbp_state, fd);
   sbp_send_message(&sbp_state, SBP_MSG_POS_LLH, sender_id, len, msg, &msg_write);
 }
 
