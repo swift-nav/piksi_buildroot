@@ -91,6 +91,8 @@ static void source(int fd)
   }
 }
 
+// Msg writing callback for msg callback. Takes a pipe fd and writes a message to it.
+//
 static u32 msg_write(u8 *buf, u32 n, void *context)
 {
   printf("msg_write: n=%d\n", n);
