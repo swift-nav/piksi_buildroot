@@ -62,7 +62,7 @@ static port_t ports_sbp[] = {
         &(forwarding_rule_t){
           .dst_port = &ports_sbp[SBP_PORT_SKYLARK],
           .filters = (const filter_t *[]) {
-            &FILTER_ACCEPT(),
+            &FILTER_ACCEPT(), // TODO: add appropriate ACCEPT/REJECT rules.
             NULL
           }
         },
@@ -182,7 +182,7 @@ static port_t ports_sbp[] = {
         &(forwarding_rule_t){
           .dst_port = &ports_sbp[SBP_PORT_FIRMWARE],
           .filters = (const filter_t *[]) {
-            &FILTER_ACCEPT(),
+            &FILTER_ACCEPT(), // TODO: add appropriate ACCEPT/REJECT rules.
             NULL
           }
         },
