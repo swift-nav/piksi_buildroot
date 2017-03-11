@@ -16,10 +16,12 @@
 
 extern const router_t router_sbp;
 extern const router_t router_nmea;
+extern const router_t router_rtcm3;
 
 static const router_t * const routers[] = {
   &router_sbp,
-  &router_nmea
+  &router_nmea,
+  &router_rtcm3
 };
 
 static void router_setup(const router_t *router)
