@@ -22,13 +22,14 @@
 enum port {
   PORT_UART0,
   PORT_UART1,
-  PORT_GSERIAL,
-  PORT_ETHERNET,
+  PORT_USB0,
+  PORT_TCP_SERVER0,
+  PORT_TCP_SERVER1,
   PORT_MAX
 };
 
 const char *section_names[PORT_MAX] = {
-  "uart0", "uart1", "usb", "ethernet",
+  "uart0", "uart1", "usb0", "tcp_server0", "tcp_server1",
 };
 
 /* Whitelist settings are kept as formatted strings of message ids and
@@ -47,8 +48,9 @@ const char *section_names[PORT_MAX] = {
 char wl[PORT_MAX][256] ={
   [PORT_UART0] = "68,72,73,74,65535",
   [PORT_UART1] = "",
-  [PORT_GSERIAL] = "",
-  [PORT_ETHERNET] = "",
+  [PORT_USB0] = "",
+  [PORT_TCP_SERVER0] = "",
+  [PORT_TCP_SERVER1] = "",
 };
 
 
