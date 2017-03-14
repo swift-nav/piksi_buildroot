@@ -23,6 +23,13 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <ifaddrs.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <linux/if_link.h>
 
 #include "protocols.h"
 #include "ntrip.h"
@@ -37,6 +44,7 @@
 
 #define PORT_MODE_NAME_DEFAULT "SBP"
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
+#define SBP_MAX_NETWORK_INTERFACES 10
 
 static void sigchld_handler(int signum)
 {
@@ -383,6 +391,89 @@ static int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
   return 0;
 }
 
+
+static u32 endian_flip_u32(u32 word)
+{
+  u32 b0,b1,b2,b3;
+
+  b0 = (word & 0x000000ff) << 24u;
+  b1 = (word & 0x0000ff00) << 8u;
+  b2 = (word & 0x00ff0000) >> 8u;
+  b3 = (word & 0xff000000) >> 24u;
+
+  return b0 | b1 | b2 | b3;
+}
+
+static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
+{
+  sbp_zmq_pubsub_ctx_t *pubsub_ctx = (sbp_zmq_pubsub_ctx_t *)context;
+
+  msg_network_state_resp_t interfaces[SBP_MAX_NETWORK_INTERFACES];
+  memset(interfaces, 0, sizeof(interfaces));
+
+  struct ifaddrs *ifaddr, *ifa;
+  int family, s, n;
+  char host[NI_MAXHOST];
+
+  if (getifaddrs(&ifaddr) == -1) {
+      perror("getifaddrs");
+      return;
+  }
+
+  /* Walk through linked list, maintaining head pointer so we
+    can free list later */
+
+  for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
+      if (ifa->ifa_addr == NULL)
+          continue;
+
+      if (strlen(ifa->ifa_name) >= sizeof(interfaces[0].interface_name)) {
+        perror("Interface name too long");
+        continue;
+      }
+
+      int interface_idx;
+      for (interface_idx = 0; interface_idx < SBP_MAX_NETWORK_INTERFACES; interface_idx++)
+      {
+        if (strlen(interfaces[interface_idx].interface_name) == 0) {
+          strcpy(interfaces[interface_idx].interface_name, ifa->ifa_name);
+          break;
+        }
+        if (strcmp(interfaces[interface_idx].interface_name ,ifa->ifa_name) == 0) {
+          break;
+        }
+      }
+      if (interface_idx == SBP_MAX_NETWORK_INTERFACES) {
+        perror("Too many interfaces");
+        continue;
+      }
+
+      family = ifa->ifa_addr->sa_family;
+      if (family == AF_INET) {
+        interfaces[interface_idx].ip_address =
+            endian_flip_u32(((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr);
+        interfaces[interface_idx].ip_mask =
+            endian_flip_u32(((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr.s_addr);
+        interfaces[interface_idx].flags = ifa->ifa_flags;
+      } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
+          struct rtnl_link_stats *stats = ifa->ifa_data;
+          interfaces[interface_idx].rx_bytes = stats->rx_bytes;
+          interfaces[interface_idx].tx_bytes = stats->tx_bytes;
+      }
+  }
+  for (int interface_idx = 0; interface_idx < SBP_MAX_NETWORK_INTERFACES; interface_idx++)
+  {
+    if (strlen(interfaces[interface_idx].interface_name) == 0) {
+      break;
+    }
+    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
+                    SBP_MSG_NETWORK_STATE_RESP, sizeof(msg_network_state_resp_t),
+                    (u8*)&interfaces[interface_idx]);
+  }
+
+  freeifaddrs(ifaddr);
+}
+
 static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = (sbp_zmq_pubsub_ctx_t *)context;
@@ -641,6 +732,9 @@ int main(void)
   img_tbl_settings_setup(settings_ctx);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_COMMAND_REQ, sbp_command, pubsub_ctx, NULL);
+  sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
+                               SBP_MSG_NETWORK_STATE_REQ, sbp_network_req,
+                               pubsub_ctx, NULL);
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(pubsub_ctx));
 
