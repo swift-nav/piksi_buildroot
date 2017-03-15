@@ -206,21 +206,21 @@ typedef struct {
 
 static adapter_config_t uart0_adapter_config = {
   .name = "uart0",
-  .opts = "--file /dev/ttyPS0",
+  .opts = "--file /dev/ttyPS0 --watermark-receive 100",
   .mode = PORT_MODE_SBP,
   .pid = 0
 };
 
 static adapter_config_t uart1_adapter_config = {
   .name = "uart1",
-  .opts = "--file /dev/ttyPS1",
+  .opts = "--file /dev/ttyPS1 --watermark-receive 100",
   .mode = PORT_MODE_SBP,
   .pid = 0
 };
 
 static adapter_config_t usb0_adapter_config = {
   .name = "usb0",
-  .opts = "--file /dev/ttyGS0",
+  .opts = "--file /dev/ttyGS0 --watermark-receive 100",
   .mode = PORT_MODE_SBP,
   .pid = 0
 };
