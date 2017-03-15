@@ -40,6 +40,7 @@ Ensure you have the dependencies, see `Dockerfile` for build dependencies.
 Run
 
 ``` sh
+git submodule update --init --recursive
 make
 ```
 
@@ -54,6 +55,7 @@ follow the directions for installing with Docker.
 Builds in a Linux container.
 
 ``` sh
+git submodule update --init --recursive
 docker build -t piksi-buildroot .
 ```
 
