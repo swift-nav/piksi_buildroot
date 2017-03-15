@@ -24,11 +24,11 @@ typedef enum {
     NUM_FREQS
 } freq_enum;
 
-const double CLIGHT = 299792458.0;         /* speed of light (m/s) */
-const double FREQ1 = 1.57542e9;
-const double FREQ2 = 1.22760e9;
+static const double CLIGHT = 299792458.0;         /* speed of light (m/s) */
+static const double FREQ1 = 1.57542e9;
+static const double FREQ2 = 1.22760e9;
 
-const double FREQS[NUM_FREQS] = { 1.57542e9, 1.22760e9 }; /* L1/E1 and L2 frequencies (Hz) */
+static const double FREQS[NUM_FREQS] = { 1.57542e9, 1.22760e9 }; /* L1/E1 and L2 frequencies (Hz) */
 
 typedef struct {
     u16 msg_num;

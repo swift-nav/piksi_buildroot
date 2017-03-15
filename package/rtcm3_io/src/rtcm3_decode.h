@@ -16,9 +16,6 @@
 #include "rtcm3_messages.h"
 #include <stdbool.h>
 
-#define RTCM3_PREAMBLE 0xD3 /**< RTCM v3 Frame sync / preamble byte. */
-#define PRUNIT_GPS 299792.458 /**< RTCM v3 Unit of GPS Pseudorange (m) */
-
 u32 getbitu(const u8 *buff, u32 pos, u8 len);
 u64 getbitul(const u8 *buff, u32 pos, u8 len);
 s32 getbits(const u8 *buff, u32 pos, u8 len);
@@ -27,6 +24,9 @@ void setbitu(u8 *buff, u32 pos, u32 len, u32 data);
 void setbitul(u8 *buff, u32 pos, u32 len, u64 data);
 void setbits(u8 *buff, u32 pos, u32 len, s32 data);
 void setbitsl(u8 *buff, u32 pos, u32 len, s64 data);
+
+#define RTCM3_PREAMBLE 0xD3 /**< RTCM v3 Frame sync / preamble byte. */
+#define PRUNIT_GPS 299792.458 /**< RTCM v3 Unit of GPS Pseudorange (m) */
 
 void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length);
 void rtcm3_write_header(const rtcm_msg_header *header, u8 num_sats, u8 *buff );
