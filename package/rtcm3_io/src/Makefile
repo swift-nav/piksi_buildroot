@@ -1,10 +1,8 @@
-TARGET=sbp_rtcm3_bridge
+TARGET=rtcm3_io
 SOURCES= \
-	sbp_rtcm3_bridge.c \
-	sbp_rtcm3.c \
-	sbp.c
+	rtcm3_decode.c
 
-LIBS=-lczmq -lsbp
+LIBS=-lm
 CFLAGS=-std=gnu11
 
 CROSS=
