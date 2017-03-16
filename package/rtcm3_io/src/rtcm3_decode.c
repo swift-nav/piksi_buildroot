@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
     msg1001.sats[1].svId = 6;
     msg1001.sats[1].obs[0].code = 0;
     msg1001.sats[1].obs[0].pseudorange = 22000004.4;
-    msg1001.sats[1].obs[0].carrier_phase = 110000005.4;
+    msg1001.sats[1].obs[0].carrier_phase = 115610703.4;
     msg1001.sats[1].obs[0].lock = 254;
     msg1001.sats[1].obs[0].flags.valid_pr = 1;
     msg1001.sats[1].obs[0].flags.valid_cp = 1;
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     msg1001.sats[2].svId = 6;
     msg1001.sats[2].obs[0].code = 0;
     msg1001.sats[2].obs[0].pseudorange = 22000004.4;
-    msg1001.sats[2].obs[0].carrier_phase = 110000005.4;
+    msg1001.sats[2].obs[0].carrier_phase = 115610553.4;
     msg1001.sats[2].obs[0].lock = 254;
     msg1001.sats[2].obs[0].flags.valid_pr = 1;
     msg1001.sats[2].obs[0].flags.valid_cp = 0;
@@ -281,7 +281,7 @@ bool msgobs_equals( const rtcm_obs_message *msg_in, const rtcm_obs_message *msg_
                 }
             }
             if( in_freq->flags.valid_cp ) {
-                if( fabs( in_freq->carrier_phase - out_freq->carrier_phase ) - out_freq->pseudorange - ((double)amb * PRUNIT_GPS / (CLIGHT / FREQS[freq])) > 0.0005 / (CLIGHT / FREQS[freq])   ) {
+                if( fabs( in_freq->carrier_phase - out_freq->carrier_phase - ((double)amb * PRUNIT_GPS / (CLIGHT / FREQS[freq])) ) > 0.0005 / (CLIGHT / FREQS[freq])   ) {
                     return false;
                 }
             }
@@ -291,41 +291,41 @@ bool msgobs_equals( const rtcm_obs_message *msg_in, const rtcm_obs_message *msg_
                 }
             }
             if( in_freq->flags.valid_lock ) {
-                if( in_freq->lock < 24 ) {
-                    if( out_freq->lock < 0 || out_freq->lock >= 24 ) {
-                        return false;
-                    }
-                }
-                else if( in_freq->lock < 72 ) {
-                    if( out_freq->lock < 24 || out_freq->lock >= 72 ) {
-                        return false;
-                    }
-                }
-                else if( in_freq->lock < 168 ) {
-                    if (out_freq->lock < 72 || out_freq->lock >= 168) {
-                        return false;
-                    }
-                }
-                else if( in_freq->lock < 360 ) {
-                    if( out_freq->lock < 168 || out_freq->lock >= 360 ) {
-                        return false;
-                    }
-                }
-                else if( in_freq->lock < 744 ) {
-                    if( out_freq->lock < 360 || out_freq->lock >= 744 ) {
-                        return false;
-                    }
-                }
-                else if( in_freq->lock < 937 ) {
-                    if( out_freq->lock < 744 || out_freq->lock >= 937 ) {
-                        return false;
-                    }
-                }
-                else {
-                    if( out_freq->lock < 937 ) {
-                        return false;
-                    }
-                }
+//                if( in_freq->lock < 24 ) {
+//                    if( out_freq->lock < 0 || out_freq->lock >= 24 ) {
+//                        return false;
+//                    }
+//                }
+//                else if( in_freq->lock < 72 ) {
+//                    if( out_freq->lock < 24 || out_freq->lock >= 72 ) {
+//                        return false;
+//                    }
+//                }
+//                else if( in_freq->lock < 168 ) {
+//                    if (out_freq->lock < 72 || out_freq->lock >= 168) {
+//                        return false;
+//                    }
+//                }
+//                else if( in_freq->lock < 360 ) {
+//                    if( out_freq->lock < 168 || out_freq->lock >= 360 ) {
+//                        return false;
+//                    }
+//                }
+//                else if( in_freq->lock < 744 ) {
+//                    if( out_freq->lock < 360 || out_freq->lock >= 744 ) {
+//                        return false;
+//                    }
+//                }
+//                else if( in_freq->lock < 937 ) {
+//                    if( out_freq->lock < 744 || out_freq->lock >= 937 ) {
+//                        return false;
+//                    }
+//                }
+//                else {
+//                    if( out_freq->lock < 937 ) {
+//                        return false;
+//                    }
+//                }
             }
         }
         ++out_sat_idx;

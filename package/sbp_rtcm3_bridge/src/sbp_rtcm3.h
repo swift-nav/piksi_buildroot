@@ -13,7 +13,7 @@
 #ifndef PIKSI_BUILDROOT_SBP_RTCM3_H
 #define PIKSI_BUILDROOT_SBP_RTCM3_H
 
-#include <rtcm3_io/src/rtcm3_messages.h>
+#include "rtcm3_messages.h"
 
 #define MSG_OBS_P_MULTIPLIER             ((double)5e1)
 #define MSG_OBS_CN0_MULTIPLIER           ((float)4)
@@ -153,7 +153,7 @@ estimate for the signal is valid.
 #define SBP_MSG_OBS                  0x004A
 typedef struct __attribute__((packed)) {
     observation_header_t header;    /**< Header of a GPS observation message */
-    packed_obs_content_t obs[0];    /**< Pseudorange and carrier phase observation for a
+    packed_obs_content_t obs[32];    /**< Pseudorange and carrier phase observation for a
 satellite being tracked.
  */
 } msg_obs_t;

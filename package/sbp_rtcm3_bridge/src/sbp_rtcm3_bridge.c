@@ -11,10 +11,14 @@
  */
 
 #include <stdint.h>
-#include <czmq.h>
-#include "sbp.h"
+//#include <czmq.h>
+//#include "sbp.h"
 #include "sbp_rtcm3.h"
-#include <rtcm3_io/src/rtcm3_decode.h>
+#include "rtcm3_decode.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
 
 #define RTCM3_SUB_ENDPOINT  ">tcp://127.0.0.1:45010"
 #define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"
@@ -71,7 +75,7 @@ int main(int argc, char *argv[])
   msg1001.sats[1].obs[0].flags.valid_cp = 1;
   msg1001.sats[1].obs[0].flags.valid_lock = 1;
 
-  msg1001.sats[2].svId = 6;
+  msg1001.sats[2].svId = 8;
   msg1001.sats[2].obs[0].code = 0;
   msg1001.sats[2].obs[0].pseudorange = 22000004.4;
   msg1001.sats[2].obs[0].carrier_phase = 110000005.4;
@@ -85,6 +89,11 @@ int main(int argc, char *argv[])
 
   rtcm_obs_message msg1001_out;
   sbp_to_rtcm3_obs( &sbp_obs, &msg1001_out );
+  msg1001_out.header.msg_num = 1001;
+  msg1001_out.header.stn_id = msg1001.header.stn_id;
+  msg1001_out.header.div_free = msg1001.header.div_free;
+  msg1001_out.header.smooth = msg1001.header.smooth;
+  msg1001_out.header.sync = msg1001.header.sync;
 
   assert( msgobs_equals( &msg1001, &msg1001_out ) );
 
@@ -102,8 +111,9 @@ int main(int argc, char *argv[])
 
   rtcm3_obs_to_sbp(&msg1002, &sbp_obs );
 
-  rtcm_obs_message msg1002_out;
+  rtcm_obs_message msg1002_out = msg1001_out;
   sbp_to_rtcm3_obs( &sbp_obs, &msg1002_out );
+  msg1002_out.header.msg_num = 1002;
 
   assert( msgobs_equals( &msg1002, &msg1002_out ) );
 
@@ -121,8 +131,9 @@ int main(int argc, char *argv[])
 
   rtcm3_obs_to_sbp(&msg1003, &sbp_obs );
 
-  rtcm_obs_message msg1003_out;
+  rtcm_obs_message msg1003_out = msg1001_out;
   sbp_to_rtcm3_obs( &sbp_obs, &msg1003_out );
+  msg1003_out.header.msg_num = 1003;
 
   assert( msgobs_equals( &msg1003, &msg1003_out ) );
 
@@ -147,8 +158,9 @@ int main(int argc, char *argv[])
 
   rtcm3_obs_to_sbp(&msg1004, &sbp_obs );
 
-  rtcm_obs_message msg1004_out;
+  rtcm_obs_message msg1004_out = msg1001_out;
   sbp_to_rtcm3_obs( &sbp_obs, &msg1004_out );
+  msg1004_out.header.msg_num = 1004;
 
   assert( msgobs_equals( &msg1004, &msg1004_out ) );
 
@@ -170,12 +182,20 @@ int main(int argc, char *argv[])
   rtcm3_1005_to_sbp(&msg1005, &sbp_base_pos );
 
   rtcm_msg_1005 msg1005_out;
+  msg1005_out.stn_id = msg1005.stn_id;
+  msg1005_out.ITRF = msg1005.ITRF;
+  msg1005_out.GPS_ind = msg1005.GPS_ind;
+  msg1005_out.GLO_ind = msg1005.GLO_ind;
+  msg1005_out.GAL_ind = msg1005.GAL_ind;
+  msg1005_out.ref_stn_ind = msg1005.ref_stn_ind;
+  msg1005_out.osc_ind = msg1005.osc_ind;
+  msg1005_out.quart_cycle_ind = msg1005.quart_cycle_ind;
+
   sbp_to_rtcm3_1005( &sbp_base_pos, &msg1005_out );
 
   assert( msg1005_equals( &msg1005, &msg1005_out ) );
 
   rtcm_msg_1006 msg1006;
-
   msg1006.msg_1005.stn_id = 5;
   msg1006.msg_1005.ref_stn_ind = 0;
   msg1006.msg_1005.quart_cycle_ind = 0;
@@ -192,9 +212,24 @@ int main(int argc, char *argv[])
   rtcm3_1006_to_sbp(&msg1006, &sbp_base_pos );
 
   rtcm_msg_1006 msg1006_out;
+  msg1006_out.msg_1005.stn_id = 5;
+  msg1006_out.msg_1005.ref_stn_ind = 0;
+  msg1006_out.msg_1005.quart_cycle_ind = 0;
+  msg1006_out.msg_1005.osc_ind = 1;
+  msg1006_out.msg_1005.ITRF = 0;
+  msg1006_out.msg_1005.GPS_ind = 0;
+  msg1006_out.msg_1005.GLO_ind = 0;
+  msg1006_out.msg_1005.GAL_ind = 1;
+
+  rtcm_msg_1006 msg1006_expected = msg1006;
+  msg1006_expected.msg_1005.arp_x = 3573347.3347;
+  msg1006_expected.msg_1005.arp_y = -5576347.7863;
+  msg1006_expected.msg_1005.arp_z = 2578377.2472;
+  msg1006_expected.ant_height = 0.0;
+
   sbp_to_rtcm3_1006( &sbp_base_pos, &msg1006_out );
 
-  assert( msg1006_equals( &msg1006, &msg1006_out ) );
+  assert( msg1006_equals( &msg1006_expected, &msg1006_out ) );
 
 
   /* Prevent czmq from catching signals */

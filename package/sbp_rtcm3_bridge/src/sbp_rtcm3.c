@@ -12,7 +12,7 @@
 
 #include <math.h>
 #include "sbp_rtcm3.h"
-#include <rtcm3_io/src/rtcm3_decode.h>
+#include "rtcm3_decode.h"
 #include <assert.h>
 
 /** Convert navigation_measurement_t.lock_time into SBP lock time.
@@ -83,8 +83,7 @@ void rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs ) {
         for( u8 freq = 0; freq < NUM_FREQS; ++freq ) {
             packed_obs_content_t *sbp_freq = &sbp_obs->obs[index];
             const rtcm_freq_data *rtcm_freq = &rtcm_obs->sats[sat].obs[freq];
-            if( rtcm_freq->flags.valid_pr == 1 || rtcm_freq->flags.valid_cp == 1
-                || rtcm_freq->flags.valid_cnr == 1 || rtcm_freq->flags.valid_lock == 1 ) {
+            if( rtcm_freq->flags.valid_pr == 1 && rtcm_freq->flags.valid_cp == 1 ) {
                 sbp_freq->sid.sat = rtcm_obs->sats[sat].svId;
                 sbp_freq->sid.code = rtcm_freq->code;
                 sbp_freq->flags = 0;
@@ -95,19 +94,17 @@ void rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs ) {
                 sbp_freq->lock = 0.0;
                 sbp_freq->sid.code = freq;
                 if( rtcm_freq->flags.valid_pr == 1 ) {
-                    sbp_freq->P = rtcm_freq->pseudorange * MSG_OBS_P_MULTIPLIER;
+                    sbp_freq->P = (u32)roundl( rtcm_freq->pseudorange * MSG_OBS_P_MULTIPLIER);
                     sbp_freq->flags |= NAV_MEAS_FLAG_CODE_VALID;
                 }
                 if( rtcm_freq->flags.valid_cp == 1 ) {
-                    sbp_freq->L.i = (s32)rtcm_freq->carrier_phase;
-                    sbp_freq->L.f = (u8)((rtcm_freq->carrier_phase-sbp_freq->L.i)*MSG_OBS_LF_MULTIPLIER);
-                    // really???
-                    sbp_freq->L.i = -sbp_freq->L.i;
-                    sbp_freq->L.f = -sbp_freq->L.f;
+                    // really - sign convention???
+                    sbp_freq->L.i = (s32)floor(-rtcm_freq->carrier_phase);
+                    sbp_freq->L.f = (u8)roundl(-(rtcm_freq->carrier_phase+(double)sbp_freq->L.i)*MSG_OBS_LF_MULTIPLIER);
                     sbp_freq->flags |= NAV_MEAS_FLAG_PHASE_VALID;
                 }
                 if( rtcm_freq->flags.valid_cnr == 1 ) {
-                    sbp_freq->cn0 = rtcm_freq->cnr * MSG_OBS_CN0_MULTIPLIER;
+                    sbp_freq->cn0 = (u8)roundl(rtcm_freq->cnr * MSG_OBS_CN0_MULTIPLIER);
                     sbp_freq->flags |= NAV_MEAS_FLAG_CN0_VALID;
                 }
                 if( rtcm_freq->flags.valid_lock == 1 ) {
@@ -126,19 +123,22 @@ void sbp_to_rtcm3_obs( const msg_obs_t *sbp_obs, rtcm_obs_message *rtcm_obs ) {
     rtcm_obs->header.tow = sbp_obs->header.t.tow;
 
     u8 count = 0;
-    s8 sat2index[32] = {-1};
+    s8 sat2index[32];
+    for( u8 idx = 0; idx < 32; ++idx ) {
+        sat2index[idx]=-1;
+    }
     for( u8 obs = 0; obs < sbp_obs->header.n_obs; ++obs ) {
         const packed_obs_content_t *sbp_freq = &sbp_obs->obs[obs];
         if( sbp_freq->flags != 0 ) {
             s8 sat_idx = sat2index[sbp_freq->sid.sat];
             if( sat_idx == -1 ) {
-                rtcm_obs->sats[sat_idx].svId = sbp_freq->sid.sat;
                 sat_idx = sat2index[sbp_freq->sid.sat] = count++;
+                rtcm_obs->sats[sat_idx].svId = sbp_freq->sid.sat;
             }
             // freq <-> code???
             rtcm_freq_data *rtcm_freq = &rtcm_obs->sats[sat_idx].obs[sbp_freq->sid.code];
             rtcm_freq->flags.data = 0;
-            rtcm_freq->code = sbp_freq->sid.code;
+            rtcm_freq->code = 0;
             rtcm_freq->pseudorange = 0.0;
             rtcm_freq->carrier_phase = 0.0;
             rtcm_freq->cnr = 0.0;
