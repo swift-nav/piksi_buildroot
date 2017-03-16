@@ -27,6 +27,10 @@ check process piksi_system_daemon with pidfile /var/run/piksi_system_daemon.pid
     start program = "/etc/init.d/S82piksi_system_daemon start"
     stop program = "/etc/init.d/S82piksi_system_daemon stop"
 
+check process sbp_rtcm3_bridge with pidfile /var/run/sbp_rtcm3_bridge.pid
+    start program = "/etc/init.d/S82sbp_rtcm3_bridge start"
+    stop program = "/etc/init.d/S82sbp_rtcm3_bridge stop"
+
 check process zmq_adapter_rpmsg_piksi100 with pidfile /var/run/zmq_adapter_rpmsg_piksi100.pid
     start program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi100 start"
     stop program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi100 stop"

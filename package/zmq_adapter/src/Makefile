@@ -6,6 +6,7 @@ SOURCES= \
 	framer.c \
 	framer_none.c \
 	framer_sbp.c \
+	framer_rtcm3.c \
 	filter.c \
 	filter_none.c \
 	filter_sbp.c
