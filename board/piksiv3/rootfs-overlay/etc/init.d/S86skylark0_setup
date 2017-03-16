@@ -1,0 +1,26 @@
+#!/bin/sh
+
+name="skylark_setup"
+
+start() {
+  # Setup DNS
+  # TODO (mookerji): Move to a template command?
+  rm -f /etc/resolv.conf
+  echo "nameserver 8.8.8.8" > /etc/resolv.conf
+  date -s '2017-03-09 16:14:00'
+
+  # Roll your own formatted UUID for Skylark client
+  UUID_P0=`cat /factory/uuid | cut -c1-8`
+  UUID_P1=`cat /factory/uuid | cut -c9-12`
+  UUID_P2=`cat /factory/uuid | cut -c13-16`
+  UUID_P3=`cat /factory/uuid | cut -c17-20`
+  UUID_P4=`cat /factory/uuid | cut -c21-32`
+  printf "%s-%s-%s-%s-%s" "$UUID_P0" "$UUID_P1" "$UUID_P2" "$UUID_P3" "$UUID_P4" \
+         > /cfg/skylark_device_uuid
+}
+
+stop() {
+  :
+}
+
+source /etc/init.d/template_command.inc.sh

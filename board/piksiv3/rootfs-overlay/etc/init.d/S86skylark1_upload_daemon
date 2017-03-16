@@ -1,9 +1,8 @@
 #!/bin/sh
 
-name="skylark_download_daemon"
-cmd="skylark_download_daemon"
+name="skylark_upload_daemon"
+cmd="skylark_upload_daemon"
 dir="/"
 user=""
 
 source /etc/init.d/template_process.inc.sh
-

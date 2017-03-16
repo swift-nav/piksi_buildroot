@@ -1,8 +1,8 @@
 TARGET=skylark_upload_daemon
 SOURCES= \
-	main.c
+	skylark_upload_daemon.c
 
-LIBS=-lcurl -lczmq -lsbp -lsbp_zmq
+LIBS=-lcurl -lczmq -lsbp -lsbp_zmq -lskylark
 CFLAGS=-std=gnu11
 
 CROSS=

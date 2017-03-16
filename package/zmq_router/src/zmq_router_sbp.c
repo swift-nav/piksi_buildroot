@@ -19,6 +19,7 @@ typedef enum {
   SBP_PORT_FILEIO_FIRMWARE,
   SBP_PORT_FILEIO_EXTERNAL,
   SBP_PORT_INTERNAL,
+  SBP_PORT_SKYLARK,
 } sbp_port_id_t;
 
 static port_t ports_sbp[] = {
@@ -206,6 +207,28 @@ static port_t ports_sbp[] = {
           .dst_port = &ports_sbp[SBP_PORT_EXTERNAL],
           .filters = (const filter_t *[]){
             &FILTER_ACCEPT(),
+            NULL
+          }
+        },
+        NULL
+      },
+    },
+    .pub_socket = NULL,
+    .sub_socket = NULL,
+  },
+  [SBP_PORT_SKYLARK] = {
+    .config = {
+      .pub_addr = "@tcp://127.0.0.1:43070",
+      .sub_addr = "@tcp://127.0.0.1:43071",
+      .sub_forwarding_rules = (const forwarding_rule_t *[]) {
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_FIRMWARE],
+          .filters = (const filter_t *[]) {
+            &FILTER_ACCEPT(0x55, 0x020A, 0x00), /* Publish:   SBP MSG_POS_LLH */
+            &FILTER_ACCEPT(0x55, 0x0044, 0x00), /* Subscribe: SBP MSG_BASE_POS_LLH */
+            &FILTER_ACCEPT(0x55, 0x0048, 0x00), /* Subscribe: SBP MSG_BASE_POS_ECEF */
+            &FILTER_ACCEPT(0x55, 0x004A, 0x00), /* Subscribe: SBP MSG_OBS */
+            &FILTER_REJECT(),
             NULL
           }
         },
