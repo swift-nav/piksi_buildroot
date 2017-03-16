@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 2.8.7)
 project(piksipackages)
 
 SET(CMAKE_MODULE_PATH "cmake" )
+SET(LIBZMQ_LIBRARIES "libzmq" )
+SET(LIBZMQ_INCLUDE_DIRS "/home/pgrgich/piksi_buildroot/package/third_party/libzmq/include" )
+SET(CZMQ_INCLUDE_DIRS "/home/pgrgich/piksi_buildroot/package/third_party/czmq/include" )
 
 set(BUILD_SHARED_LIBS ON)
 add_subdirectory(third_party/libsbp/c)
