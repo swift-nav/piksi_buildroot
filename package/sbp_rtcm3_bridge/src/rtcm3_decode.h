@@ -55,7 +55,8 @@ s8 rtcm3_decode_1007_base(const u8 *buff, rtcm_msg_1007 *rtcm_msg_1007, u16 *bit
 s8 rtcm3_decode_1007(const u8 *buff, rtcm_msg_1007 *rtcm_msg_1007 );
 s8 rtcm3_decode_1008(const u8 *buff, rtcm_msg_1008 *rtcm_msg_1008 );
 
-static s8 decode_basic_freq_data( const u8 *buff, u16 *bit, rtcm_freq_data *freq_data, u32 *pr, s32 *phr_pr_diff );
+static s8 decode_basic_l1_freq_data( const u8 *buff, u16 *bit, rtcm_freq_data *freq_data, u32 *pr, s32 *phr_pr_diff );
+static s8 decode_basic_l2_freq_data( const u8 *buff, u16 *bit, rtcm_freq_data *freq_data, s32 *pr, s32 *phr_pr_diff );
 static s8 encode_basic_freq_data( const rtcm_freq_data *freq_data, freq_enum freq, const double *l1_pr, u8 *buff, u16 *bit );
 static void init_data( rtcm_sat_data *sat_data );
 

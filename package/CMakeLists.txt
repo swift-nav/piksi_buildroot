@@ -14,6 +14,7 @@ add_subdirectory(third_party/czmq)
 
 
 add_subdirectory(zmq_adapter/src)
+add_subdirectory(sbp_rtcm3_bridge/src)
 
 # include(cmake/SanitizeTargets.cmake)
 # add_subdirectory(src)

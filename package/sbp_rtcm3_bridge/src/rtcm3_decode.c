@@ -914,10 +914,7 @@ s8 rtcm3_decode_1001(const u8 *buff, rtcm_obs_message *rtcm_msg_1001 )
 
     u32 l1_pr;
     s32 phr_pr_diff;
-    s8 rtn = decode_basic_freq_data( buff, &bit, l1_freq_data, &l1_pr, &phr_pr_diff );
-    if (rtn)
-      /* P(Y) code not currently supported. */
-      return rtn;
+    s8 rtn = decode_basic_l1_freq_data( buff, &bit, l1_freq_data, &l1_pr, &phr_pr_diff );
 
     l1_freq_data->pseudorange = 0.02*l1_pr;
     l1_freq_data->flags.valid_pr = 1;
@@ -962,10 +959,7 @@ s8 rtcm3_decode_1002(const u8 *buff, rtcm_obs_message *rtcm_msg_1002 )
 
     u32 l1_pr;
     s32 phr_pr_diff;
-    s8 rtn = decode_basic_freq_data( buff, &bit, l1_freq_data, &l1_pr, &phr_pr_diff );
-    if (rtn)
-      /* P(Y) code not currently supported. */
-      return rtn;
+    s8 rtn = decode_basic_l1_freq_data( buff, &bit, l1_freq_data, &l1_pr, &phr_pr_diff );
 
     u8 amb = getbitu(buff, bit, 8); bit += 8;
     l1_freq_data->cnr = 0.25*getbitu(buff, bit, 8); bit += 8;
@@ -999,12 +993,10 @@ s8 rtcm3_decode_1003(const u8 *buff, rtcm_obs_message *rtcm_msg_1003 )
 
     rtcm_freq_data *l1_freq_data = &rtcm_msg_1003->sats[i].obs[L1_FREQ];
 
-    u32 l1_pr, l2_pr;
+    u32 l1_pr;
+    s32 l2_pr;
     s32 phr_pr_diff;
-    s8 rtn = decode_basic_freq_data( buff, &bit, l1_freq_data, &l1_pr, &phr_pr_diff );
-    if (rtn)
-      /* P(Y) code not currently supported. */
-      return rtn;
+    s8 rtn = decode_basic_l1_freq_data( buff, &bit, l1_freq_data, &l1_pr, &phr_pr_diff );
 
     l1_freq_data->pseudorange = 0.02*l1_pr;
     l1_freq_data->flags.valid_pr = 1;
@@ -1013,10 +1005,7 @@ s8 rtcm3_decode_1003(const u8 *buff, rtcm_obs_message *rtcm_msg_1003 )
 
     rtcm_freq_data *l2_freq_data = &rtcm_msg_1003->sats[i].obs[L2_FREQ];
 
-    rtn = decode_basic_freq_data( buff, &bit, l2_freq_data, &l2_pr, &phr_pr_diff );
-    if (rtn)
-      /* P(Y) code not currently supported. */
-      return rtn;
+    rtn = decode_basic_l2_freq_data( buff, &bit, l2_freq_data, &l2_pr, &phr_pr_diff );
 
     l2_freq_data->pseudorange = 0.02*l2_pr + l1_freq_data->pseudorange;
     l2_freq_data->flags.valid_pr = 1;
@@ -1046,12 +1035,10 @@ s8 rtcm3_decode_1004(const u8 *buff, rtcm_obs_message *rtcm_msg_1004 )
 
     rtcm_freq_data *l1_freq_data = &rtcm_msg_1004->sats[i].obs[L1_FREQ];
 
-    u32 l1_pr, l2_pr;
+    u32 l1_pr;
+    s32 l2_pr;
     s32 phr_pr_diff;
-    s8 rtn = decode_basic_freq_data( buff, &bit, l1_freq_data, &l1_pr, &phr_pr_diff );
-    if (rtn)
-      /* P(Y) code not currently supported. */
-      return rtn;
+    s8 rtn = decode_basic_l1_freq_data( buff, &bit, l1_freq_data, &l1_pr, &phr_pr_diff );
 
     u8 amb = getbitu(buff, bit, 8); bit += 8;
     l1_freq_data->cnr = 0.25*getbitu(buff, bit, 8); bit += 8;
@@ -1064,10 +1051,7 @@ s8 rtcm3_decode_1004(const u8 *buff, rtcm_obs_message *rtcm_msg_1004 )
 
     rtcm_freq_data *l2_freq_data = &rtcm_msg_1004->sats[i].obs[L2_FREQ];
 
-    rtn = decode_basic_freq_data( buff, &bit, l2_freq_data, &l2_pr, &phr_pr_diff );
-    if (rtn)
-      /* P(Y) code not currently supported. */
-      return rtn;
+    rtn = decode_basic_l2_freq_data( buff, &bit, l2_freq_data, &l2_pr, &phr_pr_diff );
 
     l2_freq_data->cnr = 0.25*getbitu(buff, bit, 8); bit += 8;
     l2_freq_data->flags.valid_cnr = 1;
@@ -1172,9 +1156,6 @@ s8 encode_basic_freq_data( const rtcm_freq_data *freq_data, freq_enum freq, cons
 
   /* Calculate GPS Pseudorange (DF011/DF016). */
   u32 pr =  (u32)roundl((freq_data->pseudorange - amb * PRUNIT_GPS) / 0.02);
-  if( freq != L1_FREQ ) {
-      pr -= calc_l1_pr;
-  }
 
   double l1_prc = calc_l1_pr * 0.02 + amb * PRUNIT_GPS;
 
@@ -1197,21 +1178,20 @@ s8 encode_basic_freq_data( const rtcm_freq_data *freq_data, freq_enum freq, cons
   /* Calculate GPS PhaseRange – L1 Pseudorange (DF012/DF018). */
   s32 ppr = roundl(cp_pr * (CLIGHT / FREQS[freq]) / 0.0005);
 
-  /* TODO: set GPS code indicator if we ever support P(Y) code measurements. */
-  setbitu(buff, *bit, 1,  0);    *bit += 1;
-  setbitu(buff, *bit, 24, pr);   *bit += 24;
+  if( freq == L1_FREQ ) {
+    setbitu(buff, *bit, 1,  0);    *bit += 1;
+    setbitu(buff, *bit, 24, pr);   *bit += 24;
+  }
+  else {
+    setbitu(buff, *bit, 2,  0);    *bit += 2;
+    setbits(buff, *bit, 14, (s32)pr - (s32)calc_l1_pr);   *bit += 14;
+  }
   setbits(buff, *bit, 20, ppr);  *bit += 20;
   setbitu(buff, *bit, 7,  freq_data->flags.valid_lock ? to_lock_ind(freq_data->lock) : 0); *bit += 7;
 }
 
-s8 decode_basic_freq_data( const u8 *buff, u16 *bit, rtcm_freq_data *freq_data, u32 *pr, s32 *phr_pr_diff ) {
+s8 decode_basic_l1_freq_data( const u8 *buff, u16 *bit, rtcm_freq_data *freq_data, u32 *pr, s32 *phr_pr_diff ) {
   freq_data->code = getbitu(buff, *bit, 1); *bit += 1;
-  /* TODO: When we start storing the signal/system etc. properly we can
-   * store the code flag in the nav meas struct. */
-  if (freq_data->code == 1)
-    /* P(Y) code not currently supported. */
-    return -2;
-
   *pr = getbitu(buff, *bit,24); *bit += 24;
   *phr_pr_diff = getbits(buff, *bit,20); *bit += 20;
 
@@ -1219,6 +1199,17 @@ s8 decode_basic_freq_data( const u8 *buff, u16 *bit, rtcm_freq_data *freq_data, 
   freq_data->flags.valid_lock = 1;
 
   return 0;
+}
+
+s8 decode_basic_l2_freq_data( const u8 *buff, u16 *bit, rtcm_freq_data *freq_data, s32 *pr, s32 *phr_pr_diff ) {
+    freq_data->code = getbitu(buff, *bit, 2); *bit += 2;
+    *pr = getbits(buff, *bit,14); *bit += 14;
+    *phr_pr_diff = getbits(buff, *bit,20); *bit += 20;
+
+    freq_data->lock = from_lock_ind(getbitu(buff, *bit, 7)); *bit += 7;
+    freq_data->flags.valid_lock = 1;
+
+    return 0;
 }
 
 void init_data( rtcm_sat_data *sat_data ) {
