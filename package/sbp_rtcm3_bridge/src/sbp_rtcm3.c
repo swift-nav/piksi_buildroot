@@ -12,8 +12,91 @@
 
 #include <math.h>
 #include "sbp_rtcm3.h"
+#include "sbp.h"
 #include "rtcm3_decode.h"
 #include <assert.h>
+#include <stdio.h>
+
+void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length)
+{
+    uint16_t message_size = 0;
+    uint16_t bit = 0;
+    while( message_size < frame_length ) {
+        static uint32_t count = 0;
+        uint16_t message_type = (frame[3] << 4) | ((frame[4] >> 4) & 0xf);
+        message_size = (frame[4] << 4) | ((frame[5] >> 4) & 0xf);
+        switch( message_type ) {
+            case 1001:
+            {
+                rtcm_obs_message rtcm_msg_1001;
+                if( 0 != rtcm3_decode_1001(&frame[bit], &rtcm_msg_1001 ) ) {
+                    msg_obs_t sbp_obs;
+                    rtcm3_obs_to_sbp( &rtcm_msg_1001, &sbp_obs );
+                    sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
+                }
+                break;
+            }
+            case 1002:
+            {
+                rtcm_obs_message rtcm_msg_1002;
+                if( 0 != rtcm3_decode_1002(&frame[bit], &rtcm_msg_1002 ) ) {
+                    msg_obs_t sbp_obs;
+                    rtcm3_obs_to_sbp( &rtcm_msg_1002, &sbp_obs );
+                    sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
+                }
+                break;
+            }
+            case 1003:
+            {
+                rtcm_obs_message rtcm_msg_1003;
+                if( 0 != rtcm3_decode_1003(&frame[bit], &rtcm_msg_1003 ) ) {
+                    msg_obs_t sbp_obs;
+                    rtcm3_obs_to_sbp( &rtcm_msg_1003, &sbp_obs );
+                    sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
+                }
+                break;
+            }
+            case 1004:
+            {
+                rtcm_obs_message rtcm_msg_1004;
+                if( 0 != rtcm3_decode_1004(&frame[bit], &rtcm_msg_1004 ) ) {
+                    msg_obs_t sbp_obs;
+                    rtcm3_obs_to_sbp( &rtcm_msg_1004, &sbp_obs );
+                    sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
+                }
+                break;
+            }
+            case 1005:
+            {
+                rtcm_msg_1005 rtcm_msg_1005;
+                if( 0 != rtcm3_decode_1005(&frame[bit], &rtcm_msg_1005 ) ) {
+                    msg_base_pos_ecef_t sbp_base_pos;
+                    rtcm3_1005_to_sbp( &rtcm_msg_1005, &sbp_base_pos );
+                    sbp_message_send(SBP_MSG_BASE_POS_ECEF, (u8)sizeof(sbp_base_pos), (u8*)&sbp_base_pos);
+                }
+                break;
+            }
+            case 1006:
+            {
+                rtcm_msg_1006 rtcm_msg_1006;
+                if( 0 != rtcm3_decode_1006(&frame[bit], &rtcm_msg_1006 ) ) {
+                    msg_base_pos_ecef_t sbp_base_pos;
+                    rtcm3_1006_to_sbp( &rtcm_msg_1006, &sbp_base_pos );
+                    sbp_message_send(SBP_MSG_BASE_POS_ECEF, (u8)sizeof(sbp_base_pos), (u8*)&sbp_base_pos);
+                }
+                break;
+            }
+            case 1007:
+            case 1008:
+            default:
+                break;
+        }
+        bit += message_size;
+        printf("message type: %u, length: %u, count: %u\n",
+               message_type, frame_length, ++count);
+    }
+
+}
 
 /** Convert navigation_measurement_t.lock_time into SBP lock time.
  *

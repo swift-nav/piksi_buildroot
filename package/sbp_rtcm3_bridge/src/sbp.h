@@ -14,7 +14,7 @@
 #define SWIFTNAV_SBP_H
 
 #include <libsbp/sbp.h>
-#include <rtcm3_io/src/rtcm3_messages.h>
+#include "rtcm3_messages.h"
 
 int sbp_init(u16 sender_id, const char *pub_endpoint);
 int sbp_message_send(u16 msg_type, u8 len, u8 *payload);

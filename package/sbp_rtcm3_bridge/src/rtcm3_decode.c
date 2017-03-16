@@ -20,191 +20,191 @@
 #include <assert.h>
 #include <stdlib.h>
 
-int main(int argc, char* argv[]) {
-    rtcm_msg_header header;
-    header.msg_num = 1001;
-    header.div_free = 0;
-    header.n_sat = 3;
-    header.smooth = 0;
-    header.stn_id = 7;
-    header.sync = 1;
-    header.tow = 309000;
-
-    rtcm_obs_message msg1001;
-    memset( (void*)&msg1001, 0, sizeof( msg1001 ) );
-    msg1001.header = header;
-    msg1001.sats[0].svId = 4;
-    msg1001.sats[0].obs[0].code = 0;
-    msg1001.sats[0].obs[0].pseudorange = 20000004.4;
-    msg1001.sats[0].obs[0].carrier_phase = 105100794.4;
-    msg1001.sats[0].obs[0].lock = 900;
-    msg1001.sats[0].obs[0].flags.valid_pr = 1;
-    msg1001.sats[0].obs[0].flags.valid_cp = 1;
-    msg1001.sats[0].obs[0].flags.valid_lock = 1;
-
-    msg1001.sats[1].svId = 6;
-    msg1001.sats[1].obs[0].code = 0;
-    msg1001.sats[1].obs[0].pseudorange = 22000004.4;
-    msg1001.sats[1].obs[0].carrier_phase = 115610703.4;
-    msg1001.sats[1].obs[0].lock = 254;
-    msg1001.sats[1].obs[0].flags.valid_pr = 1;
-    msg1001.sats[1].obs[0].flags.valid_cp = 1;
-    msg1001.sats[1].obs[0].flags.valid_lock = 1;
-
-    msg1001.sats[2].svId = 6;
-    msg1001.sats[2].obs[0].code = 0;
-    msg1001.sats[2].obs[0].pseudorange = 22000004.4;
-    msg1001.sats[2].obs[0].carrier_phase = 115610553.4;
-    msg1001.sats[2].obs[0].lock = 254;
-    msg1001.sats[2].obs[0].flags.valid_pr = 1;
-    msg1001.sats[2].obs[0].flags.valid_cp = 0;
-    msg1001.sats[2].obs[0].flags.valid_lock = 0;
-
-    u8 buff[1024];
-    u16 size = rtcm3_encode_1001(&msg1001, buff );
-
-    rtcm_obs_message msg1001_out;
-    s8 ret = rtcm3_decode_1001( buff, &msg1001_out );
-
-    assert( ret == 0 && msgobs_equals( &msg1001, &msg1001_out ) );
-
-    rtcm_obs_message msg1002;
-    msg1002 = msg1001;
-    msg1002.header.msg_num = 1002;
-    msg1002.sats[0].obs[0].cnr = 3.4;
-    msg1002.sats[0].obs[0].flags.valid_cnr = 1;
-
-    msg1002.sats[1].obs[0].cnr = 50.2;
-    msg1002.sats[1].obs[0].flags.valid_cnr = 1;
-
-    msg1002.sats[2].obs[0].cnr = 50.2;
-    msg1002.sats[2].obs[0].flags.valid_cnr = 0;
-
-    size = rtcm3_encode_1002(&msg1002, buff );
-
-    rtcm_obs_message msg1002_out;
-    ret = rtcm3_decode_1002( buff, &msg1002_out );
-
-    assert( ret == 0 && msgobs_equals( &msg1002, &msg1002_out ) );
-
-    rtcm_obs_message msg1003;
-    msg1003 = msg1001;
-    msg1003.header.msg_num = 1003;
-
-    msg1003.sats[0].obs[1] = msg1003.sats[0].obs[0];
-    msg1003.sats[0].obs[1].pseudorange = 20000124.4;
-    msg1003.sats[0].obs[1].carrier_phase = 81897184.4;
-
-    msg1003.sats[1].obs[1] = msg1003.sats[1].obs[0];
-    msg1003.sats[1].obs[1].pseudorange = 22000024.4;
-    msg1003.sats[1].obs[1].carrier_phase = 90086422.236;
-
-    size = rtcm3_encode_1003(&msg1003, buff );
-
-    rtcm_obs_message msg1003_out;
-    ret = rtcm3_decode_1003( buff, &msg1003_out );
-
-    assert( ret == 0 && msgobs_equals( &msg1003, &msg1003_out ) );
-
-    rtcm_obs_message msg1004;
-    msg1004 = msg1003;
-    msg1004.header.msg_num = 1004;
-
-    msg1004.sats[0].obs[0].cnr = 3.4;
-    msg1004.sats[0].obs[0].flags.valid_cnr = 1;
-    msg1004.sats[0].obs[1].cnr = 1.4;
-    msg1004.sats[0].obs[1].flags.valid_cnr = 1;
-
-    msg1004.sats[1].obs[0].cnr = 50.2;
-    msg1004.sats[1].obs[0].flags.valid_cnr = 1;
-    msg1004.sats[1].obs[1].cnr = 50.2;
-    msg1004.sats[1].obs[1].flags.valid_cnr = 1;
-
-    msg1004.sats[2].obs[0].cnr = 50.2;
-    msg1004.sats[2].obs[0].flags.valid_cnr = 0;
-    msg1004.sats[2].obs[1].cnr = 54.2;
-    msg1004.sats[2].obs[1].flags.valid_cnr = 1;
-
-    size = rtcm3_encode_1004(&msg1004, buff );
-
-    rtcm_obs_message msg1004_out;
-    ret = rtcm3_decode_1004( buff, &msg1004_out );
-
-    assert( ret == 0 && msgobs_equals( &msg1004, &msg1004_out ) );
-
-    rtcm_msg_1005 msg1005;
-
-    msg1005.stn_id = 5;
-    msg1005.ref_stn_ind = 1;
-    msg1005.quart_cycle_ind = 1;
-    msg1005.osc_ind = 0;
-    msg1005.ITRF = 1;
-    msg1005.GPS_ind = 1;
-    msg1005.GLO_ind = 1;
-    msg1005.GAL_ind = 0;
-    msg1005.arp_x = 3578346.5475;
-    msg1005.arp_y = -5578346.5578;
-    msg1005.arp_z = 2578346.6757;
-
-    size = rtcm3_encode_1005(&msg1005, buff );
-
-    rtcm_msg_1005 msg1005_out;
-    ret = rtcm3_decode_1005( buff, &msg1005_out );
-
-    assert( ret == 0 && msg1005_equals( &msg1005, &msg1005_out ) );
-
-    rtcm_msg_1006 msg1006;
-
-    msg1006.msg_1005.stn_id = 5;
-    msg1006.msg_1005.ref_stn_ind = 0;
-    msg1006.msg_1005.quart_cycle_ind = 0;
-    msg1006.msg_1005.osc_ind = 1;
-    msg1006.msg_1005.ITRF = 0;
-    msg1006.msg_1005.GPS_ind = 0;
-    msg1006.msg_1005.GLO_ind = 0;
-    msg1006.msg_1005.GAL_ind = 1;
-    msg1006.msg_1005.arp_x = 3573346.5475;
-    msg1006.msg_1005.arp_y = -5576346.5578;
-    msg1006.msg_1005.arp_z = 2578376.6757;
-    msg1006.ant_height = 1.567;
-
-    size = rtcm3_encode_1006(&msg1006, buff );
-
-    rtcm_msg_1006 msg1006_out;
-    ret = rtcm3_decode_1006( buff, &msg1006_out );
-
-    assert( ret == 0 && msg1006_equals( &msg1006, &msg1006_out ) );
-
-    rtcm_msg_1007 msg1007;
-
-    msg1007.stn_id = 1022;
-    msg1007.desc_count = 29;
-    strcpy( msg1007.desc, "Something with 29 characters." );
-    msg1007.ant_id = 254;
-
-    size = rtcm3_encode_1007(&msg1007, buff );
-
-    rtcm_msg_1007 msg1007_out;
-    ret = rtcm3_decode_1007( buff, &msg1007_out );
-
-    assert( ret == 0 && msg1007_equals( &msg1007, &msg1007_out ) );
-
-    rtcm_msg_1008 msg1008;
-
-    msg1008.msg_1007.stn_id = 22;
-    msg1008.msg_1007.desc_count = 27;
-    strcpy( msg1008.msg_1007.desc, "Something without 30 chars." );
-    msg1008.msg_1007.ant_id = 1;
-    msg1008.serial_count = 9;
-    strcpy( msg1008.serial_num, "123456789" );
-
-    size = rtcm3_encode_1008(&msg1008, buff );
-
-    rtcm_msg_1008 msg1008_out;
-    ret = rtcm3_decode_1008( buff, &msg1008_out );
-
-    assert( ret == 0 && msg1008_equals( &msg1008, &msg1008_out ) );
-}
+//int main(int argc, char* argv[]) {
+//    rtcm_msg_header header;
+//    header.msg_num = 1001;
+//    header.div_free = 0;
+//    header.n_sat = 3;
+//    header.smooth = 0;
+//    header.stn_id = 7;
+//    header.sync = 1;
+//    header.tow = 309000;
+//
+//    rtcm_obs_message msg1001;
+//    memset( (void*)&msg1001, 0, sizeof( msg1001 ) );
+//    msg1001.header = header;
+//    msg1001.sats[0].svId = 4;
+//    msg1001.sats[0].obs[0].code = 0;
+//    msg1001.sats[0].obs[0].pseudorange = 20000004.4;
+//    msg1001.sats[0].obs[0].carrier_phase = 105100794.4;
+//    msg1001.sats[0].obs[0].lock = 900;
+//    msg1001.sats[0].obs[0].flags.valid_pr = 1;
+//    msg1001.sats[0].obs[0].flags.valid_cp = 1;
+//    msg1001.sats[0].obs[0].flags.valid_lock = 1;
+//
+//    msg1001.sats[1].svId = 6;
+//    msg1001.sats[1].obs[0].code = 0;
+//    msg1001.sats[1].obs[0].pseudorange = 22000004.4;
+//    msg1001.sats[1].obs[0].carrier_phase = 115610703.4;
+//    msg1001.sats[1].obs[0].lock = 254;
+//    msg1001.sats[1].obs[0].flags.valid_pr = 1;
+//    msg1001.sats[1].obs[0].flags.valid_cp = 1;
+//    msg1001.sats[1].obs[0].flags.valid_lock = 1;
+//
+//    msg1001.sats[2].svId = 6;
+//    msg1001.sats[2].obs[0].code = 0;
+//    msg1001.sats[2].obs[0].pseudorange = 22000004.4;
+//    msg1001.sats[2].obs[0].carrier_phase = 115610553.4;
+//    msg1001.sats[2].obs[0].lock = 254;
+//    msg1001.sats[2].obs[0].flags.valid_pr = 1;
+//    msg1001.sats[2].obs[0].flags.valid_cp = 0;
+//    msg1001.sats[2].obs[0].flags.valid_lock = 0;
+//
+//    u8 buff[1024];
+//    u16 size = rtcm3_encode_1001(&msg1001, buff );
+//
+//    rtcm_obs_message msg1001_out;
+//    s8 ret = rtcm3_decode_1001( buff, &msg1001_out );
+//
+//    assert( ret == 0 && msgobs_equals( &msg1001, &msg1001_out ) );
+//
+//    rtcm_obs_message msg1002;
+//    msg1002 = msg1001;
+//    msg1002.header.msg_num = 1002;
+//    msg1002.sats[0].obs[0].cnr = 3.4;
+//    msg1002.sats[0].obs[0].flags.valid_cnr = 1;
+//
+//    msg1002.sats[1].obs[0].cnr = 50.2;
+//    msg1002.sats[1].obs[0].flags.valid_cnr = 1;
+//
+//    msg1002.sats[2].obs[0].cnr = 50.2;
+//    msg1002.sats[2].obs[0].flags.valid_cnr = 0;
+//
+//    size = rtcm3_encode_1002(&msg1002, buff );
+//
+//    rtcm_obs_message msg1002_out;
+//    ret = rtcm3_decode_1002( buff, &msg1002_out );
+//
+//    assert( ret == 0 && msgobs_equals( &msg1002, &msg1002_out ) );
+//
+//    rtcm_obs_message msg1003;
+//    msg1003 = msg1001;
+//    msg1003.header.msg_num = 1003;
+//
+//    msg1003.sats[0].obs[1] = msg1003.sats[0].obs[0];
+//    msg1003.sats[0].obs[1].pseudorange = 20000124.4;
+//    msg1003.sats[0].obs[1].carrier_phase = 81897184.4;
+//
+//    msg1003.sats[1].obs[1] = msg1003.sats[1].obs[0];
+//    msg1003.sats[1].obs[1].pseudorange = 22000024.4;
+//    msg1003.sats[1].obs[1].carrier_phase = 90086422.236;
+//
+//    size = rtcm3_encode_1003(&msg1003, buff );
+//
+//    rtcm_obs_message msg1003_out;
+//    ret = rtcm3_decode_1003( buff, &msg1003_out );
+//
+//    assert( ret == 0 && msgobs_equals( &msg1003, &msg1003_out ) );
+//
+//    rtcm_obs_message msg1004;
+//    msg1004 = msg1003;
+//    msg1004.header.msg_num = 1004;
+//
+//    msg1004.sats[0].obs[0].cnr = 3.4;
+//    msg1004.sats[0].obs[0].flags.valid_cnr = 1;
+//    msg1004.sats[0].obs[1].cnr = 1.4;
+//    msg1004.sats[0].obs[1].flags.valid_cnr = 1;
+//
+//    msg1004.sats[1].obs[0].cnr = 50.2;
+//    msg1004.sats[1].obs[0].flags.valid_cnr = 1;
+//    msg1004.sats[1].obs[1].cnr = 50.2;
+//    msg1004.sats[1].obs[1].flags.valid_cnr = 1;
+//
+//    msg1004.sats[2].obs[0].cnr = 50.2;
+//    msg1004.sats[2].obs[0].flags.valid_cnr = 0;
+//    msg1004.sats[2].obs[1].cnr = 54.2;
+//    msg1004.sats[2].obs[1].flags.valid_cnr = 1;
+//
+//    size = rtcm3_encode_1004(&msg1004, buff );
+//
+//    rtcm_obs_message msg1004_out;
+//    ret = rtcm3_decode_1004( buff, &msg1004_out );
+//
+//    assert( ret == 0 && msgobs_equals( &msg1004, &msg1004_out ) );
+//
+//    rtcm_msg_1005 msg1005;
+//
+//    msg1005.stn_id = 5;
+//    msg1005.ref_stn_ind = 1;
+//    msg1005.quart_cycle_ind = 1;
+//    msg1005.osc_ind = 0;
+//    msg1005.ITRF = 1;
+//    msg1005.GPS_ind = 1;
+//    msg1005.GLO_ind = 1;
+//    msg1005.GAL_ind = 0;
+//    msg1005.arp_x = 3578346.5475;
+//    msg1005.arp_y = -5578346.5578;
+//    msg1005.arp_z = 2578346.6757;
+//
+//    size = rtcm3_encode_1005(&msg1005, buff );
+//
+//    rtcm_msg_1005 msg1005_out;
+//    ret = rtcm3_decode_1005( buff, &msg1005_out );
+//
+//    assert( ret == 0 && msg1005_equals( &msg1005, &msg1005_out ) );
+//
+//    rtcm_msg_1006 msg1006;
+//
+//    msg1006.msg_1005.stn_id = 5;
+//    msg1006.msg_1005.ref_stn_ind = 0;
+//    msg1006.msg_1005.quart_cycle_ind = 0;
+//    msg1006.msg_1005.osc_ind = 1;
+//    msg1006.msg_1005.ITRF = 0;
+//    msg1006.msg_1005.GPS_ind = 0;
+//    msg1006.msg_1005.GLO_ind = 0;
+//    msg1006.msg_1005.GAL_ind = 1;
+//    msg1006.msg_1005.arp_x = 3573346.5475;
+//    msg1006.msg_1005.arp_y = -5576346.5578;
+//    msg1006.msg_1005.arp_z = 2578376.6757;
+//    msg1006.ant_height = 1.567;
+//
+//    size = rtcm3_encode_1006(&msg1006, buff );
+//
+//    rtcm_msg_1006 msg1006_out;
+//    ret = rtcm3_decode_1006( buff, &msg1006_out );
+//
+//    assert( ret == 0 && msg1006_equals( &msg1006, &msg1006_out ) );
+//
+//    rtcm_msg_1007 msg1007;
+//
+//    msg1007.stn_id = 1022;
+//    msg1007.desc_count = 29;
+//    strcpy( msg1007.desc, "Something with 29 characters." );
+//    msg1007.ant_id = 254;
+//
+//    size = rtcm3_encode_1007(&msg1007, buff );
+//
+//    rtcm_msg_1007 msg1007_out;
+//    ret = rtcm3_decode_1007( buff, &msg1007_out );
+//
+//    assert( ret == 0 && msg1007_equals( &msg1007, &msg1007_out ) );
+//
+//    rtcm_msg_1008 msg1008;
+//
+//    msg1008.msg_1007.stn_id = 22;
+//    msg1008.msg_1007.desc_count = 27;
+//    strcpy( msg1008.msg_1007.desc, "Something without 30 chars." );
+//    msg1008.msg_1007.ant_id = 1;
+//    msg1008.serial_count = 9;
+//    strcpy( msg1008.serial_num, "123456789" );
+//
+//    size = rtcm3_encode_1008(&msg1008, buff );
+//
+//    rtcm_msg_1008 msg1008_out;
+//    ret = rtcm3_decode_1008( buff, &msg1008_out );
+//
+//    assert( ret == 0 && msg1008_equals( &msg1008, &msg1008_out ) );
+//}
 
 bool msgobs_equals( const rtcm_obs_message *msg_in, const rtcm_obs_message *msg_out ) {
     if( msg_in->header.msg_num != msg_out->header.msg_num ) {
@@ -569,14 +569,6 @@ void setbits(u8 *buff, u32 pos, u32 len, s32 data)
 void setbitsl(u8 *buff, u32 pos, u32 len, s64 data)
 {
     setbitul(buff, pos, len, (u64)data);
-}
-
-void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length)
-{
-  static uint32_t count = 0;
-  uint16_t message_type = (frame[3] << 4) | ((frame[4] >> 4) & 0xf);
-  printf("message type: %u, length: %u, count: %u\n",
-          message_type, frame_length, ++count);
 }
 
 /** Write RTCM header for observation message types 1001..1004.

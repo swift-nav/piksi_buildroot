@@ -198,6 +198,7 @@ static void wgsllh2ecef(const double llh[3], double ecef[3]);
 static void wgsecef2llh(const double ecef[3], double llh[3]);
 
 
+void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length);
 
 void rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs );
 void sbp_to_rtcm3_obs( const msg_obs_t *sbp_obs, rtcm_obs_message *rtcm_obs );
