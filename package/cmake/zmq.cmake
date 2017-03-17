@@ -23,9 +23,6 @@ ExternalProject_Add(ZeroMQ
 set(LIBZMQ_INCLUDE_DIRS ${ZMQ_INSTALL}/include)
 set(LIBZMQ_LIBRARY_DIRS ${ZMQ_INSTALL}/lib)
 
-message(STATUS "ZMQ include ${LIBZMQ_INCLUDE_DIRS}")
-message(STATUS "ZMQ lib ${LIBZMQ_LIBRARIES}")
-
 # build directory
 set(CZMQ_PREFIX ${CMAKE_BINARY_DIR}/external/CZMQ-prefix)
 # install directory
@@ -42,6 +39,6 @@ ExternalProject_Add(CZeroMQ
         # zmq-specific cmake flags as arguments to the toplevel cmake
         # invocation.
         CMAKE_ARGS ${CMAKE_ARGS})
-set(CZMQ_INCLUDE_DIRS ${CZMQ_INSTALL}/include)	
-set(CZMQ_LIBRARY_DIRS ${CZMQ_INSTALL}/lib)
+set(CZMQ_INCLUDE_DIRS ${CZMQ_INSTALL}/include ${LIBZMQ_INCLUDE_DIRS})	
+set(CZMQ_LIBRARY_DIRS ${CZMQ_INSTALL}/lib ${LIBZMQ_LIBRARY_DIRS})
 add_dependencies(CZeroMQ ZeroMQ)

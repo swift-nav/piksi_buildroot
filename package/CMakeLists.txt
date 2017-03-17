@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.8.7)
-project(piksipackages)
+
+set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_COLOR_MAKEFILE   ON)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 

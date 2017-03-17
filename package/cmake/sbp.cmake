@@ -20,9 +20,5 @@ ExternalProject_Add(libsbp
         # SBP-specific cmake flags as arguments to the toplevel cmake
         # invocation.
         CMAKE_ARGS ${CMAKE_ARGS})
-set(LIBSBP_INCLUDE_DIRS ${SBP_INSTALL}/include)	
-FILE(GLOB_RECURSE LIBSBP_LIBRARIES "${SBP_INSTALL}/lib/libSBP.so")
+set(LIBSBP_INCLUDE_DIRS ${SBP_INSTALL}/include)
 set(LIBSBP_LIBRARY_DIRS ${SBP_INSTALL}/lib)
-
-message(STATUS "SBP include ${LIBSBP_INCLUDE_DIRS}")
-message(STATUS "SBP lib ${LIBSBP_LIBRARIES}")

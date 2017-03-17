@@ -1,14 +1,18 @@
+cmake_minimum_required(VERSION 2.8.10)
 
-include_directories("${CZMQ_INCLUDE_DIRS}" "${LIBZMQ_INCLUDE_DIRS}" "${LIBSBP_INCLUDE_DIRS}")
-link_directories("${CZMQ_LIBRARY_DIRS}" "${LIBZMQ_LIBRARY_DIRS}" "${LIBSBP_LIBRARY_DIRS}")
-add_executable(zmq_adapter zmq_adapter.c zmq_adapter_file.c zmq_adapter_tcp_listen.c	framer.c framer_none.c	framer_sbp.c	filter.c	filter_none.c	filter_sbp.c)
+project(zmq_adapter C)
 
-target_link_libraries(zmq_adapter czmq zmq sbp)
-add_dependencies(zmq_adapter CZeroMQ libsbp)
+include_directories("${CZMQ_INCLUDE_DIRS}" "${LIBSBP_INCLUDE_DIRS}")
+link_directories("${CZMQ_LIBRARY_DIRS}" "${LIBSBP_LIBRARY_DIRS}")
 
-set_target_properties( zmq_adapter
+file(GLOB C_FILES *.c)
+
+add_executable(${PROJECT_NAME} ${C_FILES})
+
+target_link_libraries(${PROJECT_NAME} czmq zmq sbp)
+add_dependencies(${PROJECT_NAME} CZeroMQ libsbp)
+
+set_target_properties(${PROJECT_NAME}
     PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/zmq_adapter/lib"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/zmq_adapter/lib"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/zmq_adapter/bin"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
