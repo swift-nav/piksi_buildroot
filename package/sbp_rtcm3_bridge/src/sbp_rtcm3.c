@@ -16,9 +16,32 @@
 #include "rtcm3_decode.h"
 #include <assert.h>
 #include <stdio.h>
+#include <libsbp/observation.h>
+#include <libsbp/gnss.h>
+#include <stdlib.h>
 
 void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length)
 {
+//    uint16_t sbp_message = ( frame[2] << 8 ) | frame[1];
+//
+//    msg_obs_t *obs;
+//    msg_base_pos_ecef_t *position;
+//    uint16_t obsid = SBP_MSG_OBS;
+//    uint16_t posid = SBP_MSG_BASE_POS_ECEF;
+//    if( sbp_message == SBP_MSG_OBS ) {
+//        obs = (msg_obs_t*)(frame+6);
+//        FILE *temp = fopen( "/home/pgrgich/out2.txt", "w" );
+//        for( u8 obnum = 0; obnum < obs->header.n_obs; ++obnum ) {
+//            packed_obs_content_t *ob = &obs->obs[ obnum ];
+//            fprintf( temp, "%d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", ob->P, ob->L.i, ob->L.f, ob->D.i, ob->D.f, ob->cn0, ob->lock, ob->flags, ob->sid.sat, ob->sid.code );
+//        }
+//        fclose( temp );
+//    }
+//    else if( sbp_message == SBP_MSG_BASE_POS_ECEF ) {
+//        position = (msg_base_pos_ecef_t*)(frame+6);
+//    }
+//    return;
+
     static uint32_t count = 0;
     uint16_t byte = 1;
     uint16_t message_size = ( ( frame[byte] & 0x3 ) << 8 ) | frame[byte+1];
@@ -29,8 +52,9 @@ void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length)
         {
             rtcm_obs_message rtcm_msg_1001;
             if( 0 == rtcm3_decode_1001(&frame[byte], &rtcm_msg_1001 ) ) {
-                msg_obs_t sbp_obs;
-                rtcm3_obs_to_sbp( &rtcm_msg_1001, &sbp_obs );
+                u8 obs_data[sizeof( msg_obs_t ) + 40 * sizeof( packed_obs_content_t )];
+                msg_obs_t *sbp_obs = (msg_obs_t *)obs_data;
+                rtcm3_obs_to_sbp( &rtcm_msg_1001, sbp_obs );
                 sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
             }
             break;
@@ -39,8 +63,9 @@ void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length)
         {
             rtcm_obs_message rtcm_msg_1002;
             if( 0 == rtcm3_decode_1002(&frame[byte], &rtcm_msg_1002 ) ) {
-                msg_obs_t sbp_obs;
-                rtcm3_obs_to_sbp( &rtcm_msg_1002, &sbp_obs );
+                u8 obs_data[sizeof( msg_obs_t ) + 40 * sizeof( packed_obs_content_t )];
+                msg_obs_t *sbp_obs = (msg_obs_t *)obs_data;
+                rtcm3_obs_to_sbp( &rtcm_msg_1002, sbp_obs );
                 sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
             }
             break;
@@ -49,8 +74,9 @@ void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length)
         {
             rtcm_obs_message rtcm_msg_1003;
             if( 0 == rtcm3_decode_1003(&frame[byte], &rtcm_msg_1003 ) ) {
-                msg_obs_t sbp_obs;
-                rtcm3_obs_to_sbp( &rtcm_msg_1003, &sbp_obs );
+                u8 obs_data[sizeof( msg_obs_t ) + 40 * sizeof( packed_obs_content_t )];
+                msg_obs_t *sbp_obs = (msg_obs_t *)obs_data;
+                rtcm3_obs_to_sbp( &rtcm_msg_1003, sbp_obs );
                 sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
             }
             break;
@@ -59,8 +85,16 @@ void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length)
         {
             rtcm_obs_message rtcm_msg_1004;
             if( 0 == rtcm3_decode_1004(&frame[byte], &rtcm_msg_1004 ) ) {
-                msg_obs_t sbp_obs;
-                rtcm3_obs_to_sbp( &rtcm_msg_1004, &sbp_obs );
+                u8 obs_data[sizeof( msg_obs_t ) + 40 * sizeof( packed_obs_content_t )];
+                msg_obs_t *sbp_obs = (msg_obs_t *)obs_data;
+                rtcm3_obs_to_sbp( &rtcm_msg_1004, sbp_obs );
+                FILE *temp = fopen( "/home/pgrgich/out.txt", "w" );
+                for( u8 obnum = 0; obnum < sbp_obs->header.n_obs; ++obnum ) {
+                    packed_obs_content_t *ob = &sbp_obs->obs[ obnum ];
+                    fprintf( temp, "%d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", ob->P, ob->L.i, ob->L.f, ob->D.i, ob->D.f, ob->cn0, ob->lock, ob->flags, ob->sid.sat, ob->sid.code );
+                }
+                fclose( temp );
+
                 sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
             }
             break;
@@ -153,8 +187,8 @@ double decode_lock_time(u8 sbp_lock_time) {
 }
 
 void rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs ) {
-    //sbp_obs->header.t.wn = thisweek;
-    sbp_obs->header.t.tow = rtcm_obs->header.tow;
+    sbp_obs->header.t.wn = 0;
+    sbp_obs->header.t.tow = rtcm_obs->header.tow * 1000.0;
     sbp_obs->header.t.ns = 0.0;
 
     u8 index = 0;
@@ -169,18 +203,34 @@ void rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs ) {
                 sbp_freq->P = 0.0;
                 sbp_freq->L.i = 0;
                 sbp_freq->L.f = 0.0;
+                sbp_freq->D.i = 0;
+                sbp_freq->D.f = 0.0;
                 sbp_freq->cn0 = 0.0;
                 sbp_freq->lock = 0.0;
-                // pgrgich: is this going to remain true?
-                sbp_freq->sid.code = freq;
+                if( freq == L1_FREQ ) {
+                    if( rtcm_freq->code == 0 ) {
+                        sbp_freq->sid.code = CODE_GPS_L1CA;
+                    }
+                    else {
+                        sbp_freq->sid.code = CODE_GPS_L1P;
+                    }
+                }
+                else if( freq == L2_FREQ ) {
+                    if( rtcm_freq->code == 0 ) {
+                        sbp_freq->sid.code = CODE_GPS_L2CM;
+                    }
+                    else {
+                        sbp_freq->sid.code = CODE_GPS_L2P;
+                    }
+                }
+
                 if( rtcm_freq->flags.valid_pr == 1 ) {
                     sbp_freq->P = (u32)roundl( rtcm_freq->pseudorange * MSG_OBS_P_MULTIPLIER);
                     sbp_freq->flags |= NAV_MEAS_FLAG_CODE_VALID;
                 }
                 if( rtcm_freq->flags.valid_cp == 1 ) {
-                    // really - sign convention???
-                    sbp_freq->L.i = (s32)floor(-rtcm_freq->carrier_phase);
-                    sbp_freq->L.f = (u8)roundl(-(rtcm_freq->carrier_phase+(double)sbp_freq->L.i)*MSG_OBS_LF_MULTIPLIER);
+                    sbp_freq->L.i = (s32)floor(rtcm_freq->carrier_phase);
+                    sbp_freq->L.f = (u8)roundl((rtcm_freq->carrier_phase-(double)sbp_freq->L.i)*MSG_OBS_LF_MULTIPLIER);
                     sbp_freq->flags |= NAV_MEAS_FLAG_PHASE_VALID;
                 }
                 if( rtcm_freq->flags.valid_cnr == 1 ) {
@@ -229,7 +279,7 @@ void sbp_to_rtcm3_obs( const msg_obs_t *sbp_obs, rtcm_obs_message *rtcm_obs ) {
                 rtcm_freq->flags.valid_pr = 1;
             }
             if( sbp_freq->flags & NAV_MEAS_FLAG_PHASE_VALID ) {
-                rtcm_freq->carrier_phase = -( sbp_freq->L.i + (double)sbp_freq->L.f / MSG_OBS_LF_MULTIPLIER );
+                rtcm_freq->carrier_phase = sbp_freq->L.i + (double)sbp_freq->L.f / MSG_OBS_LF_MULTIPLIER;
                 rtcm_freq->flags.valid_cp = 1;
             }
             if( sbp_freq->flags & NAV_MEAS_FLAG_CN0_VALID ) {
