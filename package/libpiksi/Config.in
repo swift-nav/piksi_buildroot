@@ -1,0 +1,4 @@
+config BR2_PACKAGE_LIBPIKSI
+	bool "libpiksi"
+	select BR2_PACKAGE_CZMQ
+	select BR2_PACKAGE_LIBSBP
