@@ -60,10 +60,5 @@ static s8 decode_basic_l2_freq_data( const u8 *buff, u16 *bit, rtcm_freq_data *f
 static s8 encode_basic_freq_data( const rtcm_freq_data *freq_data, freq_enum freq, const double *l1_pr, u8 *buff, u16 *bit );
 static void init_data( rtcm_sat_data *sat_data );
 
-bool msgobs_equals( const rtcm_obs_message *msg_in, const rtcm_obs_message *msg_out );
-bool msg1005_equals( const rtcm_msg_1005 *lhs, const rtcm_msg_1005 *rhs );
-bool msg1006_equals( const rtcm_msg_1006 *lhs, const rtcm_msg_1006 *rhs );
-bool msg1007_equals( const rtcm_msg_1007 *lhs, const rtcm_msg_1007 *rhs );
-bool msg1008_equals( const rtcm_msg_1008 *lhs, const rtcm_msg_1008 *rhs );
 
 #endif /* SWIFTNAV_RTCM3_DECODE_H */
