@@ -1,5 +1,5 @@
-TARGET=libsbp_zmq
-SOURCES=sbp_zmq.c
+TARGET=libskylark
+SOURCES=libskylark.c
 CFLAGS=-std=gnu11 -fPIC
 ARFLAGS=rcs
 LDFLAGS=-shared

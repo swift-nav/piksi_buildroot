@@ -107,7 +107,6 @@ void msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   //      multiple message types - e.g., the context should be a struct of both
   //      the sbp_zmq_state_t and the msg type.
   int *fd = (int *)context;
-  printf("msg_callback len=%d\n", len);
   // TODO I doubt this is right - won't I need to rebuild the rest of the SBP
   // frame?  now I'm going to do something probably inefficient - going to setup
   // a new sbp_state_t object here for writing and then call sbp_send_message.
@@ -134,8 +133,7 @@ void msg_loop(int fd)
     exit(EXIT_FAILURE);
   }
   // TODO moar messages to register
-  sbp_zmq_callback_register(&sbp_zmq_state, SBP_MSG_POS_LLH, &msg_callback, &fd,
-                            NULL);
+  sbp_zmq_callback_register(&sbp_zmq_state, SBP_MSG_POS_LLH, &msg_callback, &fd, NULL);
   sbp_zmq_loop(&sbp_zmq_state);
   sbp_zmq_deinit(&sbp_zmq_state);
 }
