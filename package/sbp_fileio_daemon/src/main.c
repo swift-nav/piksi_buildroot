@@ -10,9 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <sbp_zmq.h>
+#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/util.h>
 #include <getopt.h>
-
 #include "sbp_fileio.h"
 
 static const char *pub_endpoint = NULL;
@@ -67,55 +67,26 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static int file_read_string(const char *filename, char *str, size_t str_size)
-{
-  FILE *fp = fopen(filename, "r");
-  if (fp == NULL) {
-    printf("error opening %s\n", filename);
-    return -1;
-  }
-
-  bool success = (fgets(str, str_size, fp) != NULL);
-
-  fclose(fp);
-
-  if (!success) {
-    printf("error reading %s\n", filename);
-    return -1;
-  }
-
-  return 0;
-}
-
 int main(int argc, char *argv[])
 {
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
-    exit(1);
-  }
-
-  /* Set up SBP ZMQ */
-  u16 sbp_sender_id = SBP_SENDER_ID;
-  char sbp_sender_id_string[32];
-  if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
-                        sizeof(sbp_sender_id_string)) == 0) {
-    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
-  }
-  sbp_zmq_config_t sbp_zmq_config = {
-    .sbp_sender_id = sbp_sender_id,
-    .pub_endpoint = pub_endpoint,
-    .sub_endpoint = sub_endpoint
-  };
-
-  sbp_zmq_state_t sbp_zmq_state;
-  if (sbp_zmq_init(&sbp_zmq_state, &sbp_zmq_config) != 0) {
     exit(EXIT_FAILURE);
   }
 
-  sbp_fileio_setup(&sbp_zmq_state);
+  /* Prevent czmq from catching signals */
+  zsys_handler_set(NULL);
 
-  sbp_zmq_loop(&sbp_zmq_state);
+  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(pub_endpoint, sub_endpoint);
+  if (ctx == NULL) {
+    exit(EXIT_FAILURE);
+  }
 
-  sbp_zmq_deinit(&sbp_zmq_state);
+  sbp_fileio_setup(sbp_zmq_pubsub_rx_ctx_get(ctx),
+                   sbp_zmq_pubsub_tx_ctx_get(ctx));
+
+  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
+
+  sbp_zmq_pubsub_destroy(&ctx);
   exit(EXIT_SUCCESS);
 }

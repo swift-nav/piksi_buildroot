@@ -13,9 +13,10 @@
 #ifndef SWIFTNAV_SBP_FILEIO_H
 #define SWIFTNAV_SBP_FILEIO_H
 
-#include <sbp_zmq.h>
+#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/sbp_zmq_tx.h>
 
-void sbp_fileio_setup(sbp_zmq_state_t *sbp_zmq_state);
+void sbp_fileio_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx);
 
 #endif
 

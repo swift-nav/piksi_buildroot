@@ -3,7 +3,7 @@ SOURCES= \
 	main.c \
 	sbp_fileio.c
 
-LIBS=-lczmq -lsbp -lsbp_zmq
+LIBS=-lczmq -lsbp -lpiksi
 CFLAGS=-std=gnu11
 
 CROSS=
