@@ -10,55 +10,29 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <sbp_zmq.h>
-
+#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/util.h>
 #include "settings.h"
 
-static int file_read_string(const char *filename, char *str, size_t str_size)
-{
-  FILE *fp = fopen(filename, "r");
-  if (fp == NULL) {
-    printf("error opening %s\n", filename);
-    return -1;
-  }
-
-  bool success = (fgets(str, str_size, fp) != NULL);
-
-  fclose(fp);
-
-  if (!success) {
-    printf("error reading %s\n", filename);
-    return -1;
-  }
-
-  return 0;
-}
+#define PUB_ENDPOINT ">tcp://localhost:43021"
+#define SUB_ENDPOINT ">tcp://localhost:43020"
 
 int main(void)
 {
-  /* Set up SBP ZMQ */
-  u16 sbp_sender_id = SBP_SENDER_ID;
-  char sbp_sender_id_string[32];
-  if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
-                        sizeof(sbp_sender_id_string)) == 0) {
-    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
-  }
-  sbp_zmq_config_t sbp_zmq_config = {
-    .sbp_sender_id = sbp_sender_id,
-    .pub_endpoint = ">tcp://localhost:43021",
-    .sub_endpoint = ">tcp://localhost:43020"
-  };
+  /* Prevent czmq from catching signals */
+  zsys_handler_set(NULL);
 
-  sbp_zmq_state_t sbp_zmq_state;
-  if (sbp_zmq_init(&sbp_zmq_state, &sbp_zmq_config) != 0) {
+  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
+  if (ctx == NULL) {
     exit(EXIT_FAILURE);
   }
 
-  settings_setup(&sbp_zmq_state);
+  settings_setup(sbp_zmq_pubsub_rx_ctx_get(ctx),
+                 sbp_zmq_pubsub_tx_ctx_get(ctx));
 
-  sbp_zmq_loop(&sbp_zmq_state);
+  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 
-  sbp_zmq_deinit(&sbp_zmq_state);
+  sbp_zmq_pubsub_destroy(&ctx);
   exit(EXIT_SUCCESS);
 }
 

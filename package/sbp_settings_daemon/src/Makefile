@@ -4,7 +4,7 @@ SOURCES= \
 	minIni/minIni.c \
 	settings.c \
 
-LIBS=-lczmq -lsbp -lsbp_zmq
+LIBS=-lczmq -lsbp -lpiksi
 CFLAGS=-std=gnu11
 
 CROSS=
