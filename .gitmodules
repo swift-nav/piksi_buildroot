@@ -1,3 +1,15 @@
 [submodule "buildroot"]
 	path = buildroot
 	url = git://git.buildroot.net/buildroot
+[submodule "package/third_party/libzmq"]
+	path = package/third_party/libzmq
+	url = https://github.com/zeromq/libzmq.git
+[submodule "package/third_party/czmq"]
+	path = package/third_party/czmq
+	url = https://github.com/zeromq/czmq.git
+[submodule "package/third_party/libsbp"]
+	path = package/third_party/libsbp
+	url = https://github.com/swift-nav/libsbp.git
+[submodule "package/third_party/googletest"]
+	path = package/third_party/googletest
+	url = https://github.com/google/googletest.git

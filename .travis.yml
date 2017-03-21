@@ -9,6 +9,7 @@ before_install:
   - pip install --user --upgrade awscli
 
 script:
+  - make test
   - make firmware
   - make docker-setup
   - HW_CONFIG=prod make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^make'
