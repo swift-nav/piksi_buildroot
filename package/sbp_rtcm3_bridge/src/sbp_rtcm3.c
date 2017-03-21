@@ -160,7 +160,7 @@ double decode_lock_time(u8 sbp_lock_time) {
 }
 
 void rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs ) {
-    sbp_obs->header.t.wn = 0;
+    sbp_obs->header.t.wn = 1941;
     sbp_obs->header.t.tow = rtcm_obs->header.tow * 1000.0;
     sbp_obs->header.t.ns = 0.0;
 
