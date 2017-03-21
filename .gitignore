@@ -1,7 +1,6 @@
 firmware/
 .*.sw*
 build.out
-package/build
 build/
 .DS_Store
 */*.DS_Store
