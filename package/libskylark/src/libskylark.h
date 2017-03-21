@@ -15,7 +15,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <sbp_settings.h>
+// #include <sbp_settings.h>
 #include <sbp_zmq.h>
 
 /**
@@ -90,10 +90,10 @@ typedef enum {
 #define SETTINGS_SKYLARK_ENABLE "enable"
 #define SETTINGS_SKYLARK_URL    "url"
 
-static const char const * skylark_mode_enum[] = {"ON", "OFF", NULL};
-static struct setting_type skylark_mode_settings_type;
-static int TYPE_SKYLARK_MODE = 0;
-enum {SKYLARK_ENABLED, SKYLARK_DISABLED};
+/* static const char const * skylark_mode_enum[] = {"ON", "OFF", NULL}; */
+/* static struct setting_type skylark_mode_settings_type; */
+/* static int TYPE_SKYLARK_MODE = 0; */
+/* enum {SKYLARK_ENABLED, SKYLARK_DISABLED}; */
 
 /**
  *  Constant definitions: Common type definitions around configuration and
@@ -102,7 +102,7 @@ enum {SKYLARK_ENABLED, SKYLARK_DISABLED};
 
 // TODO (mookerji): Document these
 typedef struct {
-  char *endpoint_url;
+  const char *endpoint_url;
   char *accept_type_header;
   char *content_type_header;
   char *encoding;
@@ -123,10 +123,10 @@ void log_client_config(const skylark_client_config_t *config);
 
 SKYLARK_RC setup_settings(skylark_client_config_t* config);
 
-SKYLARK_RC get_uuid_channel(char* channel_uuid);
-SKYLARK_RC get_device_uuid(char* device_uuid);
-SKYLARK_RC get_broker_endpoint(char* endpoint);
-SKYLARK_RC format_device_header(const char* uuid, char* header);
+SKYLARK_RC get_uuid_channel(skylark_client_config_t* config);
+SKYLARK_RC get_device_uuid(skylark_client_config_t* config);
+SKYLARK_RC get_broker_endpoint(skylark_client_config_t* config);
+SKYLARK_RC format_device_header(skylark_client_config_t* config);
 SKYLARK_RC get_sbp_sender_id(u16* sender_id);
 SKYLARK_RC get_config(skylark_client_config_t* config);
 

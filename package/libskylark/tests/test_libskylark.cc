@@ -12,17 +12,29 @@
 
 #include "gtest/gtest.h"
 
+extern "C" {
 #include "libskylark.h"
+}
+
 
 namespace {
+
+  TEST(configuration, load_uuid_channel) {
+    EXPECT_TRUE(false);
+  }
+
+  TEST(configuration, load_device_uuid) {
+    EXPECT_TRUE(false);
+  }
+
+  TEST(configuration, load_configuration) {
+    EXPECT_TRUE(false);
+  }
 
 }
 
 int main(int argc, char **argv)
 {
   ::testing::InitGoogleTest(&argc, argv);
-  if (argc >= 2) {
-    out_dir = argv[1];
-  }
   return RUN_ALL_TESTS();
 }

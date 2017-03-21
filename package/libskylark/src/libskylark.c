@@ -13,7 +13,9 @@
 #include <curl/curl.h>
 #include <libsbp/observation.h>
 #include <libsbp/navigation.h>
-#include <sbp_settings.h>
+#include <string.h>
+#include <stdio.h>
+//#include <sbp_settings.h>
 #include <sbp_zmq.h>
 
 #include "libskylark.h"
@@ -45,7 +47,7 @@ void log_client_config(const skylark_client_config_t *config) {
   log_debug("client_config: content_type_header=%s\n", config->content_type_header);
   log_debug("client_config: encoding=%s\n", config->encoding);
   log_debug("client_config: device_header=%s\n", config->device_header);
-  log_debug("client_config: sbp_sender_id=%s\n", config->sbp_sender_id);
+  log_debug("client_config: sbp_sender_id=%d\n", config->sbp_sender_id);
   log_debug("client_config: enabled=%d\n", config->enabled);
 }
 
@@ -69,39 +71,41 @@ SKYLARK_RC setup_settings(skylark_client_config_t* config)
   return NO_ERROR;
 }
 
-SKYLARK_RC get_uuid_channel(char* channel_uuid)
+SKYLARK_RC get_uuid_channel(skylark_client_config_t* config)
 {
-  (void)channel_uuid;
+  (void)config;
   return -E_NOT_IMPLEMENTED;
 }
 
-SKYLARK_RC get_device_uuid(char* device_uuid)
+SKYLARK_RC get_device_uuid(skylark_client_config_t* config)
 {
-  strcpy(device_uuid, DEFAULT_DEVICE_UID);
+  strcpy(config->device_uuid, DEFAULT_DEVICE_UID);
   return NO_ERROR;
 }
 
-SKYLARK_RC get_broker_endpoint(char* endpoint)
+SKYLARK_RC get_broker_endpoint(skylark_client_config_t* config)
 {
-  strcpy(endpoint, SBP_V2_ACCEPT_TYPE);
+  log_info("foo!\n");
+  strcpy(config->endpoint_url, DEFAULT_BROKER_ENDPOINT);
+  log_info("bar!\n");
   return NO_ERROR;
 }
 
-SKYLARK_RC get_accept_header(char* header)
+SKYLARK_RC get_accept_header(skylark_client_config_t* config)
 {
-  strcpy(header, SBP_V2_ACCEPT_TYPE);
+  strcpy(config->accept_type_header, SBP_V2_ACCEPT_TYPE);
   return NO_ERROR;
 }
 
-SKYLARK_RC get_content_header(char* header)
+SKYLARK_RC get_content_header(skylark_client_config_t* config)
 {
-  strcpy(header, SBP_V2_CONTENT_TYPE);
+  strcpy(config->content_type_header, SBP_V2_CONTENT_TYPE);
   return NO_ERROR;
 }
 
-SKYLARK_RC format_device_header(const char* uuid, char* header)
+SKYLARK_RC format_device_header(skylark_client_config_t* config)
 {
-  sprintf(header, DEVICE_UID_HEADER_FMT, uuid);
+  sprintf(config->device_header, DEVICE_UID_HEADER_FMT, config->device_uuid);
   return NO_ERROR;
 }
 
@@ -121,32 +125,25 @@ SKYLARK_RC get_sbp_sender_id(u16* sender_id)
 SKYLARK_RC get_config(skylark_client_config_t* config)
 {
   SKYLARK_RC rc = NO_ERROR;
-  if ((rc = get_broker_endpoint(config->endpoint_url)) < NO_ERROR) {
+  if ((rc = get_broker_endpoint(config)) < NO_ERROR) {
     return rc;
   }
-  log_info("Got broker_endpoint\n");
-  if ((rc = get_accept_header(config->accept_type_header)) < NO_ERROR) {
+  if ((rc = get_accept_header(config)) < NO_ERROR) {
     return rc;
   }
-  log_info("Got accept\n");
-  if ((rc = get_content_header(config->content_type_header)) < NO_ERROR) {
+  if ((rc = get_content_header(config)) < NO_ERROR) {
     return rc;
   }
-  log_info("Got encoding\n");
   strcpy(config->encoding, STREAM_ENCODING);
-  if ((rc = get_device_uuid(config->device_uuid)) < NO_ERROR) {
+  if ((rc = get_device_uuid(config)) < NO_ERROR) {
     return rc;
   }
-  log_info("Got device uuid\n");
-  if ((rc = format_device_header(config->device_uuid,
-                                 config->device_header)) < NO_ERROR) {
+  if ((rc = format_device_header(config)) < NO_ERROR) {
     return rc;
   }
-  log_info("Got format device header \n");
   if ((rc = get_sbp_sender_id(&config->sbp_sender_id)) < NO_ERROR) {
     return rc;
   }
-  log_info("Got sender_id \n");
   return rc;
 }
 
