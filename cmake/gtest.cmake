@@ -12,7 +12,7 @@ ExternalProject_Add(googletest-distribution
   PREFIX ${GTEST_PREFIX}
   # We use SOURCE_DIR because we use version control to track the
   # version of this library instead of using the build tool
-  SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/googletest
+  SOURCE_DIR ${CMAKE_SOURCE_DIR}/package/third_party/googletest
   INSTALL_DIR ${GTEST_INSTALL}
   #INSTALL_COMMAND cmake -E echo "Not installing ZeroMQ globally."
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${GTEST_INSTALL}

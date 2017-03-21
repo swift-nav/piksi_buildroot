@@ -12,7 +12,7 @@ ExternalProject_Add(libsbp
   PREFIX ${SBP_PREFIX}
   # We use SOURCE_DIR because we use version control to track the
   # version of this library instead of using the build tool
-  SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/libsbp/c
+  SOURCE_DIR ${CMAKE_SOURCE_DIR}/package/third_party/libsbp/c
   INSTALL_DIR ${SBP_INSTALL}
   #INSTALL_COMMAND cmake -E echo "Not installing libsbp globally."
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${SBP_INSTALL}

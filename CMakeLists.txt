@@ -6,9 +6,9 @@ set(CMAKE_COLOR_MAKEFILE   ON)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 include("cmake/zmq.cmake")
-include("cmake/sbp.cmake")
+include("package/libsbp/CMakeLists.txt")
 
-add_subdirectory(libsbp_zmq/src)
+add_subdirectory(package/libsbp_zmq/src)
 
 # Testing
 set (PACKAGE_BUILD_TESTS ON CACHE BOOL "Build the package tests")

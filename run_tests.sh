@@ -14,5 +14,5 @@
 
 set -e
 
-mkdir -p package/build && cd package/build
+mkdir -p build && cd build
 cmake ../ && make

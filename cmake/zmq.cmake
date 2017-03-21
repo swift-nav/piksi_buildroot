@@ -12,7 +12,7 @@ ExternalProject_Add(ZeroMQ
   PREFIX ${ZMQ_PREFIX}
   # We use SOURCE_DIR because we use version control to track the
   # version of this library instead of using the build tool
-  SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/libzmq
+  SOURCE_DIR ${CMAKE_SOURCE_DIR}/package/third_party/libzmq
   INSTALL_DIR ${ZMQ_INSTALL}
   #INSTALL_COMMAND cmake -E echo "Not installing ZeroMQ globally."
   CMAKE_ARGS -DZMQ_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=${ZMQ_INSTALL}
@@ -32,7 +32,7 @@ ExternalProject_Add(CZeroMQ
   PREFIX ${CZMQ_PREFIX}
   # We use SOURCE_DIR because we use version control to track the
   # version of this library instead of using the build tool
-  SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/czmq
+  SOURCE_DIR ${CMAKE_SOURCE_DIR}/package/third_party/czmq
   INSTALL_DIR ${CZMQ_INSTALL}
   # Pass the ZMQ library and header locations to czmq's FindLibZMQ cmake
   # file. It seems that CZMQ on some Linux systems (i.e., Travis) ignore
