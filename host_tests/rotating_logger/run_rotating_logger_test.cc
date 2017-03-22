@@ -55,12 +55,13 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger
     _slice_duration = period;
   }
 
+  // invalidate current file pointer
   void SetNullFilePointer(void)
   {
     _cur_file = NULL;
   }
 
-    void SetFillThreshold(size_t threshold)
+  void SetFillThreshold(size_t threshold)
   {
     _disk_full_threshold = threshold;
   }
@@ -70,15 +71,16 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger
     _out_dir = path;
   }
 
+  // make logger think time progressed
   void MoveStartTimeBack(size_t minutes_back)
   {
     _session_start_time -= std::chrono::minutes(minutes_back);
   }
-
-  
-
 };
 
+/*
+ * Test that log over works as expected
+ */
 TEST_F(RotatingLoggerTest, NormalOperation)
 {
   const size_t period = 5;
@@ -87,12 +89,14 @@ TEST_F(RotatingLoggerTest, NormalOperation)
   const char expected_files[4][15] = {"0001-00000.sbp", "0001-00005.sbp", "0001-00010.sbp", "0001-00015.sbp"};
   int expected_file_content[4][5];
 
+  // Write 1 log a "minute" for 20 "minutes"
   for(int i = 0; i < 20; i++) {
     frame_handler(reinterpret_cast<uint8_t*>(&i), sizeof(int));
     MoveStartTimeBack(1);
     expected_file_content[i/5][i%5] = i;
   }
 
+  // Check that log roll overs occured and each has correct data
   for(int i = 0; i < 4; i++) {
     char file_name_buf[1024];
     snprintf(file_name_buf, sizeof(file_name_buf), "%s/%s", out_dir, expected_files[i]);
@@ -106,13 +110,18 @@ TEST_F(RotatingLoggerTest, NormalOperation)
   }
 }
 
+/*
+ * Check low disk threshold
+ * This requires running the with a second CL arg and expects a loop mount
+ * created with host_tests/rotating_logger/test_disk.sh
+ */
 TEST_F(RotatingLoggerTest, DiskCheck)
 {
   const size_t buff_size = 10240;
   const size_t disk_threshold = 10;
 
   if (!check_disk_fill) {
-    printf("Skipping disk check (see rotating_zmq_logger/test/test_disk.sh for usage)\n");
+    printf("Skipping disk check\n");
     return;
   }
   
@@ -145,6 +154,9 @@ TEST_F(RotatingLoggerTest, DiskCheck)
   }
 }
 
+/*
+ * Check that logging can start when the target path is not initially available
+ */
 TEST_F(RotatingLoggerTest, StartDisconnected)
 {
   const size_t period = 5;
@@ -172,6 +184,9 @@ TEST_F(RotatingLoggerTest, StartDisconnected)
 
 }
 
+/*
+ * Check that logging works when the path goes in and out of availability
+ */
 TEST_F(RotatingLoggerTest, DisconnectReconnect)
 {
   const size_t period = 5;
@@ -181,20 +196,26 @@ TEST_F(RotatingLoggerTest, DisconnectReconnect)
   int expected_file_content[3] = {0, 2, 5};
 
   int i = 0;
+  // 0001-00000.sbp <- 0
   frame_handler(reinterpret_cast<uint8_t*>(&i), sizeof(int));
   i++;
   SetNullFilePointer();
+  // BAD FILE <- 1
   frame_handler(reinterpret_cast<uint8_t*>(&i), sizeof(int));
   i++;
+  // 0002-00000.sbp <- 2
   frame_handler(reinterpret_cast<uint8_t*>(&i), sizeof(int));
   i++;
   SetOutputPath("/invalid");
   SetNullFilePointer();
+  // BAD FILE <- 3
   frame_handler(reinterpret_cast<uint8_t*>(&i), sizeof(int));
   i++;
+  // BAD PATH <- 4
   frame_handler(reinterpret_cast<uint8_t*>(&i), sizeof(int));
   i++;
   SetOutputPath(out_dir);
+  // 0003-00000.sbp <- 5
   frame_handler(reinterpret_cast<uint8_t*>(&i), sizeof(int));
 
   for(i = 0; i < 3; i++) {

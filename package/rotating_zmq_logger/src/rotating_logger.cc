@@ -47,7 +47,6 @@ static void debug_printf(const char *msg, ...)
   va_end(ap);
 }
 
-
 int RotatingLogger::check_disk_full(void)
 {
   struct statvfs fs_stats;
@@ -64,7 +63,10 @@ int RotatingLogger::check_disk_full(void)
 
 bool RotatingLogger::open_new_file()
 {
-  assert(_session_count < 9999);
+  if(_session_count >= 9999) {
+    perror("Max session exceeded");
+    return false;
+  }
   if (_cur_file != NULL) {
     fclose(_cur_file);
     _cur_file = NULL;
@@ -100,6 +102,7 @@ bool RotatingLogger::check_slice_time(void)
     return true;
   }
   debug_printf("Rolling over log\n");
+  // if multiple roll overs occured skip files with no data
   _minute_count += _slice_duration * periods;
   return open_new_file();
 }
@@ -113,6 +116,8 @@ bool RotatingLogger::start_new_session(void)
     debug_printf("Target dir unavailable\n");
     return false;
   }
+  // check files in path for last session index
+  // pick up where they left off
   _session_count = 0;
   _minute_count = 0;
   _session_start_time = std::chrono::steady_clock::now();
@@ -139,6 +144,7 @@ double RotatingLogger::get_time_passed(void)
 void RotatingLogger::frame_handler(const uint8_t* data, size_t size)
 {
   if (!_dest_available) {
+    // check imediately on startup for path availability. Subsequently, check periodically
     if (_session_start_time.time_since_epoch().count() != 0 && get_time_passed() < _poll_period) {
       return;
     }
@@ -172,6 +178,7 @@ RotatingLogger::RotatingLogger(const std::string& out_dir, size_t slice_duration
     _poll_period(poll_period),
     _disk_full_threshold(disk_full_threshold),
     _force_flush(force_flush),
+    // init to 0
     _session_start_time(),
     _cur_file(NULL) {}
 
