@@ -33,7 +33,7 @@ set(GTEST_INCLUDE_DIR ${source_dir}/include)
 
 # Library
 ExternalProject_Get_Property(googletest binary_dir)
-set(GTEST_LIBRARY_PATH ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}gtest.a)
+set(GTEST_LIBRARY_PATH ${binary_dir}/googlemock/gtest/${CMAKE_FIND_LIBRARY_PREFIXES}gtest.a)
 set(GTEST_LIBRARY gtest)
 add_library(${GTEST_LIBRARY} UNKNOWN IMPORTED)
 set_property(TARGET ${GTEST_LIBRARY} PROPERTY IMPORTED_LOCATION
