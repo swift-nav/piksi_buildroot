@@ -391,17 +391,13 @@ static int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
   return 0;
 }
 
-
-static u32 endian_flip_u32(u32 word)
+static int count_set_bits(const u8* data, size_t num_bytes)
 {
-  u32 b0,b1,b2,b3;
-
-  b0 = (word & 0x000000ff) << 24u;
-  b1 = (word & 0x0000ff00) << 8u;
-  b2 = (word & 0x00ff0000) >> 8u;
-  b3 = (word & 0xff000000) >> 24u;
-
-  return b0 | b1 | b2 | b3;
+  int count = 0;
+  for (int i = 0; i < num_bytes; i++) {
+    count += __builtin_popcount(data[i]);
+  }
+  return count;
 }
 
 static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
@@ -432,13 +428,16 @@ static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
         continue;
       }
 
+      //check if this is the first entry with this interface name
       int interface_idx;
       for (interface_idx = 0; interface_idx < SBP_MAX_NETWORK_INTERFACES; interface_idx++)
       {
+        //reached the end of the list so add a new entry
         if (strlen(interfaces[interface_idx].interface_name) == 0) {
           strcpy(interfaces[interface_idx].interface_name, ifa->ifa_name);
           break;
         }
+        //found the entry in the list so add new info to that entry
         if (strcmp(interfaces[interface_idx].interface_name ,ifa->ifa_name) == 0) {
           break;
         }
@@ -450,11 +449,18 @@ static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
 
       family = ifa->ifa_addr->sa_family;
       if (family == AF_INET) {
-        interfaces[interface_idx].ip_address =
-            endian_flip_u32(((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr);
-        interfaces[interface_idx].ip_mask =
-            endian_flip_u32(((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr.s_addr);
+        const size_t IP4_SIZE = sizeof(interfaces[0].ipv4_address);
+        memcpy(interfaces[interface_idx].ipv4_address,
+               &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr.s_addr, IP4_SIZE);
+        u8* mask_bytes = (u8*)&((struct sockaddr_in*)ifa->ifa_netmask)->sin_addr.s_addr;
+        interfaces[interface_idx].ipv4_mask_size = count_set_bits(mask_bytes, IP4_SIZE);
         interfaces[interface_idx].flags = ifa->ifa_flags;
+      } else if(family == AF_INET6) {
+        const size_t IP6_SIZE = sizeof(interfaces[0].ipv6_address);
+        memcpy(interfaces[interface_idx].ipv6_address,
+               &((struct sockaddr_in6*)ifa->ifa_addr)->sin6_addr.s6_addr, IP6_SIZE);
+        u8* mask_bytes = (u8*)&((struct sockaddr_in6*)ifa->ifa_netmask)->sin6_addr.s6_addr;
+        interfaces[interface_idx].ipv6_mask_size = count_set_bits(mask_bytes, IP6_SIZE);
       } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
           struct rtnl_link_stats *stats = ifa->ifa_data;
           interfaces[interface_idx].rx_bytes = stats->rx_bytes;
