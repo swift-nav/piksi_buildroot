@@ -1,4 +1,5 @@
 firmware/
 .*.sw*
 build.out
-
+.vscode/
+build/

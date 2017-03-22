@@ -90,7 +90,7 @@ static void usage(char *command)
 
   puts("\nFramer Mode - optional");
   puts("\t-f, --framer <framer>");
-  puts("\t\tavailable framers: sbp");
+  puts("\t\tavailable framers: sbp, rtcm3");
 
   puts("\nFilter Mode - optional");
   puts("\t--filter-in <filter>");
@@ -224,6 +224,8 @@ static int parse_options(int argc, char *argv[])
       case 'f': {
         if (strcasecmp(optarg, "SBP") == 0) {
           framer = FRAMER_SBP;
+        } else if (strcasecmp(optarg, "RTCM3") == 0) {
+          framer = FRAMER_RTCM3;
         } else {
           printf("invalid framer\n");
           return -1;

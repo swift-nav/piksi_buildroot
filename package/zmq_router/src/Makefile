@@ -1,5 +1,9 @@
 TARGET=zmq_router
-SOURCES=zmq_router.c zmq_router_sbp.c zmq_router_nmea.c
+SOURCES= \
+	zmq_router.c \
+	zmq_router_sbp.c \
+	zmq_router_nmea.c \
+	zmq_router_rtcm3.c
 LIBS=-lczmq
 CFLAGS=-std=gnu11
 
