@@ -1,19 +1,17 @@
-TARGET=zmq_router
+TARGET=sbp_rtcm3_bridge
 SOURCES= \
-	zmq_router.c \
-	zmq_router_sbp.c \
-	zmq_router_nmea.c \
-	zmq_router_rtcm3.c
-LIBS=-lczmq
+	sbp_rtcm3_bridge.c \
+	rtcm3_decode.c \
+	sbp.c
+
+LIBS=-lczmq -lsbp
 CFLAGS=-std=gnu11
 
 CROSS=
 
 CC=$(CROSS)gcc
 
-all: program
-program: $(TARGET)
-
+all:	$(TARGET)
 $(TARGET): $(SOURCES)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES) $(LIBS)
 

@@ -32,6 +32,10 @@ static const framer_interface_t framer_interfaces[] = {
   [FRAMER_SBP] = {
     .init = framer_sbp_init,
     .process = framer_sbp_process
+  },
+  [FRAMER_RTCM3] = {
+    .init = framer_rtcm3_init,
+    .process = framer_rtcm3_process
   }
 };
 
