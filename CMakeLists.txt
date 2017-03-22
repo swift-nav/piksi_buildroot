@@ -9,6 +9,8 @@ include("cmake/zmq.cmake")
 include("package/libsbp/CMakeLists.txt")
 
 add_subdirectory(package/libsbp_zmq/src)
+add_subdirectory(package/zmq_adapter/src)
+add_subdirectory(package/rotating_zmq_logger/src)
 
 # Testing
 set (PACKAGE_BUILD_TESTS ON CACHE BOOL "Build the package tests")
@@ -17,4 +19,6 @@ if (PACKAGE_BUILD_TESTS)
   include("cmake/gtest.cmake")
   # Enable testing only works in root scope
   enable_testing ()
+  add_subdirectory(host_tests/rotating_logger)
+
 endif (PACKAGE_BUILD_TESTS)
