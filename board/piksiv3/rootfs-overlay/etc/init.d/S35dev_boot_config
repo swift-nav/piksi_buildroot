@@ -8,10 +8,10 @@ start() {
             sed -n -e 's/^.*dev_boot=\([^ ]*\).*/\1/p'`
 
   if [ "$dev_boot" == "net" ]; then
-    # remove eth0 section from /etc/network/interfaces
-    sed -i -e '/^.*eth0.*/,/^$/d' "/etc/network/interfaces"
+    # remove eth0 section from /etc/network/interfaces.d/eth0.cfg
+    sed -i -e '/^.*eth0.*/,/^$/d' "/etc/network/interfaces.d/eth0.cfg"
     # set eth0 to manual
-    printf "iface eth0 inet manual\n\n" >> "/etc/network/interfaces"
+    printf "iface eth0 inet manual\n\n" >> "/etc/network/interfaces.d/eth0.cfg"
   fi
 }
 
