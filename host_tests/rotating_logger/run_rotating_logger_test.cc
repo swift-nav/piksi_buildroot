@@ -12,7 +12,7 @@
 
 #include <math.h>
 #include <sys/statvfs.h>
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 #include "rotating_logger.h"
 
 static const char* out_dir = "./";
