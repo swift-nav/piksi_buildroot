@@ -226,15 +226,17 @@ void setbitsl(u8 *buff, u32 pos, u32 len, s64 data)
  * \param div_free GPS Divergence-free Smoothing Indicator (DF007).
  * \param smooth GPS Smoothing Interval indicator (DF008).
  */
-void rtcm3_write_header( const rtcm_msg_header *header, u8 num_sats, u8 *buff )
+u16 rtcm3_write_header( const rtcm_msg_header *header, u8 num_sats, u8 *buff )
 {
-  setbitu(buff, 0, 12, header->msg_num);
-  setbitu(buff, 12, 12, header->stn_id);
-  setbitu(buff, 24, 30, (u32)round(header->tow*1e3));
-  setbitu(buff, 54, 1, header->sync);
-  setbitu(buff, 55, 5, num_sats);
-  setbitu(buff, 60, 1, header->div_free);
-  setbitu(buff, 61, 3, header->smooth);
+  u16 bit = 0;
+  setbitu(buff, bit, 12, header->msg_num); bit += 12;
+  setbitu(buff, bit, 12, header->stn_id); bit += 12;
+  setbitu(buff, bit, 30, (u32)round(header->tow*1e3)); bit += 30;
+  setbitu(buff, bit, 1, header->sync); bit += 1;
+  setbitu(buff, bit, 5, num_sats); bit += 5;
+  setbitu(buff, bit, 1, header->div_free); bit += 1;
+  setbitu(buff, bit, 3, header->smooth); bit += 3;
+  return bit;
 }
 
 /** Read RTCM header for observation message types 1001..1004.
@@ -255,15 +257,17 @@ void rtcm3_write_header( const rtcm_msg_header *header, u8 num_sats, u8 *buff )
  * \param div_free GPS Divergence-free Smoothing Indicator (DF007).
  * \param smooth GPS Smoothing Interval indicator (DF008).
  */
-void rtcm3_read_header(const u8 *buff, rtcm_msg_header *header )
+u16 rtcm3_read_header(const u8 *buff, rtcm_msg_header *header )
 {
-  header->msg_num = getbitu(buff, 0, 12);
-  header->stn_id = getbitu(buff, 12, 12);
-  header->tow = getbitu(buff, 24, 30) / 1e3;
-  header->sync = getbitu(buff, 54, 1);
-  header->n_sat = getbitu(buff, 55, 5);
-  header->div_free = getbitu(buff, 60, 1);
-  header->smooth = getbitu(buff, 61, 3);
+  u16 bit = 0;
+  header->msg_num = getbitu(buff, bit, 12); bit += 12;
+  header->stn_id = getbitu(buff, bit, 12); bit += 12;
+  header->tow = getbitu(buff, bit, 30) / 1e3; bit += 30;
+  header->sync = getbitu(buff, bit, 1); bit += 1;
+  header->n_sat = getbitu(buff, bit, 5); bit += 5;
+  header->div_free = getbitu(buff, bit, 1); bit += 1;
+  header->smooth = getbitu(buff, bit, 3); bit += 3;
+  return bit;
 }
 
 /** Convert a lock time in seconds into a RTCMv3 Lock Time Indicator value.
@@ -327,7 +331,7 @@ u16 rtcm3_encode_1001(const rtcm_obs_message *rtcm_msg_1001, u8 *buff )
 
   rtcm3_write_header( &rtcm_msg_1001->header, num_sats, buff );
 
-    /* Round number of bits up to nearest whole byte. */
+  /* Round number of bits up to nearest whole byte. */
   return (bit + 7) / 8;
 }
 
@@ -506,7 +510,8 @@ u16 rtcm3_encode_1008(const rtcm_msg_1008 *rtcm_msg_1008, u8 *buff )
 
 s8 rtcm3_decode_1001(const u8 *buff, rtcm_obs_message *rtcm_msg_1001 )
 {
-  rtcm3_read_header(buff, &rtcm_msg_1001->header);
+  u16 bit = 0;
+  bit += rtcm3_read_header(buff, &rtcm_msg_1001->header);
 
   if (rtcm_msg_1001->header.msg_num != 1001)
     /* Unexpected message type. */
@@ -514,7 +519,6 @@ s8 rtcm3_decode_1001(const u8 *buff, rtcm_obs_message *rtcm_msg_1001 )
 
   /* TODO: Fill in t->wn. */
 
-  u16 bit = 64;
   for (u8 i=0; i<rtcm_msg_1001->header.n_sat; i++) {
     init_data( &rtcm_msg_1001->sats[i] );
 
@@ -551,7 +555,8 @@ s8 rtcm3_decode_1001(const u8 *buff, rtcm_obs_message *rtcm_msg_1001 )
  */
 s8 rtcm3_decode_1002(const u8 *buff, rtcm_obs_message *rtcm_msg_1002 )
 {
-  rtcm3_read_header(buff, &rtcm_msg_1002->header);
+  u16 bit = 0;
+  bit += rtcm3_read_header(buff, &rtcm_msg_1002->header);
 
   if (rtcm_msg_1002->header.msg_num != 1002)
     /* Unexpected message type. */
@@ -559,7 +564,6 @@ s8 rtcm3_decode_1002(const u8 *buff, rtcm_obs_message *rtcm_msg_1002 )
 
   /* TODO: Fill in t->wn. */
 
-  u16 bit = 64;
   for (u8 i=0; i<rtcm_msg_1002->header.n_sat; i++) {
     init_data( &rtcm_msg_1002->sats[i] );
 
@@ -587,7 +591,8 @@ s8 rtcm3_decode_1002(const u8 *buff, rtcm_obs_message *rtcm_msg_1002 )
 
 s8 rtcm3_decode_1003(const u8 *buff, rtcm_obs_message *rtcm_msg_1003 )
 {
-  rtcm3_read_header(buff, &rtcm_msg_1003->header);
+  u16 bit = 0;
+  bit += rtcm3_read_header(buff, &rtcm_msg_1003->header);
 
   if (rtcm_msg_1003->header.msg_num != 1003)
     /* Unexpected message type. */
@@ -595,7 +600,6 @@ s8 rtcm3_decode_1003(const u8 *buff, rtcm_obs_message *rtcm_msg_1003 )
 
   /* TODO: Fill in t->wn. */
 
-  u16 bit = 64;
   for (u8 i=0; i<rtcm_msg_1003->header.n_sat; i++) {
     init_data( &rtcm_msg_1003->sats[i] );
 
@@ -629,7 +633,8 @@ s8 rtcm3_decode_1003(const u8 *buff, rtcm_obs_message *rtcm_msg_1003 )
 
 s8 rtcm3_decode_1004(const u8 *buff, rtcm_obs_message *rtcm_msg_1004 )
 {
-  rtcm3_read_header(buff, &rtcm_msg_1004->header);
+  u16 bit = 0;
+  bit += rtcm3_read_header(buff, &rtcm_msg_1004->header);
 
   if (rtcm_msg_1004->header.msg_num != 1004)
     /* Unexpected message type. */
@@ -637,7 +642,6 @@ s8 rtcm3_decode_1004(const u8 *buff, rtcm_obs_message *rtcm_msg_1004 )
 
   /* TODO: Fill in t->wn. */
 
-  u16 bit = 64;
   for (u8 i=0; i<rtcm_msg_1004->header.n_sat; i++) {
     init_data( &rtcm_msg_1004->sats[i] );
 

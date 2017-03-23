@@ -28,8 +28,8 @@ void setbitsl(u8 *buff, u32 pos, u32 len, s64 data);
 #define RTCM3_PREAMBLE 0xD3 /**< RTCM v3 Frame sync / preamble byte. */
 #define PRUNIT_GPS 299792.458 /**< RTCM v3 Unit of GPS Pseudorange (m) */
 
-void rtcm3_write_header(const rtcm_msg_header *header, u8 num_sats, u8 *buff );
-void rtcm3_read_header(const u8 *buff, rtcm_msg_header *header );
+u16 rtcm3_write_header(const rtcm_msg_header *header, u8 num_sats, u8 *buff );
+u16 rtcm3_read_header(const u8 *buff, rtcm_msg_header *header );
 static u8 to_lock_ind(u32 time);
 static u32 from_lock_ind(u8 lock);
 
