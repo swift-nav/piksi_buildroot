@@ -29,7 +29,7 @@ ExternalProject_Add(
 
 # Specify include dir
 ExternalProject_Get_Property(googletest source_dir)
-set(GTEST_INCLUDE_DIR ${source_dir}/include)
+set(GTEST_INCLUDE_DIR ${source_dir}/googletest/include)
 
 # Library
 ExternalProject_Get_Property(googletest binary_dir)
