@@ -10,21 +10,20 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdint.h>
-#include <czmq.h>
 #include "sbp.h"
-#include "sbp_rtcm3.h"
 #include "rtcm3_decode.h"
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "sbp_rtcm3.h"
 #include <assert.h>
+#include <czmq.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define RTCM3_SUB_ENDPOINT  ">tcp://127.0.0.1:45010"
-#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"
+#define RTCM3_SUB_ENDPOINT ">tcp://127.0.0.1:45010"
+#define SBP_PUB_ENDPOINT ">tcp://127.0.0.1:43031"
 
-static int file_read_string(const char *filename, char *str, size_t str_size)
-{
+static int file_read_string(const char *filename, char *str, size_t str_size) {
   FILE *fp = fopen(filename, "r");
   if (fp == NULL) {
     printf("error opening %s\n", filename);
@@ -43,8 +42,7 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
@@ -52,7 +50,7 @@ int main(int argc, char *argv[])
   u16 sbp_sender_id = SBP_SENDER_ID;
   char sbp_sender_id_string[32];
   if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
-                        sizeof(sbp_sender_id_string)) == 0) {
+                       sizeof(sbp_sender_id_string)) == 0) {
     sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
   }
 

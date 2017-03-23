@@ -15,4 +15,4 @@
 
 void test_sbp_rtcm_converter();
 
-#endif //PIKSI_BUILDROOT_SBP_RTCM_CONVERTER_TESTS_H
+#endif // PIKSI_BUILDROOT_SBP_RTCM_CONVERTER_TESTS_H

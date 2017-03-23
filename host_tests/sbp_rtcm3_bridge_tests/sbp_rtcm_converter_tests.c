@@ -11,10 +11,10 @@
 */
 
 #include "sbp_rtcm_converter_tests.h"
-#include <sbp_rtcm3.h>
-#include <rtcm3_messages.h>
 #include "rtcm_decoder_tests.h"
 #include <assert.h>
+#include <rtcm3_messages.h>
+#include <sbp_rtcm3.h>
 #include <string.h>
 
 void test_sbp_rtcm_converter() {
@@ -28,7 +28,7 @@ void test_sbp_rtcm_converter() {
   header.tow = 309000;
 
   rtcm_obs_message msg1001;
-  memset( (void*)&msg1001, 0, sizeof( msg1001 ) );
+  memset((void *)&msg1001, 0, sizeof(msg1001));
   msg1001.header = header;
   msg1001.sats[0].svId = 4;
   msg1001.sats[0].obs[0].code = 0;
@@ -57,20 +57,24 @@ void test_sbp_rtcm_converter() {
   msg1001.sats[2].obs[0].flags.valid_cp = 0;
   msg1001.sats[2].obs[0].flags.valid_lock = 0;
 
-    u8 obs_data[4 * sizeof( observation_header_t ) + 4 * MAX_OBS_IN_SBP * sizeof( packed_obs_content_t )];
-    msg_obs_t *sbp_obs[4];
-    for( u8 msg = 0; msg < 4; ++msg ) {
-        sbp_obs[msg] = (msg_obs_t *)( obs_data + ( msg * sizeof( observation_header_t ) + MAX_OBS_IN_SBP * msg * sizeof( packed_obs_content_t ) ) );
-    }
+  u8 obs_data[4 * sizeof(observation_header_t) +
+              4 * MAX_OBS_IN_SBP * sizeof(packed_obs_content_t)];
+  msg_obs_t *sbp_obs[4];
+  for (u8 msg = 0; msg < 4; ++msg) {
+    sbp_obs[msg] =
+        (msg_obs_t *)(obs_data +
+                      (msg * sizeof(observation_header_t) +
+                       MAX_OBS_IN_SBP * msg * sizeof(packed_obs_content_t)));
+  }
 
   u8 sizes[4];
-  u8 num_msgs = rtcm3_obs_to_sbp(&msg1001, sbp_obs, sizes );
+  u8 num_msgs = rtcm3_obs_to_sbp(&msg1001, sbp_obs, sizes);
 
   rtcm_obs_message msg1001_out;
   msg1001_out.header.n_sat = 0;
-    for( u8 msg = 0; msg < num_msgs; ++msg ) {
-        sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1001_out);
-    }
+  for (u8 msg = 0; msg < num_msgs; ++msg) {
+    sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1001_out);
+  }
 
   msg1001_out.header.msg_num = 1001;
   msg1001_out.header.stn_id = msg1001.header.stn_id;
@@ -78,7 +82,7 @@ void test_sbp_rtcm_converter() {
   msg1001_out.header.smooth = msg1001.header.smooth;
   msg1001_out.header.sync = msg1001.header.sync;
 
-  assert( msgobs_equals( &msg1001, &msg1001_out ) );
+  assert(msgobs_equals(&msg1001, &msg1001_out));
 
   rtcm_obs_message msg1002;
   msg1002 = msg1001;
@@ -92,17 +96,17 @@ void test_sbp_rtcm_converter() {
   msg1002.sats[2].obs[0].cnr = 50.2;
   msg1002.sats[2].obs[0].flags.valid_cnr = 0;
 
-    num_msgs = rtcm3_obs_to_sbp(&msg1002, sbp_obs, sizes );
+  num_msgs = rtcm3_obs_to_sbp(&msg1002, sbp_obs, sizes);
 
-    rtcm_obs_message msg1002_out = msg1001_out;
-    msg1002_out.header.n_sat = 0;
-    for( u8 msg = 0; msg < num_msgs; ++msg ) {
-        sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1002_out);
-    }
+  rtcm_obs_message msg1002_out = msg1001_out;
+  msg1002_out.header.n_sat = 0;
+  for (u8 msg = 0; msg < num_msgs; ++msg) {
+    sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1002_out);
+  }
 
   msg1002_out.header.msg_num = 1002;
 
-  assert( msgobs_equals( &msg1002, &msg1002_out ) );
+  assert(msgobs_equals(&msg1002, &msg1002_out));
 
   rtcm_obs_message msg1003;
   msg1003 = msg1001;
@@ -116,17 +120,17 @@ void test_sbp_rtcm_converter() {
   msg1003.sats[1].obs[1].pseudorange = 22000024.4;
   msg1003.sats[1].obs[1].carrier_phase = 90086422.236;
 
-    num_msgs = rtcm3_obs_to_sbp(&msg1003, sbp_obs, sizes );
+  num_msgs = rtcm3_obs_to_sbp(&msg1003, sbp_obs, sizes);
 
   rtcm_obs_message msg1003_out = msg1001_out;
-    msg1003_out.header.n_sat = 0;
-    for( u8 msg = 0; msg < num_msgs; ++msg ) {
-        sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1003_out);
-    }
+  msg1003_out.header.n_sat = 0;
+  for (u8 msg = 0; msg < num_msgs; ++msg) {
+    sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1003_out);
+  }
 
   msg1003_out.header.msg_num = 1003;
 
-  assert( msgobs_equals( &msg1003, &msg1003_out ) );
+  assert(msgobs_equals(&msg1003, &msg1003_out));
 
   rtcm_obs_message msg1004;
   msg1004 = msg1003;
@@ -147,36 +151,35 @@ void test_sbp_rtcm_converter() {
   msg1004.sats[2].obs[1].cnr = 54.2;
   msg1004.sats[2].obs[1].flags.valid_cnr = 1;
 
-    msg1004.sats[3] = msg1004.sats[0];
-    msg1004.sats[3].svId = 10;
-    msg1004.sats[4] = msg1004.sats[0];
-    msg1004.sats[4].svId = 11;
-    msg1004.sats[5] = msg1004.sats[0];
-    msg1004.sats[5].svId = 12;
-    msg1004.sats[6] = msg1004.sats[0];
-    msg1004.sats[6].svId = 13;
-    msg1004.sats[7] = msg1004.sats[0];
-    msg1004.sats[7].svId = 14;
-    msg1004.sats[8] = msg1004.sats[0];
-    msg1004.sats[8].svId = 15;
-    msg1004.sats[9] = msg1004.sats[0];
-    msg1004.sats[9].svId = 16;
-    msg1004.sats[10] = msg1004.sats[0];
-    msg1004.sats[10].svId = 17;
-    msg1004.header.n_sat = 11;
+  msg1004.sats[3] = msg1004.sats[0];
+  msg1004.sats[3].svId = 10;
+  msg1004.sats[4] = msg1004.sats[0];
+  msg1004.sats[4].svId = 11;
+  msg1004.sats[5] = msg1004.sats[0];
+  msg1004.sats[5].svId = 12;
+  msg1004.sats[6] = msg1004.sats[0];
+  msg1004.sats[6].svId = 13;
+  msg1004.sats[7] = msg1004.sats[0];
+  msg1004.sats[7].svId = 14;
+  msg1004.sats[8] = msg1004.sats[0];
+  msg1004.sats[8].svId = 15;
+  msg1004.sats[9] = msg1004.sats[0];
+  msg1004.sats[9].svId = 16;
+  msg1004.sats[10] = msg1004.sats[0];
+  msg1004.sats[10].svId = 17;
+  msg1004.header.n_sat = 11;
 
-
-    num_msgs = rtcm3_obs_to_sbp(&msg1004, sbp_obs, sizes );
+  num_msgs = rtcm3_obs_to_sbp(&msg1004, sbp_obs, sizes);
 
   rtcm_obs_message msg1004_out = msg1001_out;
-    msg1004_out.header.n_sat = 0;
-    for( u8 msg = 0; msg < num_msgs; ++msg ) {
-        sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1004_out);
-    }
+  msg1004_out.header.n_sat = 0;
+  for (u8 msg = 0; msg < num_msgs; ++msg) {
+    sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1004_out);
+  }
 
   msg1004_out.header.msg_num = 1004;
 
-  assert( msgobs_equals( &msg1004, &msg1004_out ) );
+  assert(msgobs_equals(&msg1004, &msg1004_out));
 
   rtcm_msg_1005 msg1005;
 
@@ -193,7 +196,7 @@ void test_sbp_rtcm_converter() {
   msg1005.arp_z = 2578346.6757;
 
   msg_base_pos_ecef_t sbp_base_pos;
-  rtcm3_1005_to_sbp(&msg1005, &sbp_base_pos );
+  rtcm3_1005_to_sbp(&msg1005, &sbp_base_pos);
 
   rtcm_msg_1005 msg1005_out;
   msg1005_out.stn_id = msg1005.stn_id;
@@ -205,9 +208,9 @@ void test_sbp_rtcm_converter() {
   msg1005_out.osc_ind = msg1005.osc_ind;
   msg1005_out.quart_cycle_ind = msg1005.quart_cycle_ind;
 
-  sbp_to_rtcm3_1005( &sbp_base_pos, &msg1005_out );
+  sbp_to_rtcm3_1005(&sbp_base_pos, &msg1005_out);
 
-  assert( msg1005_equals( &msg1005, &msg1005_out ) );
+  assert(msg1005_equals(&msg1005, &msg1005_out));
 
   rtcm_msg_1006 msg1006;
   msg1006.msg_1005.stn_id = 5;
@@ -223,7 +226,7 @@ void test_sbp_rtcm_converter() {
   msg1006.msg_1005.arp_z = 2578376.6757;
   msg1006.ant_height = 1.567;
 
-  rtcm3_1006_to_sbp(&msg1006, &sbp_base_pos );
+  rtcm3_1006_to_sbp(&msg1006, &sbp_base_pos);
 
   rtcm_msg_1006 msg1006_out;
   msg1006_out.msg_1005.stn_id = 5;
@@ -241,28 +244,7 @@ void test_sbp_rtcm_converter() {
   msg1006_expected.msg_1005.arp_z = 2578377.2472;
   msg1006_expected.ant_height = 0.0;
 
-  sbp_to_rtcm3_1006( &sbp_base_pos, &msg1006_out );
+  sbp_to_rtcm3_1006(&sbp_base_pos, &msg1006_out);
 
-  assert( msg1006_equals( &msg1006_expected, &msg1006_out ) );
+  assert(msg1006_equals(&msg1006_expected, &msg1006_out));
 }
-
-// pgrgich: code snippet that casts incoming SBP message to a struct so it can be viewed in the debugger.
-//    uint16_t sbp_message = ( frame[2] << 8 ) | frame[1];
-//
-//    msg_obs_t *obs;
-//    msg_base_pos_ecef_t *position;
-//    uint16_t obsid = SBP_MSG_OBS;
-//    uint16_t posid = SBP_MSG_BASE_POS_ECEF;
-//    if( sbp_message == SBP_MSG_OBS ) {
-//        obs = (msg_obs_t*)(frame+6);
-//        FILE *temp = fopen( "/home/pgrgich/out2.txt", "w" );
-//        for( u8 obnum = 0; obnum < obs->header.n_obs; ++obnum ) {
-//            packed_obs_content_t *ob = &obs->obs[ obnum ];
-//            fprintf( temp, "%d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", ob->P, ob->L.i, ob->L.f, ob->D.i, ob->D.f, ob->cn0, ob->lock, ob->flags, ob->sid.sat, ob->sid.code );
-//        }
-//        fclose( temp );
-//    }
-//    else if( sbp_message == SBP_MSG_BASE_POS_ECEF ) {
-//        position = (msg_base_pos_ecef_t*)(frame+6);
-//    }
-//    return;

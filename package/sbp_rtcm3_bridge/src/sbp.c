@@ -24,22 +24,17 @@ static sbp_context_t sbp_context;
 static u16 sbp_sender_id;
 static zsock_t *sbp_pub;
 
-static void sbp_send_buffer_reset(void)
-{
-  sbp_context.send_buffer_length = 0;
-}
+static void sbp_send_buffer_reset(void) { sbp_context.send_buffer_length = 0; }
 
-static u32 sbp_send_buffer_write(u8 *buff, u32 n, void *context)
-{
-  u32 len = MIN(sizeof(sbp_context.send_buffer) -
-                sbp_context.send_buffer_length, n);
+static u32 sbp_send_buffer_write(u8 *buff, u32 n, void *context) {
+  u32 len =
+      MIN(sizeof(sbp_context.send_buffer) - sbp_context.send_buffer_length, n);
   memcpy(&sbp_context.send_buffer[sbp_context.send_buffer_length], buff, len);
   sbp_context.send_buffer_length += len;
   return len;
 }
 
-static int sbp_send_buffer_flush(void)
-{
+static int sbp_send_buffer_flush(void) {
   zmsg_t *msg = zmsg_new();
   if (msg == NULL) {
     printf("error in zmsg_new()\n");
@@ -61,8 +56,7 @@ static int sbp_send_buffer_flush(void)
   return 0;
 }
 
-int sbp_init(u16 sender_id, const char *pub_endpoint)
-{
+int sbp_init(u16 sender_id, const char *pub_endpoint) {
   sbp_state_init(&sbp_state);
   sbp_sender_id = sender_id;
 
@@ -75,8 +69,7 @@ int sbp_init(u16 sender_id, const char *pub_endpoint)
   return 0;
 }
 
-int sbp_message_send(u16 msg_type, u8 len, u8 *payload)
-{
+int sbp_message_send(u16 msg_type, u8 len, u8 *payload) {
   sbp_send_buffer_reset();
   if (sbp_send_message(&sbp_state, msg_type, sbp_sender_id, len, payload,
                        sbp_send_buffer_write) != SBP_OK) {
