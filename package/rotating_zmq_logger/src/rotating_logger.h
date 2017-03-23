@@ -15,14 +15,15 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <string>
 #include <chrono>
+#include <string>
 
-class RotatingLogger
-{
+class RotatingLogger {
  public:
-  RotatingLogger(const std::string& out_dir, size_t slice_duration, size_t poll_period, size_t disk_full_threshold, bool force_flush = false);
-  ~RotatingLogger(void);
+  RotatingLogger(const std::string& out_dir, size_t slice_duration,
+                 size_t poll_period, size_t disk_full_threshold,
+                 bool force_flush, bool verbose_logging);
+  ~RotatingLogger();
   /*
    * try to log a data frame
    */
@@ -32,23 +33,29 @@ class RotatingLogger
   /*
    * Try to start a new session. Return true on success
    */
-  bool start_new_session(void);
+  bool start_new_session();
   /*
    * Try to create a new log. Return true on success
    */
-  bool open_new_file(void);
+  bool open_new_file();
   /*
-   * See if slice_duration is exceeded and log needs to roll. Return true on rollover
+   * See if slice_duration is exceeded and log needs to roll. Return true on
+   * rollover
    */
-  bool check_slice_time(void);
+  bool check_slice_time();
   /*
    * Get time passed from _session_start_time
    */
-  double get_time_passed(void);
+  double get_time_passed();
   /*
-   * Check if the percent disk unavailable is below the threshold. 0 on below, 1 on above, -1 on error
+   * Check if the percent disk unavailable is below the threshold. 0 on below, 1
+   * on above, -1 on error
    */
-  int check_disk_full(void);
+  int check_disk_full();
+  /*
+   * print if _verbose_logging
+   */
+  void debug_printf(const char* msg, ...);
 
   bool _dest_available;
   size_t _session_count;
@@ -57,11 +64,10 @@ class RotatingLogger
   size_t _poll_period;
   size_t _disk_full_threshold;
   bool _force_flush;
+  bool _verbose_logging;
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
   FILE* _cur_file;
 };
-
-
 
 #endif  // SWIFTNAV_ROTATING_LOGGER_H
