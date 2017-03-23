@@ -199,22 +199,22 @@ u8 rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4], u8
 
                 if( rtcm_freq->flags.valid_pr == 1 ) {
                     sbp_freq->P = (u32)roundl( rtcm_freq->pseudorange * MSG_OBS_P_MULTIPLIER);
-                    sbp_freq->flags |= NAV_MEAS_FLAG_CODE_VALID;
+                    sbp_freq->flags |= MSG_OBS_FLAGS_CODE_VALID;
                 }
                 if( rtcm_freq->flags.valid_cp == 1 ) {
                     sbp_freq->L.i = (s32)floor(rtcm_freq->carrier_phase);
                     sbp_freq->L.f = (u8)roundl((rtcm_freq->carrier_phase-(double)sbp_freq->L.i)*MSG_OBS_LF_MULTIPLIER);
-                    sbp_freq->flags |= NAV_MEAS_FLAG_PHASE_VALID;
-                    sbp_freq->flags |= NAV_MEAS_FLAG_HALF_CYCLE_KNOWN;
+                    sbp_freq->flags |= MSG_OBS_FLAGS_PHASE_VALID;
+                    sbp_freq->flags |= MSG_OBS_FLAGS_HALF_CYCLE_KNOWN;
                 }
                 if( rtcm_freq->flags.valid_cnr == 1 ) {
                     sbp_freq->cn0 = (u8)roundl(rtcm_freq->cnr * MSG_OBS_CN0_MULTIPLIER);
-                    sbp_freq->flags |= NAV_MEAS_FLAG_CN0_VALID;
+                }
+                else {
+                    sbp_freq->cn0 = 0;
                 }
                 if( rtcm_freq->flags.valid_lock == 1 ) {
                     sbp_freq->lock = encode_lock_time(rtcm_freq->lock);
-                    // not necessary???
-                    //sbp_freq->flags += 1;
                 }
                 ++index;
             }
@@ -264,23 +264,20 @@ void sbp_to_rtcm3_obs( const msg_obs_t *sbp_obs, const u8 msg_size, rtcm_obs_mes
             rtcm_freq->cnr = 0.0;
             rtcm_freq->lock = 0.0;
 
-            if( sbp_freq->flags & NAV_MEAS_FLAG_CODE_VALID ) {
+            if( sbp_freq->flags & MSG_OBS_FLAGS_CODE_VALID ) {
                 rtcm_freq->pseudorange = sbp_freq->P / MSG_OBS_P_MULTIPLIER;
                 rtcm_freq->flags.valid_pr = 1;
             }
-            if( sbp_freq->flags & NAV_MEAS_FLAG_PHASE_VALID ) {
+            if( ( sbp_freq->flags & MSG_OBS_FLAGS_PHASE_VALID ) && ( sbp_freq->flags & MSG_OBS_FLAGS_HALF_CYCLE_KNOWN ) ) {
                 rtcm_freq->carrier_phase = sbp_freq->L.i + (double)sbp_freq->L.f / MSG_OBS_LF_MULTIPLIER;
                 rtcm_freq->flags.valid_cp = 1;
             }
-            if( sbp_freq->flags & NAV_MEAS_FLAG_CN0_VALID ) {
-                rtcm_freq->cnr = sbp_freq->cn0 / MSG_OBS_CN0_MULTIPLIER;
-                rtcm_freq->flags.valid_cnr = 1;
-            }
-            // not necessary???
-//            if( sbp_freq->flags == 1 ) {
-                rtcm_freq->lock = decode_lock_time(sbp_freq->lock);
-                rtcm_freq->flags.valid_lock = 1;
-//            }
+
+            rtcm_freq->cnr = sbp_freq->cn0 / MSG_OBS_CN0_MULTIPLIER;
+            rtcm_freq->flags.valid_cnr = 1;
+
+            rtcm_freq->lock = decode_lock_time(sbp_freq->lock);
+            rtcm_freq->flags.valid_lock = 1;
         }
     }
     rtcm_obs->header.n_sat = count;

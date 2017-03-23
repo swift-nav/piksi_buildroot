@@ -19,36 +19,9 @@
 #define MSG_OBS_P_MULTIPLIER             ((double)5e1)
 #define MSG_OBS_CN0_MULTIPLIER           ((float)4)
 #define MSG_OBS_LF_MULTIPLIER            ((double) (1 << 8))
-#define MSG_OBS_DF_MULTIPLIER            ((double) (1 << 8))
 #define MSG_OBS_FLAGS_CODE_VALID         ((u8) (1 << 0))
 #define MSG_OBS_FLAGS_PHASE_VALID        ((u8) (1 << 1))
 #define MSG_OBS_FLAGS_HALF_CYCLE_KNOWN   ((u8) (1 << 2))
-#define MSG_OBS_FLAGS_MEAS_DOPPLER_VALID ((u8) (1 << 3))
-
-/** Measurement flag: pseudorange and raw_pseudorange fields contain a
- *  valid value.
- *  \sa nav_meas_flags_t */
-#define NAV_MEAS_FLAG_CODE_VALID         (1 << 0)
-/** Measurement flag: carrier_phase and raw_carrier_phase fields contain a
- *  valid value.
- *  \sa nav_meas_flags_t */
-#define NAV_MEAS_FLAG_PHASE_VALID        (1 << 1)
-/** Measurement flag: measured_doppler and raw_measured_doppler fields
- *  contain a valid value.
- *  \sa nav_meas_flags_t */
-#define NAV_MEAS_FLAG_MEAS_DOPPLER_VALID (1 << 2)
-/** Measurement flag: computed_doppler and raw_computed_doppler fields
- *  contain a valid value.
- *  \sa nav_meas_flags_t */
-#define NAV_MEAS_FLAG_COMP_DOPPLER_VALID (1 << 3)
-/** Measurement flag: if bit not set, the half cycle carrier phase ambiguity has
- *  yet to be resolved. Carrier phase measurements might be 0.5 cycles out of
- *  phase.
- *  \sa nav_meas_flags_t */
-#define NAV_MEAS_FLAG_HALF_CYCLE_KNOWN   (1 << 4)
-/** Measurement flag: cn0 field contains a valid value.
- *  \sa nav_meas_flags_t */
-#define NAV_MEAS_FLAG_CN0_VALID          (1 << 5)
 
 #define SBP_HEADER_SIZE 11
 #define SBP_OBS_SIZE 17
