@@ -18,10 +18,12 @@
 
 #include "framer_none.h"
 #include "framer_sbp.h"
+#include "framer_rtcm3.h"
 
 typedef enum {
   FRAMER_NONE,
-  FRAMER_SBP
+  FRAMER_SBP,
+  FRAMER_RTCM3
 } framer_t;
 
 typedef struct {
@@ -29,6 +31,7 @@ typedef struct {
   union {
     framer_none_state_t framer_none_state;
     framer_sbp_state_t framer_sbp_state;
+    framer_rtcm3_state_t framer_rtcm3_state;
   } impl_framer_state;
 } framer_state_t;
 

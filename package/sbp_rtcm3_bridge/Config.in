@@ -1,0 +1,4 @@
+config BR2_PACKAGE_SBP_RTCM3_BRIDGE
+	bool "sbp_rtcm3_bridge"
+	select BR2_PACKAGE_CZMQ
+	select BR2_PACKAGE_LIBSBP

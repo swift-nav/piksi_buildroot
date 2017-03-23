@@ -192,10 +192,10 @@ static bool flow_control_notify(struct setting *s, const char *val)
   return true;
 }
 
-static const char const * port_mode_enum[] = {"SBP", "NMEA", NULL};
+static const char const * port_mode_enum[] = {"SBP", "NMEA", "RTCM3 IN", NULL};
 static struct setting_type port_mode_settings_type;
 static int TYPE_PORT_MODE = 0;
-enum {PORT_MODE_SBP, PORT_MODE_NMEA};
+enum {PORT_MODE_SBP, PORT_MODE_NMEA, PORT_MODE_RTCM3_IN};
 
 typedef struct {
   const char * const name;
@@ -278,6 +278,11 @@ bool port_mode_notify(struct setting *s, const char *val)
     snprintf(mode_opts, sizeof(mode_opts), "");
     zmq_port_pub = 44031;
     zmq_port_sub = 44030;
+    break;
+  case PORT_MODE_RTCM3_IN:
+    snprintf(mode_opts, sizeof(mode_opts), "-f rtcm3");
+    zmq_port_pub = 45031;
+    zmq_port_sub = 45030;
     break;
   default:
     return false;
