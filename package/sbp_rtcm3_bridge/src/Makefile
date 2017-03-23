@@ -6,16 +6,27 @@ SOURCES= \
 	rtcm3_decode.c
 
 LIBS=-lczmq -lsbp -lm
-CFLAGS=-std=gnu11
-INCLUDE=-I/home/pgrgich/piksi_buildroot/package/ -I/home/pgrgich/piksi_buildroot/buildroot/output/target/usr/include/
+CFLAGS=-std=gnu11 -fPIC
+ARFLAGS=rcs
+LDFLAGS=-shared
 
 CROSS=
 
 CC=$(CROSS)gcc
 
-all:	$(TARGET)
-$(TARGET): $(SOURCES)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES) $(INCLUDE) $(LIBS)
+OBJS=$(SOURCES:.c=.o)
+
+all: program
+program: $(TARGET).a $(TARGET).so
+
+$(OBJS): $(SOURCES)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(TARGET).a: $(OBJS)
+	$(AR) $(ARFLAGS) $@ $^
+
+$(TARGET).so: $(OBJS)
+	$(CC) $(LDFLAGS) $^ -o $@
 
 clean:
-	rm -rf $(TARGET)
+	rm -rf $(TARGET).a $(TARGET).so $(OBJS)

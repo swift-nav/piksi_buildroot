@@ -13,6 +13,8 @@
 #ifndef PIKSI_BUILDROOT_RTCM_DECODER_TESTS_H
 #define PIKSI_BUILDROOT_RTCM_DECODER_TESTS_H
 
+#include <rtcm3_messages.h>
+
 static void test_rtcm_encoder_decoder();
 
 bool msgobs_equals( const rtcm_obs_message *msg_in, const rtcm_obs_message *msg_out );

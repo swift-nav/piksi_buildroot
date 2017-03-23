@@ -13,6 +13,6 @@
 #ifndef PIKSI_BUILDROOT_SBP_RTCM_CONVERTER_TESTS_H
 #define PIKSI_BUILDROOT_SBP_RTCM_CONVERTER_TESTS_H
 
-static void test_sbp_rtcm_converter();
+void test_sbp_rtcm_converter();
 
 #endif //PIKSI_BUILDROOT_SBP_RTCM_CONVERTER_TESTS_H

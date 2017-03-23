@@ -10,6 +10,18 @@
 * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 */
 
+#include "rtcm_decoder_tests.h"
+#include "sbp_rtcm_converter_tests.h"
+#include <rtcm3_decode.h>
+#include <assert.h>
+#include <math.h>
+#include <string.h>
+
+int main() {
+    test_rtcm_encoder_decoder();
+    test_sbp_rtcm_converter();
+}
+
 void test_rtcm_encoder_decoder() {
     rtcm_msg_header header;
     header.msg_num = 1001;

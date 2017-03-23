@@ -10,8 +10,12 @@
 * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 */
 
-#include <sbp_rtcm3_bridge/sbp_rtcm3.h>
-#include <sbp_rtcm3_bridge/rtcm3_messages.h>
+#include "sbp_rtcm_converter_tests.h"
+#include <sbp_rtcm3.h>
+#include <rtcm3_messages.h>
+#include "rtcm_decoder_tests.h"
+#include <assert.h>
+#include <string.h>
 
 void test_sbp_rtcm_converter() {
   rtcm_msg_header header;
@@ -53,11 +57,21 @@ void test_sbp_rtcm_converter() {
   msg1001.sats[2].obs[0].flags.valid_cp = 0;
   msg1001.sats[2].obs[0].flags.valid_lock = 0;
 
-  msg_obs_t sbp_obs;
-  rtcm3_obs_to_sbp(&msg1001, &sbp_obs );
+    u8 obs_data[4 * sizeof( observation_header_t ) + 4 * 17 * sizeof( packed_obs_content_t )];
+    msg_obs_t *sbp_obs[4];
+    for( u8 msg = 0; msg < 4; ++msg ) {
+        sbp_obs[msg] = (msg_obs_t *)( obs_data + ( msg * sizeof( observation_header_t ) + 17 * msg * sizeof( packed_obs_content_t ) ) );
+    }
+
+  u8 sizes[4];
+  u8 num_msgs = rtcm3_obs_to_sbp(&msg1001, sbp_obs, sizes );
 
   rtcm_obs_message msg1001_out;
-  sbp_to_rtcm3_obs( &sbp_obs, &msg1001_out );
+  msg1001_out.header.n_sat = 0;
+    for( u8 msg = 0; msg < num_msgs; ++msg ) {
+        sbp_to_rtcm3_obs(sbp_obs[msg], &msg1001_out);
+    }
+
   msg1001_out.header.msg_num = 1001;
   msg1001_out.header.stn_id = msg1001.header.stn_id;
   msg1001_out.header.div_free = msg1001.header.div_free;
@@ -78,10 +92,14 @@ void test_sbp_rtcm_converter() {
   msg1002.sats[2].obs[0].cnr = 50.2;
   msg1002.sats[2].obs[0].flags.valid_cnr = 0;
 
-  rtcm3_obs_to_sbp(&msg1002, &sbp_obs );
+    rtcm3_obs_to_sbp(&msg1002, sbp_obs, sizes );
 
-  rtcm_obs_message msg1002_out = msg1001_out;
-  sbp_to_rtcm3_obs( &sbp_obs, &msg1002_out );
+    rtcm_obs_message msg1002_out = msg1001_out;
+    msg1002_out.header.n_sat = 0;
+    for( u8 msg = 0; msg < num_msgs; ++msg ) {
+        sbp_to_rtcm3_obs(sbp_obs[msg], &msg1002_out);
+    }
+
   msg1002_out.header.msg_num = 1002;
 
   assert( msgobs_equals( &msg1002, &msg1002_out ) );
@@ -98,10 +116,14 @@ void test_sbp_rtcm_converter() {
   msg1003.sats[1].obs[1].pseudorange = 22000024.4;
   msg1003.sats[1].obs[1].carrier_phase = 90086422.236;
 
-  rtcm3_obs_to_sbp(&msg1003, &sbp_obs );
+  rtcm3_obs_to_sbp(&msg1003, sbp_obs, sizes );
 
   rtcm_obs_message msg1003_out = msg1001_out;
-  sbp_to_rtcm3_obs( &sbp_obs, &msg1003_out );
+    msg1003_out.header.n_sat = 0;
+    for( u8 msg = 0; msg < num_msgs; ++msg ) {
+        sbp_to_rtcm3_obs(sbp_obs[msg], &msg1003_out);
+    }
+
   msg1003_out.header.msg_num = 1003;
 
   assert( msgobs_equals( &msg1003, &msg1003_out ) );
@@ -125,10 +147,14 @@ void test_sbp_rtcm_converter() {
   msg1004.sats[2].obs[1].cnr = 54.2;
   msg1004.sats[2].obs[1].flags.valid_cnr = 1;
 
-  rtcm3_obs_to_sbp(&msg1004, &sbp_obs );
+  rtcm3_obs_to_sbp(&msg1004, sbp_obs, sizes );
 
   rtcm_obs_message msg1004_out = msg1001_out;
-  sbp_to_rtcm3_obs( &sbp_obs, &msg1004_out );
+    msg1004_out.header.n_sat = 0;
+    for( u8 msg = 0; msg < num_msgs; ++msg ) {
+        sbp_to_rtcm3_obs(sbp_obs[msg], &msg1004_out);
+    }
+
   msg1004_out.header.msg_num = 1004;
 
   assert( msgobs_equals( &msg1004, &msg1004_out ) );
