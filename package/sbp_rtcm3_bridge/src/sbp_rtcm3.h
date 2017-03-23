@@ -50,6 +50,11 @@
  *  \sa nav_meas_flags_t */
 #define NAV_MEAS_FLAG_CN0_VALID          (1 << 5)
 
+#define SBP_HEADER_SIZE 11
+#define SBP_OBS_SIZE 17
+#define MAX_SBP_PAYLOAD 255
+#define MAX_OBS_IN_SBP ( (MAX_SBP_PAYLOAD - SBP_HEADER_SIZE) / SBP_OBS_SIZE )
+
 /** Code identifier. */
 typedef enum code {
     CODE_INVALID = -1,
@@ -91,7 +96,7 @@ static void wgsecef2llh(const double ecef[3], double llh[3]);
 void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length);
 
 u8 rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4], u8 sizes[4] );
-void sbp_to_rtcm3_obs( const msg_obs_t *sbp_obs, rtcm_obs_message *rtcm_obs );
+void sbp_to_rtcm3_obs( const msg_obs_t *sbp_obs, const u8 msg_size, rtcm_obs_message *rtcm_obs );
 
 void rtcm3_1005_to_sbp( const rtcm_msg_1005 *rtcm_1005, msg_base_pos_ecef_t *sbp_base_pos );
 void sbp_to_rtcm3_1005( const msg_base_pos_ecef_t *sbp_base_pos, rtcm_msg_1005 *rtcm_1005 );

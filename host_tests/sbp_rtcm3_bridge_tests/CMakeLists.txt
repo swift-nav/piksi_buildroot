@@ -15,4 +15,4 @@ set_target_properties(${PROJECT_NAME}
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test"
 )
 
-add_test(${PROJECT_NAME} "${CMAKE_BINARY_DIR}/test/${PROJECT_NAME}")
+add_test(${PROJECT_NAME} "${CMAKE_BINARY_DIR}/test/${PROJECT_NAME}" "${CMAKE_BINARY_DIR}/test")

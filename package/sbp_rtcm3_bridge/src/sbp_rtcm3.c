@@ -14,6 +14,7 @@
 #include "sbp_rtcm3.h"
 #include "sbp.h"
 #include "rtcm3_decode.h"
+#include "rtcm3_messages.h"
 #include <assert.h>
 #include <stdio.h>
 #include <libsbp/observation.h>
@@ -29,55 +30,40 @@ void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length)
     uint16_t message_type = (frame[byte] << 4) | ((frame[byte+1] >> 4) & 0xf);
     switch( message_type ) {
         case 1001:
+        case 1002:
+        case 1003:
+        case 1004:
         {
-            rtcm_obs_message rtcm_msg_1001;
-            if( 0 == rtcm3_decode_1001(&frame[byte], &rtcm_msg_1001 ) ) {
+            rtcm_obs_message rtcm_msg;
+            u8 ret = 1;
+            switch( message_type ) {
+                case 1001:
+                    ret = rtcm3_decode_1001(&frame[byte], &rtcm_msg);
+                    break;
+                case 1002:
+                    ret = rtcm3_decode_1002(&frame[byte], &rtcm_msg);
+                    break;
+                case 1003:
+                    ret = rtcm3_decode_1003(&frame[byte], &rtcm_msg);
+                    break;
+                case 1004:
+                    ret = rtcm3_decode_1004(&frame[byte], &rtcm_msg);
+                    break;
+            }
+            if( 0 == ret ) {
                 u8 sizes[4];
-                u8 obs_data[4 * sizeof( observation_header_t ) + 4 * 17 * sizeof( packed_obs_content_t )];
+                u8 obs_data[4 * sizeof( observation_header_t ) + 4 * MAX_OBS_IN_SBP * sizeof( packed_obs_content_t )];
                 msg_obs_t *sbp_obs[4];
                 for( u8 msg = 0; msg < 4; ++msg ) {
-                    sbp_obs[msg] = (msg_obs_t *)( obs_data + ( msg * sizeof( observation_header_t ) + 17 * msg * sizeof( packed_obs_content_t ) ) );
+                    sbp_obs[msg] = (msg_obs_t *)( obs_data + ( msg * sizeof( observation_header_t ) + MAX_OBS_IN_SBP * msg * sizeof( packed_obs_content_t ) ) );
                 }
-                u8 num_messages = rtcm3_obs_to_sbp( &rtcm_msg_1001, sbp_obs, sizes );
+                u8 num_messages = rtcm3_obs_to_sbp( &rtcm_msg, sbp_obs, sizes );
                 for( u8 msg = 0; msg < num_messages; ++msg ) {
                     sbp_message_send(SBP_MSG_OBS, sizes[msg], (u8*)sbp_obs[msg]);
                 }
             }
             break;
         }
-//        case 1002:
-//        {
-//            rtcm_obs_message rtcm_msg_1002;
-//            if( 0 == rtcm3_decode_1002(&frame[byte], &rtcm_msg_1002 ) ) {
-//                u8 obs_data[4 * sizeof( msg_obs_t ) + 32 * sizeof( packed_obs_content_t )];
-//                msg_obs_t *sbp_obs = (msg_obs_t *)obs_data;
-//                rtcm3_obs_to_sbp( &rtcm_msg_1002, sbp_obs );
-//                sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
-//            }
-//            break;
-//        }
-//        case 1003:
-//        {
-//            rtcm_obs_message rtcm_msg_1003;
-//            if( 0 == rtcm3_decode_1003(&frame[byte], &rtcm_msg_1003 ) ) {
-//                u8 obs_data[4 * sizeof( msg_obs_t ) + 32 * sizeof( packed_obs_content_t )];
-//                msg_obs_t *sbp_obs = (msg_obs_t *)obs_data;
-//                rtcm3_obs_to_sbp( &rtcm_msg_1003, sbp_obs );
-//                sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
-//            }
-//            break;
-//        }
-//        case 1004:
-//        {
-//            rtcm_obs_message rtcm_msg_1004;
-//            if( 0 == rtcm3_decode_1004(&frame[byte], &rtcm_msg_1004 ) ) {
-//                u8 obs_data[4 * sizeof( msg_obs_t ) + 32 * sizeof( packed_obs_content_t )];
-//                msg_obs_t *sbp_obs = (msg_obs_t *)obs_data;
-//                rtcm3_obs_to_sbp( &rtcm_msg_1004, sbp_obs );
-//                sbp_message_send(SBP_MSG_OBS, (u8)sizeof(sbp_obs), (u8*)&sbp_obs);
-//            }
-//            break;
-//        }
         case 1005:
         {
             rtcm_msg_1005 rtcm_msg_1005;
@@ -173,18 +159,17 @@ u8 rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4], u8
             const rtcm_freq_data *rtcm_freq = &rtcm_obs->sats[sat].obs[freq];
             if( rtcm_freq->flags.valid_pr == 1 && rtcm_freq->flags.valid_cp == 1 ) {
 
-                if( index%17 == 0 ) {
+                if( index%MAX_OBS_IN_SBP == 0 ) {
+                    if( index > 0 ) {
+                        sizes[sbp_msg] = (u8)( sizeof( observation_header_t ) + MAX_OBS_IN_SBP * sizeof( packed_obs_content_t ) );
+                        ++sbp_msg;
+                    }
                     sbp_obs[sbp_msg]->header.t.wn = 1941;
                     sbp_obs[sbp_msg]->header.t.tow = rtcm_obs->header.tow * 1000.0;
                     sbp_obs[sbp_msg]->header.t.ns = 0.0;
-
-                    if( index > 0 ) {
-                        sizes[sbp_msg] = sizeof( observation_header_t ) + 17 * sizeof( packed_obs_content_t );
-                        ++sbp_msg;
-                    }
                 }
 
-                packed_obs_content_t *sbp_freq = &sbp_obs[sbp_msg]->obs[index%17];
+                packed_obs_content_t *sbp_freq = &sbp_obs[sbp_msg]->obs[index%MAX_OBS_IN_SBP];
                 sbp_freq->sid.sat = rtcm_obs->sats[sat].svId;
                 sbp_freq->sid.code = rtcm_freq->code;
                 sbp_freq->flags = 0;
@@ -237,7 +222,7 @@ u8 rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4], u8
     }
 
     if( index > 0 ) {
-        sizes[sbp_msg++] = sizeof( observation_header_t ) + index%17 * sizeof( packed_obs_content_t );
+        sizes[sbp_msg++] = sizeof( observation_header_t ) + index%MAX_OBS_IN_SBP * sizeof( packed_obs_content_t );
         for( u8 msg = 0; msg < sbp_msg; ++msg ) {
             sbp_obs[msg]->header.n_obs = ( ( sbp_msg << 4 ) | msg );
         }
@@ -248,15 +233,21 @@ u8 rtcm3_obs_to_sbp( const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4], u8
     }
 }
 
-void sbp_to_rtcm3_obs( const msg_obs_t *sbp_obs, rtcm_obs_message *rtcm_obs ) {
-    rtcm_obs->header.tow = sbp_obs->header.t.tow;
+void sbp_to_rtcm3_obs( const msg_obs_t *sbp_obs, const u8 msg_size, rtcm_obs_message *rtcm_obs ) {
+    rtcm_obs->header.tow = sbp_obs->header.t.tow / 1000.0;
 
-    u8 count = 0;
+    u8 count = rtcm_obs->header.n_sat;
     s8 sat2index[32];
     for( u8 idx = 0; idx < 32; ++idx ) {
         sat2index[idx]=-1;
     }
-    for( u8 obs = 0; obs < sbp_obs->header.n_obs; ++obs ) {
+
+    for( u8 idx = 0; idx < rtcm_obs->header.n_sat; ++idx ) {
+        sat2index[idx] = rtcm_obs->sats[idx].svId;
+    }
+
+    u8 num_obs = ( msg_size - sizeof( observation_header_t ) ) / sizeof( packed_obs_content_t );
+    for( u8 obs = 0; obs < num_obs; ++obs ) {
         const packed_obs_content_t *sbp_freq = &sbp_obs->obs[obs];
         if( sbp_freq->flags != 0 ) {
             s8 sat_idx = sat2index[sbp_freq->sid.sat];

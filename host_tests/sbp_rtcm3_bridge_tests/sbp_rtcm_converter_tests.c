@@ -57,10 +57,10 @@ void test_sbp_rtcm_converter() {
   msg1001.sats[2].obs[0].flags.valid_cp = 0;
   msg1001.sats[2].obs[0].flags.valid_lock = 0;
 
-    u8 obs_data[4 * sizeof( observation_header_t ) + 4 * 17 * sizeof( packed_obs_content_t )];
+    u8 obs_data[4 * sizeof( observation_header_t ) + 4 * MAX_OBS_IN_SBP * sizeof( packed_obs_content_t )];
     msg_obs_t *sbp_obs[4];
     for( u8 msg = 0; msg < 4; ++msg ) {
-        sbp_obs[msg] = (msg_obs_t *)( obs_data + ( msg * sizeof( observation_header_t ) + 17 * msg * sizeof( packed_obs_content_t ) ) );
+        sbp_obs[msg] = (msg_obs_t *)( obs_data + ( msg * sizeof( observation_header_t ) + MAX_OBS_IN_SBP * msg * sizeof( packed_obs_content_t ) ) );
     }
 
   u8 sizes[4];
@@ -69,7 +69,7 @@ void test_sbp_rtcm_converter() {
   rtcm_obs_message msg1001_out;
   msg1001_out.header.n_sat = 0;
     for( u8 msg = 0; msg < num_msgs; ++msg ) {
-        sbp_to_rtcm3_obs(sbp_obs[msg], &msg1001_out);
+        sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1001_out);
     }
 
   msg1001_out.header.msg_num = 1001;
@@ -92,12 +92,12 @@ void test_sbp_rtcm_converter() {
   msg1002.sats[2].obs[0].cnr = 50.2;
   msg1002.sats[2].obs[0].flags.valid_cnr = 0;
 
-    rtcm3_obs_to_sbp(&msg1002, sbp_obs, sizes );
+    num_msgs = rtcm3_obs_to_sbp(&msg1002, sbp_obs, sizes );
 
     rtcm_obs_message msg1002_out = msg1001_out;
     msg1002_out.header.n_sat = 0;
     for( u8 msg = 0; msg < num_msgs; ++msg ) {
-        sbp_to_rtcm3_obs(sbp_obs[msg], &msg1002_out);
+        sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1002_out);
     }
 
   msg1002_out.header.msg_num = 1002;
@@ -116,12 +116,12 @@ void test_sbp_rtcm_converter() {
   msg1003.sats[1].obs[1].pseudorange = 22000024.4;
   msg1003.sats[1].obs[1].carrier_phase = 90086422.236;
 
-  rtcm3_obs_to_sbp(&msg1003, sbp_obs, sizes );
+    num_msgs = rtcm3_obs_to_sbp(&msg1003, sbp_obs, sizes );
 
   rtcm_obs_message msg1003_out = msg1001_out;
     msg1003_out.header.n_sat = 0;
     for( u8 msg = 0; msg < num_msgs; ++msg ) {
-        sbp_to_rtcm3_obs(sbp_obs[msg], &msg1003_out);
+        sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1003_out);
     }
 
   msg1003_out.header.msg_num = 1003;
@@ -147,12 +147,31 @@ void test_sbp_rtcm_converter() {
   msg1004.sats[2].obs[1].cnr = 54.2;
   msg1004.sats[2].obs[1].flags.valid_cnr = 1;
 
-  rtcm3_obs_to_sbp(&msg1004, sbp_obs, sizes );
+    msg1004.sats[3] = msg1004.sats[0];
+    msg1004.sats[3].svId = 10;
+    msg1004.sats[4] = msg1004.sats[0];
+    msg1004.sats[4].svId = 11;
+    msg1004.sats[5] = msg1004.sats[0];
+    msg1004.sats[5].svId = 12;
+    msg1004.sats[6] = msg1004.sats[0];
+    msg1004.sats[6].svId = 13;
+    msg1004.sats[7] = msg1004.sats[0];
+    msg1004.sats[7].svId = 14;
+    msg1004.sats[8] = msg1004.sats[0];
+    msg1004.sats[8].svId = 15;
+    msg1004.sats[9] = msg1004.sats[0];
+    msg1004.sats[9].svId = 16;
+    msg1004.sats[10] = msg1004.sats[0];
+    msg1004.sats[10].svId = 17;
+    msg1004.header.n_sat = 11;
+
+
+    num_msgs = rtcm3_obs_to_sbp(&msg1004, sbp_obs, sizes );
 
   rtcm_obs_message msg1004_out = msg1001_out;
     msg1004_out.header.n_sat = 0;
     for( u8 msg = 0; msg < num_msgs; ++msg ) {
-        sbp_to_rtcm3_obs(sbp_obs[msg], &msg1004_out);
+        sbp_to_rtcm3_obs(sbp_obs[msg], sizes[msg], &msg1004_out);
     }
 
   msg1004_out.header.msg_num = 1004;
