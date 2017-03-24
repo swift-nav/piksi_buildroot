@@ -31,7 +31,7 @@ static double GetDiskDiskUsage() {
 // The fixture for testing class RotatingLogger.
 class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
  protected:
-  RotatingLoggerTest() : RotatingLogger("", 0, 0, 100, true, true) {
+  RotatingLoggerTest() : RotatingLogger("", 0, 0, 100, true) {
     rm_wrapper("*.sbp");
   }
 
@@ -49,7 +49,10 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
   }
 
   // invalidate current file pointer
-  void SetNullFilePointer() { _cur_file = NULL; }
+  void SetNullFilePointer() { 
+    close(_cur_file);
+    _cur_file = -1;
+  }
 
   void SetFillThreshold(size_t threshold) { _disk_full_threshold = threshold; }
 
@@ -85,7 +88,7 @@ TEST_F(RotatingLoggerTest, NormalOperation) {
     snprintf(file_name_buf, sizeof(file_name_buf), "%s/%s", out_dir,
              expected_files[i]);
     FILE* fd = fopen(file_name_buf, "rb");
-    ASSERT_TRUE(fd != NULL) << "Missing file " << expected_files[i];
+    ASSERT_TRUE(fd != nullptr) << "Missing file " << expected_files[i];
     int data_buf[5];
     size_t read_len = fread(data_buf, 1, sizeof(data_buf), fd);
     fclose(fd);
@@ -132,10 +135,10 @@ TEST_F(RotatingLoggerTest, DiskCheck) {
     snprintf(buff, sizeof(buff), "%s/0001-%05d.sbp", out_dir, i);
     FILE* fd = fopen(buff, "rb");
     if (i < fill_writes) {
-      ASSERT_TRUE(fd != NULL) << "Missing file " << i;
+      ASSERT_TRUE(fd != nullptr) << "Missing file " << i;
       fclose(fd);
     } else {
-      ASSERT_TRUE(fd == NULL) << "Extra file " << i;
+      ASSERT_TRUE(fd == nullptr) << "Extra file " << i;
     }
   }
 }
@@ -160,7 +163,7 @@ TEST_F(RotatingLoggerTest, StartDisconnected) {
   snprintf(file_name_buf, sizeof(file_name_buf), "%s/%s", out_dir,
            expected_files);
   FILE* fd = fopen(file_name_buf, "rb");
-  ASSERT_TRUE(fd != NULL) << "Missing file " << expected_files;
+  ASSERT_TRUE(fd != nullptr) << "Missing file " << expected_files;
   int data_buf[1];
   size_t read_len = fread(data_buf, 1, sizeof(data_buf), fd);
   fclose(fd);
@@ -208,7 +211,7 @@ TEST_F(RotatingLoggerTest, DisconnectReconnect) {
     snprintf(file_name_buf, sizeof(file_name_buf), "%s/%s", out_dir,
              expected_files[i]);
     FILE* fd = fopen(file_name_buf, "rb");
-    ASSERT_TRUE(fd != NULL) << "Missing file " << expected_files[i];
+    ASSERT_TRUE(fd != nullptr) << "Missing file " << expected_files[i];
     int data_buf[1];
     size_t read_len = fread(data_buf, 1, sizeof(data_buf), fd);
     fclose(fd);
