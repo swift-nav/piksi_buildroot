@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.8.10)
 
 project(zmq_adapter C)
 
+add_definitions(-std=gnu11)
+
 include_directories("${CZMQ_INCLUDE_DIRS}" "${LIBSBP_INCLUDE_DIRS}")
 
 file(GLOB C_FILES *.c)

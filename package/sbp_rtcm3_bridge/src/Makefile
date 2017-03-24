@@ -2,31 +2,19 @@ TARGET=sbp_rtcm3_bridge
 SOURCES= \
 	sbp_rtcm3_bridge.c \
 	sbp_rtcm3.c \
-	sbp.c \
-	rtcm3_decode.c
+	rtcm3_decode.c \
+	sbp.c
 
 LIBS=-lczmq -lsbp -lm
-CFLAGS=-std=gnu11 -fPIC
-ARFLAGS=rcs
-LDFLAGS=-shared
+CFLAGS=-std=gnu11
 
 CROSS=
 
 CC=$(CROSS)gcc
 
-OBJS=$(SOURCES:.c=.o)
-
-all: program
-program: $(TARGET).a $(TARGET).so
-
-$(OBJS): $(SOURCES)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(TARGET).a: $(OBJS)
-	$(AR) $(ARFLAGS) $@ $^
-
-$(TARGET).so: $(OBJS)
-	$(CC) $(LDFLAGS) $^ -o $@
+all:	$(TARGET)
+$(TARGET): $(SOURCES)
+	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES) $(LIBS)
 
 clean:
-	rm -rf $(TARGET).a $(TARGET).so $(OBJS)
+	rm -rf $(TARGET)
