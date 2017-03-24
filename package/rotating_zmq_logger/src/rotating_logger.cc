@@ -18,6 +18,8 @@
 #include <string.h>
 #include <sys/statvfs.h>
 #include <time.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 /*
  * Name format: xxxx-yyyyy.sbp
@@ -65,9 +67,9 @@ bool RotatingLogger::open_new_file() {
     perror("Max session exceeded");
     return false;
   }
-  if (_cur_file != nullptr) {
-    fclose(_cur_file);
-    _cur_file = nullptr;
+  if (_cur_file != -1) {
+    close(_cur_file);
+    _cur_file = -1;
   }
 
   int fs_status = check_disk_full();
@@ -84,8 +86,9 @@ bool RotatingLogger::open_new_file() {
   }
   sprintf(log_name_buf, "%04lu-%05lu%s", _session_count, _minute_count,
           LOG_SUFFIX.c_str());
-  _cur_file = fopen((_out_dir + "/" + log_name_buf).c_str(), "wb");
-  _dest_available = _cur_file != nullptr;
+  // Need to use open instead of fopen to avoid locking drive
+  _cur_file = open((_out_dir + "/" + log_name_buf).c_str(), O_WRONLY | O_CREAT, 0666);
+  _dest_available = _cur_file != -1;
   debug_printf("Opening file %s: %d\n", log_name_buf, _dest_available);
   if (!_dest_available) {
     perror("Error openning file");
@@ -155,20 +158,24 @@ void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
   }
 
   size_t num_written = 0;
-  if (_cur_file) {
-    num_written = fwrite(data, 1, size, _cur_file);
+  if (_cur_file != -1) {
+    num_written = write(_cur_file, data, size);
   }
   if (num_written != size) {
-    perror("Write to file failed");
+    // If drive is removed needs to close file imediately and not attempt to
+    // open new file for a couple seconds to avoid locking mount
+    close(_cur_file);
+    _cur_file = -1;
     _dest_available = false;
-  } else if (_force_flush) {
-    fflush(_cur_file);
+    // wait _poll_period to check drive again
+    _session_start_time = std::chrono::steady_clock::now();
+    perror("Write to file failed");
   }
 }
 
 RotatingLogger::RotatingLogger(const std::string& out_dir,
                                size_t slice_duration, size_t poll_period,
-                               size_t disk_full_threshold, bool force_flush,
+                               size_t disk_full_threshold,
                                bool verbose_logging)
     : _dest_available(false),
       _session_count(0),
@@ -177,14 +184,13 @@ RotatingLogger::RotatingLogger(const std::string& out_dir,
       _slice_duration(slice_duration),
       _poll_period(poll_period),
       _disk_full_threshold(disk_full_threshold),
-      _force_flush(force_flush),
       _verbose_logging(verbose_logging),
       // init to 0
       _session_start_time(),
-      _cur_file(nullptr) {}
+      _cur_file(-1) {}
 
 RotatingLogger::~RotatingLogger() {
-  if (_cur_file) {
-    fclose(_cur_file);
+  if (_cur_file != -1) {
+    close(_cur_file);
   }
 }

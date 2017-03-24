@@ -31,7 +31,6 @@ static int fill_threshold_p = FILL_THRESHOLD_DEFAULT_p;
 static const char *zmq_sub_endpoint = nullptr;
 static const char *dir_path = nullptr;
 
-static bool force_flush = false;
 static bool verbose_logging = false;
 
 static void usage(char *command) {
@@ -51,8 +50,6 @@ static void usage(char *command) {
   puts("\t--full-threshold <precent>");
   puts(
       "\t\tStop logging if disk is filled above this percentage (default: 95)");
-  puts("\t--flush");
-  puts("\t\tFlush data to file immediately");
   puts("\t-v --verbose");
   puts("\t\tWrite status to stdout");
 }
@@ -63,16 +60,15 @@ static int parse_options(int argc, char *argv[]) {
   const struct option long_opts[] = {
       {"sub", required_argument, nullptr, 's'},
       {"dir", required_argument, nullptr, 'd'},
-      {"verbose", required_argument, nullptr, 'v'},
+      {"verbose", no_argument, nullptr, 'v'},
       {"slice-duration", required_argument, nullptr, OPT_ID_DURATION},
       {"poll-period", required_argument, nullptr, OPT_ID_PERIOD},
       {"full-threshold", required_argument, nullptr, OPT_ID_THRESHOLD},
-      {"flush", no_argument, nullptr, OPT_ID_FLUSH},
       {nullptr, 0, nullptr, 0}};
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "s:d:", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:d:v", long_opts, &opt_index)) != -1) {
     switch (c) {
       case 's': {
         zmq_sub_endpoint = optarg;
@@ -92,10 +88,6 @@ static int parse_options(int argc, char *argv[]) {
 
       case OPT_ID_THRESHOLD: {
         fill_threshold_p = strtol(optarg, nullptr, 10);
-      } break;
-
-      case OPT_ID_FLUSH: {
-        force_flush = true;
       } break;
 
       case 'v': {
@@ -175,7 +167,7 @@ int main(int argc, char *argv[]) {
   }
 
   RotatingLogger logger(dir_path, slice_diration_m, poll_period_s,
-                        fill_threshold_p, force_flush, verbose_logging);
+                        fill_threshold_p, verbose_logging);
 
   zsock_t *zmq_sub = zsock_new_sub(zmq_sub_endpoint, "");
   if (zmq_sub == nullptr) {

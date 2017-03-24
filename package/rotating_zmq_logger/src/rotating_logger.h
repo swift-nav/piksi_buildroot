@@ -22,7 +22,7 @@ class RotatingLogger {
  public:
   RotatingLogger(const std::string& out_dir, size_t slice_duration,
                  size_t poll_period, size_t disk_full_threshold,
-                 bool force_flush, bool verbose_logging);
+                 bool verbose_logging);
   ~RotatingLogger();
   /*
    * try to log a data frame
@@ -63,11 +63,10 @@ class RotatingLogger {
   size_t _slice_duration;
   size_t _poll_period;
   size_t _disk_full_threshold;
-  bool _force_flush;
   bool _verbose_logging;
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
-  FILE* _cur_file;
+  int _cur_file;
 };
 
 #endif  // SWIFTNAV_ROTATING_LOGGER_H
