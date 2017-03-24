@@ -1,3 +1,0 @@
-config BR2_PACKAGE_LIBSBP_SETTINGS
-	bool "libsbp_settings"
-	select BR2_PACKAGE_LIBSBP
