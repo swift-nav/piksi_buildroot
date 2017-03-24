@@ -334,7 +334,7 @@ static char eth_gateway[16] = "192.168.0.1";
 
 static void eth_update_config(void)
 {
-  system("ifdown eth0");
+  system("ifdown -f eth0");
 
   FILE *interfaces = fopen("/etc/network/interfaces", "w");
   if (eth_ip_mode == IP_CFG_DHCP) {
