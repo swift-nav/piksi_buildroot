@@ -6,6 +6,8 @@ include_directories(${LIBSBP_RTCM3_BRIDGE_INCLUDE_DIRS} "${CZMQ_INCLUDE_DIRS}" "
 
 file(GLOB C_FILES *.c)
 
+add_definitions(-std=gnu11)
+
 add_executable(${PROJECT_NAME} ${C_FILES})
 
 target_link_libraries(${PROJECT_NAME} sbp_rtcm3_bridge)
