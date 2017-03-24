@@ -15,22 +15,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sbp_settings.h>
 
 #include "whitelists.h"
-
-enum port {
-  PORT_UART0,
-  PORT_UART1,
-  PORT_USB0,
-  PORT_TCP_SERVER0,
-  PORT_TCP_SERVER1,
-  PORT_MAX
-};
-
-const char *section_names[PORT_MAX] = {
-  "uart0", "uart1", "usb0", "tcp_server0", "tcp_server1",
-};
 
 /* Whitelist settings are kept as formatted strings of message ids and
  * rate dividers.  Strings are parsed in whilelist_notify()
@@ -45,21 +31,50 @@ const char *section_names[PORT_MAX] = {
  *  - Message 5678 is sent at half rate
  *  - Message 3456 is sent at 1/10 rate
  */
-char wl[PORT_MAX][256] ={
-  [PORT_UART0] = "68,72,73,74,65535",
-  [PORT_UART1] = "",
-  [PORT_USB0] = "",
-  [PORT_TCP_SERVER0] = "",
-  [PORT_TCP_SERVER1] = "",
+
+enum port {
+  PORT_UART0,
+  PORT_UART1,
+  PORT_USB0,
+  PORT_TCP_SERVER0,
+  PORT_TCP_SERVER1,
+  PORT_MAX
 };
 
+typedef struct {
+  const char *name;
+  char wl[256];
+} port_whitelist_config_t;
 
-static bool whitelist_notify(struct setting *s, const char *val)
+static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
+  [PORT_UART0] = {
+    .name = "uart0",
+    .wl = "68,72,73,74,65535"
+  },
+  [PORT_UART1] = {
+    .name = "uart1",
+    .wl = ""
+  },
+  [PORT_USB0] = {
+    .name = "usb0",
+    .wl = ""
+  },
+  [PORT_TCP_SERVER0] = {
+    .name = "tcp_server0",
+    .wl = ""
+  },
+  [PORT_TCP_SERVER1] = {
+    .name = "tcp_server1",
+    .wl = ""
+  }
+};
+
+static int whitelist_notify(void *context)
 {
-  if (strlen(val) > s->len)
-    return false;
+  port_whitelist_config_t *port_whitelist_config =
+      (port_whitelist_config_t *)context;
 
-  char *c = (char *)val;
+  char *c = port_whitelist_config->wl;
   unsigned tmp;
   enum {PARSE_ID, PARSE_AFTER_ID, PARSE_DIV, PARSE_AFTER_DIV} state = PARSE_ID;
   struct {
@@ -86,7 +101,7 @@ static bool whitelist_notify(struct setting *s, const char *val)
         whitelist[entries-1].div = tmp;
         break;
       default:
-        return false;
+        return -1;
       }
       break;
 
@@ -96,7 +111,7 @@ static bool whitelist_notify(struct setting *s, const char *val)
         state = PARSE_DIV;
         c++;
       } else {
-        return false;
+        return -1;
       }
       break;
 
@@ -106,40 +121,33 @@ static bool whitelist_notify(struct setting *s, const char *val)
         state = PARSE_ID;
         c++;
       } else {
-        return false;
+        return -1;
       }
       break;
 
     /* Invalid token, parse error */
     default:
-      return false;
+      return -1;
     }
   }
 
   /* Parsed successfully, write config file and accept setting */
   char fn[256];
-  sprintf(fn, "/etc/%s_filter_out_config", s->section);
+  sprintf(fn, "/etc/%s_filter_out_config", port_whitelist_config->name);
   FILE *cfg = fopen(fn, "w");
   for (int i = 0; i < entries; i++) {
     fprintf(cfg, "%x %x\n", whitelist[i].id, whitelist[i].div);
   }
   fclose(cfg);
 
-  strncpy(s->addr, val, s->len);
-
-  return true;
+  return 0;
 }
 
-int whitelists_init(void)
+int whitelists_init(settings_ctx_t *settings_ctx)
 {
-  static struct setting whitelist_settings[PORT_MAX];
   for (int i = 0; i < PORT_MAX; i++) {
-    struct setting *s = &whitelist_settings[i];
-    s->section = section_names[i];
-    s->name = "enabled_sbp_messages";
-    s->addr = wl[i];
-    s->len = sizeof(wl[i]);
-    s->notify = whitelist_notify;
-    settings_register(s, TYPE_STRING);
+    settings_register(settings_ctx, port_whitelist_config[i].name, "enabled_sbp_messages",
+                      port_whitelist_config[i].wl, sizeof(port_whitelist_config[i].wl),
+                      SETTINGS_TYPE_STRING, whitelist_notify, &port_whitelist_config[i]);
   }
 }

@@ -10,8 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <sbp_zmq.h>
-#include <sbp_settings.h>
+#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/settings.h>
+#include <libpiksi/util.h>
 #include <libsbp/piksi.h>
 #include <libsbp/logging.h>
 #include <unistd.h>
@@ -24,9 +25,10 @@
 
 #include "whitelists.h"
 
-#define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
+#define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
+#define SUB_ENDPOINT ">tcp://127.0.0.1:43010"
 
-static sbp_zmq_state_t sbp_zmq_state;
+#define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
 static void sigchld_handler(int signum)
 {
@@ -37,34 +39,7 @@ static void sigchld_handler(int signum)
   errno = saved_errno;
 }
 
-static int settings_msg_send(u16 msg_type, u8 len, u8 *payload)
-{
-  return sbp_zmq_message_send(&sbp_zmq_state, msg_type, len, payload);
-}
-
-static int settings_msg_cb_register(u16 msg_type,
-                                    sbp_msg_callback_t cb, void *context,
-                                    sbp_msg_callbacks_node_t **node)
-{
-  return sbp_zmq_callback_register(&sbp_zmq_state, msg_type, cb, context, node);
-}
-
-static int settings_msg_cb_remove(sbp_msg_callbacks_node_t *node)
-{
-  return sbp_zmq_callback_remove(&sbp_zmq_state, node);
-}
-
-static int settings_msg_loop_timeout(u32 timeout_ms)
-{
-  return sbp_zmq_loop_timeout(&sbp_zmq_state, timeout_ms);
-}
-
-static int settings_msg_loop_interrupt(void)
-{
-  return sbp_zmq_loop_interrupt(&sbp_zmq_state);
-}
-
-static const char * const baudrate_enum[] = {
+static const char * const baudrate_enum_names[] = {
   "1200", "2400", "4800", "9600",
   "19200", "38400", "57600", "115200",
   "230400", NULL
@@ -72,19 +47,16 @@ static const char * const baudrate_enum[] = {
 enum {
   BAUDRATE_1200, BAUDRATE_2400, BAUDRATE_4800, BAUDRATE_9600,
   BAUDRATE_19200, BAUDRATE_38400, BAUDRATE_57600, BAUDRATE_115200,
-  BAUDRATE_230400};
+  BAUDRATE_230400
+};
 static const u32 baudrate_val_table[] = {
   B1200, B2400, B4800, B9600,
   B19200, B38400, B57600, B115200,
   B230400
 };
-static struct setting_type baudrate_settings_type;
-static int TYPE_BAUDRATE = 0;
 
-static const char * const flow_control_enum[] = {"None", "RTS/CTS", NULL};
+static const char * const flow_control_enum_names[] = {"None", "RTS/CTS", NULL};
 enum {FLOW_CONTROL_NONE, FLOW_CONTROL_RTS_CTS};
-static struct setting_type flow_control_settings_type;
-static int TYPE_FLOW_CONTROL = 0;
 
 typedef struct {
   const char *tty_path;
@@ -148,54 +120,24 @@ static int uart_configure(const uart_t *uart)
   return 0;
 }
 
-static bool baudrate_notify(struct setting *s, const char *val)
+static int baudrate_notify(void *context)
 {
-  if (!s->type->from_string(s->type->priv, s->addr, s->len, val)) {
-    return false;
-  }
-
-  const uart_t *uart = NULL;
-  if (s->addr == &uart0.baudrate) {
-    uart = &uart0;
-  } else if (s->addr == &uart1.baudrate) {
-    uart = &uart1;
-  } else {
-    return false;
-  }
-
-  if (uart_configure(uart) != 0) {
-    return false;
-  }
-
-  return true;
+  const uart_t *uart = (uart_t *)context;
+  return uart_configure(uart);
 }
 
-static bool flow_control_notify(struct setting *s, const char *val)
+static int flow_control_notify(void *context)
 {
-  if (!s->type->from_string(s->type->priv, s->addr, s->len, val)) {
-    return false;
-  }
-
-  const uart_t *uart = NULL;
-  if (s->addr == &uart0.flow_control) {
-    uart = &uart0;
-  } else if (s->addr == &uart1.flow_control) {
-    uart = &uart1;
-  } else {
-    return false;
-  }
-
-  if (uart_configure(uart) != 0) {
-    return false;
-  }
-
-  return true;
+  const uart_t *uart = (uart_t *)context;
+  return uart_configure(uart);
 }
 
-static const char const * port_mode_enum[] = {"SBP", "NMEA", "RTCM3 IN", NULL};
-static struct setting_type port_mode_settings_type;
-static int TYPE_PORT_MODE = 0;
-enum {PORT_MODE_SBP, PORT_MODE_NMEA, PORT_MODE_RTCM3_IN};
+static const char const * port_mode_enum_names[] = {
+  "SBP", "NMEA", "RTCM3 IN", NULL
+};
+enum {
+  PORT_MODE_SBP, PORT_MODE_NMEA, PORT_MODE_RTCM3_IN
+};
 
 typedef struct {
   const char * const name;
@@ -239,33 +181,14 @@ static adapter_config_t tcp_server1_adapter_config = {
   .pid = 0
 };
 
-bool port_mode_notify(struct setting *s, const char *val)
+int port_mode_notify(void *context)
 {
-  u8 port_mode;
-  bool ret = s->type->from_string(s->type->priv, &port_mode, s->len, val);
-  if (!ret) {
-    return false;
-  }
-
-  adapter_config_t *adapter_config = NULL;
-  if (s->addr == &uart0_adapter_config.mode) {
-    adapter_config = &uart0_adapter_config;
-  } else if (s->addr == &uart1_adapter_config.mode) {
-    adapter_config = &uart1_adapter_config;
-  } else if (s->addr == &usb0_adapter_config.mode) {
-    adapter_config = &usb0_adapter_config;
-  } else if (s->addr == &tcp_server0_adapter_config.mode) {
-    adapter_config = &tcp_server0_adapter_config;
-  } else if (s->addr == &tcp_server1_adapter_config.mode) {
-    adapter_config = &tcp_server1_adapter_config;
-  } else {
-    return false;
-  }
+  adapter_config_t *adapter_config = (adapter_config_t *)context;
 
   char mode_opts[200] = {0};
   u16 zmq_port_pub = 0;
   u16 zmq_port_sub = 0;
-  switch (port_mode) {
+  switch (adapter_config->mode) {
   case PORT_MODE_SBP:
     snprintf(mode_opts, sizeof(mode_opts),
              "-f sbp --filter-out sbp "
@@ -285,7 +208,7 @@ bool port_mode_notify(struct setting *s, const char *val)
     zmq_port_sub = 45030;
     break;
   default:
-    return false;
+    return -1;
   }
 
   /* Kill the old zmq_adapter, if it exists. */
@@ -321,16 +244,13 @@ bool port_mode_notify(struct setting *s, const char *val)
 
   if (adapter_config->pid < 0) {
     /* fork() failed */
-    return false;
+    return -1;
   }
 
-  *(u8*)s->addr = port_mode;
-  return true;
+  return 0;
 }
 
-static const char const * ip_mode_enum[] = {"Static", "DHCP", NULL};
-static struct setting_type ip_mode_settings_type;
-static int TYPE_IP_MODE = 0;
+static const char const * ip_mode_enum_names[] = {"Static", "DHCP", NULL};
 enum {IP_CFG_STATIC, IP_CFG_DHCP};
 static u8 eth_ip_mode = IP_CFG_STATIC;
 static char eth_ip_addr[16] = "192.168.0.222";
@@ -355,31 +275,29 @@ static void eth_update_config(void)
   system("ifup eth0");
 }
 
-static bool eth_ip_mode_notify(struct setting *s, const char *val)
+static int eth_ip_mode_notify(void *context)
 {
-  bool ret = settings_default_notify(s, val);
-  if (ret) {
-    eth_update_config();
-  }
-  return ret;
+  (void)context;
+  eth_update_config();
+  return 0;
 }
 
-static bool eth_ip_config_notify(struct setting *s, const char *val)
+static int eth_ip_config_notify(void *context)
 {
-  if (inet_addr(val) == INADDR_NONE)
-    return false;
+  char *ip = (char *)context;
 
-  bool ret = settings_default_notify(s, val);
-  if (ret) {
-    eth_update_config();
+  if (inet_addr(ip) == INADDR_NONE) {
+    return -1;
   }
-  return ret;
+
+  eth_update_config();
+  return 0;
 }
 
 struct shell_cmd_ctx {
   FILE *pipe;
   u32 sequence;
-  zloop_t *loop;
+  sbp_zmq_pubsub_ctx_t *pubsub_ctx;
   zmq_pollitem_t pollitem;
 };
 
@@ -411,17 +329,17 @@ static int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
   if (raw_fgets(msg->text,
                 SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text),
                 ctx->pipe) > 0) {
-    sbp_zmq_message_send(&sbp_zmq_state, SBP_MSG_LOG,
-                         sizeof(*msg) + strlen(msg->text), (void*)msg);
+    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+                    SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
   } else {
     /* Broken pipe, clean up and send exit code */
     msg_command_resp_t resp = {
       .sequence = ctx->sequence,
       .code = pclose(ctx->pipe),
     };
-    sbp_zmq_message_send(&sbp_zmq_state, SBP_MSG_COMMAND_RESP,
-                         sizeof(resp), (void*)&resp);
-    zloop_poller_end(ctx->loop, item);
+    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+                    SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
+    zloop_poller_end(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx), item);
     free(ctx);
   }
   return 0;
@@ -429,6 +347,8 @@ static int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 
 static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
+  sbp_zmq_pubsub_ctx_t *pubsub_ctx = (sbp_zmq_pubsub_ctx_t *)context;
+
   msg_[len] = 0;
   msg_command_req_t *msg = (msg_command_req_t *)msg_;
   /* TODO As more commands are added in the future the command field will need
@@ -441,19 +361,20 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
       .sequence = msg->sequence,
       .code = (u32)-1,
     };
-    sbp_zmq_message_send(&sbp_zmq_state, SBP_MSG_COMMAND_RESP,
-                         sizeof(resp), (u8*)&resp);
+    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
+                    SBP_MSG_COMMAND_RESP, sizeof(resp), (u8*)&resp);
     return;
   }
   struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
   ctx->pipe = popen(msg->command, "r");
   ctx->sequence = msg->sequence;
-  ctx->loop = sbp_zmq_loop_get(&sbp_zmq_state);
+  ctx->pubsub_ctx = pubsub_ctx;
   ctx->pollitem.fd = fileno(ctx->pipe);
   ctx->pollitem.events = ZMQ_POLLIN;
   int arg = O_NONBLOCK;
   fcntl(fileno(ctx->pipe), F_SETFL, &arg);
-  zloop_poller(ctx->loop, &ctx->pollitem, command_output, ctx);
+  zloop_poller(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
+               &ctx->pollitem, command_output, ctx);
 }
 
 static int file_read_string(const char *filename, char *str, size_t str_size)
@@ -489,7 +410,7 @@ static int date_string_get(const char *timestamp_string,
   return 0;
 }
 
-static void img_tbl_settings_setup(void)
+static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
 {
   char name_string[64];
   if (file_read_string("/img_tbl/boot/name",
@@ -497,8 +418,9 @@ static void img_tbl_settings_setup(void)
     /* firmware_build_id contains the full image name */
     static char firmware_build_id[sizeof(name_string)];
     strncpy(firmware_build_id, name_string, sizeof(firmware_build_id));
-    READ_ONLY_PARAMETER("system_info", "firmware_build_id",
-                        firmware_build_id, TYPE_STRING);
+    settings_register_readonly(settings_ctx, "system_info", "firmware_build_id",
+                               firmware_build_id, sizeof(firmware_build_id),
+                               SETTINGS_TYPE_STRING);
 
     /* firmware_version contains everything before the git hash */
     static char firmware_version[sizeof(name_string)];
@@ -507,8 +429,9 @@ static void img_tbl_settings_setup(void)
     if (sep != NULL) {
       *sep = 0;
     }
-    READ_ONLY_PARAMETER("system_info", "firmware_version",
-                        firmware_version, TYPE_STRING);
+    settings_register_readonly(settings_ctx, "system_info", "firmware_version",
+                               firmware_version, sizeof(firmware_version),
+                               SETTINGS_TYPE_STRING);
   }
 
   char timestamp_string[32];
@@ -517,8 +440,9 @@ static void img_tbl_settings_setup(void)
     static char firmware_build_date[128];
     if (date_string_get(timestamp_string, firmware_build_date,
                         sizeof(firmware_build_date)) == 0) {
-      READ_ONLY_PARAMETER("system_info", "firmware_build_date",
-                          firmware_build_date, TYPE_STRING);
+      settings_register_readonly(settings_ctx, "system_info", "firmware_build_date",
+                                 firmware_build_date, sizeof(firmware_build_date),
+                                 SETTINGS_TYPE_STRING);
     }
   }
 
@@ -527,8 +451,9 @@ static void img_tbl_settings_setup(void)
                        loader_name_string, sizeof(loader_name_string)) == 0) {
     static char loader_build_id[sizeof(loader_name_string)];
     strncpy(loader_build_id, loader_name_string, sizeof(loader_build_id));
-    READ_ONLY_PARAMETER("system_info", "loader_build_id",
-                        loader_build_id, TYPE_STRING);
+    settings_register_readonly(settings_ctx, "system_info", "loader_build_id",
+                               loader_build_id, sizeof(loader_build_id),
+                               SETTINGS_TYPE_STRING);
   }
 
   char loader_timestamp_string[32];
@@ -537,8 +462,9 @@ static void img_tbl_settings_setup(void)
     static char loader_build_date[128];
     if (date_string_get(loader_timestamp_string, loader_build_date,
                         sizeof(loader_build_date)) == 0) {
-      READ_ONLY_PARAMETER("system_info", "loader_build_date",
-                          loader_build_date, TYPE_STRING);
+      settings_register_readonly(settings_ctx, "system_info", "loader_build_date",
+                                 loader_build_date, sizeof(loader_build_date),
+                                 SETTINGS_TYPE_STRING);
     }
   }
 }
@@ -573,63 +499,99 @@ int main(void)
     exit(EXIT_FAILURE);
   }
 
+  /* Prevent czmq from catching signals */
+  zsys_handler_set(NULL);
+
   /* Set up SBP ZMQ */
-  u16 sbp_sender_id = SBP_SENDER_ID;
-  char sbp_sender_id_string[32];
-  if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
-                        sizeof(sbp_sender_id_string)) == 0) {
-    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
-  }
-  sbp_zmq_config_t sbp_zmq_config = {
-    .sbp_sender_id = sbp_sender_id,
-    .pub_endpoint = ">tcp://localhost:43011",
-    .sub_endpoint = ">tcp://localhost:43010"
-  };
-  if (sbp_zmq_init(&sbp_zmq_state, &sbp_zmq_config) != 0) {
+  sbp_zmq_pubsub_ctx_t *pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT,
+                                                           SUB_ENDPOINT);
+  if (pubsub_ctx == NULL) {
+    printf("error creating PUBSUB context\n");
     exit(EXIT_FAILURE);
   }
 
   /* Set up settings */
-  settings_interface_t settings_interface = {
-    .msg_send = settings_msg_send,
-    .msg_cb_register = settings_msg_cb_register,
-    .msg_cb_remove = settings_msg_cb_remove,
-    .msg_loop_timeout = settings_msg_loop_timeout,
-    .msg_loop_interrupt = settings_msg_loop_interrupt
-  };
-  settings_setup(&settings_interface);
+  settings_ctx_t *settings_ctx = settings_create();
+  if (settings_ctx == NULL) {
+    printf("error creating settings context\n");
+    exit(EXIT_FAILURE);
+  }
 
-  TYPE_BAUDRATE = settings_type_register_enum(baudrate_enum, &baudrate_settings_type);
-  TYPE_FLOW_CONTROL = settings_type_register_enum(flow_control_enum, &flow_control_settings_type);
-  SETTING_NOTIFY("uart0", "baudrate", uart0.baudrate, TYPE_BAUDRATE, baudrate_notify);
-  SETTING_NOTIFY("uart1", "baudrate", uart1.baudrate, TYPE_BAUDRATE, baudrate_notify);
-  SETTING_NOTIFY("uart0", "flow_control", uart0.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
-  SETTING_NOTIFY("uart1", "flow_control", uart1.flow_control, TYPE_FLOW_CONTROL, flow_control_notify);
+  if (settings_reader_add(settings_ctx,
+                          sbp_zmq_pubsub_zloop_get(pubsub_ctx)) != 0) {
+    printf("error adding settings reader\n");
+    exit(EXIT_FAILURE);
+  }
 
-  TYPE_PORT_MODE = settings_type_register_enum(port_mode_enum, &port_mode_settings_type);
-  SETTING_NOTIFY("uart0", "mode", uart0_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
-  SETTING_NOTIFY("uart1", "mode", uart1_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
-  SETTING_NOTIFY("usb0", "mode", usb0_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
-  SETTING_NOTIFY("tcp_server0", "mode", tcp_server0_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
-  SETTING_NOTIFY("tcp_server1", "mode", tcp_server1_adapter_config.mode, TYPE_PORT_MODE, port_mode_notify);
+  /* Register settings */
+  settings_type_t settings_type_baudrate;
+  settings_type_register_enum(settings_ctx, baudrate_enum_names,
+                              &settings_type_baudrate);
+  settings_register(settings_ctx, "uart0", "baudrate", &uart0.baudrate,
+                    sizeof(uart0.baudrate), settings_type_baudrate,
+                    baudrate_notify, &uart0);
+  settings_register(settings_ctx, "uart1", "baudrate", &uart1.baudrate,
+                    sizeof(uart1.baudrate), settings_type_baudrate,
+                    baudrate_notify, &uart1);
 
-  TYPE_IP_MODE = settings_type_register_enum(ip_mode_enum, &ip_mode_settings_type);
-  SETTING_NOTIFY("ethernet", "ip_config_mode", eth_ip_mode, TYPE_IP_MODE, eth_ip_mode_notify);
-  SETTING_NOTIFY("ethernet", "ip_address", eth_ip_addr, TYPE_STRING, eth_ip_config_notify);
-  SETTING_NOTIFY("ethernet", "netmask", eth_netmask, TYPE_STRING, eth_ip_config_notify);
-  SETTING_NOTIFY("ethernet", "gateway", eth_gateway, TYPE_STRING, eth_ip_config_notify);
+  settings_type_t settings_type_flow_control;
+  settings_type_register_enum(settings_ctx, flow_control_enum_names,
+                              &settings_type_flow_control);
+  settings_register(settings_ctx, "uart0", "flow_control", &uart0.flow_control,
+                    sizeof(uart0.flow_control), settings_type_flow_control,
+                    flow_control_notify, &uart0);
+  settings_register(settings_ctx, "uart1", "flow_control", &uart1.flow_control,
+                    sizeof(uart1.flow_control), settings_type_flow_control,
+                    flow_control_notify, &uart1);
 
-  sbp_zmq_callback_register(&sbp_zmq_state, SBP_MSG_RESET,
-                            reset_callback, NULL, NULL);
-  sbp_zmq_callback_register(&sbp_zmq_state, SBP_MSG_RESET_DEP,
-                            reset_callback, NULL, NULL);
+  settings_type_t settings_type_port_mode;
+  settings_type_register_enum(settings_ctx, port_mode_enum_names,
+                              &settings_type_port_mode);
+  settings_register(settings_ctx, "uart0", "mode", &uart0_adapter_config.mode,
+                    sizeof(uart0_adapter_config.mode), settings_type_port_mode,
+                    port_mode_notify, &uart0_adapter_config);
+  settings_register(settings_ctx, "uart1", "mode", &uart1_adapter_config.mode,
+                    sizeof(uart1_adapter_config.mode), settings_type_port_mode,
+                    port_mode_notify, &uart1_adapter_config);
+  settings_register(settings_ctx, "usb0", "mode", &usb0_adapter_config.mode,
+                    sizeof(usb0_adapter_config.mode), settings_type_port_mode,
+                    port_mode_notify, &usb0_adapter_config);
+  settings_register(settings_ctx, "tcp_server0", "mode", &tcp_server0_adapter_config.mode,
+                    sizeof(tcp_server0_adapter_config.mode), settings_type_port_mode,
+                    port_mode_notify, &tcp_server0_adapter_config);
+  settings_register(settings_ctx, "tcp_server1", "mode", &tcp_server1_adapter_config.mode,
+                    sizeof(tcp_server1_adapter_config.mode), settings_type_port_mode,
+                    port_mode_notify, &tcp_server1_adapter_config);
 
-  whitelists_init();
-  img_tbl_settings_setup();
-  sbp_zmq_callback_register(&sbp_zmq_state, SBP_MSG_COMMAND_REQ, sbp_command, NULL, NULL);
+  settings_type_t settings_type_ip_mode;
+  settings_type_register_enum(settings_ctx, ip_mode_enum_names,
+                              &settings_type_ip_mode);
+  settings_register(settings_ctx, "ethernet", "ip_config_mode", &eth_ip_mode,
+                    sizeof(eth_ip_mode), settings_type_ip_mode,
+                    eth_ip_mode_notify, &eth_ip_mode);
+  settings_register(settings_ctx, "ethernet", "ip_address", &eth_ip_addr,
+                    sizeof(eth_ip_addr), SETTINGS_TYPE_STRING,
+                    eth_ip_config_notify, &eth_ip_addr);
+  settings_register(settings_ctx, "ethernet", "netmask", &eth_netmask,
+                    sizeof(eth_netmask), SETTINGS_TYPE_STRING,
+                    eth_ip_config_notify, &eth_netmask);
+  settings_register(settings_ctx, "ethernet", "gateway", &eth_gateway,
+                    sizeof(eth_gateway), SETTINGS_TYPE_STRING,
+                    eth_ip_config_notify, &eth_gateway);
 
-  sbp_zmq_loop(&sbp_zmq_state);
+  sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
+                               SBP_MSG_RESET, reset_callback, NULL, NULL);
+  sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
+                               SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
-  sbp_zmq_deinit(&sbp_zmq_state);
+  whitelists_init(settings_ctx);
+  img_tbl_settings_setup(settings_ctx);
+  sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
+                               SBP_MSG_COMMAND_REQ, sbp_command, pubsub_ctx, NULL);
+
+  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(pubsub_ctx));
+
+  sbp_zmq_pubsub_destroy(&pubsub_ctx);
+  settings_destroy(&settings_ctx);
   exit(EXIT_SUCCESS);
 }
