@@ -8,7 +8,8 @@ RUN apt-get update && apt-get -y --force-yes install \
   unzip \
   bc \
   cpio \
-  libssl-dev
+  libssl-dev \
+  ncurses-dev
 
 ENV BR2_EXTERNAL /piksi_buildroot
 WORKDIR /piksi_buildroot
