@@ -10,6 +10,13 @@ add_definitions(-std=gnu11)
 
 file(GLOB C_FILES *.c)
 
-add_library(${PROJECT_NAME} STATIC ${C_FILES})
+#add_library(${PROJECT_NAME} STATIC ${C_FILES})
+
+add_executable( ${PROJECT_NAME} ${C_FILES})
 
 target_link_libraries(${PROJECT_NAME} czmq zmq sbp m)
+
+set_target_properties(${PROJECT_NAME}
+        PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
