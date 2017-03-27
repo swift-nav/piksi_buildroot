@@ -11,7 +11,7 @@
  */
 
 #include "sbp_zmq_pubsub.h"
-#include <stdio.h>
+#include "logging.h"
 #include <assert.h>
 
 struct sbp_zmq_pubsub_ctx_s {
@@ -60,47 +60,47 @@ sbp_zmq_pubsub_ctx_t * sbp_zmq_pubsub_create(const char *pub_ept,
 
   sbp_zmq_pubsub_ctx_t *ctx = (sbp_zmq_pubsub_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
-    printf("error allocating context\n");
+    piksi_log(LOG_ERR, "error allocating context");
     return ctx;
   }
 
   ctx->zsock_pub = zsock_new_pub(pub_ept);
   if (ctx->zsock_pub == NULL) {
-    printf("error creating PUB socket\n");
+    piksi_log(LOG_ERR, "error creating PUB socket");
     destroy(&ctx);
     return ctx;
   }
 
   ctx->tx_ctx = sbp_zmq_tx_create(ctx->zsock_pub);
   if (ctx->tx_ctx == NULL) {
-    printf("error creating TX context\n");
+    piksi_log(LOG_ERR, "error creating TX context");
     destroy(&ctx);
     return ctx;
   }
 
   ctx->zsock_sub = zsock_new_sub(sub_ept, "");
   if (ctx->zsock_sub == NULL) {
-    printf("error creating SUB socket\n");
+    piksi_log(LOG_ERR, "error creating SUB socket");
     destroy(&ctx);
     return ctx;
   }
 
   ctx->rx_ctx = sbp_zmq_rx_create(ctx->zsock_sub);
   if (ctx->rx_ctx == NULL) {
-    printf("error creating RX context\n");
+    piksi_log(LOG_ERR, "error creating RX context");
     destroy(&ctx);
     return ctx;
   }
 
   ctx->zloop = zloop_new();
   if (ctx->zloop == NULL) {
-    printf("error creating zloop\n");
+    piksi_log(LOG_ERR, "error creating zloop");
     destroy(&ctx);
     return ctx;
   }
 
   if (sbp_zmq_rx_reader_add(ctx->rx_ctx, ctx->zloop) != 0) {
-    printf("error adding reader\n");
+    piksi_log(LOG_ERR, "error adding reader");
     destroy(&ctx);
     return ctx;
   }

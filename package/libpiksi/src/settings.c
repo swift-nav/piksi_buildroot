@@ -13,7 +13,7 @@
 #include "settings.h"
 #include "sbp_zmq_pubsub.h"
 #include "util.h"
-#include <stdio.h>
+#include "logging.h"
 #include <string.h>
 #include <assert.h>
 #include <libsbp/settings.h>
@@ -361,7 +361,7 @@ static int type_register(settings_ctx_t *ctx, to_string_fn to_string,
 {
   type_data_t *type_data = (type_data_t *)malloc(sizeof(*type_data));
   if (type_data == NULL) {
-    printf("error allocating type data\n");
+    piksi_log(LOG_ERR, "error allocating type data");
     return -1;
   }
 
@@ -412,7 +412,7 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
   /* Look up type data */
   type_data_t *type_data = type_data_lookup(ctx, type);
   if (type_data == NULL) {
-    printf("invalid type\n");
+    piksi_log(LOG_ERR, "invalid type");
     return -1;
   }
 
@@ -420,7 +420,7 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
   setting_data_t *setting_data = (setting_data_t *)
                                      malloc(sizeof(*setting_data));
   if (setting_data == NULL) {
-    printf("error allocating setting data\n");
+    piksi_log(LOG_ERR, "error allocating setting data");
     return -1;
   }
 
@@ -440,7 +440,7 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
   if ((setting_data->section == NULL) ||
       (setting_data->name == NULL) ||
       (setting_data->var_copy == NULL)) {
-    printf("error allocating setting data members");
+    piksi_log(LOG_ERR, "error allocating setting data members");
     setting_data_members_destroy(setting_data);
     free(setting_data);
     setting_data = NULL;
@@ -458,7 +458,7 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
 
   l = message_header_get(setting_data, &msg[msg_len], sizeof(msg) - msg_len);
   if (l < 0) {
-    printf("error building settings message\n");
+    piksi_log(LOG_ERR, "error building settings message");
     return -1;
   }
   msg_len += l;
@@ -466,7 +466,7 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
 
   l = message_data_get(setting_data, &msg[msg_len], sizeof(msg) - msg_len);
   if (l < 0) {
-    printf("error building settings message\n");
+    piksi_log(LOG_ERR, "error building settings message");
     return -1;
   }
   msg_len += l;
@@ -488,7 +488,7 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
   compare_deinit(ctx);
 
   if (!success) {
-    printf("setting registration failed\n");
+    piksi_log(LOG_ERR, "setting registration failed");
     return -1;
   }
 
@@ -501,7 +501,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
   settings_ctx_t *ctx = (settings_ctx_t *)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    printf("invalid sender\n");
+    piksi_log(LOG_WARNING, "invalid sender");
     return;
   }
 
@@ -510,7 +510,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
 
   if ((len == 0) ||
       (msg[len-1] != '\0')) {
-    printf("error in settings write message\n");
+    piksi_log(LOG_WARNING, "error in settings write message");
     return;
   }
 
@@ -536,14 +536,14 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
         if (i == len-1)
           break;
       default:
-        printf("error in settings write message\n");
+        piksi_log(LOG_WARNING, "error in settings write message");
         return;
       }
     }
   }
 
   if (value == NULL) {
-    printf("error in settings write message\n");
+    piksi_log(LOG_WARNING, "error in settings write message");
     return;
   }
 
@@ -578,21 +578,21 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
 
   l = message_header_get(setting_data, &resp[resp_len], sizeof(resp) - resp_len);
   if (l < 0) {
-    printf("error building settings message\n");
+    piksi_log(LOG_ERR, "error building settings message");
     return;
   }
   resp_len += l;
 
   l = message_data_get(setting_data, &resp[resp_len], sizeof(resp) - resp_len);
   if (l < 0) {
-    printf("error building settings message\n");
+    piksi_log(LOG_ERR, "error building settings message");
     return;
   }
   resp_len += l;
 
   if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
                       SBP_MSG_SETTINGS_READ_RESP, resp_len, resp) != 0) {
-    printf("error sending settings read response\n");
+    piksi_log(LOG_ERR, "error sending settings read response");
     return;
   }
 }
@@ -630,13 +630,13 @@ settings_ctx_t * settings_create(void)
 {
   settings_ctx_t *ctx = (settings_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
-    printf("error allocating context\n");
+    piksi_log(LOG_ERR, "error allocating context");
     return ctx;
   }
 
   ctx->pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
   if (ctx->pubsub_ctx == NULL) {
-    printf("error creating PUBSUB context\n");
+    piksi_log(LOG_ERR, "error creating PUBSUB context");
     destroy(&ctx);
     return ctx;
   }
@@ -679,7 +679,7 @@ settings_ctx_t * settings_create(void)
   if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
                                    SBP_MSG_SETTINGS_WRITE,
                                    settings_write_callback, ctx, NULL) != 0) {
-    printf("error registering settings write callback\n");
+    piksi_log(LOG_ERR, "error registering settings write callback");
     destroy(&ctx);
     return ctx;
   }
