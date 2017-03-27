@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <libpiksi/logging.h>
 #include <libsbp/settings.h>
 
 #include <string.h>
@@ -22,8 +23,6 @@
 
 #define SETTINGS_FILE "/persistent/config.ini"
 #define BUFSIZE 256
-
-#define log_error(...) fprintf(stderr, __VA_ARGS__)
 
 struct setting {
   char section[BUFSIZE];
@@ -155,7 +154,7 @@ static void settings_register_callback(u16 sender_id, u8 len, u8 msg[], void *co
 
   const char *section = NULL, *setting = NULL, *value = NULL, *type = NULL;
   if (!settings_parse_setting(len, msg, &section, &setting, &value, &type))
-    log_error("Error in register message");
+    piksi_log(LOG_WARNING, "Error in register message");
 
   struct setting *s = settings_lookup(section, setting);
   /* Only register setting if it doesn't already exist */
@@ -185,11 +184,11 @@ static void settings_read_reply_callback(u16 sender_id, u8 len, u8 msg[], void *
   const char *section = NULL, *setting = NULL, *value = NULL;
 
   if(!settings_parse_setting(len, msg, &section, &setting, &value, NULL))
-    log_error("Error in register message");
+    piksi_log(LOG_WARNING, "Error in register message");
 
   s = settings_lookup(section, setting);
   if (s == NULL) {
-    log_error("Read reply for non-existant setting");
+    piksi_log(LOG_WARNING, "Read reply for non-existent setting");
     return;
   }
 
@@ -210,7 +209,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender");
+    piksi_log(LOG_WARNING, "Invalid sender");
     return;
   }
 
@@ -220,12 +219,12 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   u8 buflen;
 
   if (len == 0) {
-    log_error("Error in settings read message");
+    piksi_log(LOG_WARNING, "Error in settings read message");
     return;
   }
 
   if (msg[len-1] != '\0') {
-    log_error("Error in settings read message");
+    piksi_log(LOG_WARNING, "Error in settings read message");
     return;
   }
 
@@ -244,7 +243,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
         if (i == len-1)
           break;
       default:
-        log_error("Error in settings read message");
+        piksi_log(LOG_WARNING, "Error in settings read message");
         return;
       }
     }
@@ -252,7 +251,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
 
   s = settings_lookup(section, setting);
   if (s == NULL) {
-    log_error("Error in settings read message");
+    piksi_log(LOG_WARNING, "Error in settings read message");
     return;
   }
 
@@ -266,7 +265,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender");
+    piksi_log(LOG_WARNING, "Invalid sender");
     return;
   }
 
@@ -275,7 +274,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   u8 buflen = 0;
 
   if (len != 2) {
-    log_error("Invalid length for settings read by index!");
+    piksi_log(LOG_WARNING, "Invalid length for settings read by index!");
     return;
   }
   u16 index = (msg[1] << 8) | msg[0];
@@ -303,7 +302,7 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   const char *sec;
 
   if (f == NULL) {
-    perror("Error opening config file!");
+    piksi_log(LOG_ERR, "Error opening config file!");
     return;
   }
 

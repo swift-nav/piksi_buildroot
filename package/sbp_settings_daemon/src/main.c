@@ -11,14 +11,19 @@
  */
 
 #include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include "settings.h"
+
+#define PROGRAM_NAME "sbp_settings_daemon"
 
 #define PUB_ENDPOINT ">tcp://localhost:43021"
 #define SUB_ENDPOINT ">tcp://localhost:43020"
 
 int main(void)
 {
+  logging_init(PROGRAM_NAME);
+
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
@@ -35,4 +40,3 @@ int main(void)
   sbp_zmq_pubsub_destroy(&ctx);
   exit(EXIT_SUCCESS);
 }
-

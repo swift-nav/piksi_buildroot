@@ -12,6 +12,7 @@
 
 #include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/settings.h>
+#include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libsbp/piksi.h>
 #include <libsbp/logging.h>
@@ -24,6 +25,8 @@
 #include <termios.h>
 
 #include "whitelists.h"
+
+#define PROGRAM_NAME "piksi_system_daemon"
 
 #define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
 #define SUB_ENDPOINT ">tcp://127.0.0.1:43010"
@@ -80,13 +83,13 @@ static int uart_configure(const uart_t *uart)
 {
   int fd = open(uart->tty_path, O_RDONLY);
   if (fd < 0) {
-    printf("error opening tty device\n");
+    piksi_log(LOG_ERR, "error opening tty device");
     return -1;
   }
 
   struct termios tio;
   if (tcgetattr(fd, &tio) != 0) {
-    printf("error in tcgetattr()\n");
+    piksi_log(LOG_ERR, "error in tcgetattr()");
     close(fd);
     return -1;
   }
@@ -102,7 +105,7 @@ static int uart_configure(const uart_t *uart)
 
   /* Check results */
   if (tcgetattr(fd, &tio) != 0) {
-    printf("error in tcgetattr()\n");
+    piksi_log(LOG_ERR, "error in tcgetattr()");
     close(fd);
     return -1;
   }
@@ -113,7 +116,7 @@ static int uart_configure(const uart_t *uart)
       (cfgetospeed(&tio) != baudrate_val_table[uart->baudrate]) ||
       ((tio.c_cflag & CRTSCTS) ? (uart->flow_control != FLOW_CONTROL_RTS_CTS) :
                                  (uart->flow_control != FLOW_CONTROL_NONE))) {
-    printf("error configuring tty\n");
+    piksi_log(LOG_ERR, "error configuring tty");
     return -1;
   }
 
@@ -214,8 +217,9 @@ int port_mode_notify(void *context)
   /* Kill the old zmq_adapter, if it exists. */
   if (adapter_config->pid) {
     int ret = kill(adapter_config->pid, SIGTERM);
-    printf("Killing zmq_adapter with PID: %d (kill returned %d, errno %d)\n",
-           adapter_config->pid, ret, errno);
+    piksi_log(LOG_DEBUG,
+              "Killing zmq_adapter with PID: %d (kill returned %d, errno %d)",
+              adapter_config->pid, ret, errno);
   }
 
   /* Prepare the command used to launch zmq_adapter. */
@@ -226,7 +230,7 @@ int port_mode_notify(void *context)
            "-s >tcp://127.0.0.1:%d",
            adapter_config->opts, mode_opts, zmq_port_pub, zmq_port_sub);
 
-  printf("Starting zmq_adapter: %s\n", cmd);
+  piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
 
   /* Split the command on each space for argv */
   char *args[100] = {0};
@@ -236,11 +240,12 @@ int port_mode_notify(void *context)
   /* Create a new zmq_adapter. */
   if (!(adapter_config->pid = fork())) {
     execvp(args[0], args);
-    printf("execvp error\n");
+    piksi_log(LOG_ERR, "execvp error");
     exit(EXIT_FAILURE);
   }
 
-  printf("zmq_adapter started with PID: %d\n", adapter_config->pid);
+  piksi_log(LOG_DEBUG, "zmq_adapter started with PID: %d",
+            adapter_config->pid);
 
   if (adapter_config->pid < 0) {
     /* fork() failed */
@@ -381,7 +386,7 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
 {
   FILE *fp = fopen(filename, "r");
   if (fp == NULL) {
-    printf("error opening %s\n", filename);
+    piksi_log(LOG_ERR, "error opening %s", filename);
     return -1;
   }
 
@@ -390,7 +395,7 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
   fclose(fp);
 
   if (!success) {
-    printf("error reading %s\n", filename);
+    piksi_log(LOG_ERR, "error reading %s", filename);
     return -1;
   }
 
@@ -403,7 +408,7 @@ static int date_string_get(const char *timestamp_string,
   time_t timestamp = strtoul(timestamp_string, NULL, 10);
   if (strftime(date_string, date_string_size,
                "%Y-%m-%d %H:%M:%S %Z", localtime(&timestamp)) == 0) {
-    printf("error parsing timestamp\n");
+    piksi_log(LOG_ERR, "error parsing timestamp");
     return -1;
   }
 
@@ -489,13 +494,15 @@ static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
 
 int main(void)
 {
+  logging_init(PROGRAM_NAME);
+
   /* Set up SIGCHLD handler */
   struct sigaction sigchld_sa;
   sigchld_sa.sa_handler = sigchld_handler;
   sigemptyset(&sigchld_sa.sa_mask);
   sigchld_sa.sa_flags = SA_NOCLDSTOP;
   if (sigaction(SIGCHLD, &sigchld_sa, NULL) != 0) {
-    printf("error setting up sigchld handler\n");
+    piksi_log(LOG_ERR, "error setting up sigchld handler");
     exit(EXIT_FAILURE);
   }
 
@@ -506,20 +513,17 @@ int main(void)
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT,
                                                            SUB_ENDPOINT);
   if (pubsub_ctx == NULL) {
-    printf("error creating PUBSUB context\n");
     exit(EXIT_FAILURE);
   }
 
   /* Set up settings */
   settings_ctx_t *settings_ctx = settings_create();
   if (settings_ctx == NULL) {
-    printf("error creating settings context\n");
     exit(EXIT_FAILURE);
   }
 
   if (settings_reader_add(settings_ctx,
                           sbp_zmq_pubsub_zloop_get(pubsub_ctx)) != 0) {
-    printf("error adding settings reader\n");
     exit(EXIT_FAILURE);
   }
 
