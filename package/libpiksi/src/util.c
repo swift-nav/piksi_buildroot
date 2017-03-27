@@ -11,7 +11,8 @@
  */
 
 #include "util.h"
-#include <stdio.h>
+#include "logging.h"
+#include <assert.h>
 
 #define SBP_SENDER_ID_FILE_PATH "/cfg/sbp_sender_id"
 
@@ -19,7 +20,7 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
 {
   FILE *fp = fopen(filename, "r");
   if (fp == NULL) {
-    printf("error opening %s\n", filename);
+    piksi_log(LOG_ERR, "error opening %s", filename);
     return -1;
   }
 
@@ -28,7 +29,7 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
   fclose(fp);
 
   if (!success) {
-    printf("error reading %s\n", filename);
+    piksi_log(LOG_ERR, "error reading %s", filename);
     return -1;
   }
 
@@ -71,7 +72,7 @@ int zmq_simple_loop(zloop_t *zloop)
       return 0;
     } else {
       /* Error occurred */
-      printf("error in zloop\n");
+      piksi_log(LOG_ERR, "error in zloop");
       return -1;
     }
   }
@@ -85,7 +86,7 @@ int zmq_simple_loop_timeout(zloop_t *zloop, u32 timeout_ms)
 
   void *ticket = zloop_ticket(zloop, zloop_timer_handler, NULL);
   if (ticket == NULL) {
-    printf("error creating zloop ticket\n");
+    piksi_log(LOG_ERR, "error creating zloop ticket");
     return -1;
   }
 

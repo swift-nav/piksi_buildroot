@@ -12,7 +12,7 @@
 
 #include "sbp_zmq_tx.h"
 #include "util.h"
-#include <stdio.h>
+#include "logging.h"
 #include <assert.h>
 
 #define SBP_FRAME_SIZE_MAX 264
@@ -43,12 +43,12 @@ static int send_buffer_flush(sbp_zmq_tx_ctx_t *ctx)
 {
   zmsg_t *msg = zmsg_new();
   if (msg == NULL) {
-    printf("error in zmsg_new()\n");
+    piksi_log(LOG_ERR, "error in zmsg_new()");
     return -1;
   }
 
   if (zmsg_addmem(msg, ctx->send_buffer, ctx->send_buffer_length) != 0) {
-    printf("error in zmsg_addmem()\n");
+    piksi_log(LOG_ERR, "error in zmsg_addmem()");
     zmsg_destroy(&msg);
     return -1;
   }
@@ -63,7 +63,7 @@ static int send_buffer_flush(sbp_zmq_tx_ctx_t *ctx)
       continue;
     } else {
       /* Return error */
-      printf("error in zmsg_send()\n");
+      piksi_log(LOG_ERR, "error in zmsg_send()");
       zmsg_destroy(&msg);
       return ret;
     }
@@ -80,7 +80,7 @@ sbp_zmq_tx_ctx_t * sbp_zmq_tx_create(zsock_t *zsock)
 
   sbp_zmq_tx_ctx_t *ctx = (sbp_zmq_tx_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
-    printf("error allocating context\n");
+    piksi_log(LOG_ERR, "error allocating context");
     return ctx;
   }
 
@@ -117,7 +117,7 @@ int sbp_zmq_tx_send_from(sbp_zmq_tx_ctx_t *ctx, u16 msg_type, u8 len,
   send_buffer_reset(ctx);
   if (sbp_send_message(&ctx->sbp_state, msg_type, sbp_sender_id, len, payload,
                        send_buffer_write) != SBP_OK) {
-    printf("error sending SBP message\n");
+    piksi_log(LOG_ERR, "error sending SBP message");
     return -1;
   }
 

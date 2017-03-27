@@ -12,7 +12,7 @@
 
 #include "sbp_zmq_rx.h"
 #include "util.h"
-#include <stdio.h>
+#include "logging.h"
 #include <assert.h>
 
 struct sbp_zmq_rx_ctx_s {
@@ -56,7 +56,7 @@ static int message_receive(sbp_zmq_rx_ctx_t *ctx)
       continue;
     } else {
       /* Return error */
-      printf("error in zmsg_recv()\n");
+      piksi_log(LOG_ERR, "error in zmsg_recv()");
       return -1;
     }
   }
@@ -92,7 +92,7 @@ sbp_zmq_rx_ctx_t * sbp_zmq_rx_create(zsock_t *zsock)
 
   sbp_zmq_rx_ctx_t *ctx = (sbp_zmq_rx_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
-    printf("error allocating context\n");
+    piksi_log(LOG_ERR, "error allocating context");
     return ctx;
   }
 
@@ -122,13 +122,13 @@ int sbp_zmq_rx_callback_register(sbp_zmq_rx_ctx_t *ctx, u16 msg_type,
 
   sbp_msg_callbacks_node_t *n = (sbp_msg_callbacks_node_t *)malloc(sizeof(*n));
   if (n == NULL) {
-    printf("error allocating callback node\n");
+    piksi_log(LOG_ERR, "error allocating callback node");
     return -1;
   }
 
   if (sbp_register_callback(&ctx->sbp_state, msg_type,
                             cb, context, n) != SBP_OK) {
-    printf("error registering SBP callback\n");
+    piksi_log(LOG_ERR, "error registering SBP callback");
     free(n);
     return -1;
   }
@@ -148,7 +148,7 @@ int sbp_zmq_rx_callback_remove(sbp_zmq_rx_ctx_t *ctx,
   assert(*node != NULL);
 
   if (sbp_remove_callback(&ctx->sbp_state, *node) != SBP_OK) {
-    printf("error removing SBP callback\n");
+    piksi_log(LOG_ERR, "error removing SBP callback");
     return -1;
   }
 
