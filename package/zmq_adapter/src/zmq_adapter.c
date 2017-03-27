@@ -400,9 +400,19 @@ static void zsock_restart(zsock_t **p_zsock)
 
 static ssize_t zsock_read(zsock_t *zsock, void *buffer, size_t count)
 {
-  zmsg_t *msg = zmsg_recv(zsock);
-  if (msg == NULL) {
-    return -1;
+  zmsg_t *msg;
+  while (1) {
+    msg = zmsg_recv(zsock);
+    if (msg != NULL) {
+      /* Break on success */
+      break;
+    } else if (errno == EINTR) {
+      /* Retry if interrupted */
+      continue;
+    } else {
+      /* Return error */
+      return -1;
+    }
   }
 
   size_t buffer_index = 0;
@@ -441,11 +451,20 @@ static ssize_t zsock_write(zsock_t *zsock, const void *buffer, size_t count)
     return -1;
   }
 
-  result = zmsg_send(&msg, zsock);
-  if (result != 0) {
-    zmsg_destroy(&msg);
-    assert(msg == NULL);
-    return -1;
+  while (1) {
+    result = zmsg_send(&msg, zsock);
+    if (result == 0) {
+      /* Break on success */
+      break;
+    } else if (errno == EINTR) {
+      /* Retry if interrupted */
+      continue;
+    } else {
+      /* Return error */
+      zmsg_destroy(&msg);
+      assert(msg == NULL);
+      return -1;
+    }
   }
 
   assert(msg == NULL);
