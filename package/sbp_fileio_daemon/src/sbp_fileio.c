@@ -16,13 +16,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <libpiksi/logging.h>
 #include <libsbp/file_io.h>
 
 #include "sbp_fileio.h"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
-
-#define log_error(...) fprintf(stderr, __VA_ARGS__)
 
 static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
@@ -58,7 +57,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
 
   if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    log_error("Invalid fileio read message!");
+    piksi_log(LOG_WARNING, "Invalid fileio read message!");
     return;
   }
 
@@ -96,7 +95,7 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
 
   if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    log_error("Invalid fileio read dir message!");
+    piksi_log(LOG_WARNING, "Invalid fileio read dir message!");
     return;
   }
 
@@ -135,7 +134,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
   (void)sender_id;
 
   if ((len < 1) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    log_error("Invalid fileio remove message!");
+    piksi_log(LOG_WARNING, "Invalid fileio remove message!");
     return;
   }
 
@@ -161,7 +160,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   if ((len <= sizeof(*msg) + 2) ||
       (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg)) ==
                               SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
-    log_error("Invalid fileio write message!");
+    piksi_log(LOG_WARNING, "Invalid fileio write message!");
     return;
   }
 
@@ -175,4 +174,3 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
                   sizeof(reply), (u8*)&reply);
 }
-

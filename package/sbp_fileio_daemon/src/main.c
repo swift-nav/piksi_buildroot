@@ -11,9 +11,12 @@
  */
 
 #include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <getopt.h>
 #include "sbp_fileio.h"
+
+#define PROGRAM_NAME "sbp_fileio_daemon"
 
 static const char *pub_endpoint = NULL;
 static const char *sub_endpoint = NULL;
@@ -69,7 +72,10 @@ static int parse_options(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+  logging_init(PROGRAM_NAME);
+
   if (parse_options(argc, argv) != 0) {
+    piksi_log(LOG_ERR, "invalid arguments");
     usage(argv[0]);
     exit(EXIT_FAILURE);
   }
