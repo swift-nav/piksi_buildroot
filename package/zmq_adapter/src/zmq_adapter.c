@@ -496,7 +496,6 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
       continue;
     }
 
-    debug_printf("decoded frame\n");
 
     /* Pass frame through filter */
     if (filter_process(&handle->filter_state, frame, frame_length) != 0) {

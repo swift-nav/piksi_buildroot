@@ -169,7 +169,7 @@ u8 rtcm3_obs_to_sbp(const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4],
                      MAX_OBS_IN_SBP * sizeof(packed_obs_content_t));
             ++sbp_msg;
           }
-          sbp_obs[sbp_msg]->header.t.wn = 1941;
+          sbp_obs[sbp_msg]->header.t.wn = 1942;
           sbp_obs[sbp_msg]->header.t.tow = rtcm_obs->header.tow * 1000.0;
           sbp_obs[sbp_msg]->header.t.ns = 0.0;
         }
