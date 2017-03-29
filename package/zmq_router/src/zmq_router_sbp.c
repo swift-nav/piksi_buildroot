@@ -67,6 +67,13 @@ static port_t ports_sbp[] = {
             NULL
           }
         },
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_SKYLARK],
+          .filters = (const filter_t *[]){
+            &FILTER_ACCEPT(), /* Publish:   SBP MSG_POS_LLH */
+            NULL
+          }
+        },
         NULL
       },
     },
@@ -224,10 +231,9 @@ static port_t ports_sbp[] = {
         &(forwarding_rule_t){
           .dst_port = &ports_sbp[SBP_PORT_FIRMWARE],
           .filters = (const filter_t *[]) {
-            &FILTER_ACCEPT(0x55, 0x020A, 0x00), /* Publish:   SBP MSG_POS_LLH */
-            &FILTER_ACCEPT(0x55, 0x0044, 0x00), /* Subscribe: SBP MSG_BASE_POS_LLH */
-            &FILTER_ACCEPT(0x55, 0x0048, 0x00), /* Subscribe: SBP MSG_BASE_POS_ECEF */
-            &FILTER_ACCEPT(0x55, 0x004A, 0x00), /* Subscribe: SBP MSG_OBS */
+            &FILTER_ACCEPT(0x55, 0x44, 0x00), /* Subscribe: SBP MSG_BASE_POS_LLH */
+            &FILTER_ACCEPT(0x55, 0x48, 0x00), /* Subscribe: SBP MSG_BASE_POS_ECEF */
+            &FILTER_ACCEPT(0x55, 0x4A, 0x00), /* Subscribe: SBP MSG_OBS */
             &FILTER_REJECT(),
             NULL
           }

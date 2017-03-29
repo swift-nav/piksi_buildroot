@@ -1,6 +1,6 @@
 TARGET=libskylark
 SOURCES=libskylark.c
-CFLAGS=-std=gnu11 -fPIC
+CFLAGS=-std=gnu11 -fPIC -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror
 ARFLAGS=rcs
 LDFLAGS=-shared
 

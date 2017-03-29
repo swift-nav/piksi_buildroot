@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2017 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -32,32 +32,36 @@
  *  Constant definitions
  */
 
+/** Maximum buffer size */
 #define BUFSIZE 256
 
+/** Return codes. */
 typedef enum {
-  NO_ERROR               =  0,   /** No error occurred! */
-  E_NOT_IMPLEMENTED      =  1,   /** Not implemented */
-  E_GENERIC_ERROR        =  2,   /** Generic error. */
-  E_NULL_VALUE_ERROR     =  3,   /** A required arguments was null.*/
-  E_DEVICE_CONN_ERROR    =  4,   /** Error connecting to device. */
-  E_DEVICE_CONF_ERROR    =  5,   /** Error configuring device. */
-  E_CONNECTION_ERROR     =  6,   /** Connection failed. */
-  E_SUBSCRIBE_ERROR      =  7,   /** Subscribe failed. */
-  E_PUBLISH_ERROR        =  8,   /** Publish failed. */
-  E_DISCONNECT_ERROR     =  9,   /** Disconnect failed. */
-  E_SSL_CONNECT_ERROR    =  10,  /** TLS handshake failed. */
-  E_SSL_CERT_ERROR       =  11,  /** SSL certificate error */
-  E_UNSUBSCRIBE_ERROR    =  12,  /** Unsubscribe failed. */
-  E_UNSUPPORTED_PLATFORM =  13,  /** Unsupported platform. */
-  E_INITIALIZATION_ERROR =  14   /** Initialization error. */
+  NO_ERROR               =  0,
+  E_NOT_IMPLEMENTED      =  1,
+  E_GENERIC_ERROR        =  2,
+  E_NULL_VALUE_ERROR     =  3,
+  E_CONF_READ_ERROR      =  4,
+  E_INITIALIZATION_ERROR =  5,
+  E_NETWORK_UNAVAILABLE  =  6,
+  E_CONNECTION_LOST      =  7,
+  E_RECONNECTION_FAILED  =  8,
+  E_SUB_CONNECTION_ERROR =  9,
+  E_SUB_WRITE_ERROR      =  10,
+  E_PUB_CONNECTION_ERROR =  11,
+  E_PUB_READ_ERROR       =  12,
+  E_BAD_HTTP_HEADER      =  13,
+  E_NO_ROVER_POS_FOUND   =  14,
+  E_MAX_ERROR            =  15,
 } RC;
 
+const char* client_strerror(RC code);
 
 /**
  *  Constant definitions: libcurl configuration and Skylark status codes.
  */
 
-// HTTP Status codes
+/** Defined Skylark HTTP codes. */
 typedef enum {
   STATUS_PUT_OK             = 200,
   STATUS_GET_OK             = 202,
@@ -83,7 +87,6 @@ typedef enum {
  *  Constant definitions: Skylark - Piksi settings groups and boilerplate.
  */
 
-// TODO (mookerji): Finish these
 #define SETTINGS_SKYLARK_GROUP  "skylark"
 #define SETTINGS_SKYLARK_ENABLE "enable"
 #define SETTINGS_SKYLARK_URL    "url"
@@ -92,31 +95,27 @@ typedef enum {
 #define FILE_SBP_SENDER_ID      "/cfg/sbp_sender_id"
 #define UUID4_SIZE              37
 
-/* static const char const * skylark_mode_enum[] = {"ON", "OFF", NULL}; */
-/* static struct setting_type skylark_mode_settings_type; */
-/* static int TYPE_SKYLARK_MODE = 0; */
-/* enum {SKYLARK_ENABLED, SKYLARK_DISABLED}; */
-
 /**
  *  Constant definitions: Common type definitions around configuration and
  *  header files.
  */
 
-typedef size_t (*callback)(char *p, size_t size, size_t n, void *up);
+/** Callback functions for reading/writing pipe file descriptors. */
+typedef size_t write_callback_fn(char *ptr, size_t size, size_t nmemb, void *userdata);
+typedef size_t read_callback_fn(char *buffer, size_t size, size_t nitems, void *instream);
 
-// TODO (mookerji): Document these
-// TODO (mookerji): Fixup fd stuff
+/** Structure containing Skylark client configuration. */
 typedef struct {
-  char endpoint_url[BUFSIZE];
+  char endpoint_url[BUFSIZE];        /**< Request endpoint */
   char accept_type_header[BUFSIZE];
   char content_type_header[BUFSIZE];
   char user_agent[BUFSIZE];
   char encoding[BUFSIZE];
-  char device_uuid[BUFSIZE];
+  char device_uuid[BUFSIZE];        /**< Device UUID (UUID4) */
   char device_header[BUFSIZE];
-  u16 sbp_sender_id;
-  int fd;
-  u8 enabled;
+  u16 sbp_sender_id;                /**< SBP sender ID */
+  int fd;                           /**< Pipe file descriptor */
+  u8 enabled;                       /**< Is this feature enabled? */
 } client_config_t;
 
 void log_client_config(const client_config_t *config);
@@ -141,12 +140,17 @@ void teardown_globals(void);
  *  Download (i.e., rover) processes.
  */
 
-RC download_process(client_config_t* config, callback cb);
+size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
+
+RC download_process(client_config_t* config, write_callback_fn cb);
 
 /**
  *  Upload processes, for base stations and reference station processing.
  */
 
-RC upload_process(client_config_t *config, callback cb);
+
+size_t upload_callback(void *buffer, size_t size, size_t nitems, void *instream);
+
+RC upload_process(client_config_t *config, read_callback_fn cb);
 
 #endif /* SWIFTNAV_LIBSKYLARK_H */
