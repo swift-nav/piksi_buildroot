@@ -1,7 +1,7 @@
 #!/bin/sh
 
 name="skylark_zmq_adapter_upload_daemon"
-cmd="zmq_adapter --file /tmp/skylark_upload -s >tcp://127.0.0.1:43070 --debug"
+cmd="zmq_adapter --file /tmp/skylark_upload -f sbp -s >tcp://127.0.0.1:43070 --debug"
 dir="/"
 user=""
 

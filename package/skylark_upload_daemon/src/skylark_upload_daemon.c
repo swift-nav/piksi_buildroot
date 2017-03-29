@@ -26,6 +26,7 @@ static size_t upload_callback(void *p, size_t size, size_t n, void *up)
 {
   int *fd = (int *)up;
   ssize_t m = read(*fd, p, size * n);
+  printf("%d\n", m);
   if (m < 0) {
     return CURL_READFUNC_ABORT;
   }
@@ -34,7 +35,7 @@ static size_t upload_callback(void *p, size_t size, size_t n, void *up)
 
 int main(void)
 {
-  log_info("starting upload daemon\n");
+  printf("starting upload daemon\n");
   int fd;
   char * fifo = "/tmp/skylark_upload";
   mkfifo(fifo, 0666);
@@ -42,13 +43,13 @@ int main(void)
 
   client_config_t config;
   (void)init_config(&config);
-  log_client_config(&config);
   config.fd = fd;
   config.enabled = 1;
+  log_client_config(&config);
   (void)setup_globals();
 
   upload_process(&config, &upload_callback);
-  log_info("stopping upload daemon\n");
+  printf("stopping upload daemon\n");
   teardown_globals();
   close(fd);
   unlink(fifo);

@@ -68,7 +68,7 @@ void log_client_config(const client_config_t *config)
   log_debug("client_config: endpoint_url=%s\n", config->endpoint_url);
   log_debug("client_config: accept_type_header=%s\n", config->accept_type_header);
   log_debug("client_config: content_type_header=%s\n", config->content_type_header);
-  log_debug("client_config: encoding=%s\n", config->encoding);
+  log_debug("client_config: encoding=%d\n", config->encoding);
   log_debug("client_config: device_header=%s\n", config->device_header);
   log_debug("client_config: sbp_sender_id=%d\n", config->sbp_sender_id);
   log_debug("client_config: enabled=%d\n", config->enabled);

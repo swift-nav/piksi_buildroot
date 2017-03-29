@@ -38,10 +38,10 @@ int main(void)
   mkfifo(fifo, 0666);
   client_config_t config;
   (void)init_config(&config);
-  log_client_config(&config);
   fd = open(fifo, O_WRONLY);
   config.fd = fd;
   config.enabled = 1;
+  log_client_config(&config);
   (void)setup_globals();
   download_process(&config, &download_callback);
   log_info("stopping download daemon\n");

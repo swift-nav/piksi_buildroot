@@ -1,7 +1,7 @@
 #!/bin/sh
 
 name="skylark_zmq_adapter_download_daemon"
-cmd="zmq_adapter --file /tmp/skylark_download -p >tcp://127.0.0.1:43071 --debug"
+cmd="zmq_adapter --file /tmp/skylark_download -f sbp -p >tcp://127.0.0.1:43071 --debug"
 dir="/"
 user=""
 
