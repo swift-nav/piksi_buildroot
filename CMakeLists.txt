@@ -21,6 +21,6 @@ if (PACKAGE_BUILD_TESTS)
   # Enable testing only works in root scope
   enable_testing ()
   add_subdirectory(host_tests/rotating_logger)
-  add_subdirectory(host_tests/sbp_rtcm3_bridge_tests)
+  #add_subdirectory(host_tests/sbp_rtcm3_bridge_tests)
 
 endif (PACKAGE_BUILD_TESTS)
