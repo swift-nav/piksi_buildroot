@@ -21,6 +21,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// time given from rover observation data. Must be maintained to within half a week of
+// the epoch of incoming RTCM data
+static gps_time_nano_t time_from_rover_obs = { 1942, 0 };
+
 void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length) {
   static uint32_t count = 0;
   uint16_t byte = 1;
@@ -169,8 +173,19 @@ u8 rtcm3_obs_to_sbp(const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4],
                      MAX_OBS_IN_SBP * sizeof(packed_obs_content_t));
             ++sbp_msg;
           }
-          sbp_obs[sbp_msg]->header.t.wn = 1942;
+
           sbp_obs[sbp_msg]->header.t.tow = rtcm_obs->header.tow * 1000.0;
+
+          if( sbp_obs[sbp_msg]->header.t.tow - time_from_rover_obs.tow < -302400 ) {
+              sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn + 1;
+          }
+          else if( sbp_obs[sbp_msg]->header.t.tow - time_from_rover_obs.tow > 302400 ) {
+              sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn - 1;
+          }
+          else {
+              sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn;
+          }
+
           sbp_obs[sbp_msg]->header.t.ns = 0.0;
         }
 
