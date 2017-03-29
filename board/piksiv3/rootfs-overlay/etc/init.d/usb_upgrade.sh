@@ -36,6 +36,8 @@ echo "New firmware image set detected: `ls $FIRMWARE`" | sbp_log $LOGLEVEL
 echo "New firmware image set detected: `ls $FIRMWARE`"
 echo "Performing upgrade..." |  sbp_log $LOGLEVEL
 echo "Performing upgrade..."
+# Killing monit and USB logger
+monit stop zmq_file_logger
 upgrade_tool --debug $FIRMWARE | sbp_log $LOGLEVEL
 umount /media/sda1
 sync
