@@ -36,9 +36,6 @@ echo "New firmware image set detected: `ls $FIRMWARE`" | sbp_log $LOGLEVEL
 echo "New firmware image set detected: `ls $FIRMWARE`"
 echo "Performing upgrade..." |  sbp_log $LOGLEVEL
 echo "Performing upgrade..."
-# Killing any processes that could hurt user experience
-/etc/init.d/S90monit stop
-/etc/init.d/S83zmq_adapter_rpmsg_piksi100 stop
 upgrade_tool --debug $FIRMWARE | sbp_log $LOGLEVEL
 umount /media/sda1
 sync
