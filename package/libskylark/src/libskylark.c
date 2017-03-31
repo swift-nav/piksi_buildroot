@@ -11,10 +11,10 @@
  */
 
 #include <curl/curl.h>
-#include <string.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "libskylark.h"
@@ -52,17 +52,15 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
-
 // TODO (mookerji): Repeated here as is everwhere else! This needs to be moved
 // into a piksi buildroot library.
-static RC get_sbp_sender_id(uint16_t* sender_id)
+static RC get_sbp_sender_id(uint16_t *sender_id)
 {
   *sender_id = DEFAULT_SBP_SENDER_ID;
   char sbp_sender_id_string[32];
   if (file_read_string(FILE_SBP_SENDER_ID, sbp_sender_id_string,
                        sizeof(sbp_sender_id_string)) < 0) {
     return E_GENERIC_ERROR;
-
   }
   *sender_id = strtoul(sbp_sender_id_string, NULL, 10);
   return NO_ERROR;
@@ -129,7 +127,7 @@ void log_client_config(const client_config_t *config)
  *  Settings and HTTP client configuration setup.
  */
 
-RC setup_settings(client_config_t* config)
+RC setup_settings(client_config_t *config)
 {
   (void)config;
   return NO_ERROR;
@@ -140,7 +138,7 @@ RC setup_settings(client_config_t* config)
  * \param uuid  UUID4 string to return.
  * \return  RC return code indicating success or failure
  */
-RC get_device_uuid(char* uuid)
+RC get_device_uuid(char *uuid)
 {
   if (file_read_string(FILE_SKYLARK_UUID, uuid, UUID4_SIZE) < 0) {
     return E_GENERIC_ERROR;
@@ -154,14 +152,14 @@ RC get_device_uuid(char* uuid)
  * \param uuid_header  Formatted string header to return.
  * \return  RC return code indicating success or failure
  */
-RC get_device_header(const char* uuid, char* uuid_header)
+RC get_device_header(const char *uuid, char *uuid_header)
 {
   // TODO: Handle error code here
   sprintf(uuid_header, DEVICE_UID_HEADER_FMT, uuid);
   return NO_ERROR;
 }
 
-RC get_broker_endpoint(char* endpoint_url)
+RC get_broker_endpoint(char *endpoint_url)
 {
   (void)strcpy(endpoint_url, DEFAULT_BROKER_ENDPOINT);
   return NO_ERROR;
@@ -172,14 +170,14 @@ RC get_broker_endpoint(char* endpoint_url)
  * \param config Client configuration to initialize
  * \return  RC return code indicating success or failure
  */
-RC init_config(client_config_t* config)
+RC init_config(client_config_t *config)
 {
   RC rc = NO_ERROR;
   if ((rc = get_device_uuid(config->device_uuid)) < NO_ERROR) {
     return rc;
   }
-  if ((rc = get_device_header(config->device_uuid,
-                              config->device_header)) < NO_ERROR) {
+  if ((rc = get_device_header(config->device_uuid, config->device_header)) <
+      NO_ERROR) {
     return rc;
   }
   if ((rc = get_broker_endpoint(config->endpoint_url)) < NO_ERROR) {
@@ -213,11 +211,7 @@ RC setup_globals(void)
  *
  * \return  RC return code indicating success or failure
  */
-void teardown_globals(void)
-{
-  curl_global_cleanup();
-}
-
+void teardown_globals(void) { curl_global_cleanup(); }
 /**
  *  Download (i.e., rover) processes.
  */
@@ -253,7 +247,8 @@ size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
  * \param cb     Callback function writing to a file descriptor.
  * \return  RC return code indicating success or failure
  */
-RC download_process(client_config_t* config, write_callback_fn cb) {
+RC download_process(client_config_t *config, write_callback_fn cb)
+{
   CURL *curl = curl_easy_init();
   if (curl == NULL) {
     return -E_NULL_VALUE_ERROR;
