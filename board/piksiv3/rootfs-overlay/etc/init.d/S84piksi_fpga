@@ -8,14 +8,12 @@ start() {
     cat "$bit" > /dev/xdevcfg
     prog_done=`cat /sys/devices/soc0/amba/f8007000.devcfg/prog_done`
     if [ "$prog_done" != "1" ]; then
-      while [ 1 ]; do
-         echo "ERROR: FPGA configuration failed"
-         echo "ERROR: FPGA configuration failed" | SBP_LOG --error
-         sleep 1
-      done
+       echo "ERROR: FPGA configuration failed"
+       echo "ERROR: FPGA configuration failed" | SBP_LOG --error
     fi
   else
     echo "ERROR: bitstream not found"
+    echo "ERROR: bitstream not found" | SBP_LOG --error
   fi
 }
 

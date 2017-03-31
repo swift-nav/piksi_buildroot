@@ -17,8 +17,7 @@ copy_from_sd() {
 
   if [ ! -f "$output_file" ]; then
     while [ 1 ]; do
-      echo "ERROR: copy of images from SD card failed. Please Reboot"
-      echo "ERROR: copy of images from SD card failed. Please Reboot" | SBP_LOG --error
+      echo "ERROR: copy of images from network failed. Please Reboot"
       sleep 1
     done
   fi
