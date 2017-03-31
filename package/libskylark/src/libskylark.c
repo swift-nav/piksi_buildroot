@@ -11,12 +11,11 @@
  */
 
 #include <curl/curl.h>
-#include <libsbp/observation.h>
-#include <libsbp/navigation.h>
 #include <string.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <stdio.h>
-//#include <sbp_settings.h>
-#include <sbp_zmq.h>
+#include <unistd.h>
 
 #include "libskylark.h"
 
@@ -53,11 +52,12 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
+
 // TODO (mookerji): Repeated here as is everwhere else! This needs to be moved
 // into a piksi buildroot library.
-static RC get_sbp_sender_id(u16* sender_id)
+static RC get_sbp_sender_id(uint16_t* sender_id)
 {
-  *sender_id = SBP_SENDER_ID;
+  *sender_id = DEFAULT_SBP_SENDER_ID;
   char sbp_sender_id_string[32];
   if (file_read_string(FILE_SBP_SENDER_ID, sbp_sender_id_string,
                        sizeof(sbp_sender_id_string)) < 0) {

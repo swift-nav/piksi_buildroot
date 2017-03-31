@@ -17,8 +17,7 @@ start() {
   UUID_P4=`cat /factory/uuid | cut -c21-32`
   printf "%s-%s-%s-%s-%s" "$UUID_P0" "$UUID_P1" "$UUID_P2" "$UUID_P3" "$UUID_P4" \
          > /cfg/skylark_device_uuid
-  mkfifo /tmp/skylark_download
-  mkfifo /tmp/skylark_upload
+  mkfifo /tmp/skylark_download /tmp/skylark_upload
 }
 
 stop() {

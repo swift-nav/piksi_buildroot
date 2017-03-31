@@ -10,7 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <fcntl.h>
 #include <getopt.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -19,6 +21,7 @@
 #define VERBOSE
 
 static const char *named_source = NULL;
+static const char *endpoint = NULL;
 static bool verbose_logging = false;
 
 //
@@ -29,6 +32,8 @@ static void usage(char *command) {
   printf("Usage: %s\n", command);
   puts("\nPipe - Pipe to read data from");
   puts("\t-s, --sub <FIFO name>");
+  puts("\nEndpoint - HTTP endpoint to upload to");
+  puts("\t-e, --endpoint <HTTP endpoint>");
   puts("\t-v --verbose");
   puts("\t\tWrite status to stderr");
 }
@@ -36,29 +41,38 @@ static void usage(char *command) {
 static int parse_options(int argc, char *argv[]) {
   const struct option long_opts[] = {
     {"sub", required_argument, 0, 's'},
+    {"endpoint", required_argument, 0, 'e'},
     {"verbose", no_argument, 0, 'v'},
     {0, 0, 0, 0}};
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "s:v", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:e:v", long_opts, &opt_index)) != -1) {
     switch (c) {
     case 's': {
       named_source = optarg;
-    }
       break;
+    }
+    case 'e': {
+      endpoint = optarg;
+      break;
+    }
     case 'v': {
       verbose_logging = true;
-    }
       break;
+    }
     default: {
       printf("invalid option\n");
       return -1;
     }
-      break;
+    break;
     }
   }
   if (named_source == NULL) {
     printf("Must specify the name of a pipe to read from.\n");
+    return -1;
+  }
+  if (endpoint == NULL) {
+    printf("Must specify an HTTP endpoint to connect to.\n");
     return -1;
   }
   return 0;
@@ -80,6 +94,7 @@ int main(int argc, char *argv[])
   (void)init_config(&config);
   config.fd = fd;
   config.enabled = 1;
+  strcpy(config.endpoint_url, endpoint);
   log_client_config(&config);
   (void)setup_globals();
   (void)upload_process(&config, &upload_callback);

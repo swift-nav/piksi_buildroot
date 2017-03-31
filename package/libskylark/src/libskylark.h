@@ -16,8 +16,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-// #include <sbp_settings.h>
-#include <sbp_zmq.h>
 
 /**
  *  Logging utilities.
@@ -94,6 +92,7 @@ typedef enum {
 #define FILE_SKYLARK_UUID       "/cfg/skylark_device_uuid"
 #define FILE_SBP_SENDER_ID      "/cfg/sbp_sender_id"
 #define UUID4_SIZE              37
+#define DEFAULT_SBP_SENDER_ID   42
 
 /**
  *  Constant definitions: Common type definitions around configuration and
@@ -113,9 +112,9 @@ typedef struct {
   char encoding[BUFSIZE];
   char device_uuid[BUFSIZE];        /**< Device UUID (UUID4) */
   char device_header[BUFSIZE];
-  u16 sbp_sender_id;                /**< SBP sender ID */
+  uint16_t sbp_sender_id;           /**< SBP sender ID */
   int fd;                           /**< Pipe file descriptor */
-  u8 enabled;                       /**< Is this feature enabled? */
+  uint8_t enabled;                  /**< Is this feature enabled? */
 } client_config_t;
 
 void log_client_config(const client_config_t *config);

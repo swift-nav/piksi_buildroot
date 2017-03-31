@@ -26,8 +26,8 @@ together, these run with:
 
 ```
 mkfifo /tmp/skylark_download /tmp/skylark_upload
-skylark_download_daemon --pub /tmp/skylark_download
-skylark_upload_daemon --sub /tmp/skylark_upload
+skylark_download_daemon --pub /tmp/skylark_download --endpoint https://broker.skylark2.swiftnav.com
+skylark_upload_daemon --sub /tmp/skylark_upload --endpoint https://broker.skylark2.swiftnav.com
 zmq_adapter --file /tmp/skylark_upload -s >tcp://127.0.0.1:43070
 zmq_adapter --file /tmp/skylark_download -p >tcp://127.0.0.1:43071
 ```
