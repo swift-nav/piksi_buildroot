@@ -2,27 +2,18 @@ cmake_minimum_required(VERSION 2.8.10)
 
 project(test_skylark CXX)
 
-include_directories("${GTEST_INCLUDE_DIR}"
-  "../src"
-  "${CZMQ_INCLUDE_DIRS}"
-  "${LIBSBP_INCLUDE_DIRS}"
-  "${sbp_zmq_SOURCE_DIR}")
+include_directories("${GTEST_INCLUDE_DIR}" "../src")
 
-MESSAGE( STATUS "UNIX: " ${CZMQ_LIBRARY_DIRS} )
-
-link_directories("${GTEST_LIBRARY_DIRS}"
-  "${CZMQ_LIBRARY_DIRS}"
-  "${LIBSBP_LIBRARY_DIRS}"
-  "${sbp_zmq_LIBRARY_DIRS}")
+link_directories("${GTEST_LIBRARY_DIRS}")
 
 file(GLOB CXX_FILES *.cc)
 add_definitions(-std=c++11)
 add_executable(${PROJECT_NAME} ${CXX_FILES})
 
-add_dependencies(${PROJECT_NAME} googletest CZeroMQ ZeroMQ)
+add_dependencies(${PROJECT_NAME} googletest)
 
 target_link_libraries(${PROJECT_NAME}
-  ${GTEST_LIBRARY} pthread curl czmq sbp sbp_zmq skylark)
+  ${GTEST_LIBRARY} pthread curl skylark)
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES

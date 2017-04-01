@@ -34,7 +34,16 @@ zmq_adapter --file /tmp/skylark_download -p >tcp://127.0.0.1:43071
 
 The upload and download daemons read and write from two FIFOs
 (`/tmp/skylark_download` and `/tmp/skylark_upload`) they materialize. The ZMQ
-adapter processes manage the piping and framing of SBP via these pipes.
+adapter processes manage the piping and framing of SBP via these pipes. The
+dataflow here looks something like this:
+
+```
+skylark_download_daemon:
+  HTTP GET => callback writer => /tmp/skylark_download => ZMQ to Piksi Firmware
+
+skylark_upload_daemon:
+  ZMQ from Piksi Firmware => /tmp/skylark_upload => callback reader => HTTP PUT
+```
 
 ### Linux Process Management
 
