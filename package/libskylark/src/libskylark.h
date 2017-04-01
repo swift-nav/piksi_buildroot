@@ -50,7 +50,8 @@ typedef enum {
   E_PUB_READ_ERROR = 12,
   E_BAD_HTTP_HEADER = 13,
   E_NO_ROVER_POS_FOUND = 14,
-  E_MAX_ERROR = 15,
+  E_UNAUTHORIZED_CLIENT = 15,
+  E_MAX_ERROR = 16,
 } RC;
 
 const char *client_strerror(RC code);
@@ -116,7 +117,6 @@ typedef struct {
   char device_header[BUFSIZE];
   uint16_t sbp_sender_id; /**< SBP sender ID */
   int fd;                 /**< Pipe file descriptor */
-  uint8_t enabled;        /**< Is this feature enabled? */
 } client_config_t;
 
 void log_client_config(const client_config_t *config);
@@ -143,7 +143,7 @@ void teardown_globals(void);
 
 size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
 
-RC download_process(client_config_t *config, write_callback_fn cb);
+RC download_process(client_config_t *config, write_callback_fn cb, bool verbose);
 
 /**
  *  Upload processes, for base stations and reference station processing.
@@ -152,6 +152,6 @@ RC download_process(client_config_t *config, write_callback_fn cb);
 size_t upload_callback(void *buffer, size_t size, size_t nitems,
                        void *instream);
 
-RC upload_process(client_config_t *config, read_callback_fn cb);
+RC upload_process(client_config_t *config, read_callback_fn cb, bool verbose);
 
 #endif /* SWIFTNAV_LIBSKYLARK_H */

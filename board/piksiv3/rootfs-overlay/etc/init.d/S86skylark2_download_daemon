@@ -1,7 +1,7 @@
 #!/bin/sh
 
 name="skylark_download_daemon"
-cmd="skylark_download_daemon --pub /tmp/skylark_download --endpoint https://broker.skylark2.swiftnav.com"
+cmd="skylark_download_daemon --pub /tmp/skylark_download --endpoint https://broker.skylark2.swiftnav.com -v"
 dir="/"
 user=""
 

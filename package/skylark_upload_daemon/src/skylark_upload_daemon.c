@@ -18,17 +18,18 @@
 
 #include <libskylark.h>
 
-#define VERBOSE
-
-static const char *named_source = NULL;
-static const char *endpoint = NULL;
-static bool verbose_logging = false;
-
 //
 // Upload Daemon - connects to Skylark and sends SBP messages.
 //
 
-static void usage(char *command) {
+// Global configuration variables required for this daemon application.
+static const char *named_source = NULL;
+static const char *endpoint = NULL;
+static bool verbose_logging = false;
+static bool enabled = false;
+
+static void usage(char *command)
+{
   printf("Usage: %s\n", command);
   puts("\nPipe - Pipe to read data from");
   puts("\t-s, --sub <FIFO name>");
@@ -38,33 +39,32 @@ static void usage(char *command) {
   puts("\t\tWrite status to stderr");
 }
 
-static int parse_options(int argc, char *argv[]) {
-  const struct option long_opts[] = {
-    {"sub", required_argument, 0, 's'},
-    {"endpoint", required_argument, 0, 'e'},
-    {"verbose", no_argument, 0, 'v'},
-    {0, 0, 0, 0}};
+static int parse_options(int argc, char *argv[])
+{
+  const struct option long_opts[] = {{"sub", required_argument, 0, 's'},
+                                     {"endpoint", required_argument, 0, 'e'},
+                                     {"verbose", no_argument, 0, 'v'},
+                                     {0, 0, 0, 0}};
   int c;
   int opt_index;
   while ((c = getopt_long(argc, argv, "s:e:v", long_opts, &opt_index)) != -1) {
     switch (c) {
-    case 's': {
-      named_source = optarg;
-      break;
-    }
-    case 'e': {
-      endpoint = optarg;
-      break;
-    }
-    case 'v': {
-      verbose_logging = true;
-      break;
-    }
-    default: {
-      printf("invalid option\n");
-      return -1;
-    }
-    break;
+      case 's': {
+        named_source = optarg;
+        break;
+      }
+      case 'e': {
+        endpoint = optarg;
+        break;
+      }
+      case 'v': {
+        verbose_logging = true;
+        break;
+      }
+      default: {
+        printf("invalid option\n");
+        return -1;
+      } break;
     }
   }
   if (named_source == NULL) {
@@ -93,11 +93,10 @@ int main(int argc, char *argv[])
   client_config_t config;
   (void)init_config(&config);
   config.fd = fd;
-  config.enabled = 1;
   strcpy(config.endpoint_url, endpoint);
   log_client_config(&config);
   (void)setup_globals();
-  (void)upload_process(&config, &upload_callback);
+  (void)upload_process(&config, &upload_callback, verbose_logging);
   log_debug("stopping upload daemon\n");
   teardown_globals();
   close(fd);

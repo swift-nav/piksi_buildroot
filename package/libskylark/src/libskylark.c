@@ -19,8 +19,6 @@
 
 #include "libskylark.h"
 
-#define VERBOSE
-
 /**
  * Functions and utilities related to interfacing with Swift Skylark service.
  *
@@ -119,7 +117,6 @@ void log_client_config(const client_config_t *config)
   log_debug("client_config: endpoint_url=%s\n", config->endpoint_url);
   log_debug("client_config: device_uuid=%s\n", config->device_uuid);
   log_debug("client_config: sbp_sender_id=%d\n", config->sbp_sender_id);
-  log_debug("client_config: enabled=%d\n", config->enabled);
   log_debug("client_config: fd=%d\n", config->fd);
 }
 
@@ -243,11 +240,12 @@ size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
  * Dataflow:
  *   HTTP GET => callback writer => config->fd => reader in external process
  *
- * \param config Skylark Client configuration
- * \param cb     Callback function writing to a file descriptor.
+ * \param config   Skylark Client configuration
+ * \param cb       Callback function writing to a file descriptor.
+ * \param verbose  Verbose output
  * \return  RC return code indicating success or failure
  */
-RC download_process(client_config_t *config, write_callback_fn cb)
+RC download_process(client_config_t *config, write_callback_fn cb, bool verbose)
 {
   CURL *curl = curl_easy_init();
   if (curl == NULL) {
@@ -256,9 +254,9 @@ RC download_process(client_config_t *config, write_callback_fn cb)
   curl_easy_setopt(curl, CURLOPT_URL, config->endpoint_url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cb);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &config->fd);
-#ifdef VERBOSE
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-#endif
+  if (verbose) {
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+  }
   curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT);
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, STREAM_ENCODING);
@@ -305,11 +303,12 @@ size_t upload_callback(void *buffer, size_t size, size_t nitems, void *instream)
  * Dataflow:
  *   writer in external process => callback reader => HTTP PUT
  *
- * \param config Skylark Client configuration
- * \param cb     Callback function writing to a file descriptor.
+ * \param config   Skylark Client configuration
+ * \param cb       Callback function writing to a file descriptor.
+ * \param verbose  Verbose output
  * \return  RC return code indicating success or failure
  */
-RC upload_process(client_config_t *config, read_callback_fn cb)
+RC upload_process(client_config_t *config, read_callback_fn cb, bool verbose)
 {
   CURL *curl = curl_easy_init();
   if (curl == NULL) {
@@ -319,9 +318,9 @@ RC upload_process(client_config_t *config, read_callback_fn cb)
   curl_easy_setopt(curl, CURLOPT_PUT, 1L);
   curl_easy_setopt(curl, CURLOPT_READFUNCTION, cb);
   curl_easy_setopt(curl, CURLOPT_READDATA, &config->fd);
-#ifdef VERBOSE
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-#endif
+  if (verbose) {
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+  }
   curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT);
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, STREAM_ENCODING);
