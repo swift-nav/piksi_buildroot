@@ -64,44 +64,61 @@ static RC get_sbp_sender_id(uint16_t *sender_id)
   return NO_ERROR;
 }
 
-/* const char* client_strerror(RC code) */
-/* { */
-/*   switch (code) { */
-/*   case NO_ERROR: */
-/*     return "No error"; */
-/*   case E_NOT_IMPLEMENTED: */
-/*     return "Not implemented"; */
-/*   case E_GENERIC_ERROR: */
-/*     return "Generic error"; */
-/*   case E_NULL_VALUE_ERROR: */
-/*     return "Required value was NULL"; */
-/*   case E_CONF_READ_ERROR: */
-/*     return "Client: Error reading client configuration parameters"; */
-/*   case E_INITIALIZATION_ERROR: */
-/*     return "Client: Initialization error"; */
-/*   case E_NETWORK_UNAVAILABLE: */
-/*     return "Client: The network is unavailable"; */
-/*   case E_CONNECTION_LOST: */
-/*     return "Client: The network connection was lost"; */
-/*   case E_RECONNECTION_FAILED: */
-/*     return "Client: Network reconnection failed"; */
-/*   case E_SUB_CONNECTION_ERROR: */
-/*     return "Client: Subscribe connection failed"; */
-/*   case E_SUB_WRITE_ERROR: */
-/*     return "Client: Error writing SBP to Piksi"; */
-/*   case E_PUB_CONNECTION_ERROR: */
-/*     return "Client: Publish connection failed"; */
-/*   case E_PUB_READ_ERROR: */
-/*     return "Client: Error reading SBP from Piksi"; */
-/*   case E_BAD_HTTP_HEADER: */
-/*     return "Server: Bad HTTP header"; */
-/*   case E_NO_ROVER_POS_FOUND: */
-/*     return "Server: Required rover position was not found"; */
-/*   case E_MAX_ERROR: */
-/*   default: { */
-/*     return "Client: UNHANDLED ERROR"; */
-/*   } */
-/* } */
+/** Serialize client return code to a human readable message.
+ *
+ * \param code  Client return code
+ * \return  Error message
+ */
+const char* client_strerror(RC code)
+{
+  switch (code) {
+  case NO_ERROR:
+    return "No error";
+  case E_NOT_IMPLEMENTED:
+    return "Not implemented";
+  case E_GENERIC_ERROR:
+    return "Generic error";
+  case E_NULL_VALUE_ERROR:
+    return "Required value was NULL";
+  case E_CONF_READ_ERROR:
+    return "Client: Error reading client configuration parameters";
+  case E_INITIALIZATION_ERROR:
+    return "Client: Initialization error";
+  case E_NETWORK_UNAVAILABLE:
+    return "Client: The network is unavailable";
+  case E_CONNECTION_LOST:
+    return "Client: The network connection was lost";
+  case E_RECONNECTION_FAILED:
+    return "Client: Network reconnection failed";
+  case E_SUB_CONNECTION_ERROR:
+    return "Client: Subscribe connection failed";
+  case E_SUB_WRITE_ERROR:
+    return "Client: Error writing SBP to Piksi";
+  case E_PUB_CONNECTION_ERROR:
+    return "Client: Publish connection failed";
+  case E_PUB_READ_ERROR:
+    return "Client: Error reading SBP from Piksi";
+  case E_BAD_HTTP_HEADER:
+    return "Server: Bad HTTP header";
+  case E_NO_ROVER_POS_FOUND:
+    return "Server: Required rover position was not found";
+  case E_UNAUTHORIZED_CLIENT:
+    return "Server: Client is not authorized to use this service";
+  case E_MAX_ERROR:
+  default: {
+    return "Client: UNHANDLED ERROR";
+  }
+  }
+}
+
+/** Debug log client return code.
+ *
+ * \param code  Client return code
+ */
+void log_client_error(RC code)
+{
+  log_debug("return=%s\n", client_strerror(-code));
+}
 
 /**
  *  Configuration
@@ -116,18 +133,7 @@ void log_client_config(const client_config_t *config)
 {
   log_debug("client_config: endpoint_url=%s\n", config->endpoint_url);
   log_debug("client_config: device_uuid=%s\n", config->device_uuid);
-  log_debug("client_config: sbp_sender_id=%d\n", config->sbp_sender_id);
   log_debug("client_config: fd=%d\n", config->fd);
-}
-
-/**
- *  Settings and HTTP client configuration setup.
- */
-
-RC setup_settings(client_config_t *config)
-{
-  (void)config;
-  return NO_ERROR;
 }
 
 /** Read the Skylark device UUID.

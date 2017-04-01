@@ -13,6 +13,7 @@
 #ifndef SWIFTNAV_LIBSKYLARK_H
 #define SWIFTNAV_LIBSKYLARK_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -55,6 +56,7 @@ typedef enum {
 } RC;
 
 const char *client_strerror(RC code);
+void log_client_error(RC code);
 
 /**
  *  Constant definitions: libcurl configuration and Skylark status codes.
@@ -126,8 +128,6 @@ int client_config_compare(const client_config_t *a, const client_config_t *b);
 /**
  *  Settings and HTTP client configuration setup.
  */
-
-RC setup_settings(client_config_t *config);
 
 RC get_device_uuid(char *uuid);
 RC get_device_header(const char *uuid, char *uuid_header);
