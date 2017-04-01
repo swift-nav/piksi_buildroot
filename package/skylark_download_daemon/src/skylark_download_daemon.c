@@ -39,10 +39,9 @@ static void usage(char *command)
   puts("\t\tWrite status to stderr");
 }
 
+// NOTES TO REMOVE:
 /* * Illegal or missing hexadecimal sequence in chunked-encoding */
 /* 56 Error */
-/* stopping download daemon */
-/* starting download daemon */
 
 // * transfer closed with outstanding read data remaining
 // 18 Error
@@ -91,20 +90,31 @@ int main(int argc, char *argv[])
   log_error("starting download daemon\n");
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
   int fd;
   if ((fd = open(named_sink, O_WRONLY)) < 0) {
     printf("Error opening %s.\n", named_sink);
-    return -1;
+    exit(EXIT_FAILURE);
   }
+  RC rc = NO_ERROR;
   client_config_t config;
-  (void)init_config(&config);
+  if ((rc = init_config(&config)) < NO_ERROR) {
+    log_client_error(rc);
+    exit(EXIT_FAILURE);
+  }
   config.fd = fd;
   strcpy(config.endpoint_url, endpoint);
   log_client_config(&config);
-  (void)setup_globals();
-  (void)download_process(&config, &download_callback, verbose_logging);
+  if ((rc = setup_globals()) < NO_ERROR) {
+    log_client_error(rc);
+    exit(EXIT_FAILURE);
+  }
+  if ((rc = download_process(&config, &download_callback, verbose_logging)) <
+      NO_ERROR) {
+    log_client_error(rc);
+    exit(EXIT_FAILURE);
+  }
   log_error("stopping download daemon\n");
   close(fd);
   teardown_globals();

@@ -143,7 +143,8 @@ void teardown_globals(void);
 
 size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
 
-RC download_process(client_config_t *config, write_callback_fn cb, bool verbose);
+RC download_process(client_config_t *config, write_callback_fn cb,
+                    bool verbose);
 
 /**
  *  Upload processes, for base stations and reference station processing.

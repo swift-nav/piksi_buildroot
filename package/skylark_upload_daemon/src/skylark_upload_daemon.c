@@ -83,20 +83,31 @@ int main(int argc, char *argv[])
   log_error("starting upload daemon\n");
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
   int fd;
   if ((fd = open(named_source, O_RDONLY)) < 0) {
     printf("Error opening %s.\n", named_source);
-    return -1;
+    exit(EXIT_FAILURE);
   }
+  RC rc = NO_ERROR;
   client_config_t config;
-  (void)init_config(&config);
+  if ((rc = init_config(&config)) < NO_ERROR) {
+    log_client_error(rc);
+    exit(EXIT_FAILURE);
+  }
   config.fd = fd;
   strcpy(config.endpoint_url, endpoint);
   log_client_config(&config);
-  (void)setup_globals();
-  (void)upload_process(&config, &upload_callback, verbose_logging);
+  if ((rc = setup_globals()) < NO_ERROR) {
+    log_client_error(rc);
+    exit(EXIT_FAILURE);
+  }
+  if ((rc = upload_process(&config, &upload_callback, verbose_logging)) <
+      NO_ERROR) {
+    log_client_error(rc);
+    exit(EXIT_FAILURE);
+  }
   log_debug("stopping upload daemon\n");
   teardown_globals();
   close(fd);
