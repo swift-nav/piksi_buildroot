@@ -19,6 +19,8 @@
 
 #include "libskylark.h"
 
+//#define VERBOSE
+
 /**
  * Functions and utilities related to interfacing with Swift Skylark service.
  *
@@ -48,20 +50,6 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
     return -1;
   }
   return 0;
-}
-
-// TODO (mookerji): Repeated here as is everwhere else! This needs to be moved
-// into a piksi buildroot library.
-static RC get_sbp_sender_id(uint16_t *sender_id)
-{
-  *sender_id = DEFAULT_SBP_SENDER_ID;
-  char sbp_sender_id_string[32];
-  if (file_read_string(FILE_SBP_SENDER_ID, sbp_sender_id_string,
-                       sizeof(sbp_sender_id_string)) < 0) {
-    return E_GENERIC_ERROR;
-  }
-  *sender_id = strtoul(sbp_sender_id_string, NULL, 10);
-  return NO_ERROR;
 }
 
 /** Serialize client return code to a human readable message.
@@ -162,12 +150,6 @@ RC get_device_header(const char *uuid, char *uuid_header)
   return NO_ERROR;
 }
 
-RC get_broker_endpoint(char *endpoint_url)
-{
-  (void)strcpy(endpoint_url, DEFAULT_BROKER_ENDPOINT);
-  return NO_ERROR;
-}
-
 /** Initialize a Skylark client configuration.
  *
  * \param config Client configuration to initialize
@@ -183,16 +165,8 @@ RC init_config(client_config_t *config)
       NO_ERROR) {
     return rc;
   }
-  if ((rc = get_broker_endpoint(config->endpoint_url)) < NO_ERROR) {
-    return rc;
-  }
-  if ((rc = get_sbp_sender_id(&(config->sbp_sender_id))) < NO_ERROR) {
-    return rc;
-  }
-  strcpy(config->accept_type_header, SBP_V2_ACCEPT_TYPE);
-  strcpy(config->content_type_header, SBP_V2_CONTENT_TYPE);
-  strcpy(config->encoding, STREAM_ENCODING);
-  strcpy(config->user_agent, USER_AGENT);
+  config->fd = 0;
+  memset(config->endpoint_url, '\0', BUFSIZE);
   return rc;
 }
 
@@ -234,6 +208,9 @@ size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
   int *fd = (int *)userdata;
   ssize_t m = write(*fd, ptr, size * nmemb);
+#ifdef VERBOSE
+  log_error("download_callback! size=%d items=%d\n", (int)size, (int)nmemb);
+#endif
   return m;
 }
 
@@ -253,6 +230,7 @@ size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
  */
 RC download_process(client_config_t *config, write_callback_fn cb, bool verbose)
 {
+  log_error("Start of download!\n");
   CURL *curl = curl_easy_init();
   if (curl == NULL) {
     return -E_NULL_VALUE_ERROR;
@@ -316,6 +294,7 @@ size_t upload_callback(void *buffer, size_t size, size_t nitems, void *instream)
  */
 RC upload_process(client_config_t *config, read_callback_fn cb, bool verbose)
 {
+  log_error("Start of upload!\n");
   CURL *curl = curl_easy_init();
   if (curl == NULL) {
     return -E_NULL_VALUE_ERROR;

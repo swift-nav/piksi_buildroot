@@ -41,27 +41,17 @@ namespace {
                  "Device-Uid: 22222222-2222-2222-2222-222222222222");
   }
 
-  TEST(configuration, load_broker_endpoint)
-  {
-    char broker_endpoint[BUFSIZE];
-    RC rc = get_broker_endpoint(broker_endpoint);
-    ASSERT_EQ(rc, NO_ERROR);
-    ASSERT_STREQ(broker_endpoint, DEFAULT_BROKER_ENDPOINT);
-  }
-
   TEST(configuration, load_configuration)
   {
     client_config_t config;
     RC rc = init_config(&config);
+    config.fd = 3;
+    log_client_config(&config);
     ASSERT_EQ(rc, NO_ERROR);
-    ASSERT_STREQ(config.endpoint_url, DEFAULT_BROKER_ENDPOINT);
-    ASSERT_STREQ(config.accept_type_header, SBP_V2_ACCEPT_TYPE);
-    ASSERT_STREQ(config.content_type_header, SBP_V2_CONTENT_TYPE);
-    ASSERT_STREQ(config.encoding, STREAM_ENCODING);
+    ASSERT_STREQ(config.endpoint_url, "");
     ASSERT_STREQ(config.device_uuid, DEFAULT_DEVICE_UID);
     ASSERT_STREQ(config.device_header,
                  "Device-Uid: 22222222-2222-2222-2222-222222222222");
-    ASSERT_EQ(config.sbp_sender_id, 222);
   }
 
   TEST(skylark_connection, download_process)

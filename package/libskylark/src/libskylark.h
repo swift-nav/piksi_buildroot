@@ -81,7 +81,6 @@ typedef enum {
 #define SBP_V2_CONTENT_TYPE \
   "Content-Type: application/vnd.swiftnav.broker.v1+sbp2"
 #define DEVICE_UID_HEADER_FMT "Device-Uid: %s"
-#define DEFAULT_BROKER_ENDPOINT "https://broker.skylark2.swiftnav.com"
 #define USER_AGENT "libskylark-agent/1.0"
 
 /**
@@ -93,9 +92,7 @@ typedef enum {
 #define SETTINGS_SKYLARK_URL "url"
 
 #define FILE_SKYLARK_UUID "/cfg/device_uuid"
-#define FILE_SBP_SENDER_ID "/cfg/sbp_sender_id"
 #define UUID4_SIZE 37
-#define DEFAULT_SBP_SENDER_ID 42
 
 /**
  *  Constant definitions: Common type definitions around configuration and
@@ -111,13 +108,8 @@ typedef size_t read_callback_fn(char *buffer, size_t size, size_t nitems,
 /** Structure containing Skylark client configuration. */
 typedef struct {
   char endpoint_url[BUFSIZE]; /**< Request endpoint */
-  char accept_type_header[BUFSIZE];
-  char content_type_header[BUFSIZE];
-  char user_agent[BUFSIZE];
-  char encoding[BUFSIZE];
   char device_uuid[BUFSIZE]; /**< Device UUID (UUID4) */
   char device_header[BUFSIZE];
-  uint16_t sbp_sender_id; /**< SBP sender ID */
   int fd;                 /**< Pipe file descriptor */
 } client_config_t;
 
@@ -131,7 +123,6 @@ int client_config_compare(const client_config_t *a, const client_config_t *b);
 
 RC get_device_uuid(char *uuid);
 RC get_device_header(const char *uuid, char *uuid_header);
-RC get_broker_endpoint(char *endpoint_url);
 RC init_config(client_config_t *config);
 
 RC setup_globals(void);
