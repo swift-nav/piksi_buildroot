@@ -92,7 +92,7 @@ typedef enum {
 #define SETTINGS_SKYLARK_ENABLE "enable"
 #define SETTINGS_SKYLARK_URL "url"
 
-#define FILE_SKYLARK_UUID "/cfg/skylark_device_uuid"
+#define FILE_SKYLARK_UUID "/cfg/device_uuid"
 #define FILE_SBP_SENDER_ID "/cfg/sbp_sender_id"
 #define UUID4_SIZE 37
 #define DEFAULT_SBP_SENDER_ID 42

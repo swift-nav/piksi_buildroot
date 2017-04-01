@@ -117,7 +117,7 @@ const char *client_strerror(RC code)
  */
 void log_client_error(RC code)
 {
-  log_debug("return=%s\n", client_strerror(-code));
+  log_debug("client_debug_msg=%s\n", client_strerror(-code));
 }
 
 /**

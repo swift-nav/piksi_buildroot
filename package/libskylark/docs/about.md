@@ -39,10 +39,10 @@ dataflow here looks something like this:
 
 ```
 skylark_download_daemon:
-  HTTP GET => callback writer => /tmp/skylark_download => ZMQ to Piksi Firmware
+  HTTP GET => callback writer => /tmp/skylark_download (FIFO) => ZMQ to Piksi Firmware
 
 skylark_upload_daemon:
-  ZMQ from Piksi Firmware => /tmp/skylark_upload => callback reader => HTTP PUT
+  ZMQ from Piksi Firmware => /tmp/skylark_upload (FIFO) => callback reader => HTTP PUT
 ```
 
 ### Linux Process Management
