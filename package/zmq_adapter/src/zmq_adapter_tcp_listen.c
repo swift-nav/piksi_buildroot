@@ -89,7 +89,7 @@ int tcp_listen_loop(int port)
 {
   int server_fd = socket_create(port);
   if (server_fd < 0) {
-    printf("error opening TCP socket\n");
+    syslog(LOG_ERR, "error opening TCP socket");
     return 1;
   }
 

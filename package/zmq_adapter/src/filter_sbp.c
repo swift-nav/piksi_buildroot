@@ -19,6 +19,7 @@
 #include <sys/inotify.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <syslog.h>
 
 #define SBP_MSG_TYPE_OFFSET 1
 #define SBP_MSG_SIZE_MIN    6
@@ -64,7 +65,7 @@ static void filter_sbp_load_config(filter_sbp_state_t *s)
   /* Allocate buffer for rules */
   s->rules = malloc(rules_buffer_count * sizeof(filter_sbp_rule_t));
   if (s->rules  == NULL) {
-    printf("error allocating buffer for rules\n");
+    syslog(LOG_ERR, "error allocating buffer for rules");
     rules_buffer_count = 0;
     return;
   }
@@ -72,7 +73,7 @@ static void filter_sbp_load_config(filter_sbp_state_t *s)
   /* Open file */
   FILE *fp = fopen(s->config_file, "r");
   if (fp == NULL) {
-    printf("error opening %s\n", s->config_file);
+    syslog(LOG_ERR, "error opening %s", s->config_file);
     return;
   }
 
@@ -85,7 +86,7 @@ static void filter_sbp_load_config(filter_sbp_state_t *s)
     unsigned int msg_type;
     unsigned int divisor;
     if (sscanf(line, "%x %x", &msg_type, &divisor) != 2) {
-      printf("error parsing %s\n", s->config_file);
+      syslog(LOG_ERR, "error parsing %s", s->config_file);
       error = true;
       break;
     }
@@ -96,7 +97,7 @@ static void filter_sbp_load_config(filter_sbp_state_t *s)
       s->rules = realloc(s->rules,
                          rules_buffer_count * sizeof(filter_sbp_rule_t));
       if (s->rules  == NULL) {
-        printf("error reallocating buffer for rules\n");
+        syslog(LOG_ERR, "error reallocating buffer for rules");
         rules_buffer_count = 0;
         error = true;
         break;
