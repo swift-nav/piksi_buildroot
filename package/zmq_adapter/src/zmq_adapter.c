@@ -23,6 +23,7 @@
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/zmq_protocols"
 #define READ_BUFFER_SIZE 65536
 #define REP_TIMEOUT_DEFAULT_ms 10000
+#define STARTUP_DELAY_DEFAULT_ms 0
 #define ZSOCK_RESTART_RETRY_COUNT 3
 #define ZSOCK_RESTART_RETRY_DELAY_ms 1
 #define FRAMER_NONE_NAME "none"
@@ -67,6 +68,7 @@ static const char *filter_out_name = FRAMER_NONE_NAME;
 static const char *filter_in_config = NULL;
 static const char *filter_out_config = NULL;
 static int rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
+static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
 
 static const char *zmq_pub_addr = NULL;
 static const char *zmq_sub_addr = NULL;
@@ -119,6 +121,8 @@ static void usage(char *command)
   fprintf(stderr, "\nMisc options\n");
   fprintf(stderr, "\t--rep-timeout <ms>\n");
   fprintf(stderr, "\t\tresponse timeout before resetting a REP socket\n");
+  fprintf(stderr, "\t--startup-delay <ms>\n");
+  fprintf(stderr, "\t\ttime to delay after opening a ZMQ socket\n");
   fprintf(stderr, "\t--debug\n");
 }
 
@@ -129,6 +133,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILE,
     OPT_ID_TCP_LISTEN,
     OPT_ID_REP_TIMEOUT,
+    OPT_ID_STARTUP_DELAY,
     OPT_ID_DEBUG,
     OPT_ID_FILTER_IN,
     OPT_ID_FILTER_OUT,
@@ -146,6 +151,7 @@ static int parse_options(int argc, char *argv[])
     {"file",              required_argument, 0, OPT_ID_FILE},
     {"tcp-l",             required_argument, 0, OPT_ID_TCP_LISTEN},
     {"rep-timeout",       required_argument, 0, OPT_ID_REP_TIMEOUT},
+    {"startup-delay",     required_argument, 0, OPT_ID_STARTUP_DELAY},
     {"filter-in",         required_argument, 0, OPT_ID_FILTER_IN},
     {"filter-out",        required_argument, 0, OPT_ID_FILTER_OUT},
     {"filter-in-config",  required_argument, 0, OPT_ID_FILTER_IN_CONFIG},
@@ -178,6 +184,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_REP_TIMEOUT: {
         rep_timeout_ms = strtol(optarg, NULL, 10);
+      }
+      break;
+
+      case OPT_ID_STARTUP_DELAY: {
+        startup_delay_ms = strtol(optarg, NULL, 10);
       }
       break;
 
@@ -396,6 +407,7 @@ static zsock_t * zsock_start(int type)
     return zsock;
   }
 
+  usleep(1000 * startup_delay_ms);
   debug_printf("opened socket: %s\n", addr);
   return zsock;
 }
