@@ -34,6 +34,7 @@
 
 typedef enum {
   IO_INVALID,
+  IO_STDIO,
   IO_FILE,
   IO_TCP_LISTEN
 } io_mode_t;
@@ -47,7 +48,8 @@ typedef enum {
 
 typedef struct {
   zsock_t *zsock;
-  int fd;
+  int read_fd;
+  int write_fd;
   framer_t *framer;
   filter_t *filter;
 } handle_t;
@@ -110,6 +112,7 @@ static void usage(char *command)
   fprintf(stderr, "\t\tfilter configuration file\n");
 
   fprintf(stderr, "\nIO Modes - select one\n");
+  fprintf(stderr, "\t--stdio\n");
   fprintf(stderr, "\t--file <file>\n");
   fprintf(stderr, "\t--tcp-l <port>\n");
 
@@ -122,7 +125,8 @@ static void usage(char *command)
 static int parse_options(int argc, char *argv[])
 {
   enum {
-    OPT_ID_FILE = 1,
+    OPT_ID_STDIO = 1,
+    OPT_ID_FILE,
     OPT_ID_TCP_LISTEN,
     OPT_ID_REP_TIMEOUT,
     OPT_ID_DEBUG,
@@ -138,6 +142,7 @@ static int parse_options(int argc, char *argv[])
     {"req",               required_argument, 0, 'r'},
     {"rep",               required_argument, 0, 'y'},
     {"framer",            required_argument, 0, 'f'},
+    {"stdio",             no_argument,       0, OPT_ID_STDIO},
     {"file",              required_argument, 0, OPT_ID_FILE},
     {"tcp-l",             required_argument, 0, OPT_ID_TCP_LISTEN},
     {"rep-timeout",       required_argument, 0, OPT_ID_REP_TIMEOUT},
@@ -154,6 +159,11 @@ static int parse_options(int argc, char *argv[])
   while ((c = getopt_long(argc, argv, "p:s:r:y:f:",
                           long_opts, &opt_index)) != -1) {
     switch (c) {
+      case OPT_ID_STDIO: {
+        io_mode = IO_STDIO;
+      }
+      break;
+
       case OPT_ID_FILE: {
         io_mode = IO_FILE;
         file_path = optarg;
@@ -304,13 +314,15 @@ static void handle_deinit(handle_t *handle)
   }
 }
 
-static int handle_init(handle_t *handle, zsock_t *zsock, int fd,
+static int handle_init(handle_t *handle, zsock_t *zsock,
+                       int read_fd, int write_fd,
                        const char *framer_name, const char *filter_name,
                        const char *filter_config)
 {
   *handle = (handle_t) {
     .zsock = zsock,
-    .fd = fd,
+    .read_fd = read_fd,
+    .write_fd = write_fd,
     .framer = framer_create(framer_name),
     .filter = filter_create(filter_name, filter_config)
   };
@@ -327,7 +339,7 @@ static zmq_pollitem_t handle_to_pollitem(const handle_t *handle, short events)
 {
   zmq_pollitem_t pollitem = {
     .socket = handle->zsock == NULL ? NULL : zsock_resolve(handle->zsock),
-    .fd = handle->fd,
+    .fd = handle->read_fd,
     .events = events
   };
   return pollitem;
@@ -507,7 +519,7 @@ static ssize_t handle_read(handle_t *handle, void *buffer, size_t count)
   if (handle->zsock != NULL) {
     return zsock_read(handle->zsock, buffer, count);
   } else {
-    return fd_read(handle->fd, buffer, count);
+    return fd_read(handle->read_fd, buffer, count);
   }
 }
 
@@ -516,7 +528,7 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
   if (handle->zsock != NULL) {
     return zsock_write(handle->zsock, buffer, count);
   } else {
-    return fd_write(handle->fd, buffer, count);
+    return fd_write(handle->write_fd, buffer, count);
   }
 }
 
@@ -766,7 +778,7 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
   debug_printf("io loop end\n");
 }
 
-void io_loop_start(int fd)
+void io_loop_start(int read_fd, int write_fd)
 {
   switch (zsock_mode) {
     case ZSOCK_PUBSUB: {
@@ -781,13 +793,13 @@ void io_loop_start(int fd)
 
           /* Read from fd, write to pub */
           handle_t pub_handle;
-          if (handle_init(&pub_handle, pub, -1, framer_name,
+          if (handle_init(&pub_handle, pub, -1, -1, framer_name,
                           filter_in_name, filter_in_config) != 0) {
             exit(EXIT_FAILURE);
           }
 
           handle_t fd_handle;
-          if (handle_init(&fd_handle, NULL, fd, FRAMER_NONE_NAME,
+          if (handle_init(&fd_handle, NULL, read_fd, -1, FRAMER_NONE_NAME,
                           FILTER_NONE_NAME, NULL) != 0) {
             exit(EXIT_FAILURE);
           }
@@ -812,13 +824,13 @@ void io_loop_start(int fd)
 
           /* Read from sub, write to fd */
           handle_t sub_handle;
-          if (handle_init(&sub_handle, sub, -1, FRAMER_NONE_NAME,
+          if (handle_init(&sub_handle, sub, -1, -1, FRAMER_NONE_NAME,
                           FILTER_NONE_NAME, NULL) != 0) {
             exit(EXIT_FAILURE);
           }
 
           handle_t fd_handle;
-          if (handle_init(&fd_handle, NULL, fd, FRAMER_NONE_NAME,
+          if (handle_init(&fd_handle, NULL, -1, write_fd, FRAMER_NONE_NAME,
                           filter_out_name, filter_out_config) != 0) {
             exit(EXIT_FAILURE);
           }
@@ -846,13 +858,13 @@ void io_loop_start(int fd)
         }
 
         handle_t req_handle;
-        if (handle_init(&req_handle, req, -1, framer_name,
+        if (handle_init(&req_handle, req, -1, -1, framer_name,
                         filter_in_name, filter_in_config) != 0) {
           exit(EXIT_FAILURE);
         }
 
         handle_t fd_handle;
-        if (handle_init(&fd_handle, NULL, fd, FRAMER_NONE_NAME,
+        if (handle_init(&fd_handle, NULL, read_fd, write_fd, FRAMER_NONE_NAME,
                         filter_out_name, filter_out_config) != 0) {
           exit(EXIT_FAILURE);
         }
@@ -879,13 +891,13 @@ void io_loop_start(int fd)
         }
 
         handle_t rep_handle;
-        if (handle_init(&rep_handle, rep, -1, framer_name,
+        if (handle_init(&rep_handle, rep, -1, -1, framer_name,
                         filter_in_name, filter_in_config) != 0) {
           exit(EXIT_FAILURE);
         }
 
         handle_t fd_handle;
-        if (handle_init(&fd_handle, NULL, fd, FRAMER_NONE_NAME,
+        if (handle_init(&fd_handle, NULL, read_fd, write_fd, FRAMER_NONE_NAME,
                         filter_out_name, filter_out_config) != 0) {
           exit(EXIT_FAILURE);
         }
@@ -960,6 +972,12 @@ int main(int argc, char *argv[])
   int ret = 0;
 
   switch (io_mode) {
+    case IO_STDIO: {
+      extern int stdio_loop(void);
+      ret = stdio_loop();
+    }
+    break;
+
     case IO_FILE: {
       extern int file_loop(const char *file_path);
       ret = file_loop(file_path);

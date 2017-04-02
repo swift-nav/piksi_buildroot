@@ -55,7 +55,7 @@ err:
 
 static void handle_client(int client_fd, const struct sockaddr_in *client_addr)
 {
-  io_loop_start(client_fd);
+  io_loop_start(client_fd, client_fd);
 }
 
 static void server_loop(int server_fd)
