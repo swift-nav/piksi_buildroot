@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <syslog.h>
 
 typedef struct framer_interface_s {
   const char *name;
@@ -50,7 +51,7 @@ int framer_interface_register(const char *name,
   framer_interface_t *interface = (framer_interface_t *)
                                       malloc(sizeof(*interface));
   if (interface == NULL) {
-    printf("error allocating framer interface\n");
+    syslog(LOG_ERR, "error allocating framer interface");
     return -1;
   }
 
@@ -63,7 +64,7 @@ int framer_interface_register(const char *name,
   };
 
   if (interface->name == NULL) {
-    printf("error allocating framer interface members\n");
+    syslog(LOG_ERR, "error allocating framer interface members");
     free(interface);
     interface = NULL;
     return -1;
@@ -93,13 +94,13 @@ framer_t * framer_create(const char *name)
   /* Look up interface */
   framer_interface_t *interface = framer_interface_lookup(name);
   if (interface == NULL) {
-    printf("unknown framer: %s\n", name);
+    syslog(LOG_ERR, "unknown framer: %s", name);
     return NULL;
   }
 
   framer_t *framer = (framer_t *)malloc(sizeof(*framer));
   if (framer == NULL) {
-    printf("error allocating framer\n");
+    syslog(LOG_ERR, "error allocating framer");
     return NULL;
   }
 
@@ -109,7 +110,7 @@ framer_t * framer_create(const char *name)
   };
 
   if (framer->state == NULL) {
-    printf("error creating framer\n");
+    syslog(LOG_ERR, "error creating framer");
     free(framer);
     framer = NULL;
     return NULL;

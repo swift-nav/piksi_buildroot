@@ -21,6 +21,7 @@
 #include <dirent.h>
 #include <limits.h>
 #include <dlfcn.h>
+#include <syslog.h>
 
 #define DLSYM_CAST(var) (*(void **) &(var))
 
@@ -91,7 +92,7 @@ static int import(const char *filename)
 
   const char *protocol_name = import_name(handle);
   if (protocol_name == NULL) {
-    printf("missing protocol_name\n");
+    syslog(LOG_ERR, "missing protocol_name");
     goto error;
   }
 
@@ -113,14 +114,14 @@ int protocols_import(const char *path)
   if (framer_interface_register("none", framer_none_create,
                                 framer_none_destroy,
                                 framer_none_process) != 0) {
-    printf("error registering none framer\n");
+    syslog(LOG_ERR, "error registering none framer");
     return -1;
   }
 
   if (filter_interface_register("none", filter_none_create,
                                 filter_none_destroy,
                                 filter_none_process) != 0) {
-    printf("error registering none filter\n");
+    syslog(LOG_ERR, "error registering none filter");
     return -1;
   }
 
@@ -140,7 +141,7 @@ int protocols_import(const char *path)
     char filename[PATH_MAX];
     snprintf(filename, sizeof(filename), "%s/%s", path, dirent->d_name);
     if (import(filename) != 0) {
-      printf("error importing %s\n", filename);
+      syslog(LOG_ERR, "error importing %s", filename);
     }
   }
 

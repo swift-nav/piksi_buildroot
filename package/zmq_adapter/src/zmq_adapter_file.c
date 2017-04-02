@@ -16,7 +16,7 @@ int file_loop(const char *file_path)
 {
   int fd = open(file_path, O_RDWR);
   if (fd < 0) {
-    printf("error opening file\n");
+    syslog(LOG_ERR, "error opening file");
     return 1;
   }
 

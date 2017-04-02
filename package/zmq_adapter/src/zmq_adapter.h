@@ -15,6 +15,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <syslog.h>
 
 #include <czmq.h>
 

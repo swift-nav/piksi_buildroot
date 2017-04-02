@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <libsbp/sbp.h>
+#include <syslog.h>
 
 #define SBP_MSG_LEN_MAX (264)
 
@@ -106,7 +107,7 @@ uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
         *frame_length = c.write_offset;
         return c.read_offset;
       } else {
-        printf("SBP send error\n");
+        syslog(LOG_ERR, "SBP send error");
       }
     }
   }

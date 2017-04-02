@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <dlfcn.h>
+#include <syslog.h>
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/zmq_protocols"
@@ -26,6 +27,10 @@
 #define ZSOCK_RESTART_RETRY_DELAY_ms 1
 #define FRAMER_NONE_NAME "none"
 #define FILTER_NONE_NAME "none"
+
+#define SYSLOG_IDENTITY "zmq_adapter"
+#define SYSLOG_FACILITY LOG_LOCAL0
+#define SYSLOG_OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)
 
 typedef enum {
   IO_INVALID,
@@ -76,42 +81,42 @@ static void debug_printf(const char *msg, ...)
 
   va_list ap;
   va_start(ap, msg);
-  vprintf(msg, ap);
+  vfprintf(stderr, msg, ap);
   va_end(ap);
 }
 
 static void usage(char *command)
 {
-  printf("Usage: %s\n", command);
+  fprintf(stderr, "Usage: %s\n", command);
 
-  puts("\nZMQ Modes - select one or two (see notes)");
-  puts("\t-p, --pub <addr>");
-  puts("\t\tsink socket, may be combined with --sub");
-  puts("\t-s, --sub <addr>");
-  puts("\t\tsource socket, may be combined with --pub");
-  puts("\t-r, --req <addr>");
-  puts("\t\tbidir socket, may not be combined");
-  puts("\t-y, --rep <addr>");
-  puts("\t\tbidir socket, may not be combined");
+  fprintf(stderr, "\nZMQ Modes - select one or two (see notes)\n");
+  fprintf(stderr, "\t-p, --pub <addr>\n");
+  fprintf(stderr, "\t\tsink socket, may be combined with --sub\n");
+  fprintf(stderr, "\t-s, --sub <addr>\n");
+  fprintf(stderr, "\t\tsource socket, may be combined with --pub\n");
+  fprintf(stderr, "\t-r, --req <addr>\n");
+  fprintf(stderr, "\t\tbidir socket, may not be combined\n");
+  fprintf(stderr, "\t-y, --rep <addr>\n");
+  fprintf(stderr, "\t\tbidir socket, may not be combined\n");
 
-  puts("\nFramer Mode - optional");
-  puts("\t-f, --framer <framer>");
+  fprintf(stderr, "\nFramer Mode - optional\n");
+  fprintf(stderr, "\t-f, --framer <framer>\n");
 
-  puts("\nFilter Mode - optional");
-  puts("\t--filter-in <filter>");
-  puts("\t--filter-out <filter>");
-  puts("\t--filter-in-config <file>");
-  puts("\t--filter-out-config <file>");
-  puts("\t\tfilter configuration file");
+  fprintf(stderr, "\nFilter Mode - optional\n");
+  fprintf(stderr, "\t--filter-in <filter>\n");
+  fprintf(stderr, "\t--filter-out <filter>\n");
+  fprintf(stderr, "\t--filter-in-config <file>\n");
+  fprintf(stderr, "\t--filter-out-config <file>\n");
+  fprintf(stderr, "\t\tfilter configuration file\n");
 
-  puts("\nIO Modes - select one");
-  puts("\t--file <file>");
-  puts("\t--tcp-l <port>");
+  fprintf(stderr, "\nIO Modes - select one\n");
+  fprintf(stderr, "\t--file <file>\n");
+  fprintf(stderr, "\t--tcp-l <port>\n");
 
-  puts("\nMisc options");
-  puts("\t--rep-timeout <ms>");
-  puts("\t\tresponse timeout before resetting a REP socket");
-  puts("\t--debug");
+  fprintf(stderr, "\nMisc options\n");
+  fprintf(stderr, "\t--rep-timeout <ms>\n");
+  fprintf(stderr, "\t\tresponse timeout before resetting a REP socket\n");
+  fprintf(stderr, "\t--debug\n");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -170,7 +175,7 @@ static int parse_options(int argc, char *argv[])
         if (filter_interface_valid(optarg) == 0) {
           filter_in_name = optarg;
         } else {
-          printf("invalid input filter\n");
+          fprintf(stderr, "invalid input filter\n");
           return -1;
         }
       }
@@ -180,7 +185,7 @@ static int parse_options(int argc, char *argv[])
         if (filter_interface_valid(optarg) == 0) {
           filter_out_name = optarg;
         } else {
-          printf("invalid output filter\n");
+          fprintf(stderr, "invalid output filter\n");
           return -1;
         }
       }
@@ -229,14 +234,14 @@ static int parse_options(int argc, char *argv[])
         if (framer_interface_valid(optarg) == 0) {
           framer_name = optarg;
         } else {
-          printf("invalid framer\n");
+          fprintf(stderr, "invalid framer\n");
           return -1;
         }
       }
       break;
 
       default: {
-        printf("invalid option\n");
+        fprintf(stderr, "invalid option\n");
         return -1;
       }
       break;
@@ -244,24 +249,24 @@ static int parse_options(int argc, char *argv[])
   }
 
   if (io_mode == IO_INVALID) {
-    printf("invalid mode\n");
+    fprintf(stderr, "invalid mode\n");
     return -1;
   }
 
   if (zsock_mode == ZSOCK_INVALID) {
-    printf("ZMQ address(es) not specified\n");
+    fprintf(stderr, "ZMQ address(es) not specified\n");
     return -1;
   }
 
   if ((strcasecmp(filter_in_name, FILTER_NONE_NAME) == 0) !=
       (filter_in_config == NULL)) {
-    printf("invalid input filter settings\n");
+    fprintf(stderr, "invalid input filter settings\n");
     return -1;
   }
 
   if ((strcasecmp(filter_out_name, FILTER_NONE_NAME) == 0) !=
       (filter_out_config == NULL)) {
-    printf("invalid output filter settings\n");
+    fprintf(stderr, "invalid output filter settings\n");
     return -1;
   }
 
@@ -367,13 +372,13 @@ static zsock_t * zsock_start(int type)
     break;
 
     default: {
-      printf("unknown socket type\n");
+      syslog(LOG_ERR, "unknown socket type");
     }
     break;
   }
 
   if (zsock_attach(zsock, addr, serverish) != 0) {
-    printf("error opening socket: %s\n", addr);
+    syslog(LOG_ERR, "error opening socket: %s", addr);
     zsock_destroy(&zsock);
     assert(zsock == NULL);
     return zsock;
@@ -563,7 +568,7 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
       return write_count;
     }
     if (write_count != frame_length) {
-      printf("warning: write_count != frame_length\n");
+      syslog(LOG_ERR, "warning: write_count != frame_length");
     }
 
     *frames_written += 1;
@@ -623,7 +628,7 @@ static ssize_t frame_transfer(handle_t *read_handle, handle_t *write_handle,
     return write_count;
   }
   if (write_count != read_count) {
-    printf("warning: write_count != read_count\n");
+    syslog(LOG_ERR, "warning: write_count != read_count");
   }
 
   *success = (frames_written == 1);
@@ -652,7 +657,7 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
       break;
     }
     if (write_count != read_count) {
-      printf("warning: write_count != read_count\n");
+      syslog(LOG_ERR, "warning: write_count != read_count");
     }
   }
 
@@ -692,7 +697,7 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
       if ((rep_handle->zsock != NULL) && reply_pending) {
         /* Assume the outstanding request was lost.
          * Reset the REP socket so that another request may be received. */
-        printf("reply timeout - resetting socket\n");
+        syslog(LOG_ERR, "reply timeout - resetting socket");
         zsock_restart(&rep_handle->zsock);
         if (rep_handle->zsock == NULL) {
           break;
@@ -705,11 +710,11 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
     /* Check req_handle */
     if (pollitems[POLLITEM_REQ].revents & ZMQ_POLLIN) {
       if (!reply_pending) {
-        printf("warning: reply received but not pending\n");
+        syslog(LOG_ERR, "warning: reply received but not pending");
         if (rep_handle->zsock != NULL) {
           /* Reply received with no request outstanding.
            * Read and drop data from req_handle. */
-          printf("dropping data\n");
+          syslog(LOG_ERR, "dropping data");
           uint8_t buffer[READ_BUFFER_SIZE];
           ssize_t read_count = handle_read(req_handle, buffer, sizeof(buffer));
           debug_printf("read %zd bytes\n", read_count);
@@ -734,11 +739,11 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
     /* Check rep_handle */
     if (pollitems[POLLITEM_REP].revents & ZMQ_POLLIN) {
       if (reply_pending) {
-        printf("warning: request received while already pending\n");
+        syslog(LOG_ERR, "warning: request received while already pending");
         if (req_handle->zsock != NULL) {
           /* Request received with another outstanding.
            * Reset the REQ socket so that the new request may be sent. */
-          printf("resetting socket\n");
+          syslog(LOG_ERR, "resetting socket");
           zsock_restart(&req_handle->zsock);
           if (req_handle->zsock == NULL) {
             break;
@@ -904,6 +909,8 @@ void io_loop_start(int fd)
 
 int main(int argc, char *argv[])
 {
+  openlog(SYSLOG_IDENTITY, SYSLOG_OPTIONS, SYSLOG_FACILITY);
+
   setpgid(0, 0); /* Set PGID = PID */
 
   const char *protocol_library_path = getenv(PROTOCOL_LIBRARY_PATH_ENV_NAME);
@@ -912,11 +919,13 @@ int main(int argc, char *argv[])
   }
 
   if (protocols_import(protocol_library_path) != 0) {
-    printf("error importing protocols\n");
+    syslog(LOG_ERR, "error importing protocols");
+    fprintf(stderr, "error importing protocols\n");
     exit(EXIT_FAILURE);
   }
 
   if (parse_options(argc, argv) != 0) {
+    syslog(LOG_ERR, "invalid arguments");
     usage(argv[0]);
     exit(EXIT_FAILURE);
   }
@@ -932,7 +941,7 @@ int main(int argc, char *argv[])
   sigemptyset(&sigchld_sa.sa_mask);
   sigchld_sa.sa_flags = SA_NOCLDSTOP;
   if (sigaction(SIGCHLD, &sigchld_sa, NULL) != 0) {
-    printf("error setting up sigchld handler\n");
+    syslog(LOG_ERR, "error setting up sigchld handler");
     exit(EXIT_FAILURE);
   }
 
@@ -944,7 +953,7 @@ int main(int argc, char *argv[])
   if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
       (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
       (sigaction(SIGQUIT, &terminate_sa, NULL) != 0)) {
-    printf("error setting up terminate handler\n");
+    syslog(LOG_ERR, "error setting up terminate handler");
     exit(EXIT_FAILURE);
   }
 
