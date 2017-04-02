@@ -11,7 +11,7 @@ SOURCES= \
 	filter_none.c \
 	filter_sbp.c
 LIBS=-lczmq -lzmq -lsbp
-CFLAGS=-std=gnu11
+CFLAGS=-std=gnu11 -Wall
 
 CROSS=
 

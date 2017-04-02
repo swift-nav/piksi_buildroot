@@ -62,7 +62,7 @@ static void server_loop(int server_fd)
 {
   while (1) {
     struct sockaddr_in client_addr;
-    int client_addr_len = sizeof(client_addr);
+    socklen_t client_addr_len = sizeof(client_addr);
     int client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
                            &client_addr_len);
 
@@ -97,4 +97,5 @@ int tcp_listen_loop(int port)
 
   close(server_fd);
   server_fd = -1;
+  return 0;
 }

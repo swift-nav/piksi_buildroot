@@ -515,14 +515,11 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
       continue;
     }
 
-
     /* Pass frame through filter */
     if (filter_process(&handle->filter_state, frame, frame_length) != 0) {
       debug_printf("ignoring frame\n");
       continue;
     }
-
-    *frames_written += 1;
 
     /* Write frame to handle */
     ssize_t write_count = handle_write_all(handle, frame, frame_length);
@@ -532,6 +529,8 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
     if (write_count != frame_length) {
       printf("warning: write_count != frame_length\n");
     }
+
+    *frames_written += 1;
 
     return buffer_index;
   }
@@ -604,7 +603,7 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     }
 
     /* Write to write_handle via framer */
-    ssize_t frames_written;
+    size_t frames_written;
     ssize_t write_count = handle_write_all_via_framer(write_handle,
                                                       buffer, read_count,
                                                       &frames_written);
