@@ -1,6 +1,7 @@
 TARGET=zmq_adapter
 SOURCES= \
 	zmq_adapter.c \
+	zmq_adapter_stdio.c \
 	zmq_adapter_file.c \
 	zmq_adapter_tcp_listen.c \
 	framer.c \
