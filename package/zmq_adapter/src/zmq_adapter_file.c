@@ -38,4 +38,5 @@ int file_loop(const char *file_path)
 
   close(fd);
   fd = -1;
+  return 0;
 }
