@@ -28,6 +28,10 @@ static const char *endpoint = NULL;
 static bool verbose_logging = false;
 static bool enabled = false;
 
+static int num_retries = 0;
+static int retry_delay = 0;
+static int retry_max_time = 0;
+
 static void usage(char *command)
 {
   printf("Usage: %s\n", command);
@@ -48,10 +52,19 @@ static void usage(char *command)
 
 static int parse_options(int argc, char *argv[])
 {
-  const struct option long_opts[] = {{"pub", required_argument, 0, 'p'},
-                                     {"endpoint", required_argument, 0, 'e'},
-                                     {"verbose", no_argument, 0, 'v'},
-                                     {0, 0, 0, 0}};
+  enum {
+    OPT_NUM_RETRIES = 1,
+    OPT_RETRY_DELAY,
+    OPT_RETRY_MAX_TIME,
+  };
+  const struct option long_opts[] = {
+      {"pub", required_argument, 0, 'p'},
+      {"endpoint", required_argument, 0, 'e'},
+      {"num_retries", required_argument, 0, OPT_NUM_RETRIES},
+      {"retry_delay", required_argument, 0, OPT_RETRY_DELAY},
+      {"retry_max_time", required_argument, 0, OPT_RETRY_MAX_TIME},
+      {"verbose", no_argument, 0, 'v'},
+      {0, 0, 0, 0}};
   int c;
   int opt_index;
   while ((c = getopt_long(argc, argv, "p:e:v", long_opts, &opt_index)) != -1) {
@@ -66,6 +79,18 @@ static int parse_options(int argc, char *argv[])
       }
       case 'v': {
         verbose_logging = true;
+        break;
+      }
+      case OPT_NUM_RETRIES: {
+        num_retries = strtol(optarg, 0, 0);
+        break;
+      }
+      case OPT_RETRY_DELAY: {
+        retry_delay = strtol(optarg, 0, 0);
+        break;
+      }
+      case OPT_RETRY_MAX_TIME: {
+        retry_max_time = strtol(optarg, 0, 10 * 60);
         break;
       }
       default: {
