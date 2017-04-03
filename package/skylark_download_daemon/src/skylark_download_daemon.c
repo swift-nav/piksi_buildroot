@@ -35,10 +35,19 @@ static int retry_max_time = 0;
 static void usage(char *command)
 {
   printf("Usage: %s\n", command);
+  // Core configuration flags
   puts("\nPipe - Pipe to write data to");
   puts("\t-p, --pub <FIFO name>");
   puts("\nEndpoint - HTTP endpoint to download from");
   puts("\t-e, --endpoint <HTTP endpoint>");
+  // Retry logic
+  puts("\nNum Retries - Number of retries (default: 0)");
+  puts("\t--num-retries <retries>");
+  puts("\nRetry Delay - Delay between retries (seconds) (default: 0)");
+  puts("\t--retry-delay <seconds>");
+  puts("\nRetry Max Time - Maximum time to keep retrying (seconds) (default: 0)");
+  puts("\t--retry-max-time <seconds>");
+  // Debug output
   puts("\t-v --verbose");
   puts("\t\tWrite status to stderr");
 }
@@ -130,6 +139,10 @@ int main(int argc, char *argv[])
   }
   config.fd = fd;
   strcpy(config.endpoint_url, endpoint);
+  log_error("fd=%d, config.fd=%d\n", fd, config.fd);
+  config.num_retries = num_retries;
+  config.retry_delay = retry_delay;
+  config.retry_max_time = retry_max_time;
   log_client_config(&config);
   if ((rc = setup_globals()) < NO_ERROR) {
     log_client_error(rc);

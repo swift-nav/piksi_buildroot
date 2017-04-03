@@ -12,7 +12,13 @@
 
 #include "gtest/gtest.h"
 
+
 extern "C" {
+#include <stdio.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include "libskylark.h"
 }
 
@@ -46,9 +52,10 @@ namespace {
     client_config_t config;
     RC rc = init_config(&config);
     config.fd = 3;
+    strncpy(config.endpoint_url, "localhost", sizeof("localhost"));
     log_client_config(&config);
     ASSERT_EQ(rc, NO_ERROR);
-    ASSERT_STREQ(config.endpoint_url, "");
+    ASSERT_STREQ(config.endpoint_url, "localhost");
     ASSERT_STREQ(config.device_uuid, DEFAULT_DEVICE_UID);
     ASSERT_STREQ(config.device_header,
                  "Device-Uid: 22222222-2222-2222-2222-222222222222");
@@ -56,6 +63,7 @@ namespace {
 
   TEST(skylark_connection, download_process)
   {
+
     client_config_t config;
     RC rc = init_config(&config);
     ASSERT_EQ(rc, NO_ERROR);

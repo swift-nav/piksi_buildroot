@@ -109,13 +109,13 @@ void log_client_error(RC code)
 }
 
 /** Debug log CURL error codes
-     + *
-     + * \param code  curl return code
-     + */
+ *
+ * \param code  curl return code
+ */
 static void log_curl_error(CURLcode code)
 {
-    log_error("curl_code=%d message=%s\n", code, curl_easy_strerror(code));
-  }
+  log_error("curl_code=%d message=%s\n", code, curl_easy_strerror(code));
+}
 
 /**
  *  Configuration
@@ -125,12 +125,15 @@ static void log_curl_error(CURLcode code)
  *
  * \param config  Skylark client configuration.
  * \return  RC
-  */
+ */
 void log_client_config(const client_config_t *config)
 {
   log_debug("client_config: endpoint_url=%s\n", config->endpoint_url);
   log_debug("client_config: device_uuid=%s\n", config->device_uuid);
   log_debug("client_config: fd=%d\n", config->fd);
+  log_debug("client_config: num_retries=%d\n", config->num_retries);
+  log_debug("client_config: retry_delay=%d\n", config->retry_delay);
+  log_debug("client_config: retry_max_time=%d\n", config->retry_max_time);
 }
 
 /** Read the Skylark device UUID.
@@ -174,6 +177,9 @@ RC init_config(client_config_t *config)
       NO_ERROR) {
     return rc;
   }
+  config->num_retries = 0;
+  config->retry_delay = 0;
+  config->retry_max_time = 0;
   config->fd = 0;
   memset(config->endpoint_url, '\0', BUFSIZE);
   return rc;

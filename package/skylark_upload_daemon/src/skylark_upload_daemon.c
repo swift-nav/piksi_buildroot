@@ -98,6 +98,7 @@ int main(int argc, char *argv[])
   }
   config.fd = fd;
   strcpy(config.endpoint_url, endpoint);
+  log_error("fd=%d, config.fd=%d\n", fd, config.fd);
   log_client_config(&config);
   if ((rc = setup_globals()) < NO_ERROR) {
     log_client_error(rc);

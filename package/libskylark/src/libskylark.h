@@ -110,6 +110,9 @@ typedef struct {
   char endpoint_url[BUFSIZE]; /**< Request endpoint */
   char device_uuid[BUFSIZE]; /**< Device UUID (UUID4) */
   char device_header[BUFSIZE];
+  int num_retries;    /**< Number of retries */
+  int retry_delay;    /**< Delay between retries (seconds) */
+  int retry_max_time; /**< Maximum time to keep retrying (seconds) */
   int fd;                 /**< Pipe file descriptor */
 } client_config_t;
 
