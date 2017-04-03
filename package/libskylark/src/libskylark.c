@@ -108,6 +108,15 @@ void log_client_error(RC code)
   log_debug("client_debug_msg=%s\n", client_strerror(-code));
 }
 
+/** Debug log CURL error codes
+     + *
+     + * \param code  curl return code
+     + */
+static void log_curl_error(CURLcode code)
+{
+    log_error("curl_code=%d message=%s\n", code, curl_easy_strerror(code));
+  }
+
 /**
  *  Configuration
  */
@@ -249,7 +258,7 @@ RC download_process(client_config_t *config, write_callback_fn cb, bool verbose)
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
   CURLcode res = curl_easy_perform(curl);
   if (res != CURLE_OK) {
-    log_error("curl_code=%d message=%s\n", res, curl_easy_strerror(res));
+    log_curl_error(res);
     curl_easy_cleanup(curl);
     return -E_SUB_CONNECTION_ERROR;
   }
@@ -317,7 +326,7 @@ RC upload_process(client_config_t *config, read_callback_fn cb, bool verbose)
   // TODO (mookerji): Consider having retries and stuff around here.
   // TODO (mookerji): Signal handling?
   if (res != CURLE_OK) {
-    log_error("curl_code=%d message=%s\n", res, curl_easy_strerror(res));
+    log_curl_error(res);
     curl_easy_cleanup(curl);
     return -E_PUB_CONNECTION_ERROR;
   }
