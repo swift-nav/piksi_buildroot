@@ -283,7 +283,7 @@ RC download_process(client_config_t *config, write_callback_fn cb, bool verbose)
  * \param instream  Pointer to file descriptor to read from
  * \return RC return code indicating success or failure
  */
-size_t upload_callback(void *buffer, size_t size, size_t nitems, void *instream)
+size_t upload_callback(char *buffer, size_t size, size_t nitems, void *instream)
 {
   int *fd = (int *)instream;
   ssize_t m = read(*fd, buffer, size * nitems);

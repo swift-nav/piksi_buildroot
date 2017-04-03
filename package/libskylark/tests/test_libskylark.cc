@@ -10,21 +10,52 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "gtest/gtest.h"
-
-
-extern "C" {
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
+#include "gtest/gtest.h"
+
+
+extern "C" {
 #include "libskylark.h"
 }
 
 #define DEFAULT_DEVICE_UID      "22222222-2222-2222-2222-222222222222"
 
+void start_download_server() {
+
+}
+
+void start_upload_server() {
+
+}
+
 namespace {
+
+  struct MockedPipe {
+
+    std::string fifo_name_;
+    int fd_;
+
+    MockedPipe(const std::string& fifo_name) :
+      fifo_name_(fifo_name),
+      fd_() {
+      int code = 0;
+      if (access(fifo_name_.c_str(), F_OK) != -1) {
+        code = unlink(fifo_name_.c_str());
+      }
+      code = mkfifo(fifo_name_.c_str(), S_IRUSR | S_IWUSR);
+      fd_ = open(fifo_name_.c_str(), O_RDONLY | O_NONBLOCK);
+    }
+
+    ~MockedPipe() {
+      close(fd_);
+      unlink(fifo_name_.c_str());
+    }
+  };
 
   TEST(configuration, load_device_uuid)
   {
@@ -61,20 +92,27 @@ namespace {
                  "Device-Uid: 22222222-2222-2222-2222-222222222222");
   }
 
-  TEST(skylark_connection, download_process)
-  {
-
-    client_config_t config;
-    RC rc = init_config(&config);
-    ASSERT_EQ(rc, NO_ERROR);
-
-  }
-
   TEST(skylark_connection, upload_process)
   {
     client_config_t config;
     RC rc = init_config(&config);
     ASSERT_EQ(rc, NO_ERROR);
+    rc = setup_globals();
+    ASSERT_EQ(rc, NO_ERROR);
+    bool verbose_logging = false;
+
+    MockedPipe pipe("/tmp/skylark_upload_test_fifo");
+    config.fd = pipe.fd_;
+    strcpy(config.endpoint_url, "localhost:8080");
+
+    start_upload_server();
+
+    if ((rc = upload_process(&config, &upload_callback, verbose_logging)) <
+        NO_ERROR) {
+      log_client_error(rc);
+    }
+
+    teardown_globals();
   }
 }
 

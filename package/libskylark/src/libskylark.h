@@ -144,7 +144,7 @@ RC download_process(client_config_t *config, write_callback_fn cb,
  *  Upload processes, for base stations and reference station processing.
  */
 
-size_t upload_callback(void *buffer, size_t size, size_t nitems,
+size_t upload_callback(char *buffer, size_t size, size_t nitems,
                        void *instream);
 
 RC upload_process(client_config_t *config, read_callback_fn cb, bool verbose);
