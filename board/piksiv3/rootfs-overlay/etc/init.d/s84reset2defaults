@@ -1,6 +1,6 @@
 #!/bin/sh
 
-name="usb_upgrade"
+name="reset2defaults"
 cmd="/etc/init.d/reset2defaults.sh"
 dir="/"
 user=""
