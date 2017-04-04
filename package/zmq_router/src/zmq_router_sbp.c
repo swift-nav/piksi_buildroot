@@ -14,11 +14,12 @@
 
 typedef enum {
   SBP_PORT_FIRMWARE,
-  SBP_PORT_SETTINGS,
+  SBP_PORT_SETTINGS_DAEMON,
   SBP_PORT_EXTERNAL,
   SBP_PORT_FILEIO_FIRMWARE,
   SBP_PORT_FILEIO_EXTERNAL,
   SBP_PORT_INTERNAL,
+  SBP_PORT_SETTINGS_CLIENT
 } sbp_port_id_t;
 
 static port_t ports_sbp[] = {
@@ -28,7 +29,7 @@ static port_t ports_sbp[] = {
       .sub_addr = "@tcp://127.0.0.1:43011",
       .sub_forwarding_rules = (const forwarding_rule_t *[]) {
         &(forwarding_rule_t){
-          .dst_port = &ports_sbp[SBP_PORT_SETTINGS],
+          .dst_port = &ports_sbp[SBP_PORT_SETTINGS_DAEMON],
           .filters = (const filter_t *[]) {
             &FILTER_ACCEPT(0x55, 0xAE, 0x00), /* Settings register */
             &FILTER_ACCEPT(0x55, 0xA5, 0x00), /* Settings read response */
@@ -72,7 +73,7 @@ static port_t ports_sbp[] = {
     .pub_socket = NULL,
     .sub_socket = NULL,
   },
-  [SBP_PORT_SETTINGS] = {
+  [SBP_PORT_SETTINGS_DAEMON] = {
     .config = {
       .pub_addr = "@tcp://127.0.0.1:43020",
       .sub_addr = "@tcp://127.0.0.1:43021",
@@ -80,7 +81,8 @@ static port_t ports_sbp[] = {
         &(forwarding_rule_t){
           .dst_port = &ports_sbp[SBP_PORT_FIRMWARE],
           .filters = (const filter_t *[]) {
-            &FILTER_ACCEPT(),
+            &FILTER_ACCEPT(0x55, 0xA0, 0x00), /* Settings Write */
+            &FILTER_REJECT(),
             NULL
           }
         },
@@ -93,9 +95,10 @@ static port_t ports_sbp[] = {
           }
         },
         &(forwarding_rule_t){
-          .dst_port = &ports_sbp[SBP_PORT_INTERNAL],
-          .filters = (const filter_t *[]){
-            &FILTER_ACCEPT(),
+          .dst_port = &ports_sbp[SBP_PORT_SETTINGS_CLIENT],
+          .filters = (const filter_t *[]) {
+            &FILTER_ACCEPT(0x55, 0xA0, 0x00), /* Settings Write */
+            &FILTER_REJECT(),
             NULL
           }
         },
@@ -120,7 +123,7 @@ static port_t ports_sbp[] = {
           }
         },
         &(forwarding_rule_t){
-          .dst_port = &ports_sbp[SBP_PORT_SETTINGS],
+          .dst_port = &ports_sbp[SBP_PORT_SETTINGS_DAEMON],
           .filters = (const filter_t *[]) {
             &FILTER_REJECT(0x55, 0xAE, 0x00), /* Settings register */
             &FILTER_REJECT(0x55, 0xA5, 0x00), /* Settings read response */
@@ -143,6 +146,14 @@ static port_t ports_sbp[] = {
           .dst_port = &ports_sbp[SBP_PORT_INTERNAL],
           .filters = (const filter_t *[]) {
             &FILTER_ACCEPT(),
+            NULL
+          }
+        },
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_SETTINGS_CLIENT],
+          .filters = (const filter_t *[]) {
+            &FILTER_ACCEPT(0x55, 0xA0, 0x00), /* Settings Write */
+            &FILTER_REJECT(),
             NULL
           }
         },
@@ -194,17 +205,34 @@ static port_t ports_sbp[] = {
       .sub_addr = "@tcp://127.0.0.1:43061",
       .sub_forwarding_rules = (const forwarding_rule_t *[]) {
         &(forwarding_rule_t){
-          .dst_port = &ports_sbp[SBP_PORT_SETTINGS],
+          .dst_port = &ports_sbp[SBP_PORT_EXTERNAL],
+          .filters = (const filter_t *[]){
+            &FILTER_ACCEPT(),
+            NULL
+          }
+        },
+        NULL
+      },
+    },
+    .pub_socket = NULL,
+    .sub_socket = NULL,
+  },
+  [SBP_PORT_SETTINGS_CLIENT] = {
+    .config = {
+      .pub_addr = "@tcp://127.0.0.1:43070",
+      .sub_addr = "@tcp://127.0.0.1:43071",
+      .sub_forwarding_rules = (const forwarding_rule_t *[]) {
+        &(forwarding_rule_t){
+          .dst_port = &ports_sbp[SBP_PORT_EXTERNAL],
           .filters = (const filter_t *[]) {
-            &FILTER_ACCEPT(0x55, 0xAE, 0x00), /* Settings register */
             &FILTER_ACCEPT(0x55, 0xA5, 0x00), /* Settings read response */
             &FILTER_REJECT(),
             NULL
           }
         },
         &(forwarding_rule_t){
-          .dst_port = &ports_sbp[SBP_PORT_EXTERNAL],
-          .filters = (const filter_t *[]){
+          .dst_port = &ports_sbp[SBP_PORT_SETTINGS_DAEMON],
+          .filters = (const filter_t *[]) {
             &FILTER_ACCEPT(),
             NULL
           }

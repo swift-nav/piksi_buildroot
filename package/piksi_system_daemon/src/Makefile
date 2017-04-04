@@ -3,7 +3,7 @@ SOURCES= \
 	main.c \
 	whitelists.c
 
-LIBS=-lczmq -lsbp -lsbp_zmq -lsbp_settings
+LIBS=-lczmq -lsbp -lpiksi
 CFLAGS=-std=gnu11
 
 CROSS=
