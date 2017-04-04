@@ -13,10 +13,11 @@
 #ifndef SWIFTNAV_SBP_H
 #define SWIFTNAV_SBP_H
 
-#include "rtcm3_messages.h"
-#include <libsbp/sbp.h>
+#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/sbp_zmq_tx.h>
 
-int sbp_init(u16 sender_id, const char *pub_endpoint);
+int sbp_init(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx);
 int sbp_message_send(u16 msg_type, u8 len, u8 *payload);
+int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);
 
 #endif /* SWIFTNAV_SBP_H */

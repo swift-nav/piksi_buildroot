@@ -5,7 +5,7 @@ SOURCES= \
 	rtcm3_decode.c \
 	sbp.c
 
-LIBS=-lczmq -lsbp -lm
+LIBS=-lczmq -lsbp -lpiksi -lm
 CFLAGS=-std=gnu11
 
 CROSS=
