@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Gareth McMullin <gareth@swiftnav.com>
+ * Copyright (C) 2017 Swift Navigation Inc.
+ * Contact: Jacob McNamee <jacob@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,14 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_SETTINGS_H
-#define SWIFTNAV_SETTINGS_H
+#ifndef LIBPIKSI_COMMON_H
+#define LIBPIKSI_COMMON_H
 
-#include <libpiksi/sbp_zmq_rx.h>
-#include <libpiksi/sbp_zmq_tx.h>
+#include <stdint.h>
+#include <libsbp/sbp.h>
+#include <czmq.h>
 
-void settings_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx);
-void settings_reset_defaults(void);
-
-#endif  /* SWIFTNAV_SETTINGS_H */
-
+#endif /* LIBPIKSI_COMMON_H */

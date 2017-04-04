@@ -13,6 +13,8 @@
 #ifndef __WHITELISTS_H
 #define __WHITELISTS_H
 
-int whitelists_init(void);
+#include <libpiksi/settings.h>
+
+int whitelists_init(settings_ctx_t *settings_ctx);
 
 #endif

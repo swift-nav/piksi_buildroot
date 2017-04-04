@@ -1,4 +1,4 @@
-config BR2_PACKAGE_LIBSBP_ZMQ
-	bool "libsbp_zmq"
+config BR2_PACKAGE_LIBPIKSI
+	bool "libpiksi"
 	select BR2_PACKAGE_CZMQ
 	select BR2_PACKAGE_LIBSBP

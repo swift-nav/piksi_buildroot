@@ -16,13 +16,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <libpiksi/logging.h>
 #include <libsbp/file_io.h>
 
 #include "sbp_fileio.h"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
-
-#define log_error(...) fprintf(stderr, __VA_ARGS__)
 
 static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
@@ -32,16 +31,16 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
-void sbp_fileio_setup(sbp_zmq_state_t *sbp_zmq_state)
+void sbp_fileio_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
 {
-  sbp_zmq_callback_register(sbp_zmq_state, SBP_MSG_FILEIO_READ_REQ,
-                            read_cb, sbp_zmq_state, NULL);
-  sbp_zmq_callback_register(sbp_zmq_state, SBP_MSG_FILEIO_READ_DIR_REQ,
-                            read_dir_cb, sbp_zmq_state, NULL);
-  sbp_zmq_callback_register(sbp_zmq_state, SBP_MSG_FILEIO_REMOVE,
-                            remove_cb, sbp_zmq_state, NULL);
-  sbp_zmq_callback_register(sbp_zmq_state, SBP_MSG_FILEIO_WRITE_REQ,
-                            write_cb, sbp_zmq_state, NULL);
+  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ,
+                               read_cb, tx_ctx, NULL);
+  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ,
+                               read_dir_cb, tx_ctx, NULL);
+  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE,
+                               remove_cb, tx_ctx, NULL);
+  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ,
+                               write_cb, tx_ctx, NULL);
 }
 
 /** File read callback.
@@ -55,10 +54,10 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
   msg_fileio_read_req_t *msg = (msg_fileio_read_req_t *)msg_;
-  sbp_zmq_state_t *sbp_zmq_state = (sbp_zmq_state_t *)context;
+  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
 
   if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    log_error("Invalid fileio read message!");
+    piksi_log(LOG_WARNING, "Invalid fileio read message!");
     return;
   }
 
@@ -76,8 +75,8 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     readlen = 0;
   close(f);
 
-  sbp_zmq_message_send(sbp_zmq_state, SBP_MSG_FILEIO_READ_RESP,
-                       sizeof(*reply) + readlen, (u8*)reply);
+  sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP,
+                  sizeof(*reply) + readlen, (u8*)reply);
 }
 
 /** Directory listing callback.
@@ -93,10 +92,10 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
   msg_fileio_read_dir_req_t *msg = (msg_fileio_read_dir_req_t *)msg_;
-  sbp_zmq_state_t *sbp_zmq_state = (sbp_zmq_state_t *)context;
+  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
 
   if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    log_error("Invalid fileio read dir message!");
+    piksi_log(LOG_WARNING, "Invalid fileio read dir message!");
     return;
   }
 
@@ -122,8 +121,8 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   closedir(dir);
 
-  sbp_zmq_message_send(sbp_zmq_state, SBP_MSG_FILEIO_READ_DIR_RESP,
-                       sizeof(*reply) + len, (u8*)reply);
+  sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_DIR_RESP,
+                  sizeof(*reply) + len, (u8*)reply);
 }
 
 /* Remove file callback.
@@ -135,7 +134,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
   (void)sender_id;
 
   if ((len < 1) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    log_error("Invalid fileio remove message!");
+    piksi_log(LOG_WARNING, "Invalid fileio remove message!");
     return;
   }
 
@@ -156,12 +155,12 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
-  sbp_zmq_state_t *sbp_zmq_state = (sbp_zmq_state_t *)context;
+  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
 
   if ((len <= sizeof(*msg) + 2) ||
       (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg)) ==
                               SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
-    log_error("Invalid fileio write message!");
+    piksi_log(LOG_WARNING, "Invalid fileio write message!");
     return;
   }
 
@@ -172,7 +171,6 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   close(f);
 
   msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
-  sbp_zmq_message_send(sbp_zmq_state, SBP_MSG_FILEIO_WRITE_RESP,
-                       sizeof(reply), (u8*)&reply);
+  sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
+                  sizeof(reply), (u8*)&reply);
 }
-
