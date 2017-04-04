@@ -11,71 +11,38 @@
  */
 
 #include "sbp.h"
-#include <czmq.h>
-#include <stdio.h>
 
-typedef struct {
-  u8 send_buffer[264];
-  u32 send_buffer_length;
-} sbp_context_t;
+static struct {
+  sbp_zmq_rx_ctx_t *rx_ctx;
+  sbp_zmq_tx_ctx_t *tx_ctx;
+} ctx = {
+  .rx_ctx = NULL,
+  .tx_ctx = NULL
+};
 
-static sbp_state_t sbp_state;
-static sbp_context_t sbp_context;
-static u16 sbp_sender_id;
-static zsock_t *sbp_pub;
+static sbp_zmq_rx_ctx_t *rx_ctx = NULL;
+static sbp_zmq_tx_ctx_t *tx_ctx = NULL;
 
-static void sbp_send_buffer_reset(void) { sbp_context.send_buffer_length = 0; }
-
-static u32 sbp_send_buffer_write(u8 *buff, u32 n, void *context) {
-  u32 len =
-      MIN(sizeof(sbp_context.send_buffer) - sbp_context.send_buffer_length, n);
-  memcpy(&sbp_context.send_buffer[sbp_context.send_buffer_length], buff, len);
-  sbp_context.send_buffer_length += len;
-  return len;
+int sbp_init(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
+{
+  ctx.rx_ctx = rx_ctx;
+  ctx.tx_ctx = tx_ctx;
 }
 
-static int sbp_send_buffer_flush(void) {
-  zmsg_t *msg = zmsg_new();
-  if (msg == NULL) {
-    printf("error in zmsg_new()\n");
+int sbp_message_send(u16 msg_type, u8 len, u8 *payload)
+{
+  if (ctx.tx_ctx == NULL) {
     return -1;
   }
 
-  if (zmsg_addmem(msg, sbp_context.send_buffer,
-                  sbp_context.send_buffer_length) != 0) {
-    printf("error in zmsg_addmem()\n");
-    zmsg_destroy(&msg);
-    return -1;
-  }
-
-  if (zmsg_send(&msg, sbp_pub) != 0) {
-    printf("error in zmsg_send()\n");
-    return -1;
-  }
-
-  return 0;
+  return sbp_zmq_tx_send(ctx.tx_ctx, msg_type, len, payload);
 }
 
-int sbp_init(u16 sender_id, const char *pub_endpoint) {
-  sbp_state_init(&sbp_state);
-  sbp_sender_id = sender_id;
-
-  sbp_pub = zsock_new_pub(pub_endpoint);
-  if (sbp_pub == NULL) {
-    printf("error creating PUB socket\n");
+int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context)
+{
+  if (ctx.rx_ctx == NULL) {
     return -1;
   }
 
-  return 0;
-}
-
-int sbp_message_send(u16 msg_type, u8 len, u8 *payload) {
-  sbp_send_buffer_reset();
-  if (sbp_send_message(&sbp_state, msg_type, sbp_sender_id, len, payload,
-                       sbp_send_buffer_write) != SBP_OK) {
-    printf("error sending SBP message\n");
-    return -1;
-  }
-
-  return sbp_send_buffer_flush();
+  return sbp_zmq_rx_callback_register(ctx.rx_ctx, msg_type, cb, context, NULL);
 }
