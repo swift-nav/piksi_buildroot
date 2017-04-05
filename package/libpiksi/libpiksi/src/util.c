@@ -10,8 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "util.h"
-#include "logging.h"
+#include <libpiksi/util.h>
+#include <libpiksi/logging.h>
 #include <assert.h>
 
 #define SBP_SENDER_ID_FILE_PATH "/cfg/sbp_sender_id"

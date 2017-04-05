@@ -10,10 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "settings.h"
-#include "sbp_zmq_pubsub.h"
-#include "util.h"
-#include "logging.h"
+#include <libpiksi/settings.h>
+#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/util.h>
+#include <libpiksi/logging.h>
 #include <string.h>
 #include <assert.h>
 #include <libsbp/settings.h>

@@ -1,6 +1,6 @@
 TARGET=libpiksi
 SOURCES=sbp_zmq_tx.c sbp_zmq_rx.c sbp_zmq_pubsub.c settings.c util.c logging.c
-CFLAGS=-std=gnu11 -fPIC
+CFLAGS=-std=gnu11 -fPIC -I../include
 ARFLAGS=rcs
 LDFLAGS=-shared
 

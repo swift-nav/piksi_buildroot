@@ -22,7 +22,7 @@
 #ifndef LIBPIKSI_SBP_ZMQ_RX_H
 #define LIBPIKSI_SBP_ZMQ_RX_H
 
-#include "common.h"
+#include <libpiksi/common.h>
 
 /**
  * @struct  sbp_zmq_rx_ctx_t

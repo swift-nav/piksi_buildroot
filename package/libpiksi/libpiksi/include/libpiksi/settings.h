@@ -22,7 +22,7 @@
 #ifndef LIBPIKSI_SETTINGS_H
 #define LIBPIKSI_SETTINGS_H
 
-#include "common.h"
+#include <libpiksi/common.h>
 
 /**
  * @brief   Settings type.
