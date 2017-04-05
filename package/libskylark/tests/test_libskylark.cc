@@ -83,7 +83,6 @@ TEST(configuration, load_configuration)
   RC rc = init_config(&config);
   config.fd = 3;
   strncpy(config.endpoint_url, "localhost", sizeof("localhost"));
-  log_client_config(&config);
   ASSERT_EQ(rc, NO_ERROR);
   ASSERT_STREQ(config.endpoint_url, "localhost");
   ASSERT_STREQ(config.device_uuid, DEFAULT_DEVICE_UID);
@@ -99,17 +98,11 @@ TEST(skylark_connection, upload_process)
   rc = setup_globals();
   ASSERT_EQ(rc, NO_ERROR);
   bool verbose_logging = false;
-
-  MockedPipe pipe("/tmp/skylark_upload_test_fifo", true);
-  config.fd = pipe.fd_;
+  //MockedPipe pipe("/tmp/skylark_upload_test_fifo", true);
+  config.fd = 0;
   strcpy(config.endpoint_url, "localhost:8080");
-
-  start_upload_server();
-
-  if ((rc = upload_process(&config, verbose_logging)) < NO_ERROR) {
-    log_client_error(rc);
-  }
-
+  rc = upload_process(&config, verbose_logging);
+  ASSERT_EQ(rc, E_PUB_CONNECTION_ERROR);
   teardown_globals();
 }
 }

@@ -19,8 +19,6 @@
 
 #include "libskylark.h"
 
-//#define VERBOSE
-
 /**
  * Functions and utilities related to interfacing with Swift Skylark service.
  *
@@ -86,12 +84,14 @@ const char *client_strerror(RC code)
       return "Client: Publish connection failed";
     case E_PUB_READ_ERROR:
       return "Client: Error reading SBP from Piksi";
-    case E_BAD_HTTP_HEADER:
-      return "Server: Bad HTTP header";
+    case E_BAD_HTTP_REQUEST:
+      return "Server: Bad HTTP header or request";
     case E_NO_ROVER_POS_FOUND:
       return "Server: Required rover position was not found";
     case E_UNAUTHORIZED_CLIENT:
       return "Server: Client is not authorized to use this service";
+    case E_RETRIES_EXHAUSTED:
+      return "Client: Client connection retries exhausted";
     case E_MAX_ERROR:
     default: {
       return "Client: UNHANDLED ERROR";
@@ -105,7 +105,7 @@ const char *client_strerror(RC code)
  */
 void log_client_error(RC code)
 {
-  log_debug("client_debug_msg=%s\n", client_strerror(-code));
+  log_debug("client_debug code=%d msg=%s\n", code, client_strerror(-code));
 }
 
 /** Debug log CURL error codes
@@ -114,7 +114,7 @@ void log_client_error(RC code)
  */
 static void log_curl_error(CURLcode code)
 {
-  log_error("curl_code=%d message=%s\n", code, curl_easy_strerror(code));
+  log_error("curl_debug code=%d msg=%s\n", code, curl_easy_strerror(code));
 }
 
 /**
@@ -203,8 +203,7 @@ RC setup_globals(void)
  *
  * \return  RC return code indicating success or failure
  */
-void teardown_globals(void)
-{
+void teardown_globals(void) {
   curl_global_cleanup();
 }
 
@@ -223,7 +222,8 @@ void teardown_globals(void)
  * \param userdata  Pointer to destination
  * \return RC return code indicating success or failure
  */
-static size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+static size_t download_callback(char *ptr, size_t size, size_t nmemb,
+                                void *userdata)
 {
   int *fd = (int *)userdata;
   ssize_t m = write(*fd, ptr, size * nmemb);
@@ -248,9 +248,6 @@ static size_t download_callback(char *ptr, size_t size, size_t nmemb, void *user
  */
 RC download_process(client_config_t *config, bool verbose)
 {
-  if (verbose) {
-    log_error("Start of download!\n");
-  }
   CURL *curl = curl_easy_init();
   if (curl == NULL) {
     return -E_NULL_VALUE_ERROR;
@@ -288,7 +285,8 @@ RC download_process(client_config_t *config, bool verbose)
  * \param instream  Pointer to file descriptor to read from
  * \return RC return code indicating success or failure
  */
-static size_t upload_callback(char *buffer, size_t size, size_t nitems, void *instream)
+static size_t upload_callback(char *buffer, size_t size, size_t nitems,
+                              void *instream)
 {
   int *fd = (int *)instream;
   ssize_t m = read(*fd, buffer, size * nitems);
@@ -316,9 +314,6 @@ static size_t upload_callback(char *buffer, size_t size, size_t nitems, void *in
  */
 RC upload_process(client_config_t *config, bool verbose)
 {
-  if (verbose) {
-    log_error("Start of upload!\n");
-  }
   CURL *curl = curl_easy_init();
   if (curl == NULL) {
     return -E_NULL_VALUE_ERROR;
@@ -336,15 +331,56 @@ RC upload_process(client_config_t *config, bool verbose)
   chunk = curl_slist_append(chunk, SBP_V2_CONTENT_TYPE);
   chunk = curl_slist_append(chunk, config->device_header);
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
-  CURLcode res = curl_easy_perform(curl);
-  log_info("upload_process after perform\n");
-  // TODO (mookerji): Consider having retries and stuff around here.
-  // TODO (mookerji): Signal handling?
-  if (res != CURLE_OK) {
-    log_curl_error(res);
-    curl_easy_cleanup(curl);
-    return -E_PUB_CONNECTION_ERROR;
+  // Setup some state for checking retries. num_retries counts down to zero and
+  // retry_time_elapsed keeps track of the total amount of time (in seconds)
+  // that we've been retrying for. If we exceed exhaust our number of retries or
+  // exceed the total time we can retry for (config->retry_max_time), then bail.
+  int num_retries = config->num_retries;
+  long retry_time_elapsed = 0;
+  RC ret = NO_ERROR;
+  // Loop until we've exceeded our retries.
+  for (;;) {
+    CURLcode res = curl_easy_perform(curl);
+    if (res != CURLE_OK) {
+      log_curl_error(res);
+      ret = E_PUB_CONNECTION_ERROR;
+    }
+    // Update retry state, and break out if necessary. The error code returned
+    // from this If config->num_retries is non-zero, we assume that the
+    // application user intended to retry, and log an error message.
+    num_retries--;
+    retry_time_elapsed += config->retry_delay;
+    if (num_retries <= 0 || retry_time_elapsed >= config->retry_max_time) {
+      if (config->num_retries > 0) {
+        log_client_error(E_RETRIES_EXHAUSTED);
+      }
+      break;
+    }
+    usleep(config->retry_delay * USEC_IN_SEC);
+    long response;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
+    switch (response) {
+      case STATUS_PATH_NOT_FOUND:
+      case STATUS_BAD_HTTP_REQUEST: {
+        ret = E_BAD_HTTP_REQUEST;
+        break;
+      }
+      case STATUS_UNAUTHORIZED_DEVICE: {
+        ret = E_UNAUTHORIZED_CLIENT;
+        break;
+      }
+      // response=0 when res != CURLE_OK.
+      case 0: {
+        break;
+      }
+      case STATUS_PUT_OK:
+      default: {
+        log_debug("Client: Unhandled error for publishing\n");
+        ret = E_GENERIC_ERROR;
+        break;
+      }
+    }
   }
   curl_easy_cleanup(curl);
-  return NO_ERROR;
+  return ret;
 }

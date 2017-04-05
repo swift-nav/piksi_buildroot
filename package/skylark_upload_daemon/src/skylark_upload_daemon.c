@@ -83,15 +83,15 @@ static int parse_options(int argc, char *argv[])
         break;
       }
       case OPT_NUM_RETRIES: {
-        num_retries = strtol(optarg, 0, 0);
+        num_retries = strtol(optarg, 0, NUM_RETRIES_DEFAULT);
         break;
       }
       case OPT_RETRY_DELAY: {
-        retry_delay = strtol(optarg, 0, 0);
+        retry_delay = strtol(optarg, 0, RETRY_SLEEP_DEFAULT_SEC);
         break;
       }
       case OPT_RETRY_MAX_TIME: {
-        retry_max_time = strtol(optarg, 0, 10 * 60);
+        retry_max_time = strtol(optarg, 0, RETRY_MAX_TIME_DEFAULT_SEC);
         break;
       }
       default: {

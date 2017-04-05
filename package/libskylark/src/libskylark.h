@@ -34,6 +34,12 @@
 /** Maximum buffer size */
 #define BUFSIZE 256
 
+/** Retry constants */
+#define USEC_IN_SEC 1000000
+#define NUM_RETRIES_DEFAULT 0
+#define RETRY_SLEEP_DEFAULT_SEC 1
+#define RETRY_MAX_TIME_DEFAULT_SEC 10
+
 /** Return codes. */
 typedef enum {
   NO_ERROR = 0,
@@ -49,10 +55,11 @@ typedef enum {
   E_SUB_WRITE_ERROR = 10,
   E_PUB_CONNECTION_ERROR = 11,
   E_PUB_READ_ERROR = 12,
-  E_BAD_HTTP_HEADER = 13,
+  E_BAD_HTTP_REQUEST = 13,
   E_NO_ROVER_POS_FOUND = 14,
   E_UNAUTHORIZED_CLIENT = 15,
-  E_MAX_ERROR = 16,
+  E_RETRIES_EXHAUSTED = 16,
+  E_MAX_ERROR = 17,
 } RC;
 
 const char *client_strerror(RC code);
@@ -66,13 +73,10 @@ void log_client_error(RC code);
 typedef enum {
   STATUS_PUT_OK = 200,
   STATUS_GET_OK = 202,
-  STATUS_NO_HEADER = 400,
-  STATUS_BAD_HEADER = 400,
-  STATUS_NO_ROVER_POSITION = 404,
-  STATUS_SOURCE_EXIT = 400,
-  STATUS_BASE_EXIT = 500,
+  STATUS_BAD_HTTP_REQUEST = 400,
+  STATUS_UNAUTHORIZED_DEVICE = 401,
   STATUS_PATH_NOT_FOUND = 404,
-  STATUS_METHOD_NOT_FOUND = 400,
+  STATUS_BASE_EXIT = 500,
 } response_status_t;
 
 // Header definitions
@@ -86,10 +90,6 @@ typedef enum {
 /**
  *  Constant definitions: Skylark - Piksi settings groups and boilerplate.
  */
-
-#define SETTINGS_SKYLARK_GROUP "skylark"
-#define SETTINGS_SKYLARK_ENABLE "enable"
-#define SETTINGS_SKYLARK_URL "url"
 
 #define FILE_SKYLARK_UUID "/cfg/device_uuid"
 #define UUID4_SIZE 37
