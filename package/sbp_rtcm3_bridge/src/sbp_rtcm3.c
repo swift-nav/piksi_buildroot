@@ -492,3 +492,11 @@ void wgsecef2llh(const double ecef[3], double llh[3]) {
   llh[2] = (p * e_c * C + fabs(ecef[2]) * S - WGS84_A * e_c * A_n) /
            sqrt(e_c * e_c * C * C + S * S);
 }
+
+void gps_time_callback(u8 msg[], void* context) {
+  (void) context;
+  gps_time_nano_t *time = (gps_time_nano_t*)msg;
+  time_from_rover_obs.wn = time->wn;
+  time_from_rover_obs.tow = time->tow;
+  time_from_rover_obs.ns = time->ns;
+}

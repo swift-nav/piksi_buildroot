@@ -19,6 +19,7 @@
 #include <libpiksi/sbp_zmq_rx.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
+#include <libsbp/navigation.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -85,6 +86,11 @@ int main(int argc, char *argv[])
   if (sbp_init(sbp_zmq_pubsub_rx_ctx_get(ctx),
                sbp_zmq_pubsub_tx_ctx_get(ctx)) != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
+    exit(EXIT_FAILURE);
+  }
+
+  if(sbp_callback_register(SBP_MSG_GPS_TIME,gps_time_callback,NULL) != 0){
+    piksi_log(LOG_ERR, "error setting GPS TIME callback");
     exit(EXIT_FAILURE);
   }
 
