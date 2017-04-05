@@ -108,6 +108,14 @@ static int parse_options(int argc, char *argv[])
     printf("Must specify an HTTP endpoint to connect to.\n");
     return -1;
   }
+  if (retry_delay <= 0) {
+    printf("Retry delay must be a positive number.\n");
+    return -1;
+  }
+  if (retry_max_time <= 0 && retry_max_time > retry_delay) {
+    printf("Maximum retry time must be a positive number, greater than retry_delay.\n");
+    return -1;
+  }
   return 0;
 }
 
