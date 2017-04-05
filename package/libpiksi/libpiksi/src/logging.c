@@ -10,7 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "logging.h"
+#include <libpiksi/logging.h>
 #include <syslog.h>
 
 #define FACILITY LOG_LOCAL0
