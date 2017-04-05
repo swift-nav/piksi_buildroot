@@ -40,20 +40,20 @@ check process zmq_adapter_rpmsg_piksi101 with pidfile /var/run/zmq_adapter_rpmsg
     stop program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi101 stop"
 
 check process skylark_upload_daemon with pidfile /var/run/skylark_upload_daemon.pid
-    start program = "/etc/init.d/S86skylark1_upload_daemon start"
-    stop program = "/etc/init.d/S86skylark1_upload_daemon stop"
+    start program = "/etc/init.d/S87skylark_upload_daemon start"
+    stop program = "/etc/init.d/S87skylark_upload_daemon stop"
 
 check process skylark_download_daemon with pidfile /var/run/skylark_download_daemon.pid
-    start program = "/etc/init.d/S86skylark2_download_daemon start"
-    stop program = "/etc/init.d/S86skylark2_download_daemon stop"
+    start program = "/etc/init.d/S87skylark_download_daemon start"
+    stop program = "/etc/init.d/S87skylark_download_daemon stop"
 
-check process skylark_zmq_adapter_upload_daemon with pidfile /var/run/skylark_zmq_adapter_upload_daemon.pid
-    start program = "/etc/init.d/S86skylark3_zmq_adapter_upload_daemon start"
-    stop program = "/etc/init.d/S86skylark3_zmq_adapter_upload_daemon stop"
+check process zmq_adapter_skylark_upload_daemon with pidfile /var/run/zmq_adapter_skylark_upload_daemon.pid
+    start program = "/etc/init.d/S88zmq_adapter_skylark_upload_daemon start"
+    stop program = "/etc/init.d/S88zmq_adapter_skylark_upload_daemon stop"
 
-check process skylark_zmq_adapter_download_daemon with pidfile /var/run/skylark_zmq_adapter_download_daemon.pid
-    start program = "/etc/init.d/S86skylark4_zmq_adapter_download_daemon start"
-    stop program = "/etc/init.d/S86skylark4_zmq_adapter_download_daemon stop"
+check process zmq_adapter_skylark_download_daemon with pidfile /var/run/zmq_adapter_skylark_download_daemon.pid
+    start program = "/etc/init.d/S88zmq_adapter_skylark_download_daemon start"
+    stop program = "/etc/init.d/S88zmq_adapter_skylark_download_daemon stop"
 
 check process sshd with pidfile /var/run/sshd.pid
     start program = "/etc/init.d/S50sshd start"
