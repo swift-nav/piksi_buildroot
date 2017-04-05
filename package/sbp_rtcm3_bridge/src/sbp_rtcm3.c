@@ -17,13 +17,20 @@
 #include <assert.h>
 #include <libsbp/gnss.h>
 #include <libsbp/observation.h>
+#include <libsbp/navigation.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 // time given from rover observation data. Must be maintained to within half a week of
 // the epoch of incoming RTCM data
-static gps_time_nano_t time_from_rover_obs = { 1942, 0 };
+static gps_time_nano_t time_from_rover_obs = { .tow = 0, .ns = 0, .wn = .0 };
+
+static double gps_diff_time(const gps_time_nano_t *end, const gps_time_nano_t *beginning)
+{
+    double dt = (double)end->tow - (double)beginning->tow;
+    return dt;
+}
 
 void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length) {
   static uint32_t count = 0;
@@ -175,17 +182,16 @@ u8 rtcm3_obs_to_sbp(const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4],
           }
 
           sbp_obs[sbp_msg]->header.t.tow = rtcm_obs->header.tow * 1000.0;
-
-          if( sbp_obs[sbp_msg]->header.t.tow - time_from_rover_obs.tow < -302400 ) {
+          double timediff = gps_diff_time(&sbp_obs[sbp_msg]->header.t, &time_from_rover_obs);
+          if( timediff < -302400000 ) {
               sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn + 1;
           }
-          else if( sbp_obs[sbp_msg]->header.t.tow - time_from_rover_obs.tow > 302400 ) {
+          else if( timediff > 302400000 ) {
               sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn - 1;
           }
           else {
               sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn;
           }
-
           sbp_obs[sbp_msg]->header.t.ns = 0.0;
         }
 
@@ -491,4 +497,14 @@ void wgsecef2llh(const double ecef[3], double llh[3]) {
   llh[0] = copysign(1.0, ecef[2]) * atan(S / (e_c * C));
   llh[2] = (p * e_c * C + fabs(ecef[2]) * S - WGS84_A * e_c * A_n) /
            sqrt(e_c * e_c * C * C + S * S);
+}
+
+void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context) {
+  (void) context;
+  (void) sender_id;
+  (void) len;
+  msg_gps_time_t *time = (msg_gps_time_t*)msg;
+  time_from_rover_obs.wn = time->wn;
+  time_from_rover_obs.tow = time->tow;
+  time_from_rover_obs.ns = time->ns;
 }

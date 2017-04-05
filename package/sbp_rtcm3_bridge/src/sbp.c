@@ -27,6 +27,7 @@ int sbp_init(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
 {
   ctx.rx_ctx = rx_ctx;
   ctx.tx_ctx = tx_ctx;
+  return 0;
 }
 
 int sbp_message_send(u16 msg_type, u8 len, u8 *payload)

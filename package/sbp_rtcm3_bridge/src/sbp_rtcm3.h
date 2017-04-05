@@ -81,4 +81,6 @@ void rtcm3_1006_to_sbp(const rtcm_msg_1006 *rtcm_1006,
 void sbp_to_rtcm3_1006(const msg_base_pos_ecef_t *sbp_base_pos,
                        rtcm_msg_1006 *rtcm_1006);
 
+void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context);
+
 #endif // PIKSI_BUILDROOT_SBP_RTCM3_H
