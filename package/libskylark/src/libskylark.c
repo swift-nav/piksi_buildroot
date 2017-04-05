@@ -144,7 +144,7 @@ void log_client_config(const client_config_t *config)
 RC get_device_uuid(char *uuid)
 {
   if (file_read_string(FILE_SKYLARK_UUID, uuid, UUID4_SIZE) < 0) {
-    return E_GENERIC_ERROR;
+    return -E_CONF_READ_ERROR;
   }
   return NO_ERROR;
 }
@@ -343,7 +343,7 @@ RC upload_process(client_config_t *config, bool verbose)
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
       log_curl_error(res);
-      ret = E_PUB_CONNECTION_ERROR;
+      ret = -E_PUB_CONNECTION_ERROR;
     }
     // Update retry state, and break out if necessary. The error code returned
     // from this If config->num_retries is non-zero, we assume that the
@@ -362,11 +362,11 @@ RC upload_process(client_config_t *config, bool verbose)
     switch (response) {
       case STATUS_PATH_NOT_FOUND:
       case STATUS_BAD_HTTP_REQUEST: {
-        ret = E_BAD_HTTP_REQUEST;
+        ret = -E_BAD_HTTP_REQUEST;
         break;
       }
       case STATUS_UNAUTHORIZED_DEVICE: {
-        ret = E_UNAUTHORIZED_CLIENT;
+        ret = -E_UNAUTHORIZED_CLIENT;
         break;
       }
       // response=0 when res != CURLE_OK.
@@ -376,7 +376,7 @@ RC upload_process(client_config_t *config, bool verbose)
       case STATUS_PUT_OK:
       default: {
         log_debug("Client: Unhandled error for publishing\n");
-        ret = E_GENERIC_ERROR;
+        ret = -E_GENERIC_ERROR;
         break;
       }
     }

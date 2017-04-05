@@ -102,7 +102,7 @@ TEST(skylark_connection, upload_process)
   config.fd = 0;
   strcpy(config.endpoint_url, "localhost:8080");
   rc = upload_process(&config, verbose_logging);
-  ASSERT_EQ(rc, E_PUB_CONNECTION_ERROR);
+  ASSERT_EQ(rc, -E_PUB_CONNECTION_ERROR);
   teardown_globals();
 }
 }
