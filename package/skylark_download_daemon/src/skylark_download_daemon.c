@@ -52,13 +52,6 @@ static void usage(char *command)
   puts("\t\tWrite status to stderr");
 }
 
-// NOTES TO REMOVE:
-/* * Illegal or missing hexadecimal sequence in chunked-encoding */
-/* 56 Error */
-
-// * transfer closed with outstanding read data remaining
-// 18 Error
-
 static int parse_options(int argc, char *argv[])
 {
   enum {
