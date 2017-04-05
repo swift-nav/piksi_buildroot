@@ -203,7 +203,11 @@ RC setup_globals(void)
  *
  * \return  RC return code indicating success or failure
  */
-void teardown_globals(void) { curl_global_cleanup(); }
+void teardown_globals(void)
+{
+  curl_global_cleanup();
+}
+
 /**
  *  Download (i.e., rover) processes.
  */

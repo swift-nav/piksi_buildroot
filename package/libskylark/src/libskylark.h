@@ -118,8 +118,6 @@ typedef struct {
 
 void log_client_config(const client_config_t *config);
 
-int client_config_compare(const client_config_t *a, const client_config_t *b);
-
 /**
  *  Settings and HTTP client configuration setup.
  */
