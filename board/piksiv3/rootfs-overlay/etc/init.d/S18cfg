@@ -14,8 +14,7 @@ case "$1" in
   UUID_P2=`cat /factory/uuid | cut -c13-16`
   UUID_P3=`cat /factory/uuid | cut -c17-20`
   UUID_P4=`cat /factory/uuid | cut -c21-32`
-  printf "%s-%s-%s-%s-%s" "$UUID_P0" "$UUID_P1" "$UUID_P2" "$UUID_P3" "$UUID_P4" \
-         > /cfg/device_uuid
+  printf "%s-%s-%s-%s-%s" "$UUID_P0" "$UUID_P1" "$UUID_P2" "$UUID_P3" "$UUID_P4" > /cfg/device_uuid
   ;;
   stop)
   ;;
