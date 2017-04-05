@@ -100,10 +100,10 @@ typedef enum {
  */
 
 /** Callback functions for reading/writing pipe file descriptors. */
-typedef size_t write_callback_fn(char *ptr, size_t size, size_t nmemb,
-                                 void *userdata);
-typedef size_t read_callback_fn(char *buffer, size_t size, size_t nitems,
-                                void *instream);
+/* typedef size_t write_callback_fn(char *ptr, size_t size, size_t nmemb, */
+/*                                  void *userdata); */
+/* typedef size_t read_callback_fn(char *buffer, size_t size, size_t nitems, */
+/*                                 void *instream); */
 
 /** Structure containing Skylark client configuration. */
 typedef struct {
@@ -133,18 +133,17 @@ void teardown_globals(void);
  *  Download (i.e., rover) processes.
  */
 
-size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
+// size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
 
-RC download_process(client_config_t *config, write_callback_fn cb,
-                    bool verbose);
+RC download_process(client_config_t *config, bool verbose);
 
 /**
  *  Upload processes, for base stations and reference station processing.
  */
 
-size_t upload_callback(char *buffer, size_t size, size_t nitems,
-                       void *instream);
+/* size_t upload_callback(char *buffer, size_t size, size_t nitems, */
+/*                        void *instream); */
 
-RC upload_process(client_config_t *config, read_callback_fn cb, bool verbose);
+RC upload_process(client_config_t *config, bool verbose);
 
 #endif /* SWIFTNAV_LIBSKYLARK_H */

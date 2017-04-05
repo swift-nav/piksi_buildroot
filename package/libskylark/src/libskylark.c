@@ -223,7 +223,7 @@ void teardown_globals(void)
  * \param userdata  Pointer to destination
  * \return RC return code indicating success or failure
  */
-size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+static size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
   int *fd = (int *)userdata;
   ssize_t m = write(*fd, ptr, size * nmemb);
@@ -243,19 +243,20 @@ size_t download_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
  *   HTTP GET => callback writer => config->fd => reader in external process
  *
  * \param config   Skylark Client configuration
- * \param cb       Callback function writing to a file descriptor.
  * \param verbose  Verbose output
  * \return  RC return code indicating success or failure
  */
-RC download_process(client_config_t *config, write_callback_fn cb, bool verbose)
+RC download_process(client_config_t *config, bool verbose)
 {
-  log_error("Start of download!\n");
+  if (verbose) {
+    log_error("Start of download!\n");
+  }
   CURL *curl = curl_easy_init();
   if (curl == NULL) {
     return -E_NULL_VALUE_ERROR;
   }
   curl_easy_setopt(curl, CURLOPT_URL, config->endpoint_url);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cb);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, download_callback);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &config->fd);
   if (verbose) {
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
@@ -287,10 +288,13 @@ RC download_process(client_config_t *config, write_callback_fn cb, bool verbose)
  * \param instream  Pointer to file descriptor to read from
  * \return RC return code indicating success or failure
  */
-size_t upload_callback(char *buffer, size_t size, size_t nitems, void *instream)
+static size_t upload_callback(char *buffer, size_t size, size_t nitems, void *instream)
 {
   int *fd = (int *)instream;
   ssize_t m = read(*fd, buffer, size * nitems);
+#ifdef VERBOSE
+  log_error("upload_callback! size=%d items=%d\n", (int)size, (int)nitems);
+#endif
   if (m < 0) {
     return CURL_READFUNC_ABORT;
   }
@@ -307,20 +311,21 @@ size_t upload_callback(char *buffer, size_t size, size_t nitems, void *instream)
  *   writer in external process => callback reader => HTTP PUT
  *
  * \param config   Skylark Client configuration
- * \param cb       Callback function writing to a file descriptor.
  * \param verbose  Verbose output
  * \return  RC return code indicating success or failure
  */
-RC upload_process(client_config_t *config, read_callback_fn cb, bool verbose)
+RC upload_process(client_config_t *config, bool verbose)
 {
-  log_error("Start of upload!\n");
+  if (verbose) {
+    log_error("Start of upload!\n");
+  }
   CURL *curl = curl_easy_init();
   if (curl == NULL) {
     return -E_NULL_VALUE_ERROR;
   }
   curl_easy_setopt(curl, CURLOPT_URL, config->endpoint_url);
   curl_easy_setopt(curl, CURLOPT_PUT, 1L);
-  curl_easy_setopt(curl, CURLOPT_READFUNCTION, cb);
+  curl_easy_setopt(curl, CURLOPT_READFUNCTION, upload_callback);
   curl_easy_setopt(curl, CURLOPT_READDATA, &config->fd);
   if (verbose) {
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);

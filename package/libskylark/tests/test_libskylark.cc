@@ -106,8 +106,7 @@ TEST(skylark_connection, upload_process)
 
   start_upload_server();
 
-  if ((rc = upload_process(&config, &upload_callback, verbose_logging)) <
-      NO_ERROR) {
+  if ((rc = upload_process(&config, verbose_logging)) < NO_ERROR) {
     log_client_error(rc);
   }
 

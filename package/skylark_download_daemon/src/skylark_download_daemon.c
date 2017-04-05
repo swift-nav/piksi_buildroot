@@ -148,8 +148,7 @@ int main(int argc, char *argv[])
     log_client_error(rc);
     exit(EXIT_FAILURE);
   }
-  if ((rc = download_process(&config, &download_callback, verbose_logging)) <
-      NO_ERROR) {
+  if ((rc = download_process(&config, verbose_logging)) < NO_ERROR) {
     log_client_error(rc);
     exit(EXIT_FAILURE);
   }
