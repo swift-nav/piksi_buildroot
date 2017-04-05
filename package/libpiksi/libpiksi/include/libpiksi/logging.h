@@ -22,7 +22,7 @@
 #ifndef LIBPIKSI_LOGGING_H
 #define LIBPIKSI_LOGGING_H
 
-#include "common.h"
+#include <libpiksi/common.h>
 #include <syslog.h>
 
 /**

@@ -10,8 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "sbp_zmq_pubsub.h"
-#include "logging.h"
+#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/logging.h>
 #include <assert.h>
 
 struct sbp_zmq_pubsub_ctx_s {

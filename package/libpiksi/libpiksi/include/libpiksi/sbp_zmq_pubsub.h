@@ -22,10 +22,10 @@
 #ifndef LIBPIKSI_SBP_ZMQ_PUBSUB_H
 #define LIBPIKSI_SBP_ZMQ_PUBSUB_H
 
-#include "common.h"
+#include <libpiksi/common.h>
 
-#include "sbp_zmq_rx.h"
-#include "sbp_zmq_tx.h"
+#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/sbp_zmq_tx.h>
 
 /**
  * @struct  sbp_zmq_pubsub_ctx_t
