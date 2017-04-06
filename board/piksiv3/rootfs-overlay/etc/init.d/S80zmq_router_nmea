@@ -1,0 +1,9 @@
+#!/bin/sh
+
+name="zmq_router_nmea"
+cmd="zmq_router -f /etc/zmq_router/nmea_router.yml"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh
+

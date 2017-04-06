@@ -10,88 +10,119 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <assert.h>
-
 #include "zmq_router.h"
+#include "zmq_router_load.h"
+#include "zmq_router_print.h"
+#include <stdio.h>
+#include <string.h>
+#include <getopt.h>
 
-extern const router_t router_sbp;
-extern const router_t router_nmea;
-extern const router_t router_rtcm3;
-
-static const router_t * const routers[] = {
-  &router_sbp,
-  &router_nmea,
-  &router_rtcm3
+static struct {
+  const char *filename;
+  bool print;
+  bool debug;
+} options = {
+  .filename = NULL,
+  .print = false,
+  .debug = false
 };
 
-static void router_setup(const router_t *router)
+static void usage(char *command)
 {
-  for (int i=0; i<router->ports_count; i++) {
-    port_t *port = &router->ports[i];
+  printf("Usage: %s\n", command);
 
-    port->pub_socket = zsock_new_pub(port->config.pub_addr);
+  puts("-f, --file <config.yml>");
+  puts("--print");
+  puts("--debug");
+}
+
+static int parse_options(int argc, char *argv[])
+{
+  enum {
+    OPT_ID_PRINT = 1,
+    OPT_ID_DEBUG
+  };
+
+  const struct option long_opts[] = {
+    {"file",      required_argument, 0, 'f'},
+    {"print",     no_argument,       0, OPT_ID_PRINT},
+    {"debug",     no_argument,       0, OPT_ID_DEBUG},
+    {0, 0, 0, 0}
+  };
+
+  int c;
+  int opt_index;
+  while ((c = getopt_long(argc, argv, "f:",
+                          long_opts, &opt_index)) != -1) {
+    switch (c) {
+
+      case 'f': {
+        options.filename = optarg;
+      }
+      break;
+
+      case OPT_ID_PRINT: {
+        options.print = true;
+      }
+      break;
+
+      case OPT_ID_DEBUG: {
+        options.debug = true;
+      }
+      break;
+
+      default: {
+        printf("invalid option\n");
+        return -1;
+      }
+      break;
+    }
+  }
+
+  if (options.filename == NULL) {
+    printf("config file not specified\n");
+    return -1;
+  }
+
+  return 0;
+}
+
+static int router_setup(router_t *router)
+{
+  port_t *port;
+  for (port = router->ports_list; port != NULL; port = port->next) {
+    port->pub_socket = zsock_new_pub(port->pub_addr);
     if (port->pub_socket == NULL) {
       printf("zsock_new_pub() error\n");
-      exit(1);
+      return -1;
     }
 
-    port->sub_socket = zsock_new_sub(port->config.sub_addr, "");
+    port->sub_socket = zsock_new_sub(port->sub_addr, "");
     if (port->sub_socket == NULL) {
       printf("zsock_new_sub() error\n");
-      exit(1);
+      return -1;
     }
   }
+
+  return 0;
 }
 
-static void routers_setup(const router_t * const routers[], int routers_count)
-{
-  for (int i=0; i<routers_count; i++) {
-    router_setup(routers[i]);
-  }
-}
-
-static void router_destroy(const router_t *router)
-{
-  for (int i=0; i<router->ports_count; i++) {
-    port_t *port = &router->ports[i];
-    zsock_destroy(&port->pub_socket);
-    assert(port->pub_socket == NULL);
-    zsock_destroy(&port->sub_socket);
-    assert(port->sub_socket == NULL);
-  }
-}
-
-static void routers_destroy(const router_t * const routers[], int routers_count)
-{
-  for (int i=0; i<routers_count; i++) {
-    router_destroy(routers[i]);
-  }
-}
-
-static void loop_add_router(zloop_t *loop, const router_t *router,
+static int zloop_router_add(zloop_t *zloop, router_t *router,
                             zloop_reader_fn reader_fn)
 {
-  for (int i=0; i<router->ports_count; i++) {
-    port_t *port = &router->ports[i];
-    int result;
-    result = zloop_reader(loop, port->sub_socket, reader_fn, port);
-    if (result != 0) {
+  port_t *port;
+  for (port = router->ports_list; port != NULL; port = port->next) {
+    if (zloop_reader(zloop, port->sub_socket, reader_fn, port) != 0) {
       printf("zloop_reader() error\n");
-      exit(1);
+      return -1;
     }
   }
+
+  return 0;
 }
 
-static void loop_setup(zloop_t *loop, const router_t * const routers[],
-                       int routers_count, zloop_reader_fn reader_fn)
-{
-  for (int i=0; i<routers_count; i++) {
-    loop_add_router(loop, routers[i], reader_fn);
-  }
-}
-
-static void process_filter_match(const forwarding_rule_t *forwarding_rule,
-                                 const filter_t *filter, zmsg_t *msg)
+static void filter_match_process(forwarding_rule_t *forwarding_rule,
+                                 filter_t *filter, zmsg_t *msg)
 {
   switch (filter->action) {
   case FILTER_ACTION_ACCEPT: {
@@ -100,8 +131,8 @@ static void process_filter_match(const forwarding_rule_t *forwarding_rule,
       printf("zmsg_dup() error\n");
       break;
     }
-    int result = zmsg_send(&tx_msg, forwarding_rule->dst_port->pub_socket);
-    if (result != 0) {
+
+    if (zmsg_send(&tx_msg, forwarding_rule->dst_port->pub_socket) != 0) {
       printf("zmsg_send() error\n");
       break;
     }
@@ -120,16 +151,13 @@ static void process_filter_match(const forwarding_rule_t *forwarding_rule,
 }
 }
 
-static void process_rule(const forwarding_rule_t *forwarding_rule,
+static void rule_process(forwarding_rule_t *forwarding_rule,
                          const void *prefix, int prefix_len, zmsg_t *msg)
 {
   /* Iterate over filters for this rule */
-  int filter_index = 0;
-  while (1) {
-    const filter_t *filter = forwarding_rule->filters[filter_index++];
-    if (filter == NULL) {
-      break;
-    }
+  filter_t *filter;
+  for (filter = forwarding_rule->filters_list; filter != NULL;
+       filter = filter->next) {
 
     bool match = false;
 
@@ -144,7 +172,7 @@ static void process_rule(const forwarding_rule_t *forwarding_rule,
     }
 
     if (match) {
-      process_filter_match(forwarding_rule, filter, msg);
+      filter_match_process(forwarding_rule, filter, msg);
 
       /* Done with this rule after finding a filter match */
       break;
@@ -152,7 +180,7 @@ static void process_rule(const forwarding_rule_t *forwarding_rule,
   }
 }
 
-static int reader_fn(zloop_t *loop, zsock_t *reader, void *arg)
+static int reader_fn(zloop_t *zloop, zsock_t *zsock, void *arg)
 {
   port_t *port = (port_t *)arg;
 
@@ -165,40 +193,75 @@ static int reader_fn(zloop_t *loop, zsock_t *reader, void *arg)
   /* Get first frame for filtering */
   zframe_t *rx_frame_first = zmsg_first(rx_msg);
   const void *rx_prefix = NULL;
-  int rx_prefix_len = 0;
+  size_t rx_prefix_len = 0;
   if (rx_frame_first != NULL) {
     rx_prefix = zframe_data(rx_frame_first);
     rx_prefix_len = zframe_size(rx_frame_first);
   }
 
   /* Iterate over forwarding rules */
-  int rule_index = 0;
-  while (1) {
-    const forwarding_rule_t *forwarding_rule =
-        port->config.sub_forwarding_rules[rule_index++];
-    if (forwarding_rule == NULL) {
-      break;
-    }
-
-    process_rule(forwarding_rule, rx_prefix, rx_prefix_len, rx_msg);
+  forwarding_rule_t *forwarding_rule;
+  for (forwarding_rule = port->forwarding_rules_list; forwarding_rule != NULL;
+       forwarding_rule = forwarding_rule->next) {
+    rule_process(forwarding_rule, rx_prefix, rx_prefix_len, rx_msg);
   }
 
   zmsg_destroy(&rx_msg);
   return 0;
 }
 
-int main (void)
+void debug_printf(const char *msg, ...)
 {
-  routers_setup(routers, sizeof(routers)/sizeof(routers[0]));
+  if (!options.debug) {
+    return;
+  }
 
-  zloop_t *loop = zloop_new();
-  assert(loop);
-  loop_setup(loop, routers, sizeof(routers)/sizeof(routers[0]), reader_fn);
+  va_list ap;
+  va_start(ap, msg);
+  vprintf(msg, ap);
+  va_end(ap);
+}
 
-  zloop_start(loop);
+int main(int argc, char *argv[])
+{
+  if (parse_options(argc, argv) != 0) {
+    usage(argv[0]);
+    exit(EXIT_FAILURE);
+  }
 
-  zloop_destroy(&loop);
-  routers_destroy(routers, sizeof(routers)/sizeof(routers[0]));
+  /* Prevent czmq from catching signals */
+  zsys_handler_set(NULL);
 
-  return 0;
+  /* Load router from config file */
+  router_t *router = zmq_router_load(options.filename);
+  if (router == NULL) {
+    exit(EXIT_FAILURE);
+  }
+
+  /* Print router config and exit if requested */
+  if (options.print) {
+    if (zmq_router_print(stdout, router) != 0) {
+      exit(EXIT_FAILURE);
+    }
+    exit(EXIT_SUCCESS);
+  }
+
+  /* Set up router data */
+  if (router_setup(router) != 0) {
+    exit(EXIT_FAILURE);
+  }
+
+  /* Create zloop */
+  zloop_t *zloop = zloop_new();
+  if (zloop == NULL) {
+    exit(EXIT_FAILURE);
+  }
+
+  /* Add router to zloop */
+  if (zloop_router_add(zloop, router, reader_fn) != 0) {
+    exit(EXIT_FAILURE);
+  }
+
+  zloop_start(zloop);
+  exit(EXIT_SUCCESS);
 }
