@@ -25,6 +25,9 @@ static sbp_zmq_tx_ctx_t *tx_ctx = NULL;
 
 int sbp_init(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
 {
+  if(rx_ctx == NULL || tx_ctx == NULL){
+    return -1;
+  }
   ctx.rx_ctx = rx_ctx;
   ctx.tx_ctx = tx_ctx;
   return 0;
