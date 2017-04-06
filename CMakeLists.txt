@@ -9,6 +9,7 @@ include("cmake/zmq.cmake")
 include("package/libsbp/CMakeLists.txt")
 
 add_subdirectory(package/libpiksi)
+add_subdirectory(package/sbp_protocol)
 add_subdirectory(package/zmq_adapter/src)
 add_subdirectory(package/rotating_zmq_logger/src)
 add_subdirectory(package/sbp_rtcm3_bridge/src)
