@@ -183,13 +183,11 @@ u8 rtcm3_obs_to_sbp(const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4],
 
           sbp_obs[sbp_msg]->header.t.tow = rtcm_obs->header.tow * 1000.0;
           double timediff = gps_diff_time(&sbp_obs[sbp_msg]->header.t, &time_from_rover_obs);
-          if( timediff < -302400000 ) {
+          if (timediff < -302400000) {
               sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn + 1;
-          }
-          else if( timediff > 302400000 ) {
+          } else if (timediff > 302400000) {
               sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn - 1;
-          }
-          else {
+          } else {
               sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn;
           }
           sbp_obs[sbp_msg]->header.t.ns = 0.0;
@@ -499,7 +497,8 @@ void wgsecef2llh(const double ecef[3], double llh[3]) {
            sqrt(e_c * e_c * C * C + S * S);
 }
 
-void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context) {
+void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
   (void) context;
   (void) sender_id;
   (void) len;
