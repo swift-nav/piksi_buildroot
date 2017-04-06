@@ -10,9 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "sbp_zmq_tx.h"
-#include "util.h"
-#include "logging.h"
+#include <libpiksi/sbp_zmq_tx.h>
+#include <libpiksi/util.h>
+#include <libpiksi/logging.h>
 #include <assert.h>
 
 #define SBP_FRAME_SIZE_MAX 264

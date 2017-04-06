@@ -10,7 +10,8 @@ RUN apt-get update && apt-get -y --force-yes install \
   cpio \
   libssl-dev \
   ncurses-dev \
-  mercurial
+  mercurial \
+  cmake
 
 ENV BR2_EXTERNAL /piksi_buildroot
 WORKDIR /piksi_buildroot

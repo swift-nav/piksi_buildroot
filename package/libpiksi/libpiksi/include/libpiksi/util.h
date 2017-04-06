@@ -22,7 +22,7 @@
 #ifndef LIBPIKSI_UTIL_H
 #define LIBPIKSI_UTIL_H
 
-#include "common.h"
+#include <libpiksi/common.h>
 
 /**
  * @brief   Get the SBP sender ID for the system.

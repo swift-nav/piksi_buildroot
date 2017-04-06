@@ -15,68 +15,80 @@
 #include "sbp_rtcm3.h"
 #include <assert.h>
 #include <czmq.h>
+#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define RTCM3_SUB_ENDPOINT ">tcp://127.0.0.1:45010"
-#define SBP_PUB_ENDPOINT ">tcp://127.0.0.1:43031"
+#define PROGRAM_NAME "sbp_rtcm3_bridge"
 
-static int file_read_string(const char *filename, char *str, size_t str_size) {
-  FILE *fp = fopen(filename, "r");
-  if (fp == NULL) {
-    printf("error opening %s\n", filename);
-    return -1;
+#define RTCM3_SUB_ENDPOINT  ">tcp://127.0.0.1:45010"  /* RTCM3 Internal Out */
+#define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
+#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
+
+static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
+{
+  zmsg_t *msg;
+  while (1) {
+    msg = zmsg_recv(zsock);
+    if (msg != NULL) {
+      /* Break on success */
+      break;
+    } else if (errno == EINTR) {
+      /* Retry if interrupted */
+      continue;
+    } else {
+      /* Return error */
+      piksi_log(LOG_ERR, "error in zmsg_recv()");
+      return -1;
+    }
   }
 
-  bool success = (fgets(str, str_size, fp) != NULL);
-
-  fclose(fp);
-
-  if (!success) {
-    printf("error reading %s\n", filename);
-    return -1;
+  zframe_t *frame;
+  for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
+    rtcm3_decode_frame(zframe_data(frame), zframe_size(frame));
   }
 
+  zmsg_destroy(&msg);
   return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
+  logging_init(PROGRAM_NAME);
+
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
-  /* Read SBP sender ID */
-  u16 sbp_sender_id = SBP_SENDER_ID;
-  char sbp_sender_id_string[32];
-  if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
-                       sizeof(sbp_sender_id_string)) == 0) {
-    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
-  }
-
-  if (sbp_init(sbp_sender_id, SBP_PUB_ENDPOINT) != 0) {
+  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT,
+                                                    SBP_SUB_ENDPOINT);
+  if (ctx == NULL) {
     exit(EXIT_FAILURE);
   }
 
   zsock_t *rtcm3_sub = zsock_new_sub(RTCM3_SUB_ENDPOINT, "");
   if (rtcm3_sub == NULL) {
-    printf("error creating SUB socket\n");
+    piksi_log(LOG_ERR, "error creating SUB socket");
     exit(EXIT_FAILURE);
   }
 
-  while (1) {
-    zmsg_t *msg = zmsg_recv(rtcm3_sub);
-    if (msg == NULL) {
-      continue;
-    }
-
-    zframe_t *frame;
-    for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
-      rtcm3_decode_frame(zframe_data(frame), zframe_size(frame));
-    }
-
-    zmsg_destroy(&msg);
+  if (zloop_reader(sbp_zmq_pubsub_zloop_get(ctx), rtcm3_sub,
+                   rtcm3_reader_handler, NULL) != 0) {
+    piksi_log(LOG_ERR, "error adding reader");
+    exit(EXIT_FAILURE);
   }
+
+  if (sbp_init(sbp_zmq_pubsub_rx_ctx_get(ctx),
+               sbp_zmq_pubsub_tx_ctx_get(ctx)) != 0) {
+    piksi_log(LOG_ERR, "error initializing SBP");
+    exit(EXIT_FAILURE);
+  }
+
+  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 
   exit(EXIT_SUCCESS);
 }
