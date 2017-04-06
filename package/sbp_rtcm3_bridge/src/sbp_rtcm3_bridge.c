@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  if(sbp_callback_register(SBP_MSG_GPS_TIME,gps_time_callback,NULL) != 0){
+  if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
     exit(EXIT_FAILURE);
   }
