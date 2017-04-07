@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
   if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
     exit(EXIT_FAILURE);
+  }
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 
