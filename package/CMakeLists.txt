@@ -13,6 +13,7 @@ add_subdirectory(third_party/czmq)
 
 add_subdirectory(sbp_protocol)
 add_subdirectory(nmea_protocol)
+add_subdirectory(rtcm3_protocol)
 add_subdirectory(libpiksi)
 add_subdirectory(zmq_adapter/src)
 add_subdirectory(sbp_rtcm3_bridge/src)
