@@ -10,7 +10,7 @@ file(GLOB C_FILES *.c)
 
 add_executable(${PROJECT_NAME} ${C_FILES})
 
-target_link_libraries(${PROJECT_NAME} czmq zmq sbp)
+target_link_libraries(${PROJECT_NAME} czmq zmq sbp dl)
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES

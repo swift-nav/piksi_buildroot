@@ -5,12 +5,10 @@ SOURCES= \
 	zmq_adapter_tcp_listen.c \
 	framer.c \
 	framer_none.c \
-	framer_sbp.c \
-	framer_rtcm3.c \
 	filter.c \
 	filter_none.c \
-	filter_sbp.c
-LIBS=-lczmq -lzmq -lsbp
+	protocols.c
+LIBS=-lczmq -lzmq -lsbp -ldl
 CFLAGS=-std=gnu11
 
 CROSS=

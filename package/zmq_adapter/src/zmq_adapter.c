@@ -13,13 +13,17 @@
 #include "zmq_adapter.h"
 #include "framer.h"
 #include "filter.h"
-
+#include "protocols.h"
 #include <getopt.h>
+#include <dlfcn.h>
 
+#define PROTOCOL_LIBRARY_PATH "/usr/lib/zmq_protocols"
 #define READ_BUFFER_SIZE 65536
 #define REP_TIMEOUT_DEFAULT_ms 10000
 #define ZSOCK_RESTART_RETRY_COUNT 3
 #define ZSOCK_RESTART_RETRY_DELAY_ms 1
+#define FRAMER_NONE_NAME "none"
+#define FILTER_NONE_NAME "none"
 
 typedef enum {
   IO_INVALID,
@@ -37,8 +41,8 @@ typedef enum {
 typedef struct {
   zsock_t *zsock;
   int fd;
-  framer_state_t framer_state;
-  filter_state_t filter_state;
+  framer_t *framer;
+  filter_t *filter;
 } handle_t;
 
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
@@ -48,11 +52,11 @@ typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer,
 static bool debug = false;
 static io_mode_t io_mode = IO_INVALID;
 static zsock_mode_t zsock_mode = ZSOCK_INVALID;
-static framer_t framer = FRAMER_NONE;
-static filter_t filter_in = FILTER_NONE;
-static filter_t filter_out = FILTER_NONE;
-const char *filter_in_config = NULL;
-const char *filter_out_config = NULL;
+static const char *framer_name = FRAMER_NONE_NAME;
+static const char *filter_in_name = FRAMER_NONE_NAME;
+static const char *filter_out_name = FRAMER_NONE_NAME;
+static const char *filter_in_config = NULL;
+static const char *filter_out_config = NULL;
 static int rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
 
 static const char *zmq_pub_addr = NULL;
@@ -90,12 +94,10 @@ static void usage(char *command)
 
   puts("\nFramer Mode - optional");
   puts("\t-f, --framer <framer>");
-  puts("\t\tavailable framers: sbp, rtcm3");
 
   puts("\nFilter Mode - optional");
   puts("\t--filter-in <filter>");
   puts("\t--filter-out <filter>");
-  puts("\t\tavailable filters: sbp");
   puts("\t--filter-in-config <file>");
   puts("\t--filter-out-config <file>");
   puts("\t\tfilter configuration file");
@@ -163,8 +165,8 @@ static int parse_options(int argc, char *argv[])
       break;
 
       case OPT_ID_FILTER_IN: {
-        if (strcasecmp(optarg, "SBP") == 0) {
-          filter_in = FILTER_SBP;
+        if (filter_interface_valid(optarg) == 0) {
+          filter_in_name = optarg;
         } else {
           printf("invalid input filter\n");
           return -1;
@@ -173,8 +175,8 @@ static int parse_options(int argc, char *argv[])
       break;
 
       case OPT_ID_FILTER_OUT: {
-        if (strcasecmp(optarg, "SBP") == 0) {
-          filter_out = FILTER_SBP;
+        if (filter_interface_valid(optarg) == 0) {
+          filter_out_name = optarg;
         } else {
           printf("invalid output filter\n");
           return -1;
@@ -222,10 +224,8 @@ static int parse_options(int argc, char *argv[])
       break;
 
       case 'f': {
-        if (strcasecmp(optarg, "SBP") == 0) {
-          framer = FRAMER_SBP;
-        } else if (strcasecmp(optarg, "RTCM3") == 0) {
-          framer = FRAMER_RTCM3;
+        if (framer_interface_valid(optarg) == 0) {
+          framer_name = optarg;
         } else {
           printf("invalid framer\n");
           return -1;
@@ -251,12 +251,14 @@ static int parse_options(int argc, char *argv[])
     return -1;
   }
 
-  if ((filter_in == FILTER_NONE) != (filter_in_config == NULL)) {
+  if ((strcasecmp(filter_in_name, FILTER_NONE_NAME) == 0) !=
+      (filter_in_config == NULL)) {
     printf("invalid input filter settings\n");
     return -1;
   }
 
-  if ((filter_out == FILTER_NONE) != (filter_out_config == NULL)) {
+  if ((strcasecmp(filter_out_name, FILTER_NONE_NAME) == 0) !=
+      (filter_out_config == NULL)) {
     printf("invalid output filter settings\n");
     return -1;
   }
@@ -280,6 +282,38 @@ static void terminate_handler(int signum)
 
   /* Exit */
   _exit(EXIT_SUCCESS);
+}
+
+static void handle_deinit(handle_t *handle)
+{
+  if (handle->framer != NULL) {
+    framer_destroy(&handle->framer);
+    assert(handle->framer == NULL);
+  }
+
+  if (handle->filter != NULL) {
+    filter_destroy(&handle->filter);
+    assert(handle->filter == NULL);
+  }
+}
+
+static int handle_init(handle_t *handle, zsock_t *zsock, int fd,
+                       const char *framer_name, const char *filter_name,
+                       const char *filter_config)
+{
+  *handle = (handle_t) {
+    .zsock = zsock,
+    .fd = fd,
+    .framer = framer_create(framer_name),
+    .filter = filter_create(filter_name, filter_config)
+  };
+
+  if ((handle->framer == NULL) || (handle->filter == NULL)) {
+    handle_deinit(handle);
+    return -1;
+  }
+
+  return 0;
 }
 
 static zmq_pollitem_t handle_to_pollitem(const handle_t *handle, short events)
@@ -488,7 +522,7 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
     const uint8_t *frame;
     uint32_t frame_length;
     buffer_index +=
-        framer_process(&handle->framer_state,
+        framer_process(handle->framer,
                        &((uint8_t *)buffer)[buffer_index],
                        count - buffer_index,
                        &frame, &frame_length);
@@ -498,7 +532,7 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
 
 
     /* Pass frame through filter */
-    if (filter_process(&handle->filter_state, frame, frame_length) != 0) {
+    if (filter_process(handle->filter, frame, frame_length) != 0) {
       debug_printf("ignoring frame\n");
       continue;
     }
@@ -711,20 +745,29 @@ void io_loop_start(int fd)
         if (fork() == 0) {
           /* child process */
           zsock_t *pub = zsock_start(ZMQ_PUB);
-          if (pub != NULL) {
-            /* Read from fd, write to pub */
-            handle_t pub_handle = {.zsock = pub, .fd = -1};
-            framer_state_init(&pub_handle.framer_state, framer);
-            filter_state_init(&pub_handle.filter_state,
-                              filter_in, filter_in_config);
-            handle_t fd_handle = {.zsock = NULL, .fd = fd};
-            framer_state_init(&fd_handle.framer_state, FRAMER_NONE);
-            filter_state_init(&fd_handle.filter_state,
-                              FILTER_NONE, NULL);
-            io_loop_pubsub(&fd_handle, &pub_handle);
-            zsock_destroy(&pub);
-            assert(pub == NULL);
+          if (pub == NULL) {
+            exit(EXIT_FAILURE);
           }
+
+          /* Read from fd, write to pub */
+          handle_t pub_handle;
+          if (handle_init(&pub_handle, pub, -1, framer_name,
+                          filter_in_name, filter_in_config) != 0) {
+            exit(EXIT_FAILURE);
+          }
+
+          handle_t fd_handle;
+          if (handle_init(&fd_handle, NULL, fd, FRAMER_NONE_NAME,
+                          FILTER_NONE_NAME, NULL) != 0) {
+            exit(EXIT_FAILURE);
+          }
+
+          io_loop_pubsub(&fd_handle, &pub_handle);
+
+          zsock_destroy(&pub);
+          assert(pub == NULL);
+          handle_deinit(&pub_handle);
+          handle_deinit(&fd_handle);
           exit(EXIT_SUCCESS);
         }
       }
@@ -733,20 +776,29 @@ void io_loop_start(int fd)
         if (fork() == 0) {
           /* child process */
           zsock_t *sub = zsock_start(ZMQ_SUB);
-          if (sub != NULL) {
-            /* Read from sub, write to fd */
-            handle_t sub_handle = {.zsock = sub, .fd = -1};
-            framer_state_init(&sub_handle.framer_state, FRAMER_NONE);
-            filter_state_init(&sub_handle.filter_state,
-                              FILTER_NONE, NULL);
-            handle_t fd_handle = {.zsock = NULL, .fd = fd};
-            framer_state_init(&fd_handle.framer_state, FRAMER_NONE);
-            filter_state_init(&fd_handle.filter_state,
-                              filter_out, filter_out_config);
-            io_loop_pubsub(&sub_handle, &fd_handle);
-            zsock_destroy(&sub);
-            assert(sub == NULL);
+          if (sub == NULL) {
+            exit(EXIT_FAILURE);
           }
+
+          /* Read from sub, write to fd */
+          handle_t sub_handle;
+          if (handle_init(&sub_handle, sub, -1, FRAMER_NONE_NAME,
+                          FILTER_NONE_NAME, NULL) != 0) {
+            exit(EXIT_FAILURE);
+          }
+
+          handle_t fd_handle;
+          if (handle_init(&fd_handle, NULL, fd, FRAMER_NONE_NAME,
+                          filter_out_name, filter_out_config) != 0) {
+            exit(EXIT_FAILURE);
+          }
+
+          io_loop_pubsub(&sub_handle, &fd_handle);
+
+          zsock_destroy(&sub);
+          assert(sub == NULL);
+          handle_deinit(&sub_handle);
+          handle_deinit(&fd_handle);
           exit(EXIT_SUCCESS);
         }
       }
@@ -759,19 +811,28 @@ void io_loop_start(int fd)
       if (fork() == 0) {
         /* child process */
         zsock_t *req = zsock_start(ZMQ_REQ);
-        if (req != NULL) {
-          handle_t req_handle = {.zsock = req, .fd = -1};
-          framer_state_init(&req_handle.framer_state, framer);
-          filter_state_init(&req_handle.filter_state,
-                            filter_in, filter_in_config);
-          handle_t fd_handle = {.zsock = NULL, .fd = fd};
-          framer_state_init(&fd_handle.framer_state, FRAMER_NONE);
-          filter_state_init(&fd_handle.filter_state,
-                            filter_out, filter_out_config);
-          io_loop_reqrep(&req_handle, &fd_handle);
-          zsock_destroy(&req);
-          assert(req == NULL);
+        if (req == NULL) {
+          exit(EXIT_FAILURE);
         }
+
+        handle_t req_handle;
+        if (handle_init(&req_handle, req, -1, framer_name,
+                        filter_in_name, filter_in_config) != 0) {
+          exit(EXIT_FAILURE);
+        }
+
+        handle_t fd_handle;
+        if (handle_init(&fd_handle, NULL, fd, FRAMER_NONE_NAME,
+                        filter_out_name, filter_out_config) != 0) {
+          exit(EXIT_FAILURE);
+        }
+
+        io_loop_reqrep(&req_handle, &fd_handle);
+
+        zsock_destroy(&req);
+        assert(req == NULL);
+        handle_deinit(&req_handle);
+        handle_deinit(&fd_handle);
         exit(EXIT_SUCCESS);
       }
 
@@ -783,19 +844,28 @@ void io_loop_start(int fd)
       if (fork() == 0) {
         /* child process */
         zsock_t *rep = zsock_start(ZMQ_REP);
-        if (rep != NULL) {
-          handle_t rep_handle = {.zsock = rep, .fd = -1};
-          framer_state_init(&rep_handle.framer_state, framer);
-          filter_state_init(&rep_handle.filter_state,
-                            filter_in, filter_in_config);
-          handle_t fd_handle = {.zsock = NULL, .fd = fd};
-          framer_state_init(&fd_handle.framer_state, FRAMER_NONE);
-          filter_state_init(&fd_handle.filter_state,
-                            filter_out, filter_out_config);
-          io_loop_reqrep(&fd_handle, &rep_handle);
-          zsock_destroy(&rep);
-          assert(rep == NULL);
+        if (rep == NULL) {
+          exit(EXIT_FAILURE);
         }
+
+        handle_t rep_handle;
+        if (handle_init(&rep_handle, rep, -1, framer_name,
+                        filter_in_name, filter_in_config) != 0) {
+          exit(EXIT_FAILURE);
+        }
+
+        handle_t fd_handle;
+        if (handle_init(&fd_handle, NULL, fd, FRAMER_NONE_NAME,
+                        filter_out_name, filter_out_config) != 0) {
+          exit(EXIT_FAILURE);
+        }
+
+        io_loop_reqrep(&fd_handle, &rep_handle);
+
+        zsock_destroy(&rep);
+        assert(rep == NULL);
+        handle_deinit(&rep_handle);
+        handle_deinit(&fd_handle);
         exit(EXIT_SUCCESS);
       }
 
@@ -810,6 +880,11 @@ void io_loop_start(int fd)
 int main(int argc, char *argv[])
 {
   setpgid(0, 0); /* Set PGID = PID */
+
+  if (protocols_import(PROTOCOL_LIBRARY_PATH) != 0) {
+    printf("error importing protocols\n");
+    exit(EXIT_FAILURE);
+  }
 
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
