@@ -1,5 +1,6 @@
 TARGET=piksi_system_daemon
 SOURCES= \
+	cellmodem.c \
 	main.c \
 	whitelists.c
 

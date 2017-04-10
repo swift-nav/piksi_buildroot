@@ -25,6 +25,7 @@
 #include <termios.h>
 
 #include "whitelists.h"
+#include "cellmodem.h"
 
 #define PROGRAM_NAME "piksi_system_daemon"
 
@@ -589,6 +590,8 @@ int main(void)
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
   whitelists_init(settings_ctx);
+  cellmodem_init(settings_ctx);
+
   img_tbl_settings_setup(settings_ctx);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_COMMAND_REQ, sbp_command, pubsub_ctx, NULL);
