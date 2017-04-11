@@ -125,30 +125,41 @@ static void filter_match_process(forwarding_rule_t *forwarding_rule,
                                  filter_t *filter, zmsg_t *msg)
 {
   switch (filter->action) {
-  case FILTER_ACTION_ACCEPT: {
-    zmsg_t *tx_msg = zmsg_dup(msg);
-    if (tx_msg == NULL) {
-      printf("zmsg_dup() error\n");
-      break;
+    case FILTER_ACTION_ACCEPT: {
+      zmsg_t *tx_msg = zmsg_dup(msg);
+      if (tx_msg == NULL) {
+        printf("zmsg_dup() error\n");
+        break;
+      }
+
+      while (1) {
+        int ret = zmsg_send(&tx_msg, forwarding_rule->dst_port->pub_socket);
+        if (ret == 0) {
+          /* Break on success */
+          break;
+        } else if (errno == EINTR) {
+          /* Retry if interrupted */
+          continue;
+        } else {
+          /* Fail on error */
+          printf("zmsg_send() error\n");
+          zmsg_destroy(&tx_msg);
+          return;
+        }
+      }
     }
+    break;
 
-    if (zmsg_send(&tx_msg, forwarding_rule->dst_port->pub_socket) != 0) {
-      printf("zmsg_send() error\n");
-      break;
+    case FILTER_ACTION_REJECT: {
+
     }
-  }
-  break;
+    break;
 
-  case FILTER_ACTION_REJECT: {
-
+    default: {
+      printf("invalid filter action\n");
+    }
+    break;
   }
-  break;
-
-  default: {
-    printf("invalid filter action\n");
-  }
-  break;
-}
 }
 
 static void rule_process(forwarding_rule_t *forwarding_rule,
@@ -184,10 +195,20 @@ static int reader_fn(zloop_t *zloop, zsock_t *zsock, void *arg)
 {
   port_t *port = (port_t *)arg;
 
-  zmsg_t *rx_msg = zmsg_recv(port->sub_socket);
-  if (rx_msg == NULL) {
-    printf("zmsg_recv() error\n");
-    return 0;
+  zmsg_t *rx_msg;
+  while (1) {
+    rx_msg = zmsg_recv(port->sub_socket);
+    if (rx_msg != NULL) {
+      /* Break on success */
+      break;
+    } else if (errno == EINTR) {
+      /* Retry if interrupted */
+      continue;
+    } else {
+      /* Return on error */
+      printf("zmsg_recv() error\n");
+      return 0;
+    }
   }
 
   /* Get first frame for filtering */
@@ -262,6 +283,20 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  zloop_start(zloop);
+  while (1) {
+    int zloop_ret = zloop_start(zloop);
+    if (zloop_ret == 0) {
+      /* Interrupted */
+      continue;
+    } else if (zloop_ret == -1) {
+      /* Canceled by a handler */
+      return 0;
+    } else {
+      /* Error occurred */
+      printf("error in zloop\n");
+      return -1;
+    }
+  }
+
   exit(EXIT_SUCCESS);
 }
