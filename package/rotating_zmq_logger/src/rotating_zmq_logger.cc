@@ -18,6 +18,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern "C"
+{
+  #include <libpiksi/settings.h>
+}
+
 #include "rotating_logger.h"
 
 #define SLICE_DURATION_DEFAULT_m 10
@@ -53,6 +58,8 @@ static void usage(char *command) {
   puts("\t-v --verbose");
   puts("\t\tWrite status to stdout");
 }
+
+static bool setting_usb_logging_enable = false;
 
 static int parse_options(int argc, char *argv[]) {
   enum { OPT_ID_DURATION = 1, OPT_ID_PERIOD, OPT_ID_THRESHOLD, OPT_ID_FLUSH };
@@ -139,6 +146,8 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  RotatingLogger* logger = nullptr;
+
   /* Prevent czmq from catching signals */
   zsys_handler_set(nullptr);
 
@@ -166,27 +175,62 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  RotatingLogger logger(dir_path, slice_diration_m, poll_period_s,
-                        fill_threshold_p, verbose_logging);
+
+  zmq_pollitem_t items[2];
 
   zsock_t *zmq_sub = zsock_new_sub(zmq_sub_endpoint, "");
   if (zmq_sub == nullptr) {
     printf("error creating SUB socket\n");
     exit(EXIT_FAILURE);
   }
+  items[0] = (zmq_pollitem_t) {
+    .socket = zsock_resolve(zmq_sub),
+    .fd = 0,
+    .events = ZMQ_POLLIN,
+    .revents = 0
+  };
+
+  /* Set up settings */
+  settings_ctx_t *settings_ctx = settings_create();
+  if (settings_ctx == nullptr) {
+    exit(EXIT_FAILURE);
+  }
+  /* Register settings */
+  settings_register(settings_ctx, "usb_logging", "enable", &setting_usb_logging_enable,
+                    sizeof(setting_usb_logging_enable), SETTINGS_TYPE_BOOL,
+                    nullptr, nullptr);
+  settings_pollitem_init(settings_ctx, &items[1]);
 
   while (true) {
-    zmsg_t *msg = zmsg_recv(zmq_sub);
-    if (msg == nullptr) {
-      continue;
+    int ret = zmq_poll(items, 2, -1);
+
+    if (ret == -1) {
+      perror("poll failed");
+      exit(EXIT_FAILURE);
     }
 
-    zframe_t *frame;
-    for (frame = zmsg_first(msg); frame != nullptr; frame = zmsg_next(msg)) {
-      logger.frame_handler(zframe_data(frame), zframe_size(frame));
+    if (items[0].revents & ZMQ_POLLIN) {
+      zmsg_t *msg = zmsg_recv(zmq_sub);
+      if (msg == nullptr) {
+        continue;
+      }
+      if (setting_usb_logging_enable) {
+        if (logger == nullptr) {
+          logger = new RotatingLogger(dir_path, slice_diration_m, poll_period_s,
+                        fill_threshold_p, verbose_logging);
+        }
+        zframe_t *frame;
+        for (frame = zmsg_first(msg); frame != nullptr; frame = zmsg_next(msg)) {
+          logger->frame_handler(zframe_data(frame), zframe_size(frame));
+        }
+      } else if (logger != nullptr) {
+        delete logger;
+        logger = nullptr;
+      }
+      zmsg_destroy(&msg);
     }
 
-    zmsg_destroy(&msg);
+    settings_pollitem_check(settings_ctx, &items[1]);
   }
 
   exit(EXIT_SUCCESS);
