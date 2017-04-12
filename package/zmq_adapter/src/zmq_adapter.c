@@ -14,10 +14,12 @@
 #include "framer.h"
 #include "filter.h"
 #include "protocols.h"
+#include <stdlib.h>
 #include <getopt.h>
 #include <dlfcn.h>
 
-#define PROTOCOL_LIBRARY_PATH "/usr/lib/zmq_protocols"
+#define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
+#define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/zmq_protocols"
 #define READ_BUFFER_SIZE 65536
 #define REP_TIMEOUT_DEFAULT_ms 10000
 #define ZSOCK_RESTART_RETRY_COUNT 3
@@ -881,14 +883,19 @@ int main(int argc, char *argv[])
 {
   setpgid(0, 0); /* Set PGID = PID */
 
-  if (protocols_import(PROTOCOL_LIBRARY_PATH) != 0) {
+  const char *protocol_library_path = getenv(PROTOCOL_LIBRARY_PATH_ENV_NAME);
+  if (protocol_library_path == NULL) {
+    protocol_library_path = PROTOCOL_LIBRARY_PATH_DEFAULT;
+  }
+
+  if (protocols_import(protocol_library_path) != 0) {
     printf("error importing protocols\n");
     exit(EXIT_FAILURE);
   }
 
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   /* Prevent czmq from catching signals */
