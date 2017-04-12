@@ -175,7 +175,7 @@ int sbp_zmq_rx_pollitem_init(sbp_zmq_rx_ctx_t *ctx, zmq_pollitem_t *pollitem)
   assert(pollitem != NULL);
 
   *pollitem = (zmq_pollitem_t) {
-    .socket = ctx->zsock,
+    .socket = zsock_resolve(ctx->zsock),
     .fd = 0,
     .events = ZMQ_POLLIN,
     .revents = 0
@@ -188,7 +188,7 @@ int sbp_zmq_rx_pollitem_check(sbp_zmq_rx_ctx_t *ctx, zmq_pollitem_t *pollitem)
 {
   assert(ctx != NULL);
   assert(pollitem != NULL);
-  assert(pollitem->socket == ctx->zsock);
+  assert(pollitem->socket == zsock_resolve(ctx->zsock));
 
   if (pollitem->revents & ZMQ_POLLIN) {
     return message_receive(ctx);
