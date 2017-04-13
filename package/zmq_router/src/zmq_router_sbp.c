@@ -262,6 +262,9 @@ static port_t ports_sbp[] = {
             &FILTER_ACCEPT(0x55, 0x44, 0x00), /* Subscribe: SBP MSG_BASE_POS_LLH */
             &FILTER_ACCEPT(0x55, 0x48, 0x00), /* Subscribe: SBP MSG_BASE_POS_ECEF */
             &FILTER_ACCEPT(0x55, 0x4A, 0x00), /* Subscribe: SBP MSG_OBS */
+            &FILTER_ACCEPT(0x55, 0x86, 0x00), /* Subscribe: SBP MSG_EPHEMERIS_GPS */
+            &FILTER_ACCEPT(0x55, 0x85, 0x00), /* Subscribe: SBP MSG_EPHEMERIS_GLO */
+            &FILTER_ACCEPT(0x55, 0x84, 0x00), /* Subscribe: SBP MSG_EPHEMERIS_SBAS */
             &FILTER_REJECT(),
             NULL
           }
