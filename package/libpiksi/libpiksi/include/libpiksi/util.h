@@ -36,7 +36,7 @@ u16 sbp_sender_id_get(void);
  * @brief   Get the Device UUID for the system.
  * @details Returns the board-specific UUID.
  *
- * @return                  The operation result..
+ * @return                  The operation result.
  * @retval 0                The value was returned successfully.
  * @retval -1               An error occurred.
  */
