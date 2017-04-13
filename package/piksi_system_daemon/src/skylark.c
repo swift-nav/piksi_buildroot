@@ -14,8 +14,8 @@
 
 #include "skylark.h"
 
-#define UPLOAD_FIFO_FILE_PATH   "/tmp/skylark_upload"
-#define DOWNLOAD_FIFO_FILE_PATH "/tmp/skylark_download"
+#define UPLOAD_FIFO_FILE_PATH   "/var/run/skylark_upload"
+#define DOWNLOAD_FIFO_FILE_PATH "/var/run/skylark_download"
 #define SKYLARK_URL             "https://broker.skylark2.swiftnav.com"
 
 static bool skylark_enabled;

@@ -1,7 +1,7 @@
 TARGET=skylark_upload_daemon
 SOURCES=skylark_upload_daemon.c
 LIBS=-lcurl -lczmq -lsbp -lpiksi -lskylark
-CFLAGS=-std=gnu11
+CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror
 
 CROSS=
 

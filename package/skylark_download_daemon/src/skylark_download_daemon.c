@@ -22,6 +22,18 @@ static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
 
+static void usage(char *command)
+{
+  fprintf(stderr, "Usage: %s\n", command);
+
+  fputs("\nMain options", stderr);
+  fputs("\t--file <file>", stderr);
+  fputs("\t--url <url>", stderr);
+
+  fputs("\nMisc options", stderr);
+  fputs("\t--debug", stderr);
+}
+
 static int parse_options(int argc, char *argv[])
 {
   enum {
@@ -56,6 +68,7 @@ static int parse_options(int argc, char *argv[])
       break;
 
     default: {
+      fputs("Invalid option", stderr);
       return -1;
     }
       break;
@@ -68,7 +81,7 @@ static int parse_options(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
   if (parse_options(argc, argv) != 0) {
-    piksi_log(LOG_ERR, "invalid options");
+    usage(argv[0]);
     exit(EXIT_FAILURE);
   }
 
