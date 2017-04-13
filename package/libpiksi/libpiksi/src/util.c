@@ -15,6 +15,7 @@
 #include <assert.h>
 
 #define SBP_SENDER_ID_FILE_PATH "/cfg/sbp_sender_id"
+#define DEVICE_UUID_FILE_PATH   "/cfg/device_uuid"
 
 static int file_read_string(const char *filename, char *str, size_t str_size)
 {
@@ -56,6 +57,11 @@ u16 sbp_sender_id_get(void)
   }
 
   return sbp_sender_id;
+}
+
+int device_uuid_get(char *str, size_t str_size)
+{
+  return file_read_string(DEVICE_UUID_FILE_PATH, str, str_size);
 }
 
 int zmq_simple_loop(zloop_t *zloop)

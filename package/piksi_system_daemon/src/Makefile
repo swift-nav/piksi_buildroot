@@ -2,6 +2,7 @@ TARGET=piksi_system_daemon
 SOURCES= \
 	cellmodem.c \
 	main.c \
+	skylark.c \
 	whitelists.c
 
 LIBS=-lczmq -lsbp -lpiksi
