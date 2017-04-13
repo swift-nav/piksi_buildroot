@@ -24,14 +24,14 @@ static const char *url = NULL;
 
 static void usage(char *command)
 {
-  fprintf(stderr, "Usage: %s\n", command);
+  printf("Usage: %s\n", command);
 
-  fputs("\nMain options", stderr);
-  fputs("\t--file <file>", stderr);
-  fputs("\t--url <url>", stderr);
+  puts("\nMain options");
+  puts("\t--file <file>");
+  puts("\t--url <url>");
 
-  fputs("\nMisc options", stderr);
-  fputs("\t--debug", stderr);
+  puts("\nMisc options");
+  puts("\t--debug");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -68,11 +68,21 @@ static int parse_options(int argc, char *argv[])
       break;
 
       default: {
-        fputs("Invalid option", stderr);
+        puts("Invalid option");
         return -1;
       }
       break;
     }
+  }
+
+  if (fifo_file_path == NULL) {
+    puts("Missing file");
+    return -1;
+  }
+
+  if (url == NULL) {
+    puts("Missing url");
+    return -1;
   }
 
   return 0;
