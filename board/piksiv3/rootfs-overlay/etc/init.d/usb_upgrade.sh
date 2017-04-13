@@ -39,10 +39,20 @@ echo "Performing upgrade..."
 # Killing monit and USB logger
 monit stop zmq_file_logger
 upgrade_tool --debug $FIRMWARE | sbp_log $LOGLEVEL
+RETVAL=$?
 umount /media/sda1
 sync
-while [ 1 ]; do 
-  echo "Please remove upgrade media and reboot."  | sbp_log $LOGLEVEL
-  echo "Please remove upgrade media and reboot." 
-  sleep 1
-done
+if [ $RETVAL -eq 0 ]; then 
+  while [ 1 ]; do 
+    echo "Upgrade completed successfully. Please remove upgrade media and reboot."  | sbp_log $LOGLEVEL
+    echo "Upgrade completed successfully. Please remove upgrade media and reboot." 
+    sleep 1
+  done
+fi
+if [ $RETVAL -ne 0 ]; then
+  while [ 1 ]; do 
+    echo "ERROR: Upgrade was unsuccessful. Please verify the image and try again."  | sbp_log $LOGLEVEL
+    echo "ERROR: Upgrade was unsuccessful. Please verify the image and try again."
+    sleep 1
+  done
+fi
