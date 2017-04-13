@@ -1,6 +1,7 @@
 TARGET=piksi_system_daemon
 SOURCES= \
 	main.c \
+	skylark.c \
 	whitelists.c
 
 LIBS=-lczmq -lsbp -lpiksi

@@ -13,4 +13,6 @@ source "$BR2_EXTERNAL/package/sbp_fileio_daemon/Config.in"
 source "$BR2_EXTERNAL/package/sbp_rtcm3_bridge/Config.in"
 source "$BR2_EXTERNAL/package/rotating_zmq_logger/Config.in"
 source "$BR2_EXTERNAL/package/libpiksi/Config.in"
-
+source "$BR2_EXTERNAL/package/libskylark/Config.in"
+source "$BR2_EXTERNAL/package/skylark_download_daemon/Config.in"
+source "$BR2_EXTERNAL/package/skylark_upload_daemon/Config.in"
