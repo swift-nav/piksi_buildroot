@@ -5,6 +5,10 @@
 [Buildroot](https://buildroot.org/) configuration for building the Piksi Multi
 Linux system image.
 
+**Note**: While open, this project is used for internal development by Swift
+Navigation and its collaborators. You will not be able to build images without
+the right access credentials or internal tools.
+
 ## Fetching firmware images
 
 To build a production system image, the build process expects the following
@@ -81,4 +85,3 @@ docker cp $CONTAINER:/app/buildroot/output/images buildroot/output
 ```
 
 The buildroot images will now be in the `buildroot/output/images` folder.
-
