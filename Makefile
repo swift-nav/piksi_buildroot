@@ -14,7 +14,7 @@ DOCKER_ARGS:=                                                                 \
   -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
   -v piksi_buildroot-buildroot:/piksi_buildroot/buildroot
 
-.PHONY: all firmware config image docker-setup docker-make-image docker-run
+.PHONY: all firmware config image docker-setup docker-make-image docker-run test cmake-setup travis
 
 all: firmware image
 
@@ -37,5 +37,13 @@ docker-make-image:
 docker-run:
 	docker run $(DOCKER_ARGS) -ti piksi_buildroot
 
-test:
-	./run_tests.sh
+cmake-setup:
+	mkdir -p build && cd build && cmake ..
+
+test: cmake-setup
+	make -C build
+	make -C build test
+
+travis: test firmware docker-setup
+	HW_CONFIG=prod make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^make'
+	HW_CONFIG=microzed make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^make'

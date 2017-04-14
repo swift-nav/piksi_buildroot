@@ -9,11 +9,7 @@ before_install:
   - pip install --user --upgrade awscli
 
 script:
-  - make test
-  - make firmware
-  - make docker-setup
-  - HW_CONFIG=prod travis_wait 60 make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^make'
-  - HW_CONFIG=microzed travis wait 60 make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^make'
+  - travis_wait 60 make travis
 
 after_success:
   - git fetch --tags --unshallow
