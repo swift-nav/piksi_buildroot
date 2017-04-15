@@ -9,7 +9,7 @@ before_install:
   - pip install --user --upgrade awscli
 
 script:
-  - travis_wait 60 make travis
+  - make travis
 
 after_success:
   - git fetch --tags --unshallow

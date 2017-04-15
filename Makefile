@@ -44,6 +44,6 @@ test: cmake-setup
 	make -C build
 	make -C build test
 
-travis: test firmware docker-setup
+travis: firmware docker-setup
 	HW_CONFIG=prod make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^make'
 	HW_CONFIG=microzed make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^make'
