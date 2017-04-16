@@ -38,9 +38,9 @@
 #define CHANNEL_NAME "piksi"
 #define NUM_ENDPOINTS 3
 
-#define RPMSG_BUFF_SIZE_MAX 512
-#define RX_FIFO_SIZE (32 * RPMSG_BUFF_SIZE_MAX)
-#define TX_BUFF_SIZE (RPMSG_BUFF_SIZE_MAX)
+#define RPMSG_DATA_SIZE_MAX (512 - 16)
+#define RX_FIFO_SIZE (16384)
+#define TX_BUFF_SIZE (RPMSG_DATA_SIZE_MAX)
 
 #define IOCTL_CMD_GET_KFIFO_SIZE      1
 #define IOCTL_CMD_GET_AVAIL_DATA_SIZE 2
@@ -107,9 +107,10 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
     goto done_locked;
   }
 
-  if (len < sizeof(ept_params->tx_buff)) {
+  if (len <= sizeof(ept_params->tx_buff)) {
     size = len;
   } else {
+    dev_err(ept_params->device, "rpmsg truncated (len = %d)\n", len);
     size = sizeof(ept_params->tx_buff);
   }
 
