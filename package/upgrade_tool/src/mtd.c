@@ -101,15 +101,24 @@ int mtd_erase(const partition_info_t *partition_info, uint32_t offset,
                partition_info->mtd_num, offset, offset + length);
 
   /* perform erase */
-  struct erase_info_user erase_info = {
-    .start = offset,
-    .length = length
-  };
-  if (ioctl(fd, MEMERASE, &erase_info) < 0) {
-    printf("error erasing flash\n");
-    return -1;
+  uint32_t sector_offset;
+  for (sector_offset = 0; sector_offset < length;
+       sector_offset += partition_info->erasesize) {
+
+    struct erase_info_user erase_info = {
+      .start = offset + sector_offset,
+      .length = partition_info->erasesize
+    };
+    if (ioctl(fd, MEMERASE, &erase_info) < 0) {
+      printf("error erasing flash\n");
+      return -1;
+    }
+
+    debug_printf("\r%d %% complete", 100 * sector_offset / length);
+    debug_flush();
   }
 
+  debug_printf("\r100 %% complete\n");
   debug_printf("ok\n");
 
   /* close MTD */
