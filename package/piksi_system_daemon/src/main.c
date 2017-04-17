@@ -80,9 +80,15 @@ static uart_t uart1 = {
   .flow_control = FLOW_CONTROL_NONE
 };
 
+static uart_t usb0 = {
+  .tty_path = "/dev/ttyGS0",
+  .baudrate = BAUDRATE_9600,
+  .flow_control = FLOW_CONTROL_NONE
+};
+
 static int uart_configure(const uart_t *uart)
 {
-  int fd = open(uart->tty_path, O_RDONLY);
+  int fd = open(uart->tty_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0) {
     piksi_log(LOG_ERR, "error opening tty device");
     return -1;
@@ -527,6 +533,9 @@ int main(void)
                           sbp_zmq_pubsub_zloop_get(pubsub_ctx)) != 0) {
     exit(EXIT_FAILURE);
   }
+
+  /* Configure USB0 */
+  uart_configure(&usb0);
 
   /* Register settings */
   settings_type_t settings_type_baudrate;
