@@ -21,9 +21,12 @@
 extern "C"
 {
   #include <libpiksi/settings.h>
+  #include <libpiksi/logging.h>
 }
 
 #include "rotating_logger.h"
+
+#define PROGRAM_NAME "rotating_zmq_logger"
 
 #define SLICE_DURATION_DEFAULT_m 10
 #define POLL_PERIOD_DEFAULT_s 30
@@ -37,6 +40,8 @@ static const char *zmq_sub_endpoint = nullptr;
 static const char *dir_path = nullptr;
 
 static bool verbose_logging = false;
+
+static RotatingLogger* logger = nullptr;
 
 static void usage(char *command) {
   printf("Usage: %s\n", command);
@@ -102,19 +107,19 @@ static int parse_options(int argc, char *argv[]) {
       } break;
 
       default: {
-        printf("invalid option\n");
+        piksi_log(LOG_ERR, "invalid option\n");
         return -1;
       } break;
     }
   }
 
   if (zmq_sub_endpoint == nullptr) {
-    printf("Must specify source\n");
+    piksi_log(LOG_ERR, "Must specify source\n");
     return -1;
   }
 
   if (dir_path == nullptr) {
-    printf("Must specify sink directory\n");
+    piksi_log(LOG_ERR, "Must specify sink directory\n");
     return -1;
   }
 
@@ -130,7 +135,52 @@ static void sigchld_handler(int signum) {
   errno = saved_errno;
 }
 
+static void sbp_log(int priority, const char *msg_text)
+{
+  const int NUM_LOG_LEVELS = 8;
+  assert(priority < NUM_LOG_LEVELS);
+  const int LOG_ERROR = 3;
+  const char *log_args[NUM_LOG_LEVELS] = {"emerg", "alert", "crit",
+                                          "error", "warn", "notice", 
+                                          "info", "debug"};
+  FILE *output;
+  char cmd_buf[256];
+  sprintf(cmd_buf, "sbp_log --%s", log_args[priority]);
+  output = popen (cmd_buf, "w");
+  if (!output) {
+    piksi_log(LOG_ERROR, "couldn't call sbp_log.");
+    return;
+  }
+  fputs((std::string(PROGRAM_NAME) + ": " + msg_text).c_str(), output);
+  if (ferror (output)) {
+    piksi_log(LOG_ERROR, "output to sbp_log failed.");
+    return;
+  }
+  if (pclose (output) != 0) {
+    piksi_log(LOG_ERROR, "couldn't close sbp_log call.");
+    return;
+  }
+}
+
+static void process_log_callback(int priority, const char *msg_text)
+{
+  piksi_log(priority, msg_text);
+  sbp_log(priority, msg_text);
+}
+
+static void stop_logging()
+{
+  if (logger != nullptr) {
+    process_log_callback(LOG_INFO, "Logging stopped");
+    delete logger;
+    logger = nullptr;
+  }
+}
+
 static void terminate_handler(int signum) {
+
+  stop_logging();
+
   /* Send this signal to the entire process group */
   killpg(0, signum);
 
@@ -141,12 +191,12 @@ static void terminate_handler(int signum) {
 int main(int argc, char *argv[]) {
   setpgid(0, 0); /* Set PGID = PID */
 
+  logging_init(PROGRAM_NAME);
+
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
     exit(1);
   }
-
-  RotatingLogger* logger = nullptr;
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(nullptr);
@@ -159,7 +209,7 @@ int main(int argc, char *argv[]) {
   sigemptyset(&sigchld_sa.sa_mask);
   sigchld_sa.sa_flags = SA_NOCLDSTOP;
   if (sigaction(SIGCHLD, &sigchld_sa, nullptr) != 0) {
-    printf("error setting up sigchld handler\n");
+    piksi_log(LOG_ERR, "error setting up sigchld handler\n");
     exit(EXIT_FAILURE);
   }
 
@@ -171,16 +221,15 @@ int main(int argc, char *argv[]) {
   if ((sigaction(SIGINT, &terminate_sa, nullptr) != 0) ||
       (sigaction(SIGTERM, &terminate_sa, nullptr) != 0) ||
       (sigaction(SIGQUIT, &terminate_sa, nullptr) != 0)) {
-    printf("error setting up terminate handler\n");
+    piksi_log(LOG_ERR, "error setting up terminate handler\n");
     exit(EXIT_FAILURE);
   }
 
-
   zmq_pollitem_t items[2];
 
-  zsock_t *zmq_sub = zsock_new_sub(zmq_sub_endpoint, "");
+  zsock_t * zmq_sub = zsock_new_sub(zmq_sub_endpoint, "");
   if (zmq_sub == nullptr) {
-    printf("error creating SUB socket\n");
+    piksi_log(LOG_ERR, "error creating SUB socket\n");
     exit(EXIT_FAILURE);
   }
   items[0] = (zmq_pollitem_t) {
@@ -201,11 +250,13 @@ int main(int argc, char *argv[]) {
                     nullptr, nullptr);
   settings_pollitem_init(settings_ctx, &items[1]);
 
+  process_log_callback(LOG_INFO, "Starting");
+
   while (true) {
     int ret = zmq_poll(items, 2, -1);
 
     if (ret == -1) {
-      perror("poll failed");
+      piksi_log(LOG_ERR, "poll failed");
       exit(EXIT_FAILURE);
     }
 
@@ -216,22 +267,25 @@ int main(int argc, char *argv[]) {
       }
       if (setting_usb_logging_enable) {
         if (logger == nullptr) {
+          process_log_callback(LOG_INFO, "Logging started");
           logger = new RotatingLogger(dir_path, slice_diration_m, poll_period_s,
-                        fill_threshold_p, verbose_logging);
+                        fill_threshold_p, &process_log_callback);
         }
         zframe_t *frame;
         for (frame = zmsg_first(msg); frame != nullptr; frame = zmsg_next(msg)) {
           logger->frame_handler(zframe_data(frame), zframe_size(frame));
         }
-      } else if (logger != nullptr) {
-        delete logger;
-        logger = nullptr;
+      } else {
+        stop_logging();
       }
       zmsg_destroy(&msg);
     }
 
     settings_pollitem_check(settings_ctx, &items[1]);
   }
+
+  zsock_destroy(&zmq_sub);
+  settings_destroy(&settings_ctx);
 
   exit(EXIT_SUCCESS);
 }

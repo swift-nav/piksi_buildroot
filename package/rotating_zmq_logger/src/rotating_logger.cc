@@ -38,15 +38,19 @@
 static const std::string LOG_SUFFIX = ".sbp";
 static const size_t LOG_NAME_LEN = 4 + 1 + 5 + 4;
 
-void RotatingLogger::debug_printf(const char* msg, ...) {
-  if (!_verbose_logging) {
-    return;
-  }
+static const int LOG_EMERG = 0;  /* system is unusable */
+static const int LOG_ALERT = 1;  /* action must be taken immediately */
+static const int LOG_CRIT = 2;   /* critical conditions */
+static const int LOG_ERROR = 3;  /* error conditions */
+static const int LOG_WARN = 4;   /* warning conditions */
+static const int LOG_NOTICE = 5; /* normal but significant condition */
+static const int LOG_INFO = 6;   /* informational */
+static const int LOG_DEBUG = 7;  /* debug-level messages */
 
-  va_list ap;
-  va_start(ap, msg);
-  vprintf(msg, ap);
-  va_end(ap);
+void RotatingLogger::log_msg(int priority, const std::string &msg) {
+  if (_logging_callback) {
+    _logging_callback(priority, msg.c_str());
+  }
 }
 
 int RotatingLogger::check_disk_full() {
@@ -74,13 +78,13 @@ bool RotatingLogger::open_new_file() {
 
   int fs_status = check_disk_full();
   if (fs_status == 1) {
-    debug_printf("Target dir full\n");
+    log_msg(LOG_WARN, std::string("Target dir full"));
     return false;
   }
 
   char log_name_buf[LOG_NAME_LEN + 1];
   if (_minute_count > 99999) {
-    debug_printf("Minutes roll over\n");
+    log_msg(LOG_WARN, std::string("Minutes roll over"));
     _minute_count = 0;
     _session_count++;
   }
@@ -89,9 +93,9 @@ bool RotatingLogger::open_new_file() {
   // Need to use open instead of fopen to avoid locking drive
   _cur_file = open((_out_dir + "/" + log_name_buf).c_str(), O_WRONLY | O_CREAT, 0666);
   _dest_available = _cur_file != -1;
-  debug_printf("Opening file %s: %d\n", log_name_buf, _dest_available);
+  log_msg(LOG_INFO, std::string("Opening file: ") + log_name_buf);
   if (!_dest_available) {
-    perror("Error openning file");
+    log_msg(LOG_WARN, std::string("Error openning file: ") + strerror(errno));
   }
   return _dest_available;
 }
@@ -102,7 +106,7 @@ bool RotatingLogger::check_slice_time() {
   if (periods <= 0) {
     return true;
   }
-  debug_printf("Rolling over log\n");
+  log_msg(LOG_INFO, "Rolling over log");
   // if multiple roll overs occured skip files with no data
   _minute_count += _slice_duration * periods;
   return open_new_file();
@@ -112,7 +116,7 @@ bool RotatingLogger::start_new_session() {
   DIR* dirp = opendir(_out_dir.c_str());
   struct dirent* dp = nullptr;
   if (dirp == nullptr) {
-    debug_printf("Target dir unavailable\n");
+    log_msg(LOG_WARN, "Target dir unavailable");
     return false;
   }
   // check files in path for last session index
@@ -169,14 +173,14 @@ void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
     _dest_available = false;
     // wait _poll_period to check drive again
     _session_start_time = std::chrono::steady_clock::now();
-    perror("Write to file failed");
+    log_msg(LOG_WARN, std::string("Write to file failed: ") + strerror(errno));
   }
 }
 
 RotatingLogger::RotatingLogger(const std::string& out_dir,
                                size_t slice_duration, size_t poll_period,
                                size_t disk_full_threshold,
-                               bool verbose_logging)
+                               LogCall logging_callback)
     : _dest_available(false),
       _session_count(0),
       _minute_count(0),
@@ -184,7 +188,7 @@ RotatingLogger::RotatingLogger(const std::string& out_dir,
       _slice_duration(slice_duration),
       _poll_period(poll_period),
       _disk_full_threshold(disk_full_threshold),
-      _verbose_logging(verbose_logging),
+      _logging_callback(logging_callback),
       // init to 0
       _session_start_time(),
       _cur_file(-1) {}

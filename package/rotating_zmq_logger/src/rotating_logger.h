@@ -17,12 +17,16 @@
 #include <stdlib.h>
 #include <chrono>
 #include <string>
+#include <functional>
+
 
 class RotatingLogger {
  public:
+  typedef std::function<void(int, const char *)> LogCall;
   RotatingLogger(const std::string& out_dir, size_t slice_duration,
                  size_t poll_period, size_t disk_full_threshold,
-                 bool verbose_logging);
+                 LogCall logging_callback = LogCall());
+
   ~RotatingLogger();
   /*
    * try to log a data frame
@@ -55,7 +59,7 @@ class RotatingLogger {
   /*
    * print if _verbose_logging
    */
-  void debug_printf(const char* msg, ...);
+  void log_msg(int priority, const std::string &msg);
 
   bool _dest_available;
   size_t _session_count;
@@ -63,7 +67,7 @@ class RotatingLogger {
   size_t _slice_duration;
   size_t _poll_period;
   size_t _disk_full_threshold;
-  bool _verbose_logging;
+  LogCall _logging_callback;
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
   int _cur_file;
