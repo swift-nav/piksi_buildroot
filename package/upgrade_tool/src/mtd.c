@@ -13,7 +13,8 @@
 #include "mtd.h"
 #include "uboot/image_table.h"
 
-#define BUFFER_SIZE 65536
+#define READ_CHUNK_LENGTH_MAX 65536
+#define WRITE_CHUNK_LENGTH_MAX 65536
 
 typedef enum {
   MTD_OP_ERASE,
@@ -150,9 +151,24 @@ int mtd_write_and_verify(const partition_info_t *partition_info,
                partition_info->mtd_num, offset, offset + length);
 
   /* write data */
-  if (write(fd, (const void *)data, length) != length) {
-    printf("error writing flash\n");
-    return -1;
+  uint32_t write_offset = 0;
+  while (write_offset < length) {
+
+    uint32_t write_length = length - write_offset;
+    if (write_length > WRITE_CHUNK_LENGTH_MAX) {
+      write_length = WRITE_CHUNK_LENGTH_MAX;
+    }
+
+    const void *write_data = &((const uint8_t *)data)[write_offset];
+    if (write(fd, write_data, write_length) != write_length) {
+      printf("error writing flash\n");
+      return -1;
+    }
+
+    debug_printf("\r%d %% complete", 100 * write_offset / length);
+    debug_flush();
+
+    write_offset += write_length;
   }
 
   /* seek to offset */
@@ -162,40 +178,42 @@ int mtd_write_and_verify(const partition_info_t *partition_info,
   }
 
   /* allocate read buffer */
-  void *buffer = malloc(BUFFER_SIZE);
-  if (buffer == NULL) {
+  void *read_buffer = malloc(READ_CHUNK_LENGTH_MAX);
+  if (read_buffer == NULL) {
     printf("error allocating buffer\n");
     return -1;
   }
 
   /* verify data */
-  uint32_t bytes_read = 0;
-  while (bytes_read < length) {
-    uint32_t read_length = length - bytes_read;
-    if (read_length > BUFFER_SIZE) {
-      read_length = BUFFER_SIZE;
+  uint32_t read_offset = 0;
+  while (read_offset < length) {
+
+    uint32_t read_length = length - read_offset;
+    if (read_length > READ_CHUNK_LENGTH_MAX) {
+      read_length = READ_CHUNK_LENGTH_MAX;
     }
 
     /* read data */
-    if (read(fd, buffer, read_length) != read_length) {
+    if (read(fd, read_buffer, read_length) != read_length) {
       printf("error reading flash\n");
       return -1;
     }
 
     /* compare with source data */
-    if (memcmp(buffer, &((const uint8_t *)data)[bytes_read],
+    if (memcmp(read_buffer, &((const uint8_t *)data)[read_offset],
                read_length) != 0) {
       printf("error verifying flash\n");
       return -1;
     }
 
-    bytes_read += read_length;
+    read_offset += read_length;
   }
 
+  debug_printf("\r100 %% complete\n");
   debug_printf("ok\n");
 
   /* free buffer */
-  free(buffer);
+  free(read_buffer);
 
   /* close MTD */
   mtd_close(fd);
@@ -222,10 +240,22 @@ int mtd_read(const partition_info_t *partition_info,
     return -1;
   }
 
-  /* read data */
-  if (read(fd, buffer, length) != length) {
-    printf("error reading flash\n");
-    return -1;
+  uint32_t read_offset = 0;
+  while (read_offset < length) {
+
+    uint32_t read_length = length - read_offset;
+    if (read_length > READ_CHUNK_LENGTH_MAX) {
+      read_length = READ_CHUNK_LENGTH_MAX;
+    }
+
+    /* read data */
+    void *read_data = &((uint8_t *)buffer)[read_offset];
+    if (read(fd, read_data, read_length) != read_length) {
+      printf("error reading flash\n");
+      return -1;
+    }
+
+    read_offset += read_length;
   }
 
   /* close MTD */
@@ -254,35 +284,36 @@ int mtd_crc_compute(const partition_info_t *partition_info,
   }
 
   /* allocate read buffer */
-  void *buffer = malloc(BUFFER_SIZE);
-  if (buffer == NULL) {
+  void *read_buffer = malloc(READ_CHUNK_LENGTH_MAX);
+  if (read_buffer == NULL) {
     printf("error allocating buffer\n");
     return -1;
   }
 
   /* compute CRC */
   image_descriptor_data_crc_init(crc);
-  uint32_t bytes_read = 0;
-  while (bytes_read < length) {
-    uint32_t read_length = length - bytes_read;
-    if (read_length > BUFFER_SIZE) {
-      read_length = BUFFER_SIZE;
+  uint32_t read_offset = 0;
+  while (read_offset < length) {
+
+    uint32_t read_length = length - read_offset;
+    if (read_length > READ_CHUNK_LENGTH_MAX) {
+      read_length = READ_CHUNK_LENGTH_MAX;
     }
 
     /* read data */
-    if (read(fd, buffer, read_length) != read_length) {
+    if (read(fd, read_buffer, read_length) != read_length) {
       printf("error reading flash\n");
       return -1;
     }
 
     /* continue CRC */
-    image_descriptor_data_crc_continue(crc, buffer, read_length);
+    image_descriptor_data_crc_continue(crc, read_buffer, read_length);
 
-    bytes_read += read_length;
+    read_offset += read_length;
   }
 
   /* free buffer */
-  free(buffer);
+  free(read_buffer);
 
   /* close MTD */
   mtd_close(fd);
