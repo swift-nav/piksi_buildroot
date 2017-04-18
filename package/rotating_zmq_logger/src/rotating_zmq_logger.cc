@@ -144,12 +144,12 @@ static void sbp_log(int priority, const char *msg_text)
   char cmd_buf[256];
   sprintf(cmd_buf, "sbp_log --%s", log_args[priority]);
   output = popen (cmd_buf, "w");
-  if (!output) {
+  if (output == nullptr) {
     piksi_log(LOG_ERR, "couldn't call sbp_log.");
     return;
   }
   fputs((std::string(PROGRAM_NAME) + ": " + msg_text).c_str(), output);
-  if (ferror (output)) {
+  if (ferror (output) != 0) {
     piksi_log(LOG_ERR, "output to sbp_log failed.");
   }
   if (pclose (output) != 0) {
