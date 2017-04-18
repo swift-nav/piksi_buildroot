@@ -32,14 +32,9 @@ extern "C"
 #define POLL_PERIOD_DEFAULT_s 30
 #define FILL_THRESHOLD_DEFAULT_p 95
 
-static int slice_diration_m = SLICE_DURATION_DEFAULT_m;
 static int poll_period_s = POLL_PERIOD_DEFAULT_s;
-static int fill_threshold_p = FILL_THRESHOLD_DEFAULT_p;
 
 static const char *zmq_sub_endpoint = nullptr;
-static const char *dir_path = nullptr;
-
-static bool verbose_logging = false;
 
 static RotatingLogger* logger = nullptr;
 
@@ -65,6 +60,10 @@ static void usage(char *command) {
 }
 
 static bool setting_usb_logging_enable = false;
+static const int MAX_PATH_LEN = 1024;
+static char setting_usb_logging_dir[MAX_PATH_LEN] = {0};
+static int setting_usb_logging_max_fill = FILL_THRESHOLD_DEFAULT_p;
+static int setting_usb_logging_slice_duration = SLICE_DURATION_DEFAULT_m;
 
 static int parse_options(int argc, char *argv[]) {
   enum { OPT_ID_DURATION = 1, OPT_ID_PERIOD, OPT_ID_THRESHOLD, OPT_ID_FLUSH };
@@ -72,7 +71,6 @@ static int parse_options(int argc, char *argv[]) {
   const struct option long_opts[] = {
       {"sub", required_argument, nullptr, 's'},
       {"dir", required_argument, nullptr, 'd'},
-      {"verbose", no_argument, nullptr, 'v'},
       {"slice-duration", required_argument, nullptr, OPT_ID_DURATION},
       {"poll-period", required_argument, nullptr, OPT_ID_PERIOD},
       {"full-threshold", required_argument, nullptr, OPT_ID_THRESHOLD},
@@ -80,18 +78,22 @@ static int parse_options(int argc, char *argv[]) {
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "s:d:v", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:d:", long_opts, &opt_index)) != -1) {
     switch (c) {
       case 's': {
         zmq_sub_endpoint = optarg;
       } break;
 
       case 'd': {
-        dir_path = optarg;
+        if (strlen(optarg) >= MAX_PATH_LEN) {
+          puts("Log output path too long");
+          return -1;
+        }
+        strcpy(setting_usb_logging_dir, optarg);
       } break;
 
       case OPT_ID_DURATION: {
-        slice_diration_m = strtol(optarg, nullptr, 10);
+        setting_usb_logging_slice_duration = strtol(optarg, nullptr, 10);
       } break;
 
       case OPT_ID_PERIOD: {
@@ -99,11 +101,7 @@ static int parse_options(int argc, char *argv[]) {
       } break;
 
       case OPT_ID_THRESHOLD: {
-        fill_threshold_p = strtol(optarg, nullptr, 10);
-      } break;
-
-      case 'v': {
-        verbose_logging = true;
+        setting_usb_logging_max_fill = strtol(optarg, nullptr, 10);
       } break;
 
       default: {
@@ -118,7 +116,7 @@ static int parse_options(int argc, char *argv[]) {
     return -1;
   }
 
-  if (dir_path == nullptr) {
+  if (strlen(setting_usb_logging_dir) == 0) {
     piksi_log(LOG_ERR, "Must specify sink directory");
     return -1;
   }
@@ -153,7 +151,6 @@ static void sbp_log(int priority, const char *msg_text)
   fputs((std::string(PROGRAM_NAME) + ": " + msg_text).c_str(), output);
   if (ferror (output)) {
     piksi_log(LOG_ERR, "output to sbp_log failed.");
-    return;
   }
   if (pclose (output) != 0) {
     piksi_log(LOG_ERR, "couldn't close sbp_log call.");
@@ -174,6 +171,28 @@ static void stop_logging()
     delete logger;
     logger = nullptr;
   }
+}
+
+static int setting_usb_logging_notify(void *context)
+{
+  (void *)context;
+
+  if (setting_usb_logging_enable) {
+    if (logger == nullptr) {
+      process_log_callback(LOG_INFO, "Logging started");
+      logger = new RotatingLogger(setting_usb_logging_dir, setting_usb_logging_slice_duration,
+                                  poll_period_s, setting_usb_logging_max_fill,
+                                  &process_log_callback);
+    } else {
+      logger->update_dir(setting_usb_logging_dir);
+      logger->update_fill_threshold(setting_usb_logging_max_fill);
+      logger->update_slice_duration(setting_usb_logging_slice_duration);
+    }
+  } else {
+    stop_logging();
+  }
+
+  return 0;
 }
 
 static void terminate_handler(int signum) {
@@ -246,7 +265,16 @@ int main(int argc, char *argv[]) {
   /* Register settings */
   settings_register(settings_ctx, "usb_logging", "enable", &setting_usb_logging_enable,
                     sizeof(setting_usb_logging_enable), SETTINGS_TYPE_BOOL,
-                    nullptr, nullptr);
+                    &setting_usb_logging_notify, nullptr);
+  settings_register(settings_ctx, "usb_logging", "output_directory", &setting_usb_logging_dir,
+                    sizeof(setting_usb_logging_dir), SETTINGS_TYPE_STRING,
+                    &setting_usb_logging_notify, nullptr);
+  settings_register(settings_ctx, "usb_logging", "max_fill", &setting_usb_logging_max_fill,
+                    sizeof(setting_usb_logging_max_fill), SETTINGS_TYPE_INT,
+                    &setting_usb_logging_notify, nullptr);
+  settings_register(settings_ctx, "usb_logging", "file_duration", &setting_usb_logging_slice_duration,
+                    sizeof(setting_usb_logging_slice_duration), SETTINGS_TYPE_INT,
+                    &setting_usb_logging_notify, nullptr);
   settings_pollitem_init(settings_ctx, &items[1]);
 
   process_log_callback(LOG_INFO, "Starting");
@@ -264,18 +292,11 @@ int main(int argc, char *argv[]) {
       if (msg == nullptr) {
         continue;
       }
-      if (setting_usb_logging_enable) {
-        if (logger == nullptr) {
-          process_log_callback(LOG_INFO, "Logging started");
-          logger = new RotatingLogger(dir_path, slice_diration_m, poll_period_s,
-                        fill_threshold_p, &process_log_callback);
-        }
+      if (logger != nullptr) {
         zframe_t *frame;
         for (frame = zmsg_first(msg); frame != nullptr; frame = zmsg_next(msg)) {
           logger->frame_handler(zframe_data(frame), zframe_size(frame));
         }
-      } else {
-        stop_logging();
       }
       zmsg_destroy(&msg);
     }
