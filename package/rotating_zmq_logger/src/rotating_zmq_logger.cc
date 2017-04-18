@@ -107,19 +107,19 @@ static int parse_options(int argc, char *argv[]) {
       } break;
 
       default: {
-        piksi_log(LOG_ERR, "invalid option\n");
+        piksi_log(LOG_ERR, "invalid option");
         return -1;
       } break;
     }
   }
 
   if (zmq_sub_endpoint == nullptr) {
-    piksi_log(LOG_ERR, "Must specify source\n");
+    piksi_log(LOG_ERR, "Must specify source");
     return -1;
   }
 
   if (dir_path == nullptr) {
-    piksi_log(LOG_ERR, "Must specify sink directory\n");
+    piksi_log(LOG_ERR, "Must specify sink directory");
     return -1;
   }
 
@@ -139,7 +139,6 @@ static void sbp_log(int priority, const char *msg_text)
 {
   const int NUM_LOG_LEVELS = 8;
   assert(priority < NUM_LOG_LEVELS);
-  const int LOG_ERROR = 3;
   const char *log_args[NUM_LOG_LEVELS] = {"emerg", "alert", "crit",
                                           "error", "warn", "notice", 
                                           "info", "debug"};
@@ -148,16 +147,16 @@ static void sbp_log(int priority, const char *msg_text)
   sprintf(cmd_buf, "sbp_log --%s", log_args[priority]);
   output = popen (cmd_buf, "w");
   if (!output) {
-    piksi_log(LOG_ERROR, "couldn't call sbp_log.");
+    piksi_log(LOG_ERR, "couldn't call sbp_log.");
     return;
   }
   fputs((std::string(PROGRAM_NAME) + ": " + msg_text).c_str(), output);
   if (ferror (output)) {
-    piksi_log(LOG_ERROR, "output to sbp_log failed.");
+    piksi_log(LOG_ERR, "output to sbp_log failed.");
     return;
   }
   if (pclose (output) != 0) {
-    piksi_log(LOG_ERROR, "couldn't close sbp_log call.");
+    piksi_log(LOG_ERR, "couldn't close sbp_log call.");
     return;
   }
 }
@@ -209,7 +208,7 @@ int main(int argc, char *argv[]) {
   sigemptyset(&sigchld_sa.sa_mask);
   sigchld_sa.sa_flags = SA_NOCLDSTOP;
   if (sigaction(SIGCHLD, &sigchld_sa, nullptr) != 0) {
-    piksi_log(LOG_ERR, "error setting up sigchld handler\n");
+    piksi_log(LOG_ERR, "error setting up sigchld handler");
     exit(EXIT_FAILURE);
   }
 
@@ -221,7 +220,7 @@ int main(int argc, char *argv[]) {
   if ((sigaction(SIGINT, &terminate_sa, nullptr) != 0) ||
       (sigaction(SIGTERM, &terminate_sa, nullptr) != 0) ||
       (sigaction(SIGQUIT, &terminate_sa, nullptr) != 0)) {
-    piksi_log(LOG_ERR, "error setting up terminate handler\n");
+    piksi_log(LOG_ERR, "error setting up terminate handler");
     exit(EXIT_FAILURE);
   }
 
@@ -229,7 +228,7 @@ int main(int argc, char *argv[]) {
 
   zsock_t * zmq_sub = zsock_new_sub(zmq_sub_endpoint, "");
   if (zmq_sub == nullptr) {
-    piksi_log(LOG_ERR, "error creating SUB socket\n");
+    piksi_log(LOG_ERR, "error creating SUB socket");
     exit(EXIT_FAILURE);
   }
   items[0] = (zmq_pollitem_t) {
