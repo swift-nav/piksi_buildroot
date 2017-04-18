@@ -10,10 +10,14 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "framer_sbp.h"
-
+#include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <libsbp/sbp.h>
+
+#define SBP_MSG_LEN_MAX (264)
 
 typedef struct {
   const uint8_t *read_buffer;
@@ -23,6 +27,11 @@ typedef struct {
   uint32_t write_length;
   uint32_t write_offset;
 } sbp_io_context_t;
+
+typedef struct {
+  sbp_state_t sbp_state;
+  uint8_t send_buffer[SBP_MSG_LEN_MAX];
+} framer_sbp_state_t;
 
 static u32 sbp_read(u8 *buff, u32 n, void* context)
 {
@@ -52,17 +61,27 @@ static u32 sbp_write(u8 *buff, u32 n, void* context)
   return count;
 }
 
-void framer_sbp_init(void *framer_sbp_state)
+void * framer_create(void)
 {
-  framer_sbp_state_t *s = (framer_sbp_state_t *)framer_sbp_state;
+  framer_sbp_state_t *s = (framer_sbp_state_t *)malloc(sizeof(*s));
+  if (s == NULL) {
+    return NULL;
+  }
+
   sbp_state_init(&s->sbp_state);
+  return (void *)s;
 }
 
-uint32_t framer_sbp_process(void *framer_sbp_state,
-                            const uint8_t *data, uint32_t data_length,
-                            const uint8_t **frame, uint32_t *frame_length)
+void framer_destroy(void **state)
 {
-  framer_sbp_state_t *s = (framer_sbp_state_t *)framer_sbp_state;
+  free(*state);
+  *state = NULL;
+}
+
+uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
+                        const uint8_t **frame, uint32_t *frame_length)
+{
+  framer_sbp_state_t *s = (framer_sbp_state_t *)state;
 
   sbp_io_context_t c;
   sbp_state_set_io_context(&s->sbp_state, &c);

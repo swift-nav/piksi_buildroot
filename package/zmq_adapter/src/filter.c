@@ -11,39 +11,121 @@
  */
 
 #include "filter.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
-typedef void (*filter_init_fn_t)(void *state,
-                                 const char *filename);
-typedef int (*filter_process_fn_t)(void *state,
-                                   const uint8_t *msg,
-                                   uint32_t msg_length);
-
-typedef struct {
-  filter_init_fn_t init;
+typedef struct filter_interface_s {
+  const char *name;
+  filter_create_fn_t create;
+  filter_destroy_fn_t destroy;
   filter_process_fn_t process;
+  struct filter_interface_s *next;
 } filter_interface_t;
 
-static const filter_interface_t filter_interfaces[] = {
-  [FILTER_NONE] = {
-    .init = filter_none_init,
-    .process = filter_none_process
-  },
-  [FILTER_SBP] = {
-    .init = filter_sbp_init,
-    .process = filter_sbp_process
-  }
+struct filter_s {
+  void *state;
+  filter_interface_t *interface;
 };
 
-void filter_state_init(filter_state_t *s, filter_t filter,
-                       const char *filename)
+static filter_interface_t *filter_interface_list = NULL;
+
+static filter_interface_t * filter_interface_lookup(const char *name)
 {
-  s->filter = filter;
-  filter_interfaces[s->filter].init(&s->impl_filter_state, filename);
+  filter_interface_t *interface;
+  for (interface = filter_interface_list; interface != NULL;
+       interface = interface->next) {
+    if (strcasecmp(name, interface->name) == 0) {
+      return interface;
+    }
+  }
+  return NULL;
 }
 
-int filter_process(filter_state_t *s,
-                   const uint8_t *msg, uint32_t msg_length)
+int filter_interface_register(const char *name,
+                              filter_create_fn_t create,
+                              filter_destroy_fn_t destroy,
+                              filter_process_fn_t process)
 {
-  return filter_interfaces[s->filter].process(&s->impl_filter_state,
-                                              msg, msg_length);
+  filter_interface_t *interface = (filter_interface_t *)
+                                      malloc(sizeof(*interface));
+  if (interface == NULL) {
+    printf("error allocating filter interface\n");
+    return -1;
+  }
+
+  *interface = (filter_interface_t) {
+    .name = strdup(name),
+    .create = create,
+    .destroy = destroy,
+    .process = process,
+    .next = NULL
+  };
+
+  if (interface->name == NULL) {
+    printf("error allocating filter interface members\n");
+    free(interface);
+    interface = NULL;
+    return -1;
+  }
+
+  /* Add to list */
+  filter_interface_t **p_next = &filter_interface_list;
+  while (*p_next != NULL) {
+    p_next = &(*p_next)->next;
+  }
+  *p_next = interface;
+
+  return 0;
+}
+
+int filter_interface_valid(const char *name)
+{
+  filter_interface_t *interface = filter_interface_lookup(name);
+  if (interface == NULL) {
+    return -1;
+  }
+  return 0;
+}
+
+filter_t * filter_create(const char *name, const char *filename)
+{
+  /* Look up interface */
+  filter_interface_t *interface = filter_interface_lookup(name);
+  if (interface == NULL) {
+    printf("unknown filter: %s\n", name);
+    return NULL;
+  }
+
+  filter_t *filter = (filter_t *)malloc(sizeof(*filter));
+  if (filter == NULL) {
+    printf("error allocating filter\n");
+    return NULL;
+  }
+
+  *filter = (filter_t) {
+    .state = interface->create(filename),
+    .interface = interface
+  };
+
+  if (filter->state == NULL) {
+    printf("error creating filter\n");
+    free(filter);
+    filter = NULL;
+    return NULL;
+  }
+
+  return filter;
+}
+
+void filter_destroy(filter_t **filter)
+{
+  (*filter)->interface->destroy(&(*filter)->state);
+  free(*filter);
+  *filter = NULL;
+}
+
+int filter_process(filter_t *filter, const uint8_t *msg, uint32_t msg_length)
+{
+  return filter->interface->process(filter->state, msg, msg_length);
 }

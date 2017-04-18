@@ -10,24 +10,24 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_FRAMER_RTCM3_H
-#define SWIFTNAV_FRAMER_RTCM3_H
+#ifndef SWIFTNAV_PROTOCOLS_H
+#define SWIFTNAV_PROTOCOLS_H
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
-#define RTCM3_FRAME_SIZE_MAX (1029)
+typedef int (*port_adapter_opts_get_fn_t)(char *buf, size_t buf_size,
+                                          const char *port_name);
 
 typedef struct {
-  uint8_t buffer[RTCM3_FRAME_SIZE_MAX];
-  uint32_t buffer_length;
-  uint32_t refill_count;
-  uint32_t remove_count;
-} framer_rtcm3_state_t;
+  const char *name;
+  const char *setting_name;
+  port_adapter_opts_get_fn_t port_adapter_opts_get;
+} protocol_t;
 
-void framer_rtcm3_init(void *framer_rtcm3_state);
-uint32_t framer_rtcm3_process(void *framer_rtcm3_state,
-                              const uint8_t *data, uint32_t data_length,
-                              const uint8_t **frame, uint32_t *frame_length);
+int protocols_import(const char *path);
+int protocols_count_get(void);
+const protocol_t * protocols_get(int index);
 
-#endif /* SWIFTNAV_FRAMER_RTCM3_H */
+#endif /* SWIFTNAV_PROTOCOLS_H */

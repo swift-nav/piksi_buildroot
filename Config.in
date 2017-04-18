@@ -16,3 +16,7 @@ source "$BR2_EXTERNAL/package/libpiksi/Config.in"
 source "$BR2_EXTERNAL/package/libskylark/Config.in"
 source "$BR2_EXTERNAL/package/skylark_download_daemon/Config.in"
 source "$BR2_EXTERNAL/package/skylark_upload_daemon/Config.in"
+source "$BR2_EXTERNAL/package/sbp_protocol/Config.in"
+source "$BR2_EXTERNAL/package/nmea_protocol/Config.in"
+source "$BR2_EXTERNAL/package/rtcm3_protocol/Config.in"
+

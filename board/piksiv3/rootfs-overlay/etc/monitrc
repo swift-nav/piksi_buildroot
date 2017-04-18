@@ -7,9 +7,17 @@ set daemon 5
 set httpd port 2812
   allow piksi:piksi
 
-check process zmq_router with pidfile /var/run/zmq_router.pid
-    start program = "/etc/init.d/S80zmq_router start"
-    stop program = "/etc/init.d/S80zmq_router stop"
+check process zmq_router_sbp with pidfile /var/run/zmq_router_sbp.pid
+    start program = "/etc/init.d/S80zmq_router_sbp start"
+    stop program = "/etc/init.d/S80zmq_router_sbp stop"
+
+check process zmq_router_nmea with pidfile /var/run/zmq_router_nmea.pid
+    start program = "/etc/init.d/S80zmq_router_nmea start"
+    stop program = "/etc/init.d/S80zmq_router_nmea stop"
+
+check process zmq_router_rtcm3 with pidfile /var/run/zmq_router_rtcm3.pid
+    start program = "/etc/init.d/S80zmq_router_rtcm3 start"
+    stop program = "/etc/init.d/S80zmq_router_rtcm3 stop"
 
 check process sbp_settings_daemon with pidfile /var/run/sbp_settings_daemon.pid
     start program = "/etc/init.d/S81sbp_settings_daemon start"

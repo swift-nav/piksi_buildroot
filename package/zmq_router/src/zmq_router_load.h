@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
+ * Copyright (C) 2017 Swift Navigation Inc.
  * Contact: Jacob McNamee <jacob@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -10,14 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_FILTER_NONE_H
-#define SWIFTNAV_FILTER_NONE_H
+#ifndef SWIFTNAV_ZMQ_ROUTER_LOAD_H
+#define SWIFTNAV_ZMQ_ROUTER_LOAD_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "zmq_router.h"
 
-void * filter_none_create(const char *filename);
-void filter_none_destroy(void **state);
-int filter_none_process(void *state, const uint8_t *msg, uint32_t msg_length);
+router_t * zmq_router_load(const char *filename);
 
-#endif /* SWIFTNAV_FILTER_NONE_H */
+#endif /* SWIFTNAV_ZMQ_ROUTER_LOAD_H */

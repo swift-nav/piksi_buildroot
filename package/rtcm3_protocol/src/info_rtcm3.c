@@ -10,31 +10,20 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "filter_none.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct {
-  void *dummy;
-} filter_none_state_t;
+const char *protocol_name = "RTCM3";
+const char *setting_name = "RTCM3 IN";
 
-void * filter_none_create(const char *filename)
+int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
 {
-  filter_none_state_t *s = (filter_none_state_t *)malloc(sizeof(*s));
-  if (s == NULL) {
-    return NULL;
-  }
-
-  return (void *)s;
-}
-
-void filter_none_destroy(void **state)
-{
-  free(*state);
-  *state = NULL;
-}
-
-int filter_none_process(void *state, const uint8_t *msg, uint32_t msg_length)
-{
-  return 0;
+  return snprintf(buf, buf_size,
+                  "-f rtcm3 "
+                  "-p >tcp://127.0.0.1:45031 "
+                  "-s >tcp://127.0.0.1:45030",
+                  port_name);
 }

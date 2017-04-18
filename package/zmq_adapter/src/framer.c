@@ -11,45 +11,125 @@
  */
 
 #include "framer.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
-typedef void (*framer_init_fn_t)(void *state);
-typedef uint32_t (*framer_process_fn_t)(void *state,
-                                        const uint8_t *data,
-                                        uint32_t data_length,
-                                        const uint8_t **frame,
-                                        uint32_t *frame_length);
-
-typedef struct {
-  framer_init_fn_t init;
+typedef struct framer_interface_s {
+  const char *name;
+  framer_create_fn_t create;
+  framer_destroy_fn_t destroy;
   framer_process_fn_t process;
+  struct framer_interface_s *next;
 } framer_interface_t;
 
-static const framer_interface_t framer_interfaces[] = {
-  [FRAMER_NONE] = {
-    .init = framer_none_init,
-    .process = framer_none_process
-  },
-  [FRAMER_SBP] = {
-    .init = framer_sbp_init,
-    .process = framer_sbp_process
-  },
-  [FRAMER_RTCM3] = {
-    .init = framer_rtcm3_init,
-    .process = framer_rtcm3_process
-  }
+struct framer_s {
+  void *state;
+  framer_interface_t *interface;
 };
 
-void framer_state_init(framer_state_t *s, framer_t framer)
+static framer_interface_t *framer_interface_list = NULL;
+
+static framer_interface_t * framer_interface_lookup(const char *name)
 {
-  s->framer = framer;
-  framer_interfaces[s->framer].init(&s->impl_framer_state);
+  framer_interface_t *interface;
+  for (interface = framer_interface_list; interface != NULL;
+       interface = interface->next) {
+    if (strcasecmp(name, interface->name) == 0) {
+      return interface;
+    }
+  }
+  return NULL;
 }
 
-uint32_t framer_process(framer_state_t *s,
+int framer_interface_register(const char *name,
+                              framer_create_fn_t create,
+                              framer_destroy_fn_t destroy,
+                              framer_process_fn_t process)
+{
+  framer_interface_t *interface = (framer_interface_t *)
+                                      malloc(sizeof(*interface));
+  if (interface == NULL) {
+    printf("error allocating framer interface\n");
+    return -1;
+  }
+
+  *interface = (framer_interface_t) {
+    .name = strdup(name),
+    .create = create,
+    .destroy = destroy,
+    .process = process,
+    .next = NULL
+  };
+
+  if (interface->name == NULL) {
+    printf("error allocating framer interface members\n");
+    free(interface);
+    interface = NULL;
+    return -1;
+  }
+
+  /* Add to list */
+  framer_interface_t **p_next = &framer_interface_list;
+  while (*p_next != NULL) {
+    p_next = &(*p_next)->next;
+  }
+  *p_next = interface;
+
+  return 0;
+}
+
+int framer_interface_valid(const char *name)
+{
+  framer_interface_t *interface = framer_interface_lookup(name);
+  if (interface == NULL) {
+    return -1;
+  }
+  return 0;
+}
+
+framer_t * framer_create(const char *name)
+{
+  /* Look up interface */
+  framer_interface_t *interface = framer_interface_lookup(name);
+  if (interface == NULL) {
+    printf("unknown framer: %s\n", name);
+    return NULL;
+  }
+
+  framer_t *framer = (framer_t *)malloc(sizeof(*framer));
+  if (framer == NULL) {
+    printf("error allocating framer\n");
+    return NULL;
+  }
+
+  *framer = (framer_t) {
+    .state = interface->create(),
+    .interface = interface
+  };
+
+  if (framer->state == NULL) {
+    printf("error creating framer\n");
+    free(framer);
+    framer = NULL;
+    return NULL;
+  }
+
+  return framer;
+}
+
+void framer_destroy(framer_t **framer)
+{
+  (*framer)->interface->destroy(&(*framer)->state);
+  free(*framer);
+  *framer = NULL;
+}
+
+uint32_t framer_process(framer_t *framer,
                         const uint8_t *data, uint32_t data_length,
                         const uint8_t **frame, uint32_t *frame_length)
 {
-  return framer_interfaces[s->framer].process(&s->impl_framer_state,
-                                              data, data_length,
-                                              frame, frame_length);
+  return framer->interface->process(framer->state, data, data_length,
+                                    frame, frame_length);
 }
+

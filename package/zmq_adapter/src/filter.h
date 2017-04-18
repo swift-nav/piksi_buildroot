@@ -16,25 +16,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "filter_none.h"
-#include "filter_sbp.h"
+typedef struct filter_s filter_t;
 
-typedef enum {
-  FILTER_NONE,
-  FILTER_SBP
-} filter_t;
+typedef void * (*filter_create_fn_t)(const char *filename);
+typedef void (*filter_destroy_fn_t)(void **state);
+typedef int (*filter_process_fn_t)(void *state, const uint8_t *msg,
+                                   uint32_t msg_length);
 
-typedef struct {
-  filter_t filter;
-  union {
-    filter_none_state_t filter_none_state;
-    filter_sbp_state_t filter_sbp_state;
-  } impl_filter_state;
-} filter_state_t;
+int filter_interface_register(const char *name,
+                              filter_create_fn_t create,
+                              filter_destroy_fn_t destroy,
+                              filter_process_fn_t process);
+int filter_interface_valid(const char *name);
 
-void filter_state_init(filter_state_t *s, filter_t filter,
-                       const char *filename);
-int filter_process(filter_state_t *s,
-                   const uint8_t *msg, uint32_t msg_length);
+filter_t * filter_create(const char *name, const char *filename);
+void filter_destroy(filter_t **filter);
+int filter_process(filter_t *filter, const uint8_t *msg, uint32_t msg_length);
 
 #endif /* SWIFTNAV_FILTER_H */

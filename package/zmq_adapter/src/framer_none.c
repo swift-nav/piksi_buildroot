@@ -11,13 +11,30 @@
  */
 
 #include "framer_none.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-void framer_none_init(void *framer_none_state)
+typedef struct {
+  void *dummy;
+} framer_none_state_t;
+
+void * framer_none_create(void)
 {
+  framer_none_state_t *s = (framer_none_state_t *)malloc(sizeof(*s));
+  if (s == NULL) {
+    return NULL;
+  }
 
+  return (void *)s;
 }
 
-uint32_t framer_none_process(void *framer_none_state,
+void framer_none_destroy(void **state)
+{
+  free(*state);
+  *state = NULL;
+}
+
+uint32_t framer_none_process(void *state,
                              const uint8_t *data, uint32_t data_length,
                              const uint8_t **frame, uint32_t *frame_length)
 {

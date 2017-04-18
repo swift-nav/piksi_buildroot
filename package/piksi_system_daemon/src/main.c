@@ -24,14 +24,17 @@
 #include <sys/wait.h>
 #include <termios.h>
 
+#include "protocols.h"
 #include "skylark.h"
 #include "whitelists.h"
 
 #define PROGRAM_NAME "piksi_system_daemon"
+#define PROTOCOL_LIBRARY_PATH "/usr/lib/zmq_protocols"
 
 #define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
 #define SUB_ENDPOINT ">tcp://127.0.0.1:43010"
 
+#define PORT_MODE_NAME_DEFAULT "SBP"
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
 static void sigchld_handler(int signum)
@@ -142,13 +145,6 @@ static int flow_control_notify(void *context)
   return uart_configure(uart);
 }
 
-static const char const * port_mode_enum_names[] = {
-  "SBP", "NMEA", "RTCM3 IN", NULL
-};
-enum {
-  PORT_MODE_SBP, PORT_MODE_NMEA, PORT_MODE_RTCM3_IN
-};
-
 typedef struct {
   const char * const name;
   const char * const opts;
@@ -159,67 +155,109 @@ typedef struct {
 static adapter_config_t uart0_adapter_config = {
   .name = "uart0",
   .opts = "--file /dev/ttyPS0",
-  .mode = PORT_MODE_SBP,
+  .mode = -1,
   .pid = 0
 };
 
 static adapter_config_t uart1_adapter_config = {
   .name = "uart1",
   .opts = "--file /dev/ttyPS1",
-  .mode = PORT_MODE_SBP,
+  .mode = -1,
   .pid = 0
 };
 
 static adapter_config_t usb0_adapter_config = {
   .name = "usb0",
   .opts = "--file /dev/ttyGS0",
-  .mode = PORT_MODE_SBP,
+  .mode = -1,
   .pid = 0
 };
 
 static adapter_config_t tcp_server0_adapter_config = {
   .name = "tcp_server0",
   .opts = "--tcp-l 55555",
-  .mode = PORT_MODE_SBP,
+  .mode = -1,
   .pid = 0
 };
 
 static adapter_config_t tcp_server1_adapter_config = {
   .name = "tcp_server1",
   .opts = "--tcp-l 55556",
-  .mode = PORT_MODE_SBP,
+  .mode = -1,
   .pid = 0
 };
 
-int port_mode_notify(void *context)
+static adapter_config_t * const adapter_configs[] = {
+  &uart0_adapter_config,
+  &uart1_adapter_config,
+  &usb0_adapter_config,
+  &tcp_server0_adapter_config,
+  &tcp_server1_adapter_config
+};
+
+static int ports_setup(const char ***port_mode_enum_names)
+{
+  /* Build list of port modes */
+  int protocols_count = protocols_count_get();
+
+  const char **enum_names =
+      (const char **)malloc((1 + protocols_count) *
+                            sizeof(*enum_names));
+  if (enum_names == NULL) {
+    return -1;
+  }
+
+  for (int i = 0; i < protocols_count; i++) {
+    const protocol_t *protocol = protocols_get(i);
+    assert(protocol != NULL);
+    enum_names[i] = protocol->setting_name;
+  }
+  enum_names[protocols_count] = NULL;
+
+  /* Determine default port mode value */
+  u8 port_mode_default = 0;
+  for (int i = 0; i < protocols_count; i++) {
+    const protocol_t *protocol = protocols_get(i);
+    assert(protocol != NULL);
+    if (strcasecmp(protocol->setting_name, PORT_MODE_NAME_DEFAULT) == 0) {
+      port_mode_default = i;
+      break;
+    }
+  }
+
+  /* Initialize default port mode */
+  for (int i = 0; i < sizeof(adapter_configs) / sizeof(adapter_configs[0]);
+       i++) {
+    adapter_configs[i]->mode = port_mode_default;
+  }
+
+  *port_mode_enum_names = enum_names;
+  return 0;
+}
+
+static int port_mode_notify(void *context)
 {
   adapter_config_t *adapter_config = (adapter_config_t *)context;
 
-  char mode_opts[200] = {0};
-  u16 zmq_port_pub = 0;
-  u16 zmq_port_sub = 0;
-  switch (adapter_config->mode) {
-  case PORT_MODE_SBP:
-    snprintf(mode_opts, sizeof(mode_opts),
-             "-f sbp --filter-out sbp "
-             "--filter-out-config /etc/%s_filter_out_config",
-             adapter_config->name);
-    zmq_port_pub = 43031;
-    zmq_port_sub = 43030;
-    break;
-  case PORT_MODE_NMEA:
-    snprintf(mode_opts, sizeof(mode_opts), "");
-    zmq_port_pub = 44031;
-    zmq_port_sub = 44030;
-    break;
-  case PORT_MODE_RTCM3_IN:
-    snprintf(mode_opts, sizeof(mode_opts), "-f rtcm3");
-    zmq_port_pub = 45031;
-    zmq_port_sub = 45030;
-    break;
-  default:
+  const protocol_t *protocol = protocols_get(adapter_config->mode);
+  if (protocol == NULL) {
     return -1;
   }
+
+  /* Prepare the command used to launch zmq_adapter. */
+  char mode_opts[256] = {0};
+  protocol->port_adapter_opts_get(mode_opts, sizeof(mode_opts),
+                                  adapter_config->name);
+
+  char cmd[512];
+  snprintf(cmd, sizeof(cmd),
+           "zmq_adapter %s %s",
+           adapter_config->opts, mode_opts);
+
+  /* Split the command on each space for argv */
+  char *args[100] = {0};
+  args[0] = strtok(cmd, " ");
+  for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 100; i++);
 
   /* Kill the old zmq_adapter, if it exists. */
   if (adapter_config->pid) {
@@ -229,20 +267,7 @@ int port_mode_notify(void *context)
               adapter_config->pid, ret, errno);
   }
 
-  /* Prepare the command used to launch zmq_adapter. */
-  char cmd[200];
-  snprintf(cmd, sizeof(cmd),
-           "zmq_adapter %s %s "
-           "-p >tcp://127.0.0.1:%d "
-           "-s >tcp://127.0.0.1:%d",
-           adapter_config->opts, mode_opts, zmq_port_pub, zmq_port_sub);
-
   piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
-
-  /* Split the command on each space for argv */
-  char *args[100] = {0};
-  args[0] = strtok(cmd, " ");
-  for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 100; i++);
 
   /* Create a new zmq_adapter. */
   if (!(adapter_config->pid = fork())) {
@@ -503,6 +528,11 @@ int main(void)
 {
   logging_init(PROGRAM_NAME);
 
+  if (protocols_import(PROTOCOL_LIBRARY_PATH) != 0) {
+    piksi_log(LOG_ERR, "error importing protocols");
+    exit(EXIT_FAILURE);
+  }
+
   /* Set up SIGCHLD handler */
   struct sigaction sigchld_sa;
   sigchld_sa.sa_handler = sigchld_handler;
@@ -536,6 +566,12 @@ int main(void)
 
   /* Configure USB0 */
   uart_configure(&usb0);
+
+  const char **port_mode_enum_names;
+  if (ports_setup(&port_mode_enum_names) != 0) {
+    piksi_log(LOG_ERR, "error setting up ports");
+    exit(EXIT_FAILURE);
+  }
 
   /* Register settings */
   settings_type_t settings_type_baudrate;

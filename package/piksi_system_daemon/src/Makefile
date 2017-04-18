@@ -1,10 +1,11 @@
 TARGET=piksi_system_daemon
 SOURCES= \
 	main.c \
+	protocols.c \
 	skylark.c \
 	whitelists.c
 
-LIBS=-lczmq -lsbp -lpiksi
+LIBS=-lczmq -lsbp -lpiksi -ldl
 CFLAGS=-std=gnu11
 
 CROSS=

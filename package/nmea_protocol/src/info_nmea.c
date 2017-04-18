@@ -10,24 +10,19 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_FRAMER_SBP_H
-#define SWIFTNAV_FRAMER_SBP_H
-
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include <libsbp/sbp.h>
+const char *protocol_name = "NMEA";
+const char *setting_name = "NMEA";
 
-#define SBP_MSG_LEN_MAX (264)
-
-typedef struct {
-  sbp_state_t sbp_state;
-  uint8_t send_buffer[SBP_MSG_LEN_MAX];
-} framer_sbp_state_t;
-
-void framer_sbp_init(void *framer_sbp_state);
-uint32_t framer_sbp_process(void *framer_sbp_state,
-                            const uint8_t *data, uint32_t data_length,
-                            const uint8_t **frame, uint32_t *frame_length);
-
-#endif /* SWIFTNAV_FRAMER_SBP_H */
+int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
+{
+  return snprintf(buf, buf_size,
+                  "-p >tcp://127.0.0.1:44031 "
+                  "-s >tcp://127.0.0.1:44030",
+                  port_name);
+}

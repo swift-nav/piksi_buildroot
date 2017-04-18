@@ -1,11 +1,10 @@
 TARGET=zmq_router
 SOURCES= \
 	zmq_router.c \
-	zmq_router_sbp.c \
-	zmq_router_nmea.c \
-	zmq_router_rtcm3.c
-LIBS=-lczmq
-CFLAGS=-std=gnu11
+	zmq_router_load.c \
+	zmq_router_print.c
+LIBS=-lczmq -lyaml
+CFLAGS=-std=gnu11 -Wall
 
 CROSS=
 

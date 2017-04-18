@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
+ * Copyright (C) 2016 Swift Navigation Inc.
  * Contact: Jacob McNamee <jacob@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -10,14 +10,23 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "framer_rtcm3.h"
-
+#include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define RTCM3_PREAMBLE 0xD3
 #define RTCM3_HEADER_LENGTH 3
 #define RTCM3_FOOTER_LENGTH 3
+#define RTCM3_FRAME_SIZE_MAX 1029
+
+typedef struct {
+  uint8_t buffer[RTCM3_FRAME_SIZE_MAX];
+  uint32_t buffer_length;
+  uint32_t refill_count;
+  uint32_t remove_count;
+} framer_rtcm3_state_t;
 
 static const uint32_t crc24qtab[256] = {
   0x000000, 0x864CFB, 0x8AD50D, 0x0C99F6, 0x93E6E1, 0x15AA1A, 0x1933EC, 0x9F7F17,
@@ -61,20 +70,30 @@ static uint32_t crc24q(const uint8_t *buf, uint32_t len, uint32_t crc)
   return crc;
 }
 
-void framer_rtcm3_init(void *framer_rtcm3_state)
+void * framer_create(void)
 {
-  framer_rtcm3_state_t *s = (framer_rtcm3_state_t *)framer_rtcm3_state;
+  framer_rtcm3_state_t *s = (framer_rtcm3_state_t *)malloc(sizeof(*s));
+  if (s == NULL) {
+    return NULL;
+  }
 
   s->buffer_length = 0;
   s->refill_count = 0;
   s->remove_count = 0;
+
+  return (void *)s;
 }
 
-uint32_t framer_rtcm3_process(void *framer_rtcm3_state,
-                              const uint8_t *data, uint32_t data_length,
-                              const uint8_t **frame, uint32_t *frame_length)
+void framer_destroy(void **state)
 {
-  framer_rtcm3_state_t *s = (framer_rtcm3_state_t *)framer_rtcm3_state;
+  free(*state);
+  *state = NULL;
+}
+
+uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
+                        const uint8_t **frame, uint32_t *frame_length)
+{
+  framer_rtcm3_state_t *s = (framer_rtcm3_state_t *)state;
 
   uint32_t data_offset = 0;
   while (1) {
