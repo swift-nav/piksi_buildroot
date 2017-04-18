@@ -20,6 +20,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/syslog.h>
 
 /*
  * Name format: xxxx-yyyyy.sbp
@@ -37,15 +38,6 @@
  */
 static const std::string LOG_SUFFIX = ".sbp";
 static const size_t LOG_NAME_LEN = 4 + 1 + 5 + 4;
-
-static const int LOG_EMERG = 0;  /* system is unusable */
-static const int LOG_ALERT = 1;  /* action must be taken immediately */
-static const int LOG_CRIT = 2;   /* critical conditions */
-static const int LOG_ERROR = 3;  /* error conditions */
-static const int LOG_WARN = 4;   /* warning conditions */
-static const int LOG_NOTICE = 5; /* normal but significant condition */
-static const int LOG_INFO = 6;   /* informational */
-static const int LOG_DEBUG = 7;  /* debug-level messages */
 
 void RotatingLogger::log_msg(int priority, const std::string &msg) {
   if (_logging_callback) {
@@ -78,13 +70,13 @@ bool RotatingLogger::open_new_file() {
 
   int fs_status = check_disk_full();
   if (fs_status == 1) {
-    log_msg(LOG_WARN, std::string("Target dir full"));
+    log_msg(LOG_WARNING, std::string("Target dir full"));
     return false;
   }
 
   char log_name_buf[LOG_NAME_LEN + 1];
   if (_minute_count > 99999) {
-    log_msg(LOG_WARN, std::string("Minutes roll over"));
+    log_msg(LOG_WARNING, std::string("Minutes roll over"));
     _minute_count = 0;
     _session_count++;
   }
@@ -95,7 +87,7 @@ bool RotatingLogger::open_new_file() {
   _dest_available = _cur_file != -1;
   log_msg(LOG_INFO, std::string("Opening file: ") + log_name_buf);
   if (!_dest_available) {
-    log_msg(LOG_WARN, std::string("Error openning file: ") + strerror(errno));
+    log_msg(LOG_WARNING, std::string("Error openning file: ") + strerror(errno));
   }
   return _dest_available;
 }
@@ -116,7 +108,7 @@ bool RotatingLogger::start_new_session() {
   DIR* dirp = opendir(_out_dir.c_str());
   struct dirent* dp = nullptr;
   if (dirp == nullptr) {
-    log_msg(LOG_WARN, "Target dir unavailable");
+    log_msg(LOG_WARNING, "Target dir unavailable");
     return false;
   }
   // check files in path for last session index
@@ -173,7 +165,7 @@ void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
     _dest_available = false;
     // wait _poll_period to check drive again
     _session_start_time = std::chrono::steady_clock::now();
-    log_msg(LOG_WARN, std::string("Write to file failed: ") + strerror(errno));
+    log_msg(LOG_WARNING, std::string("Write to file failed: ") + strerror(errno));
   }
 }
 
