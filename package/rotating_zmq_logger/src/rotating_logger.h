@@ -33,6 +33,21 @@ class RotatingLogger {
    */
   void frame_handler(const uint8_t* data, size_t size);
 
+  /*
+   * Update output directory. Subsequent files will use this path.
+   */
+  void update_dir(const std::string& out_dir);
+
+  /*
+   * Update fill threshold. Subsequent files will check this threshold.
+   */
+  void update_fill_threshold(size_t disk_full_threshold);
+
+  /*
+   * Update slice duration. This will apply to current log.
+   */
+  void update_slice_duration(size_t slice_duration);
+
  protected:
   /*
    * Try to start a new session. Return true on success

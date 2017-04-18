@@ -169,6 +169,21 @@ void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
   }
 }
 
+void RotatingLogger::update_dir(const std::string& out_dir)
+{
+  _out_dir = out_dir;
+}
+
+void RotatingLogger::update_fill_threshold(size_t disk_full_threshold)
+{
+  _disk_full_threshold = disk_full_threshold;
+}
+
+void RotatingLogger::update_slice_duration(size_t slice_duration)
+{
+  _slice_duration = slice_duration;
+}
+
 RotatingLogger::RotatingLogger(const std::string& out_dir,
                                size_t slice_duration, size_t poll_period,
                                size_t disk_full_threshold,
