@@ -26,7 +26,7 @@ typedef struct {
 
 static int ntrip_daemon_execfn(void) {
   char *argv[] = {
-    "ntrip_daemon",
+    "ntrip_daemon", "--debug",
     "--file", FIFO_FILE_PATH,
     "--url", ntrip_url,
     NULL,
@@ -37,7 +37,7 @@ static int ntrip_daemon_execfn(void) {
 
 static int ntrip_adapter_execfn(void) {
   char *argv[] = {
-    "zmq_adapter",
+    "zmq_adapter", "--debug",
     "-f", "rtcm3",
     "--file", FIFO_FILE_PATH,
     "-p", ">tcp://127.0.0.1:45031",
