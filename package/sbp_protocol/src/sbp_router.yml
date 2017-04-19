@@ -30,7 +30,9 @@ ports:
           - { action: ACCEPT }
       - dst_port: SBP_PORT_SKYLARK
         filters:
-          - { action: ACCEPT }
+          - { action: ACCEPT, prefix: [0x55, 0xOA, 0x02] } # Publish: SBP MSG_POS_LLH
+          - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # Publish: SBP MSG_HEARTBEAT
+          - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
     pub_addr: "@tcp://127.0.0.1:43020"
