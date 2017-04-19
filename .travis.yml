@@ -14,7 +14,6 @@ script:
 after_success:
   - git fetch --tags --unshallow
   - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh buildroot/output/images/piksiv3_prod/*
-  - PRODUCT_VERSION=v3 PRODUCT_REV=microzed ./publish.sh buildroot/output/images/piksiv3_microzed/*
   - SLACK_CHANNEL=github ./comment.sh
 
 after_failure:
