@@ -2,6 +2,7 @@ TARGET=piksi_system_daemon
 SOURCES= \
 	main.c \
 	protocols.c \
+	ntrip.c \
 	skylark.c \
 	whitelists.c
 
