@@ -24,6 +24,7 @@
 #include <sys/wait.h>
 #include <termios.h>
 
+#include "ntrip.h"
 #include "skylark.h"
 #include "whitelists.h"
 #include "cellmodem.h"
@@ -599,6 +600,7 @@ int main(void)
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
+  ntrip_init(settings_ctx);
   skylark_init(settings_ctx);
   whitelists_init(settings_ctx);
   cellmodem_init(settings_ctx);
