@@ -17,17 +17,36 @@
 #include <stdlib.h>
 #include <chrono>
 #include <string>
+#include <functional>
+
 
 class RotatingLogger {
  public:
+  typedef std::function<void(int, const char *)> LogCall;
   RotatingLogger(const std::string& out_dir, size_t slice_duration,
                  size_t poll_period, size_t disk_full_threshold,
-                 bool verbose_logging);
+                 LogCall logging_callback = LogCall());
+
   ~RotatingLogger();
   /*
    * try to log a data frame
    */
   void frame_handler(const uint8_t* data, size_t size);
+
+  /*
+   * Update output directory. Subsequent files will use this path.
+   */
+  void update_dir(const std::string& out_dir);
+
+  /*
+   * Update fill threshold. Subsequent files will check this threshold.
+   */
+  void update_fill_threshold(size_t disk_full_threshold);
+
+  /*
+   * Update slice duration. This will apply to current log.
+   */
+  void update_slice_duration(size_t slice_duration);
 
  protected:
   /*
@@ -55,7 +74,7 @@ class RotatingLogger {
   /*
    * print if _verbose_logging
    */
-  void debug_printf(const char* msg, ...);
+  void log_msg(int priority, const std::string &msg);
 
   bool _dest_available;
   size_t _session_count;
@@ -63,7 +82,7 @@ class RotatingLogger {
   size_t _slice_duration;
   size_t _poll_period;
   size_t _disk_full_threshold;
-  bool _verbose_logging;
+  LogCall _logging_callback;
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
   int _cur_file;

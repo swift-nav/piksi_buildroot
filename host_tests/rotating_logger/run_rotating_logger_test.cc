@@ -31,7 +31,13 @@ static double GetDiskDiskUsage() {
 // The fixture for testing class RotatingLogger.
 class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
  protected:
-  RotatingLoggerTest() : RotatingLogger("", 0, 0, 100, true) {
+
+  static void log_call(int priority, const char *msg)
+  {
+    printf("rotating_logger - %d: %s\n", priority, msg);
+  }
+
+  RotatingLoggerTest() : RotatingLogger("", 0, 0, 100, &RotatingLoggerTest::log_call) {
     rm_wrapper("*.sbp");
   }
 
