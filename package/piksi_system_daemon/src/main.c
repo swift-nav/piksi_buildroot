@@ -25,6 +25,7 @@
 #include <termios.h>
 
 #include "protocols.h"
+#include "ntrip.h"
 #include "skylark.h"
 #include "whitelists.h"
 
@@ -634,6 +635,7 @@ int main(void)
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
+  ntrip_init(settings_ctx);
   skylark_init(settings_ctx);
   whitelists_init(settings_ctx);
   img_tbl_settings_setup(settings_ctx);
