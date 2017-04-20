@@ -14,6 +14,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <syslog.h>
 
 typedef struct {
   const uint8_t *read_buffer;
@@ -87,7 +88,7 @@ uint32_t framer_sbp_process(void *framer_sbp_state,
         *frame_length = c.write_offset;
         return c.read_offset;
       } else {
-        printf("SBP send error\n");
+        syslog(LOG_ERR, "SBP send error");
       }
     }
   }
