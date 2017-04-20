@@ -13,7 +13,7 @@ add_subdirectory(package/sbp_protocol)
 add_subdirectory(package/nmea_protocol)
 add_subdirectory(package/rtcm3_protocol)
 add_subdirectory(package/zmq_adapter/src)
-add_subdirectory(package/rotating_zmq_logger/src)
+add_subdirectory(package/standalone_file_logger/src)
 add_subdirectory(package/sbp_rtcm3_bridge/src)
 add_subdirectory(package/libskylark/src)
 

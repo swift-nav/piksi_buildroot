@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.10)
 
 project(test_rotating_logger CXX)
 
-set(LOGGER_DIR "../../package/rotating_zmq_logger/src")
+set(LOGGER_DIR "../../package/standalone_file_logger/src")
 
 include_directories(${GTEST_INCLUDE_DIR} ${LOGGER_DIR})
 
