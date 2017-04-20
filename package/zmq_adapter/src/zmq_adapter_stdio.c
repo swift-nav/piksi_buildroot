@@ -12,15 +12,9 @@
 
 #include "zmq_adapter.h"
 
-int file_loop(const char *file_path)
+int stdio_loop(void)
 {
-  int fd = open(file_path, O_RDWR);
-  if (fd < 0) {
-    syslog(LOG_ERR, "error opening file");
-    return 1;
-  }
-
-  io_loop_start(fd, fd);
+  io_loop_start(STDIN_FILENO, STDOUT_FILENO);
 
   while (1) {
     int ret = waitpid(-1, NULL, 0);
@@ -36,7 +30,5 @@ int file_loop(const char *file_path)
     }
   }
 
-  close(fd);
-  fd = -1;
   return 0;
 }

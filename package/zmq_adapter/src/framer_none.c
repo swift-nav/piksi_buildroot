@@ -12,6 +12,8 @@
 
 #include "framer_none.h"
 
+#include <string.h>
+
 void framer_none_init(void *framer_none_state)
 {
 
@@ -21,7 +23,7 @@ uint32_t framer_none_process(void *framer_none_state,
                              const uint8_t *data, uint32_t data_length,
                              const uint8_t **frame, uint32_t *frame_length)
 {
-  *frame = data;
+  *frame = data_length > 0 ? data : NULL;
   *frame_length = data_length;
   return data_length;
 }
