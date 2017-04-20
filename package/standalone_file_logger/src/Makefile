@@ -1,7 +1,7 @@
-TARGET=rotating_zmq_logger
+TARGET=standalone_file_logger
 SOURCES= \
 	rotating_logger.cc \
-	rotating_zmq_logger.cc
+	standalone_file_logger.cc
 LIBS=-lczmq -lzmq -lsbp -lpiksi
 CFLAGS=-std=gnu++11
 
