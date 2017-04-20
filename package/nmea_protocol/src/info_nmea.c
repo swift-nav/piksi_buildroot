@@ -17,7 +17,7 @@
 #include <stdlib.h>
 
 const char *protocol_name = "NMEA";
-const char *setting_name = "NMEA";
+const char *setting_name = "NMEA OUT";
 
 int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
 {
