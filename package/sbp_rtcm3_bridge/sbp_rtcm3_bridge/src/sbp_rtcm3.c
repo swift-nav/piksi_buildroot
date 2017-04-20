@@ -335,14 +335,9 @@ void sbp_to_rtcm3_1005(const msg_base_pos_ecef_t *sbp_base_pos,
 
 void rtcm3_1006_to_sbp(const rtcm_msg_1006 *rtcm_1006,
                        msg_base_pos_ecef_t *sbp_base_pos) {
-  double llh[3], xyz[3] = {rtcm_1006->msg_1005.arp_x, rtcm_1006->msg_1005.arp_y,
-                           rtcm_1006->msg_1005.arp_z};
-  wgsecef2llh(xyz, llh);
-  llh[2] += rtcm_1006->ant_height;
-  wgsllh2ecef(llh, xyz);
-  sbp_base_pos->x = xyz[0];
-  sbp_base_pos->y = xyz[1];
-  sbp_base_pos->z = xyz[2];
+  sbp_base_pos->x = rtcm_1006->msg_1005.arp_x;
+  sbp_base_pos->y = rtcm_1006->msg_1005.arp_y;
+  sbp_base_pos->z = rtcm_1006->msg_1005.arp_z;
 }
 
 void sbp_to_rtcm3_1006(const msg_base_pos_ecef_t *sbp_base_pos,
