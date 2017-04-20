@@ -11,7 +11,10 @@ RUN apt-get update && apt-get -y --force-yes install \
   libssl-dev \
   ncurses-dev \
   mercurial \
-  cmake
+  cmake \
+  libc6-i386 \
+  lib32stdc++6 \
+  lib32z1
 
 ENV BR2_EXTERNAL /piksi_buildroot
 WORKDIR /piksi_buildroot
