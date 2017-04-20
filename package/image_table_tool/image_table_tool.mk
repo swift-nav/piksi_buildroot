@@ -5,7 +5,8 @@
 ################################################################################
 
 IMAGE_TABLE_TOOL_VERSION = 0.1
-IMAGE_TABLE_TOOL_SITE = "${BR2_EXTERNAL}/package/image_table_tool/src"
+IMAGE_TABLE_TOOL_SITE = \
+  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/image_table_tool/src"
 IMAGE_TABLE_TOOL_SITE_METHOD = local
 IMAGE_TABLE_TOOL_DEPENDENCIES = uboot_custom zlib
 

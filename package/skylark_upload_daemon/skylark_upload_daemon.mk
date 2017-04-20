@@ -5,7 +5,8 @@
 ################################################################################
 
 SKYLARK_UPLOAD_DAEMON_VERSION = 0.1
-SKYLARK_UPLOAD_DAEMON_SITE = "${BR2_EXTERNAL}/package/skylark_upload_daemon/src"
+SKYLARK_UPLOAD_DAEMON_SITE = \
+  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/skylark_upload_daemon/src"
 SKYLARK_UPLOAD_DAEMON_SITE_METHOD = local
 SKYLARK_UPLOAD_DAEMON_DEPENDENCIES = czmq libsbp libpiksi libcurl libskylark
 

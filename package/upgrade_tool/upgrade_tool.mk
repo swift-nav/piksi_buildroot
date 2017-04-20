@@ -5,7 +5,8 @@
 ################################################################################
 
 UPGRADE_TOOL_VERSION = 0.1
-UPGRADE_TOOL_SITE = "${BR2_EXTERNAL}/package/upgrade_tool/src"
+UPGRADE_TOOL_SITE = \
+  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/upgrade_tool/src"
 UPGRADE_TOOL_SITE_METHOD = local
 UPGRADE_TOOL_DEPENDENCIES = uboot_custom zlib
 

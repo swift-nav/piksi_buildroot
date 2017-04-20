@@ -5,7 +5,8 @@
 ################################################################################
 
 SBP_RTCM3_BRIDGE_VERSION = 0.1
-SBP_RTCM3_BRIDGE_SITE = "${BR2_EXTERNAL}/package/sbp_rtcm3_bridge/src"
+SBP_RTCM3_BRIDGE_SITE = \
+  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_rtcm3_bridge/src"
 SBP_RTCM3_BRIDGE_SITE_METHOD = local
 SBP_RTCM3_BRIDGE_DEPENDENCIES = czmq libsbp libpiksi
 

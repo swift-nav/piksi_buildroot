@@ -5,7 +5,8 @@
 ################################################################################
 
 ZMQ_ADAPTER_VERSION = 0.1
-ZMQ_ADAPTER_SITE = "${BR2_EXTERNAL}/package/zmq_adapter/src"
+ZMQ_ADAPTER_SITE = \
+  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/zmq_adapter/src"
 ZMQ_ADAPTER_SITE_METHOD = local
 ZMQ_ADAPTER_DEPENDENCIES = czmq libsbp
 

@@ -5,7 +5,7 @@
 ################################################################################
 
 ZMQ_ROUTER_VERSION = 0.1
-ZMQ_ROUTER_SITE = "${BR2_EXTERNAL}/package/zmq_router/src"
+ZMQ_ROUTER_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/zmq_router/src"
 ZMQ_ROUTER_SITE_METHOD = local
 ZMQ_ROUTER_DEPENDENCIES = czmq libyaml
 
