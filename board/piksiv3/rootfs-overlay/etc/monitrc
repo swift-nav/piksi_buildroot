@@ -51,6 +51,6 @@ check process klogd with pidfile /var/run/klogd.pid
     start program = "/etc/init.d/S01logging start"
     stop program = "/etc/init.d/S01logging stop"
 
-check process zmq_file_logger with pidfile /var/run/zmq_file_logger.pid
-    start program = "/etc/init.d/S83zmq_file_logger start"
-    stop program = "/etc/init.d/S83zmq_file_logger stop"
+check process standalone_file_logger with pidfile /var/run/standalone_file_logger.pid
+    start program = "/etc/init.d/S83standalone_file_logger start"
+    stop program = "/etc/init.d/S83standalone_file_logger stop"

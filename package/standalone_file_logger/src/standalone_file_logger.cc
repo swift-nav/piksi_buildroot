@@ -26,7 +26,7 @@ extern "C"
 
 #include "rotating_logger.h"
 
-#define PROGRAM_NAME "rotating_zmq_logger"
+#define PROGRAM_NAME "standalone_file_logger"
 
 #define SLICE_DURATION_DEFAULT_m 10
 #define POLL_PERIOD_DEFAULT_s 30
@@ -263,16 +263,16 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
   /* Register settings */
-  settings_register(settings_ctx, "usb_logging", "enable", &setting_usb_logging_enable,
+  settings_register(settings_ctx, "standalone_logging", "enable", &setting_usb_logging_enable,
                     sizeof(setting_usb_logging_enable), SETTINGS_TYPE_BOOL,
                     &setting_usb_logging_notify, nullptr);
-  settings_register(settings_ctx, "usb_logging", "output_directory", &setting_usb_logging_dir,
+  settings_register(settings_ctx, "standalone_logging", "output_directory", &setting_usb_logging_dir,
                     sizeof(setting_usb_logging_dir), SETTINGS_TYPE_STRING,
                     &setting_usb_logging_notify, nullptr);
-  settings_register(settings_ctx, "usb_logging", "max_fill", &setting_usb_logging_max_fill,
+  settings_register(settings_ctx, "standalone_logging", "max_fill", &setting_usb_logging_max_fill,
                     sizeof(setting_usb_logging_max_fill), SETTINGS_TYPE_INT,
                     &setting_usb_logging_notify, nullptr);
-  settings_register(settings_ctx, "usb_logging", "file_duration", &setting_usb_logging_slice_duration,
+  settings_register(settings_ctx, "standalone_logging", "file_duration", &setting_usb_logging_slice_duration,
                     sizeof(setting_usb_logging_slice_duration), SETTINGS_TYPE_INT,
                     &setting_usb_logging_notify, nullptr);
   settings_pollitem_init(settings_ctx, &items[1]);

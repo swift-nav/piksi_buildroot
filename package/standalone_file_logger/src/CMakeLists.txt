@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.10)
 
-project(rotating_zmq_logger CXX)
+project(standalone_file_logger CXX)
 
 include_directories("${CZMQ_INCLUDE_DIRS}")
 include_directories("${LIBSBP_INCLUDE_DIRS}")
