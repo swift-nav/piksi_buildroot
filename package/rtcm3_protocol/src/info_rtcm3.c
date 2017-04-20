@@ -17,7 +17,7 @@
 #include <stdlib.h>
 
 const char *protocol_name = "RTCM3";
-const char *setting_name = "RTCMv3.1 In";
+const char *setting_name = "RTCMv3.1 IN";
 
 int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
 {
