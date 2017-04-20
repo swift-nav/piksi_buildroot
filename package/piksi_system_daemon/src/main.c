@@ -144,7 +144,7 @@ static int flow_control_notify(void *context)
 }
 
 static const char const * port_mode_enum_names[] = {
-  "SBP", "NMEA OUT", "RTCM3v3 IN", NULL
+  "SBP", "NMEA OUT", "RTCMv3.1 IN", NULL
 };
 enum {
   PORT_MODE_SBP, PORT_MODE_NMEA, PORT_MODE_RTCM3_IN
