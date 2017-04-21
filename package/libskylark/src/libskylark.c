@@ -20,18 +20,15 @@
 #define ACCEPT_TYPE  "application/vnd.swiftnav.broker.v1+sbp2"
 #define CONTENT_TYPE "application/vnd.swiftnav.broker.v1+sbp2"
 
-static int skylark_request(const skylark_config_t * const config, CURL *curl)
+static int skylark_request(CURL *curl)
 {
   char error_buf[CURL_ERROR_SIZE];
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, error_buf);
 
   while (true) {
     CURLcode res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-      if (config->debug) {
-        piksi_log(LOG_DEBUG, "curl error (%d) \"%s\"\n", res, error_buf);
-      }
-    }
+
+    piksi_log(LOG_DEBUG, "curl request (%d) \"%s\"", res, error_buf);
 
     usleep(1000000);
   }
@@ -46,7 +43,7 @@ static size_t skylark_download_callback(char *buf, size_t size, size_t n, void *
   ssize_t ret = write(config->fd, buf, size * n);
 
   if (config->debug) {
-    piksi_log(LOG_DEBUG, "write bytes (%d) %d\n", size * n, ret);
+    piksi_log(LOG_DEBUG, "write bytes (%d) %d", size * n, ret);
   }
 
   return ret;
@@ -59,7 +56,7 @@ static size_t skylark_upload_callback(char *buf, size_t size, size_t n, void *da
   ssize_t ret = read(config->fd, buf, size * n);
 
   if (config->debug) {
-    piksi_log(LOG_DEBUG, "read bytes %d\n", ret);
+    piksi_log(LOG_DEBUG, "read bytes %d", ret);
   }
 
   if (ret < 0) {
@@ -105,7 +102,7 @@ int skylark_download(const skylark_config_t * const config)
   curl_easy_setopt(curl, CURLOPT_WRITEDATA,     config);
   curl_easy_setopt(curl, CURLOPT_URL,           config->url);
 
-  int ret = skylark_request(config, curl);
+  int ret = skylark_request(curl);
   curl_easy_cleanup(curl);
 
   return ret;
@@ -133,7 +130,7 @@ int skylark_upload(const skylark_config_t * const config)
   curl_easy_setopt(curl, CURLOPT_URL,          config->url);
   curl_easy_setopt(curl, CURLOPT_PUT,          1L);
 
-  int ret = skylark_request(config, curl);
+  int ret = skylark_request(curl);
   curl_easy_cleanup(curl);
 
   return ret;
