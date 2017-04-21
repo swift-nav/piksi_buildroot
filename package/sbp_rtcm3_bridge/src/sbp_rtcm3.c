@@ -24,7 +24,7 @@
 
 // time given from rover observation data. Must be maintained to within half a week of
 // the epoch of incoming RTCM data
-static gps_time_nano_t time_from_rover_obs = { .tow = 0, .ns = 0, .wn = .0 };
+static gps_time_nano_t time_from_rover_obs = { .tow = 0, .ns_residual = 0, .wn = .0 };
 
 static double gps_diff_time(const gps_time_nano_t *end, const gps_time_nano_t *beginning)
 {
@@ -190,7 +190,7 @@ u8 rtcm3_obs_to_sbp(const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4],
           } else {
               sbp_obs[sbp_msg]->header.t.wn = time_from_rover_obs.wn;
           }
-          sbp_obs[sbp_msg]->header.t.ns = 0.0;
+          sbp_obs[sbp_msg]->header.t.ns_residual = 0.0;
         }
 
         packed_obs_content_t *sbp_freq =
@@ -505,5 +505,5 @@ void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   msg_gps_time_t *time = (msg_gps_time_t*)msg;
   time_from_rover_obs.wn = time->wn;
   time_from_rover_obs.tow = time->tow;
-  time_from_rover_obs.ns = time->ns;
+  time_from_rover_obs.ns_residual = time->ns_residual;
 }
