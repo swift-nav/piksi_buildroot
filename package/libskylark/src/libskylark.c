@@ -28,42 +28,56 @@ static int skylark_request(CURL *curl)
   while (true) {
     CURLcode res = curl_easy_perform(curl);
 
-    piksi_log(LOG_DEBUG, "curl request (%d) \"%s\"", res, error_buf);
+    piksi_log(LOG_INFO, "curl request (%d) \"%s\"", res, error_buf);
 
     usleep(1000000);
   }
 
-  return 0;
+  return -1;
 }
 
 static size_t skylark_download_callback(char *buf, size_t size, size_t n, void *data)
 {
   const skylark_config_t * const config = data;
 
-  ssize_t ret = write(config->fd, buf, size * n);
+  while (true) {
+    ssize_t ret = write(config->fd, buf, size * n);
+    if (ret < 0 && errno == EINTR) {
+      continue;
+    }
 
-  if (config->debug) {
-    piksi_log(LOG_DEBUG, "write bytes (%d) %d", size * n, ret);
+    if (config->debug) {
+      piksi_log(LOG_DEBUG, "write bytes (%d) %d", size * n, ret);
+    }
+
+    return ret;
   }
 
-  return ret;
+  return -1;
 }
 
 static size_t skylark_upload_callback(char *buf, size_t size, size_t n, void *data)
 {
   const skylark_config_t * const config = data;
 
-  ssize_t ret = read(config->fd, buf, size * n);
+  while (true) {
+    ssize_t ret = read(config->fd, buf, size * n);
+    if (ret < 0 && errno == EINTR) {
+      continue;
+    }
 
-  if (config->debug) {
-    piksi_log(LOG_DEBUG, "read bytes %d", ret);
+    if (config->debug) {
+      piksi_log(LOG_DEBUG, "read bytes %d", ret);
+    }
+
+    if (ret < 0) {
+      return CURL_READFUNC_ABORT;
+    }
+
+    return ret;
   }
 
-  if (ret < 0) {
-    return CURL_READFUNC_ABORT;
-  }
-
-  return ret;
+  return -1;
 }
 
 int skylark_setup(void)
