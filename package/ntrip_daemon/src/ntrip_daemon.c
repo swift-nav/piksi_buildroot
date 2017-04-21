@@ -14,89 +14,12 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <curl/curl.h>
 #include <libpiksi/logging.h>
-
-#define AGENT_TYPE "NTRIP ntrip-client/1.0"
+#include <libnetwork.h>
 
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
-
-typedef struct {
-  int fd;
-} ntrip_config_t;
-
-static int ntrip_request(CURL *curl)
-{
-  char error_buf[CURL_ERROR_SIZE];
-  curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, error_buf);
-
-  while (true) {
-    CURLcode res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-      if (debug) {
-        piksi_log(LOG_DEBUG, "curl error (%d) \"%s\"\n", res, error_buf);
-      }
-    }
-
-    usleep(1000000);
-  }
-
-  return 0;
-}
-
-static size_t ntrip_download_callback(char *buf, size_t size, size_t n, void *data)
-{
-  const ntrip_config_t * const config = data;
-
-  ssize_t ret = write(config->fd, buf, size * n);
-
-  if (debug) {
-    piksi_log(LOG_DEBUG, "write bytes (%d) %d\n", size * n, ret);
-  }
-
-  return ret;
-}
-
-static int ntrip_setup(void)
-{
-  CURLcode res = curl_global_init(CURL_GLOBAL_ALL);
-  if (res != CURLE_OK) {
-    return -1;
-  }
-
-  return 0;
-}
-
-static void ntrip_teardown(void)
-{
-  curl_global_cleanup();
-}
-
-static int ntrip_download(const ntrip_config_t * const config)
-{
-  CURL *curl = curl_easy_init();
-  if (curl == NULL) {
-    return -1;
-  }
-
-
-  struct curl_slist *chunk = NULL;
-  chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
-  chunk = curl_slist_append(chunk, "Ntrip-Version: Ntrip/2.0");
-
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER,    chunk);
-  curl_easy_setopt(curl, CURLOPT_USERAGENT,     AGENT_TYPE);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, ntrip_download_callback);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA,     config);
-  curl_easy_setopt(curl, CURLOPT_URL,           url);
-
-  int ret = ntrip_request(curl);
-  curl_easy_cleanup(curl);
-
-  return ret;
-}
 
 static void usage(char *command)
 {
@@ -177,25 +100,14 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  int ret = ntrip_setup();
-  if (ret != 0) {
-    piksi_log(LOG_ERR, "setup error");
-    close(fd);
-    exit(EXIT_FAILURE);
-  }
+  network_config_t config = {
+    .url   = url,
+    .fd    = fd,
+    .debug = debug,
+  };
 
-  ntrip_config_t config = {.fd = fd};
+  ntrip_download(&config);
 
-  ret = ntrip_download(&config);
-  if (ret != 0) {
-    piksi_log(LOG_ERR, "request error");
-    ntrip_teardown();
-    close(fd);
-    exit(EXIT_FAILURE);
-  }
-
-  ntrip_teardown();
   close(fd);
-
-  return EXIT_SUCCESS;
+  exit(EXIT_FAILURE);
 }

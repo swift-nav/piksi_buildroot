@@ -12,7 +12,6 @@ add_subdirectory(package/libpiksi)
 add_subdirectory(package/zmq_adapter/src)
 add_subdirectory(package/standalone_file_logger/src)
 add_subdirectory(package/sbp_rtcm3_bridge/src)
-add_subdirectory(package/libskylark/src)
 
 # Testing
 set (PACKAGE_BUILD_TESTS ON CACHE BOOL "Build the package tests")
@@ -23,5 +22,4 @@ if (PACKAGE_BUILD_TESTS)
   enable_testing ()
   add_subdirectory(host_tests/rotating_logger)
   #add_subdirectory(host_tests/sbp_rtcm3_bridge_tests)
-  add_subdirectory(package/libskylark/tests/)
 endif (PACKAGE_BUILD_TESTS)

@@ -1,5 +1,5 @@
-config BR2_PACKAGE_LIBSKYLARK
-  bool "libskylark"
+config BR2_PACKAGE_LIBNETWORK
+  bool "libnetwork"
   select BR2_PACKAGE_CZMQ
   select BR2_PACKAGE_LIBSBP
   select BR2_PACKAGE_LIBPIKSI
