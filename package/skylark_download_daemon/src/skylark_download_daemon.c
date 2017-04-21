@@ -15,8 +15,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/util.h>
-#include <libskylark.h>
+#include <libnetwork.h>
 
 static bool debug = false;
 static const char *fifo_file_path = NULL;
@@ -95,42 +94,20 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  char uuid_buf[256];
-  if (device_uuid_get(uuid_buf, sizeof(uuid_buf)) != 0) {
-    piksi_log(LOG_ERR, "device uuid error");
-    exit(EXIT_FAILURE);
-  }
-
   int fd = open(fifo_file_path, O_WRONLY);
   if (fd < 0) {
     piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
     exit(EXIT_FAILURE);
   }
 
-  int ret = skylark_setup();
-  if (ret != 0) {
-    piksi_log(LOG_ERR, "setup error");
-    close(fd);
-    exit(EXIT_FAILURE);
-  }
-
-  skylark_config_t config = {
+  network_config_t config = {
     .url   = url,
-    .uuid  = uuid_buf,
-    .debug = debug,
     .fd    = fd,
+    .debug = debug,
   };
 
-  ret = skylark_download(&config);
-  if (ret != 0) {
-    piksi_log(LOG_ERR, "request error");
-    skylark_teardown();
-    close(fd);
-    exit(EXIT_FAILURE);
-  }
+  skylark_download(&config);
 
-  skylark_teardown();
   close(fd);
-
-  return EXIT_SUCCESS;
+  exit(EXIT_FAILURE);
 }
