@@ -10,8 +10,8 @@ DOCKER_ARGS:=                                                                 \
   -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
   -v piksi_buildroot-buildroot:/piksi_buildroot/buildroot
 
-.PHONY: all firmware config image host-config host-image 											\
-				docker-setup docker-make-image docker-run test cmake-setup travis
+.PHONY: all firmware config image host-config host-image                      \
+        docker-setup docker-make-image docker-run travis
 
 all: firmware image
 
@@ -45,13 +45,6 @@ docker-make-image:
 
 docker-run:
 	docker run $(DOCKER_ARGS) -ti piksi_buildroot
-
-cmake-setup:
-	mkdir -p build && cd build && cmake ..
-
-test: cmake-setup
-	make -C build
-	make -C build test
 
 travis: firmware docker-setup
 	HW_CONFIG=prod make docker-make-image 2>&1 \
