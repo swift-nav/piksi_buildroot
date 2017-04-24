@@ -70,7 +70,7 @@ static int skylark_download_daemon_execfn(void) {
 static int skylark_download_adapter_execfn(void) {
   char *argv[] = {
     "zmq_adapter",
-    "-f", "SBP",
+    "-f", "sbp",
     "--file", DOWNLOAD_FIFO_FILE_PATH,
     "-p", ">tcp://127.0.0.1:43081",
     NULL,
