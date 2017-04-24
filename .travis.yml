@@ -13,7 +13,7 @@ script:
 
 after_success:
   - git fetch --tags --unshallow
-  - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh buildroot/output/images/piksiv3_prod/*
+  - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
   - SLACK_CHANNEL=github ./comment.sh
 
 after_failure:
