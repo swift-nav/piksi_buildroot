@@ -11,7 +11,7 @@ DOCKER_ARGS:=                                                                 \
   -v piksi_buildroot-buildroot:/piksi_buildroot/buildroot
 
 .PHONY: all firmware config image host-config host-image                      \
-        docker-setup docker-make-image docker-run travis
+        docker-setup docker-make-image docker-make-host-image docker-run
 
 all: firmware image
 
@@ -43,9 +43,9 @@ docker-make-image:
 	docker run $(DOCKER_ARGS) --sig-proxy=false piksi_buildroot \
 		make image
 
+docker-make-host-image:
+	docker run $(DOCKER_ARGS) --sig-proxy=false piksi_buildroot \
+		make host-image
+
 docker-run:
 	docker run $(DOCKER_ARGS) -ti piksi_buildroot
-
-travis: firmware docker-setup
-	HW_CONFIG=prod make docker-make-image 2>&1 \
-		| tee -a build.out | grep --line-buffered '^>>>'

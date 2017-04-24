@@ -1,4 +1,5 @@
 sudo: required
+dist: trusty
 
 language: c
 
@@ -8,16 +9,32 @@ services:
 before_install:
   - pip install --user --upgrade awscli
 
-script:
-  - make travis
+matrix:
+  include:
+    - env:
+        - TRAVIS_TARGET=docker-make-image
+      script:
+        - make firmware
+        - make docker-setup
+        - make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
+      after_success:
+        - git fetch --tags --unshallow
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
+        - SLACK_CHANNEL=github ./comment.sh
+      after_failure:
+        - tail -n 500 build.out
 
-after_success:
-  - git fetch --tags --unshallow
-  - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
-  - SLACK_CHANNEL=github ./comment.sh
-
-after_failure:
-  - tail -n 500 build.out
+    - env:
+        - TRAVIS_TARGET=docker-make-host-image
+      script:
+        - make firmware
+        - make docker-setup
+        - make docker-make-host-image 2>&1 | tee -a host_build.out | grep --line-buffered '^>>>'
+      after_success:
+        - git fetch --tags --unshallow
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh host_build.out
+      after_failure:
+        - tail -n 500 host_build.out
 
 env:
   global:
