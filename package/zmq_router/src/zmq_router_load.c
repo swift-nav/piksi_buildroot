@@ -537,7 +537,12 @@ router_t * zmq_router_load(const char *filename)
 {
   FILE *f = NULL;
   router_t *router = NULL;
+
   yaml_parser_t parser;
+  if (!yaml_parser_initialize(&parser)) {
+    printf("failed to initialize YAML parser\n");
+    return NULL;
+  }
 
   f = fopen(filename, "r");
   if (f == NULL) {
@@ -556,10 +561,6 @@ router_t * zmq_router_load(const char *filename)
     .ports_list = NULL
   };
 
-  if (!yaml_parser_initialize(&parser)) {
-    printf("failed to initialize YAML parser\n");
-    goto error;
-  }
   yaml_parser_set_input_file(&parser, f);
 
   if (process_router(NULL, &parser, router) != 0) {
