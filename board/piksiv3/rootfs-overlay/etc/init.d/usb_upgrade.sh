@@ -39,7 +39,7 @@ echo "Performing upgrade..."
 # Killing monit and USB logger
 monit stop zmq_file_logger
 monit stop zmq_adapter_rpmsg_piksi100
-upgrade_tool --debug $FIRMWARE | sbp_log $LOGLEVEL
+upgrade_tool $FIRMWARE | sbp_log $LOGLEVEL
 RETVAL=$?
 umount /media/sda1
 sync
