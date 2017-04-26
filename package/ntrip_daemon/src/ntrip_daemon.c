@@ -34,11 +34,8 @@ static int ntrip_request(CURL *curl)
 
   while (true) {
     CURLcode res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-      if (debug) {
-        piksi_log(LOG_DEBUG, "curl error (%d) \"%s\"\n", res, error_buf);
-      }
-    }
+
+    piksi_log(LOG_INFO, "curl request (%d) \"%s\"", res, error_buf);
 
     usleep(1000000);
   }
@@ -50,13 +47,20 @@ static size_t ntrip_download_callback(char *buf, size_t size, size_t n, void *da
 {
   const ntrip_config_t * const config = data;
 
-  ssize_t ret = write(config->fd, buf, size * n);
+  while (true) {
+    ssize_t ret = write(config->fd, buf, size * n);
+    if (ret < 0 && errno == EINTR) {
+      continue;
+    }
 
-  if (debug) {
-    piksi_log(LOG_DEBUG, "write bytes (%d) %d\n", size * n, ret);
+    if (debug) {
+      piksi_log(LOG_DEBUG, "write bytes (%d) %d", size * n, ret);
+    }
+
+    return ret;
   }
 
-  return ret;
+  return -1;
 }
 
 static int ntrip_setup(void)
