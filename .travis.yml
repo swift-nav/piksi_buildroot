@@ -16,6 +16,7 @@ matrix:
       script:
         - make firmware
         - make docker-setup
+        - bash -c "while true; do sleep 1m; echo ...; done" &
         - make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
       after_success:
         - git fetch --tags --unshallow
@@ -29,6 +30,7 @@ matrix:
       script:
         - make firmware
         - make docker-setup
+        - bash -c "while true; do sleep 1m; echo ...; done" &
         - make docker-make-host-image 2>&1 | tee -a host_build.out | grep --line-buffered '^>>>'
       after_success:
         - git fetch --tags --unshallow
