@@ -55,14 +55,14 @@ err:
 
 static void handle_client(int client_fd, const struct sockaddr_in *client_addr)
 {
-  io_loop_start(client_fd);
+  io_loop_start(client_fd, client_fd);
 }
 
 static void server_loop(int server_fd)
 {
   while (1) {
     struct sockaddr_in client_addr;
-    int client_addr_len = sizeof(client_addr);
+    socklen_t client_addr_len = sizeof(client_addr);
     int client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
                            &client_addr_len);
 
@@ -89,7 +89,7 @@ int tcp_listen_loop(int port)
 {
   int server_fd = socket_create(port);
   if (server_fd < 0) {
-    printf("error opening TCP socket\n");
+    syslog(LOG_ERR, "error opening TCP socket");
     return 1;
   }
 
@@ -97,4 +97,5 @@ int tcp_listen_loop(int port)
 
   close(server_fd);
   server_fd = -1;
+  return 0;
 }

@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <syslog.h>
 
 typedef struct filter_interface_s {
   const char *name;
@@ -50,7 +51,7 @@ int filter_interface_register(const char *name,
   filter_interface_t *interface = (filter_interface_t *)
                                       malloc(sizeof(*interface));
   if (interface == NULL) {
-    printf("error allocating filter interface\n");
+    syslog(LOG_ERR, "error allocating filter interface");
     return -1;
   }
 
@@ -63,7 +64,7 @@ int filter_interface_register(const char *name,
   };
 
   if (interface->name == NULL) {
-    printf("error allocating filter interface members\n");
+    syslog(LOG_ERR, "error allocating filter interface members");
     free(interface);
     interface = NULL;
     return -1;
@@ -93,13 +94,13 @@ filter_t * filter_create(const char *name, const char *filename)
   /* Look up interface */
   filter_interface_t *interface = filter_interface_lookup(name);
   if (interface == NULL) {
-    printf("unknown filter: %s\n", name);
+    syslog(LOG_ERR, "unknown filter: %s", name);
     return NULL;
   }
 
   filter_t *filter = (filter_t *)malloc(sizeof(*filter));
   if (filter == NULL) {
-    printf("error allocating filter\n");
+    syslog(LOG_ERR, "error allocating filter");
     return NULL;
   }
 
@@ -109,7 +110,7 @@ filter_t * filter_create(const char *name, const char *filename)
   };
 
   if (filter->state == NULL) {
-    printf("error creating filter\n");
+    syslog(LOG_ERR, "error creating filter");
     free(filter);
     filter = NULL;
     return NULL;

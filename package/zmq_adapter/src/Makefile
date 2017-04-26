@@ -1,6 +1,7 @@
 TARGET=zmq_adapter
 SOURCES= \
 	zmq_adapter.c \
+	zmq_adapter_stdio.c \
 	zmq_adapter_file.c \
 	zmq_adapter_tcp_listen.c \
 	framer.c \
@@ -9,7 +10,7 @@ SOURCES= \
 	filter_none.c \
 	protocols.c
 LIBS=-lczmq -lzmq -lsbp -ldl
-CFLAGS=-std=gnu11
+CFLAGS=-std=gnu11 -Wall
 
 CROSS=
 
