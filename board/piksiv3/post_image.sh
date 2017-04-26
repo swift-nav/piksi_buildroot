@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ -z "$HW_CONFIG" ]; then
+  echo "ERROR: HW_CONFIG is not set"
+  exit 1
+fi
+
 CFG=piksiv3_$HW_CONFIG
 GIT_STRING=$(git -C $BR2_EXTERNAL_piksi_buildroot_PATH describe --tags        \
                  --dirty --always --long --match 'v[0-9]*\.[0-9]*\.[0-9]*')
