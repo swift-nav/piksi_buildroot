@@ -5,7 +5,8 @@
 ################################################################################
 
 SBP_PROTOCOL_VERSION = 0.1
-SBP_PROTOCOL_SITE = "${BR2_EXTERNAL}/package/sbp_protocol/src"
+SBP_PROTOCOL_SITE = \
+  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_protocol/src"
 SBP_PROTOCOL_SITE_METHOD = local
 SBP_PROTOCOL_DEPENDENCIES = libsbp
 SBP_PROTOCOL_INSTALL_STAGING = YES

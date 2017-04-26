@@ -5,7 +5,8 @@
 ################################################################################
 
 NMEA_PROTOCOL_VERSION = 0.1
-NMEA_PROTOCOL_SITE = "${BR2_EXTERNAL}/package/nmea_protocol/src"
+NMEA_PROTOCOL_SITE = \
+  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/nmea_protocol/src"
 NMEA_PROTOCOL_SITE_METHOD = local
 NMEA_PROTOCOL_DEPENDENCIES =
 NMEA_PROTOCOL_INSTALL_STAGING = YES

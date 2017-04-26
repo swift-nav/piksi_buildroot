@@ -5,7 +5,8 @@
 ################################################################################
 
 RTCM3_PROTOCOL_VERSION = 0.1
-RTCM3_PROTOCOL_SITE = "${BR2_EXTERNAL}/package/rtcm3_protocol/src"
+RTCM3_PROTOCOL_SITE = \
+  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/rtcm3_protocol/src"
 RTCM3_PROTOCOL_SITE_METHOD = local
 RTCM3_PROTOCOL_DEPENDENCIES =
 RTCM3_PROTOCOL_INSTALL_STAGING = YES

@@ -5,7 +5,7 @@
 ################################################################################
 
 SBP_LOG_VERSION = 0.1
-SBP_LOG_SITE = "${BR2_EXTERNAL}/package/sbp_log/src"
+SBP_LOG_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_log/src"
 SBP_LOG_SITE_METHOD = local
 SBP_LOG_DEPENDENCIES = czmq libsbp
 

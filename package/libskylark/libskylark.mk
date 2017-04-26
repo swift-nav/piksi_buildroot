@@ -5,7 +5,7 @@
 ################################################################################
 
 LIBSKYLARK_VERSION = 0.1
-LIBSKYLARK_SITE = "${BR2_EXTERNAL}/package/libskylark/src"
+LIBSKYLARK_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/libskylark/src"
 LIBSKYLARK_SITE_METHOD = local
 LIBSKYLARK_DEPENDENCIES = czmq libsbp libpiksi libcurl
 LIBSKYLARK_INSTALL_STAGING = YES
