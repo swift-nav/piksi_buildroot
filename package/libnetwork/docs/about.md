@@ -1,6 +1,6 @@
 # Skylark Upload and Download Daemons
 
-libskylark is a curl-based library used for publishing and subscribing SBP data
+libnetwork is a curl-based library used for publishing and subscribing SBP data
 via Piksi's Linux core. We use it in two SBP-over-HTTP daemon services that can
 be optionally enabled and monitored on the Piksi: `skylark_upload_daemon` and
 `skylark_download_daemon`.
