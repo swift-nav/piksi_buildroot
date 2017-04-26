@@ -141,7 +141,9 @@ static void network_teardown(CURL *curl)
 static void network_request(CURL *curl)
 {
   char error_buf[CURL_ERROR_SIZE];
-  curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, error_buf);
+  curl_easy_setopt(curl, CURLOPT_ERRORBUFFER,       error_buf);
+  curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 15000L);
+  curl_easy_setopt(curl, CURLOPT_DNS_CACHE_TIMEOUT, 0L);
 
   while (true) {
     CURLcode code = curl_easy_perform(curl);
