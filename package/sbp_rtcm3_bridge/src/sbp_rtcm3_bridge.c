@@ -15,9 +15,9 @@
 #include "sbp_rtcm3.h"
 #include <assert.h>
 #include <czmq.h>
+#include <getopt.h>
 #include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/sbp_zmq_rx.h>
-#include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libsbp/navigation.h>
 #include <stdint.h>
@@ -30,6 +30,8 @@
 #define RTCM3_SUB_ENDPOINT  ">tcp://127.0.0.1:45010"  /* RTCM3 Internal Out */
 #define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
 #define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
+
+extern bool rtcm3_debug = false;
 
 static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 {
@@ -58,9 +60,52 @@ static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   return 0;
 }
 
+static void usage(char *command)
+{
+  printf("Usage: %s\n", command);
+
+  puts("\nMisc options");
+  puts("\t--debug");
+}
+
+static int parse_options(int argc, char *argv[])
+{
+  enum {
+    OPT_ID_DEBUG = 1,
+  };
+
+  const struct option long_opts[] = {
+    {"debug", no_argument,       0, OPT_ID_DEBUG},
+    {0, 0, 0, 0},
+  };
+
+  int opt;
+  while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
+    switch (opt) {
+      case OPT_ID_DEBUG: {
+        rtcm3_debug = true;
+      }
+        break;
+
+      default: {
+        puts("Invalid option");
+        return -1;
+      }
+        break;
+    }
+  }
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
   logging_init(PROGRAM_NAME);
+
+  if (parse_options(argc, argv) != 0) {
+    piksi_log(LOG_ERR, "invalid arguments");
+    usage(argv[0]);
+    exit(EXIT_FAILURE);
+  }
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
