@@ -18,7 +18,6 @@
 #include <getopt.h>
 #include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/sbp_zmq_rx.h>
-#include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libsbp/navigation.h>
 #include <stdint.h>
