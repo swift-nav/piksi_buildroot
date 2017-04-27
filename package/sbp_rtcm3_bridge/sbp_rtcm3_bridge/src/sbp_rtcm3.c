@@ -226,9 +226,13 @@ u8 rtcm3_obs_to_sbp(const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4],
         }
         if (rtcm_freq->flags.valid_cp == 1) {
           sbp_freq->L.i = (s32)floor(rtcm_freq->carrier_phase);
-          sbp_freq->L.f =
-              (u8)roundl((rtcm_freq->carrier_phase - (double)sbp_freq->L.i) *
-                         MSG_OBS_LF_MULTIPLIER);
+          u16 frac_part = (u16)roundl((rtcm_freq->carrier_phase - (double)sbp_freq->L.i) *
+                       MSG_OBS_LF_MULTIPLIER);
+          if( frac_part == 256 ) {
+              frac_part -= 256;
+              sbp_freq->L.i += 1;
+          }
+          sbp_freq->L.f = (u8) frac_part;
           sbp_freq->flags |= MSG_OBS_FLAGS_PHASE_VALID;
           sbp_freq->flags |= MSG_OBS_FLAGS_HALF_CYCLE_KNOWN;
         }
