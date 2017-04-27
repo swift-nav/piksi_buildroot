@@ -103,7 +103,7 @@ void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length) {
     break;
   }
 
-  if (debug) {
+  if (rtcm3_debug) {
     piksi_log(LOG_DEBUG,"message type: %u, length: %u, count: %u\n", message_type,
               frame_length, ++count);
   }

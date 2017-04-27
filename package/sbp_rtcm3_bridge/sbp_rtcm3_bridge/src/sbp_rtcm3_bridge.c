@@ -81,7 +81,7 @@ static int parse_options(int argc, char *argv[])
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
       case OPT_ID_DEBUG: {
-        debug = true;
+        rtcm3_debug = true;
       }
         break;
 
