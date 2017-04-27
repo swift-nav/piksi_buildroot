@@ -15,6 +15,7 @@
 
 #include "rtcm3_messages.h"
 #include <libsbp/observation.h>
+#include <libpiksi/logging.h>
 
 #define MSG_OBS_P_MULTIPLIER ((double)5e1)
 #define MSG_OBS_CN0_MULTIPLIER ((float)4)
@@ -27,6 +28,8 @@
 #define SBP_OBS_SIZE 17
 #define MAX_SBP_PAYLOAD 255
 #define MAX_OBS_IN_SBP ((MAX_SBP_PAYLOAD - SBP_HEADER_SIZE) / SBP_OBS_SIZE)
+
+extern bool rtcm3_debug;
 
 /** Code identifier. */
 typedef enum code {
