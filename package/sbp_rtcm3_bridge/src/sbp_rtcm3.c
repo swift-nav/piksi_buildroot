@@ -24,7 +24,6 @@
 
 // time given from rover observation data. Must be maintained to within half a week of
 // the epoch of incoming RTCM data
-static bool debug = false;
 static gps_time_nano_t time_from_rover_obs = { .tow = 0, .ns_residual = 0, .wn = .0 };
 
 static double gps_diff_time(const gps_time_nano_t *end, const gps_time_nano_t *beginning)
