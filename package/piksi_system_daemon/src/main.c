@@ -197,7 +197,7 @@ static adapter_config_t tcp_server0_adapter_config = {
 static adapter_config_t tcp_server1_adapter_config = {
   .name = "tcp_server1",
   .opts = "--tcp-l 55556",
-  .mode = PORT_MODE_SBP,
+  .mode = PORT_MODE_NMEA,
   .pid = 0
 };
 
