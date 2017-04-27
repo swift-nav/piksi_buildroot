@@ -31,6 +31,8 @@
 #define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
 #define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
 
+extern bool rtcm3_debug = false;
+
 static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 {
   zmsg_t *msg;
@@ -81,7 +83,7 @@ static int parse_options(int argc, char *argv[])
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
       case OPT_ID_DEBUG: {
-        debug = true;
+        rtcm3_debug = true;
       }
         break;
 

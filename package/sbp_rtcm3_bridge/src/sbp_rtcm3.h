@@ -29,7 +29,7 @@
 #define MAX_SBP_PAYLOAD 255
 #define MAX_OBS_IN_SBP ((MAX_SBP_PAYLOAD - SBP_HEADER_SIZE) / SBP_OBS_SIZE)
 
-static bool debug = false;
+extern bool rtcm3_debug;
 
 /** Code identifier. */
 typedef enum code {
