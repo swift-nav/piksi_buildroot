@@ -585,6 +585,15 @@ void debug_printf(const char *msg, ...)
   va_end(ap);
 }
 
+void debug_flush(void)
+{
+  if (!debug) {
+    return;
+  }
+
+  fflush(stdout);
+}
+
 int main(int argc, char *argv[])
 {
   /*  1. read MTD partition info from /proc/mtd

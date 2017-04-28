@@ -4,7 +4,7 @@ export FIRMWARE="/media/sda*/PiksiMulti-*.bin"
 export LOGLEVEL="--warn"
 
 _dir_wait () {
-    [[ $# -lt 3 ]] && { 
+    [[ $# -lt 3 ]] && {
         echo "Usage: ${FUNCNAME} <num_timeout> <len_timeout_ms> <path>"; return 1
     }
     RET=1
@@ -17,7 +17,7 @@ _dir_wait () {
     done
 }
 
-# try and mount drive for up to 5 seconds or until success 
+# try and mount drive for up to 5 seconds or until success
 _dir_wait 20 250 /media/sda1
 
 if [ `echo $FIRMWARE | wc -w` != '1' ]; then
@@ -39,19 +39,19 @@ echo "Performing upgrade..."
 # Killing monit and USB logger
 monit stop standalone_file_logger
 monit stop zmq_adapter_rpmsg_piksi100
-upgrade_tool --debug $FIRMWARE | sbp_log $LOGLEVEL
+upgrade_tool $FIRMWARE | sbp_log $LOGLEVEL
 RETVAL=$?
 umount /media/sda1
 sync
-if [ $RETVAL -eq 0 ]; then 
-  while [ 1 ]; do 
+if [ $RETVAL -eq 0 ]; then
+  while [ 1 ]; do
     echo "Upgrade completed successfully. Please remove upgrade media and reboot."  | sbp_log $LOGLEVEL
-    echo "Upgrade completed successfully. Please remove upgrade media and reboot." 
+    echo "Upgrade completed successfully. Please remove upgrade media and reboot."
     sleep 1
   done
 fi
 if [ $RETVAL -ne 0 ]; then
-  while [ 1 ]; do 
+  while [ 1 ]; do
     echo "ERROR: Upgrade was unsuccessful. Please verify the image and try again."  | sbp_log $LOGLEVEL
     echo "ERROR: Upgrade was unsuccessful. Please verify the image and try again."
     sleep 1
