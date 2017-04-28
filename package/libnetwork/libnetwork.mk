@@ -5,7 +5,7 @@
 ################################################################################
 
 LIBNETWORK_VERSION = 0.1
-LIBNETWORK_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/libskylark/src"
+LIBNETWORK_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/libnetwork/src"
 LIBNETWORK_SITE_METHOD = local
 LIBNETWORK_DEPENDENCIES = czmq libsbp libpiksi libcurl
 LIBNETWORK_INSTALL_STAGING = YES
