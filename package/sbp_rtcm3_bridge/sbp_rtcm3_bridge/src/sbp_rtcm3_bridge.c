@@ -31,6 +31,8 @@
 #define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
 #define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
 
+bool rtcm3_debug = false;
+
 static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 {
   zmsg_t *msg;
