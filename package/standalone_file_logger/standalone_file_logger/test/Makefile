@@ -1,9 +1,10 @@
 TARGET=test_standalone_file_logger
 SOURCES= \
-	run_rotating_logger_test.cc \
-	../src/standalone_file_logger.a # should always be last
-LIBS=-lczmq -lzmq -lsbp -lpiksi -lpthread -lgtest
-CFLAGS=-std=gnu++11 -I../src
+	run_rotating_logger_test.cc
+LIBS= \
+	-lczmq -lzmq -lsbp -lpiksi -lpthread -lgtest \
+	../src/standalone_file_logger.a
+CFLAGS=-std=gnu++11 -z muldefs -I../src
 
 CROSS=
 

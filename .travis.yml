@@ -17,7 +17,7 @@ matrix:
         - make firmware
         - make docker-setup
         - bash -c "while true; do sleep 1m; echo ...; done" &
-        - make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
+        - set -o pipefail && make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
       after_success:
         - git fetch --tags --unshallow
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
@@ -31,7 +31,7 @@ matrix:
         - make firmware
         - make docker-setup
         - bash -c "while true; do sleep 1m; echo ...; done" &
-        - make docker-make-host-image 2>&1 | tee -a host_build.out | grep --line-buffered '^>>>'
+        - set -o pipefail && make docker-make-host-image 2>&1 | tee -a host_build.out | grep --line-buffered '^>>>'
       after_success:
         - git fetch --tags --unshallow
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh host_build.out
