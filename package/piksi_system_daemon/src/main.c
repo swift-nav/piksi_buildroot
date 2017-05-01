@@ -154,9 +154,27 @@ static int flow_control_notify(void *context)
   return uart_configure(uart);
 }
 
+typedef union {
+  struct {
+    char address[256];
+  } tcp_client_data;
+} port_type_opts_data_t;
+
+typedef int (*port_type_opts_get_fn_t)(char *buf, size_t buf_size,
+                                       const port_type_opts_data_t *data);
+
+static int port_tcp_client_opts_get(char *buf, size_t buf_size,
+                                    const port_type_opts_data_t *data)
+{
+  const char *address = data->tcp_client_data.address;
+  return snprintf(buf, buf_size, "--tcp-c %s", address);
+}
+
 typedef struct {
   const char * const name;
   const char * const opts;
+  port_type_opts_data_t type_opts_data;
+  port_type_opts_get_fn_t type_opts_get;
   u8 mode;
   pid_t pid;
 } adapter_config_t;
@@ -164,6 +182,7 @@ typedef struct {
 static adapter_config_t uart0_adapter_config = {
   .name = "uart0",
   .opts = "--file /dev/ttyPS0",
+  .type_opts_get = NULL,
   .mode = -1,
   .pid = 0
 };
@@ -171,6 +190,7 @@ static adapter_config_t uart0_adapter_config = {
 static adapter_config_t uart1_adapter_config = {
   .name = "uart1",
   .opts = "--file /dev/ttyPS1",
+  .type_opts_get = NULL,
   .mode = -1,
   .pid = 0
 };
@@ -178,6 +198,7 @@ static adapter_config_t uart1_adapter_config = {
 static adapter_config_t usb0_adapter_config = {
   .name = "usb0",
   .opts = "--file /dev/ttyGS0",
+  .type_opts_get = NULL,
   .mode = -1,
   .pid = 0
 };
@@ -185,6 +206,7 @@ static adapter_config_t usb0_adapter_config = {
 static adapter_config_t tcp_server0_adapter_config = {
   .name = "tcp_server0",
   .opts = "--tcp-l 55555",
+  .type_opts_get = NULL,
   .mode = -1,
   .pid = 0
 };
@@ -192,6 +214,25 @@ static adapter_config_t tcp_server0_adapter_config = {
 static adapter_config_t tcp_server1_adapter_config = {
   .name = "tcp_server1",
   .opts = "--tcp-l 55556",
+  .type_opts_get = NULL,
+  .mode = -1,
+  .pid = 0
+};
+
+static adapter_config_t tcp_client0_adapter_config = {
+  .name = "tcp_client0",
+  .opts = "",
+  .type_opts_data.tcp_client_data.address = "",
+  .type_opts_get = port_tcp_client_opts_get,
+  .mode = -1,
+  .pid = 0
+};
+
+static adapter_config_t tcp_client1_adapter_config = {
+  .name = "tcp_client1",
+  .opts = "",
+  .type_opts_data.tcp_client_data.address = "",
+  .type_opts_get = port_tcp_client_opts_get,
   .mode = -1,
   .pid = 0
 };
@@ -201,7 +242,9 @@ static adapter_config_t * const adapter_configs[] = {
   &uart1_adapter_config,
   &usb0_adapter_config,
   &tcp_server0_adapter_config,
-  &tcp_server1_adapter_config
+  &tcp_server1_adapter_config,
+  &tcp_client0_adapter_config,
+  &tcp_client1_adapter_config
 };
 
 static int ports_setup(const char ***port_mode_enum_names)
@@ -244,10 +287,8 @@ static int ports_setup(const char ***port_mode_enum_names)
   return 0;
 }
 
-static int port_mode_notify(void *context)
+static int port_configure(adapter_config_t *adapter_config)
 {
-  adapter_config_t *adapter_config = (adapter_config_t *)context;
-
   const protocol_t *protocol = protocols_get(adapter_config->mode);
   if (protocol == NULL) {
     return -1;
@@ -258,10 +299,16 @@ static int port_mode_notify(void *context)
   protocol->port_adapter_opts_get(mode_opts, sizeof(mode_opts),
                                   adapter_config->name);
 
+  char type_opts[256] = {0};
+  if (adapter_config->type_opts_get != NULL) {
+    adapter_config->type_opts_get(type_opts, sizeof(type_opts),
+                                  &adapter_config->type_opts_data);
+  }
+
   char cmd[512];
   snprintf(cmd, sizeof(cmd),
-           "zmq_adapter %s %s",
-           adapter_config->opts, mode_opts);
+           "zmq_adapter %s %s %s",
+           adapter_config->opts, type_opts, mode_opts);
 
   /* Split the command on each space for argv */
   char *args[100] = {0};
@@ -294,6 +341,18 @@ static int port_mode_notify(void *context)
   }
 
   return 0;
+}
+
+static int port_mode_notify(void *context)
+{
+  adapter_config_t *adapter_config = (adapter_config_t *)context;
+  return port_configure(adapter_config);
+}
+
+static int port_tcp_client_address_notify(void *context)
+{
+  adapter_config_t *adapter_config = (adapter_config_t *)context;
+  return port_configure(adapter_config);
 }
 
 static const char const * ip_mode_enum_names[] = {"Static", "DHCP", NULL};
@@ -692,6 +751,15 @@ int main(void)
                     sizeof(uart1.flow_control), settings_type_flow_control,
                     flow_control_notify, &uart1);
 
+  settings_register(settings_ctx, "tcp_client0", "address",
+                    tcp_client0_adapter_config.type_opts_data.tcp_client_data.address,
+                    sizeof(tcp_client0_adapter_config.type_opts_data.tcp_client_data.address),
+                    SETTINGS_TYPE_STRING, port_tcp_client_address_notify, &tcp_client0_adapter_config);
+  settings_register(settings_ctx, "tcp_client1", "address",
+                    tcp_client1_adapter_config.type_opts_data.tcp_client_data.address,
+                    sizeof(tcp_client1_adapter_config.type_opts_data.tcp_client_data.address),
+                    SETTINGS_TYPE_STRING, port_tcp_client_address_notify, &tcp_client1_adapter_config);
+
   settings_type_t settings_type_port_mode;
   settings_type_register_enum(settings_ctx, port_mode_enum_names,
                               &settings_type_port_mode);
@@ -710,6 +778,12 @@ int main(void)
   settings_register(settings_ctx, "tcp_server1", "mode", &tcp_server1_adapter_config.mode,
                     sizeof(tcp_server1_adapter_config.mode), settings_type_port_mode,
                     port_mode_notify, &tcp_server1_adapter_config);
+  settings_register(settings_ctx, "tcp_client0", "mode", &tcp_client0_adapter_config.mode,
+                    sizeof(tcp_client0_adapter_config.mode), settings_type_port_mode,
+                    port_mode_notify, &tcp_client0_adapter_config);
+  settings_register(settings_ctx, "tcp_client1", "mode", &tcp_client1_adapter_config.mode,
+                    sizeof(tcp_client1_adapter_config.mode), settings_type_port_mode,
+                    port_mode_notify, &tcp_client1_adapter_config);
 
   settings_type_t settings_type_ip_mode;
   settings_type_register_enum(settings_ctx, ip_mode_enum_names,

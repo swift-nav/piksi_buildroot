@@ -38,6 +38,8 @@ enum port {
   PORT_USB0,
   PORT_TCP_SERVER0,
   PORT_TCP_SERVER1,
+  PORT_TCP_CLIENT0,
+  PORT_TCP_CLIENT1,
   PORT_MAX
 };
 
@@ -65,6 +67,14 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_TCP_SERVER1] = {
     .name = "tcp_server1",
+    .wl = ""
+  },
+  [PORT_TCP_CLIENT0] = {
+    .name = "tcp_client0",
+    .wl = ""
+  },
+  [PORT_TCP_CLIENT1] = {
+    .name = "tcp_client1",
     .wl = ""
   }
 };
