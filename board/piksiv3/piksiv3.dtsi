@@ -56,3 +56,136 @@
   timeout-sec = <10>;
   reset-on-timeout;
 };
+
+/ {
+  etb: etb@f8801000 {
+    compatible = "arm,coresight-etb10", "arm,primecell";
+    reg = <0xf8801000 0x1000>;
+
+    clocks = <&clkc 47>;
+    clock-names = "apb_pclk";
+    port {
+      etb_in_port: endpoint@0 {
+        slave-mode;
+        remote-endpoint = <&replicator_out_port0>;
+      };
+    };
+  };
+
+  tpiu: tpiu@f8803000 {
+    compatible = "arm,coresight-tpiu", "arm,primecell";
+    reg = <0xf8803000 0x1000>;
+
+    clocks = <&clkc 47>;
+    clock-names = "apb_pclk";
+    port {
+      tpiu_in_port: endpoint@0 {
+        slave-mode;
+        remote-endpoint = <&replicator_out_port1>;
+      };
+    };
+  };
+
+  replicator {
+    /* non-configurable replicators don't show up on the
+     * AMBA bus.  As such no need to add "arm,primecell".
+     */
+    compatible = "arm,coresight-replicator";
+
+    ports {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      /* replicator output ports */
+      port@0 {
+        reg = <0>;
+        replicator_out_port0: endpoint {
+          remote-endpoint = <&etb_in_port>;
+        };
+      };
+
+      port@1 {
+        reg = <1>;
+        replicator_out_port1: endpoint {
+          remote-endpoint = <&tpiu_in_port>;
+        };
+      };
+
+      /* replicator input port */
+      port@2 {
+        reg = <0>;
+        replicator_in_port0: endpoint {
+          slave-mode;
+          remote-endpoint = <&funnel_out_port0>;
+        };
+      };
+    };
+  };
+
+  funnel: funnel@f8804000 {
+    compatible = "arm,coresight-funnel", "arm,primecell";
+    reg = <0xf8804000 0x1000>;
+
+    clocks = <&clkc 47>;
+    clock-names = "apb_pclk";
+    ports {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      /* funnel output port */
+      port@0 {
+        reg = <0>;
+        funnel_out_port0: endpoint {
+          remote-endpoint =
+              <&replicator_in_port0>;
+        };
+      };
+
+      /* funnel input ports */
+      port@1 {
+        reg = <0>;
+        funnel_in_port0: endpoint {
+          slave-mode;
+          remote-endpoint = <&ptm0_out_port>;
+        };
+      };
+
+      port@2 {
+        reg = <1>;
+        funnel_in_port1: endpoint {
+          slave-mode;
+          remote-endpoint = <&ptm1_out_port>;
+        };
+      };
+
+    };
+  };
+
+  ptm0: ptm@f889c000 {
+    compatible = "arm,coresight-etm3x", "arm,primecell";
+    reg = <0xf889c000 0x1000>;
+
+    cpu = <&cpu0>;
+    clocks = <&clkc 47>;
+    clock-names = "apb_pclk";
+    port {
+      ptm0_out_port: endpoint {
+        remote-endpoint = <&funnel_in_port0>;
+      };
+    };
+  };
+
+  ptm1: ptm@f889d000 {
+    compatible = "arm,coresight-etm3x", "arm,primecell";
+    reg = <0xf889d000 0x1000>;
+
+    cpu = <&cpu1>;
+    clocks = <&clkc 47>;
+    clock-names = "apb_pclk";
+    port {
+      ptm1_out_port: endpoint {
+        remote-endpoint = <&funnel_in_port1>;
+      };
+    };
+  };
+};
