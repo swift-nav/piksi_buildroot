@@ -1,10 +1,11 @@
 TARGET=test_sbp_rtcm3_bridge
 SOURCES= \
 	rtcm_decoder_tests.c \
-	sbp_rtcm_converter_tests.c \
-	../src/sbp_rtcm3_bridge.a # should always be last
-LIBS=-lczmq -lsbp -lpiksi -lm
-CFLAGS=-std=gnu11 -I../src
+	sbp_rtcm_converter_tests.c
+LIBS= \
+	-lczmq -lsbp -lpiksi -lm \
+	../src/sbp_rtcm3_bridge.a
+CFLAGS=-std=gnu11 -z muldefs -I../src
 
 CROSS=
 
