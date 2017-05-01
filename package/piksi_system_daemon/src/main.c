@@ -156,12 +156,22 @@ static int flow_control_notify(void *context)
 
 typedef union {
   struct {
+    uint32_t port;
+  } tcp_server_data;
+  struct {
     char address[256];
   } tcp_client_data;
 } port_type_opts_data_t;
 
 typedef int (*port_type_opts_get_fn_t)(char *buf, size_t buf_size,
                                        const port_type_opts_data_t *data);
+
+static int port_tcp_server_opts_get(char *buf, size_t buf_size,
+                                    const port_type_opts_data_t *data)
+{
+  uint32_t port = data->tcp_server_data.port;
+  return snprintf(buf, buf_size, "--tcp-l %u", port);
+}
 
 static int port_tcp_client_opts_get(char *buf, size_t buf_size,
                                     const port_type_opts_data_t *data)
@@ -205,16 +215,18 @@ static adapter_config_t usb0_adapter_config = {
 
 static adapter_config_t tcp_server0_adapter_config = {
   .name = "tcp_server0",
-  .opts = "--tcp-l 55555",
-  .type_opts_get = NULL,
+  .opts = "",
+  .type_opts_data.tcp_server_data.port = 55555,
+  .type_opts_get = port_tcp_server_opts_get,
   .mode = -1,
   .pid = 0
 };
 
 static adapter_config_t tcp_server1_adapter_config = {
   .name = "tcp_server1",
-  .opts = "--tcp-l 55556",
-  .type_opts_get = NULL,
+  .opts = "",
+  .type_opts_data.tcp_server_data.port = 55556,
+  .type_opts_get = port_tcp_server_opts_get,
   .mode = -1,
   .pid = 0
 };
@@ -344,6 +356,12 @@ static int port_configure(adapter_config_t *adapter_config)
 }
 
 static int port_mode_notify(void *context)
+{
+  adapter_config_t *adapter_config = (adapter_config_t *)context;
+  return port_configure(adapter_config);
+}
+
+static int port_tcp_server_port_notify(void *context)
 {
   adapter_config_t *adapter_config = (adapter_config_t *)context;
   return port_configure(adapter_config);
@@ -750,6 +768,15 @@ int main(void)
   settings_register(settings_ctx, "uart1", "flow_control", &uart1.flow_control,
                     sizeof(uart1.flow_control), settings_type_flow_control,
                     flow_control_notify, &uart1);
+
+  settings_register(settings_ctx, "tcp_server0", "port",
+                    &tcp_server0_adapter_config.type_opts_data.tcp_server_data.port,
+                    sizeof(tcp_server0_adapter_config.type_opts_data.tcp_server_data.port),
+                    SETTINGS_TYPE_INT, port_tcp_server_port_notify, &tcp_server0_adapter_config);
+  settings_register(settings_ctx, "tcp_server1", "port",
+                    &tcp_server1_adapter_config.type_opts_data.tcp_server_data.port,
+                    sizeof(tcp_server1_adapter_config.type_opts_data.tcp_server_data.port),
+                    SETTINGS_TYPE_INT, port_tcp_server_port_notify, &tcp_server1_adapter_config);
 
   settings_register(settings_ctx, "tcp_client0", "address",
                     tcp_client0_adapter_config.type_opts_data.tcp_client_data.address,
