@@ -33,7 +33,7 @@ static int cellmodem_notify(void *context)
 
   /* Kill the old pppd, if it exists. */
   if (cellmodem_pppd_pid) {
-    int ret = kill(cellmodem_pppd_pid, SIGHUP);
+    int ret = kill(cellmodem_pppd_pid, SIGTERM);
     piksi_log(LOG_DEBUG,
               "Killing pppd with PID: %d (kill returned %d, errno %d)",
               cellmodem_pppd_pid, ret, errno);
