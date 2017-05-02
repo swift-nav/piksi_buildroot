@@ -34,6 +34,7 @@ static int cellmodem_notify(void *context)
     piksi_log(LOG_DEBUG,
               "Killing pppd with PID: %d (kill returned %d, errno %d)",
               cellmodem_pppd_pid, ret, errno);
+    cellmodem_pppd_pid = 0;
   }
 
   if (!cellmodem_enabled)
