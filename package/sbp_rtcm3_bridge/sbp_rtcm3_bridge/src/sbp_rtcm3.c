@@ -254,7 +254,7 @@ u8 rtcm3_obs_to_sbp(const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4],
 
   if (index > 0) {
     sizes[sbp_msg++] = sizeof(observation_header_t) +
-                       index % MAX_OBS_IN_SBP * sizeof(packed_obs_content_t);
+                              (((index - 1) % MAX_OBS_IN_SBP) + 1) * sizeof(packed_obs_content_t);
     for (u8 msg = 0; msg < sbp_msg; ++msg) {
       sbp_obs[msg]->header.n_obs = ((sbp_msg << 4) | msg);
     }
