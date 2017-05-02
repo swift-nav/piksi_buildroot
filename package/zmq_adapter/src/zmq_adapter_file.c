@@ -21,20 +21,7 @@ int file_loop(const char *file_path)
   }
 
   io_loop_start(fd, fd);
-
-  while (1) {
-    int ret = waitpid(-1, NULL, 0);
-    if ((ret == -1) && (errno == EINTR)) {
-      /* Retry if interrupted */
-      continue;
-    } else if (ret >= 0) {
-      /* Continue on success */
-      continue;
-    } else {
-      /* Break on error */
-      break;
-    }
-  }
+  io_loop_wait();
 
   close(fd);
   fd = -1;

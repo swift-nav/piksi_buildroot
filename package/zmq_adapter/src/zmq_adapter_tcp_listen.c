@@ -53,26 +53,21 @@ err:
   return ret;
 }
 
-static void handle_client(int client_fd, const struct sockaddr_in *client_addr)
-{
-  io_loop_start(client_fd, client_fd);
-}
-
 static void server_loop(int server_fd)
 {
   while (1) {
+    /* Reap terminated child processes */
+    while (waitpid(-1, NULL, WNOHANG) > 0) {
+      ;
+    }
+
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     int client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
                            &client_addr_len);
 
     if (client_fd >= 0) {
-      if (fork() == 0) {
-        /* child process */
-        handle_client(client_fd, &client_addr);
-        exit(EXIT_SUCCESS);
-      }
-
+      io_loop_start(client_fd, client_fd);
       close(client_fd);
       client_fd = -1;
     } else if ((client_fd == -1) && (errno == EINTR)) {
