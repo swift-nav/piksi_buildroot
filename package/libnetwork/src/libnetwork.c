@@ -114,6 +114,22 @@ static int network_upload_progress(void *data, curl_off_t dltot, curl_off_t dlno
   return network_progress(progress, ulnow);
 }
 
+static int network_sockopt(void *data, curl_socket_t fd, curlsocktype purpose)
+{
+  (void)data;
+
+  if (purpose == CURLSOCKTYPE_IPCXN) {
+    unsigned int timeout = 20000;
+    int ret = setsockopt(fd, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
+    if (ret < 0) {
+      piksi_log(LOG_ERR, "setsockopt error %d", errno);
+      return CURL_SOCKOPT_ERROR;
+    }
+  }
+
+  return CURL_SOCKOPT_OK;
+}
+
 static CURL *network_setup(void)
 {
   CURLcode code = curl_global_init(CURL_GLOBAL_ALL);
@@ -144,12 +160,21 @@ static void network_request(CURL *curl)
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER,       error_buf);
   curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 15000L);
   curl_easy_setopt(curl, CURLOPT_DNS_CACHE_TIMEOUT, 0L);
+  curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT,     1L);
+  curl_easy_setopt(curl, CURLOPT_FORBID_REUSE,      1L);
+  curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE,     1L);
+  curl_easy_setopt(curl, CURLOPT_TCP_KEEPINTVL,     5L);
+  curl_easy_setopt(curl, CURLOPT_TCP_KEEPIDLE,      20L);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,   network_sockopt);
 
   while (true) {
     CURLcode code = curl_easy_perform(curl);
-
     if (code != CURLE_OK) {
       piksi_log(LOG_ERR, "curl request (%d) \"%s\"", code, error_buf);
+    } else {
+      long response;
+      curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
+      piksi_log(LOG_INFO, "curl request code %d", response);
     }
 
     usleep(1000000);
