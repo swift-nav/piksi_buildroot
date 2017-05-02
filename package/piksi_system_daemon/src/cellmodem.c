@@ -19,6 +19,9 @@
 #include <libpiksi/logging.h>
 
 /* External settings */
+static const char * const modem_type_names[] = {"GSM", "CDMA", NULL};
+enum {MODEM_TYPE_GSM, MODEM_TYPE_CDMA};
+static u8 modem_type = MODEM_TYPE_GSM;
 static char cellmodem_dev[32] = "ttyACM0";
 static char cellmodem_apn[32] = "INTERNET";
 static bool cellmodem_enabled;
@@ -41,8 +44,15 @@ static int cellmodem_notify(void *context)
     return 0;
 
   char chatcmd[256];
-  snprintf(chatcmd, sizeof(chatcmd),
-           "/usr/sbin/chat -v -T %s -f /etc/ppp/chatscript", cellmodem_apn);
+  switch (modem_type) {
+  case MODEM_TYPE_GSM:
+    snprintf(chatcmd, sizeof(chatcmd),
+             "/usr/sbin/chat -v -T %s -f /etc/ppp/chatscript-gsm", cellmodem_apn);
+    break;
+  case MODEM_TYPE_CDMA:
+    strcpy(chatcmd, "/usr/sbin/chat -v -f /etc/ppp/chatscript-cdma");
+    break;
+  }
 
   /* Build pppd command line */
   char *args[] = {"/usr/sbin/pppd",
@@ -63,6 +73,12 @@ static int cellmodem_notify(void *context)
 
 int cellmodem_init(settings_ctx_t *settings_ctx)
 {
+  settings_type_t settings_type_modem_type;
+  settings_type_register_enum(settings_ctx, modem_type_names,
+                              &settings_type_modem_type);
+  settings_register(settings_ctx, "cell_modem", "modem_type", &modem_type,
+                    sizeof(modem_type), settings_type_modem_type,
+                    cellmodem_notify, NULL);
   settings_register(settings_ctx, "cell_modem", "device", &cellmodem_dev,
                     sizeof(cellmodem_dev), SETTINGS_TYPE_STRING,
                     cellmodem_notify, NULL);
