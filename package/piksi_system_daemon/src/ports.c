@@ -18,7 +18,7 @@
 
 #define MODE_NAME_DEFAULT "SBP"
 
-#define MODE_INVALID -1
+#define MODE_DISABLED 0
 #define PID_INVALID 0
 
 typedef enum {
@@ -70,7 +70,7 @@ static port_config_t port_configs[] = {
     .opts = "--file /dev/ttyPS0",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
-    .mode = MODE_INVALID,
+    .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
   {
@@ -78,7 +78,7 @@ static port_config_t port_configs[] = {
     .opts = "--file /dev/ttyPS1",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
-    .mode = MODE_INVALID,
+    .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
   {
@@ -86,7 +86,7 @@ static port_config_t port_configs[] = {
     .opts = "--file /dev/ttyGS0",
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
-    .mode = MODE_INVALID,
+    .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
   {
@@ -95,7 +95,7 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_server_data.port = 55555,
     .opts_get = opts_get_tcp_server,
     .type = PORT_TYPE_TCP_SERVER,
-    .mode = MODE_INVALID,
+    .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
   {
@@ -104,7 +104,7 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_server_data.port = 55556,
     .opts_get = opts_get_tcp_server,
     .type = PORT_TYPE_TCP_SERVER,
-    .mode = MODE_INVALID,
+    .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
   {
@@ -113,7 +113,7 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
-    .mode = MODE_INVALID,
+    .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
   {
@@ -122,14 +122,41 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
-    .mode = MODE_INVALID,
+    .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   }
 };
 
+static int mode_to_protocol_index(u8 mode)
+{
+  return mode - 1;
+}
+
+static u8 protocol_index_to_mode(int protocol_index)
+{
+  return protocol_index + 1;
+}
+
+static void adapter_kill(port_config_t *port_config)
+{
+  if (port_config->adapter_pid > 0) {
+    int ret = kill(port_config->adapter_pid, SIGTERM);
+    piksi_log(LOG_DEBUG,
+              "Killing zmq_adapter with PID: %d (kill returned %d, errno %d)",
+              port_config->adapter_pid, ret, errno);
+  }
+  port_config->adapter_pid = 0;
+}
+
 static int port_configure(port_config_t *port_config)
 {
-  const protocol_t *protocol = protocols_get(port_config->mode);
+  if (port_config->mode == MODE_DISABLED) {
+    adapter_kill(port_config);
+    return 0;
+  }
+
+  int protocol_index = mode_to_protocol_index(port_config->mode);
+  const protocol_t *protocol = protocols_get(protocol_index);
   if (protocol == NULL) {
     return -1;
   }
@@ -155,13 +182,7 @@ static int port_configure(port_config_t *port_config)
   for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 32; i++);
 
   /* Kill the old zmq_adapter, if it exists. */
-  if (port_config->adapter_pid > 0) {
-    int ret = kill(port_config->adapter_pid, SIGTERM);
-    piksi_log(LOG_DEBUG,
-              "Killing zmq_adapter with PID: %d (kill returned %d, errno %d)",
-              port_config->adapter_pid, ret, errno);
-    port_config->adapter_pid = 0;
-  }
+  adapter_kill(port_config);
 
   piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
 
@@ -236,18 +257,20 @@ static int mode_enum_names_get(const char ***mode_enum_names)
   int protocols_count = protocols_count_get();
 
   const char **enum_names =
-      (const char **)malloc((1 + protocols_count) *
+      (const char **)malloc((1 + protocol_index_to_mode(protocols_count)) *
                             sizeof(*enum_names));
   if (enum_names == NULL) {
     return -1;
   }
 
+  enum_names[MODE_DISABLED] = "Disabled";
+
   for (int i = 0; i < protocols_count; i++) {
     const protocol_t *protocol = protocols_get(i);
     assert(protocol != NULL);
-    enum_names[i] = protocol->setting_name;
+    enum_names[protocol_index_to_mode(i)] = protocol->setting_name;
   }
-  enum_names[protocols_count] = NULL;
+  enum_names[protocol_index_to_mode(protocols_count)] = NULL;
 
   *mode_enum_names = enum_names;
   return 0;
@@ -261,7 +284,7 @@ static int mode_default_get(u8 *mode_default)
     const protocol_t *protocol = protocols_get(i);
     assert(protocol != NULL);
     if (strcasecmp(protocol->setting_name, MODE_NAME_DEFAULT) == 0) {
-      *mode_default = i;
+      *mode_default = protocol_index_to_mode(i);
       return 0;
     }
   }
@@ -273,7 +296,7 @@ int ports_init(settings_ctx_t *settings_ctx)
   int i;
 
   /* Initialize default mode */
-  u8 mode_default = 0;
+  u8 mode_default = MODE_DISABLED;
   mode_default_get(&mode_default);
 
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
