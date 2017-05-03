@@ -17,8 +17,10 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define MODE_NAME_DEFAULT "SBP"
+#define MODE_NAME_SBP "SBP"
 
+#define MODE_NAME_DEFAULT MODE_NAME_SBP
+#define MODE_NAME_DISABLED "Disabled"
 #define MODE_DISABLED 0
 #define PID_INVALID 0
 
@@ -61,6 +63,7 @@ typedef struct {
   const opts_get_fn_t opts_get;
   opts_data_t opts_data;
   const port_type_t type;
+  const char * const mode_name_default;
   u8 mode;
   pid_t adapter_pid; /* May be cleared by SIGCHLD handler */
 } port_config_t;
@@ -71,6 +74,7 @@ static port_config_t port_configs[] = {
     .opts = "--file /dev/ttyPS0",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
+    .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
@@ -79,6 +83,7 @@ static port_config_t port_configs[] = {
     .opts = "--file /dev/ttyPS1",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
+    .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
@@ -87,6 +92,7 @@ static port_config_t port_configs[] = {
     .opts = "--file /dev/ttyGS0",
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
+    .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
@@ -96,6 +102,7 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_server_data.port = 55555,
     .opts_get = opts_get_tcp_server,
     .type = PORT_TYPE_TCP_SERVER,
+    .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
@@ -105,6 +112,7 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_server_data.port = 55556,
     .opts_get = opts_get_tcp_server,
     .type = PORT_TYPE_TCP_SERVER,
+    .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
@@ -114,6 +122,7 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
+    .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
@@ -123,6 +132,7 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
+    .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   }
@@ -291,7 +301,7 @@ static int mode_enum_names_get(const char ***mode_enum_names)
     return -1;
   }
 
-  enum_names[MODE_DISABLED] = "Disabled";
+  enum_names[MODE_DISABLED] = MODE_NAME_DISABLED;
 
   for (int i = 0; i < protocols_count; i++) {
     const protocol_t *protocol = protocols_get(i);
@@ -304,18 +314,25 @@ static int mode_enum_names_get(const char ***mode_enum_names)
   return 0;
 }
 
-static int mode_default_get(u8 *mode_default)
+static int mode_lookup(const char *mode_name, u8 *mode)
 {
+  if (strcasecmp(mode_name, MODE_NAME_DISABLED) == 0) {
+    *mode = MODE_DISABLED;
+    return 0;
+  }
+
   int protocols_count = protocols_count_get();
 
   for (int i = 0; i < protocols_count; i++) {
     const protocol_t *protocol = protocols_get(i);
     assert(protocol != NULL);
-    if (strcasecmp(protocol->setting_name, MODE_NAME_DEFAULT) == 0) {
-      *mode_default = protocol_index_to_mode(i);
+    if (strcasecmp(protocol->setting_name, mode_name) == 0) {
+      *mode = protocol_index_to_mode(i);
       return 0;
     }
   }
+
+  piksi_log(LOG_WARNING, "failed to look up port mode: %s", mode_name);
   return -1;
 }
 
@@ -325,10 +342,15 @@ int ports_init(settings_ctx_t *settings_ctx)
 
   /* Initialize default mode */
   u8 mode_default = MODE_DISABLED;
-  mode_default_get(&mode_default);
+  mode_lookup(MODE_NAME_DEFAULT, &mode_default);
 
+  /* Initialize port modes */
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
-    port_configs[i].mode = mode_default;
+    port_config_t *port_config = &port_configs[i];
+
+    if (mode_lookup(port_config->mode_name_default, &port_config->mode) != 0) {
+      port_config->mode = mode_default;
+    }
   }
 
   /* Get mode enum names */
