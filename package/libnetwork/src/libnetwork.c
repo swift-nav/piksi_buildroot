@@ -117,7 +117,7 @@ static int network_upload_progress(void *data, curl_off_t dltot, curl_off_t dlno
 static int network_sockopt(void *data, curl_socket_t fd, curlsocktype purpose)
 {
   (void)data;
-
+#ifdef TCP_USER_TIMEOUT
   if (purpose == CURLSOCKTYPE_IPCXN) {
     unsigned int timeout = 20000;
     int ret = setsockopt(fd, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
@@ -126,7 +126,10 @@ static int network_sockopt(void *data, curl_socket_t fd, curlsocktype purpose)
       return CURL_SOCKOPT_ERROR;
     }
   }
-
+#else
+  (void)fd;
+  (void)purpose;
+#endif
   return CURL_SOCKOPT_OK;
 }
 
