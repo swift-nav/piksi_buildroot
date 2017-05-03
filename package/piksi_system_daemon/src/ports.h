@@ -16,8 +16,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <libpiksi/settings.h>
 
 int ports_init(settings_ctx_t *settings_ctx);
+void ports_sigchld_waitpid_handler(pid_t pid, int status);
 
 #endif /* SWIFTNAV_PORTS_H */

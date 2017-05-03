@@ -49,8 +49,10 @@
 static void sigchld_handler(int signum)
 {
   int saved_errno = errno;
-  while (waitpid(-1, NULL, WNOHANG) > 0) {
-    ;
+  pid_t pid;
+  int status;
+  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    ports_sigchld_waitpid_handler(pid, status);
   }
   errno = saved_errno;
 }

@@ -15,6 +15,7 @@
 #include <libpiksi/logging.h>
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 
 #define MODE_NAME_DEFAULT "SBP"
 
@@ -61,7 +62,7 @@ typedef struct {
   opts_data_t opts_data;
   const port_type_t type;
   u8 mode;
-  pid_t adapter_pid;
+  pid_t adapter_pid; /* May be cleared by SIGCHLD handler */
 } port_config_t;
 
 static port_config_t port_configs[] = {
@@ -137,15 +138,41 @@ static u8 protocol_index_to_mode(int protocol_index)
   return protocol_index + 1;
 }
 
+static void sigchld_mask(sigset_t *saved_mask)
+{
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGCHLD);
+
+  if (sigprocmask(SIG_BLOCK, &mask, saved_mask) != 0) {
+    piksi_log(LOG_ERR, "error masking sigchld");
+    assert(!"error masking sigchld");
+  }
+}
+
+static void sigchld_restore(sigset_t *saved_mask)
+{
+  if (sigprocmask(SIG_SETMASK, saved_mask, NULL) != 0) {
+    piksi_log(LOG_ERR, "error restoring sigchld");
+    assert(!"error restoring sigchld");
+  }
+}
+
 static void adapter_kill(port_config_t *port_config)
 {
-  if (port_config->adapter_pid > 0) {
-    int ret = kill(port_config->adapter_pid, SIGTERM);
-    piksi_log(LOG_DEBUG,
-              "Killing zmq_adapter with PID: %d (kill returned %d, errno %d)",
-              port_config->adapter_pid, ret, errno);
+  /* Mask SIGCHLD while accessing adapter_pid */
+  sigset_t saved_mask;
+  sigchld_mask(&saved_mask);
+  {
+    if (port_config->adapter_pid > 0) {
+      int ret = kill(port_config->adapter_pid, SIGTERM);
+      piksi_log(LOG_DEBUG,
+                "Killing zmq_adapter with PID: %d (kill returned %d, errno %d)",
+                port_config->adapter_pid, ret, errno);
+    }
+    port_config->adapter_pid = 0;
   }
-  port_config->adapter_pid = 0;
+  sigchld_restore(&saved_mask);
 }
 
 static int port_configure(port_config_t *port_config)
@@ -186,20 +213,21 @@ static int port_configure(port_config_t *port_config)
 
   piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
 
-  /* Create a new zmq_adapter. */
-  if (!(port_config->adapter_pid = fork())) {
-    execvp(args[0], args);
-    piksi_log(LOG_ERR, "execvp error");
-    exit(EXIT_FAILURE);
-  }
+  /* Mask SIGCHLD while accessing adapter_pid */
+  sigset_t saved_mask;
+  sigchld_mask(&saved_mask);
+  {
+    /* Create a new zmq_adapter. */
+    if (!(port_config->adapter_pid = fork())) {
+      execvp(args[0], args);
+      piksi_log(LOG_ERR, "execvp error");
+      exit(EXIT_FAILURE);
+    }
 
-  piksi_log(LOG_DEBUG, "zmq_adapter started with PID: %d",
-            port_config->adapter_pid);
-
-  if (port_config->adapter_pid < 0) {
-    /* fork() failed */
-    return -1;
+    piksi_log(LOG_DEBUG, "zmq_adapter started with PID: %d",
+              port_config->adapter_pid);
   }
+  sigchld_restore(&saved_mask);
 
   return 0;
 }
@@ -331,4 +359,16 @@ int ports_init(settings_ctx_t *settings_ctx)
   }
 
   return 0;
+}
+
+void ports_sigchld_waitpid_handler(pid_t pid, int status)
+{
+  int i;
+  for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
+    port_config_t *port_config = &port_configs[i];
+
+    if (port_config->adapter_pid == pid) {
+      port_config->adapter_pid = 0;
+    }
+  }
 }
