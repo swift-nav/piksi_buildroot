@@ -2,11 +2,13 @@
 
 name="dev_boot"
 
-output_path="/lib/firmware"
+lib_output_path="/lib/firmware"
+persistent_output_path="/persistent"
 
 copy_from_sd() {
   local sd_path=$1
   local filename=$2
+  local output_path=$3
   local sd_file="$sd_path/$filename"
   local output_file="$output_path/$filename"
 
@@ -23,6 +25,7 @@ copy_from_sd() {
 copy_from_net() {
   local server_ip=$1
   local filename=$2
+  local output_path=$3
   local uuid=`cat /factory/uuid`
   local net_file="PK$uuid/$filename"
   local output_file="$output_path/$filename"
@@ -50,22 +53,25 @@ start() {
   if [ -n "$dev_boot" ]; then
     # If dev_boot is set to something (not null), then we are in the dev
     # configuration
-    rm -f $output_path/piksi_firmware.elf
-    rm -f $output_path/piksi_fpga.bit
+    rm -f $lib_output_path/piksi_firmware.elf
+    rm -f $lib_output_path/piksi_fpga.bit
+    rm -f $persistent_path/config.ini
   fi
 
   if [ "$dev_boot" == "sd" ]; then
     sd_path="/media/mmcblk0p1"
-    copy_from_sd $sd_path "piksi_firmware.elf"
-    copy_from_sd $sd_path "piksi_fpga.bit"
+    copy_from_sd $sd_path "piksi_firmware.elf" $lib_output_path
+    copy_from_sd $sd_path "piksi_fpga.bit" $lib_output_path
+    copy_from_sd $sd_path "config.ini" $persistent_path
   fi
 
   if [ "$dev_boot" == "net" ]; then
     # Get server ip from 'ip' bootarg
     server_ip=`cat /proc/device-tree/chosen/bootargs |
                sed -n -e 's/^.*ip=[^:]*:\([^:]*\).*/\1/p'`
-    copy_from_net $server_ip "piksi_firmware.elf"
-    copy_from_net $server_ip "piksi_fpga.bit"
+    copy_from_net $server_ip "piksi_firmware.elf" $lib_output_path
+    copy_from_net $server_ip "piksi_fpga.bit" $lib_output_path
+    copy_from_net $server_ip "config.ini" $persistent_output_path
   fi
 }
 
