@@ -122,7 +122,7 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
-    .mode_name_default = MODE_NAME_DEFAULT,
+    .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   },
@@ -132,7 +132,7 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
-    .mode_name_default = MODE_NAME_DEFAULT,
+    .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID
   }
