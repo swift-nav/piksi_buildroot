@@ -55,14 +55,14 @@ start() {
     # configuration
     rm -f $lib_output_path/piksi_firmware.elf
     rm -f $lib_output_path/piksi_fpga.bit
-    rm -f $persistent_path/config.ini
+    rm -f $persistent_output_path/config.ini
   fi
 
   if [ "$dev_boot" == "sd" ]; then
     sd_path="/media/mmcblk0p1"
     copy_from_sd $sd_path "piksi_firmware.elf" $lib_output_path
     copy_from_sd $sd_path "piksi_fpga.bit" $lib_output_path
-    copy_from_sd $sd_path "config.ini" $persistent_path
+    copy_from_sd $sd_path "config.ini" $persistent_output_path
   fi
 
   if [ "$dev_boot" == "net" ]; then
