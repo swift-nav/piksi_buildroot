@@ -18,7 +18,7 @@ copy_from_sd() {
   cp "$sd_file" "$output_file"
 
   if [ ! -f "$output_file" ]; then
-    echo "ERROR: copy failed"
+    echo "ERROR: copy failed for $output_file"
   fi
 }
 
@@ -36,7 +36,7 @@ copy_from_net() {
   tftp -g -r "$net_file" -l "$output_file" -b 65464 "$server_ip"
 
   if [ ! -f "$output_file" ]; then
-    echo "ERROR: copy failed"
+    echo "ERROR: copy failed for $output_file"
   fi
 }
 
