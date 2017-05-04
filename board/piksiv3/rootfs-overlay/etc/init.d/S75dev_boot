@@ -53,6 +53,7 @@ start() {
   if [ -n "$dev_boot" ]; then
     # If dev_boot is set to something (not null), then we are in the dev
     # configuration
+    # DO NOT remove existing persistent settings configuration
     rm -f $lib_output_path/piksi_firmware.elf
     rm -f $lib_output_path/piksi_fpga.bit
   fi
@@ -61,6 +62,7 @@ start() {
     sd_path="/media/mmcblk0p1"
     copy_from_sd $sd_path "piksi_firmware.elf" $lib_output_path
     copy_from_sd $sd_path "piksi_fpga.bit" $lib_output_path
+    # Overwrites settings if present on sd card.
     copy_from_sd $sd_path "config.ini" $persistent_output_path
   fi
 
@@ -70,6 +72,7 @@ start() {
                sed -n -e 's/^.*ip=[^:]*:\([^:]*\).*/\1/p'`
     copy_from_net $server_ip "piksi_firmware.elf" $lib_output_path
     copy_from_net $server_ip "piksi_fpga.bit" $lib_output_path
+    # Overwrite settings if present on network boot.
     copy_from_net $server_ip "config.ini" $persistent_output_path
   fi
 }
