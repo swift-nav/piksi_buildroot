@@ -55,7 +55,6 @@ start() {
     # configuration
     rm -f $lib_output_path/piksi_firmware.elf
     rm -f $lib_output_path/piksi_fpga.bit
-    rm -f $persistent_output_path/config.ini
   fi
 
   if [ "$dev_boot" == "sd" ]; then
