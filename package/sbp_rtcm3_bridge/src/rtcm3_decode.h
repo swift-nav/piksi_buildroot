@@ -29,6 +29,15 @@ void setbitsl(u8 *buff, u32 pos, u32 len, s64 data);
 #define RTCM3_PREAMBLE 0xD3   /**< RTCM v3 Frame sync / preamble byte. */
 #define PRUNIT_GPS 299792.458 /**< RTCM v3 Unit of GPS Pseudorange (m) */
 
+#define WK_UNKNOWN          -1
+#define WEEK_DAYS           7
+#define MINUTE_SECS         60
+#define HOUR_MINUTES        60
+#define DAY_HOURS           24
+#define DAY_SECS            (DAY_HOURS * HOUR_MINUTES * MINUTE_SECS)
+#define WEEK_SECS           (WEEK_DAYS * DAY_SECS)
+
+
 u16 rtcm3_write_header(const rtcm_msg_header *header, u8 num_sats, u8 *buff);
 u16 rtcm3_read_header(const u8 *buff, rtcm_msg_header *header);
 static u8 to_lock_ind(u32 time);
@@ -74,6 +83,6 @@ static s8 encode_basic_freq_data(const rtcm_freq_data *freq_data,
                                  u16 *bit);
 static void init_data(rtcm_sat_data *sat_data);
 
-void update_pseudorange_ambiguity(gnss_signal16_t sid, double pseudorange);
+void update_pseudorange_ambiguity(gnss_signal16_t sid, gps_time_nano_t tor, double pseudorange);
 
 #endif /* SWIFTNAV_RTCM3_DECODE_H */

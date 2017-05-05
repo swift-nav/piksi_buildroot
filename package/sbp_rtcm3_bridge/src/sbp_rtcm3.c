@@ -24,7 +24,7 @@
 
 // time given from rover observation data. Must be maintained to within half a week of
 // the epoch of incoming RTCM data
-static gps_time_nano_t time_from_rover_obs = { .tow = 0, .ns_residual = 0, .wn = .0 };
+gps_time_nano_t time_from_rover_obs = { .tow = 0, .ns_residual = 0, .wn = .0 };
 
 static double gps_diff_time(const gps_time_nano_t *end, const gps_time_nano_t *beginning)
 {
@@ -522,6 +522,9 @@ void sbp_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
     return;
   }
 
+  observation_header_t* obs_header = (observation_header_t*)msg;
+  gps_time_nano_t tor = obs_header->t;
+
   /* Calculate the number of observations in this message by looking at the SBP
    * `len` field. */
   u8 obs_in_msg = (len - sizeof(observation_header_t)) / sizeof(packed_obs_content_t);
@@ -534,6 +537,6 @@ void sbp_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
     /* We're only interested in the pseudorange observation */
     double pseudorange = ((double)obs[i].P) / MSG_OBS_P_MULTIPLIER;
 
-    update_pseudorange_ambiguity(sid, pseudorange);
+    update_pseudorange_ambiguity(sid, tor, pseudorange);
   }
 }
