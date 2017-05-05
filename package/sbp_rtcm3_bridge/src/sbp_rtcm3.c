@@ -532,7 +532,7 @@ void sbp_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
     gnss_signal16_t sid = obs[i].sid;
 
     /* We're only interested in the pseudorange observation */
-    double pseudorange = ((double)obs->P) / MSG_OBS_P_MULTIPLIER;
+    double pseudorange = ((double)obs[i].P) / MSG_OBS_P_MULTIPLIER;
 
     update_pseudorange_ambiguity(sid, pseudorange);
   }
