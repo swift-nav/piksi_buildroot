@@ -40,8 +40,9 @@ void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length) {
   uint16_t message_type = (frame[byte] << 4) | ((frame[byte + 1] >> 4) & 0xf);
   switch (message_type) {
   case 1001:
-  case 1002:
   case 1003:
+    break;
+  case 1002:
   case 1004: {
     rtcm_obs_message rtcm_msg;
     u8 ret = 1;
