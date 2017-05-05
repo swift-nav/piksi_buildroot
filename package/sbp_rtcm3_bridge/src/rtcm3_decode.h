@@ -14,6 +14,7 @@
 #define SWIFTNAV_RTCM3_DECODE_H
 
 #include "rtcm3_messages.h"
+#include <libsbp/gnss.h>
 #include <stdbool.h>
 
 u32 getbitu(const u8 *buff, u32 pos, u8 len);
@@ -52,6 +53,9 @@ s8 rtcm3_decode_1003(const u8 *buff, rtcm_obs_message *rtcm_msg_1003);
 s8 rtcm3_decode_1004(const u8 *buff, rtcm_obs_message *rtcm_msg_1004);
 s8 rtcm3_decode_1005_base(const u8 *buff, rtcm_msg_1005 *rtcm_msg_1005,
                           u16 *bit);
+
+void apply_ms_ambiguitiy(rtcm_obs_message *rtcm_msg);
+
 s8 rtcm3_decode_1005(const u8 *buff, rtcm_msg_1005 *rtcm_msg_1005);
 s8 rtcm3_decode_1006(const u8 *buff, rtcm_msg_1006 *rtcm_msg_1006);
 s8 rtcm3_decode_1007_base(const u8 *buff, rtcm_msg_1007 *rtcm_msg_1007,
@@ -69,5 +73,7 @@ static s8 encode_basic_freq_data(const rtcm_freq_data *freq_data,
                                  freq_enum freq, const double *l1_pr, u8 *buff,
                                  u16 *bit);
 static void init_data(rtcm_sat_data *sat_data);
+
+void update_pseudorange_ambiguity(gnss_signal16_t sid, double pseudorange);
 
 #endif /* SWIFTNAV_RTCM3_DECODE_H */

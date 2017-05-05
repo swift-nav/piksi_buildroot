@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+u32 pseudorange_amb[RTCM_MAX_SATS];
+
 /** Get bit field from buffer as an unsigned integer.
  * Unpacks `len` bits at bit position `pos` from the start of the buffer.
  * Maximum bit field length is 32 bits, i.e. `len <= 32`.
@@ -576,6 +578,22 @@ s8 rtcm3_decode_1001(const u8 *buff, rtcm_obs_message *rtcm_msg_1001) {
   return 0;
 }
 
+void apply_ms_ambiguitiy(rtcm_obs_message *rtcm_msg){
+  for (u8 i = 0; i < rtcm_msg->header.n_sat; i++) {
+    rtcm_freq_data *l1_freq_data = &rtcm_msg->sats[i].obs[L1_FREQ];
+    rtcm_freq_data *l2_freq_data = &rtcm_msg->sats[i].obs[L2_FREQ];
+
+    l1_freq_data->pseudorange += PRUNIT_GPS * pseudorange_amb[rtcm_msg->sats[i].svId];
+    l1_freq_data->carrier_phase +=
+      (PRUNIT_GPS * pseudorange_amb[rtcm_msg->sats[i].svId]) /
+      (CLIGHT / FREQS[L1_FREQ]);
+    l2_freq_data->pseudorange += PRUNIT_GPS * pseudorange_amb[rtcm_msg->sats[i].svId];
+    l2_freq_data->carrier_phase +=
+      (PRUNIT_GPS * pseudorange_amb[rtcm_msg->sats[i].svId]) /
+      (CLIGHT / FREQS[L2_FREQ]);
+  }
+}
+
 /** Decode an RTCMv3 message type 1002 (Extended L1-Only GPS RTK Observables)
  *
  * \param buff A pointer to the RTCM data message buffer.
@@ -934,5 +952,11 @@ s8 decode_basic_l2_freq_data(const u8 *buff, u16 *bit,
 void init_data(rtcm_sat_data *sat_data) {
   for (u8 freq = 0; freq < NUM_FREQS; ++freq) {
     sat_data->obs[freq].flags.data = 0;
+  }
+}
+
+void update_pseudorange_ambiguity(gnss_signal16_t sid, double pseudorange){
+  if( sid.sat >= 0 && sid.sat <= RTCM_MAX_SATS) {
+    pseudorange_amb[sid.sat] = (u32)(pseudorange / PRUNIT_GPS);
   }
 }

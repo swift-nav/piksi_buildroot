@@ -48,12 +48,14 @@ void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length) {
     switch (message_type) {
     case 1001:
       ret = rtcm3_decode_1001(&frame[byte], &rtcm_msg);
+      apply_ms_ambiguitiy(&rtcm_msg);
       break;
     case 1002:
       ret = rtcm3_decode_1002(&frame[byte], &rtcm_msg);
       break;
     case 1003:
       ret = rtcm3_decode_1003(&frame[byte], &rtcm_msg);
+      apply_ms_ambiguitiy(&rtcm_msg);
       break;
     case 1004:
       ret = rtcm3_decode_1004(&frame[byte], &rtcm_msg);
@@ -508,4 +510,30 @@ void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   time_from_rover_obs.wn = time->wn;
   time_from_rover_obs.tow = time->tow;
   time_from_rover_obs.ns_residual = time->ns_residual;
+}
+
+void sbp_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void) context;
+
+  /* An SBP sender ID of zero means that the messages are relayed observations
+   * from the console. We don't want to use them */
+  if (sender_id == 0) {
+    return;
+  }
+
+  /* Calculate the number of observations in this message by looking at the SBP
+   * `len` field. */
+  u8 obs_in_msg = (len - sizeof(observation_header_t)) / sizeof(packed_obs_content_t);
+
+  /* Pull out the contents of the message. */
+  packed_obs_content_t *obs = (packed_obs_content_t *)(msg + sizeof(observation_header_t));
+  for (u8 i=0; i<obs_in_msg; i++) {
+    gnss_signal16_t sid = obs[i].sid;
+
+    /* We're only interested in the pseudorange observation */
+    double pseudorange = ((double)obs->P) / MSG_OBS_P_MULTIPLIER;
+
+    update_pseudorange_ambiguity(sid, pseudorange);
+  }
 }

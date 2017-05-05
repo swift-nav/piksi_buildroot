@@ -139,6 +139,11 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
+  if (sbp_callback_register(SBP_MSG_OBS, sbp_obs_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting SBP OBS callback");
+    exit(EXIT_FAILURE);
+  }
+
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 
   exit(EXIT_SUCCESS);
