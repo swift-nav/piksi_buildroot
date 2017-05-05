@@ -18,8 +18,8 @@ set -xe
 FW_VERSION=${1:-M4_FW_VERSION}
 NAP_VERSION=${2:-M4_NAP_VERSION}
 
-FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
-NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
+FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
+NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
 export AWS_DEFAULT_REGION="us-west-2"
 
 download_fw() {
