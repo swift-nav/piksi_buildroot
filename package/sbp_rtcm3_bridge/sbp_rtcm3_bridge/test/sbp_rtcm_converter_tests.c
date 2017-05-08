@@ -241,9 +241,9 @@ void test_sbp_rtcm_converter() {
   msg1006_out.msg_1005.GAL_ind = 1;
 
   rtcm_msg_1006 msg1006_expected = msg1006;
-  msg1006_expected.msg_1005.arp_x = 3573347.3347;
-  msg1006_expected.msg_1005.arp_y = -5576347.7863;
-  msg1006_expected.msg_1005.arp_z = 2578377.2472;
+  msg1006_expected.msg_1005.arp_x = 3573346.5475;
+  msg1006_expected.msg_1005.arp_y = -5576346.5578;
+  msg1006_expected.msg_1005.arp_z = 2578376.6757;
   msg1006_expected.ant_height = 0.0;
 
   sbp_to_rtcm3_1006(&sbp_base_pos, &msg1006_out);
