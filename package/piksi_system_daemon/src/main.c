@@ -32,6 +32,7 @@
 #include <linux/if_link.h>
 
 #include "protocols.h"
+#include "ports.h"
 #include "ntrip.h"
 #include "skylark.h"
 #include "whitelists.h"
@@ -42,15 +43,16 @@
 #define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
 #define SUB_ENDPOINT ">tcp://127.0.0.1:43010"
 
-#define PORT_MODE_NAME_DEFAULT "SBP"
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define SBP_MAX_NETWORK_INTERFACES 10
 
 static void sigchld_handler(int signum)
 {
   int saved_errno = errno;
-  while (waitpid(-1, NULL, WNOHANG) > 0) {
-    ;
+  pid_t pid;
+  int status;
+  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    ports_sigchld_waitpid_handler(pid, status);
   }
   errno = saved_errno;
 }
@@ -152,225 +154,6 @@ static int flow_control_notify(void *context)
 {
   const uart_t *uart = (uart_t *)context;
   return uart_configure(uart);
-}
-
-typedef union {
-  struct {
-    uint32_t port;
-  } tcp_server_data;
-  struct {
-    char address[256];
-  } tcp_client_data;
-} port_type_opts_data_t;
-
-typedef int (*port_type_opts_get_fn_t)(char *buf, size_t buf_size,
-                                       const port_type_opts_data_t *data);
-
-static int port_tcp_server_opts_get(char *buf, size_t buf_size,
-                                    const port_type_opts_data_t *data)
-{
-  uint32_t port = data->tcp_server_data.port;
-  return snprintf(buf, buf_size, "--tcp-l %u", port);
-}
-
-static int port_tcp_client_opts_get(char *buf, size_t buf_size,
-                                    const port_type_opts_data_t *data)
-{
-  const char *address = data->tcp_client_data.address;
-  return snprintf(buf, buf_size, "--tcp-c %s", address);
-}
-
-typedef struct {
-  const char * const name;
-  const char * const opts;
-  port_type_opts_data_t type_opts_data;
-  port_type_opts_get_fn_t type_opts_get;
-  u8 mode;
-  pid_t pid;
-} adapter_config_t;
-
-static adapter_config_t uart0_adapter_config = {
-  .name = "uart0",
-  .opts = "--file /dev/ttyPS0",
-  .type_opts_get = NULL,
-  .mode = -1,
-  .pid = 0
-};
-
-static adapter_config_t uart1_adapter_config = {
-  .name = "uart1",
-  .opts = "--file /dev/ttyPS1",
-  .type_opts_get = NULL,
-  .mode = -1,
-  .pid = 0
-};
-
-static adapter_config_t usb0_adapter_config = {
-  .name = "usb0",
-  .opts = "--file /dev/ttyGS0",
-  .type_opts_get = NULL,
-  .mode = -1,
-  .pid = 0
-};
-
-static adapter_config_t tcp_server0_adapter_config = {
-  .name = "tcp_server0",
-  .opts = "",
-  .type_opts_data.tcp_server_data.port = 55555,
-  .type_opts_get = port_tcp_server_opts_get,
-  .mode = -1,
-  .pid = 0
-};
-
-static adapter_config_t tcp_server1_adapter_config = {
-  .name = "tcp_server1",
-  .opts = "",
-  .type_opts_data.tcp_server_data.port = 55556,
-  .type_opts_get = port_tcp_server_opts_get,
-  .mode = -1,
-  .pid = 0
-};
-
-static adapter_config_t tcp_client0_adapter_config = {
-  .name = "tcp_client0",
-  .opts = "",
-  .type_opts_data.tcp_client_data.address = "",
-  .type_opts_get = port_tcp_client_opts_get,
-  .mode = -1,
-  .pid = 0
-};
-
-static adapter_config_t tcp_client1_adapter_config = {
-  .name = "tcp_client1",
-  .opts = "",
-  .type_opts_data.tcp_client_data.address = "",
-  .type_opts_get = port_tcp_client_opts_get,
-  .mode = -1,
-  .pid = 0
-};
-
-static adapter_config_t * const adapter_configs[] = {
-  &uart0_adapter_config,
-  &uart1_adapter_config,
-  &usb0_adapter_config,
-  &tcp_server0_adapter_config,
-  &tcp_server1_adapter_config,
-  &tcp_client0_adapter_config,
-  &tcp_client1_adapter_config
-};
-
-static int ports_setup(const char ***port_mode_enum_names)
-{
-  /* Build list of port modes */
-  int protocols_count = protocols_count_get();
-
-  const char **enum_names =
-      (const char **)malloc((1 + protocols_count) *
-                            sizeof(*enum_names));
-  if (enum_names == NULL) {
-    return -1;
-  }
-
-  for (int i = 0; i < protocols_count; i++) {
-    const protocol_t *protocol = protocols_get(i);
-    assert(protocol != NULL);
-    enum_names[i] = protocol->setting_name;
-  }
-  enum_names[protocols_count] = NULL;
-
-  /* Determine default port mode value */
-  u8 port_mode_default = 0;
-  for (int i = 0; i < protocols_count; i++) {
-    const protocol_t *protocol = protocols_get(i);
-    assert(protocol != NULL);
-    if (strcasecmp(protocol->setting_name, PORT_MODE_NAME_DEFAULT) == 0) {
-      port_mode_default = i;
-      break;
-    }
-  }
-
-  /* Initialize default port mode */
-  for (int i = 0; i < sizeof(adapter_configs) / sizeof(adapter_configs[0]);
-       i++) {
-    adapter_configs[i]->mode = port_mode_default;
-  }
-
-  *port_mode_enum_names = enum_names;
-  return 0;
-}
-
-static int port_configure(adapter_config_t *adapter_config)
-{
-  const protocol_t *protocol = protocols_get(adapter_config->mode);
-  if (protocol == NULL) {
-    return -1;
-  }
-
-  /* Prepare the command used to launch zmq_adapter. */
-  char mode_opts[256] = {0};
-  protocol->port_adapter_opts_get(mode_opts, sizeof(mode_opts),
-                                  adapter_config->name);
-
-  char type_opts[256] = {0};
-  if (adapter_config->type_opts_get != NULL) {
-    adapter_config->type_opts_get(type_opts, sizeof(type_opts),
-                                  &adapter_config->type_opts_data);
-  }
-
-  char cmd[512];
-  snprintf(cmd, sizeof(cmd),
-           "zmq_adapter %s %s %s",
-           adapter_config->opts, type_opts, mode_opts);
-
-  /* Split the command on each space for argv */
-  char *args[100] = {0};
-  args[0] = strtok(cmd, " ");
-  for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 100; i++);
-
-  /* Kill the old zmq_adapter, if it exists. */
-  if (adapter_config->pid) {
-    int ret = kill(adapter_config->pid, SIGTERM);
-    piksi_log(LOG_DEBUG,
-              "Killing zmq_adapter with PID: %d (kill returned %d, errno %d)",
-              adapter_config->pid, ret, errno);
-  }
-
-  piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
-
-  /* Create a new zmq_adapter. */
-  if (!(adapter_config->pid = fork())) {
-    execvp(args[0], args);
-    piksi_log(LOG_ERR, "execvp error");
-    exit(EXIT_FAILURE);
-  }
-
-  piksi_log(LOG_DEBUG, "zmq_adapter started with PID: %d",
-            adapter_config->pid);
-
-  if (adapter_config->pid < 0) {
-    /* fork() failed */
-    return -1;
-  }
-
-  return 0;
-}
-
-static int port_mode_notify(void *context)
-{
-  adapter_config_t *adapter_config = (adapter_config_t *)context;
-  return port_configure(adapter_config);
-}
-
-static int port_tcp_server_port_notify(void *context)
-{
-  adapter_config_t *adapter_config = (adapter_config_t *)context;
-  return port_configure(adapter_config);
-}
-
-static int port_tcp_client_address_notify(void *context)
-{
-  adapter_config_t *adapter_config = (adapter_config_t *)context;
-  return port_configure(adapter_config);
 }
 
 static const char const * ip_mode_enum_names[] = {"Static", "DHCP", NULL};
@@ -742,12 +525,6 @@ int main(void)
   /* Configure USB0 */
   uart_configure(&usb0);
 
-  const char **port_mode_enum_names;
-  if (ports_setup(&port_mode_enum_names) != 0) {
-    piksi_log(LOG_ERR, "error setting up ports");
-    exit(EXIT_FAILURE);
-  }
-
   /* Register settings */
   settings_type_t settings_type_baudrate;
   settings_type_register_enum(settings_ctx, baudrate_enum_names,
@@ -768,49 +545,6 @@ int main(void)
   settings_register(settings_ctx, "uart1", "flow_control", &uart1.flow_control,
                     sizeof(uart1.flow_control), settings_type_flow_control,
                     flow_control_notify, &uart1);
-
-  settings_register(settings_ctx, "tcp_server0", "port",
-                    &tcp_server0_adapter_config.type_opts_data.tcp_server_data.port,
-                    sizeof(tcp_server0_adapter_config.type_opts_data.tcp_server_data.port),
-                    SETTINGS_TYPE_INT, port_tcp_server_port_notify, &tcp_server0_adapter_config);
-  settings_register(settings_ctx, "tcp_server1", "port",
-                    &tcp_server1_adapter_config.type_opts_data.tcp_server_data.port,
-                    sizeof(tcp_server1_adapter_config.type_opts_data.tcp_server_data.port),
-                    SETTINGS_TYPE_INT, port_tcp_server_port_notify, &tcp_server1_adapter_config);
-
-  settings_register(settings_ctx, "tcp_client0", "address",
-                    tcp_client0_adapter_config.type_opts_data.tcp_client_data.address,
-                    sizeof(tcp_client0_adapter_config.type_opts_data.tcp_client_data.address),
-                    SETTINGS_TYPE_STRING, port_tcp_client_address_notify, &tcp_client0_adapter_config);
-  settings_register(settings_ctx, "tcp_client1", "address",
-                    tcp_client1_adapter_config.type_opts_data.tcp_client_data.address,
-                    sizeof(tcp_client1_adapter_config.type_opts_data.tcp_client_data.address),
-                    SETTINGS_TYPE_STRING, port_tcp_client_address_notify, &tcp_client1_adapter_config);
-
-  settings_type_t settings_type_port_mode;
-  settings_type_register_enum(settings_ctx, port_mode_enum_names,
-                              &settings_type_port_mode);
-  settings_register(settings_ctx, "uart0", "mode", &uart0_adapter_config.mode,
-                    sizeof(uart0_adapter_config.mode), settings_type_port_mode,
-                    port_mode_notify, &uart0_adapter_config);
-  settings_register(settings_ctx, "uart1", "mode", &uart1_adapter_config.mode,
-                    sizeof(uart1_adapter_config.mode), settings_type_port_mode,
-                    port_mode_notify, &uart1_adapter_config);
-  settings_register(settings_ctx, "usb0", "mode", &usb0_adapter_config.mode,
-                    sizeof(usb0_adapter_config.mode), settings_type_port_mode,
-                    port_mode_notify, &usb0_adapter_config);
-  settings_register(settings_ctx, "tcp_server0", "mode", &tcp_server0_adapter_config.mode,
-                    sizeof(tcp_server0_adapter_config.mode), settings_type_port_mode,
-                    port_mode_notify, &tcp_server0_adapter_config);
-  settings_register(settings_ctx, "tcp_server1", "mode", &tcp_server1_adapter_config.mode,
-                    sizeof(tcp_server1_adapter_config.mode), settings_type_port_mode,
-                    port_mode_notify, &tcp_server1_adapter_config);
-  settings_register(settings_ctx, "tcp_client0", "mode", &tcp_client0_adapter_config.mode,
-                    sizeof(tcp_client0_adapter_config.mode), settings_type_port_mode,
-                    port_mode_notify, &tcp_client0_adapter_config);
-  settings_register(settings_ctx, "tcp_client1", "mode", &tcp_client1_adapter_config.mode,
-                    sizeof(tcp_client1_adapter_config.mode), settings_type_port_mode,
-                    port_mode_notify, &tcp_client1_adapter_config);
 
   settings_type_t settings_type_ip_mode;
   settings_type_register_enum(settings_ctx, ip_mode_enum_names,
@@ -833,6 +567,7 @@ int main(void)
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
+  ports_init(settings_ctx);
   ntrip_init(settings_ctx);
   skylark_init(settings_ctx);
   whitelists_init(settings_ctx);
