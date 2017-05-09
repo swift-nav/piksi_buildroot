@@ -10,15 +10,15 @@ _dir_wait () {
     RET=1
     REPEATS="${1}"
     LEN_TIMEOUT_MS="${2}"
-    MNT_PATH="${4}"
-    until [ -x $FIRMWARE ] || [ $REPEATS -lt 1 ]; do
+    MNT_PATH="${3}"
+    until [ -x $MNT_PATH ] || [ $REPEATS -lt 1 ]; do
        usleep $(( $LEN_TIMEOUT_MS * 1000 ))
        let REPEATS=$REPEATS-1
     done
 }
 
 # try and mount drive for up to 5 seconds or until success 
-_dir_wait 20 250 /media/sda1
+_dir_wait 20 250 $RESETFILE
 
 if [ ! -x $RESETFILE ]; then
   echo "No reset to defaults file found"
