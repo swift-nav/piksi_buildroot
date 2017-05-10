@@ -196,6 +196,10 @@ int main(int argc, char *argv[])
     factory_file_write_hex_string("mac_address",
                                    mac_address, sizeof(mac_address));
   }
+  uint32_t hardware_version;
+  if (factory_data_hardware_revision_get(factory_data, &hardware_version) == 0) {
+    factory_file_write_u32("hardware_version", hardware_version);
+  }
 
   exit(EXIT_SUCCESS);
 }
