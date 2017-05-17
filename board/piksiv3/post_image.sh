@@ -2,7 +2,7 @@
 
 CFG=piksiv3_$HW_CONFIG
 GIT_STRING=$(git -C $BR2_EXTERNAL describe --tags --dirty                     \
-                 --always --long --match 'v[0-9]*\.[0-9]*\.[0-9]*')
+                 --always --match 'v[0-9]*\.[0-9]*\.[0-9]*')
 # remove the githash from the filename for useability
 FILE_GIT_STRING=${GIT_STRING%%-g*}
 
