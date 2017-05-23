@@ -25,6 +25,7 @@
 // time given from rover observation data. Must be maintained to within half a week of
 // the epoch of incoming RTCM data
 static gps_time_nano_t time_from_rover_obs = { .tow = 0, .ns_residual = 0, .wn = .0 };
+static volatile bool gps_time_updated = false;
 
 static double gps_diff_time(const gps_time_nano_t *end, const gps_time_nano_t *beginning)
 {
@@ -34,14 +35,20 @@ static double gps_diff_time(const gps_time_nano_t *end, const gps_time_nano_t *b
 
 void rtcm3_decode_frame(const uint8_t *frame, uint32_t frame_length) {
   static uint32_t count = 0;
+
+  if (!gps_time_updated) {
+    return;
+  }
+
   uint16_t byte = 1;
   uint16_t message_size = ((frame[byte] & 0x3) << 8) | frame[byte + 1];
   byte += 2;
   uint16_t message_type = (frame[byte] << 4) | ((frame[byte + 1] >> 4) & 0xf);
   switch (message_type) {
   case 1001:
-  case 1002:
   case 1003:
+    break;
+  case 1002:
   case 1004: {
     rtcm_obs_message rtcm_msg;
     u8 ret = 1;
@@ -508,4 +515,5 @@ void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   time_from_rover_obs.wn = time->wn;
   time_from_rover_obs.tow = time->tow;
   time_from_rover_obs.ns_residual = time->ns_residual;
+  gps_time_updated = true;
 }
