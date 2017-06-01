@@ -178,7 +178,7 @@ static void eth_update_config(void)
   }
   fclose(interfaces);
 
-  system("ifup eth0");
+  system("ifup eth0 &");
 }
 
 static int eth_ip_mode_notify(void *context)
