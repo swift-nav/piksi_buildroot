@@ -32,6 +32,7 @@ static struct async_child_ctx *async_children;
  * with the zmq event loop. */
 static int wakepipe[2];
 static zmq_pollitem_t wakeitem;
+static zloop_t *wakeloop;
 
 /* We use this unbuffered fgets function alternative so that the czmq loop
  * will keep calling us with output until we've read it all.
@@ -92,13 +93,16 @@ int async_spawn(zloop_t *loop, char **argv,
                 void (*exit_callback)(int status, void *ctx),
                 void *external_context)
 {
+  assert(loop != NULL);
   if (!wakepipe[0]) {
     /* Set up the wake up pipe if not done already. */
     pipe(wakepipe);
     wakeitem.fd = wakepipe[0];
     wakeitem.events = ZMQ_POLLIN;
     zloop_poller(loop, &wakeitem, async_cleanup_dead_child, NULL);
+    wakeloop = loop;
   }
+  assert(loop == wakeloop);
 
   struct async_child_ctx *ctx = calloc(1, sizeof(*ctx));
   ctx->loop = loop;
