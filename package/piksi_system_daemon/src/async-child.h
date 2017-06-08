@@ -15,11 +15,13 @@
 
 #include <czmq.h>
 
+void sigchld_setup(void);
+void sigchld_mask(sigset_t *saved_mask);
+void sigchld_restore(sigset_t *saved_mask);
+
 int async_spawn(zloop_t *loop, char **argv,
                 void (*output_callback)(const char *buf, void *ctx),
                 void (*exit_callback)(int status, void *ctx),
                 void *external_context);
-
-void async_child_waitpid_handler(pid_t pid, int status);
 
 #endif

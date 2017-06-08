@@ -12,6 +12,7 @@
 
 #include "ports.h"
 #include "protocols.h"
+#include "async-child.h"
 #include <libpiksi/logging.h>
 #include <string.h>
 #include <stdio.h>
@@ -146,26 +147,6 @@ static int mode_to_protocol_index(u8 mode)
 static u8 protocol_index_to_mode(int protocol_index)
 {
   return protocol_index + 1;
-}
-
-static void sigchld_mask(sigset_t *saved_mask)
-{
-  sigset_t mask;
-  sigemptyset(&mask);
-  sigaddset(&mask, SIGCHLD);
-
-  if (sigprocmask(SIG_BLOCK, &mask, saved_mask) != 0) {
-    piksi_log(LOG_ERR, "error masking sigchld");
-    assert(!"error masking sigchld");
-  }
-}
-
-static void sigchld_restore(sigset_t *saved_mask)
-{
-  if (sigprocmask(SIG_SETMASK, saved_mask, NULL) != 0) {
-    piksi_log(LOG_ERR, "error restoring sigchld");
-    assert(!"error restoring sigchld");
-  }
 }
 
 static void adapter_kill(port_config_t *port_config)

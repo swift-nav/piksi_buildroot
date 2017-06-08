@@ -47,18 +47,6 @@
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define SBP_MAX_NETWORK_INTERFACES 10
 
-static void sigchld_handler(int signum)
-{
-  int saved_errno = errno;
-  pid_t pid;
-  int status;
-  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    ports_sigchld_waitpid_handler(pid, status);
-    async_child_waitpid_handler(pid, status);
-  }
-  errno = saved_errno;
-}
-
 static const char * const baudrate_enum_names[] = {
   "1200", "2400", "4800", "9600",
   "19200", "38400", "57600", "115200",
@@ -468,14 +456,7 @@ int main(void)
   }
 
   /* Set up SIGCHLD handler */
-  struct sigaction sigchld_sa;
-  sigchld_sa.sa_handler = sigchld_handler;
-  sigemptyset(&sigchld_sa.sa_mask);
-  sigchld_sa.sa_flags = SA_NOCLDSTOP;
-  if (sigaction(SIGCHLD, &sigchld_sa, NULL) != 0) {
-    piksi_log(LOG_ERR, "error setting up sigchld handler");
-    exit(EXIT_FAILURE);
-  }
+  sigchld_setup();
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);

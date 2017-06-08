@@ -12,6 +12,10 @@
 
 #include <unistd.h>
 #include <czmq.h>
+#include <libpiksi/logging.h>
+
+#include "async-child.h"
+#include "ports.h"
 
 struct async_child_ctx {
   zloop_t *loop;
@@ -26,6 +30,8 @@ struct async_child_ctx {
   struct async_child_ctx *next;
 };
 
+static void async_child_waitpid_handler(pid_t pid, int status);
+
 static struct async_child_ctx *async_children;
 
 /* This pipe is used to synchronise reaping of the dead child from SIGCHLD
@@ -33,6 +39,50 @@ static struct async_child_ctx *async_children;
 static int wakepipe[2];
 static zmq_pollitem_t wakeitem;
 static zloop_t *wakeloop;
+
+static void sigchld_handler(int signum)
+{
+  int saved_errno = errno;
+  pid_t pid;
+  int status;
+  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    ports_sigchld_waitpid_handler(pid, status);
+    async_child_waitpid_handler(pid, status);
+  }
+  errno = saved_errno;
+}
+
+void sigchld_setup(void)
+{
+  struct sigaction sigchld_sa;
+  sigchld_sa.sa_handler = sigchld_handler;
+  sigemptyset(&sigchld_sa.sa_mask);
+  sigchld_sa.sa_flags = SA_NOCLDSTOP;
+  if (sigaction(SIGCHLD, &sigchld_sa, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting up sigchld handler");
+    exit(EXIT_FAILURE);
+  }
+}
+
+void sigchld_mask(sigset_t *saved_mask)
+{
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGCHLD);
+
+  if (sigprocmask(SIG_BLOCK, &mask, saved_mask) != 0) {
+    piksi_log(LOG_ERR, "error masking sigchld");
+    assert(!"error masking sigchld");
+  }
+}
+
+void sigchld_restore(sigset_t *saved_mask)
+{
+  if (sigprocmask(SIG_SETMASK, saved_mask, NULL) != 0) {
+    piksi_log(LOG_ERR, "error restoring sigchld");
+    assert(!"error restoring sigchld");
+  }
+}
 
 /* We use this unbuffered fgets function alternative so that the czmq loop
  * will keep calling us with output until we've read it all.
@@ -73,6 +123,8 @@ static int async_cleanup_dead_child(zloop_t *loop, zmq_pollitem_t *item, void *a
   /* Child is dead, notify observer and clean up */
   ctx->exit_callback(ctx->exit_status, ctx->external_context);
 
+  sigset_t saved_mask;
+  sigchld_mask(&saved_mask);
   if (ctx == async_children) {
     async_children = ctx->next;
   } else {
@@ -84,7 +136,7 @@ static int async_cleanup_dead_child(zloop_t *loop, zmq_pollitem_t *item, void *a
     }
   }
   free(ctx);
-
+  sigchld_restore(&saved_mask);
   return 0;
 }
 
@@ -118,9 +170,12 @@ int async_spawn(zloop_t *loop, char **argv,
     return -1;
   }
 
+  sigset_t saved_mask;
+  sigchld_mask(&saved_mask);
   ctx->pid = fork();
   if (ctx->pid == 0) {
     /* Code executed by new child */
+    close(pipefd[0]);
     close(STDIN_FILENO);
     dup2(pipefd[1], STDOUT_FILENO);
     execvp(argv[0], argv);
@@ -147,9 +202,10 @@ int async_spawn(zloop_t *loop, char **argv,
   /* Add to child list */
   ctx->next = async_children;
   async_children = ctx;
+  sigchld_restore(&saved_mask);
 }
 
-void async_child_waitpid_handler(pid_t pid, int status)
+static void async_child_waitpid_handler(pid_t pid, int status)
 {
   /* Called by SIGCHLD handler with status from waitpid.
    * We save the status here, and will deal with it from the zmq loop by
