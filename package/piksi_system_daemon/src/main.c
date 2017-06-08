@@ -36,6 +36,7 @@
 #include "ntrip.h"
 #include "skylark.h"
 #include "whitelists.h"
+#include "async-child.h"
 
 #define PROGRAM_NAME "piksi_system_daemon"
 #define PROTOCOL_LIBRARY_PATH "/usr/lib/zmq_protocols"
@@ -45,17 +46,6 @@
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define SBP_MAX_NETWORK_INTERFACES 10
-
-static void sigchld_handler(int signum)
-{
-  int saved_errno = errno;
-  pid_t pid;
-  int status;
-  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    ports_sigchld_waitpid_handler(pid, status);
-  }
-  errno = saved_errno;
-}
 
 static const char * const baudrate_enum_names[] = {
   "1200", "2400", "4800", "9600",
@@ -200,57 +190,6 @@ static int eth_ip_config_notify(void *context)
   return 0;
 }
 
-struct shell_cmd_ctx {
-  FILE *pipe;
-  u32 sequence;
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx;
-  zmq_pollitem_t pollitem;
-};
-
-/* We use this unbuffered fgets function alternative so that the czmq loop
- * will keep calling us with output until we've read it all.
- */
-static int raw_fgets(char *str, size_t len, FILE *stream)
-{
-  int fd = fileno(stream);
-  size_t i;
-  len--;
-  for (i = 0; i < len; i++) {
-    int r = read(fd, &str[i], 1);
-    if (r < 0)
-      return r;
-    if ((r == 0) || (str[i] == '\n'))
-      break;
-  }
-  str[i++] = 0;
-  return i > 1 ? i : 0;
-}
-
-static int command_output(zloop_t *loop, zmq_pollitem_t *item, void *arg)
-{
-  struct shell_cmd_ctx *ctx = arg;
-  msg_log_t *msg = alloca(256);
-  msg->level = 6;
-
-  if (raw_fgets(msg->text,
-                SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text),
-                ctx->pipe) > 0) {
-    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                    SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
-  } else {
-    /* Broken pipe, clean up and send exit code */
-    msg_command_resp_t resp = {
-      .sequence = ctx->sequence,
-      .code = pclose(ctx->pipe),
-    };
-    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                    SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
-    zloop_poller_end(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx), item);
-    free(ctx);
-  }
-  return 0;
-}
-
 static int count_set_bits(const u8* data, size_t num_bytes)
 {
   int count = 0;
@@ -340,6 +279,35 @@ static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
   freeifaddrs(ifaddr);
 }
 
+struct shell_cmd_ctx {
+  u32 sequence;
+  sbp_zmq_pubsub_ctx_t *pubsub_ctx;
+};
+
+static void command_output_cb(const char *buf, void *arg)
+{
+  struct shell_cmd_ctx *ctx = arg;
+  msg_log_t *msg = alloca(256);
+  msg->level = 6;
+  strncpy(msg->text, buf, 255);
+
+  sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+                 SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
+}
+
+static void command_exit_cb(int status, void *arg)
+{
+  struct shell_cmd_ctx *ctx = arg;
+  /* clean up and send exit code */
+  msg_command_resp_t resp = {
+    .sequence = ctx->sequence,
+    .code = status,
+  };
+  sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+                  SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
+  free(ctx);
+}
+
 static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = (sbp_zmq_pubsub_ctx_t *)context;
@@ -361,15 +329,11 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
     return;
   }
   struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
-  ctx->pipe = popen(msg->command, "r");
   ctx->sequence = msg->sequence;
   ctx->pubsub_ctx = pubsub_ctx;
-  ctx->pollitem.fd = fileno(ctx->pipe);
-  ctx->pollitem.events = ZMQ_POLLIN;
-  int arg = O_NONBLOCK;
-  fcntl(fileno(ctx->pipe), F_SETFL, &arg);
-  zloop_poller(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
-               &ctx->pollitem, command_output, ctx);
+  char *argv[] = {"upgrade_tool", "--debug", "upgrade.image_set.bin", NULL};
+  async_spawn(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
+              argv, command_output_cb, command_exit_cb, ctx);
 }
 
 static int file_read_string(const char *filename, char *str, size_t str_size)
@@ -492,14 +456,7 @@ int main(void)
   }
 
   /* Set up SIGCHLD handler */
-  struct sigaction sigchld_sa;
-  sigchld_sa.sa_handler = sigchld_handler;
-  sigemptyset(&sigchld_sa.sa_mask);
-  sigchld_sa.sa_flags = SA_NOCLDSTOP;
-  if (sigaction(SIGCHLD, &sigchld_sa, NULL) != 0) {
-    piksi_log(LOG_ERR, "error setting up sigchld handler");
-    exit(EXIT_FAILURE);
-  }
+  sigchld_setup();
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);

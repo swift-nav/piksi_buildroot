@@ -1,5 +1,6 @@
 TARGET=piksi_system_daemon
 SOURCES= \
+	async-child.c \
 	main.c \
 	protocols.c \
 	ports.c \
