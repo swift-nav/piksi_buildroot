@@ -8,7 +8,14 @@ Firmware Download: https://support.swiftnav.com/customer/en/portal/articles/2492
 
 
 -------------------------------------------------------------------------------
-Release 1.1.26                                                       2017-05-16
+Release 1.1.28                                                       2017-06-08
+-------------------------------------------------------------------------------
+NEW FEATURES AND UPDATES:
+* Improved RTK convergence time after temporary corrections outage.
+
+
+-------------------------------------------------------------------------------
+Release 1.1.27                                                       2017-05-17
 -------------------------------------------------------------------------------
 NEW FEATURES AND UPDATES:
 * Improved general navigation performance and system stability.
