@@ -20,7 +20,7 @@ int file_loop(const char *file_path)
     return 1;
   }
 
-  io_loop_start(fd, fd);
+  io_loop_start(fd, dup(fd));
   io_loop_wait();
 
   close(fd);

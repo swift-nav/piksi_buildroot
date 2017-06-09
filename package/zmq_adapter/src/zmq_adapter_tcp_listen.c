@@ -67,8 +67,10 @@ static void server_loop(int server_fd)
                            &client_addr_len);
 
     if (client_fd >= 0) {
-      io_loop_start(client_fd, client_fd);
+      int wfd = dup(client_fd);
+      io_loop_start(client_fd, wfd);
       close(client_fd);
+      close(wfd);
       client_fd = -1;
     } else if ((client_fd == -1) && (errno == EINTR)) {
       /* Retry if interrupted */
