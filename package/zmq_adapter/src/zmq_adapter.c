@@ -71,6 +71,7 @@ static const char *filter_out_config = NULL;
 static int rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
 static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
 static bool nonblock = false;
+static int outq;
 
 static const char *zmq_pub_addr = NULL;
 static const char *zmq_sub_addr = NULL;
@@ -128,6 +129,8 @@ static void usage(char *command)
   fprintf(stderr, "\t\ttime to delay after opening a ZMQ socket\n");
   fprintf(stderr, "\t--nonblock\n");
   fprintf(stderr, "\t--debug\n");
+  fprintf(stderr, "\t--outq <n>\n");
+  fprintf(stderr, "\t\tmax tty output queue size (bytes)\n");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -145,6 +148,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILTER_IN_CONFIG,
     OPT_ID_FILTER_OUT_CONFIG,
     OPT_ID_NONBLOCK,
+    OPT_ID_OUTQ,
   };
 
   const struct option long_opts[] = {
@@ -165,6 +169,7 @@ static int parse_options(int argc, char *argv[])
     {"filter-out-config", required_argument, 0, OPT_ID_FILTER_OUT_CONFIG},
     {"debug",             no_argument,       0, OPT_ID_DEBUG},
     {"nonblock",          no_argument,       0, OPT_ID_NONBLOCK},
+    {"outq",              required_argument, 0, OPT_ID_OUTQ},
     {0, 0, 0, 0}
   };
 
@@ -243,6 +248,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_NONBLOCK: {
         nonblock = true;
+      }
+      break;
+
+      case OPT_ID_OUTQ: {
+        outq = strtol(optarg, NULL, 10);
       }
       break;
 
@@ -527,6 +537,15 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
 
 static ssize_t fd_write(int fd, const void *buffer, size_t count)
 {
+  if (isatty(fd) && (outq > 0)) {
+    int qlen;
+    ioctl(fd, TIOCOUTQ, &qlen);
+    if (qlen + count > outq) {
+      /* Fake success so upper layer doesn't retry */
+      return count;
+    }
+  }
+
   while (1) {
     ssize_t ret = write(fd, buffer, count);
     /* Retry if interrupted */
