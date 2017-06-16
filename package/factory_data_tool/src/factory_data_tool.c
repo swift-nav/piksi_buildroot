@@ -109,7 +109,9 @@ static void print_hex_string(char *str, const uint8_t *data, uint32_t data_size)
   str[2*i] = 0;
 }
 
-static int factory_file_write(const char *filename, const char *data)
+static int factory_file_write_bin(const char *filename,
+                                  const uint8_t *data,
+                                  size_t data_len)
 {
   /* generate file path */
   char filepath[256];
@@ -123,7 +125,6 @@ static int factory_file_write(const char *filename, const char *data)
   }
 
   /* write to file */
-  size_t data_len = strlen(data);
   if (write(fd, data, data_len) != data_len) {
     printf("error writing %s\n", filepath);
   }
@@ -132,6 +133,13 @@ static int factory_file_write(const char *filename, const char *data)
   close(fd);
 
   return 0;
+}
+
+static int factory_file_write(const char *filename, const char *data)
+{
+  size_t data_len = strlen(data);
+  /* write to file */
+  return factory_file_write_bin(filename, (const uint8_t *)data, data_len);
 }
 
 static int factory_file_write_u32(const char *filename, uint32_t data)
@@ -196,9 +204,16 @@ int main(int argc, char *argv[])
     factory_file_write_hex_string("mac_address",
                                    mac_address, sizeof(mac_address));
   }
+
   uint32_t hardware_version;
   if (factory_data_hardware_revision_get(factory_data, &hardware_version) == 0) {
     factory_file_write_u32("hardware_version", hardware_version);
+  }
+
+  const size_t imu_cal_len = 264;
+  uint8_t imu_cal[imu_cal_len];
+  if (factory_data_imu_cal_get(factory_data, imu_cal) == 0) {
+    factory_file_write_bin("imu_cal", imu_cal, imu_cal_len);
   }
 
   exit(EXIT_SUCCESS);
