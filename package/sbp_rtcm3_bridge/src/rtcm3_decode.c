@@ -19,6 +19,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libsbp/gnss.h>
+
+typedef struct{
+  u8 amb;
+  gps_time_nano_t time_rcv;
+}decoded_ambs;
+
+decoded_ambs pseudorange_amb[RTCM_MAX_SATS];
+
+extern gps_time_nano_t time_from_rover_obs;
 
 /** Get bit field from buffer as an unsigned integer.
  * Unpacks `len` bits at bit position `pos` from the start of the buffer.
@@ -576,6 +586,46 @@ s8 rtcm3_decode_1001(const u8 *buff, rtcm_obs_message *rtcm_msg_1001) {
   return 0;
 }
 
+double gpsdifftime(const gps_time_nano_t *end, const gps_time_nano_t *beginning)
+{
+  double dt = end->tow - beginning->tow;
+  if (end->wn == WK_UNKNOWN || beginning->wn == WK_UNKNOWN) {
+    /* One or both of the week numbers is unspecified.  Assume times
+       are within +/- 0.5 weeks of each other. */
+    if (dt > WEEK_SECS / 2)
+      dt -= WEEK_SECS;
+    if (dt < -WEEK_SECS / 2)
+      dt += WEEK_SECS;
+  } else {
+    /* Week numbers were provided - use them. */
+    dt += (end->wn - beginning->wn) * WEEK_SECS;
+  }
+  return dt;
+}
+
+void adjust_ms_freq(rtcm_freq_data *freq_data, decoded_ambs amb_time, freq_enum freq){
+  freq_data->pseudorange += PRUNIT_GPS * amb_time.amb;
+  freq_data->carrier_phase += (PRUNIT_GPS * amb_time.amb) / (CLIGHT / FREQS[freq]);
+
+  double timediff = gpsdifftime(&time_from_rover_obs, &amb_time.time_rcv);
+  if(abs(timediff) > 20.0){
+    freq_data->flags.valid_pr = 0;
+    freq_data->flags.valid_cp = 0;
+    freq_data->flags.valid_lock = 0;
+    freq_data->flags.valid_cnr = 0;
+  }
+}
+
+void apply_ms_ambiguitiy(rtcm_obs_message *rtcm_msg){
+  for (u8 i = 0; i < rtcm_msg->header.n_sat; i++) {
+    rtcm_freq_data *l1_freq_data = &rtcm_msg->sats[i].obs[L1_FREQ];
+    adjust_ms_freq(l1_freq_data, pseudorange_amb[rtcm_msg->sats[i].svId], L1_FREQ);
+
+    rtcm_freq_data *l2_freq_data = &rtcm_msg->sats[i].obs[L2_FREQ];
+    adjust_ms_freq(l2_freq_data, pseudorange_amb[rtcm_msg->sats[i].svId], L2_FREQ);
+  }
+}
+
 /** Decode an RTCMv3 message type 1002 (Extended L1-Only GPS RTK Observables)
  *
  * \param buff A pointer to the RTCM data message buffer.
@@ -934,5 +984,12 @@ s8 decode_basic_l2_freq_data(const u8 *buff, u16 *bit,
 void init_data(rtcm_sat_data *sat_data) {
   for (u8 freq = 0; freq < NUM_FREQS; ++freq) {
     sat_data->obs[freq].flags.data = 0;
+  }
+}
+
+void update_pseudorange_ambiguity(gnss_signal16_t sid, gps_time_nano_t tor, double pseudorange){
+  if( sid.sat >= 0 && sid.sat <= RTCM_MAX_SATS) {
+    pseudorange_amb[sid.sat].amb = (u8)(pseudorange / PRUNIT_GPS);
+    pseudorange_amb[sid.sat].time_rcv = tor;
   }
 }
