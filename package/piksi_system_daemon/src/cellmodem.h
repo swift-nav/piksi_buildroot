@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2017 Swift Navigation Inc.
+ * Contact: Gareth McMullin <gareth@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,20 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "zmq_adapter.h"
+#ifndef __CELLMODEM_H
+#define __CELLMODEM_H
 
-int file_loop(const char *file_path)
-{
-  int fd = open(file_path, O_RDWR);
-  if (fd < 0) {
-    syslog(LOG_ERR, "error opening file");
-    return 1;
-  }
+#include <libpiksi/settings.h>
 
-  io_loop_start(fd, dup(fd));
-  io_loop_wait();
+int cellmodem_init(settings_ctx_t *settings_ctx);
 
-  close(fd);
-  fd = -1;
-  return 0;
-}
+#endif

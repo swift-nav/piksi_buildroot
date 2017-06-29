@@ -1,0 +1,7 @@
+115200 crtscts
+noauth
+usepeerdns
+defaultroute
+nodetach
+persist
+
