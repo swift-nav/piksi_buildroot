@@ -543,7 +543,23 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
   if (handle->zsock != NULL) {
     return zsock_write(handle->zsock, buffer, count);
   } else {
-    return fd_write(handle->write_fd, buffer, count);
+    ssize_t rv = fd_write(handle->write_fd, buffer, count);
+
+    /* For the specific case of USB-serial output, disconnecting the port
+     * will make the file write fail. Just reopening the file descriptor
+     * fixes the problem. If the problem persists, just give up
+     */
+    if ((rv == -1) && (errno == EIO)) {
+      /* Try to reopen the file descriptor, may not work */
+      debug_printf("Trying to reopen fd %d\n", handle->write_fd);
+      close(handle->write_fd);
+      handle->write_fd = open(file_path, O_RDWR);
+      debug_printf("Reopened %d\n", handle->write_fd);
+
+      /* Try the write again; if it fails, give up */
+      rv = fd_write(handle->write_fd, buffer, count);
+    }
+    return rv;
   }
 }
 
@@ -681,7 +697,12 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
                                                       buffer, read_count,
                                                       &frames_written);
     if (write_count < 0) {
-      break;
+      debug_printf("errno %d (%s)\n", errno, strerror(errno));
+      if (errno == EIO) {
+        debug_printf("Do not bail on EIO\n");
+      } else {
+        break;
+      }
     }
     if (write_count != read_count) {
       syslog(LOG_ERR, "warning: write_count != read_count");
@@ -815,20 +836,10 @@ static void pid_terminate(pid_t *pid)
   }
 }
 
-void debug_printf(const char *msg, ...)
-{
-  if (!debug) {
-    return;
-  }
-
-  va_list ap;
-  va_start(ap, msg);
-  vfprintf(stderr, msg, ap);
-  va_end(ap);
-}
-
 void io_loop_start(int read_fd, int write_fd)
 {
+  debug_printf("read_fd %d write_fd %d zsock_mode %d\n",
+               read_fd, write_fd, zsock_mode);
   switch (zsock_mode) {
     case ZSOCK_PUBSUB: {
 
