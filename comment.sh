@@ -25,6 +25,10 @@ PRS_BUCKET="${PRS_BUCKET:-swiftnav-artifacts-pull-requests}"
 BUILD_VERSION="$(git describe --tags --dirty --always)"
 BUILD_PATH="$REPO/$BUILD_VERSION"
 
+echo "Comment PULL_REQUEST ($TRAVIS_PULL_REQUEST)"
+echo "Comment BRANCH ($TRAVIS_BRANCH)"
+echo "Comment TAG ($TRAVIS_TAG)"
+
 if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
     if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_TAG" == v* || "$TRAVIS_BRANCH" == v*-release ]]; then
         COMMENT="$BUILD_PATH

@@ -35,6 +35,9 @@ if [[ ! -z "$PRODUCT_TYPE" ]]; then
 fi
 
 echo "Uploading $@ to $BUILD_PATH"
+echo "Publish PULL_REQUEST ($TRAVIS_PULL_REQUEST)"
+echo "Publish BRANCH ($TRAVIS_BRANCH)"
+echo "Publish TAG ($TRAVIS_TAG)"
 
 for file in "$@"; do
     KEY="$BUILD_PATH/$(basename $file)"
