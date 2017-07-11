@@ -372,6 +372,10 @@ void ports_sigchld_waitpid_handler(pid_t pid, int status)
 
     if (port_config->adapter_pid == pid) {
       port_config->adapter_pid = 0;
+      fprintf(stdout, "Adapter %s died\n", port_config->name);
+      if (port_config->type == PORT_TYPE_USB) {
+        port_configure(port_config);
+      }
     }
   }
 }
