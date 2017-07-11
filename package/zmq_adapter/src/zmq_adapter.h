@@ -16,13 +16,20 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <syslog.h>
+#include <unistd.h>
 
 #include <czmq.h>
 
-void debug_printf(const char *msg, ...);
 void io_loop_start(int read_fd, int write_fd);
 void io_loop_wait(void);
 void io_loop_wait_one(void);
 void io_loop_terminate(void);
+
+extern bool debug;
+
+#define debug_printf(format, ...) \
+  if (debug) \
+    fprintf(stdout, "[PID %d] %s+%d(%s) " format, getpid(), \
+      __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__);
 
 #endif /* SWIFTNAV_ZMQ_ADAPTER_H */
