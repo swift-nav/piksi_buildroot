@@ -592,7 +592,6 @@ static ssize_t handle_write_all(handle_t *handle,
     ssize_t write_count = handle_write(handle,
                                        &((uint8_t *)buffer)[buffer_index],
                                        count - buffer_index);
-    // debug_printf("wrote %zd bytes\n", write_count);
     if (write_count < 0) {
       return write_count;
     }
@@ -707,7 +706,6 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     /* Read from read_handle */
     uint8_t buffer[READ_BUFFER_SIZE];
     ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
-    // debug_printf("read %zd bytes\n", read_count);
     if (read_count <= 0) {
       debug_printf("read_count %d errno %s (%d)\n",
           read_count, strerror(errno), errno);
