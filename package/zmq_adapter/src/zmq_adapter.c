@@ -60,7 +60,7 @@ typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer,
                               size_t count);
 
-static bool debug = false;
+bool debug = false;
 static io_mode_t io_mode = IO_INVALID;
 static zsock_mode_t zsock_mode = ZSOCK_INVALID;
 static const char *framer_name = FRAMER_NONE_NAME;
@@ -382,6 +382,7 @@ static zsock_t * zsock_start(int type)
 {
   zsock_t *zsock = zsock_new(type);
   if (zsock == NULL) {
+    debug_printf("zsock_new returned NULL\n");
     return zsock;
   }
 
@@ -422,8 +423,11 @@ static zsock_t * zsock_start(int type)
     break;
   }
 
-  if (zsock_attach(zsock, addr, serverish) != 0) {
+  int zsock_err = zsock_attach(zsock, addr, serverish);
+  if (zsock_err != 0) {
     syslog(LOG_ERR, "error opening socket: %s", addr);
+    debug_printf("error opening socket: %s, zsock_err %d\n",
+        addr, zsock_err);
     zsock_destroy(&zsock);
     assert(zsock == NULL);
     return zsock;
@@ -588,7 +592,6 @@ static ssize_t handle_write_all(handle_t *handle,
     ssize_t write_count = handle_write(handle,
                                        &((uint8_t *)buffer)[buffer_index],
                                        count - buffer_index);
-    debug_printf("wrote %zd bytes\n", write_count);
     if (write_count < 0) {
       return write_count;
     }
@@ -703,8 +706,9 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     /* Read from read_handle */
     uint8_t buffer[READ_BUFFER_SIZE];
     ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
-    debug_printf("read %zd bytes\n", read_count);
     if (read_count <= 0) {
+      debug_printf("read_count %d errno %s (%d)\n",
+          read_count, strerror(errno), errno);
       break;
     }
 
@@ -714,10 +718,15 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
                                                       buffer, read_count,
                                                       &frames_written);
     if (write_count < 0) {
+      debug_printf("write_count %d errno %s (%d)\n",
+          write_count, strerror(errno), errno);
       break;
     }
+
     if (write_count != read_count) {
       syslog(LOG_ERR, "warning: write_count != read_count");
+      debug_printf("write_count != read_count %d %d\n",
+          write_count, read_count);
     }
   }
 
@@ -848,18 +857,6 @@ static void pid_terminate(pid_t *pid)
   }
 }
 
-void debug_printf(const char *msg, ...)
-{
-  if (!debug) {
-    return;
-  }
-
-  va_list ap;
-  va_start(ap, msg);
-  vfprintf(stderr, msg, ap);
-  va_end(ap);
-}
-
 void io_loop_start(int read_fd, int write_fd)
 {
   if (nonblock) {
@@ -870,11 +867,13 @@ void io_loop_start(int read_fd, int write_fd)
     case ZSOCK_PUBSUB: {
 
       if (zmq_pub_addr != NULL) {
+        debug_printf("Forking for pub\n");
         pid_t pid = fork();
         if (pid == 0) {
           /* child process */
           zsock_t *pub = zsock_start(ZMQ_PUB);
           if (pub == NULL) {
+            debug_printf("zsock_start(ZMQ_PUB) returned NULL\n");
             exit(EXIT_FAILURE);
           }
 
@@ -882,12 +881,14 @@ void io_loop_start(int read_fd, int write_fd)
           handle_t pub_handle;
           if (handle_init(&pub_handle, pub, -1, -1, framer_name,
                           filter_in_name, filter_in_config) != 0) {
+            debug_printf("handle_init for pub returned error\n");
             exit(EXIT_FAILURE);
           }
 
           handle_t fd_handle;
           if (handle_init(&fd_handle, NULL, read_fd, -1, FRAMER_NONE_NAME,
                           FILTER_NONE_NAME, NULL) != 0) {
+            debug_printf("handle_init for read_fd returned error\n");
             exit(EXIT_FAILURE);
           }
 
@@ -897,6 +898,7 @@ void io_loop_start(int read_fd, int write_fd)
           assert(pub == NULL);
           handle_deinit(&pub_handle);
           handle_deinit(&fd_handle);
+          debug_printf("Exiting from pub fork\n");
           exit(EXIT_SUCCESS);
         } else {
           /* parent process */
@@ -905,11 +907,13 @@ void io_loop_start(int read_fd, int write_fd)
       }
 
       if (zmq_sub_addr != NULL) {
+        debug_printf("Forking for sub\n");
         pid_t pid = fork();
         if (pid == 0) {
           /* child process */
           zsock_t *sub = zsock_start(ZMQ_SUB);
           if (sub == NULL) {
+            debug_printf("zsock_start(ZMQ_SUB) returned NULL\n");
             exit(EXIT_FAILURE);
           }
 
@@ -917,12 +921,14 @@ void io_loop_start(int read_fd, int write_fd)
           handle_t sub_handle;
           if (handle_init(&sub_handle, sub, -1, -1, FRAMER_NONE_NAME,
                           FILTER_NONE_NAME, NULL) != 0) {
+            debug_printf("handle_init for sub returned error\n");
             exit(EXIT_FAILURE);
           }
 
           handle_t fd_handle;
           if (handle_init(&fd_handle, NULL, -1, write_fd, FRAMER_NONE_NAME,
                           filter_out_name, filter_out_config) != 0) {
+            debug_printf("handle_init for write_fd returned error\n");
             exit(EXIT_FAILURE);
           }
 
@@ -932,6 +938,7 @@ void io_loop_start(int read_fd, int write_fd)
           assert(sub == NULL);
           handle_deinit(&sub_handle);
           handle_deinit(&fd_handle);
+          debug_printf("Exiting from sub fork\n");
           exit(EXIT_SUCCESS);
         } else {
           /* parent process */
@@ -1024,7 +1031,9 @@ void io_loop_start(int read_fd, int write_fd)
 void io_loop_wait(void)
 {
   while (1) {
+    debug_printf("waiting for children state change\n");
     int ret = waitpid(-1, NULL, 0);
+    debug_printf("waitpid returned %d errno %d\n", ret, errno);
     if ((ret == -1) && (errno == EINTR)) {
       /* Retry if interrupted */
       continue;
@@ -1036,6 +1045,7 @@ void io_loop_wait(void)
       break;
     }
   }
+  debug_printf("Exit from io_loop_wait\n");
 }
 
 void io_loop_wait_one(void)
@@ -1092,6 +1102,8 @@ int main(int argc, char *argv[])
     usage(argv[0]);
     exit(EXIT_FAILURE);
   }
+
+  debug_printf("Parsed command line\n");
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);

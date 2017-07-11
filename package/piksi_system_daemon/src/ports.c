@@ -32,6 +32,11 @@ typedef enum {
   PORT_TYPE_TCP_CLIENT
 } port_type_t;
 
+typedef enum {
+  DO_NOT_RESTART,
+  RESTART
+} restart_type_t;
+
 typedef union {
   struct {
     uint32_t port;
@@ -67,6 +72,7 @@ typedef struct {
   const char * const mode_name_default;
   u8 mode;
   pid_t adapter_pid; /* May be cleared by SIGCHLD handler */
+  restart_type_t restart;
 } port_config_t;
 
 static port_config_t port_configs[] = {
@@ -77,7 +83,8 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
   },
   {
     .name = "uart1",
@@ -86,7 +93,8 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
   },
   {
     .name = "usb0",
@@ -95,7 +103,8 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID
+    .adapter_pid = PID_INVALID,
+    .restart = RESTART
   },
   {
     .name = "tcp_server0",
@@ -105,7 +114,8 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_TCP_SERVER,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
   },
   {
     .name = "tcp_server1",
@@ -115,7 +125,8 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_TCP_SERVER,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
   },
   {
     .name = "tcp_client0",
@@ -125,7 +136,8 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_TCP_CLIENT,
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
   },
   {
     .name = "tcp_client1",
@@ -135,7 +147,8 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_TCP_CLIENT,
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
   }
 };
 
@@ -372,6 +385,10 @@ void ports_sigchld_waitpid_handler(pid_t pid, int status)
 
     if (port_config->adapter_pid == pid) {
       port_config->adapter_pid = 0;
+      fprintf(stdout, "Adapter %s died\n", port_config->name);
+      if (port_config->restart == RESTART) {
+        port_configure(port_config);
+      }
     }
   }
 }
