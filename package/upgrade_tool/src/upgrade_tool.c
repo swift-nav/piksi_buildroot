@@ -19,7 +19,7 @@
 #include "factory_params.h"
 #include "uboot/image_table.h"
 
-#define IMAGE_TABLE_ELEMENT_SIZE  0x00010000U
+#define IMAGE_TABLE_ELEMENT_SIZE  0x00040000U
 #define SPL_TABLE_ELEMENT_SIZE    0x00040000U
 
 #define IMAGE_ALIGN 16U
@@ -583,6 +583,15 @@ void debug_printf(const char *msg, ...)
   va_start(ap, msg);
   vprintf(msg, ap);
   va_end(ap);
+}
+
+void debug_flush(void)
+{
+  if (!debug) {
+    return;
+  }
+
+  fflush(stdout);
 }
 
 int main(int argc, char *argv[])

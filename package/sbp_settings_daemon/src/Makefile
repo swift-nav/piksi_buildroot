@@ -2,11 +2,9 @@ TARGET=sbp_settings_daemon
 SOURCES= \
 	main.c \
 	minIni/minIni.c \
-	sbp_zmq.c \
-	sbp_fileio.c \
 	settings.c \
 
-LIBS=-lczmq -lsbp
+LIBS=-lczmq -lsbp -lpiksi
 CFLAGS=-std=gnu11
 
 CROSS=

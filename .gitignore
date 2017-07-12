@@ -1,4 +1,7 @@
-buildroot/
+firmware/
 .*.sw*
 build.out
-
+build/
+.DS_Store
+*/*.DS_Store
+.vscode/

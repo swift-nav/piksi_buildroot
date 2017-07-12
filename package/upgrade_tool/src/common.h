@@ -36,5 +36,6 @@
 #include <libgen.h>
 
 void debug_printf(const char *msg, ...);
+void debug_flush(void);
 
 #endif /* __COMMON_H__ */

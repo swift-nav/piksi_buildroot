@@ -1,0 +1,4 @@
+#!/bin/sh
+route del default
+route add default ppp0
+

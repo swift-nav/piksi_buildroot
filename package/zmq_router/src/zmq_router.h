@@ -13,52 +13,45 @@
 #ifndef SWIFTNAV_ZMQ_ROUTER_H
 #define SWIFTNAV_ZMQ_ROUTER_H
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-
 #include <czmq.h>
-
-#define FILTER(filter_action, ...)                                            \
-  (filter_t) {                                                                \
-    .data = (const uint8_t[]){ __VA_ARGS__ },                                 \
-    .len = sizeof((const uint8_t[]){ __VA_ARGS__ }),                          \
-    .action = filter_action                                                   \
-  }
-
-#define FILTER_ACCEPT(...) FILTER(FILTER_ACTION_ACCEPT, __VA_ARGS__ )
-#define FILTER_REJECT(...) FILTER(FILTER_ACTION_REJECT, __VA_ARGS__ )
 
 typedef enum {
   FILTER_ACTION_ACCEPT,
   FILTER_ACTION_REJECT,
 } filter_action_t;
 
-typedef struct {
-  const uint8_t *data;
-  int len;
+typedef struct filter_s {
   filter_action_t action;
+  uint8_t *data;
+  size_t len;
+  struct filter_s *next;
 } filter_t;
 
-typedef struct {
-  struct port_t *dst_port;
-  const filter_t * const *filters;
+typedef struct forwarding_rule_s {
+  const char *dst_port_name;
+  struct port_s *dst_port;
+  filter_t *filters_list;
+  struct forwarding_rule_s *next;
 } forwarding_rule_t;
 
-typedef struct {
+typedef struct port_s {
+  const char *name;
   const char *pub_addr;
   const char *sub_addr;
-  const forwarding_rule_t * const *sub_forwarding_rules;
-} port_config_t;
-
-typedef struct port_t {
-  const port_config_t config;
   zsock_t *pub_socket;
   zsock_t *sub_socket;
+  forwarding_rule_t *forwarding_rules_list;
+  struct port_s *next;
 } port_t;
 
 typedef struct {
-  port_t *ports;
-  int ports_count;
+  const char *name;
+  port_t *ports_list;
 } router_t;
+
+void debug_printf(const char *msg, ...);
 
 #endif /* SWIFTNAV_ZMQ_ROUTER_H */

@@ -53,40 +53,40 @@ err:
   return ret;
 }
 
-static void handle_client(int client_fd, const struct sockaddr_in *client_addr)
-{
-  io_loop_start(client_fd);
-}
-
 static void server_loop(int server_fd)
 {
-  bool done = false;
-  do {
+  while (1) {
+    /* Reap terminated child processes */
+    while (waitpid(-1, NULL, WNOHANG) > 0) {
+      ;
+    }
+
     struct sockaddr_in client_addr;
-    int client_addr_len = sizeof(client_addr);
+    socklen_t client_addr_len = sizeof(client_addr);
     int client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
                            &client_addr_len);
 
     if (client_fd >= 0) {
-      if (fork() == 0) {
-        /* child process */
-        handle_client(client_fd, &client_addr);
-        done = true;
-      }
-
+      int wfd = dup(client_fd);
+      io_loop_start(client_fd, wfd);
       close(client_fd);
+      close(wfd);
       client_fd = -1;
+    } else if ((client_fd == -1) && (errno == EINTR)) {
+      /* Retry if interrupted */
+      continue;
     } else {
-      done = true;
+      /* Break on error */
+      break;
     }
-  } while(!done);
+  }
 }
 
 int tcp_listen_loop(int port)
 {
   int server_fd = socket_create(port);
   if (server_fd < 0) {
-    printf("error opening TCP socket\n");
+    syslog(LOG_ERR, "error opening TCP socket");
     return 1;
   }
 
@@ -94,4 +94,5 @@ int tcp_listen_loop(int port)
 
   close(server_fd);
   server_fd = -1;
+  return 0;
 }

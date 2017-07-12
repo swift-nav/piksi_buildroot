@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+if [ -z "$HW_CONFIG" ]; then
+  echo "ERROR: HW_CONFIG is not set"
+  exit 1
+fi
+
 echo "Installing firmware images for hardware configuration: $HW_CONFIG"
 
 ROOTFS=$1

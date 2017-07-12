@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# initialize config data
+#
+
+case "$1" in
+  start)
+  mkdir -p /cfg
+  SBP_SENDER_ID_HEX=`cat /factory/uuid | tail -c 4`
+  printf "%u" "0x$SBP_SENDER_ID_HEX" > /cfg/sbp_sender_id
+  # Roll your own formatted device UUID
+  UUID_P0=`cat /factory/uuid | cut -c1-8`
+  UUID_P1=`cat /factory/uuid | cut -c9-12`
+  UUID_P2=`cat /factory/uuid | cut -c13-16`
+  UUID_P3=`cat /factory/uuid | cut -c17-20`
+  UUID_P4=`cat /factory/uuid | cut -c21-32`
+  printf "%s-%s-%s-%s-%s" "$UUID_P0" "$UUID_P1" "$UUID_P2" "$UUID_P3" "$UUID_P4" > /cfg/device_uuid
+  ;;
+  stop)
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?

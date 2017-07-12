@@ -16,12 +16,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct {
-
-} framer_none_state_t;
-
-void framer_none_init(void *framer_none_state);
-uint32_t framer_none_process(void *framer_none_state,
+void * framer_none_create(void);
+void framer_none_destroy(void **state);
+uint32_t framer_none_process(void *state,
                              const uint8_t *data, uint32_t data_length,
                              const uint8_t **frame, uint32_t *frame_length);
 

@@ -16,12 +16,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct {
-
-} filter_none_state_t;
-
-void filter_none_init(void *filter_none_state, const char *filename);
-int filter_none_process(void *filter_none_state,
-                        const uint8_t *msg, uint32_t msg_length);
+void * filter_none_create(const char *filename);
+void filter_none_destroy(void **state);
+int filter_none_process(void *state, const uint8_t *msg, uint32_t msg_length);
 
 #endif /* SWIFTNAV_FILTER_NONE_H */

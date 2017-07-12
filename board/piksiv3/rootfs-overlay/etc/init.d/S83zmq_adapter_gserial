@@ -1,6 +1,0 @@
-#!/bin/sh
-
-ttydev="ttyGS0"
-
-source /etc/init.d/adapter_uart.inc.sh
-

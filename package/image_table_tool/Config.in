@@ -1,0 +1,4 @@
+config BR2_PACKAGE_IMAGE_TABLE_TOOL
+	bool "image_table_tool"
+	select BR2_PACKAGE_UBOOT_CUSTOM
+	select BR2_PACKAGE_ZLIB
