@@ -143,7 +143,8 @@ static int async_cleanup_dead_child(zloop_t *loop, zmq_pollitem_t *item, void *a
 int async_spawn(zloop_t *loop, char **argv,
                 void (*output_callback)(const char *buf, void *ctx),
                 void (*exit_callback)(int status, void *ctx),
-                void *external_context)
+                void *external_context,
+                int *pid)
 {
   assert(loop != NULL);
   if (!wakepipe[0]) {
@@ -203,6 +204,9 @@ int async_spawn(zloop_t *loop, char **argv,
   ctx->next = async_children;
   async_children = ctx;
   sigchld_restore(&saved_mask);
+
+  if (pid)
+    *pid = ctx->pid;
 }
 
 static void async_child_waitpid_handler(pid_t pid, int status)

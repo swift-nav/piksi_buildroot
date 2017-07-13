@@ -334,7 +334,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
   ctx->pubsub_ctx = pubsub_ctx;
   char *argv[] = {"upgrade_tool", "--debug", "upgrade.image_set.bin", NULL};
   async_spawn(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
-              argv, command_output_cb, command_exit_cb, ctx);
+              argv, command_output_cb, command_exit_cb, ctx, NULL);
 }
 
 static int file_read_string(const char *filename, char *str, size_t str_size)
@@ -529,7 +529,7 @@ int main(void)
   ntrip_init(settings_ctx);
   skylark_init(settings_ctx);
   whitelists_init(settings_ctx);
-  cellmodem_init(settings_ctx);
+  cellmodem_init(pubsub_ctx, settings_ctx);
 
   img_tbl_settings_setup(settings_ctx);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
