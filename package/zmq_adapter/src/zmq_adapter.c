@@ -10,6 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#define _GNU_SOURCE
+
 #include "zmq_adapter.h"
 #include "framer.h"
 #include "filter.h"
@@ -18,6 +20,8 @@
 #include <getopt.h>
 #include <dlfcn.h>
 #include <syslog.h>
+#include <time.h>
+#include <string.h>
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/zmq_protocols"
@@ -90,6 +94,20 @@ static pid_t *pids[] = {
   &sub_pid,
   &req_pid,
   &rep_pid
+};
+
+/* Statistics for tty */
+static struct tty_stats_s {
+  int stats_update_time_s;
+  int time_stats_updated;
+  int num_overruns;
+  int tx;
+  char stat_filename[128];
+} tty_stats = {
+  .stats_update_time_s = 3,
+  .time_stats_updated = 0,
+  .num_overruns = 0,
+  .tx = 0,
 };
 
 static void usage(char *command)
@@ -365,6 +383,14 @@ static int handle_init(handle_t *handle, zsock_t *zsock,
     return -1;
   }
 
+  if (isatty(write_fd)) {
+    snprintf(tty_stats.stat_filename,
+        sizeof(tty_stats.stat_filename),
+        "/run/%s.tx_stats", basename(file_path));
+    debug_printf("file_path for stats %s\n", tty_stats.stat_filename);
+
+  }
+
   return 0;
 }
 
@@ -542,12 +568,38 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
 static ssize_t fd_write(int fd, const void *buffer, size_t count)
 {
   if (isatty(fd) && (outq > 0)) {
+
     int qlen;
     ioctl(fd, TIOCOUTQ, &qlen);
+
+    /* Update the tx stats at constant intervals */
+    struct timespec ti;
+    clock_gettime(CLOCK_REALTIME, &ti);
+
+    int elapsed = ti.tv_sec - tty_stats.time_stats_updated;
+    if (elapsed > tty_stats.stats_update_time_s) {
+      tty_stats.time_stats_updated = ti.tv_sec;
+      
+      debug_printf("tx_buffer_fullness %d, num_tx_overruns %d "
+          "tx_throughput %f kbps\n",
+          100 * qlen / outq, tty_stats.num_overruns,
+          (float) tty_stats.tx / ((float) elapsed * 1000));
+
+      FILE *f = fopen(tty_stats.stat_filename, "wb");
+      fprintf(f, "%d,%f", tty_stats.num_overruns,
+          (float) tty_stats.tx / ((float) elapsed * 1000));
+      fclose(f);
+
+      tty_stats.tx = 0;
+    }
+
     if (qlen + count > outq) {
       /* Fake success so upper layer doesn't retry */
+      tty_stats.num_overruns ++;
       return count;
     }
+
+    tty_stats.tx += count;
   }
 
   while (1) {
@@ -728,6 +780,7 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
       debug_printf("write_count != read_count %d %d\n",
           write_count, read_count);
     }
+
   }
 
   debug_printf("io loop end\n");
