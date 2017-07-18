@@ -15,8 +15,8 @@
 
 set -xe
 
-FW_VERSION=${1:-v1.1.0-develop-2017071417}
-NAP_VERSION=${2:-v1.1.0-develop-2017071417}
+FW_VERSION=${1:-v1.1.0-develop-2017071417-6-ga9fd071}
+NAP_VERSION=${2:-v1.1.0-develop-2017071417-2-gf3f0014}
 
 FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
