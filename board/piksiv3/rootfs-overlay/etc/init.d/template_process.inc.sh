@@ -6,6 +6,8 @@
 # user=""
 # source template.inc.sh
 
+ulimit -c unlimited
+
 pid_file="/var/run/$name.pid"
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
