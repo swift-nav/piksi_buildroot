@@ -22,6 +22,7 @@ void sigchld_restore(sigset_t *saved_mask);
 int async_spawn(zloop_t *loop, char **argv,
                 void (*output_callback)(const char *buf, void *ctx),
                 void (*exit_callback)(int status, void *ctx),
-                void *external_context);
+                void *external_context,
+                int *pid);
 
 #endif

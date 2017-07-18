@@ -15,6 +15,6 @@
 
 #include <libpiksi/settings.h>
 
-int cellmodem_init(settings_ctx_t *settings_ctx);
+int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx);
 
 #endif
