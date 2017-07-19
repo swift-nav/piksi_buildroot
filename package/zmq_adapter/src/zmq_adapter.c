@@ -1132,8 +1132,8 @@ int main(int argc, char *argv[])
     break;
 
     case IO_FILE: {
-      extern int file_loop(const char *file_path);
-      ret = file_loop(file_path);
+      extern int file_loop(const char *file_path, int need_read, int need_write);
+      ret = file_loop(file_path, zmq_pub_addr ? 1 : 0, zmq_sub_addr ? 1 : 0);
     }
     break;
 
