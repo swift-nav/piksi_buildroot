@@ -5,6 +5,8 @@ config BR2_RUN_TESTS
 	depends on BR2_BUILD_TESTS
 
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/libsbp/Config.in"
+source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/gnss_convertors/Config.in"
+source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/librtcm/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/rpmsg_piksi/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/zmq_router/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/zmq_adapter/Config.in"

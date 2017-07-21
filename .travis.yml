@@ -8,6 +8,7 @@ services:
 
 before_install:
   - pip install --user --upgrade awscli
+  - git fetch --tags --unshallow
 
 matrix:
   include:
@@ -19,7 +20,6 @@ matrix:
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
       after_success:
-        - git fetch --tags --unshallow
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
         - SLACK_CHANNEL=github ./comment.sh
       after_failure:
