@@ -10,20 +10,21 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "sbp.h"
-#include "rtcm3_decode.h"
-#include "sbp_rtcm3.h"
 #include <assert.h>
 #include <czmq.h>
 #include <getopt.h>
 #include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/sbp_zmq_rx.h>
 #include <libpiksi/util.h>
+#include <libpiksi/logging.h>
 #include <libsbp/navigation.h>
+#include <libsbp/sbp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <rtcm3_sbp.h>
+#include "sbp.h"
 
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
@@ -33,8 +34,12 @@
 
 bool rtcm3_debug = false;
 
+struct rtcm3_sbp_state state;
+
 static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 {
+  (void)zloop;
+  (void)arg;
   zmsg_t *msg;
   while (1) {
     msg = zmsg_recv(zsock);
@@ -53,7 +58,8 @@ static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 
   zframe_t *frame;
   for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
-    rtcm3_decode_frame(zframe_data(frame), zframe_size(frame));
+    piksi_log(LOG_ERR, "msg received");
+    rtcm2sbp_decode_frame(zframe_data(frame), zframe_size(frame), &state);
   }
 
   zmsg_destroy(&msg);
@@ -97,6 +103,18 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void) context;
+  (void) sender_id;
+  (void) len;
+  msg_gps_time_t *time = (msg_gps_time_t*)msg;
+  gps_time_sec_t gps_time;
+  gps_time.tow = time->tow * 0.001;
+  gps_time.wn = time->wn;
+  rtcm2sbp_set_gps_time(&gps_time,&state);
+}
+
 int main(int argc, char *argv[])
 {
   logging_init(PROGRAM_NAME);
@@ -138,6 +156,8 @@ int main(int argc, char *argv[])
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
     exit(EXIT_FAILURE);
   }
+
+  rtcm2sbp_init(&state, sbp_message_send);
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 

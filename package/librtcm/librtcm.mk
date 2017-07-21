@@ -1,13 +1,13 @@
 ################################################################################
 #
-# libsbp
+# librtcm
 #
 ################################################################################
 
-LIBSBP_VERSION = v2.2.7
-LIBSBP_SITE = https://github.com/swift-nav/libsbp
-LIBSBP_SITE_METHOD = git
-LIBSBP_INSTALL_STAGING = YES
-LIBSBP_SUBDIR = c
+LIBRTCM_VERSION = v0.2.0
+LIBRTCM_SITE = https://github.com/swift-nav/librtcm
+LIBRTCM_SITE_METHOD = git
+LIBRTCM_INSTALL_STAGING = YES
+LIBRTCM_SUBDIR = c
 
 $(eval $(cmake-package))
