@@ -322,6 +322,7 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   }
 
   fclose(f);
+  piksi_log(LOG_INFO, "Settings saved to flash.");
 }
 
 void settings_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
