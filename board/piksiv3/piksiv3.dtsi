@@ -15,7 +15,7 @@
 / {
   remoteproc0: remoteproc@0 {
     compatible = "xlnx,zynq_remoteproc";
-    reg = <0x1C000000 0x04000000>;
+    reg = <0x1A000000 0x06000000>;
     interrupt-parent = <&intc>;
     interrupts =
         <0  7 4>,                                 /* ADC */
