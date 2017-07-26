@@ -371,7 +371,7 @@ u16 rtcm3_encode_1002(const rtcm_obs_message *rtcm_msg_1002, u8 *buff) {
       setbitu(buff, bit, 8, amb);
       bit += 8;
       setbitu(buff, bit, 8,
-              (u8)roundl(rtcm_msg_1002->sats[i].obs[L1_FREQ].cnr * 4.0));
+              (u8)round(rtcm_msg_1002->sats[i].obs[L1_FREQ].cnr * 4.0));
       bit += 8;
       ++num_sats;
     }
@@ -432,14 +432,14 @@ u16 rtcm3_encode_1004(const rtcm_obs_message *rtcm_msg_1004, u8 *buff) {
       setbitu(buff, bit, 8, amb);
       bit += 8;
       setbitu(buff, bit, 8,
-              (u8)roundl(rtcm_msg_1004->sats[i].obs[L1_FREQ].cnr * 4.0));
+              (u8)round(rtcm_msg_1004->sats[i].obs[L1_FREQ].cnr * 4.0));
       bit += 8;
 
       encode_basic_freq_data(&rtcm_msg_1004->sats[i].obs[L2_FREQ], L2_FREQ,
                              &rtcm_msg_1004->sats[i].obs[L1_FREQ].pseudorange,
                              buff, &bit);
       setbitu(buff, bit, 8,
-              (u8)roundl(rtcm_msg_1004->sats[i].obs[L2_FREQ].cnr * 4.0));
+              (u8)round(rtcm_msg_1004->sats[i].obs[L2_FREQ].cnr * 4.0));
       bit += 8;
       ++num_sats;
     }
@@ -465,17 +465,17 @@ u16 rtcm3_encode_1005_base(const rtcm_msg_1005 *rtcm_msg_1005, u8 *buff,
   *bit += 1;
   setbitu(buff, *bit, 1, rtcm_msg_1005->ref_stn_ind);
   *bit += 1;
-  setbitsl(buff, *bit, 38, (s64)roundl(rtcm_msg_1005->arp_x * 10000.0));
+  setbitsl(buff, *bit, 38, (s64)round(rtcm_msg_1005->arp_x * 10000.0));
   *bit += 38;
   setbitu(buff, *bit, 1, rtcm_msg_1005->osc_ind);
   *bit += 1;
   setbitu(buff, *bit, 1, 0);
   *bit += 1;
-  setbitsl(buff, *bit, 38, (s64)roundl(rtcm_msg_1005->arp_y * 10000.0));
+  setbitsl(buff, *bit, 38, (s64)round(rtcm_msg_1005->arp_y * 10000.0));
   *bit += 38;
   setbitu(buff, *bit, 2, rtcm_msg_1005->quart_cycle_ind);
   *bit += 2;
-  setbitsl(buff, *bit, 38, (s64)roundl(rtcm_msg_1005->arp_z * 10000.0));
+  setbitsl(buff, *bit, 38, (s64)round(rtcm_msg_1005->arp_z * 10000.0));
   *bit += 38;
 
   /* Round number of bits up to nearest whole byte. */
@@ -494,7 +494,7 @@ u16 rtcm3_encode_1006(const rtcm_msg_1006 *rtcm_msg_1006, u8 *buff) {
   setbitu(buff, bit, 12, 1006);
   bit += 12;
   rtcm3_encode_1005_base(&rtcm_msg_1006->msg_1005, buff, &bit);
-  setbitu(buff, bit, 16, (u16)roundl(rtcm_msg_1006->ant_height * 10000.0));
+  setbitu(buff, bit, 16, (u16)round(rtcm_msg_1006->ant_height * 10000.0));
   bit += 16;
 
   /* Round number of bits up to nearest whole byte. */
@@ -849,10 +849,10 @@ s8 encode_basic_freq_data(const rtcm_freq_data *freq_data, freq_enum freq,
   u8 amb = (u8)(*l1_pr / PRUNIT_GPS);
 
   /* Construct L1 pseudorange value as it would be transmitted (DF011). */
-  u32 calc_l1_pr = (u32)roundl((double)(*l1_pr - amb * PRUNIT_GPS) / 0.02);
+  u32 calc_l1_pr = (u32)round((double)(*l1_pr - amb * PRUNIT_GPS) / 0.02);
 
   /* Calculate GPS Pseudorange (DF011/DF016). */
-  u32 pr = (u32)roundl((freq_data->pseudorange - amb * PRUNIT_GPS) / 0.02);
+  u32 pr = (u32)round((freq_data->pseudorange - amb * PRUNIT_GPS) / 0.02);
 
   double l1_prc = calc_l1_pr * 0.02 + amb * PRUNIT_GPS;
 
@@ -877,7 +877,7 @@ s8 encode_basic_freq_data(const rtcm_freq_data *freq_data, freq_enum freq,
   //  }
 
   /* Calculate GPS PhaseRange – L1 Pseudorange (DF012/DF018). */
-  s32 ppr = roundl(cp_pr * (CLIGHT / FREQS[freq]) / 0.0005);
+  s32 ppr = round(cp_pr * (CLIGHT / FREQS[freq]) / 0.0005);
 
   if (freq == L1_FREQ) {
     setbitu(buff, *bit, 1, 0);

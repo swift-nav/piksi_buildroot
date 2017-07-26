@@ -225,12 +225,12 @@ u8 rtcm3_obs_to_sbp(const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4],
 
         if (rtcm_freq->flags.valid_pr == 1) {
           sbp_freq->P =
-              (u32)roundl(rtcm_freq->pseudorange * MSG_OBS_P_MULTIPLIER);
+              (u32)round(rtcm_freq->pseudorange * MSG_OBS_P_MULTIPLIER);
           sbp_freq->flags |= MSG_OBS_FLAGS_CODE_VALID;
         }
         if (rtcm_freq->flags.valid_cp == 1) {
           sbp_freq->L.i = (s32)floor(rtcm_freq->carrier_phase);
-          u16 frac_part = (u16)roundl((rtcm_freq->carrier_phase - (double)sbp_freq->L.i)
+          u16 frac_part = (u16)round((rtcm_freq->carrier_phase - (double)sbp_freq->L.i)
                                       * MSG_OBS_LF_MULTIPLIER);
           if( frac_part == 256 ) {
             frac_part -= 256;
@@ -241,7 +241,7 @@ u8 rtcm3_obs_to_sbp(const rtcm_obs_message *rtcm_obs, msg_obs_t *sbp_obs[4],
           sbp_freq->flags |= MSG_OBS_FLAGS_HALF_CYCLE_KNOWN;
         }
         if (rtcm_freq->flags.valid_cnr == 1) {
-          sbp_freq->cn0 = (u8)roundl(rtcm_freq->cnr * MSG_OBS_CN0_MULTIPLIER);
+          sbp_freq->cn0 = (u8)round(rtcm_freq->cnr * MSG_OBS_CN0_MULTIPLIER);
         } else {
           sbp_freq->cn0 = 0;
         }
