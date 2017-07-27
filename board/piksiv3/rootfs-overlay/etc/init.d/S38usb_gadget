@@ -2,8 +2,8 @@
 
 name="usb_gadget"
 
-VENDOR_ID="0x0525"
-PRODUCT_ID="0xa4a7"
+VENDOR_ID="0x2E69"
+PRODUCT_ID="0x1001"
 MANUFACTURER="Swift Navigation"
 PRODUCT="Piksi Multi"
 SERIAL_NUMBER=`cat /factory/uuid`
