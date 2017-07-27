@@ -115,6 +115,30 @@ static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   rtcm2sbp_set_gps_time(&gps_time,&state);
 }
 
+static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void) context;
+  (void) sender_id;
+  (void) len;
+  msg_utc_time_t *time = (msg_utc_time_t*)msg;
+
+  /* work out the time of day in utc time */
+  u32 utc_tod = time->hours * 3600 + time->minutes * 60 + time->seconds;
+
+  /* work out the gps time of day */
+  u32 gps_tod = (time->tow  % 86400000) * 1e-3;
+
+  s8 leap_second;
+  /* if gps tod is smaller than utc tod we've crossed the day boundary during the leap second */
+  if (utc_tod < gps_tod) {
+    leap_second = gps_tod - utc_tod;
+  } else {
+    leap_second = gps_tod + 86400 - utc_tod;
+  }
+
+  rtcm2sbp_set_leap_second(leap_second,&state);
+}
+
 int main(int argc, char *argv[])
 {
   logging_init(PROGRAM_NAME);
@@ -154,6 +178,11 @@ int main(int argc, char *argv[])
 
   if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
+    exit(EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting UTC TIME callback");
     exit(EXIT_FAILURE);
   }
 
