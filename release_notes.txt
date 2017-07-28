@@ -8,6 +8,14 @@ Firmware Download: https://support.swiftnav.com/customer/en/portal/articles/2492
 
 
 -------------------------------------------------------------------------------
+Release 1.1.29                                                       2017-07-28
+-------------------------------------------------------------------------------
+NEW FEATURES AND UPDATES:
+* Improved RTK solution accuracy. Occasional position jump in RTK fixed mode issue
+  has been resolved.
+
+
+-------------------------------------------------------------------------------
 Release 1.1.28                                                       2017-06-08
 -------------------------------------------------------------------------------
 NEW FEATURES AND UPDATES:
