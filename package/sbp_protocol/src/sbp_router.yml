@@ -32,6 +32,7 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # Publish: SBP MSG_POS_LLH
           - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # Publish: SBP MSG_HEARTBEAT
+          - { action: ACCEPT, prefix: [0x55, 0x10, 0x02] } # Publish: SBP_MSG_AGE_CORRECTIONS
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
