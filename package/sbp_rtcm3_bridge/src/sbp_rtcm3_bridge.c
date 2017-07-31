@@ -58,7 +58,6 @@ static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 
   zframe_t *frame;
   for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
-    piksi_log(LOG_ERR, "msg received");
     rtcm2sbp_decode_frame(zframe_data(frame), zframe_size(frame), &state);
   }
 
@@ -125,6 +124,11 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   /* work out the time of day in utc time */
   u32 utc_tod = time->hours * 3600 + time->minutes * 60 + time->seconds;
 
+  // Check we aren't within 0.1ms of the whole second boundary and round up if we are
+  if (999999999 - time->ns < 1e6) {
+    utc_tod += 1;
+  }
+
   /* work out the gps time of day */
   u32 gps_tod = (time->tow  % 86400000) * 1e-3;
 
@@ -135,7 +139,7 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   } else {
     leap_second = gps_tod + 86400 - utc_tod;
   }
-
+  
   rtcm2sbp_set_leap_second(leap_second,&state);
 }
 
