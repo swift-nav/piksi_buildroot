@@ -1,52 +1,124 @@
 #!/bin/sh
+#
+# References:
+#   http://answers.microsoft.com/en-us/windows/forum/windows_10-networking/
+#       windows-10-vs-remote-ndis-ethernet-usbgadget-not/cb30520a-753c-4219-b908-ad3d45590447
+#
 
-name="usb_gadget"
+# Remove from inittab?
+#mount -t configfs none /sys/kernel/config
 
-VENDOR_ID="0x2E69"
-PRODUCT_ID="0x1001"
-MANUFACTURER="Swift Navigation"
-PRODUCT="Piksi Multi"
-SERIAL_NUMBER=`cat /factory/uuid`
-CONFIGURATION="CDC 2xACM+RNDIS+ECM"
+
+g=/sys/kernel/config/usb_gadget/g1
+# Device name can be retrieved from /sys/class/udc/
+device="ci_hdrc.0"
+
+usb_ver="0x0200" # USB 2.0
+dev_class="2"
+vid="0x2e69"
+pid="0x1001"
+mfg="Swift Navigation"
+prod="Piksi Multi"
+serial=`cat /factory/uuid`
+attr="0x80" # Bus powered
+pwr="500" # mA
+cfg1="2xACM+RNDIS"
+cfg2="2XACM+ECM"
+mac="01:23:45:67:89:ab"
+# Change the first number for each MAC address - the second digit of 2 indicates
+# that these are "locally assigned (b2=1), unicast (b1=0)" addresses. This is
+# so that they don't conflict with any existing vendors. Care should be taken
+# not to change these two bits.
+dev_mac="02$(echo ${mac} | cut -b 3-)"
+host_mac="12$(echo ${mac} | cut -b 3-)"
+ms_vendor_code="0xcd" # Microsoft
+ms_qw_sign="MSFT100" # also Microsoft (if you couldn't tell)
+ms_compat_id="RNDIS" # matches Windows RNDIS Drivers
+ms_subcompat_id="5162001" # matches Windows RNDIS 6.0 Driver
 
 start() {
-  # Create gadget
-  cd /sys/kernel/config/usb_gadget
-  mkdir g1
-  cd g1
-  echo "$VENDOR_ID" > idVendor
-  echo "$PRODUCT_ID" > idProduct
 
-  # Strings
-  mkdir strings/0x409
-  echo "$MANUFACTURER" > strings/0x409/manufacturer
-  echo "$PRODUCT" > strings/0x409/product
-  echo "$SERIAL_NUMBER" > strings/0x409/serialnumber
+  # Create a new gadget
 
-  # Functions
-  mkdir functions/acm.GS0
-  mkdir functions/acm.GS1
-  mkdir functions/rndis.usb0
-  mkdir functions/ecm.usb0
+  mkdir -p ${g}
+  echo "${usb_ver}" > ${g}/bcdUSB
+  echo "${dev_class}" > ${g}/bDeviceClass
+  echo "${vid}" > ${g}/idVendor
+  echo "${pid}" > ${g}/idProduct
+  mkdir ${g}/strings/0x409
+  echo "${mfg}" > ${g}/strings/0x409/manufacturer
+  echo "${prod}" > ${g}/strings/0x409/product
+  echo "${serial}" > ${g}/strings/0x409/serialnumber
 
-  # Configurations
-  mkdir configs/c.1
-  mkdir configs/c.1/strings/0x409
-  echo "$CONFIGURATION" > configs/c.1/strings/0x409/configuration
-  ln -s functions/acm.GS0 configs/c.1
-  ln -s functions/acm.GS1 configs/c.1
-  ln -s functions/rndis.usb0 configs/c.1
-  ln -s functions/ecm.usb0 configs/c.1
+  # Create 2 configurations. The first will be RNDIS, which is required by
+  # Windows to be first. The second will be CDC. Linux and Mac are smart
+  # enough to ignore RNDIS and load the CDC configuration.
+
+  # config 1 is for RNDIS
+
+  mkdir ${g}/configs/c.1
+  echo "${attr}" > ${g}/configs/c.1/bmAttributes
+  echo "${pwr}" > ${g}/configs/c.1/MaxPower
+  mkdir ${g}/configs/c.1/strings/0x409
+  echo "${cfg1}" > ${g}/configs/c.1/strings/0x409/configuration
+
+  # On Windows 7 and later, the RNDIS 5.1 driver would be used by default,
+  # but it does not work very well. The RNDIS 6.0 driver works better. In
+  # order to get this driver to load automatically, we have to use a
+  # Microsoft-specific extension of USB.
+
+  echo "1" > ${g}/os_desc/use
+  echo "${ms_vendor_code}" > ${g}/os_desc/b_vendor_code
+  echo "${ms_qw_sign}" > ${g}/os_desc/qw_sign
+
+  # Create the RNDIS function, including the Microsoft-specific bits
+
+  mkdir ${g}/functions/rndis.usb0
+  echo "${dev_mac}" > ${g}/functions/rndis.usb0/dev_addr
+  echo "${host_mac}" > ${g}/functions/rndis.usb0/host_addr
+  echo "${ms_compat_id}" > ${g}/functions/rndis.usb0/os_desc/interface.rndis/compatible_id
+  echo "${ms_subcompat_id}" > ${g}/functions/rndis.usb0/os_desc/interface.rndis/sub_compatible_id
+
+  # config 2 is for CDC
+
+  mkdir ${g}/configs/c.2
+  echo "${attr}" > ${g}/configs/c.2/bmAttributes
+  echo "${pwr}" > ${g}/configs/c.2/MaxPower
+  mkdir ${g}/configs/c.2/strings/0x409
+  echo "${cfg2}" > ${g}/configs/c.2/strings/0x409/configuration
+
+  # Create the CDC ECM function
+
+  mkdir ${g}/functions/ecm.usb0
+  echo "${dev_mac}" > ${g}/functions/ecm.usb0/dev_addr
+  echo "${host_mac}" > ${g}/functions/ecm.usb0/host_addr
+
+  # Create the CDC ACM functions (common for both configurations)
+
+  mkdir ${g}/functions/acm.GS0
+  mkdir ${g}/functions/acm.GS1
+
+  # Link everything up and bind the USB device
+
+  ln -s ${g}/configs/c.1          ${g}/os_desc
+
+  ln -s ${g}/functions/rndis.usb0 ${g}/configs/c.1
+  ln -s ${g}/functions/acm.GS0    ${g}/configs/c.1
+  ln -s ${g}/functions/acm.GS1    ${g}/configs/c.1
+
+  ln -s ${g}/functions/ecm.usb0   ${g}/configs/c.2
+  ln -s ${g}/functions/acm.GS0    ${g}/configs/c.2
+  ln -s ${g}/functions/acm.GS1    ${g}/configs/c.2
+
 
   # RNDIS Windows hack
-  echo 0xEF > /sys/kernel/config/usb_gadget/g1/bDeviceClass
-  echo 0x02 > /sys/kernel/config/usb_gadget/g1/bDeviceSubClass
-  echo 0x01 > /sys/kernel/config/usb_gadget/g1/bDeviceProtocol
+  echo 0xEF > ${g}/bDeviceClass
+  echo 0x02 > ${g}/bDeviceSubClass
+  echo 0x01 > ${g}/bDeviceProtocol
 
-  # Attach
-  for dev in /sys/class/udc/*; do
-    echo `basename "$dev"` > UDC
-  done
+  echo "${device}" > ${g}/UDC
+
+
 }
 
 stop() {
@@ -54,3 +126,4 @@ stop() {
 }
 
 source /etc/init.d/template_command.inc.sh
+
