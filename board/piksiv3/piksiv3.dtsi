@@ -56,3 +56,12 @@
   timeout-sec = <10>;
   reset-on-timeout;
 };
+
+&can0 {
+  status = "okay";
+};
+
+&can1 {
+  status = "okay";
+};
+
