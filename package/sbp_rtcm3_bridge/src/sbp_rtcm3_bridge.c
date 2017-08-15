@@ -162,6 +162,8 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
+  rtcm2sbp_init(&state, sbp_message_send);
+
   zsock_t *rtcm3_sub = zsock_new_sub(RTCM3_SUB_ENDPOINT, "");
   if (rtcm3_sub == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
@@ -189,8 +191,6 @@ int main(int argc, char *argv[])
     piksi_log(LOG_ERR, "error setting UTC TIME callback");
     exit(EXIT_FAILURE);
   }
-
-  rtcm2sbp_init(&state, sbp_message_send);
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 
