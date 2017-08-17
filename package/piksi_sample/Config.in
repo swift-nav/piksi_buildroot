@@ -1,0 +1,5 @@
+config BR2_PACKAGE_PIKSI_SAMPLE
+	bool "piksi_sample"
+	select BR2_PACKAGE_CZMQ
+	select BR2_PACKAGE_LIBSBP
+	select BR2_PACKAGE_LIBPIKSI
