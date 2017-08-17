@@ -98,7 +98,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "usb0",
-    .opts = "--file /dev/ttyGS0 --nonblock --outq 4096",
+    .opts = "--file /dev/ttyGS0 --nonblock --outq 4096 --debug",
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -223,6 +223,7 @@ static int port_configure(port_config_t *port_config)
   {
     /* Create a new zmq_adapter. */
     if (!(port_config->adapter_pid = fork())) {
+      if (port_config->type == PORT_TYPE_USB) { sleep(10); }
       execvp(args[0], args);
       piksi_log(LOG_ERR, "execvp error");
       exit(EXIT_FAILURE);
