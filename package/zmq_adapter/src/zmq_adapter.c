@@ -621,7 +621,6 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
 
     /* Pass frame through filter */
     if (filter_process(handle->filter, frame, frame_length) != 0) {
-      debug_printf("ignoring frame\n");
       continue;
     }
 
@@ -1037,17 +1036,16 @@ void io_loop_wait(void)
     if ((ret == -1) && (errno == EINTR)) {
       /* Retry if interrupted */
       continue;
-    } else if (ret >= 0) {
-      /* Continue on success */
-      continue;
     } else {
-      /* Break on error */
       break;
+      /* If any of the childs dies, then the parent process must exit
+         and give the chance to the system to restart it */
     }
   }
   debug_printf("Exit from io_loop_wait\n");
 }
 
+/* Used in tcp_connect */
 void io_loop_wait_one(void)
 {
   while (1) {
