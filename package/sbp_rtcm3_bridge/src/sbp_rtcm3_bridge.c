@@ -109,6 +109,11 @@ static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   (void) len;
   msg_gps_time_t *time = (msg_gps_time_t*)msg;
   gps_time_sec_t gps_time;
+
+  if (msg->flags & 0x3 == 0) {
+    return;
+  }
+
   gps_time.tow = time->tow * 0.001;
   gps_time.wn = time->wn;
   rtcm2sbp_set_gps_time(&gps_time,&state);
@@ -120,6 +125,10 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   (void) sender_id;
   (void) len;
   msg_utc_time_t *time = (msg_utc_time_t*)msg;
+
+  if (msg->flags & 0x3 == 0) {
+    return;
+  }
 
   /* work out the time of day in utc time */
   u32 utc_tod = time->hours * 3600 + time->minutes * 60 + time->seconds;
