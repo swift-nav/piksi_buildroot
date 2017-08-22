@@ -1,0 +1,26 @@
+From 8301f83b6be14c75f1db261e5197de2ad1cd1463 Mon Sep 17 00:00:00 2001
+From: Gareth McMullin <gareth@blacksphere.co.nz>
+Date: Fri, 18 Aug 2017 10:55:09 +1200
+Subject: [PATCH] gserial: Drain tty output buffer when USB is connected.
+
+---
+ drivers/usb/gadget/function/u_serial.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/usb/gadget/function/u_serial.c b/drivers/usb/gadget/function/u_serial.c
+index 6af145f..e3b4952 100644
+--- a/drivers/usb/gadget/function/u_serial.c
++++ b/drivers/usb/gadget/function/u_serial.c
+@@ -720,6 +720,9 @@ static int gs_start_io(struct gs_port *port)
+ 		status = -EIO;
+ 	}
+ 
++	/* drain pending write requests */
++	gs_start_tx(port);
++
+ 	return status;
+ }
+ 
+-- 
+2.7.4
+
