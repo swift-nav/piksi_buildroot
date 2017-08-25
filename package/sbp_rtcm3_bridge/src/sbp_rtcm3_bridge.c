@@ -162,6 +162,9 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
+  /* Need to init state variable before we get SBP in */
+  rtcm2sbp_init(&state, sbp_message_send);
+
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
@@ -170,8 +173,6 @@ int main(int argc, char *argv[])
   if (ctx == NULL) {
     exit(EXIT_FAILURE);
   }
-
-  rtcm2sbp_init(&state, sbp_message_send);
 
   zsock_t *rtcm3_sub = zsock_new_sub(RTCM3_SUB_ENDPOINT, "");
   if (rtcm3_sub == NULL) {
