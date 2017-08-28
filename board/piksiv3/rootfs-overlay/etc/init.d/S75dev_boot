@@ -67,11 +67,23 @@ start() {
   fi
 
   if [ "$dev_boot" == "sd" ]; then
+    # Temporarily load driver and mount SD card
+    modprobe sdhci_of_arasan
     sd_path="/media/mmcblk0p1"
+    while [ ! -d $sd_path ]; do
+      echo "Waiting for SD card to mount..."
+      sleep 1
+    done
+
     copy_from_sd $sd_path "piksi_firmware.elf" $lib_output_path
     copy_from_sd $sd_path "piksi_fpga.bit" $lib_output_path
     # Overwrites settings if present on sd card.
     copy_from_sd $sd_path "config.ini" $persistent_output_path
+
+    # Unload driver here so FPGA can be reconfigured, it wil be reloaded
+    # by coldplug.
+    umount $sd_path
+    modprobe -r sdhci_of_arasan
   fi
 
   if [ "$dev_boot" == "net" ]; then
@@ -90,4 +102,3 @@ stop() {
 }
 
 source /etc/init.d/template_command.inc.sh
-
