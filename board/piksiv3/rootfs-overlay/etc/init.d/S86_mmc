@@ -1,0 +1,16 @@
+#!/bin/sh
+
+name="mmc_driver"
+
+start() {
+  modprobe mmc_core
+  modprobe mmc_block
+}
+
+stop() {
+  rmmod mmc_block
+  rmmod mmc_core
+}
+
+source /etc/init.d/template_command.inc.sh
+
