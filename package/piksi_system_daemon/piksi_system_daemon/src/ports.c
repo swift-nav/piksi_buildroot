@@ -29,7 +29,9 @@ typedef enum {
   PORT_TYPE_UART,
   PORT_TYPE_USB,
   PORT_TYPE_TCP_SERVER,
-  PORT_TYPE_TCP_CLIENT
+  PORT_TYPE_TCP_CLIENT,
+  PORT_TYPE_UDP_SERVER,
+  PORT_TYPE_UDP_CLIENT
 } port_type_t;
 
 typedef enum {
@@ -44,6 +46,12 @@ typedef union {
   struct {
     char address[256];
   } tcp_client_data;
+  struct {
+    uint32_t port;
+  } udp_server_data;
+  struct {
+    char address[256];
+  } udp_client_data;
 } opts_data_t;
 
 typedef int (*opts_get_fn_t)(char *buf, size_t buf_size,
@@ -61,6 +69,20 @@ static int opts_get_tcp_client(char *buf, size_t buf_size,
 {
   const char *address = opts_data->tcp_client_data.address;
   return snprintf(buf, buf_size, "--tcp-c %s", address);
+}
+
+static int opts_get_udp_server(char *buf, size_t buf_size,
+                               const opts_data_t *opts_data)
+{
+  uint32_t port = opts_data->udp_server_data.port;
+  return snprintf(buf, buf_size, "--udp-l %u", port);
+}
+
+static int opts_get_udp_client(char *buf, size_t buf_size,
+                               const opts_data_t *opts_data)
+{
+  const char *address = opts_data->udp_client_data.address;
+  return snprintf(buf, buf_size, "--udp-c %s", address);
 }
 
 typedef struct {
@@ -145,6 +167,50 @@ static port_config_t port_configs[] = {
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
+    .mode_name_default = MODE_NAME_DISABLED,
+    .mode = MODE_DISABLED,
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
+  },
+  {
+    .name = "udp_server0",
+    .opts = "",
+    .opts_data.udp_server_data.port = 55557,
+    .opts_get = opts_get_udp_server,
+    .type = PORT_TYPE_UDP_SERVER,
+    .mode_name_default = MODE_NAME_DEFAULT,
+    .mode = MODE_DISABLED,
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
+  },
+  {
+    .name = "udp_server1",
+    .opts = "",
+    .opts_data.udp_server_data.port = 55558,
+    .opts_get = opts_get_udp_server,
+    .type = PORT_TYPE_UDP_SERVER,
+    .mode_name_default = MODE_NAME_DEFAULT,
+    .mode = MODE_DISABLED,
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
+  },
+  {
+    .name = "udp_client0",
+    .opts = "",
+    .opts_data.udp_client_data.address = "",
+    .opts_get = opts_get_udp_client,
+    .type = PORT_TYPE_UDP_CLIENT,
+    .mode_name_default = MODE_NAME_DISABLED,
+    .mode = MODE_DISABLED,
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART
+  },
+  {
+    .name = "udp_client1",
+    .opts = "",
+    .opts_data.udp_client_data.address = "",
+    .opts_get = opts_get_udp_client,
+    .type = PORT_TYPE_UDP_CLIENT,
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
@@ -260,6 +326,18 @@ static int setting_tcp_client_address_notify(void *context)
   return port_configure(port_config);
 }
 
+static int setting_udp_server_port_notify(void *context)
+{
+  port_config_t *port_config = (port_config_t *)context;
+  return port_configure(port_config);
+}
+
+static int setting_udp_client_address_notify(void *context)
+{
+  port_config_t *port_config = (port_config_t *)context;
+  return port_configure(port_config);
+}
+
 static int setting_mode_register(settings_ctx_t *settings_ctx,
                                  settings_type_t settings_type,
                                  port_config_t *port_config)
@@ -287,6 +365,26 @@ static int setting_tcp_client_address_register(settings_ctx_t *settings_ctx,
                            port_config->opts_data.tcp_client_data.address,
                            sizeof(port_config->opts_data.tcp_client_data.address),
                            SETTINGS_TYPE_STRING, setting_tcp_client_address_notify,
+                           port_config);
+}
+
+static int setting_udp_server_port_register(settings_ctx_t *settings_ctx,
+                                            port_config_t *port_config)
+{
+  return settings_register(settings_ctx, port_config->name, "port",
+                           &port_config->opts_data.udp_server_data.port,
+                           sizeof(&port_config->opts_data.udp_server_data.port),
+                           SETTINGS_TYPE_INT, setting_udp_server_port_notify,
+                           port_config);
+}
+
+static int setting_udp_client_address_register(settings_ctx_t *settings_ctx,
+                                               port_config_t *port_config)
+{
+  return settings_register(settings_ctx, port_config->name, "address",
+                           port_config->opts_data.udp_client_data.address,
+                           sizeof(port_config->opts_data.udp_client_data.address),
+                           SETTINGS_TYPE_STRING, setting_udp_client_address_notify,
                            port_config);
 }
 
@@ -377,6 +475,14 @@ int ports_init(settings_ctx_t *settings_ctx)
 
     if (port_config->type == PORT_TYPE_TCP_CLIENT) {
       setting_tcp_client_address_register(settings_ctx, port_config);
+    }
+
+    if (port_config->type == PORT_TYPE_UDP_SERVER) {
+      setting_udp_server_port_register(settings_ctx, port_config);
+    }
+
+    if (port_config->type == PORT_TYPE_UDP_CLIENT) {
+      setting_udp_client_address_register(settings_ctx, port_config);
     }
   }
 
