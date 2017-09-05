@@ -11,40 +11,50 @@
  */
 
 #include <sys/syslog.h>
+#include <chrono>
+
+#include <pthread.h>
+#include <sched.h>
 
 #include "write_thread.h"
 #include "rotating_logger.h"
 
-WriteThread::WriteThread(
+#  define _WT_WARN(S, M, ...) { \
+  char _Msg1[1024]; snprintf(_Msg1, sizeof(_Msg1), M, ##__VA_ARGS__); \
+  S->_callbacks.log_msg(LOG_WARNING, _Msg1); }
+
 #ifndef TEST_WRITE_THREAD
-  RotatingLogger& logger
+#  define _WT_DEBUG(M, ...)
 #else
-  write_thread_func_t func
+#  define _WT_DEBUG(S, M, ...) { \
+  char _Msg1[1024]; snprintf(_Msg1, sizeof(_Msg1), M, ##__VA_ARGS__); \
+  S->_callbacks.log_msg(LOG_DEBUG, _Msg1); }
 #endif
-)
+
+WriteThread::WriteThread(const Callbacks& callbacks)
     : _read_index(0),
       _write_index(0),
       _stop(false),
-#ifndef TEST_WRITE_THREAD
-      _logger(logger)
-#else
-      _write_func(func)
-#endif
+      _callbacks(callbacks)
 {
 }
 
 void WriteThread::start() {
 
+  std::unique_lock<std::mutex> lock(_start_mutex);
+
   try {
     _thread = std::thread(run, this);
-  } catch(std::exception exc) {
-#ifdef TEST_WRITE_THREAD
-    printf("Failed to start...\n");
+#ifdef __linux__
+    sched_param params{0};
+    pthread_setschedparam(_thread.native_handle(), SCHED_IDLE, &params);
 #endif
+
+  } catch(std::exception exc) {
+    _WT_DEBUG(this, "Failed to start...\n");
   }
 
-  std::unique_lock<std::mutex> lock(_thread_mutex);
-  _event.wait(lock);
+  _start_event.wait(lock);
 }
 
 uint16_t WriteThread::queue_depth() {
@@ -52,6 +62,9 @@ uint16_t WriteThread::queue_depth() {
 }
 
 void WriteThread::join() {
+  if (!_thread.joinable()) {
+    return;
+  }
   try {
     _thread.join();
   } catch (const std::exception& exc){
@@ -61,28 +74,9 @@ void WriteThread::join() {
 
 void WriteThread::stop() {
   _stop = true;
-
-//  std::unique_lock<std::mutex> lock(_thread_mutex);
-//  _event.notify_one();
-
   if (_thread_mutex.try_lock())
     _event.notify_one();
 }
-
-#ifndef TEST_WRITE_THREAD
-#  define WARN(M, ...) { \
-  char _Msg1[1024]; snprintf(_Msg1, sizeof(_Msg1), M, ##__VA_ARGS__); \
-  _logger.log_msg(LOG_WARNING, _Msg1); \ }
-#else
-#  define WARN(M, ...) { printf(M "\n", ##__VA_ARGS__); }
-#endif
-
-#ifndef TEST_WRITE_THREAD
-#  define DEBUG(M, ...)
-#else
-#  define DEBUG(M, ...) { printf(M "\n", ##__VA_ARGS__); }
-#endif
-
 void WriteThread::queue_data(const uint8_t* data, size_t size) {
 
   {
@@ -93,7 +87,7 @@ void WriteThread::queue_data(const uint8_t* data, size_t size) {
 
     if ( static_cast<uint8_t>(ri - (wi + 1)) == 0U ) {
 
-      WARN("Dropping data, write queue full");
+      _WT_WARN(this, "Dropping data, write queue full");
       _event.notify_one();
 
       return;
@@ -105,56 +99,54 @@ void WriteThread::queue_data(const uint8_t* data, size_t size) {
     _event.notify_one();
   }
 
-  DEBUG("Finished queueing data (%d, %d)...", _read_index.load(), _write_index.load());
+  _WT_DEBUG(this, "Finished queueing data (%d, %d)...", _read_index.load(), _write_index.load());
 }
 
 void WriteThread::run(WriteThread* self)
 {
-    DEBUG("Starting thread... \n");
-    {
-      std::unique_lock<std::mutex> lock(self->_thread_mutex);
-      self->_event.notify_one();
-    }
+  static auto WAIT_TIMEOUT = std::chrono::milliseconds(100);
+  std::unique_lock<std::mutex> start_lock(self->_start_mutex);
 
-#ifdef TEST_WRITE_THREAD
-# define DEBUG_QUIT() printf("Quitting...\n");
-#else
-# define DEBUG_QUIT()
-#endif
+  _WT_DEBUG(self, "Starting thread... \n");
+  start_lock.unlock();
+  self->_start_event.notify_one();
 
-#define HANDLE_QUIT() \
-    if (self->_stop) { DEBUG_QUIT(); return; }
+# ifdef TEST_WRITE_THREAD
+#   define _WT_DEBUG_QUIT() _WT_DEBUG(self, "Quitting...\n");
+# else
+#   define _WT_DEBUG_QUIT()
+# endif
+
+# define _WT_HANDLE_QUIT() if (self->_stop) { _WT_DEBUG_QUIT(); return; }
       
-    for (;;) {
+  for (;;) {
 
-      HANDLE_QUIT()
-      std::unique_lock<std::mutex> lock(self->_thread_mutex);
+    _WT_HANDLE_QUIT()
 
-      DEBUG("Waiting for data...\n");
+    std::unique_lock<std::mutex> lock(self->_thread_mutex);
 
-      self->_event.wait(lock);
-      lock.unlock();
+    _WT_DEBUG(self, "Waiting for data...\n");
 
-      HANDLE_QUIT()
+    self->_event.wait_for(lock, WAIT_TIMEOUT);
+    lock.unlock();
 
-      DEBUG("Handling posted write data (%d, %d)...\n",
-        self->_read_index.load(), self->_write_index.load());
+    _WT_HANDLE_QUIT()
 
-      while (self->_read_index != self->_write_index) {
+    _WT_DEBUG(self, "Handling posted write data (%d, %d)...\n",
+      self->_read_index.load(), self->_write_index.load());
 
-        write_args args;
-        std::swap(args, self->_queue[self->_read_index++]);
+    while (self->_read_index != self->_write_index) {
 
-#ifndef TEST_WRITE_THREAD
-        self->_logger._frame_handler(args.data, args.size);
-#else
-        printf("Data %p %zu, func ptr %p\n", args.data, args.size, self->_write_func);
-        self->_write_func(args.data, args.size);
-#endif
-        HANDLE_QUIT();
-      }
+      write_args args;
+      std::swap(args, self->_queue[self->_read_index++]);
+
+      self->_callbacks.handle_write(args.data, args.size);
+
+      _WT_HANDLE_QUIT();
     }
+  }
+
+# undef _WT_HANDLE_QUIT
+# undef _WT_DEBUG_QUIT
 }
 
-#undef HANDLE_QUIT
-#undef DEBUG_QUIT

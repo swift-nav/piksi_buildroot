@@ -21,10 +21,9 @@
 #include <utility>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 
 class RotatingLogger;
-
-typedef void (*write_thread_func_t)(const uint8_t* data, size_t size); 
 
 class WriteThread
 {
@@ -32,11 +31,15 @@ class WriteThread
   WriteThread(WriteThread const&) = delete;
 
 public:
-#ifndef TEST_WRITE_THREAD
-  WriteThread(RotatingLogger&);
-#else
-  WriteThread(write_thread_func_t func);
-#endif
+  typedef std::function<void(const uint8_t* data, size_t size)> WriteCall;
+  typedef std::function<void(int, const char *)> LogCall;
+
+  struct Callbacks {
+    LogCall log_msg;
+    WriteCall handle_write;
+  };
+
+  WriteThread(const Callbacks& callbacks);
 
   void start();
   uint16_t queue_depth();
@@ -54,6 +57,9 @@ private:
   std::atomic<uint8_t> _write_index;
 
   std::mutex _thread_mutex;
+  std::mutex _start_mutex;
+
+  std::condition_variable _start_event;
   std::condition_variable _event;
 
   struct write_args {
@@ -62,12 +68,7 @@ private:
   };
 
   write_args _queue[UINT8_MAX+1];
-
-#ifndef TEST_WRITE_THREAD
-  RotatingLogger& _logger;
-#else
-  write_thread_func_t _write_func;
-#endif
+  Callbacks _callbacks;
 
   std::thread _thread;
 };

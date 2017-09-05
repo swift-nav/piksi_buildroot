@@ -6,6 +6,7 @@
 #include <functional>
 #include <chrono>
 #include <thread>
+#include <string>
 
 #include <unistd.h>
 
@@ -14,14 +15,17 @@
 static std::atomic<WriteThread*> pwrite_thread;
 static std::atomic<size_t> count;
 
-struct {
-  int in;
-  int out;
-} buffer_value;
+struct { int in; int out; } buffer_value;
 
 const unsigned THREAD_SLEEP_MSEC = 10;
 
+void log_msg(int lvl, const char* msg) {
+  printf("%s\n", msg);
+}
+
 bool test_insert_remove_freq_same() {
+
+  printf("\n\n<<<test_insert_remove_freq_same>>>\n\n");
 
   auto write_func = [] (const uint8_t* data, size_t size) {
 
@@ -43,12 +47,19 @@ bool test_insert_remove_freq_same() {
   };
 
   count = 0;
-  int write_count = 0;
+  std::atomic<int> write_count(0);
 
-  WriteThread write_thread(write_func);
+  WriteThread::Callbacks callbacks;
+  callbacks.handle_write = write_func;
+  callbacks.log_msg = log_msg;
+
+  WriteThread write_thread(callbacks);
+
   pwrite_thread = &write_thread;
 
   auto write_thread_func = [&] () {
+
+    printf("test_insert_remove_freq_same: starting driver thread...\n");
 
     while (++write_count <= 100) {
 
@@ -61,6 +72,8 @@ bool test_insert_remove_freq_same() {
       write_thread.queue_data((uint8_t*)data1, buflen);
       std::this_thread::sleep_for(std::chrono::milliseconds(THREAD_SLEEP_MSEC));
     }
+
+    printf("test_insert_remove_freq_same: stopping driver thread...\n");
   };
 
   write_thread.start();
@@ -76,6 +89,8 @@ bool test_insert_remove_freq_same() {
 
 bool test_basic() {
 
+  printf("\n\n<<<test_basic>>>\n\n");
+
   static char data1[] = "foobarbaz";
 
   auto write_func = [] (const uint8_t* data, size_t size) {
@@ -87,7 +102,12 @@ bool test_basic() {
       pwrite_thread.load()->stop();
   };
 
-  WriteThread write_thread(write_func);
+  WriteThread::Callbacks callbacks;
+  callbacks.handle_write = write_func;
+  callbacks.log_msg = log_msg;
+
+  WriteThread write_thread(callbacks);
+
   pwrite_thread = &write_thread;
 
   for (int i = 0; i < 256; i++)
