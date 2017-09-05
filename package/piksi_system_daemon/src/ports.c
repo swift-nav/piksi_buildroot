@@ -65,6 +65,7 @@ static int opts_get_tcp_client(char *buf, size_t buf_size,
 
 typedef struct {
   const char * const name;
+  const char * const system_name;
   const char * const opts;
   const opts_get_fn_t opts_get;
   opts_data_t opts_data;
@@ -78,6 +79,7 @@ typedef struct {
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
+    .system_name = "zmq_adapter_uart0",
     .opts = "--file /dev/ttyPS0 --nonblock --outq 4096",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
@@ -88,6 +90,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "uart1",
+    .system_name = "zmq_adapter_uart1",
     .opts = "--file /dev/ttyPS1 --nonblock --outq 4096",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
@@ -99,6 +102,7 @@ static port_config_t port_configs[] = {
   {
     .name = "usb0",
     .opts = "--file /dev/ttyGS0 --nonblock --outq 4096",
+    .system_name = "zmq_adapter_usb0",
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -108,6 +112,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "tcp_server0",
+    .system_name = "zmq_adapter_tcp_server0",
     .opts = "",
     .opts_data.tcp_server_data.port = 55555,
     .opts_get = opts_get_tcp_server,
@@ -119,6 +124,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "tcp_server1",
+    .system_name = "zmq_adapter_tcp_server1",
     .opts = "",
     .opts_data.tcp_server_data.port = 55556,
     .opts_get = opts_get_tcp_server,
@@ -130,6 +136,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "tcp_client0",
+    .system_name = "zmq_adapter_tcp_client0",
     .opts = "",
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
@@ -141,6 +148,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "tcp_client1",
+    .system_name = "zmq_adapter_tcp_client1",
     .opts = "",
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
@@ -164,6 +172,33 @@ static u8 protocol_index_to_mode(int protocol_index)
 
 static void adapter_kill(port_config_t *port_config)
 {
+  piksi_log(LOG_DEBUG, "Killing %s", port_config->system_name);
+  fprintf(stdout, "Killing %s\n", port_config->system_name);
+
+  char exec[128];
+  snprintf(exec, sizeof(exec),
+          "/usr/bin/monit stop %s",
+          port_config->system_name);
+
+  FILE *p = popen(exec, "r");
+  if (p == NULL) {
+    piksi_log(LOG_ERR, "Unable to stop %s",
+              port_config->system_name);
+    return;
+  } 
+
+  char line[128];
+  while (fgets(line, sizeof(line), p) != NULL)
+    fprintf(stdout, "%s", line);
+
+  int status = pclose(p);
+  if (status == -1) {
+    piksi_log(LOG_ERR, "Error stopping %s",
+              port_config->system_name);
+    return;
+  }
+
+#if 0
   /* Mask SIGCHLD while accessing adapter_pid */
   sigset_t saved_mask;
   sigchld_mask(&saved_mask);
@@ -177,6 +212,7 @@ static void adapter_kill(port_config_t *port_config)
     port_config->adapter_pid = 0;
   }
   sigchld_restore(&saved_mask);
+ #endif
 }
 
 static int port_configure(port_config_t *port_config)
@@ -185,6 +221,8 @@ static int port_configure(port_config_t *port_config)
     adapter_kill(port_config);
     return 0;
   }
+
+  fprintf(stdout, "Starting %s\n", port_config->system_name);
 
   int protocol_index = mode_to_protocol_index(port_config->mode);
   const protocol_t *protocol = protocols_get(protocol_index);
@@ -202,10 +240,44 @@ static int port_configure(port_config_t *port_config)
     port_config->opts_get(opts, sizeof(opts), &port_config->opts_data);
   }
 
-  char cmd[512];
-  snprintf(cmd, sizeof(cmd),
-           "zmq_adapter %s %s %s",
+  char cmd_options[512];
+  snprintf(cmd_options, sizeof(cmd_options),
+           "%s %s %s",
            port_config->opts, opts, mode_opts);
+
+  char cmdline_file[256];
+  snprintf(cmdline_file, sizeof(cmdline_file), "/var/run/%s_cmd",
+    port_config->system_name);
+
+  FILE *f = fopen(cmdline_file, "wb");
+  fprintf(f, cmd_options);
+  fclose(f);
+
+  char exec[128];
+  snprintf(exec, sizeof(exec),
+          "/usr/bin/monit restart %s",
+          port_config->system_name);
+
+  FILE *p = popen(exec, "r");
+  if (p == NULL) {
+    piksi_log(LOG_ERR, "Unable to start %s",
+              port_config->system_name);
+    return -1;
+  } 
+
+  char line[128];
+  while (fgets(line, sizeof(line), p) != NULL)
+    fprintf(stdout, "%s", line);
+
+  int status = pclose(p);
+  if (status == -1) {
+    piksi_log(LOG_ERR, "Error starting %s",
+              port_config->system_name);
+    return -1;
+  }
+
+
+#if 0
 
   /* Split the command on each space for argv */
   char *args[32] = {0};
@@ -232,6 +304,8 @@ static int port_configure(port_config_t *port_config)
               port_config->adapter_pid);
   }
   sigchld_restore(&saved_mask);
+
+#endif
 
   return 0;
 }
