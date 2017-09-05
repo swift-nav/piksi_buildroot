@@ -19,8 +19,12 @@
 #include <string>
 #include <functional>
 
+#include "write_thread.h"
 
 class RotatingLogger {
+
+  friend class WriteThread;
+
  public:
   typedef std::function<void(int, const char *)> LogCall;
   RotatingLogger(const std::string& out_dir, size_t slice_duration,
@@ -31,7 +35,13 @@ class RotatingLogger {
   /*
    * try to log a data frame
    */
+  void _frame_handler(const uint8_t* data, size_t size);
+
+  /*
+   * try to log a data frame
+   */
   void frame_handler(const uint8_t* data, size_t size);
+
 
   /*
    * Update output directory. Subsequent files will use this path.
@@ -86,6 +96,7 @@ class RotatingLogger {
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
   int _cur_file;
+  WriteThread _write_thread;
 };
 
 #endif  // SWIFTNAV_ROTATING_LOGGER_H

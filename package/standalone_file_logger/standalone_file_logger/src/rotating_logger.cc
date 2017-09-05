@@ -137,6 +137,10 @@ double RotatingLogger::get_time_passed() {
 }
 
 void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
+	_write_thread.queue_data(data, size);
+}
+
+void RotatingLogger::_frame_handler(const uint8_t* data, size_t size) {
   if (!_dest_available) {
     // check imediately on startup for path availability. Subsequently, check
     // periodically
@@ -198,7 +202,11 @@ RotatingLogger::RotatingLogger(const std::string& out_dir,
       _logging_callback(logging_callback),
       // init to 0
       _session_start_time(),
-      _cur_file(-1) {}
+      _cur_file(-1),
+      _write_thread(*this)
+{
+	_write_thread.start();
+}
 
 RotatingLogger::~RotatingLogger() {
   if (_cur_file != -1) {

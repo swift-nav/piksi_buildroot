@@ -29,7 +29,9 @@ image: config
 
 clean:
 	find buildroot/output -mindepth 1 -maxdepth 1 \
-		! -path buildroot/output/images -delete
+		\( ! -path buildroot/output/images -and -type f \) -delete
+	find buildroot/output -mindepth 1 -maxdepth 1 \
+		\( ! -path buildroot/output/images -and -type d \) -delete
 	rm -rf buildroot/output/images/*
 
 # 'Package-specific:'
@@ -84,4 +86,4 @@ docker-make-host-clean:
 		make host-clean
 
 docker-run:
-	docker run $(DOCKER_ARGS) -ti piksi_buildroot
+	docker run $(DOCKER_ARGS) --name piksi_buildroot -it --rm piksi_buildroot

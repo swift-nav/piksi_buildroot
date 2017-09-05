@@ -16,7 +16,8 @@ RUN apt-get -y --force-yes install \
   mercurial \
   libc6-i386 \
   lib32stdc++6 \
-  lib32z1
+  lib32z1 \
+  vim
 RUN apt-get -y --force-yes -t jessie-backports install \
   cmake
 
