@@ -32,11 +32,6 @@ typedef enum {
   PORT_TYPE_TCP_CLIENT
 } port_type_t;
 
-typedef enum {
-  DO_NOT_RESTART,
-  RESTART
-} restart_type_t;
-
 typedef union {
   struct {
     uint32_t port;
@@ -72,8 +67,6 @@ typedef struct {
   const port_type_t type;
   const char * const mode_name_default;
   u8 mode;
-  pid_t adapter_pid; /* May be cleared by SIGCHLD handler */
-  restart_type_t restart;
 } port_config_t;
 
 static port_config_t port_configs[] = {
@@ -85,8 +78,6 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
   },
   {
     .name = "uart1",
@@ -96,8 +87,6 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
   },
   {
     .name = "usb0",
@@ -107,8 +96,6 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID,
-    .restart = RESTART
   },
   {
     .name = "tcp_server0",
@@ -119,8 +106,6 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_TCP_SERVER,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
   },
   {
     .name = "tcp_server1",
@@ -131,8 +116,6 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_TCP_SERVER,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
   },
   {
     .name = "tcp_client0",
@@ -143,8 +126,6 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_TCP_CLIENT,
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
   },
   {
     .name = "tcp_client1",
@@ -155,8 +136,6 @@ static port_config_t port_configs[] = {
     .type = PORT_TYPE_TCP_CLIENT,
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
-    .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
   }
 };
 
@@ -187,12 +166,6 @@ static void adapter_kill(port_config_t *port_config)
     return;
   } 
 
-#if 0
-  char line[128];
-  while (fgets(line, sizeof(line), p) != NULL)
-    fprintf(stdout, "%s", line);
-#endif
-
   int status = pclose(p);
   if (status == -1) {
     piksi_log(LOG_ERR, "Error stopping %s",
@@ -202,21 +175,6 @@ static void adapter_kill(port_config_t *port_config)
 
   fprintf(stdout, "Done killing the adapter\n");
 
-#if 0
-  /* Mask SIGCHLD while accessing adapter_pid */
-  sigset_t saved_mask;
-  sigchld_mask(&saved_mask);
-  {
-    if (port_config->adapter_pid > 0) {
-      int ret = kill(port_config->adapter_pid, SIGTERM);
-      piksi_log(LOG_DEBUG,
-                "Killing zmq_adapter with PID: %d (kill returned %d, errno %d)",
-                port_config->adapter_pid, ret, errno);
-    }
-    port_config->adapter_pid = 0;
-  }
-  sigchld_restore(&saved_mask);
- #endif
 }
 
 static int port_configure(port_config_t *port_config)
@@ -262,22 +220,12 @@ static int port_configure(port_config_t *port_config)
           "/usr/bin/monit restart %s",
           port_config->system_name);
 
-  fprintf(stdout, "executing %s\n", exec);
   FILE *p = popen(exec, "r");
   if (p == NULL) {
     piksi_log(LOG_ERR, "Unable to start %s",
               port_config->system_name);
     return -1;
   } 
-  fprintf(stdout, "executed s\n", exec);
-
-#if 0
-  char line[128];
-  while (fgets(line, sizeof(line), p) != NULL)
-    fprintf(stdout, "%s", line);
-
-  fprintf(stdout, "got lines, now close\n");
-#endif
 
   int status = pclose(p);
   if (status == -1) {
@@ -288,36 +236,6 @@ static int port_configure(port_config_t *port_config)
 
   fprintf(stdout, "Done configuring port %s\n",
 		  port_config->system_name);
-
-#if 0
-
-  /* Split the command on each space for argv */
-  char *args[32] = {0};
-  args[0] = strtok(cmd, " ");
-  for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 32; i++);
-
-  /* Kill the old zmq_adapter, if it exists. */
-  adapter_kill(port_config);
-
-  piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
-
-  /* Mask SIGCHLD while accessing adapter_pid */
-  sigset_t saved_mask;
-  sigchld_mask(&saved_mask);
-  {
-    /* Create a new zmq_adapter. */
-    if (!(port_config->adapter_pid = fork())) {
-      execvp(args[0], args);
-      piksi_log(LOG_ERR, "execvp error");
-      exit(EXIT_FAILURE);
-    }
-
-    piksi_log(LOG_DEBUG, "zmq_adapter started with PID: %d",
-              port_config->adapter_pid);
-  }
-  sigchld_restore(&saved_mask);
-
-#endif
 
   return 0;
 }
@@ -465,18 +383,4 @@ int ports_init(settings_ctx_t *settings_ctx)
 
 void ports_sigchld_waitpid_handler(pid_t pid, int status)
 {
-#if 0
-  int i;
-  for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
-    port_config_t *port_config = &port_configs[i];
-
-    if (port_config->adapter_pid == pid) {
-      port_config->adapter_pid = 0;
-      fprintf(stdout, "Adapter %s died\n", port_config->name);
-      if (port_config->restart == RESTART) {
-        port_configure(port_config);
-      }
-    }
-  }
-#endif
 }
