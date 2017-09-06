@@ -85,5 +85,7 @@ docker-make-host-clean:
 	docker run $(DOCKER_ARGS) --sig-proxy=false piksi_buildroot \
 		make host-clean
 
+BR_DOCKER_NAME ?= piksi_buildroot
+
 docker-run:
-	docker run $(DOCKER_ARGS) --name piksi_buildroot -it --rm piksi_buildroot
+	docker run $(DOCKER_ARGS) --name $(BR_DOCKER_NAME) -it --rm piksi_buildroot

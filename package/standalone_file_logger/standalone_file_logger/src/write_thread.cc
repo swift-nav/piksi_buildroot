@@ -21,21 +21,21 @@
 
 #  define _WT_WARN(S, M, ...) { \
   char _Msg1[1024]; snprintf(_Msg1, sizeof(_Msg1), M, ##__VA_ARGS__); \
-  S->_callbacks.log_msg(LOG_WARNING, _Msg1); }
+  if (S->_log_msg) S->_log_msg(LOG_WARNING, _Msg1); }
 
 #ifndef TEST_WRITE_THREAD
 #  define _WT_DEBUG(M, ...)
 #else
 #  define _WT_DEBUG(S, M, ...) { \
   char _Msg1[1024]; snprintf(_Msg1, sizeof(_Msg1), M, ##__VA_ARGS__); \
-  S->_callbacks.log_msg(LOG_DEBUG, _Msg1); }
+  if (S->_log_msg) S->_log_msg(LOG_DEBUG, _Msg1); }
 #endif
 
-WriteThread::WriteThread(const Callbacks& callbacks)
-    : _read_index(0),
-      _write_index(0),
-      _stop(false),
-      _callbacks(callbacks)
+//#  define _WT_WARN(S, M, ...) printf(M "\n", ##__VA_ARGS__)
+//#  define _WT_DEBUG(S, M, ...) printf(M "\n", ##__VA_ARGS__)
+
+WriteThread::WriteThread()
+    : _alloc_bytes(0)
 {
 }
 
@@ -57,8 +57,20 @@ void WriteThread::start() {
   _start_event.wait(lock);
 }
 
-uint16_t WriteThread::queue_depth() {
-  return _write_index == _read_index ? 0 : 1;
+bool WriteThread::queue_empty() {
+
+  std::lock_guard<std::mutex> lock(_thread_mutex);
+
+  _WT_DEBUG(this, "Queue depth: %zu", _queue.size());
+  return _queue.empty();
+}
+
+void WriteThread::set_callbacks(const LogCall& log_call, const WriteCall& handle_write) {
+  
+  std::lock_guard<std::mutex> lock(_thread_mutex);
+
+  _log_msg = log_call;
+  _handle_write = handle_write;
 }
 
 void WriteThread::join() {
@@ -73,80 +85,98 @@ void WriteThread::join() {
 }
 
 void WriteThread::stop() {
-  _stop = true;
-  if (_thread_mutex.try_lock())
-    _event.notify_one();
+
+  _WT_DEBUG(this, "Trying to stop...");
+  _queue_data(nullptr, 0, true);
 }
+
 void WriteThread::queue_data(const uint8_t* data, size_t size) {
+  _queue_data(data, size, false);
+}
+
+void WriteThread::_queue_data(const uint8_t* data, size_t size, bool stop) {
+
+  if (stop) {
+
+    std::lock_guard<std::mutex> lock(_thread_mutex);
+    _queue.push_front(write_args{stop, nullptr, 0});
+
+    return;
+  }
+
+  if ( _alloc_bytes > MAX_ALLOC ) {
+
+    _WT_WARN(this,
+             "Dropping data, allocated data over maximum: %zu bytes, "
+             "queue depth: %zu elements.",
+             (size_t)_alloc_bytes, _queue.size());
+
+    std::lock_guard<std::mutex> lock(_new_data_mutex);
+    _new_data_event.notify_one();
+
+    return;
+  }
+
+  uint8_t* data_copy = new uint8_t[size];
+  std::copy(data, data + size, data_copy);
+  _alloc_bytes += size;
 
   {
     std::lock_guard<std::mutex> lock(_thread_mutex);
-
-    uint8_t wi = _write_index;
-    uint8_t ri = _read_index;
-
-    if ( static_cast<uint8_t>(ri - (wi + 1)) == 0U ) {
-
-      _WT_WARN(this, "Dropping data, write queue full");
-      _event.notify_one();
-
-      return;
-    }
-
-    write_args args{data, size};
-
-    std::swap(_queue[_write_index++], args);
-    _event.notify_one();
+    _queue.push_back(write_args{stop, data_copy, size});
+  }
+  {
+    std::lock_guard<std::mutex> lock(_new_data_mutex);
+    _new_data_event.notify_one();
   }
 
-  _WT_DEBUG(this, "Finished queueing data (%d, %d)...", _read_index.load(), _write_index.load());
+  _WT_DEBUG(this, "Finished queueing data...");
 }
 
 void WriteThread::run(WriteThread* self)
 {
-  static auto WAIT_TIMEOUT = std::chrono::milliseconds(100);
+  static auto WAIT_TIMEOUT = std::chrono::milliseconds(30);
   std::unique_lock<std::mutex> start_lock(self->_start_mutex);
 
-  _WT_DEBUG(self, "Starting thread... \n");
+  _WT_DEBUG(self, "Starting thread... ");
   start_lock.unlock();
   self->_start_event.notify_one();
 
-# ifdef TEST_WRITE_THREAD
-#   define _WT_DEBUG_QUIT() _WT_DEBUG(self, "Quitting...\n");
-# else
-#   define _WT_DEBUG_QUIT()
-# endif
-
-# define _WT_HANDLE_QUIT() if (self->_stop) { _WT_DEBUG_QUIT(); return; }
-      
   for (;;) {
 
-    _WT_HANDLE_QUIT()
+    _WT_DEBUG(self, "Waiting for data...");
 
-    std::unique_lock<std::mutex> lock(self->_thread_mutex);
-
-    _WT_DEBUG(self, "Waiting for data...\n");
-
-    self->_event.wait_for(lock, WAIT_TIMEOUT);
+    std::unique_lock<std::mutex> lock(self->_new_data_mutex);
+    self->_new_data_event.wait_for(lock, WAIT_TIMEOUT);
     lock.unlock();
 
-    _WT_HANDLE_QUIT()
+    _WT_DEBUG(self, "Handling posted write data...");
 
-    _WT_DEBUG(self, "Handling posted write data (%d, %d)...\n",
-      self->_read_index.load(), self->_write_index.load());
-
-    while (self->_read_index != self->_write_index) {
+    for (;;) {
 
       write_args args;
-      std::swap(args, self->_queue[self->_read_index++]);
+      {
+        std::lock_guard<std::mutex> lock(self->_thread_mutex);
 
-      self->_callbacks.handle_write(args.data, args.size);
+        if (self->_queue.empty())
+          break;
 
-      _WT_HANDLE_QUIT();
+        args = self->_queue.front();
+        self->_queue.pop_front();
+      }
+
+      if (args.stop) {
+        _WT_DEBUG(self, "Quitting...");
+        return;
+      }
+
+      if(!self->_handle_write)
+        _WT_WARN(self, "No callback setup for handle_write, crash imminent...");
+
+      self->_handle_write(args.data, args.size);
+      self->_alloc_bytes -= args.size;
+
+      delete [] args.data;
     }
   }
-
-# undef _WT_HANDLE_QUIT
-# undef _WT_DEBUG_QUIT
 }
-

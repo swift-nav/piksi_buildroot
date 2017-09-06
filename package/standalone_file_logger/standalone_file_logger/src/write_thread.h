@@ -22,53 +22,54 @@
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
+#include <deque>
 
 class RotatingLogger;
 
 class WriteThread
 {
-  WriteThread() = delete;
   WriteThread(WriteThread const&) = delete;
 
 public:
+  static const int MAX_ALLOC = 2 * 1024 * 1024; // 2 megabytes
+
   typedef std::function<void(const uint8_t* data, size_t size)> WriteCall;
   typedef std::function<void(int, const char *)> LogCall;
 
-  struct Callbacks {
-    LogCall log_msg;
-    WriteCall handle_write;
-  };
-
-  WriteThread(const Callbacks& callbacks);
+  WriteThread();
 
   void start();
-  uint16_t queue_depth();
   void join();
   void stop();
 
+  bool queue_empty();
   void queue_data(const uint8_t* data, size_t size); 
+
+  void set_callbacks(const LogCall& log_call, const WriteCall& handle_write);
 
 private:
   static void run(WriteThread* self);
-
-  std::atomic<bool> _stop;
-
-  std::atomic<uint8_t> _read_index;
-  std::atomic<uint8_t> _write_index;
-
-  std::mutex _thread_mutex;
-  std::mutex _start_mutex;
-
-  std::condition_variable _start_event;
-  std::condition_variable _event;
+  void _queue_data(const uint8_t* data, size_t size, bool stop); 
 
   struct write_args {
+    bool stop;
     const uint8_t* data;
     size_t size;
   };
 
-  write_args _queue[UINT8_MAX+1];
-  Callbacks _callbacks;
+  LogCall _log_msg;
+  WriteCall _handle_write;
+
+  std::condition_variable _start_event;
+  std::mutex _start_mutex;
+
+  std::condition_variable _new_data_event;
+  std::mutex _new_data_mutex;
+
+  std::mutex _thread_mutex;
+
+  std::deque<write_args> _queue;
+  std::atomic<size_t> _alloc_bytes;
 
   std::thread _thread;
 };

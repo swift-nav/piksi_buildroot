@@ -137,8 +137,7 @@ double RotatingLogger::get_time_passed() {
 }
 
 void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
-	//_write_thread.queue_data(data, size);
-	_frame_handler(data, size);
+  _write_thread.queue_data(data, size);
 }
 
 void RotatingLogger::_frame_handler(const uint8_t* data, size_t size) {
@@ -203,15 +202,19 @@ RotatingLogger::RotatingLogger(const std::string& out_dir,
       _logging_callback(logging_callback),
       // init to 0
       _session_start_time(),
-      _cur_file(-1),
-      _write_thread(WriteThread::Callbacks{logging_callback,
-																					 [=] (const uint8_t* buf, size_t len) { this->_frame_handler(buf, len); }})
+      _cur_file(-1)
 {
-	_write_thread.start();
+  auto cb_frame_handle = [this] (const uint8_t* data, size_t size)
+    { _frame_handler(data, size); };
+
+  _write_thread.set_callbacks(logging_callback, cb_frame_handle);
+  _write_thread.start();
 }
 
 RotatingLogger::~RotatingLogger() {
   if (_cur_file != -1) {
     close(_cur_file);
   }
+  _write_thread.stop();
+  _write_thread.join();
 }

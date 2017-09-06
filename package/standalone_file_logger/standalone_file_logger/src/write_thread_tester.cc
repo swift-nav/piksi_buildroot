@@ -23,6 +23,38 @@ void log_msg(int lvl, const char* msg) {
   printf("%s\n", msg);
 }
 
+bool test_basic() {
+
+  printf("\n\n<<<test_basic>>>\n\n");
+
+  static char data1[] = "foobarbaz";
+
+  auto write_func = [] (const uint8_t* data, size_t size) {
+    
+    assert( std::strcmp((char*)data, data1) == 0 );
+//    printf("Callback 'write_func' done...\n");
+
+    if (++count >= 255)
+      pwrite_thread.load()->stop();
+  };
+
+  WriteThread write_thread;
+  write_thread.set_callbacks(log_msg, write_func);
+
+  pwrite_thread = &write_thread;
+
+  for (int i = 0; i < 256; i++)
+    write_thread.queue_data((uint8_t*)data1, sizeof(data1));
+
+  write_thread.start();
+  write_thread.queue_data((uint8_t*)data1, sizeof(data1));
+  write_thread.join();
+
+  pwrite_thread = nullptr;
+
+  return true;
+}
+
 bool test_insert_remove_freq_same() {
 
   printf("\n\n<<<test_insert_remove_freq_same>>>\n\n");
@@ -34,8 +66,6 @@ bool test_insert_remove_freq_same() {
     assert( size == sizeof(buffer_value.out) );
     
     int value = (int) *data;
-    delete[] data;
-
     assert( value == buffer_value.out++ );
 
     std::this_thread::sleep_for(std::chrono::milliseconds(THREAD_SLEEP_MSEC));
@@ -49,11 +79,8 @@ bool test_insert_remove_freq_same() {
   count = 0;
   std::atomic<int> write_count(0);
 
-  WriteThread::Callbacks callbacks;
-  callbacks.handle_write = write_func;
-  callbacks.log_msg = log_msg;
-
-  WriteThread write_thread(callbacks);
+  WriteThread write_thread;
+  write_thread.set_callbacks(log_msg, write_func);
 
   pwrite_thread = &write_thread;
 
@@ -63,8 +90,8 @@ bool test_insert_remove_freq_same() {
 
     while (++write_count <= 100) {
 
-      size_t buflen = sizeof(buffer_value.in);
-      char* data1 = new char[buflen];
+      const size_t buflen = sizeof(buffer_value.in);
+      char data1[buflen];
 
       memcpy(data1, &buffer_value.in, buflen);
       buffer_value.in++;
@@ -82,42 +109,29 @@ bool test_insert_remove_freq_same() {
   write_thread.join();
   write_thread_driver.join();
 
-  assert( write_thread.queue_depth() == 0 );
+  assert( write_thread.queue_empty() );
 
   return true;
 }
 
-bool test_basic() {
-
-  printf("\n\n<<<test_basic>>>\n\n");
-
-  static char data1[] = "foobarbaz";
+bool test_teardown() {
+  
+  printf("\n\n<<<test_teardown>>>\n\n");
 
   auto write_func = [] (const uint8_t* data, size_t size) {
-    
-    assert( std::strcmp((char*)data, data1) == 0 );
-//    printf("Callback 'write_func' done...\n");
-
-    if (++count >= 255)
-      pwrite_thread.load()->stop();
   };
 
-  WriteThread::Callbacks callbacks;
-  callbacks.handle_write = write_func;
-  callbacks.log_msg = log_msg;
+  size_t count = 100;
 
-  WriteThread write_thread(callbacks);
+  while (count-- > 0) {
 
-  pwrite_thread = &write_thread;
+    WriteThread write_thread;
+    write_thread.set_callbacks(log_msg, write_func);
 
-  for (int i = 0; i < 256; i++)
-    write_thread.queue_data((uint8_t*)data1, sizeof(data1));
-
-  write_thread.start();
-  write_thread.queue_data((uint8_t*)data1, sizeof(data1));
-  write_thread.join();
-
-  pwrite_thread = nullptr;
+    write_thread.start();
+    write_thread.stop();
+    write_thread.join();
+  }
 
   return true;
 }
@@ -126,4 +140,5 @@ int main() {
 
   assert( test_basic() );
   assert( test_insert_remove_freq_same() );
+  assert( test_teardown() );
 }

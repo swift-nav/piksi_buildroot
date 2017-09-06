@@ -4,8 +4,8 @@ SOURCES= \
 	standalone_file_logger.cc \
   write_thread.cc
 
-LIBS=-lczmq -lzmq -lsbp -lpiksi -lpthread
-CFLAGS=-std=gnu++11
+LIBS=-lczmq -lzmq -lsbp -lpiksi -lpthread -latomic
+CFLAGS=-std=gnu++11 -g
 ARFLAGS=rcs
 
 CROSS=
