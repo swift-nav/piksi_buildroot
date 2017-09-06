@@ -187,9 +187,11 @@ static void adapter_kill(port_config_t *port_config)
     return;
   } 
 
+#if 0
   char line[128];
   while (fgets(line, sizeof(line), p) != NULL)
     fprintf(stdout, "%s", line);
+#endif
 
   int status = pclose(p);
   if (status == -1) {
@@ -197,6 +199,8 @@ static void adapter_kill(port_config_t *port_config)
               port_config->system_name);
     return;
   }
+
+  fprintf(stdout, "Done killing the adapter\n");
 
 #if 0
   /* Mask SIGCHLD while accessing adapter_pid */
@@ -258,16 +262,22 @@ static int port_configure(port_config_t *port_config)
           "/usr/bin/monit restart %s",
           port_config->system_name);
 
+  fprintf(stdout, "executing %s\n", exec);
   FILE *p = popen(exec, "r");
   if (p == NULL) {
     piksi_log(LOG_ERR, "Unable to start %s",
               port_config->system_name);
     return -1;
   } 
+  fprintf(stdout, "executed s\n", exec);
 
+#if 0
   char line[128];
   while (fgets(line, sizeof(line), p) != NULL)
     fprintf(stdout, "%s", line);
+
+  fprintf(stdout, "got lines, now close\n");
+#endif
 
   int status = pclose(p);
   if (status == -1) {
@@ -276,6 +286,8 @@ static int port_configure(port_config_t *port_config)
     return -1;
   }
 
+  fprintf(stdout, "Done configuring port %s\n",
+		  port_config->system_name);
 
 #if 0
 
@@ -453,6 +465,7 @@ int ports_init(settings_ctx_t *settings_ctx)
 
 void ports_sigchld_waitpid_handler(pid_t pid, int status)
 {
+#if 0
   int i;
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
     port_config_t *port_config = &port_configs[i];
@@ -465,4 +478,5 @@ void ports_sigchld_waitpid_handler(pid_t pid, int status)
       }
     }
   }
+#endif
 }
