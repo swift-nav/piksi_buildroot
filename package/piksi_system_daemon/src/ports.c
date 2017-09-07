@@ -161,15 +161,15 @@ static void adapter_kill(port_config_t *port_config)
 
   FILE *p = popen(exec, "r");
   if (p == NULL) {
-    piksi_log(LOG_ERR, "Unable to stop %s",
-              port_config->system_name);
+    piksi_log(LOG_ERR, "Unable to stop %s, errno %d",
+              port_config->system_name, errno);
     return;
   } 
 
   int status = pclose(p);
   if (status == -1) {
-    piksi_log(LOG_ERR, "Error stopping %s",
-              port_config->system_name);
+    piksi_log(LOG_ERR, "Error stopping %s, errno %d",
+              port_config->system_name, errno);
     return;
   }
 
@@ -212,6 +212,10 @@ static int port_configure(port_config_t *port_config)
     port_config->system_name);
 
   FILE *f = fopen(cmdline_file, "wb");
+  if (f == NULL) {
+    piksi_log(LOG_ERR, "Unable to open %s for write", cmdline_file);
+    return -1;
+  }
   fprintf(f, cmd_options);
   fclose(f);
 
@@ -381,6 +385,3 @@ int ports_init(settings_ctx_t *settings_ctx)
   return 0;
 }
 
-void ports_sigchld_waitpid_handler(pid_t pid, int status)
-{
-}

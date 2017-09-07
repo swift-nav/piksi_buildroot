@@ -46,7 +46,6 @@ static void sigchld_handler(int signum)
   pid_t pid;
   int status;
   while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    ports_sigchld_waitpid_handler(pid, status);
     async_child_waitpid_handler(pid, status);
   }
   errno = saved_errno;
