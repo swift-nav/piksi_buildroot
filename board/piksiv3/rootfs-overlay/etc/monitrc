@@ -91,3 +91,14 @@ check process zmq_adapter_tcp_client1 with pidfile /var/run/zmq_adapter_tcp_clie
     start program = "/etc/zmq_adapter_generic start zmq_adapter_tcp_client1"
     stop program = "/etc/zmq_adapter_generic stop zmq_adapter_tcp_client1"
 
+GROUP ntrip
+
+check process zmq_adapter_ntrip with pidfile /var/run/zmq_adapter_ntrip.pid
+    start program = "/etc/zmq_adapter_ntrip start"
+    stop program = "/etc/zmq_adapter_ntrip stop"
+    group ntrip
+
+check process ntrip_daemon with pidfile /var/run/ntrip_daemon.pid
+    start program = "/etc/ntrip_daemon_s start"
+    stop program = "/etc/ntrip_daemon_s stop"
+    group ntrip
