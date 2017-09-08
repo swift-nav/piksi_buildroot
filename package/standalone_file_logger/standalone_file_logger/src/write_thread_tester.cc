@@ -110,6 +110,7 @@ bool test_insert_remove_freq_same() {
   write_thread_driver.join();
 
   assert( write_thread.queue_empty() );
+  assert( write_thread.alloc_bytes() == 0 );
 
   return true;
 }
@@ -136,9 +137,47 @@ bool test_teardown() {
   return true;
 }
 
+bool test_stats_output() {
+  
+  using namespace std::chrono;
+
+  printf("\n\n<<<test_stats_output>>>\n\n");
+
+  static char data1[] = "foobarbaz";
+
+  auto write_func = [] (const uint8_t* data, size_t size) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(THREAD_SLEEP_MSEC));
+  };
+
+  size_t count = 100;
+
+  time_point<steady_clock> start_time = steady_clock::now();
+
+  auto seconds_count = [&] () -> size_t {
+    return duration_cast<seconds>(steady_clock::now() - start_time).count();
+  };
+
+  WriteThread write_thread;
+  write_thread.set_callbacks(log_msg, write_func);
+
+  write_thread.start();
+
+  while (seconds_count() < 30) {
+    write_thread.queue_data((uint8_t*)data1, sizeof(data1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(THREAD_SLEEP_MSEC));
+  }
+
+  write_thread.stop();
+  write_thread.join();
+
+  return true;
+}
+
+
 int main() {
 
-  assert( test_basic() );
-  assert( test_insert_remove_freq_same() );
-  assert( test_teardown() );
+  //assert( test_basic() );
+  //assert( test_insert_remove_freq_same() );
+  //assert( test_teardown() );
+  assert( test_stats_output() );
 }
