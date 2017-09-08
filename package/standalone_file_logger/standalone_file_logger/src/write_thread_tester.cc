@@ -146,7 +146,7 @@ bool test_stats_output() {
   static char data1[] = "foobarbaz";
 
   auto write_func = [] (const uint8_t* data, size_t size) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(THREAD_SLEEP_MSEC));
+    std::this_thread::sleep_for(std::chrono::milliseconds(THREAD_SLEEP_MSEC*2));
   };
 
   size_t count = 100;
@@ -169,6 +169,8 @@ bool test_stats_output() {
 
   write_thread.stop();
   write_thread.join();
+
+  assert( write_thread.alloc_bytes() == 0 );
 
   return true;
 }

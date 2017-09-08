@@ -45,14 +45,13 @@ public:
   void stop();
 
   bool queue_empty();
-  bool alloc_bytes();
+  size_t alloc_bytes();
 
   void queue_data(const uint8_t* data, size_t size); 
 
   void set_callbacks(const LogCall& log_call, const WriteCall& handle_write);
 
 private:
-
   size_t msecs_since_last_stats();
   size_t seconds_since_last_warn();
 

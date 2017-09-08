@@ -21,7 +21,7 @@
 
 using namespace std::chrono;
 
-static const int MAX_ALLOC = 5 * 1024 * 1024; // 5 megabytes
+static const int MAX_ALLOC = 2 * 1024 * 1024; // 2 megabytes
 
 static const int OVERFLOW_WARN_TIMEOUT_SECS = 1;
 static const int STATS_ISSUE_TIMEOUT_MSECS = 5000;
@@ -30,16 +30,18 @@ static const int STATS_ISSUE_TIMEOUT_MSECS = 5000;
   char _Msg1[1024]; snprintf(_Msg1, sizeof(_Msg1), M, ##__VA_ARGS__); \
   if (S->_log_msg) S->_log_msg(LOG_WARNING, _Msg1); }
 
-#ifndef TEST_WRITE_THREAD
-#  define _WT_DEBUG(M, ...)
-#else
 #  define _WT_DEBUG(S, M, ...) { \
   char _Msg1[1024]; snprintf(_Msg1, sizeof(_Msg1), M, ##__VA_ARGS__); \
   if (S->_log_msg) S->_log_msg(LOG_DEBUG, _Msg1); }
+
+#ifndef TEST_WRITE_THREAD
+#  define _WT_DEBUG_TEST(M, ...)
+#else
+#  define _WT_DEBUG_TEST(S, M, ...) _WT_DEBUG(S, M, ##__VA_ARGS__)
 #endif
 
 //#  define _WT_WARN(S, M, ...) printf(M "\n", ##__VA_ARGS__)
-//#  define _WT_DEBUG(S, M, ...) printf(M "\n", ##__VA_ARGS__)
+//#  define _WT_DEBUG_TEST(S, M, ...) printf(M "\n", ##__VA_ARGS__)
 
 WriteThread::WriteThread()
     : _alloc_bytes(0),
@@ -67,7 +69,7 @@ void WriteThread::start()
 #endif
 
   } catch(std::exception exc) {
-    _WT_DEBUG(this, "Failed to start...\n");
+    _WT_DEBUG_TEST(this, "Failed to start...\n");
   }
 
   _start_event.wait(lock);
@@ -77,11 +79,11 @@ bool WriteThread::queue_empty()
 {
   std::lock_guard<std::mutex> lock(_thread_mutex);
 
-  _WT_DEBUG(this, "Queue depth: %zu", _queue.size());
+  _WT_DEBUG_TEST(this, "Queue depth: %zu", _queue.size());
   return _queue.empty();
 }
 
-bool WriteThread::alloc_bytes()
+size_t WriteThread::alloc_bytes()
 {
   return _alloc_bytes;
 }
@@ -107,7 +109,7 @@ void WriteThread::join() {
 
 void WriteThread::stop() {
 
-  _WT_DEBUG(this, "Trying to stop...");
+  _WT_DEBUG_TEST(this, "Trying to stop...");
   queue_data_impl(nullptr, 0, true);
 }
 
@@ -178,10 +180,10 @@ void WriteThread::update_bps_impl(size_t                size,
     return;
   }
 
-  double msecs_since_last_input =
-    duration_cast<milliseconds>(steady_clock::now() - last_time).count();
+  double micros_since_last =
+    duration_cast<microseconds>(steady_clock::now() - last_time).count();
 
-  double bps = 1000 * (size / msecs_since_last_input);
+  double bps = 1E6 * (size / micros_since_last);
 
   size_t item_count = bps_value_queue.size();
 
@@ -210,7 +212,7 @@ void WriteThread::queue_data_impl(const uint8_t* data, size_t size, bool stop) {
   if (stop) {
 
     std::lock_guard<std::mutex> lock(_thread_mutex);
-    _queue.push_front(write_args{stop, nullptr, 0});
+    _queue.push_back(write_args{stop, nullptr, 0});
 
     return;
   }
@@ -240,11 +242,13 @@ void WriteThread::queue_data_impl(const uint8_t* data, size_t size, bool stop) {
 
     _WT_DEBUG(this,
              "Buffer input/output stats: max buf: %zu, avg buf: %zu, input bps: %.02f"
-               " output bps: %.02f",
+               " output bps: %.02f, queue depth: %zu, alloced bytes: %zu",
              (size_t)_max_buf_size,
              (size_t)_average_buf_size,
              (double)_input_average_bps,
-             (double)_output_average_bps);
+             (double)_output_average_bps,
+             _queue.size(),
+             (size_t)_alloc_bytes);
 
      _last_stats_time = steady_clock::now(); 
   }
@@ -262,7 +266,7 @@ void WriteThread::queue_data_impl(const uint8_t* data, size_t size, bool stop) {
     _new_data_event.notify_one();
   }
 
-  _WT_DEBUG(this, "Finished queueing data...");
+  _WT_DEBUG_TEST(this, "Finished queueing data...");
 }
 
 void WriteThread::run(WriteThread* self)
@@ -270,19 +274,19 @@ void WriteThread::run(WriteThread* self)
   static auto WAIT_TIMEOUT = std::chrono::milliseconds(30);
   std::unique_lock<std::mutex> start_lock(self->_start_mutex);
 
-  _WT_DEBUG(self, "Starting thread... ");
+  _WT_DEBUG_TEST(self, "Starting thread... ");
   start_lock.unlock();
   self->_start_event.notify_one();
 
   for (;;) {
 
-    _WT_DEBUG(self, "Waiting for data...");
+    _WT_DEBUG_TEST(self, "Waiting for data...");
 
     std::unique_lock<std::mutex> lock(self->_new_data_mutex);
     self->_new_data_event.wait_for(lock, WAIT_TIMEOUT);
     lock.unlock();
 
-    _WT_DEBUG(self, "Handling posted write data...");
+    _WT_DEBUG_TEST(self, "Handling posted write data...");
 
     for (;;) {
 
@@ -298,7 +302,7 @@ void WriteThread::run(WriteThread* self)
       }
 
       if (args.stop) {
-        _WT_DEBUG(self, "Quitting...");
+        _WT_DEBUG_TEST(self, "Quitting...");
         return;
       }
 
@@ -311,7 +315,6 @@ void WriteThread::run(WriteThread* self)
       self->update_output_bps(args.size, write_start);
 
       self->_alloc_bytes -= args.size;
-
       delete [] args.data;
     }
   }
