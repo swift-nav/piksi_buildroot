@@ -2,7 +2,8 @@ TARGET=standalone_file_logger
 SOURCES= \
 	rotating_logger.cc \
 	standalone_file_logger.cc \
-  write_thread.cc
+  write_thread.cc \
+	buffer_stats.cc
 
 LIBS=-lczmq -lzmq -lsbp -lpiksi -lpthread -latomic
 CFLAGS=-std=gnu++11 -g
@@ -19,9 +20,9 @@ program: $(TARGET) $(TARGET).a
 
 test-write_thread: write_thread_tester
 	@echo "Running write_thread_tester..."
-	@./write_thread_tester
+	@./write_thread_tester $(TEST_ARGS)
 
-write_thread_tester: write_thread.cc write_thread_tester.cc
+write_thread_tester: buffer_stats.cc write_thread.cc write_thread_tester.cc
 	g++ $(CFLAGS) -g -DTEST_WRITE_THREAD=1 $^ -o $@
 
 %.o: %.cc

@@ -10,7 +10,6 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 #ifndef SWIFTNAV_WRITE_THREAD_H
 #define SWIFTNAV_WRITE_THREAD_H
 
@@ -25,6 +24,8 @@
 #include <deque>
 #include <queue>
 
+#include "buffer_stats.h"
+
 class RotatingLogger;
 
 class WriteThread
@@ -34,6 +35,8 @@ class WriteThread
   WriteThread(WriteThread const&) = delete;
 
 public:
+  static const size_t BLOCK_SIZE = 4096;
+
   typedef std::function<void(const uint8_t* data, size_t size)> WriteCall;
   typedef std::function<void(int, const char *)> LogCall;
 
@@ -48,27 +51,46 @@ public:
   size_t alloc_bytes();
 
   void queue_data(const uint8_t* data, size_t size); 
-
   void set_callbacks(const LogCall& log_call, const WriteCall& handle_write);
 
 private:
-  size_t msecs_since_last_stats();
+  void queue_data_impl(const uint8_t* data, size_t size, bool stop); 
+  void flush_current_block();
+  void free_queue();
   size_t seconds_since_last_warn();
 
-  void update_buffer_stats(size_t size);
-  void update_input_bps(size_t size);
-  void update_output_bps(size_t size, TimePoint& write_start_time);
-
-  static void update_bps_impl(size_t size,
-                              TimePoint& last_time,
-                              std::queue<double>& bps_value_queue,
-                              double& average_bps,
-                              bool update_last_time = false);
-
-  void queue_data_impl(const uint8_t* data, size_t size, bool stop); 
-  void free_queue();
-
   static void run(WriteThread* self);
+
+	class Event {
+
+	public:
+		inline std::mutex& mutex()
+			{ return _mutex; }
+
+		inline void wait(std::unique_lock<std::mutex>& lock)
+			{ _event.wait(lock); }
+
+		inline void lock_and_wait(std::chrono::milliseconds max_wait, bool unlock = true) {
+
+    	std::unique_lock<std::mutex> lock(_mutex);
+ 			_event.wait_for(lock, max_wait);
+			if (unlock) lock.unlock();
+		}
+
+		inline void signal() {
+			std::lock_guard<std::mutex> lock(_mutex);
+			_event.notify_one();
+		}
+
+	private:
+		std::condition_variable _event;
+		std::mutex _mutex;
+	};
+
+  uint8_t* _block_buffer;
+  uint8_t* _block_buffer_head;
+
+  size_t _block_remaining;
 
   struct write_args {
     bool stop;
@@ -79,11 +101,8 @@ private:
   LogCall _log_msg;
   WriteCall _handle_write;
 
-  std::condition_variable _start_event;
-  std::mutex _start_mutex;
-
-  std::condition_variable _new_data_event;
-  std::mutex _new_data_mutex;
+	Event _start_event;
+	Event _data_event;
 
   std::mutex _thread_mutex;
 
@@ -92,21 +111,9 @@ private:
 
   std::thread _thread;
 
+	BufferStats _buffer_stats;
+
   TimePoint _last_warn_time;
-  TimePoint _last_stats_time;
-  TimePoint _last_input_time;
-
-  // Recorded stats
-  std::atomic<size_t> _average_buf_size;
-  std::atomic<size_t> _max_buf_size;
-
-  /** Rolling average of last 100 buffers */
-  std::atomic<double> _input_average_bps;
-  std::queue<double> _input_bps_queue;
-
-  /** Rolling average of last 100 buffers */
-  std::atomic<double> _output_average_bps;
-  std::queue<double> _output_bps_queue;
 };
 
 #endif // SWIFTNAV_WRITE_THREAD_H
