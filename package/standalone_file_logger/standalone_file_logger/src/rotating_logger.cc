@@ -160,6 +160,7 @@ void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
   if (num_written != size) {
     // If drive is removed needs to close file imediately and not attempt to
     // open new file for a couple seconds to avoid locking mount
+    fsync(_cur_file);
     close(_cur_file);
     _cur_file = -1;
     _dest_available = false;
