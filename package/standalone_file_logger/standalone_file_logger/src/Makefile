@@ -5,7 +5,12 @@ SOURCES= \
   write_thread.cc \
 	buffer_stats.cc
 
-LIBS=-lczmq -lzmq -lsbp -lpiksi -lpthread -latomic
+LIBS=-lczmq -lzmq -lsbp -lpiksi -lpthread
+
+ifeq ($(BR2_TOOLCHAIN_HAS_LIBATOMIC),y)
+LIBS+=-latomic
+endif
+
 CFLAGS=-std=gnu++11 -g
 ARFLAGS=rcs
 

@@ -10,6 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <stdio.h>
+
 #include "buffer_stats.h"
 #include "debug_macros.h"
 
