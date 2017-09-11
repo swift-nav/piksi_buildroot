@@ -16,6 +16,7 @@
 #include <atomic>
 #include <chrono>
 #include <queue>
+#include <functional>
 
 class BufferStats {
 
