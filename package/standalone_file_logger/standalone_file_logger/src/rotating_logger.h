@@ -76,6 +76,10 @@ class RotatingLogger {
    * print if _verbose_logging
    */
   void log_msg(int priority, const std::string &msg);
+  /** 
+   * Flush and close the current file
+   */
+  void close_current_file();
 
   bool _dest_available;
   size_t _session_count;
@@ -88,7 +92,8 @@ class RotatingLogger {
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
 
   static const size_t WRITE_BUF_SIZE = 4096;
-  uint8_t _write_buffer[WRITE_BUF_SIZE];
+  char _write_buffer[WRITE_BUF_SIZE];
+
   FILE* _cur_file;
 };
 

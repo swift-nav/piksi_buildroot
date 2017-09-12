@@ -56,8 +56,7 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
 
   // invalidate current file pointer
   void SetNullFilePointer() { 
-    close(_cur_file);
-    _cur_file = -1;
+    close_current_file();
   }
 
   void SetFillThreshold(size_t threshold) { _disk_full_threshold = threshold; }
@@ -87,6 +86,8 @@ TEST_F(RotatingLoggerTest, NormalOperation) {
     MoveStartTimeBack(1);
     expected_file_content[i / 5][i % 5] = i;
   }
+
+  close_current_file();
 
   // Check that log roll overs occured and each has correct data
   for (int i = 0; i < 4; i++) {
@@ -165,6 +166,8 @@ TEST_F(RotatingLoggerTest, StartDisconnected) {
   SetOutputPath(out_dir);
   frame_handler(reinterpret_cast<uint8_t*>(&i), sizeof(int));
 
+  close_current_file();
+
   char file_name_buf[1024];
   snprintf(file_name_buf, sizeof(file_name_buf), "%s/%s", out_dir,
            expected_files);
@@ -211,6 +214,8 @@ TEST_F(RotatingLoggerTest, DisconnectReconnect) {
   SetOutputPath(out_dir);
   // 0003-00000.sbp <- 5
   frame_handler(reinterpret_cast<uint8_t*>(&i), sizeof(int));
+
+  close_current_file();
 
   for (i = 0; i < 3; i++) {
     char file_name_buf[1024];
