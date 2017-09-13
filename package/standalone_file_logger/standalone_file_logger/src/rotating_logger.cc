@@ -22,10 +22,6 @@
 #include <fcntl.h>
 #include <sys/syslog.h>
 
-#include <stdio_ext.h>
-#include <sstream>
-
-
 /*
  * Name format: xxxx-yyyyy.sbp
  * First four digit number (xxxx) is the session counter.
