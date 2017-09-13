@@ -13,6 +13,7 @@
 #ifndef SWIFTNAV_ROTATING_LOGGER_H
 #define SWIFTNAV_ROTATING_LOGGER_H
 
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <chrono>
@@ -75,6 +76,10 @@ class RotatingLogger {
    * print if _verbose_logging
    */
   void log_msg(int priority, const std::string &msg);
+  /** 
+   * Flush and close the current file
+   */
+  void close_current_file();
 
   bool _dest_available;
   size_t _session_count;
@@ -85,7 +90,11 @@ class RotatingLogger {
   LogCall _logging_callback;
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
-  int _cur_file;
+
+  static const size_t WRITE_BUF_SIZE = 4096;
+  char _write_buffer[WRITE_BUF_SIZE];
+
+  FILE* _cur_file;
 };
 
 #endif  // SWIFTNAV_ROTATING_LOGGER_H

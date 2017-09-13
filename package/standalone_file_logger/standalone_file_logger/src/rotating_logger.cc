@@ -45,6 +45,15 @@ void RotatingLogger::log_msg(int priority, const std::string &msg) {
   }
 }
 
+void RotatingLogger::close_current_file() {
+  if (_cur_file != nullptr) {
+    fflush(_cur_file);
+    fsync(fileno(_cur_file));
+    fclose(_cur_file);
+    _cur_file = nullptr;
+  }
+}
+
 int RotatingLogger::check_disk_full() {
   struct statvfs fs_stats;
   if (statvfs(_out_dir.c_str(), &fs_stats)) {
@@ -63,11 +72,7 @@ bool RotatingLogger::open_new_file() {
     perror("Max session exceeded");
     return false;
   }
-  if (_cur_file != -1) {
-    close(_cur_file);
-    _cur_file = -1;
-  }
-
+  close_current_file();
   int fs_status = check_disk_full();
   if (fs_status == 1) {
     log_msg(LOG_WARNING, std::string("Target dir full"));
@@ -83,11 +88,13 @@ bool RotatingLogger::open_new_file() {
   sprintf(log_name_buf, "%04lu-%05lu%s", _session_count, _minute_count,
           LOG_SUFFIX.c_str());
   // Need to use open instead of fopen to avoid locking drive
-  _cur_file = open((_out_dir + "/" + log_name_buf).c_str(), O_WRONLY | O_CREAT, 0666);
-  _dest_available = _cur_file != -1;
+  _cur_file = fopen((_out_dir + "/" + log_name_buf).c_str(), "wb");
+  _dest_available = _cur_file != nullptr;
   log_msg(LOG_INFO, std::string("Opening file: ") + log_name_buf);
   if (!_dest_available) {
     log_msg(LOG_WARNING, std::string("Error openning file: ") + strerror(errno));
+  } else {
+    setvbuf(_cur_file, _write_buffer, _IOFBF, WRITE_BUF_SIZE);
   }
   return _dest_available;
 }
@@ -154,14 +161,13 @@ void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
   }
 
   size_t num_written = 0;
-  if (_cur_file != -1) {
-    num_written = write(_cur_file, data, size);
+  if (_cur_file != nullptr) {
+    num_written = fwrite(data, 1, size, _cur_file);
   }
   if (num_written != size) {
     // If drive is removed needs to close file imediately and not attempt to
     // open new file for a couple seconds to avoid locking mount
-    close(_cur_file);
-    _cur_file = -1;
+    close_current_file();
     _dest_available = false;
     // wait _poll_period to check drive again
     _session_start_time = std::chrono::steady_clock::now();
@@ -198,10 +204,8 @@ RotatingLogger::RotatingLogger(const std::string& out_dir,
       _logging_callback(logging_callback),
       // init to 0
       _session_start_time(),
-      _cur_file(-1) {}
+      _cur_file(nullptr) {}
 
 RotatingLogger::~RotatingLogger() {
-  if (_cur_file != -1) {
-    close(_cur_file);
-  }
+  close_current_file();
 }
