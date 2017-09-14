@@ -13,6 +13,7 @@
 #ifndef SWIFTNAV_ROTATING_LOGGER_H
 #define SWIFTNAV_ROTATING_LOGGER_H
 
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <chrono>
@@ -21,6 +22,10 @@
 
 
 class RotatingLogger {
+
+  /* Pad new files out to minimize filesystem updates */
+  static const size_t NEW_FILE_PAD_SIZE = 15*1024*1024;
+
  public:
   typedef std::function<void(int, const char *)> LogCall;
   RotatingLogger(const std::string& out_dir, size_t slice_duration,
@@ -75,6 +80,16 @@ class RotatingLogger {
    * print if _verbose_logging
    */
   void log_msg(int priority, const std::string &msg);
+  /* 
+   * Flush and close the current file
+   */
+  void close_current_file();
+  /*
+   * Pad out current file
+   */
+  void pad_new_file();
+
+  void log_errno_warning(const char* msg);
 
   bool _dest_available;
   size_t _session_count;
@@ -85,7 +100,9 @@ class RotatingLogger {
   LogCall _logging_callback;
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
-  int _cur_file;
+
+  FILE* _cur_file;
+  size_t _bytes_written;
 };
 
 #endif  // SWIFTNAV_ROTATING_LOGGER_H
