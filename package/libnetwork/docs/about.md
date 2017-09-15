@@ -19,9 +19,9 @@ remove the need for external, host-provided network connectivity.
 The piksi system daemon listens for Skylark configuration and starts and stops
 upload and download daemons as necessary. The upload and download daemons run
 independently for improved robustness and simplicity, pulling and pushing SBP
-data to two Skylark-specific ZeroMQ ports that are exposed on the Linux host on
-are routed to the firmware: `tcp://127.0.0.1:43080` and `tcp://127.0.0.1:43081`,
-respectively. Taken together, these run with:
+data to two Skylark-specific ZeroMQ ports that are exposed on the Linux host
+are routed to the firmware: `tcp://127.0.0.1:43080` and
+`tcp://127.0.0.1:43081`, respectively. Taken together, these run with:
 
 ```
 mkfifo /var/run/skylark_download /var/run/skylark_upload
@@ -31,10 +31,10 @@ zmq_adapter --file /var/run/skylark_upload -s >tcp://127.0.0.1:43070
 zmq_adapter --file /var/run/skylark_download -p >tcp://127.0.0.1:43071
 ```
 
-The upload and download daemons read and write from two FIFOs
-(`/var/run/skylark_download` and `/var/run/skylark_upload`) they materialize.
-The ZMQ adapter processes manage the piping and framing of SBP via these pipes.
-The dataflow here looks something like this:
+The upload and download daemons read and write from two FIFOs they materialize:
+`/var/run/skylark_download` and `/var/run/skylark_upload`.  The ZMQ adapter
+processes manage the piping and framing of SBP via these pipes.  The dataflow
+here looks something like this:
 
 ```
 skylark_download_daemon:
