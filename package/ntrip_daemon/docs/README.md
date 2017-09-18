@@ -1,5 +1,5 @@
 # Network diagram for translating NTRIP RTCM to SBP
-
+```
 ┌───────────────────┐                                             
 │                   │     HTTP Request      ┌────────────────────┐
 │        Piksi      │         (TCP)         │   Someone else's   │
@@ -32,3 +32,4 @@
              │ setup a ZMQ pub │                                  
              │    to 45031     │                                  
              └─────────────────┘                                  
+```
