@@ -17,6 +17,8 @@
 #include <libpiksi/logging.h>
 #include <libnetwork.h>
 
+#define PROGRAM_NAME "ntrip_daemon"
+
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
@@ -87,8 +89,24 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static void terminate_handler(int signum)
+{
+  (void)signum;
+  libnetwork_shutdown();  
+}
+
+static void cycle_connection(int signum)
+{
+  (void)signum;
+  libnetwork_cycle_connection();
+}
+
 int main(int argc, char *argv[])
 {
+  logging_init(PROGRAM_NAME);
+
+  piksi_log(LOG_INFO, "Starting...");
+
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
     exit(EXIT_FAILURE);
@@ -106,8 +124,37 @@ int main(int argc, char *argv[])
     .debug = debug,
   };
 
+  /* Set up handler for signals which should terminate the program */
+  struct sigaction terminate_sa;
+  terminate_sa.sa_handler = terminate_handler;
+  sigemptyset(&terminate_sa.sa_mask);
+  terminate_sa.sa_flags = 0;
+
+  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
+      (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
+      (sigaction(SIGQUIT, &terminate_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up terminate handler");
+    exit(EXIT_FAILURE);
+  }
+
+  struct sigaction cycle_conn_sa;
+  cycle_conn_sa.sa_handler = cycle_connection;
+  sigemptyset(&cycle_conn_sa.sa_mask);
+  cycle_conn_sa.sa_flags = 0;
+
+  if ((sigaction(SIGUSR1, &cycle_conn_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up SIGUSR1 handler");
+    exit(EXIT_FAILURE);
+  }
+
   ntrip_download(&config);
 
+  piksi_log(LOG_INFO, "Shutting down");
+
   close(fd);
-  exit(EXIT_FAILURE);
+  logging_deinit();
+
+  exit(EXIT_SUCCESS);
 }

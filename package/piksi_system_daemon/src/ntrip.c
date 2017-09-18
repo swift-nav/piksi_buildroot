@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <unistd.h>
 #include <libpiksi/logging.h>
 
 #include "ntrip.h"
@@ -68,6 +69,12 @@ static int ntrip_notify(void *context)
         piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
                   process->pid, errno, strerror(errno));
       }
+      sleep(1.0);
+      ret = kill(process->pid, SIGKILL);
+      if (ret != 0 && errno != ESRCH) {
+        piksi_log(LOG_ERR, "force kill pid %d error (%d) \"%s\"",
+                  process->pid, errno, strerror(errno));
+      }
       process->pid = 0;
     }
 
@@ -99,4 +106,27 @@ void ntrip_init(settings_ctx_t *settings_ctx)
                     &ntrip_url, sizeof(ntrip_url),
                     SETTINGS_TYPE_STRING,
                     ntrip_notify, NULL);
+}
+
+void ntrip_reconnect() {
+
+  for (int i=0; i<ntrip_processes_count; i++) {
+
+    ntrip_process_t *process = &ntrip_processes[i];
+
+    if (process->execfn == ntrip_daemon_execfn) {
+
+      if (process->pid == 0) {
+        piksi_log(LOG_ERR, "Asked to tell ntrip_daemon to reconnect, but it isn't running");
+        return;
+      }
+
+      int ret = kill(process->pid, SIGUSR1);
+
+      if (ret != 0) {
+        piksi_log(LOG_ERR, "ntrip_reconnect: kill pid %d error (%d) \"%s\"",
+                  process->pid, errno, strerror(errno));
+      }
+    }
+  }
 }

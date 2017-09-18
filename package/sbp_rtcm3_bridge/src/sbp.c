@@ -12,6 +12,9 @@
 
 #include "sbp.h"
 
+#include <libpiksi/logging.h>
+#include <libsbp/piksi.h>
+
 static struct {
   sbp_zmq_rx_ctx_t *rx_ctx;
   sbp_zmq_tx_ctx_t *tx_ctx;
@@ -46,4 +49,20 @@ int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context)
   }
 
   return sbp_zmq_rx_callback_register(ctx.rx_ctx, msg_type, cb, context, NULL);
+}
+
+void sbp_base_obs_invalid(double timediff)
+{
+  piksi_log(LOG_WARNING, "received indication that base obs. are invalid, time difference: %f", timediff);
+
+  static const char ntrip_sanity_failed[] = "<<BASE_OBS_SANITY_FAILED>>";
+  static const size_t command_len = sizeof(ntrip_sanity_failed) - sizeof(ntrip_sanity_failed[0]);
+
+  u8 msg_buf[sizeof(msg_command_req_t) + command_len];
+  int msg_len = sizeof(msg_buf);
+  
+  msg_command_req_t* sbp_command = (msg_command_req_t*)msg_buf;
+  memcpy(sbp_command->command, ntrip_sanity_failed, command_len);
+
+  sbp_message_send(SBP_MSG_COMMAND_REQ, (u8)msg_len, (u8*)sbp_command, 0);
 }
