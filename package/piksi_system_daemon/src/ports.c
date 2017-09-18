@@ -181,8 +181,17 @@ static void adapter_kill(port_config_t *port_config)
 
 static int port_configure(port_config_t *port_config)
 {
+  /* kill adapter */
+  adapter_kill(port_config);
+
+  /* In case of USB adapters, sometimes we find that instances are still around.
+   * Kill them here
+   */
+  if (port_config->type == PORT_TYPE_USB) {
+    system("kill -9 `ps | grep GS0  | grep zmq_adapter | awk -F' ' '{print $1}'`");
+  }
+
   if (port_config->mode == MODE_DISABLED) {
-    adapter_kill(port_config);
     return 0;
   }
 
@@ -211,9 +220,6 @@ static int port_configure(port_config_t *port_config)
   char *args[32] = {0};
   args[0] = strtok(cmd, " ");
   for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 32; i++);
-
-  /* Kill the old zmq_adapter, if it exists. */
-  adapter_kill(port_config);
 
   piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
 
