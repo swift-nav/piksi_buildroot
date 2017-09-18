@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <unistd.h>
 #include <libpiksi/logging.h>
 
 #include "ntrip.h"
@@ -19,68 +20,37 @@
 static bool ntrip_enabled;
 static char ntrip_url[256];
 
-typedef struct {
-  int (*execfn)(void);
-  int pid;
-} ntrip_process_t;
-
-static int ntrip_daemon_execfn(void) {
-  char *argv[] = {
-    "ntrip_daemon",
-    "--file", FIFO_FILE_PATH,
-    "--url", ntrip_url,
-    NULL,
-  };
-
-  return execvp(argv[0], argv);
-}
-
-static int ntrip_adapter_execfn(void) {
-  char *argv[] = {
-    "zmq_adapter",
-    "-f", "rtcm3",
-    "--file", FIFO_FILE_PATH,
-    "-p", ">tcp://127.0.0.1:45031",
-    NULL,
-  };
-
-  return execvp(argv[0], argv);
-}
-
-static ntrip_process_t ntrip_processes[] = {
-  { .execfn = ntrip_adapter_execfn },
-  { .execfn = ntrip_daemon_execfn },
-};
-
-static const int ntrip_processes_count =
-  sizeof(ntrip_processes)/sizeof(ntrip_processes[0]);
-
 static int ntrip_notify(void *context)
 {
   (void)context;
 
-  for (int i=0; i<ntrip_processes_count; i++) {
-    ntrip_process_t *process = &ntrip_processes[i];
+  FILE *f = fopen("/var/run/ntrip_daemon_cmd", "wb");
+  if (f == NULL) {
+      piksi_log(LOG_ERR, "Error writing ntrip_daemon_cmd");
+      return -1;
+  }
+  fprintf(f, "--url %s", ntrip_url);
+  fclose(f);
 
-    if (process->pid != 0) {
-      int ret = kill(process->pid, SIGTERM);
-      if (ret != 0) {
-        piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
-                  process->pid, errno, strerror(errno));
-      }
-      process->pid = 0;
-    }
+  char exec[128];
+  if (ntrip_enabled) {
+    fprintf(stdout, "Starting group ntrip\n");
+    snprintf(exec, sizeof(exec), "/usr/bin/monit -g ntrip restart");
+  } else {
+    fprintf(stdout, "Stopping group ntrip\n");
+    snprintf(exec, sizeof(exec), "/usr/bin/monit -g ntrip stop");
+  }
 
-    if (!ntrip_enabled || strcmp(ntrip_url, "") == 0) {
-      continue;
-    }
+  FILE *p = popen(exec, "r");
+  if (p == NULL) {
+    piksi_log(LOG_ERR, "Unable to monit group ntrip");
+    return -1;
+  } 
 
-    process->pid = fork();
-    if (process->pid == 0) {
-      process->execfn();
-      piksi_log(LOG_ERR, "exec error (%d) \"%s\"", errno, strerror(errno));
-      exit(EXIT_FAILURE);
-    }
+  int status = pclose(p);
+  if (status == -1) {
+    piksi_log(LOG_ERR, "Error %d while closing exec pipe", status);
+    return -1;
   }
 
   return 0;
@@ -88,7 +58,9 @@ static int ntrip_notify(void *context)
 
 void ntrip_init(settings_ctx_t *settings_ctx)
 {
-  mkfifo(FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+  if (access(FIFO_FILE_PATH, F_OK) != 0) {
+    mkfifo(FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+  }
 
   settings_register(settings_ctx, "ntrip", "enable",
                     &ntrip_enabled, sizeof(ntrip_enabled),

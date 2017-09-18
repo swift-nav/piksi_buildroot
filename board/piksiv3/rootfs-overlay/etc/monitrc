@@ -62,3 +62,43 @@ check process klogd with pidfile /var/run/klogd.pid
 check process standalone_file_logger with pidfile /var/run/standalone_file_logger.pid
     start program = "/etc/init.d/S83standalone_file_logger start"
     stop program = "/etc/init.d/S83standalone_file_logger stop"
+
+check process zmq_adapter_uart0 with pidfile /var/run/zmq_adapter_uart0.pid
+    start program = "/etc/zmq_adapter_generic start zmq_adapter_uart0"
+    stop program = "/etc/zmq_adapter_generic stop zmq_adapter_uart0"
+
+check process zmq_adapter_uart1 with pidfile /var/run/zmq_adapter_uart1.pid
+    start program = "/etc/zmq_adapter_generic start zmq_adapter_uart1"
+    stop program = "/etc/zmq_adapter_generic stop zmq_adapter_uart1"
+
+check process zmq_adapter_usb0 with pidfile /var/run/zmq_adapter_usb0.pid
+    start program = "/etc/zmq_adapter_generic start zmq_adapter_usb0"
+    stop program = "/etc/zmq_adapter_generic stop zmq_adapter_usb0"
+
+check process zmq_adapter_tcp_server0 with pidfile /var/run/zmq_adapter_tcp_server0.pid
+    start program = "/etc/zmq_adapter_generic start zmq_adapter_tcp_server0"
+    stop program = "/etc/zmq_adapter_generic stop zmq_adapter_tcp_server0"
+
+check process zmq_adapter_tcp_server1 with pidfile /var/run/zmq_adapter_tcp_server1.pid
+    start program = "/etc/zmq_adapter_generic start zmq_adapter_tcp_server1"
+    stop program = "/etc/zmq_adapter_generic stop zmq_adapter_tcp_server1"
+
+check process zmq_adapter_tcp_client0 with pidfile /var/run/zmq_adapter_tcp_client0.pid
+    start program = "/etc/zmq_adapter_generic start zmq_adapter_tcp_client0"
+    stop program = "/etc/zmq_adapter_generic stop zmq_adapter_tcp_client0"
+
+check process zmq_adapter_tcp_client1 with pidfile /var/run/zmq_adapter_tcp_client1.pid
+    start program = "/etc/zmq_adapter_generic start zmq_adapter_tcp_client1"
+    stop program = "/etc/zmq_adapter_generic stop zmq_adapter_tcp_client1"
+
+GROUP ntrip
+
+check process zmq_adapter_ntrip with pidfile /var/run/zmq_adapter_ntrip.pid
+    start program = "/etc/zmq_adapter_ntrip start"
+    stop program = "/etc/zmq_adapter_ntrip stop"
+    group ntrip
+
+check process ntrip_daemon with pidfile /var/run/ntrip_daemon.pid
+    start program = "/etc/ntrip_daemon_s start"
+    stop program = "/etc/ntrip_daemon_s stop"
+    group ntrip
