@@ -29,7 +29,8 @@ NEW FEATURES AND UPDATES:
 
 
 EXISTING FEATURES:
-* GPS L1CA/L2C RTK Operation
+* GPS L1CA/L2C RTK Operation 
+* RTK Time-matched mode, moving baseline, and heading capability
 * Up to 200 Hz IMU raw data output
 * UART (two ports w/ optional flow control), USB (host and device), Ethernet interfaces
 * Swift Binary (SBP), NMEA0183 and RTCMv3 protocols 
@@ -40,14 +41,9 @@ EXISTING FEATURES:
 * Position Valid (PV) digital output
 * Surveyed position lat/lon/alt and all settings non-volatile storage
 * Simulator option
-* RTCMv3 messages input
 * On-board NTRIP client 
 * Onboard standalone data logger
-* SBP and NMEA RTK heading output messages added.
-* Heading offset setting added.
-* Fully configurable Ethernet TCP/IP server
-* Fully configurable usb virtual serial interface
-* Conversion capability to Rinex via Swift's Rinex converter (sbp2rinex)
+* Rinex output support via Swift's Rinex converter (sbp2rinex)
 
 BUG FIXES:
 * [252] 1 PPS output now times out 60 seconds after fix is lost.
