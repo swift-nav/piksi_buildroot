@@ -1,0 +1,169 @@
+===============================================================================
+                              Swift Navigation, Inc.
+                      Piksi Multi Firmware Release Notes
+
+Product Page:      https://swiftnav.com/piksi-multi
+Firmware Download: https://support.swiftnav.com/customer/en/portal/articles/2492784-piksi-firmware
+===============================================================================
+
+-------------------------------------------------------------------------------
+Release 1.2.X                                                       2017-09-19
+-------------------------------------------------------------------------------
+NEW FEATURES AND UPDATES:
+* GLONASS Raw Measurement support (SBP output)
+* Initial support for GLONASS RTK via RTCM or SBP corrections input
+* Much improved float and SPP solution quality and accuracy
+* Faster and more robust Integer Ambiguity Resolution (IAR)
+* Measurement Integrity Assurance (MIA) improves nav with poor measurements
+* Measurement engine performance and quality enhancements
+* Fully configurable TCP/IP client for multi-purpose I/O
+* Configurable TCP/IP server port number for both TCP/IP servers
+* Host-board detection to enable future evaluation board designs
+* Improved usability of micro-usb interface
+* Add TTY Serial Management port over micro-USB for interaction with Linux Shell
+* Add ethernet interface over USB for advanced users
+* Changed msg_obs_max_size setting default value from 104 to 255
+* SBP tracking status message changed to id 65 (0x41) for GLONASS support
+* Support for multiple external events
+* Beta support for on-device spectrum analyzer
+
+
+EXISTING FEATURES:
+* GPS L1CA/L2C RTK Operation 
+* RTK Time-matched mode, moving baseline, and heading capability
+* Up to 200 Hz IMU raw data output
+* UART (two ports w/ optional flow control), USB (host and device), Ethernet interfaces
+* Swift Binary (SBP), NMEA0183 and RTCMv3 protocols 
+* Status LEDs (Power, Position, Link, Mode)
+* Active antenna supply control
+* External event trigger input (rising, falling or both edges)
+* 1 Pulse Per Second (PPS) output
+* Position Valid (PV) digital output
+* Surveyed position lat/lon/alt and all settings non-volatile storage
+* Simulator option
+* On-board NTRIP client 
+* Onboard standalone data logger
+* Rinex output support via Swift's Rinex converter (sbp2rinex)
+
+BUG FIXES:
+* [252] 1 PPS output now times out 60 seconds after fix is lost.
+* [422] Intelligent use of navigation satellites, MIA, and RAIM, to improve stability
+* [465] External event improved to avoid "Too many external events" Nap Error message
+* [479] Improve RTK convergence after correction outages
+* [570] Improve usb serial (fix bug where console sometimes would not open until restart)
+* [584] Retain RTK solution when "Error calculating base station position" msg received 
+* [641] Prevent occasional gaps in standalone logging at high data rates
+* [604] Sdcard is now an experimental option for standalone data logging
+
+KNOWN ISSUES:
+
+TBD
+
+
+-------------------------------------------------------------------------------
+Release 1.1.29                                                       2017-06-08
+-------------------------------------------------------------------------------
+* Improve RTK Reslience against false locks
+NEW FEATURES AND UPDATES:
+
+
+-------------------------------------------------------------------------------
+Release 1.1.28                                                       2017-06-08
+-------------------------------------------------------------------------------
+NEW FEATURES AND UPDATES:
+* Improved RTK convergence time after temporary corrections outage.
+
+
+-------------------------------------------------------------------------------
+Release 1.1.27                                                       2017-05-17
+-------------------------------------------------------------------------------
+NEW FEATURES AND UPDATES:
+* Improved general navigation performance and system stability.
+* Low Latency (max 20 Hz) and Time Matched (max 5 Hz) RTK modes 
+* RTCMv3 messages input added.
+* On-board NTRIP client added.
+* Onboard standalone data logging feature added.
+* SBP and NMEA RTK heading output messages added.
+* Heading offset setting added.
+* Protocol mode selection added to USB and Ethernet TCP/IP interfaces.
+* UART flow control added.
+* GPS time and velocity output added to the simulator.
+* UTC offset decoding added.
+* Observation data now compatible with Swift's Rinex converter (sbp2rinex)
+* Observation data now compatiable with common post-processing tools.
+* Accelerometer default range setting changed to 8g.
+
+EXISTING FEATURES:
+* GPS L1CA/L2C RTK Operation
+* Up to 200 Hz IMU raw data output
+* UART (two ports w/ optional flow control), USB (host and device), Ethernet interfaces
+* Swift Binary (SBP), NMEA0183 and RTCMv3 protocols 
+* Status LEDs (Power, Position, Link, Mode)
+* Active antenna supply control
+* External event trigger input (rising, falling or both edges)
+* 1 Pulse Per Second (PPS) output
+* Position Valid (PV) digital output
+* Surveyed position lat/lon/alt and all settings non-volatile storage
+* Simulator option
+
+BUG FIXES:
+* [286] Not operational SBAS settings have been removed.
+* [278] USB device data buffer now flushes on new connection.
+* [233] NMEA messages time is provided only when fix is valid.
+* [235] NMEA GGA message rate is now configurable.
+* [269] USB interface NMEA mode selection added.
+* [234] NMEA GSA message reports used SVs.
+* [274] NMEA GSV message reports visible SVs.
+* [282] External event input has software debouncing to avoid multiple messages
+* [283] SBP messages MSG_UTC_TIME, MSG_DGPS_STATUS, MSG_AGE_CORRECTIONS have been implemented.
+
+KNOWN ISSUES:
+* [252] 1 PPS output is generated after fix is lost.
+* [287] Incoming RTK corrections are echoed on the same port. It can create additional data traffic over the radio.
+* [230] Ethernet port LED does not show activity during communication.
+* [227] LED indicators may show incorrect status during reset.
+* [422] Missed solution epochs and stability issues when high numbers of tracking channels (i.e > 22) in use
+* [465] A sharp input edges is required to avoid "Too many external events" Nap Error message
+
+NOTES:
+* Corresponding Swift Console version: 1.1.G.
+* Supported RTCMv3 messages: 1002, 1004, 1005, 1006.
+
+
+-------------------------------------------------------------------------------
+Release 1.0.11  (Initial Release)                                    2017-02-06
+-------------------------------------------------------------------------------
+FEATURES:
+* Up to 10 Hz GPS L1/L2 RTK Operation
+* Low Latency and Time Matched RTK modes
+* Up to 200 Hz IMU raw data output
+* UART (two ports), USB (host and device), Ethernet interfaces
+* Swift Binary (SBP) and NMEA0183 protocols
+* Status LEDs (Power, Position, Link, Mode)
+* Active antenna supply control
+* Antenna input selection
+* External event trigger input (rising, falling or both edges)
+* 1 Pulse Per Second (PPS) output
+* Position Valid (PV) digital output
+* Surveyed position lat/lon/alt and all settings non-volatile storage
+* Simulator option
+
+KNOWN ISSUES:
+* [286] SBAS is not implemented. Changing SBAS settings has no effect.
+* [278] The USB device data buffer does not flush on new connection. As a result stale data is sometimes
+  transmitted after a new connection is made.
+* [233] NMEA messages may provide incorrect UTC time at start before the first fix.
+* [235] NMEA GGA message rate is not configurable. It is always output at a solution rate.
+* [269] NMEA protocol is not available on USB interface.
+* [234] NMEA GSA message reports tracked SVs instead of used SVs.
+* [274] NMEA GSV message reports used SVs instead of visible SVs and is sent only when fix is available.
+* [252] 1 PPS output is still generated after fix is lost.
+* [287] Incoming RTK corrections are echoed on the same port. It can create additional data traffic over the radio.
+* [283] SBP messages MSG_UTC_TIME, MSG_DGPS_STATUS, MSG_AGE_CORRECTIONS are not yet implemented.
+* [230] Ethernet port LED does not show activity during communication.
+* [227] LED indicators may show incorrect status during reset.
+* [282] External event input has no debouncing. A sharp input edges are required to avoid multiple messages with
+  the same time tag.
+
+NOTES:
+* Corresponding Swift Console version: 1.0.A.
