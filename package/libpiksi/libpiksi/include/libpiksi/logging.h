@@ -60,6 +60,14 @@ void piksi_log(int priority, const char *format, ...);
  */
 void piksi_vlog(int priority, const char *format, va_list ap);
 
+/**
+ * @brief   Send a log message over SBP
+ *
+ * @param[in] priority      Priority level as defined in <syslog.h>.
+ * @param[in] msg_text      The log message text to send.
+ */
+void sbp_log(int priority, const char *msg_text);
+
 #endif /* LIBPIKSI_LOGGING_H */
 
 /** @} */

@@ -26,9 +26,6 @@
 
 #include "libnetwork.h"
 
-#define LIBRARY_NAME "libnetwork"
-#define NUM_LOG_LEVELS 8
-
 /** How large to configure the recv buffer to avoid excessive buffering. */
 const size_t RECV_BUFFER_SIZE = 4096;
 /** Max number of callbacks from CURLOPT_XFERINFOFUNCTION before we attempt to
@@ -67,48 +64,20 @@ void libnetwork_cycle_connection()
   cycle_connection_signaled = true;
 }
 
-static void sbp_log(int priority, const char *msg_text)
-{
-  const char *log_args[NUM_LOG_LEVELS] = {"emerg", "alert", "crit",
-                                          "error", "warn", "notice",
-                                          "info", "debug"};
-  FILE *output;
-  char cmd_buf[256];
-  snprintf(cmd_buf, sizeof(cmd_buf), "sbp_log --%s", log_args[priority]);
-  output = popen (cmd_buf, "w");
-
-  if (output == 0) {
-    piksi_log(LOG_ERR, "couldn't call sbp_log.");
-    return;
-  }
-
-  char msg_buf[1024];
-  snprintf(msg_buf, sizeof(msg_buf), LIBRARY_NAME ": %s", msg_text);
-
-  fputs(msg_buf, output);
-
-  if (ferror (output) != 0) {
-    piksi_log(LOG_ERR, "output to sbp_log failed.");
-  }
-
-  if (pclose (output) != 0) {
-    piksi_log(LOG_ERR, "couldn't close sbp_log call.");
-    return;
-  }
-}
-
 static void warn_on_pipe_full(int fd, size_t pending_write, bool debug)
 {
   int outq_size = 0;
 
   if (ioctl(fd, FIONREAD, &outq_size) < 0) {
     piksi_log(LOG_ERR, "ioctl error %d", errno);
+    return;
   }
 
   int pipe_size = fcntl(fd, F_GETPIPE_SZ);
 
   if (pipe_size < 0) {
     piksi_log(LOG_ERR, "fcntl error %d (pipe_size=%d)", errno, pipe_size);
+    return;
   }
 
   if (debug) {
@@ -202,32 +171,35 @@ static size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
 static int network_progress_check(network_progress_t *progress, curl_off_t bytes)
 {
   if (shutdown_signaled) {
+
     progress->count = 0;
     return -1;
   }
 
   if (cycle_connection_signaled) {
 
+    cycle_connection_signaled = false;
+
     sbp_log(LOG_WARNING, "forced re-connect requested");
 
-    cycle_connection_signaled = false;
     progress->count = 0;
-
     return -1;
   }
 
-  int rval = 0;
+  if (progress->bytes == bytes) {
+    if (progress->count++ > MAX_STALLED_INTERVALS) {
 
-  if (progress->bytes != bytes) {
+      sbp_log(LOG_WARNING, "connection stalled");
+
+      progress->count = 0;
+      return -1;
+    }
+  } else {
+    progress->bytes = bytes;
     progress->count = 0;
-  } else if (progress->count++ > MAX_STALLED_INTERVALS) {
-    progress->count = 0;
-    rval = -1;
   }
 
-  progress->bytes = bytes;
-
-  return rval;
+  return 0;
 }
 
 static int network_download_progress(void *data, curl_off_t dltot, curl_off_t dlnow, curl_off_t ultot, curl_off_t ulnow)
@@ -333,7 +305,7 @@ static void network_teardown(CURL *curl)
   curl_global_cleanup();
 }
 
-static void network_request(CURL *curl, network_transfer_t* transfer)
+static void network_request(CURL *curl)
 {
   char error_buf[CURL_ERROR_SIZE];
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER,       error_buf);
@@ -344,8 +316,6 @@ static void network_request(CURL *curl, network_transfer_t* transfer)
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE,     1L);
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPINTVL,     5L);
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPIDLE,      20L);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,   network_sockopt);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,       transfer);
 
   while (true) {
 
@@ -406,7 +376,6 @@ static struct curl_slist *skylark_init(CURL *curl)
 void ntrip_download(const network_config_t *config)
 {
   shutdown_signaled = false;
-  logging_init(LIBRARY_NAME "/ntrip_download");
 
   network_transfer_t transfer = {
     .fd = config->fd,
@@ -432,19 +401,18 @@ void ntrip_download(const network_config_t *config)
   curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_download_progress);
   curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     &progress);
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      &transfer);
 
-  network_request(curl, &transfer);
+  network_request(curl);
 
   curl_slist_free_all(chunk);
   network_teardown(curl);
-
-  logging_deinit();
 }
 
 void skylark_download(const network_config_t *config)
 {
   shutdown_signaled = false;
-  logging_init(LIBRARY_NAME "/skylark_download");
 
   network_transfer_t transfer = {
     .fd = config->fd,
@@ -470,19 +438,18 @@ void skylark_download(const network_config_t *config)
   curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_download_progress);
   curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     &progress);
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      &transfer);
 
-  network_request(curl, &transfer);
+  network_request(curl);
 
   curl_slist_free_all(chunk);
   network_teardown(curl);
-
-  logging_deinit();
 }
 
 void skylark_upload(const network_config_t *config)
 {
   shutdown_signaled = false;
-  logging_init(LIBRARY_NAME "/skylark_upload");
 
   network_transfer_t transfer = {
     .fd = config->fd,
@@ -509,13 +476,13 @@ void skylark_upload(const network_config_t *config)
   curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_upload_progress);
   curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     &progress);
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      &transfer);
 
-  network_request(curl, &transfer);
+  network_request(curl);
 
   curl_slist_free_all(chunk);
   network_teardown(curl);
-
-  logging_deinit();
 }
 
 
