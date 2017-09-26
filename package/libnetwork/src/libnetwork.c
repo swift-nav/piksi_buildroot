@@ -321,16 +321,14 @@ static void network_request(CURL *curl)
 
     CURLcode code = curl_easy_perform(curl);
 
-    if (code == CURLE_ABORTED_BY_CALLBACK) {
+    if (shutdown_signaled)
+      return;
 
-      if (shutdown_signaled)
-        return;
-
+    if (code == CURLE_ABORTED_BY_CALLBACK)
       continue;
-    }
 
     if (code != CURLE_OK) {
-      piksi_log(LOG_ERR, "curl request (%d) \"%s\"", code, error_buf);
+      piksi_log(LOG_ERR, "curl request (error: %d) \"%s\"", code, error_buf);
     } else {
       long response;
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
