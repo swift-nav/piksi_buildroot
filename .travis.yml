@@ -6,6 +6,11 @@ language: c
 services:
   - docker
 
+branches:
+  only:
+    - master
+    - v1.2.0-release
+
 before_install:
   - pip install --user --upgrade awscli
   - git fetch --tags --unshallow
