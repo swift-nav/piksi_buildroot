@@ -10,12 +10,18 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
+
+/* Include register maps */
+#include "registers/swiftnap.h"
+
+/* Instances */
+#define NAP ((swiftnap_t *)0x43C00000)
+#define NAP_FE ((nt1065_frontend_t *)0x43C10000)
 
 #include "nap_linux.h"
 
@@ -29,4 +35,11 @@ int main(int argc, char* argv[]) {
 
 	printf("NAP status register: %08x\n", nap->CONTROL);
 	printf("NAP version register: %08x\n", nap->VERSION);
+
+  nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
+  nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
+
+  uint32_t counter = GET_NAP_IPPROT_STATUS_COUNTER_VALUE(nap->IPPROT_STATUS);
+    
+  printf("Counter value: %d\n", counter);
 }

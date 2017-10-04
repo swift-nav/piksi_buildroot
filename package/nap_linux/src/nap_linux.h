@@ -10,23 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_NAP_REGS_H
-#define SWIFTNAV_NAP_REGS_H
+#ifndef SWIFTNAV_NAP_LINUX_H
+#define SWIFTNAV_NAP_LINUX_H
 
-//#include <libswiftnav/config.h>
-
-/* Include register maps */
-//#include "registers/nt1065_frontend.h"
-#include "registers_swiftnap.h"
-
-#define NAP_TRK_SPACING_CHIPS_Pos (6U)
-#define NAP_TRK_SPACING_CHIPS_Msk (0x7U)
-
-#define NAP_TRK_SPACING_SAMPLES_Pos (0U)
-#define NAP_TRK_SPACING_SAMPLES_Msk (0x3FU)
-
-/* Instances */
-#define NAP ((swiftnap_t *)0x43C00000)
-#define NAP_FE ((nt1065_frontend_t *)0x43C10000)
-
-#endif /* SWIFTNAV_NAP_REGS_H */
+#endif /* SWIFTNAV_NAP_LINUX_H */

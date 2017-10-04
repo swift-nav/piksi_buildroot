@@ -15,11 +15,11 @@
 
 set -xe
 
-FW_VERSION=${1:-v1.1.0-develop-2017100621-24-g56a8445c}
-NAP_VERSION=${2:-v1.1.0-develop-2017100621-4-g34d5b45}
+FW_VERSION=${1:-v1.1.0-develop-2017090721}
+NAP_VERSION=${2:-v1.2.0-branch-16-g4a15e21}
 
 FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
-NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
+NAP_S3_PATH=s3://swiftnav-artifacts-pull-requests/piksi_fpga/$NAP_VERSION
 export AWS_DEFAULT_REGION="us-west-2"
 
 fetch() {
@@ -47,4 +47,4 @@ download_fw() {
 
 }
 
-download_fw "prod"
+download_fw "prod" || echo "ERROR: failed to download firmware or FPGA bitstream"
