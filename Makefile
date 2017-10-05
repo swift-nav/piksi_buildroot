@@ -4,15 +4,22 @@ ifeq ($(HW_CONFIG),)
   HW_CONFIG=prod
 endif
 
-DOCKER_ARGS:=                                                                 \
+DOCKER_BUILD_VOLUME := piksi_buildroot-buildroot
+
+DOCKER_RUN_ARGS :=                                                            \
+  --rm                                                                        \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
+  -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -v `pwd`:/piksi_buildroot                                                   \
   -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
-  -v piksi_buildroot-buildroot:/piksi_buildroot/buildroot
+  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
+
+DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
 
 .PHONY: all firmware config image clean host-config host-image host-clean     \
         docker-setup docker-make-image docker-make-clean                      \
-        docker-make-host-image docker-make-host-clean docker-run
+        docker-make-host-image docker-make-host-clean docker-run              \
+        docker-config pkg-% docker-pkg-%                                      \
 
 all: firmware image
 
@@ -45,7 +52,7 @@ clean:
 # '  pkg-<pkg>-rebuild          - Restart the build from the build step'
 pkg-%: config
 	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
-	make -C buildroot $* O=output
+		make -C buildroot $* O=output
 
 host-pkg-%: host-config
 	BR2_EXTERNAL=$(BR2_EXTERNAL) \
@@ -62,26 +69,41 @@ host-image: host-config
 host-clean:
 	rm -rf buildroot/host_output
 
-docker-setup:
-	docker build -t piksi_buildroot .
-	docker run $(DOCKER_ARGS) --sig-proxy=false piksi_buildroot \
-		git submodule update --init
+docker-build-image:
+	docker build --no-cache --force-rm --tag piksi_buildroot .
 
-docker-make-image:
-	docker run $(DOCKER_ARGS) --sig-proxy=false piksi_buildroot \
+docker-populate-volume:
+	docker run $(DOCKER_ARGS) piksi_buildroot \
+		git submodule update --init --recursive
+
+docker-setup: docker-build-image docker-populate-volume
+
+docker-make-image: docker-config
+	docker run $(DOCKER_ARGS) piksi_buildroot \
 		make image
 
 docker-make-clean:
-	docker run $(DOCKER_ARGS) --sig-proxy=false piksi_buildroot \
+	docker run $(DOCKER_ARGS) piksi_buildroot \
 		make clean
 
+docker-make-clean-volume:
+	docker volume rm $(DOCKER_BUILD_VOLUME)
+
 docker-make-host-image:
-	docker run $(DOCKER_ARGS) --sig-proxy=false piksi_buildroot \
+	docker run $(DOCKER_ARGS) piksi_buildroot \
 		make host-image
 
 docker-make-host-clean:
-	docker run $(DOCKER_ARGS) --sig-proxy=false piksi_buildroot \
+	docker run $(DOCKER_ARGS) piksi_buildroot \
 		make host-clean
 
+docker-config:
+	docker run $(DOCKER_ARGS) piksi_buildroot \
+		make -C buildroot O=output piksiv3_defconfig
+
+docker-pkg-%: docker-config
+	docker run $(DOCKER_ARGS) piksi_buildroot \
+		make -C buildroot $* O=output
+
 docker-run:
-	docker run $(DOCKER_ARGS) -ti piksi_buildroot
+	docker run $(DOCKER_RUN_ARGS) --name=piksi_buildroot -ti piksi_buildroot
