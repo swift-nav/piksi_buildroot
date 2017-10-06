@@ -24,22 +24,23 @@
 #define NAP_FE ((nt1065_frontend_t *)0x43C10000)
 
 #include "nap_linux.h"
+#include "obfuscated_string.h"
 
 int main(int argc, char* argv[]) {
 
 	(void)argc;
 	(void)argv;
 
-	int pmem = open("/dev/mem", O_RDWR | O_SYNC);
+	int pmem = open(OBF("/dev/mem"), O_RDWR | O_SYNC);
 	swiftnap_t* nap = (swiftnap_t*) mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, pmem, (off_t)NAP);
 
-	printf("NAP status register: %08x\n", nap->CONTROL);
-	printf("NAP version register: %08x\n", nap->VERSION);
+	printf(OBF("NAP status register: %08x\n"), nap->CONTROL);
+	printf(OBF("NAP version register: %08x\n"), nap->VERSION);
 
   nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
-  nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
+  nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 2);
 
   uint32_t counter = GET_NAP_IPPROT_STATUS_COUNTER_VALUE(nap->IPPROT_STATUS);
     
-  printf("Counter value: %d\n", counter);
+  printf(OBF("Counter value: %d\n"), counter);
 }

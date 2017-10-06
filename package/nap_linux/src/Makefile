@@ -1,11 +1,12 @@
 TARGET=nap_linux
-SOURCES=nap_linux.c
+SOURCES=nap_linux.cc
 LIBS=
-CFLAGS=-I. -std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror -ggdb
+CFLAGS=-I. -Wall -std=gnu++11 -O2
 
-CROSS=
-
-CC=$(CROSS)gcc
+nap_linux.cc: obfuscated_string.h \
+						  nap_linux.h \
+							registers/swiftnap.h \
+							libswiftnav/common.h
 
 all:	$(TARGET)
 $(TARGET): $(SOURCES)
