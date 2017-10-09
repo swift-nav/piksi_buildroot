@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ -z "$HW_CONFIG" ]; then
   echo "ERROR: HW_CONFIG is not set"
@@ -13,7 +13,19 @@ FILE_GIT_STRING=${GIT_STRING%%-g*}
 
 OUTPUT_DIR=$BINARIES_DIR/${CFG}
 FIRMWARE_DIR=$TARGET_DIR/lib/firmware
-UBOOT_BASE_DIR=`find $BUILD_DIR -maxdepth 1 -type d -name uboot_custom-*`
+
+UBOOT_MK_PATH="$BR2_EXTERNAL_piksi_buildroot_PATH/package/uboot_custom/uboot_custom.mk"
+
+UBOOT_VERSION_REGEX='UBOOT_CUSTOM_VERSION *= *'
+UBOOT_VERSION=$(grep "$UBOOT_VERSION_REGEX" $UBOOT_MK_PATH | sed "s/${UBOOT_VERSION_REGEX}\\(.*\\)/\\1/")
+
+UBOOT_BASE_DIR=`find $BUILD_DIR -maxdepth 1 -type d -name "uboot_custom-${UBOOT_VERSION}"`
+
+if [[ -z "${UBOOT_BASE_DIR}" ]]; then
+  echo "ERROR: Could not find uboot directory" >&2
+  exit 1
+fi
+
 UBOOT_PROD_DIR=$UBOOT_BASE_DIR/build/${CFG}_prod
 UBOOT_FAILSAFE_DIR=$UBOOT_BASE_DIR/build/${CFG}_failsafe
 UBOOT_DEV_DIR=$UBOOT_BASE_DIR/build/${CFG}_dev
