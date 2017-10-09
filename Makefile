@@ -107,3 +107,8 @@ docker-pkg-%: docker-config
 
 docker-run:
 	docker run $(DOCKER_RUN_ARGS) --name=piksi_buildroot -ti piksi_buildroot
+
+docker-cp:
+	docker run $(DOCKER_RUN_ARGS) --name=piksi_buildroot_copy -d piksi_buildroot
+	docker cp piksi_buildroot_copy:$S $T || :
+	docker stop piksi_buildroot_copy
