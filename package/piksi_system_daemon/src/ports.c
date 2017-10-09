@@ -169,7 +169,7 @@ static void adapter_kill(port_config_t *port_config)
   sigchld_mask(&saved_mask);
   {
     if (port_config->adapter_pid > 0) {
-      int ret = kill(port_config->adapter_pid, SIGTERM);
+      int ret = kill(port_config->adapter_pid, SIGKILL);
       piksi_log(LOG_DEBUG,
                 "Killing zmq_adapter with PID: %d (kill returned %d, errno %d)",
                 port_config->adapter_pid, ret, errno);
