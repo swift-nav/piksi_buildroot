@@ -112,7 +112,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   }
 };
 
-static int whitelist_notify(void *context)
+int whitelist_notify(void *context)
 {
   port_whitelist_config_t *port_whitelist_config =
       (port_whitelist_config_t *)context;
@@ -166,6 +166,11 @@ static int whitelist_notify(void *context)
       } else {
         return -1;
       }
+      break;
+
+    /* Ignore whitespace */
+    case ' ': case '\t': case '\n': case '\r': case '\v':
+      c++;
       break;
 
     /* Invalid token, parse error */
