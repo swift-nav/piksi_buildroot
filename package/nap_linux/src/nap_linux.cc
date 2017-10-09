@@ -15,6 +15,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <iostream>
+#include <iomanip>
 
 /* Include register maps */
 #include "registers/swiftnap.h"
@@ -24,7 +26,12 @@
 #define NAP_FE ((nt1065_frontend_t *)0x43C10000)
 
 #include "nap_linux.h"
+
+#if 0
 #include "obfuscated_string.h"
+#else
+#define OBF(X) X
+#endif
 
 int main(int argc, char* argv[]) {
 
@@ -34,13 +41,17 @@ int main(int argc, char* argv[]) {
 	int pmem = open(OBF("/dev/mem"), O_RDWR | O_SYNC);
 	swiftnap_t* nap = (swiftnap_t*) mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, pmem, (off_t)NAP);
 
-	printf(OBF("NAP status register: %08x\n"), nap->CONTROL);
-	printf(OBF("NAP version register: %08x\n"), nap->VERSION);
+  std::cout << OBF("NAP register test...") << std::endl << std::endl;
+  std::cout << std::setfill('0') << std::setw(2) << std::hex;
+
+  std::cout << OBF("NAP status register: ") << nap->CONTROL << std::endl;
+  std::cout << OBF("NAP version register: ") << nap->VERSION << std::endl;
 
   nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
-  nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 2);
+  nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
 
   uint32_t counter = GET_NAP_IPPROT_STATUS_COUNTER_VALUE(nap->IPPROT_STATUS);
     
-  printf(OBF("Counter value: %d\n"), counter);
+  std::cout << std::dec;
+  std::cout << std::endl << OBF("Counter value: ") << counter << std::endl;
 }

@@ -140,7 +140,7 @@ public:
 
 template<u32 seed, std::size_t N>
 std::ostream & operator<< (std::ostream & s, const obfuscated_string<seed, N> & str) {
-    s << static_cast<std::string>(str);
+    s << (str).operator std::string();
     return s;
 }
 
