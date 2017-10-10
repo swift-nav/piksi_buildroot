@@ -1,11 +1,12 @@
-TARGET=run_piksi_system_daemon_test
+TARGET=run_sbp_settings_daemon_test
 
 SOURCES= \
-	run_piksi_system_daemon_test.cc
+	run_sbp_settings_daemon_test.cc
 
 LIBS= \
 	-lczmq -lsbp -lpiksi -ldl -lpthread -lgtest \
-	../src/settings.o
+	../src/settings.o \
+	../src/minIni/minIni.o
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src
 

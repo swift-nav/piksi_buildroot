@@ -1,15 +1,10 @@
-TARGET=piksi_system_daemon
+TARGET=sbp_settings_daemon
 SOURCES= \
-	async-child.c \
-	cellmodem.c \
 	main.c \
-	protocols.c \
-	ports.c \
-	ntrip.c \
-	skylark.c \
-	whitelists.c
+	minIni/minIni.c \
+	settings.c \
 
-LIBS=-lczmq -lsbp -lpiksi -ldl
+LIBS=-lczmq -lsbp -lpiksi
 
 CFLAGS=-std=gnu11
 ARFLAGS=rcs

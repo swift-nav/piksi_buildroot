@@ -10,6 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <string>
+#include <fstream>
+#include <streambuf>
+
 #include <gtest/gtest.h>
 
 #include "whitelists.h"
@@ -29,9 +33,9 @@ typedef struct {
 } port_whitelist_config_t;
 
 static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
-  { "uart0", " \t\n\r\v" },
-  { "uart0", "72,74" },
-  { "uart0", "" },
+  { "whitespace", " \t\n\r\v" },
+  { "valid", "72,74" },
+  { "empty", "" },
 };
 
 // The fixture for testing class RotatingLogger.
@@ -43,10 +47,22 @@ TEST_F(PiksiSystemDaemonTests, Whitelist_whitespace) {
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_valid) {
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_VALID]));
+
+  std::ifstream t("/etc/valid_filter_out_config");
+  std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+
+  ASSERT_STREQ("48 1\n4a 1\n", str.c_str());
 }
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_empty) {
+
+  ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_VALID]));
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_EMPTY]));
+  
+  std::ifstream t("/etc/empty_filter_out_config");
+  std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+
+  ASSERT_STREQ("", str.c_str());
 }
 
 int main(int argc, char** argv) {
