@@ -1107,6 +1107,7 @@ int main(int argc, char *argv[])
   zsys_handler_set(NULL);
 
   signal(SIGPIPE, SIG_IGN); /* Allow write to return an error */
+  signal(SIGIO, SIG_IGN);
 
   /* Set up handler for signals which should terminate the program */
   struct sigaction terminate_sa;
