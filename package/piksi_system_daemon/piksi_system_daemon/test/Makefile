@@ -5,7 +5,7 @@ SOURCES= \
 
 LIBS= \
 	-lczmq -lsbp -lpiksi -ldl -lpthread -lgtest \
-	../src/settings.o
+	../src/whitelists.o
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src
 
