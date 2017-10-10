@@ -55,7 +55,41 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_UART1] = {
     .name = "uart1",
-    .wl = ""
+    .wl = "23,29,65,72,74,80,134,136,163,165,166,167,171,181,185,187,188,257,258,259,520,522,524,526,527,528,1025,2304,2305,65280,65282,65535"
+    /*  This filter represents the messages in use by the console.
+        It removes all ECEF nav messages as well as parts of nav msg.
+        MsgThreadState             23
+        MsgUartState               29
+        MsgTrackingState           65
+        MsgBasePosECEF             72
+        MsgObs                     74
+        MsgSpecan                  80
+        MsgEphemerisGPS           134
+        MsgEphemerisGlo           136
+        MsgFileioReadResp         163
+        MsgSettingsReadResp       165
+        MsgSettingsReadByIn       166
+        MsgSettingsReadByIn       167
+        MsgFileioWriteResp        171
+        MsgDeviceMonitor          181
+        MsgCommandResp            185
+        MsgNetworkStateResp       187
+        MsgCommandOutput          188
+        MsgExtEvent               257
+        MsgGPSTime                258
+        MsgUtcTime                259
+        MsgDops                   520
+        MsgPosLLH                 522
+        MsgBaselineNED            524
+        MsgVelNED                 526
+        MsgBaselineHeading        527
+        MsgAgeCorrections         528
+        MsgLog                   1025
+        MsgImuRaw                2304
+        MsgImuAux                2305
+        MsgStartup              65280
+        MsgDgnssStatus          65282
+        MsgHeartbeat            65535 */
   },
   [PORT_USB0] = {
     .name = "usb0",
