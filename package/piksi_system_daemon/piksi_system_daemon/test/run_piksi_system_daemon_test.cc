@@ -22,8 +22,8 @@ extern "C" int whitelist_notify(void *context);
 
 enum port {
   PORT_WHITESPACE,
-  PORT_EMPTY,
   PORT_VALID,
+  PORT_EMPTY,
   PORT_MAX
 };
 
@@ -42,10 +42,21 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
 class PiksiSystemDaemonTests : public ::testing::Test { };
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_whitespace) {
+
+  system("rm -f /etc/whitespace_filter_out_config");
+
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_WHITESPACE]));
+
+  std::ifstream t("/etc/whitespace_filter_out_config");
+  std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+
+  ASSERT_STREQ("", str.c_str());
 }
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_valid) {
+
+  system("rm -f /etc/valid_filter_out_config");
+
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_VALID]));
 
   std::ifstream t("/etc/valid_filter_out_config");
@@ -55,6 +66,9 @@ TEST_F(PiksiSystemDaemonTests, Whitelist_valid) {
 }
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_empty) {
+
+  system("rm -f /etc/valid_filter_out_config");
+  system("rm -f /etc/empty_filter_out_config");
 
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_VALID]));
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_EMPTY]));
