@@ -36,7 +36,7 @@ struct setting {
 static struct setting *settings_head;
 
 /* Register a new setting in our linked list */
-static void settings_register(struct setting *setting)
+void settings_register(struct setting *setting)
 {
   struct setting *s;
 
@@ -51,9 +51,13 @@ static void settings_register(struct setting *setting)
     setting->next = s->next;
     s->next = setting;
   }
+
+  const char* default_value = "{2F9D26FF-F64C-4F9F-94FE-AE9F57758835}";
   char buf[BUFSIZE];
-  ini_gets(setting->section, setting->name, "", buf, sizeof(buf), SETTINGS_FILE);
-  if (buf[0] != 0) {
+
+  ini_gets(setting->section, setting->name, default_value, buf, sizeof(buf), SETTINGS_FILE);
+
+  if (strcmp(buf, default_value) != 0) {
     /* Use value from config file */
     strncpy(setting->value, buf, BUFSIZE);
     setting->dirty = true;
