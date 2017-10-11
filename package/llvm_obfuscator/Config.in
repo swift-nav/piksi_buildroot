@@ -1,0 +1,2 @@
+config BR2_PACKAGE_LLVM_OBFUSCATOR
+	bool "llvm_obfucator"
