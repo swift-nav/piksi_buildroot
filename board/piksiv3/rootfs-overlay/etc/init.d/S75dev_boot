@@ -70,7 +70,7 @@ start() {
     # Temporarily load driver and mount SD card
     modprobe sdhci_of_arasan
     sd_path="/media/mmcblk0p1"
-    while [ ! -d $sd_path ]; do
+    while ! grep -q $sd_path /proc/mounts; do
       echo "Waiting for SD card to mount..."
       sleep 1
     done
