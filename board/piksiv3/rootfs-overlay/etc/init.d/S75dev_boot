@@ -4,6 +4,7 @@ name="dev_boot"
 
 lib_output_path="/lib/firmware"
 persistent_output_path="/persistent"
+script_path="/root"
 
 copy_from_sd() {
   local sd_path=$1
@@ -79,6 +80,8 @@ start() {
     copy_from_sd $sd_path "piksi_fpga.bit" $lib_output_path
     # Overwrites settings if present on sd card.
     copy_from_sd $sd_path "config.ini" $persistent_output_path
+    # Copy custom script if present on sd card.
+    copy_from_sd $sd_path "init_script.sh" $script_path
 
     # Unload driver here so FPGA can be reconfigured, it wil be reloaded
     # by coldplug.
@@ -94,6 +97,14 @@ start() {
     copy_from_net $server_ip "piksi_fpga.bit" $lib_output_path
     # Overwrite settings if present on network boot.
     copy_from_net $server_ip "config.ini" $persistent_output_path
+    # Download custom script if present on network boot.
+    copy_from_net $server_ip "init_script.sh" $script_path
+  fi
+
+  # Run custom script if present
+  if [ -f "$script_path/init_script.sh" ]; then
+    echo "Running init_script.sh"
+    sh "$script_path/init_script.sh"
   fi
 }
 
