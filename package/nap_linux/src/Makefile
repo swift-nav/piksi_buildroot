@@ -1,7 +1,6 @@
-TARGET=nap_linux
-SOURCES=nap_linux.cc
-LIBS=
-CFLAGS=-I. -Wall -std=c++11
+TARGET  := nap_linux
+SOURCES := nap_linux.cc
+CFLAGS  := $(CFLAGS) -I. -Wall -std=c++11
 
 nap_linux.cc: obfuscated_string.h \
 						  nap_linux.h \
@@ -10,7 +9,7 @@ nap_linux.cc: obfuscated_string.h \
 
 all:	$(TARGET)
 $(TARGET): $(SOURCES)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES) $(LIBS)
+	$(CXX) $(CFLAGS) -o $(TARGET) $(SOURCES) $(LIBS)
 
 clean:
 	rm -rf $(TARGET)

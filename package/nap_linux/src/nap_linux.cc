@@ -47,6 +47,7 @@ int main(int argc, char* argv[]) {
   std::cout << OBF("NAP status register: ") << nap->CONTROL << std::endl;
   std::cout << OBF("NAP version register: ") << nap->VERSION << std::endl;
 
+#if 0
   nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
   nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
 
@@ -54,4 +55,5 @@ int main(int argc, char* argv[]) {
     
   std::cout << std::dec;
   std::cout << std::endl << OBF("Counter value: ") << counter << std::endl;
+#endif
 }
