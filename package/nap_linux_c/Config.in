@@ -1,0 +1,2 @@
+config BR2_PACKAGE_NAP_LINUXP_C
+	bool "nap_linux_c"
