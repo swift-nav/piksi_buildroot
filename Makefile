@@ -36,7 +36,7 @@ image: config
 
 clean:
 	find buildroot/output -mindepth 1 -maxdepth 1 \
-		! -path buildroot/output/images -delete
+		! -path buildroot/output/images -print -exec rm -rf {} \;
 	rm -rf buildroot/output/images/*
 
 # 'Package-specific:'
