@@ -1,19 +1,8 @@
-From 2154e128f8450d285fd7b7eb8265dbe6a8c43e60 Mon Sep 17 00:00:00 2001
-From: Jacob McNamee <jacob@swiftnav.com>
-Date: Fri, 20 Jan 2017 23:03:09 -0800
-Subject: [PATCH] tty: serial: xuartps: Implement automatic RTC/CTS flow
- control
-
----
- drivers/tty/serial/xilinx_uartps.c | 25 ++++++++++++++++---------
- 1 file changed, 16 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/tty/serial/xilinx_uartps.c b/drivers/tty/serial/xilinx_uartps.c
-index 6f0676b..88a2055 100644
---- a/drivers/tty/serial/xilinx_uartps.c
-+++ b/drivers/tty/serial/xilinx_uartps.c
-@@ -52,6 +52,11 @@ static int rx_timeout = 10;
- module_param(rx_timeout, uint, S_IRUGO);
+diff -ur a/drivers/tty/serial/xilinx_uartps.c b/drivers/tty/serial/xilinx_uartps.c
+--- a/drivers/tty/serial/xilinx_uartps.c	2017-10-18 02:58:35.729314385 +0000
++++ b/drivers/tty/serial/xilinx_uartps.c	2017-10-18 02:46:41.539959106 +0000
+@@ -50,6 +50,11 @@
+ module_param(rx_timeout, uint, 0444);
  MODULE_PARM_DESC(rx_timeout, "Rx timeout, 1-255");
  
 +/* RTS Trigger level */
@@ -22,9 +11,9 @@ index 6f0676b..88a2055 100644
 +MODULE_PARM_DESC(rts_trigger_level, "RTS trigger level, 4-63 bytes");
 +
  /* Register offsets for the UART. */
- #define CDNS_UART_CR_OFFSET		0x00  /* Control Register */
- #define CDNS_UART_MR_OFFSET		0x04  /* Mode Register */
-@@ -688,18 +693,10 @@ static void cdns_uart_set_termios(struct uart_port *port,
+ #define CDNS_UART_CR		0x00  /* Control Register */
+ #define CDNS_UART_MR		0x04  /* Mode Register */
+@@ -680,19 +685,10 @@
  	unsigned int cval = 0;
  	unsigned int baud, minbaud, maxbaud;
  	unsigned long flags;
@@ -34,33 +23,31 @@ index 6f0676b..88a2055 100644
  	spin_lock_irqsave(&port->lock, flags);
  
 -	/* Wait for the transmit FIFO to empty before making changes */
--	if (!(cdns_uart_readl(CDNS_UART_CR_OFFSET) & CDNS_UART_CR_TX_DIS)) {
--		while (!(cdns_uart_readl(CDNS_UART_SR_OFFSET) &
+-	if (!(readl(port->membase + CDNS_UART_CR) &
+-				CDNS_UART_CR_TX_DIS)) {
+-		while (!(readl(port->membase + CDNS_UART_SR) &
 -				CDNS_UART_SR_TXEMPTY)) {
 -			cpu_relax();
 -		}
 -	}
 -
  	/* Disable the TX and RX to set baud rate */
- 	ctrl_reg = cdns_uart_readl(CDNS_UART_CR_OFFSET);
+ 	ctrl_reg = readl(port->membase + CDNS_UART_CR);
  	ctrl_reg |= CDNS_UART_CR_TX_DIS | CDNS_UART_CR_RX_DIS;
-@@ -776,6 +773,16 @@ static void cdns_uart_set_termios(struct uart_port *port,
+@@ -770,6 +766,16 @@
  		break;
  	}
  
 +	/* Configure flow control */
-+	modem_ctrl_reg = cdns_uart_readl(CDNS_UART_MODEMCR_OFFSET);
++	modem_ctrl_reg = readl(port->membase + CDNS_UART_MR);
 +	if (termios->c_cflag & CRTSCTS) {
 +		modem_ctrl_reg |= CDNS_UART_MODEMCR_FCM;
 +	} else {
 +		modem_ctrl_reg &= ~CDNS_UART_MODEMCR_FCM;
 +	}
-+	cdns_uart_writel(rts_trigger_level, CDNS_UART_FLOWDEL_OFFSET);
-+	cdns_uart_writel(modem_ctrl_reg, CDNS_UART_MODEMCR_OFFSET);
++	writel(rts_trigger_level, port->membase + CDNS_UART_FLOWDEL);
++	writel(modem_ctrl_reg, port->membase + CDNS_UART_CR);
 +
  	/* Handling Parity and Stop Bits length */
  	if (termios->c_cflag & CSTOPB)
  		cval |= CDNS_UART_MR_STOPMODE_2_BIT; /* 2 STOP bits */
--- 
-2.6.2
-

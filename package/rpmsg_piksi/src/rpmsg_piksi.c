@@ -65,7 +65,7 @@ struct ept_params {
   struct mutex tx_rpmsg_lock;
   char tx_buff[TX_BUFF_SIZE];
   /* rpmsg parameters */
-  struct rpmsg_channel *rpmsg_chnl;
+  struct rpmsg_device *rpmsg_chnl;
   struct rpmsg_endpoint *rpmsg_ept;
   bool rpmsg_ready;
 };
@@ -121,7 +121,7 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
   }
 
   /* TODO: support non-blocking write */
-  retval = rpmsg_sendto(ept_params->rpmsg_chnl, ept_params->tx_buff,
+  retval = rpmsg_sendto(ept_params->rpmsg_ept, ept_params->tx_buff,
                         size, ept_params->addr);
 
   if (retval) {
@@ -252,13 +252,13 @@ static const struct file_operations ept_cdev_fops = {
   .release = ept_cdev_release,
 };
 
-static void ept_rpmsg_default_cb(struct rpmsg_channel *rpdev, void *data,
+static int ept_rpmsg_default_cb(struct rpmsg_device *rpdev, void *data,
                                  int len, void *priv, u32 src)
 {
-
+  return 0;
 }
 
-static void ept_rpmsg_cb(struct rpmsg_channel *rpdev, void *data,
+static int ept_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
                          int len, void *priv, u32 src)
 {
   struct ept_params *ept_params = priv;
@@ -268,21 +268,23 @@ static void ept_rpmsg_cb(struct rpmsg_channel *rpdev, void *data,
    * cause read() to return zero, aka EOF */
   if (len == 0) {
     dev_info(&rpdev->dev, "Dropping zero-length message.\n");
-    return;
+    return 0;
   }
 
   len_in = kfifo_in(&ept_params->rx_fifo, data, (unsigned int)len);
   if (len_in != len) {
     /* There was no space for incoming data */
-    return;
+    return 0;
   }
 
   /* Wake up any blocking contexts waiting for data */
   wake_up_interruptible(&ept_params->rx_wait_queue);
+
+  return 0;
 }
 
-static int drv_probe(struct rpmsg_channel *rpdev);
-static void drv_remove(struct rpmsg_channel *rpdev);
+static int drv_probe(struct rpmsg_device *rpdev);
+static void drv_remove(struct rpmsg_device *rpdev);
 
 static const struct rpmsg_device_id rpmsg_dev_id_table[] = {
   {.name = CHANNEL_NAME},
@@ -299,9 +301,10 @@ static struct rpmsg_driver rpmsg_driver = {
 };
 
 static int ept_rpmsg_setup(struct ept_params *ept_params,
-                           struct rpmsg_channel *rpdev)
+                           struct rpmsg_device *rpdev)
 {
   int retval;
+  struct rpmsg_channel_info chinfo = {};
 
   /* Acquire TX / rpmsg lock */
   retval = mutex_lock_interruptible(&ept_params->tx_rpmsg_lock);
@@ -311,9 +314,13 @@ static int ept_rpmsg_setup(struct ept_params *ept_params,
 
   ept_params->rpmsg_chnl = rpdev;
 
+  strncpy(chinfo.name, rpdev->id.name, RPMSG_NAME_SIZE);
+  chinfo.src = rpdev->src;
+  chinfo.dst = RPMSG_ADDR_ANY;
+
   /* Create rpmsg endpoint */
-  ept_params->rpmsg_ept = rpmsg_create_ept(ept_params->rpmsg_chnl, ept_rpmsg_cb,
-                                           ept_params, ept_params->addr);
+  ept_params->rpmsg_ept = rpmsg_create_ept(rpdev, ept_rpmsg_cb,
+                                           ept_params, chinfo);
   if (ept_params->rpmsg_ept == NULL) {
     dev_err(&rpdev->dev, "Failed to create rpmsg endpoint.\n");
     retval = -ENODEV;
@@ -396,13 +403,13 @@ static void ept_cdevs_remove(struct dev_params *dev_params)
   }
 }
 
-static void startup_message_send(struct rpmsg_channel *rpdev)
+static void startup_message_send(struct rpmsg_endpoint *ept)
 {
   char msg[] = "startup";
-  rpmsg_send(rpdev, msg, strlen(msg));
+  rpmsg_send(ept, msg, strlen(msg));
 }
 
-static int drv_probe(struct rpmsg_channel *rpdev)
+static int drv_probe(struct rpmsg_device *rpdev)
 {
   int i;
   int status;
@@ -427,12 +434,12 @@ static int drv_probe(struct rpmsg_channel *rpdev)
     }
   }
 
-  startup_message_send(rpdev);
+  startup_message_send(rpdev->ept);
 
   return 0;
 }
 
-static void drv_remove(struct rpmsg_channel *rpdev)
+static void drv_remove(struct rpmsg_device *rpdev)
 {
   int i;
   struct dev_params *dev_params = dev_get_drvdata(&rpdev->dev);
