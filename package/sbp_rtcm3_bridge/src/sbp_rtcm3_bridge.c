@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
   }
 
   /* Need to init state variable before we get SBP in */
-  rtcm2sbp_init(&state, sbp_message_send);
+  rtcm2sbp_init(&state, sbp_message_send, sbp_base_obs_invalid);
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
