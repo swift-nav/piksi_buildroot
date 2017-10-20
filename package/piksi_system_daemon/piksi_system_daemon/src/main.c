@@ -315,6 +315,10 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 
   msg_[len] = 0;
   msg_command_req_t *msg = (msg_command_req_t *)msg_;
+  if (strcmp(msg->command, "<<BASE_OBS_SANITY_FAILED>>") == 0) {
+    ntrip_reconnect();
+    return;
+  }
   /* TODO As more commands are added in the future the command field will need
    * to be parsed into a command and arguments, and restrictions imposed
    * on what commands and arguments are legal.  For now we only accept one

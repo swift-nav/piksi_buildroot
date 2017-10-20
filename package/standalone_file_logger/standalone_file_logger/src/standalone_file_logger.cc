@@ -133,31 +133,6 @@ static void sigchld_handler(int signum) {
   errno = saved_errno;
 }
 
-static void sbp_log(int priority, const char *msg_text)
-{
-  const int NUM_LOG_LEVELS = 8;
-  assert(priority < NUM_LOG_LEVELS);
-  const char *log_args[NUM_LOG_LEVELS] = {"emerg", "alert", "crit",
-                                          "error", "warn", "notice", 
-                                          "info", "debug"};
-  FILE *output;
-  char cmd_buf[256];
-  sprintf(cmd_buf, "sbp_log --%s", log_args[priority]);
-  output = popen (cmd_buf, "w");
-  if (output == nullptr) {
-    piksi_log(LOG_ERR, "couldn't call sbp_log.");
-    return;
-  }
-  fputs((std::string(PROGRAM_NAME) + ": " + msg_text).c_str(), output);
-  if (ferror (output) != 0) {
-    piksi_log(LOG_ERR, "output to sbp_log failed.");
-  }
-  if (pclose (output) != 0) {
-    piksi_log(LOG_ERR, "couldn't close sbp_log call.");
-    return;
-  }
-}
-
 static void process_log_callback(int priority, const char *msg_text)
 {
   piksi_log(priority, msg_text);
