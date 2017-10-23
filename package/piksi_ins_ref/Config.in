@@ -1,0 +1,2 @@
+config BR2_PACKAGE_PIKSI_INS_REF
+	bool "piksi_ins_ref"
