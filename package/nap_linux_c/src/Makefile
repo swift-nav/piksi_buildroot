@@ -8,6 +8,7 @@ nap_linux.cc: nap_linux.h \
 							libswiftnav/common.h
 
 all:	$(TARGET)
+
 $(TARGET): $(SOURCES)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES) $(LIBS)
 
