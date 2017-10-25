@@ -7,7 +7,7 @@ Firmware Download: https://support.swiftnav.com/customer/en/portal/articles/2492
 ===============================================================================
 
 -------------------------------------------------------------------------------
-Release 1.2.X                                                       2017-09-19
+Release 1.2.14                                                       2017-10-26
 -------------------------------------------------------------------------------
 NEW FEATURES AND UPDATES:
 * GLONASS Raw Measurement support (SBP output)
