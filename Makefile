@@ -1,17 +1,27 @@
-BR2_EXTERNAL:=$(shell pwd)
+# Top-level Makefile for piksi_buildroot
+
+BR2_EXTERNAL := $(CURDIR)
+BR2_DL_DIR   := $(CURDIR)/output/dl
+
+export BR2_EXTERNAL
+export BR2_DL_DIR
 
 ifeq ($(HW_CONFIG),)
   HW_CONFIG=prod
 endif
 
-DOCKER_BUILD_VOLUME := piksi_buildroot-buildroot
+export HW_CONFIG
+
+DOCKER_BUILD_VOLUME := piksi_buildroot-buildroot$(DOCKER_SUFFIX)
+DOCKER_TAG := piksi_buildroot$(DOCKER_SUFFIX)
 
 DOCKER_RUN_ARGS :=                                                            \
   --rm                                                                        \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
+  -e BR2_DL_DIR=/piksi_buildroot/output/dl                                    \
   -v `pwd`:/piksi_buildroot                                                   \
-  -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
+  -v `pwd`/output/target/images:/piksi_buildroot/output/target/images   \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
 
 DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
@@ -27,17 +37,15 @@ firmware:
 	./fetch_firmware.sh
 
 config:
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		make -C buildroot O=output piksiv3_defconfig
+	make -C buildroot O=$(CURDIR)/output/target piksiv3_defconfig
 
 image: config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
-		make -C buildroot O=output
+	make -C buildroot O=$(CURDIR)/output/target
 
 clean:
-	find buildroot/output -mindepth 1 -maxdepth 1 \
-		! -path buildroot/output/images -print -exec rm -rf {} \;
-	rm -rf buildroot/output/images/*
+	find output/target -mindepth 1 -maxdepth 1 \
+		! -path output/target/images -print -exec rm -rf {} \;
+	rm -rf output/target/images/*
 
 # 'Package-specific:'
 # '  pkg-<pkg>                  - Build and install <pkg> and all its dependencies'
@@ -51,59 +59,55 @@ clean:
 # '  pkg-<pkg>-reconfigure      - Restart the build from the configure step'
 # '  pkg-<pkg>-rebuild          - Restart the build from the build step'
 pkg-%: config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
-		make -C buildroot $* O=output
+	make -C buildroot $* O=$(CURDIR)/output/target
 
 host-pkg-%: host-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		make -C buildroot $* O=host_output
+	make -C buildroot $* O=$(CURDIR)/output/host
 
 host-config:
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		make -C buildroot O=host_output host_defconfig
+	make -C buildroot O=$(CURDIR)/output/host host_defconfig
 
 host-image: host-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		make -C buildroot O=host_output
+	make -C buildroot O=$(CURDIR)/output/host
 
 host-clean:
-	rm -rf buildroot/host_output
+	rm -rf output/host
 
 docker-build-image:
-	docker build --no-cache --force-rm --tag piksi_buildroot .
+	docker build --no-cache --force-rm --tag $(DOCKER_TAG) -f docker/Dockerfile .
 
 docker-populate-volume:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		git submodule update --init --recursive
 
 docker-setup: docker-build-image docker-populate-volume
 
 docker-make-image: docker-config
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make image
 
 docker-make-clean:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make clean
 
 docker-make-clean-volume:
 	docker volume rm $(DOCKER_BUILD_VOLUME)
 
 docker-make-host-image:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make host-image
 
 docker-make-host-clean:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make host-clean
 
 docker-config:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
-		make -C buildroot O=output piksiv3_defconfig
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make -C buildroot O=/piksi_buildroot/output piksiv3_defconfig
 
 docker-pkg-%: docker-config
-	docker run $(DOCKER_ARGS) piksi_buildroot \
-		make -C buildroot $* O=output
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make -C buildroot $* O=/piksi_buidlroot/output
 
 docker-run:
-	docker run $(DOCKER_RUN_ARGS) --name=piksi_buildroot -ti piksi_buildroot
+	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) -ti $(DOCKER_TAG)

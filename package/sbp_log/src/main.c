@@ -68,6 +68,8 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
 
 int main(int argc, char *argv[])
 {
+  printf("Hello\n");
+
   char sbp_sender_id_string[32];
   if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
                         sizeof(sbp_sender_id_string)) == 0) {
