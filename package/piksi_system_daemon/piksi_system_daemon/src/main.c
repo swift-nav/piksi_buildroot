@@ -154,11 +154,41 @@ static char eth_ip_addr[16] = "192.168.0.222";
 static char eth_netmask[16] = "255.255.255.0";
 static char eth_gateway[16] = "192.168.0.1";
 
+static char wifi_ssid[64] = "";
+static char wifi_password[64] = "";
+
+static void wifi_update_config(void)
+{
+  system("ifdown wlan0");
+  int ssid_len = strnlen(wifi_ssid, sizeof(wifi_ssid));
+  int pass_len = strnlen(wifi_password, sizeof(wifi_password));
+  //TODO: This doesn't allow for empty passwords, fix?
+  if (ssid_len == 0 || ssid_len == sizeof(wifi_ssid) ||
+      pass_len == 0 || pass_len == sizeof(wifi_password)) {
+    return;
+  }
+  char key_gen_command[200];
+  //TODO: probably hackable, should be sanitized 
+  sprintf(key_gen_command, "wpa_passphrase '%s' '%s' > /etc/network/wpa_supplicant.conf", wifi_ssid, wifi_password);
+
+  system(key_gen_command);
+  system("ifup wlan0");
+}
+
+static bool wifi_config_notify(struct setting *s, const char *val)
+{
+  bool ret = settings_default_notify(s, val);
+  if (ret) {
+    wifi_update_config();
+  }
+  return ret;
+}
+
 static void eth_update_config(void)
 {
   system("ifdown -f eth0");
 
-  FILE *interfaces = fopen("/etc/network/interfaces", "w");
+  FILE *interfaces = fopen("/etc/network/interfaces.d/eth0.cfg", "w");
   if (eth_ip_mode == IP_CFG_DHCP) {
     fprintf(interfaces, "iface eth0 inet dhcp\n");
   } else {
@@ -523,6 +553,9 @@ int main(void)
   settings_register(settings_ctx, "ethernet", "gateway", &eth_gateway,
                     sizeof(eth_gateway), SETTINGS_TYPE_STRING,
                     eth_ip_config_notify, &eth_gateway);
+
+  settings_register(settings_ctx, "wifi", "ssid", &wifi_ssid, sizeof(wifi_ssid), SETTINGS_TYPE_STRING, wifi_config_notify, &wifi_ssid);
+  settings_register(settings_ctx, "wifi", "password", &wifi_password, sizeof(wifi_password), SETTINGS_TYPE_STRING, wifi_config_notify, &wifi_password);
 
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET, reset_callback, NULL, NULL);

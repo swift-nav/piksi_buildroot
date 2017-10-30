@@ -4,7 +4,8 @@ ifeq ($(HW_CONFIG),)
   HW_CONFIG=prod
 endif
 
-DOCKER_BUILD_VOLUME := piksi_buildroot-buildroot
+DOCKER_BUILD_VOLUME := piksi_buildroot-buildroot$(DOCKER_SUFFIX)
+DOCKER_TAG := piksi_buildroot$(DOCKER_SUFFIX)
 
 DOCKER_RUN_ARGS :=                                                            \
   --rm                                                                        \
@@ -70,40 +71,40 @@ host-clean:
 	rm -rf buildroot/host_output
 
 docker-build-image:
-	docker build --no-cache --force-rm --tag piksi_buildroot .
+	docker build --no-cache --force-rm --tag $(DOCKER_TAG) .
 
 docker-populate-volume:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		git submodule update --init --recursive
 
 docker-setup: docker-build-image docker-populate-volume
 
 docker-make-image: docker-config
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make image
 
 docker-make-clean:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make clean
 
 docker-make-clean-volume:
 	docker volume rm $(DOCKER_BUILD_VOLUME)
 
 docker-make-host-image:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make host-image
 
 docker-make-host-clean:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make host-clean
 
 docker-config:
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make -C buildroot O=output piksiv3_defconfig
 
 docker-pkg-%: docker-config
-	docker run $(DOCKER_ARGS) piksi_buildroot \
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make -C buildroot $* O=output
 
 docker-run:
-	docker run $(DOCKER_RUN_ARGS) --name=piksi_buildroot -ti piksi_buildroot
+	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) -ti $(DOCKER_TAG)

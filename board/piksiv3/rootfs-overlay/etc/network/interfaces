@@ -1,6 +1,5 @@
 auto lo
-iface lo inet loopback
-
-auto eth0
-iface eth0 inet manual
-
+  iface lo inet loopback
+  
+source /etc/network/interfaces.d/eth0.cfg
+source /etc/network/interfaces.d/wlan0.cfg
