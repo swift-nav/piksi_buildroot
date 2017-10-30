@@ -157,9 +157,10 @@ static char eth_gateway[16] = "192.168.0.1";
 static char wifi_ssid[64] = "";
 static char wifi_password[64] = "";
 
-static void wifi_update_config(void)
+static void wifi_update_config()
 {
   system("ifdown wlan0");
+
   int ssid_len = strnlen(wifi_ssid, sizeof(wifi_ssid));
   int pass_len = strnlen(wifi_password, sizeof(wifi_password));
   //TODO: This doesn't allow for empty passwords, fix?
@@ -173,15 +174,15 @@ static void wifi_update_config(void)
 
   system(key_gen_command);
   system("ifup wlan0");
+
+  return;
 }
 
-static bool wifi_config_notify(struct setting *s, const char *val)
+static int wifi_config_notify(void *context)
 {
-  bool ret = settings_default_notify(s, val);
-  if (ret) {
-    wifi_update_config();
-  }
-  return ret;
+  (void)context;
+  wifi_update_config();
+  return 0;
 }
 
 static void eth_update_config(void)

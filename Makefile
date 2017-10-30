@@ -4,8 +4,8 @@ ifeq ($(HW_CONFIG),)
   HW_CONFIG=prod
 endif
 
-DOCKER_BUILD_VOLUME := piksi_buildroot-buildroot$(DOCKER_SUFFIX)
-DOCKER_TAG := piksi_buildroot$(DOCKER_SUFFIX)
+DOCKER_BUILD_VOLUME = piksi_buildroot-buildroot$(DOCKER_SUFFIX)
+DOCKER_TAG = piksi_buildroot$(DOCKER_SUFFIX)
 
 DOCKER_RUN_ARGS :=                                                            \
   --rm                                                                        \
