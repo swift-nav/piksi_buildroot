@@ -37,12 +37,4 @@ int main(int argc, char* argv[]) {
 
   printf("NAP status register: %08x\n", nap->CONTROL);
   printf("NAP version register: %08x\n", nap->VERSION);
-#if 0
-  nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
-  nap->IPPROT_CONTROL = SET_NAP_IPPROT_CONTROL_IPPROT_INCREMENT(nap->IPPROT_CONTROL, 1);
-
-  uint32_t counter = GET_NAP_IPPROT_STATUS_COUNTER_VALUE(nap->IPPROT_STATUS);
-    
-  printf("\nCounter value: %d\n", counter);
-#endif
 }

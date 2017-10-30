@@ -37,6 +37,7 @@ endef
 
 define PIKSI_INS_REF_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/bin/selfverify $(TARGET_DIR)/usr/bin
+	$(INSTALL) -D -m 0755 $(@D)/bin/ip_unlock $(TARGET_DIR)/usr/bin
 endef
 
 $(eval $(generic-package))
