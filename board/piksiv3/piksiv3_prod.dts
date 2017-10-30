@@ -138,6 +138,25 @@
   status = "okay";
 };
 
+&i2c0 {
+  status = "okay";
+};
+
+&i2c1 {
+  status = "okay";
+
+  eeprom@50 {
+    compatible = "at24,24c32";
+    pagesize = <32>;
+    reg = <0x50>;
+  };
+
+  rtc@68 {
+    compatible = "rtc-m41t80,m41t62";
+    reg = <0x68>;
+  };
+};
+
 &usb0 {
   status = "okay";
   dr_mode = "peripheral";
