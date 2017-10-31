@@ -40,6 +40,10 @@ enum port {
   PORT_TCP_SERVER1,
   PORT_TCP_CLIENT0,
   PORT_TCP_CLIENT1,
+  PORT_UDP_SERVER0,
+  PORT_UDP_SERVER1,
+  PORT_UDP_CLIENT0,
+  PORT_UDP_CLIENT1,
   PORT_MAX
 };
 
@@ -109,6 +113,22 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_TCP_CLIENT1] = {
     .name = "tcp_client1",
+    .wl = ""
+  },
+  [PORT_UDP_SERVER0] = {
+    .name = "udp_server0",
+    .wl = ""
+  },
+  [PORT_UDP_SERVER1] = {
+    .name = "udp_server1",
+    .wl = ""
+  },
+  [PORT_UDP_CLIENT0] = {
+    .name = "udp_client0",
+    .wl = ""
+  },
+  [PORT_UDP_CLIENT1] = {
+    .name = "udp_client1",
     .wl = ""
   }
 };

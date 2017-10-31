@@ -38,7 +38,9 @@ typedef enum {
   IO_STDIO,
   IO_FILE,
   IO_TCP_LISTEN,
-  IO_TCP_CONNECT
+  IO_TCP_CONNECT,
+  IO_UDP_LISTEN,
+  IO_UDP_CONNECT
 } io_mode_t;
 
 typedef enum {
@@ -80,6 +82,8 @@ static const char *zmq_rep_addr = NULL;
 static const char *file_path = NULL;
 static int tcp_listen_port = -1;
 static const char *tcp_connect_addr = NULL;
+static int udp_listen_port = -1;
+static const char *udp_connect_addr = NULL;
 
 static pid_t pub_pid = -1;
 static pid_t sub_pid = -1;
@@ -121,6 +125,8 @@ static void usage(char *command)
   fprintf(stderr, "\t--file <file>\n");
   fprintf(stderr, "\t--tcp-l <port>\n");
   fprintf(stderr, "\t--tcp-c <addr>\n");
+  fprintf(stderr, "\t--udp-l <port>\n");
+  fprintf(stderr, "\t--udp-c <addr>\n");
 
   fprintf(stderr, "\nMisc options\n");
   fprintf(stderr, "\t--rep-timeout <ms>\n");
@@ -140,6 +146,8 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILE,
     OPT_ID_TCP_LISTEN,
     OPT_ID_TCP_CONNECT,
+    OPT_ID_UDP_LISTEN,
+    OPT_ID_UDP_CONNECT,
     OPT_ID_REP_TIMEOUT,
     OPT_ID_STARTUP_DELAY,
     OPT_ID_DEBUG,
@@ -161,6 +169,8 @@ static int parse_options(int argc, char *argv[])
     {"file",              required_argument, 0, OPT_ID_FILE},
     {"tcp-l",             required_argument, 0, OPT_ID_TCP_LISTEN},
     {"tcp-c",             required_argument, 0, OPT_ID_TCP_CONNECT},
+    {"udp-l",             required_argument, 0, OPT_ID_UDP_LISTEN},
+    {"udp-c",             required_argument, 0, OPT_ID_UDP_CONNECT},
     {"rep-timeout",       required_argument, 0, OPT_ID_REP_TIMEOUT},
     {"startup-delay",     required_argument, 0, OPT_ID_STARTUP_DELAY},
     {"filter-in",         required_argument, 0, OPT_ID_FILTER_IN},
@@ -198,6 +208,18 @@ static int parse_options(int argc, char *argv[])
       case OPT_ID_TCP_CONNECT: {
         io_mode = IO_TCP_CONNECT;
         tcp_connect_addr = optarg;
+      }
+      break;
+
+      case OPT_ID_UDP_LISTEN: {
+        io_mode = IO_UDP_LISTEN;
+        udp_listen_port = strtol(optarg, NULL, 10);
+      }
+      break;
+
+      case OPT_ID_UDP_CONNECT: {
+        io_mode = IO_UDP_CONNECT;
+        udp_connect_addr = optarg;
       }
       break;
 
@@ -858,14 +880,14 @@ static void pid_terminate(pid_t *pid)
 
 void io_loop_start(int read_fd, int write_fd)
 {
-  if (nonblock) {
+  if (nonblock && write_fd != -1) {
     int arg = O_NONBLOCK;
     fcntl(write_fd, F_SETFL, &arg);
   }
   switch (zsock_mode) {
     case ZSOCK_PUBSUB: {
 
-      if (zmq_pub_addr != NULL) {
+      if (zmq_pub_addr != NULL && read_fd != -1) {
         debug_printf("Forking for pub\n");
         pid_t pid = fork();
         if (pid == 0) {
@@ -905,7 +927,7 @@ void io_loop_start(int read_fd, int write_fd)
         }
       }
 
-      if (zmq_sub_addr != NULL) {
+      if (zmq_sub_addr != NULL && write_fd != -1) {
         debug_printf("Forking for sub\n");
         pid_t pid = fork();
         if (pid == 0) {
@@ -1145,6 +1167,18 @@ int main(int argc, char *argv[])
     case IO_TCP_CONNECT: {
       extern int tcp_connect_loop(const char *addr);
       ret = tcp_connect_loop(tcp_connect_addr);
+    }
+    break;
+
+    case IO_UDP_LISTEN: {
+      extern int udp_listen_loop(int port);
+      ret = udp_listen_loop(udp_listen_port);
+    }
+    break;
+
+    case IO_UDP_CONNECT: {
+      extern int udp_connect_loop(const char *addr);
+      ret = udp_connect_loop(udp_connect_addr);
     }
     break;
 
