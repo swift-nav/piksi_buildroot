@@ -37,11 +37,19 @@ typedef struct {
 
 /**
  * @brief   Download from ntrip.
- * @details Download observations and other messages from a CORS station.
+ * @details Download observations and other messages from a NTRIP caster.
  *
  * @param[in] config        Pointer to the config to use.
  */
 void ntrip_download(const network_config_t *config);
+
+/**
+ * @brief   Upload to ntrip.
+ * @details Upload observations and other messages to a NTRIP caster.
+ *
+ * @param[in] config        Pointer to the config to use.
+ */
+void ntrip_upload(const network_config_t *config);
 
 /**
  * @brief   Download from skylark.

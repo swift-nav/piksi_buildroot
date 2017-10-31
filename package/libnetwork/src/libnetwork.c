@@ -408,6 +408,44 @@ void ntrip_download(const network_config_t *config)
   network_teardown(curl);
 }
 
+void ntrip_upload(const network_config_t *config)
+{
+  shutdown_signaled = false;
+
+  network_transfer_t transfer = {
+    .fd = config->fd,
+    .debug = config->debug,
+  };
+
+  network_progress_t progress = {
+    .bytes = 0,
+    .count = 0,
+    .debug = config->debug,
+  };
+
+  CURL *curl = network_setup();
+  if (curl == NULL) {
+    return;
+  }
+
+  struct curl_slist *chunk = ntrip_init(curl);
+
+  curl_easy_setopt(curl, CURLOPT_POST,             1L);
+  curl_easy_setopt(curl, CURLOPT_URL,              config->url);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA,        &transfer);
+  curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_upload_progress);
+  curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     &progress);
+  curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      &transfer);
+
+  network_request(curl);
+
+  curl_slist_free_all(chunk);
+  network_teardown(curl);
+}
+
 void skylark_download(const network_config_t *config)
 {
   shutdown_signaled = false;
