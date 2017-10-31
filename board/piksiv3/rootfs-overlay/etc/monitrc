@@ -48,6 +48,10 @@ check process zmq_adapter_rpmsg_piksi101 with pidfile /var/run/zmq_adapter_rpmsg
     start program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi101 start"
     stop program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi101 stop"
 
+check process sample_daemon with pidfile /var/run/sample_daemon.pid
+    start program = "/etc/init.d/S83sample_daemon start"
+    stop program = "/etc/init.d/S83sample_daemon stop"
+
 check process sshd with pidfile /var/run/sshd.pid
     start program = "/etc/init.d/S50sshd start"
     stop program = "/etc/init.d/S50sshd stop"
