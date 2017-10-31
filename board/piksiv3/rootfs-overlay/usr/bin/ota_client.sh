@@ -16,8 +16,12 @@ do
     echo "Downloading firmware" $want_version
     echo "Downloading firmware" $want_version | sbp_log --info
     curl -s -o /tmp/update $otaserver/ota/$uuid/update
-    upgrade_tool --debug /tmp/update | sbp_log --info
-    reboot -f
+    upgrade_tool --debug /tmp/update
+    if [ $? -eq 0 ]; then
+      echo "Rebooting..."
+      sleep 3
+      reboot -f
+    fi
   fi 
 
   sleep $check_interval
