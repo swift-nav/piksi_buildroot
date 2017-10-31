@@ -34,6 +34,7 @@
 #include "protocols.h"
 #include "ports.h"
 #include "ntrip.h"
+#include "ntrip_source.h"
 #include "skylark.h"
 #include "whitelists.h"
 #include "async-child.h"
@@ -531,6 +532,7 @@ int main(void)
 
   ports_init(settings_ctx);
   ntrip_init(settings_ctx);
+  ntrip_source_init(settings_ctx);
   skylark_init(settings_ctx);
   whitelists_init(settings_ctx);
   cellmodem_init(pubsub_ctx, settings_ctx);

@@ -6,6 +6,7 @@ SOURCES= \
 	protocols.c \
 	ports.c \
 	ntrip.c \
+	ntrip_source.c \
 	skylark.c \
 	whitelists.c
 
