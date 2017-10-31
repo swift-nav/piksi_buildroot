@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="sample_daemon"
+cmd="sample_daemon --ofset 10"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh

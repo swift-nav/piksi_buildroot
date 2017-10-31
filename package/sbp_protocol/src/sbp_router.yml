@@ -17,6 +17,7 @@ ports:
           - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
           - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
           - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
+          - { action: REJECT, prefix: [0x55, 0x0A, 0x02] } # SBP MSG_POS_LLH
           - { action: ACCEPT }
       - dst_port: SBP_PORT_FILEIO_FIRMWARE
         filters:
@@ -32,6 +33,11 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # Publish: SBP MSG_POS_LLH
           - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # Publish: SBP MSG_HEARTBEAT
+          - { action: REJECT }
+      - dst_port: SBP_PORT_GEOID
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # SBP MSG_POS_LLH
+          - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # SBP MSG_HEARTBEAT
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
@@ -130,3 +136,11 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x84, 0x00] } # SBP_MSG_EPHEMERIS_SBAS
           - { action: ACCEPT, prefix: [0x55, 0x75, 0x00] } # SBP_MSG_GLO_BIASES
           - { action: REJECT }
+
+  - name: SBP_PORT_GEOID
+    pub_addr: "@tcp://127.0.0.1:43090"
+    sub_addr: "@tcp://127.0.0.1:43091"
+    forwarding_rules:
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT }
