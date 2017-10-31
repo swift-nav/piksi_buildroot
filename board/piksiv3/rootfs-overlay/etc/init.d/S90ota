@@ -10,4 +10,5 @@ stop() {
    echo done
 }
 
-source /etc/init.d/template_command.inc.sh<Paste>
+source /etc/init.d/template_command.inc.sh
+
