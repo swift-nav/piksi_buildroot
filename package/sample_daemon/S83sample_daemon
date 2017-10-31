@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="sample_daemon"
+cmd="sample_daemon --offset -32.1597"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh
