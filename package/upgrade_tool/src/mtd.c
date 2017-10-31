@@ -87,6 +87,9 @@ static int mtd_params_verify(const partition_info_t *partition_info,
 int mtd_erase(const partition_info_t *partition_info, uint32_t offset,
               uint32_t length)
 {
+  static int last_percentage = -1;
+  int percentage = 0;
+
   /* verify params */
   if (mtd_params_verify(partition_info, offset, length, MTD_OP_ERASE) != 0) {
     return -1;
@@ -115,8 +118,12 @@ int mtd_erase(const partition_info_t *partition_info, uint32_t offset,
       return -1;
     }
 
-    debug_printf("\r%d %% complete", 100 * sector_offset / length);
-    debug_flush();
+    percentage = 100 * sector_offset / length;
+    if (percentage != last_percentage) {
+      debug_printf("\r%d %% complete", percentage);
+      debug_flush();
+      last_percentage = percentage;
+    }
   }
 
   debug_printf("\r100 %% complete\n");
@@ -130,6 +137,9 @@ int mtd_erase(const partition_info_t *partition_info, uint32_t offset,
 int mtd_write_and_verify(const partition_info_t *partition_info,
                          uint32_t offset, const void *data, uint32_t length)
 {
+  static int last_percentage = -1;
+  int percentage = 0;
+
   /* verify params */
   if (mtd_params_verify(partition_info, offset, length, MTD_OP_WRITE) != 0) {
     return -1;
@@ -165,8 +175,13 @@ int mtd_write_and_verify(const partition_info_t *partition_info,
       return -1;
     }
 
-    debug_printf("\r%d %% complete", 100 * write_offset / length);
-    debug_flush();
+    percentage = 100 * write_offset / length;
+
+    if (percentage != last_percentage) {
+      debug_printf("\r%d %% complete", percentage);
+      debug_flush();
+      last_percentage = percentage;
+    }
 
     write_offset += write_length;
   }
