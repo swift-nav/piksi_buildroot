@@ -344,6 +344,9 @@ static struct curl_slist *ntrip_init(CURL *curl)
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
   chunk = curl_slist_append(chunk, "Ntrip-Version: Ntrip/2.0");
+  chunk = curl_slist_append(chunk, "Accept:");
+  chunk = curl_slist_append(chunk, "Content-Type:");
+  chunk = curl_slist_append(chunk, "Expect:");
 
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
   curl_easy_setopt(curl, CURLOPT_USERAGENT,  "NTRIP ntrip-client/1.0");
@@ -391,8 +394,6 @@ void ntrip_download(const network_config_t *config)
     return;
   }
 
-  struct curl_slist *chunk = ntrip_init(curl);
-
   curl_easy_setopt(curl, CURLOPT_URL,              config->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA,        &transfer);
@@ -401,6 +402,8 @@ void ntrip_download(const network_config_t *config)
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      &transfer);
+
+  struct curl_slist *chunk = ntrip_init(curl);
 
   network_request(curl);
 
@@ -428,17 +431,17 @@ void ntrip_upload(const network_config_t *config)
     return;
   }
 
-  struct curl_slist *chunk = ntrip_init(curl);
-
   curl_easy_setopt(curl, CURLOPT_POST,             1L);
   curl_easy_setopt(curl, CURLOPT_URL,              config->url);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA,        &transfer);
+  curl_easy_setopt(curl, CURLOPT_READFUNCTION,     network_upload_read);
+  curl_easy_setopt(curl, CURLOPT_READDATA,         &transfer);
   curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_upload_progress);
   curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     &progress);
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      &transfer);
+
+  struct curl_slist *chunk = ntrip_init(curl);
 
   network_request(curl);
 
@@ -466,8 +469,6 @@ void skylark_download(const network_config_t *config)
     return;
   }
 
-  struct curl_slist *chunk = skylark_init(curl);
-
   curl_easy_setopt(curl, CURLOPT_URL,              config->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA,        &transfer);
@@ -476,6 +477,8 @@ void skylark_download(const network_config_t *config)
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      &transfer);
+
+  struct curl_slist *chunk = skylark_init(curl);
 
   network_request(curl);
 
@@ -503,8 +506,6 @@ void skylark_upload(const network_config_t *config)
     return;
   }
 
-  struct curl_slist *chunk = skylark_init(curl);
-
   curl_easy_setopt(curl, CURLOPT_PUT,              1L);
   curl_easy_setopt(curl, CURLOPT_URL,              config->url);
   curl_easy_setopt(curl, CURLOPT_READFUNCTION,     network_upload_read);
@@ -514,6 +515,8 @@ void skylark_upload(const network_config_t *config)
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      &transfer);
+
+  struct curl_slist *chunk = skylark_init(curl);
 
   network_request(curl);
 

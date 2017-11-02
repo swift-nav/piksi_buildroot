@@ -26,7 +26,7 @@ typedef struct {
 
 static int ntrip_daemon_execfn(void) {
   char *argv[] = {
-    "ntrip_source_daemon",
+    "ntrip_source_daemon", "--debug",
     "--file", FIFO_FILE_PATH,
     "--url", ntrip_url,
     NULL,
@@ -37,9 +37,11 @@ static int ntrip_daemon_execfn(void) {
 
 static int ntrip_adapter_execfn(void) {
   char *argv[] = {
-    "zmq_adapter",
+    "zmq_adapter", "--debug",
     "--file", FIFO_FILE_PATH,
     "-s", ">tcp://127.0.0.1:43080",
+    "--filter-out", "sbp",
+    "--filter-out-config", "/etc/skylark_upload_filter_out_config",
     NULL,
   };
 
