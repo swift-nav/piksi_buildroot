@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-PIKSI_INS_REF_VERSION = v11
+PIKSI_INS_REF_VERSION = v12
 PIKSI_INS_REF_SITE = git@github.com:swift-nav/piksi_inertial_ipsec.git
 PIKSI_INS_REF_SITE_METHOD = git
 PIKSI_INS_REF_DEPENDENCIES = host-llvm_obfuscator
@@ -36,8 +36,8 @@ define PIKSI_INS_REF_BUILD_CMDS
 endef
 
 define PIKSI_INS_REF_INSTALL_TARGET_CMDS
-	$(INSTALL) -D -m 0755 $(@D)/bin/selfverify $(TARGET_DIR)/usr/bin
-	$(INSTALL) -D -m 0755 $(@D)/bin/ip_unlock $(TARGET_DIR)/usr/bin
+	$(INSTALL) -D -m 0755 $(@D)/bin/selfverify_test $(TARGET_DIR)/usr/bin
+	$(INSTALL) -D -m 0755 $(@D)/bin/ip_unlock_test $(TARGET_DIR)/usr/bin
 endef
 
 $(eval $(generic-package))
