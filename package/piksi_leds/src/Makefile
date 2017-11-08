@@ -1,5 +1,6 @@
 TARGET=piksi_leds
 SOURCES= \
+	led_adp8866.c \
 	main.c \
 
 LIBS=-lczmq -lsbp -lpiksi

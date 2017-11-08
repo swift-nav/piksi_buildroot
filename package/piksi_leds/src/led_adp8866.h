@@ -13,20 +13,21 @@
 #ifndef SWIFTNAV_LED_ADP8866_H
 #define SWIFTNAV_LED_ADP8866_H
 
-#include <libswiftnav/common.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #define LED_ADP8866_LED_COUNT 9
 #define LED_ADP8866_BRIGHTNESS_MAX 127
 
 typedef struct {
-  u8 led;
-  u8 brightness;
+  uint8_t led;
+  uint8_t brightness;
 } led_adp8866_led_state_t;
 
-void led_adp8866_init(void);
+void led_adp8866_init(bool is_duro);
 
 bool led_adp8866_led_set(const led_adp8866_led_state_t *led_state);
 bool led_adp8866_leds_set(const led_adp8866_led_state_t *led_states,
-                          u32 led_states_count);
+                          uint32_t led_states_count);
 
 #endif /* SWIFTNAV_LED_ADP8866_H */
