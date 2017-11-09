@@ -131,24 +131,20 @@ static bool blinker_update(blinker_state_t *b) {
  * \return Device state.
  */
 static device_state_t get_device_state(void) {
-#if 0
-  /* Check for FIXED */
-  soln_dgnss_stats_t stats = solution_last_dgnss_stats_get();
-  s8 fix = piksi_systime_cmp(&PIKSI_SYSTIME_INIT, &stats.systime);
+  struct soln_state state;
+  firmware_state_get(&state);
 
-  if (fix) {
-    u32 elapsed = piksi_systime_elapsed_since_ms(&stats.systime);
+  /* Check for FIXED */
+  if (state.dgnss.mode >= MODE_FLOAT) {
+    u32 elapsed = elapsed_ms(&state.dgnss.systime);
     if (elapsed < LED_MODE_TIMEOUT_MS) {
-      return (FILTER_FIXED == stats.mode) ? DEV_FIXED : DEV_FLOAT;
+      return (MODE_FIXED == state.dgnss.mode) ? DEV_FIXED : DEV_FLOAT;
     }
   }
 
   /* Check for SPS */
-  piksi_systime_t t = solution_last_pvt_stats_get().systime;
-  fix = piksi_systime_cmp(&PIKSI_SYSTIME_INIT, &t);
-
-  if (fix) {
-    u32 elapsed = piksi_systime_elapsed_since_ms(&t);
+  if (state.spp.mode > MODE_INVALID) {
+    u32 elapsed = elapsed_ms(&state.spp.systime);
 
     /* PVT available */
     if (elapsed < LED_MODE_TIMEOUT_MS) {
@@ -156,17 +152,14 @@ static device_state_t get_device_state(void) {
     }
   }
 
-  /* Blink according to signals tracked */
-  u8 signals_tracked = solution_last_stats_get().signals_tracked;
-
-  if (signals_tracked >= 4) {
+  if (state.sats >= 4) {
     return DEV_TRK_AT_LEAST_FOUR;
   }
 
-  if (antenna_present()) {
+  if (state.antenna) {
     return DEV_ANTENNA;
   }
-#endif
+
   return DEV_NO_SIGNAL;
 }
 
