@@ -4,8 +4,8 @@
 #
 ################################################################################
 
-PIKSI_INS_REF_VERSION = v3
-PIKSI_INS_REF_SITE = git@github.com:swift-nav/piksi_inertial_ipsec_crl.git
+PIKSI_INS_REF_VERSION = v4
+PIKSI_INS_REF_SITE = ssh://git@github.com/swift-nav/piksi_inertial_ipsec_crl.git
 PIKSI_INS_REF_SITE_METHOD = git
 PIKSI_INS_REF_DEPENDENCIES = host-llvm_obfuscator
 
