@@ -1,5 +1,6 @@
 TARGET=piksi_leds
 SOURCES= \
+	firmware_state.c \
 	led_adp8866.c \
 	main.c \
 	manage_led.c \

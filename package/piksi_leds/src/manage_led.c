@@ -19,6 +19,7 @@
 #include <libsbp/common.h>
 
 #include "led_adp8866.h"
+#include "firmware_state.h"
 
 #define LED_POS_R 0
 #define LED_POS_G 1
@@ -211,7 +212,7 @@ static void handle_link(rgb_led_state_t *s) {
   static bool on_off = false;
   static u8 last_base_obs_msg_counter = 0;
 
-  u8 base_obs_msg_counter = 0;//TODO: base_obs_msg_counter_get();
+  u8 base_obs_msg_counter = firmware_state_obs_counter_get();
 
   if (base_obs_msg_counter != last_base_obs_msg_counter) {
     last_base_obs_msg_counter = base_obs_msg_counter;

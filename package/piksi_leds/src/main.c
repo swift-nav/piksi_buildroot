@@ -14,6 +14,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 
+#include "firmware_state.h"
 #include "manage_led.h"
 
 #define PROGRAM_NAME "piksi_leds"
@@ -44,10 +45,8 @@ int main(void)
     exit(EXIT_FAILURE);
   }
 
-  /* Probe for Duro host */
-  /* Initialise LED hardware */
+  firmware_state_init(sbp_zmq_pubsub_rx_ctx_get(ctx));
   manage_led_setup(board_is_duro());
-  /* Set up SBP listeners */
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 
