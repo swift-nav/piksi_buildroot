@@ -39,6 +39,7 @@ matrix:
         - SLACK_CHANNEL=github ./comment.sh
       after_failure:
         - tail -n 500 build.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out
 
     - env:
         - TRAVIS_TARGET=docker-make-host-image
