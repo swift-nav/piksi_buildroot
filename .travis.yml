@@ -53,6 +53,7 @@ matrix:
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh host_build.out
       after_failure:
         - tail -n 500 host_build.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out
 
 env:
   global:
