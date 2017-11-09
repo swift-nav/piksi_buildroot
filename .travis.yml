@@ -19,10 +19,12 @@ before_install:
   - eval "$(ssh-agent -s)"
   - chmod 0600 /tmp/travis_ssh_key
   - ssh-add /tmp/travis_ssh_key
-  - chmod 0600 $HOME/.ssh/config
-  - chmod 0700 $HOME/.ssh
   - pip install --user --upgrade awscli
   - git fetch --tags --unshallow
+  - chmod 0600 $HOME/.ssh/config
+  - chmod 0700 $HOME/.ssh
+  - sudo chown root $HOME/.ssh/config
+  - sudo chown root $HOME/.ssh
 
 after_script:
   - rm /tmp/travis_ssh_key
