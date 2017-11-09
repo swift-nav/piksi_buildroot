@@ -12,6 +12,7 @@ DOCKER_RUN_ARGS :=                                                            \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
   -v $(HOME)/.ssh:/root/.ssh                                                  \
+  ‭-v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent     \
   -v `pwd`:/piksi_buildroot                                                   \
   -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
