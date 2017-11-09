@@ -21,6 +21,17 @@
 #define PUB_ENDPOINT ">tcp://localhost:43031"
 #define SUB_ENDPOINT ">tcp://localhost:43030"
 
+#define DURO_EEPROM_PATH "/sys/devices/soc0/amba/e0005000.i2c/i2c-1/1-0050/eeprom"
+
+static bool board_is_duro(void)
+{
+  int fd = open(DURO_EEPROM_PATH, O_RDONLY);
+  char buf[6];
+  read(fd, buf, 6);
+  close(fd);
+  return memcmp(buf, "DUROV0", 6) == 0;
+}
+
 int main(void)
 {
   logging_init(PROGRAM_NAME);
@@ -35,7 +46,7 @@ int main(void)
 
   /* Probe for Duro host */
   /* Initialise LED hardware */
-  manage_led_setup();
+  manage_led_setup(board_is_duro());
   /* Set up SBP listeners */
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));

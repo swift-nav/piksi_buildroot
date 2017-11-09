@@ -13,6 +13,8 @@
 #ifndef SWIFTNAV_MANAGE_LED_H
 #define SWIFTNAV_MANAGE_LED_H
 
-void manage_led_setup(void);
+#include <stdbool.h>
+
+void manage_led_setup(bool is_duro);
 
 #endif /* SWIFTNAV_MANAGE_LED_H */

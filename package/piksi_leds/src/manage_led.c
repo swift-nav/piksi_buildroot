@@ -254,9 +254,9 @@ static void handle_mode(rgb_led_state_t *s, device_state_t dev_state) {
 }
 
 static void * manage_led_thread(void *arg) {
-  (void)arg;
+  bool is_duro = (bool)arg;
 
-  led_adp8866_init(false);
+  led_adp8866_init(is_duro);
 
   while (true) {
     device_state_t dev_state = get_device_state();
@@ -286,7 +286,7 @@ static void * manage_led_thread(void *arg) {
   return NULL;
 }
 
-void manage_led_setup(void) {
+void manage_led_setup(bool is_duro) {
   pthread_t thread;
-  pthread_create(&thread, NULL, manage_led_thread, NULL);
+  pthread_create(&thread, NULL, manage_led_thread, (void*)is_duro);
 }
