@@ -17,7 +17,8 @@ RUN apt-get -y --force-yes install \
   lib32z1 \
   libstdc++6 \
   vim \
-  silversearcher-ag
+  silversearcher-ag \
+  realpath
 
 ENV BR2_EXTERNAL /piksi_buildroot
 WORKDIR /piksi_buildroot
