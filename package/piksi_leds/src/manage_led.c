@@ -11,14 +11,14 @@
  */
 
 #include <assert.h>
-#include <hal.h>
+#include <stdlib.h>
+#include <math.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <time.h>
+#include <libsbp/common.h>
 
-#include "base_obs.h"
-#include "me_calc_pvt.h"
-#include "peripherals/antenna.h"
-#include "peripherals/led_adp8866.h"
-#include "piksi_systime.h"
-#include "starling_calc_pvt.h"
+#include "led_adp8866.h"
 
 #define LED_POS_R 0
 #define LED_POS_G 1
@@ -57,9 +57,6 @@
 
 #define LED_MODE_TIMEOUT_MS 1500
 
-#define MANAGE_LED_THREAD_STACK 2000
-#define MANAGE_LED_THREAD_PRIO (NORMALPRIO + 10)
-
 typedef struct {
   u8 r;
   u8 g;
@@ -79,27 +76,32 @@ typedef enum {
 
 typedef struct {
   blink_mode_t mode;            /* Current mode */
-  piksi_systime_t state_change; /* Time of previous on/off event */
+  struct timespec state_change; /* Time of previous on/off event */
   bool on_off;                  /* Current state */
 } blinker_state_t;
 
-static THD_WORKING_AREA(wa_manage_led_thread, MANAGE_LED_THREAD_STACK);
+static u32 elapsed_ms(const struct timespec *then) {
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  return (now.tv_sec * 1000 + now.tv_nsec / 1000000) -
+         (then->tv_sec * 1000 + then->tv_nsec / 1000000);
+}
 
 /** Update LED blink state.
  *
  * \param[in] b            LED state information.
  *
- * \return bool, TRUE for ON, FALSE for OFF.
+ * \return bool, true for ON, false for OFF.
  */
 static bool blinker_update(blinker_state_t *b) {
   u16 period_ms;
 
   switch (b->mode) {
     case LED_OFF:
-      return FALSE;
+      return false;
       break;
     case LED_ON:
-      return TRUE;
+      return true;
       break;
     case LED_BLINK_SLOW:
       period_ms = SLOW_BLINK_PERIOD_MS;
@@ -112,11 +114,11 @@ static bool blinker_update(blinker_state_t *b) {
       break;
   }
 
-  u32 elapsed = piksi_systime_elapsed_since_ms(&b->state_change);
+  u32 elapsed = elapsed_ms(&b->state_change);
 
   if (elapsed >= period_ms) {
     b->on_off = !b->on_off;
-    piksi_systime_get(&b->state_change);
+    clock_gettime(CLOCK_MONOTONIC, &b->state_change);
   }
 
   return b->on_off;
@@ -128,6 +130,7 @@ static bool blinker_update(blinker_state_t *b) {
  * \return Device state.
  */
 static device_state_t get_device_state(void) {
+#if 0
   /* Check for FIXED */
   soln_dgnss_stats_t stats = solution_last_dgnss_stats_get();
   s8 fix = piksi_systime_cmp(&PIKSI_SYSTIME_INIT, &stats.systime);
@@ -162,32 +165,8 @@ static device_state_t get_device_state(void) {
   if (antenna_present()) {
     return DEV_ANTENNA;
   }
-
+#endif
   return DEV_NO_SIGNAL;
-}
-
-/** Handle PV LED state.
- *
- * \param[in] dev_state   Current device state.
- *
- * \return bool, TRUE for ON, FALSE for OFF.
- */
-static bool handle_pv(device_state_t dev_state) {
-  switch (dev_state) {
-    case DEV_NO_SIGNAL:
-    case DEV_ANTENNA:
-    case DEV_TRK_AT_LEAST_FOUR:
-      return FALSE;
-      break;
-    case DEV_SPS:
-    case DEV_FLOAT:
-    case DEV_FIXED:
-      return TRUE;
-      break;
-    default:
-      assert(!"Unknown mode");
-      break;
-  }
 }
 
 /** Handle POS LED state.
@@ -229,16 +208,16 @@ static void handle_pos(rgb_led_state_t *s, device_state_t dev_state) {
  *
  */
 static void handle_link(rgb_led_state_t *s) {
-  static bool on_off = FALSE;
+  static bool on_off = false;
   static u8 last_base_obs_msg_counter = 0;
 
-  u8 base_obs_msg_counter = base_obs_msg_counter_get();
+  u8 base_obs_msg_counter = 0;//TODO: base_obs_msg_counter_get();
 
   if (base_obs_msg_counter != last_base_obs_msg_counter) {
     last_base_obs_msg_counter = base_obs_msg_counter;
     on_off = !on_off;
   } else {
-    on_off = FALSE;
+    on_off = false;
   }
 
   *s = on_off ? LED_COLOR_RED : LED_COLOR_OFF;
@@ -274,20 +253,12 @@ static void handle_mode(rgb_led_state_t *s, device_state_t dev_state) {
   *s = blinker_update(&blinker_state) ? LED_COLOR_BLUE : LED_COLOR_OFF;
 }
 
-static void manage_led_thread(void *arg) {
+static void * manage_led_thread(void *arg) {
   (void)arg;
-  chRegSetThreadName("manage LED");
 
-  /* Configure GPIO */
-  chSysLock();
-  { palSetLineMode(POS_VALID_GPIO_LINE, PAL_MODE_OUTPUT); }
-  chSysUnlock();
+  led_adp8866_init(false);
 
-  palClearLine(POS_VALID_GPIO_LINE);
-
-  led_adp8866_init();
-
-  while (TRUE) {
+  while (true) {
     device_state_t dev_state = get_device_state();
     rgb_led_state_t pos_state;
     handle_pos(&pos_state, dev_state);
@@ -310,18 +281,12 @@ static void manage_led_thread(void *arg) {
         {.led = LED_MODE_B, .brightness = mode_state.b}};
     led_adp8866_leds_set(led_states,
                          sizeof(led_states) / sizeof(led_states[0]));
-
-    bool pv_state = handle_pv(dev_state);
-    palWriteLine(POS_VALID_GPIO_LINE, pv_state ? PAL_HIGH : PAL_LOW);
-
-    piksi_systime_sleep_ms(MANAGE_LED_THREAD_PERIOD_MS);
+    usleep(MANAGE_LED_THREAD_PERIOD_MS * 1000);
   }
+  return NULL;
 }
 
 void manage_led_setup(void) {
-  chThdCreateStatic(wa_manage_led_thread,
-                    sizeof(wa_manage_led_thread),
-                    MANAGE_LED_THREAD_PRIO,
-                    manage_led_thread,
-                    NULL);
+  pthread_t thread;
+  pthread_create(&thread, NULL, manage_led_thread, NULL);
 }

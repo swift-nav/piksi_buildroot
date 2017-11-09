@@ -14,6 +14,8 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 
+#include "manage_led.h"
+
 #define PROGRAM_NAME "piksi_leds"
 
 #define PUB_ENDPOINT ">tcp://localhost:43031"
@@ -33,6 +35,7 @@ int main(void)
 
   /* Probe for Duro host */
   /* Initialise LED hardware */
+  manage_led_setup();
   /* Set up SBP listeners */
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));

@@ -2,8 +2,9 @@ TARGET=piksi_leds
 SOURCES= \
 	led_adp8866.c \
 	main.c \
+	manage_led.c \
 
-LIBS=-lczmq -lsbp -lpiksi
+LIBS=-lczmq -lsbp -lpiksi -lpthread
 
 CFLAGS=-std=gnu11
 
