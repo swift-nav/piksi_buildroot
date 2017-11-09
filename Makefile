@@ -17,11 +17,7 @@ DOCKER_RUN_ARGS :=                                                            \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
 
 ifneq ($(SSH_AUTH_SOCK),)
-ifneq ($(shell which realpath),)
-DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell realpath $(SSH_AUTH_SOCK)):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
-else
-DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell readlink -f $(SSH_AUTH_SOCK)):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
-endif
+DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
 endif
 
 DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
