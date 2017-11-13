@@ -113,11 +113,12 @@ make image
 To do an incremental rebuild of a package, invoke the following:
 
 ``` sh
-make docker-pkg-ntrip_daemon-rebuild
+make docker-pkg-<package_name>-rebuild
 ```
 
-To get an idea of what other commands are available for a package, inspect
-the help output from buildroot:
+Where `<package_name>` is a package name like `ntrip_daemon`.  To get an idea
+of what other commands are available for a package, inspect the help output
+from buildroot:
 
 ```sh
 # Launch the build shell
@@ -128,11 +129,11 @@ make -C buildroot help
 
 ## Copying data out of docker
 
-For speed, most buildroot data is captured in side a docker volume.  The volume
+For speed, most buildroot data is captured inside a docker volume.  The volume
 keeps file access inside a docker container instead of moving the data from
 container to host (which is slow on many platforms, except Linux).
 
-The following diagram shows how Docker composes the file system layers we
+The following diagram shows how Docker composes the file system layers that we
 specify for the build container:
 
 <pre>
@@ -144,7 +145,7 @@ specify for the build container:
   └──────┬─────────────────────────────────────────┘ ┌──── $PWD/buildroot,
          │                                           │    changes are only
          │        ┌──────────────────────────────┐   │       visible in
-         │        │  Docker Volume:              │   │         docker.
+         │        │  Docker volume:              │   │         docker.
          ├───────▶│    (/buildroot/)             │◀──┘
          │        └──────────────────────────────┘
          │                                               Anything written
