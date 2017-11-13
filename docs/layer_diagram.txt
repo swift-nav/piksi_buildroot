@@ -1,0 +1,26 @@
+<pre>
+  ┌────────────────────────────────────────────────┐
+  │                                                │
+  │ Host Filesystem                                │          Initially
+  │   ($PWD mapped to /piksi_buildroot)            │       populated with
+  │                                                │         contents of
+  └──────┬─────────────────────────────────────────┘ ┌──── $PWD/buildroot,
+         │                                           │    changes are only
+         │        ┌──────────────────────────────┐   │       visible in
+         │        │  Docker Volume:              │   │         docker.
+         ├───────▶│    (/buildroot/)             │◀──┘
+         │        └──────────────────────────────┘
+         │                                               Anything written
+         │        ┌──────────────────────────────┐       here will show up
+         │        │ Container to host mapping:   │  ┌───    in the host
+         ├───────▶│   (/buildroot/output/images) │◀─┘       filesystem.
+         │        └──────────────────────────────┘
+         │
+         │        ┌──────────────────────────────┐
+         │        │ Ephemeral container layer    │       Anything that doesn't
+         └───────▶│                              │◀─┐      match an existing
+                  └──────────────────────────────┘  │       mapping will be
+                                                    └───    captured in an
+                                                          ephemeral (per run)
+                                                                layer.
+</pre>

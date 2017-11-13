@@ -97,13 +97,73 @@ make image
 
 ### Docker
 
+#### Build shell
+
 ``` sh
 # Start interactive Docker container
 make docker-run
-# Enter buildroot directory
-cd buildroot
 # Rebuild a package
-make libpiksi-rebuild
+make -C buildroot libpiksi-rebuild
 # Rebuild the system image
 make image
+```
+
+#### One-shot make target
+
+To do an incremental rebuild of a package, invoke the following:
+
+``` sh
+make docker-pkg-ntrip_daemon-rebuild
+```
+
+To get an idea of what other commands are available for a package, inspect
+the help output from buildroot:
+
+```sh
+# Launch the build shell
+make docker-run
+# Ask buildroot for help
+make -C buildroot help
+```
+
+## Copying data out of docker
+
+For speed, most buildroot data is captured in side a docker volume.  The volume
+keeps file access inside a docker container instead of moving the data from
+container to host (which is slow on many platforms, except Linux).
+
+The following diagram shows how Docker composes the file system layers we
+specify for the build container:
+
+<pre>
+  ┌────────────────────────────────────────────────┐
+  │                                                │
+  │ Host Filesystem                                │          Initially
+  │   ($PWD mapped to /piksi_buildroot)            │       populated with
+  │                                                │         contents of
+  └──────┬─────────────────────────────────────────┘ ┌──── $PWD/buildroot,
+         │                                           │    changes are only
+         │        ┌──────────────────────────────┐   │       visible in
+         │        │  Docker Volume:              │   │         docker.
+         ├───────▶│    (/buildroot/)             │◀──┘
+         │        └──────────────────────────────┘
+         │                                               Anything written
+         │        ┌──────────────────────────────┐       here will show up
+         │        │ Container to host mapping:   │  ┌───    in the host
+         ├───────▶│   (/buildroot/output/images) │◀─┘       filesystem.
+         │        └──────────────────────────────┘
+         │
+         │        ┌──────────────────────────────┐
+         │        │ Ephemeral container layer    │       Anything that doesn't
+         └───────▶│                              │◀─┐      match an existing
+                  └──────────────────────────────┘  │       mapping will be
+                                                    └───    captured in an
+                                                          ephemeral (per run)
+                                                                layer.
+</pre>
+
+To copy data out of docker, use the following make rule:
+
+```
+make docker-cp SRC=/piksi_buildroot/buildroot/output/target/usr/bin/nap_linux DST=/tmp/nap_linux
 ```
