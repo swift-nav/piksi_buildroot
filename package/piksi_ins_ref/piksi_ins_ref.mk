@@ -15,7 +15,7 @@ ifeq    ($(BR2_RUN_TESTS),y)
 define PIKSI_INS_REF_BUILD_CMDS_TESTS
 	$(MAKE) -j1 -C $(@D) submodules_as_archives
 	$(MAKE) CC=$(TARGET_CC) CXX=$(TARGET_CXX) AR=ar STRIP=strip HOSTCC=$(TARGET_CC) \
-					HOSTCXX=$(TARGET_CXX) OBJCOPY=objcopy OBF_FLAGS= \
+					HOSTCXX=$(TARGET_CXX) OBJCOPY=objcopy DEBUG=y \
 		-j1 -C $(@D) all test
 endef
 
