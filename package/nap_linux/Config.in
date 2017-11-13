@@ -1,2 +1,0 @@
-config BR2_PACKAGE_NAP_LINUX
-	bool "nap_linux"
