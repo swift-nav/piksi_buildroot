@@ -22,3 +22,5 @@ RUN apt-get -y --force-yes install \
 
 ENV BR2_EXTERNAL /piksi_buildroot
 WORKDIR /piksi_buildroot
+
+# vim: ft=dockerfile:

@@ -76,7 +76,7 @@ host-clean:
 	rm -rf buildroot/host_output
 
 docker-build-image:
-	docker build --no-cache --force-rm --tag piksi_buildroot .
+	docker build --no-cache --force-rm --tag piksi_buildroot -f docker/Dockerfile .
 
 docker-populate-volume:
 	docker run $(DOCKER_ARGS) piksi_buildroot \
