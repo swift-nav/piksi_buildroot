@@ -85,11 +85,10 @@ static int cellmodem_notify(void *context)
   char chatcmd[256];
   switch (modem_type) {
   case MODEM_TYPE_GSM:
-    snprintf(chatcmd, sizeof(chatcmd),
-             "/usr/sbin/chat -v -T %s -f /etc/ppp/chatscript-gsm", cellmodem_apn);
+    snprintf(chatcmd, sizeof(chatcmd), "/etc/ppp/chatcmd-gsm %s", cellmodem_apn);
     break;
   case MODEM_TYPE_CDMA:
-    strcpy(chatcmd, "/usr/sbin/chat -v -f /etc/ppp/chatscript-cdma");
+    strcpy(chatcmd, "/etc/ppp/chatcmd-cdma");
     break;
   }
 

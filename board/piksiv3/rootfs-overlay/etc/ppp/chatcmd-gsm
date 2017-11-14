@@ -1,0 +1,9 @@
+#!/bin/ash
+
+set -e
+
+apn="$1"
+shift
+
+/usr/sbin/chat -v -T "$apn" -f /etc/ppp/chatscript-gsm
+/etc/ppp/ip-up
