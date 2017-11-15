@@ -8,7 +8,7 @@ local_ip=$1       ; shift
 echo "pppd ip-down script invoked" | sbp_log --debug
 
 route del default
-route add default eth0
+/etc/init.d/S86ifplugd restart
 
 if [ "$USEPEERDNS" = "1" ]; then
 
