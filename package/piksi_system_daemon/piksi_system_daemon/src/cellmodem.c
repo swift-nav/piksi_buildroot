@@ -79,11 +79,8 @@ static int cellmodem_notify(void *context)
     cellmodem_pppd_pid = 0;
   }
 
-  if (!cellmodem_enabled) {
-    system("route del default");
-    system("route add default eth0");
+  if (!cellmodem_enabled)
     return 0;
-  }
 
   char chatcmd[256];
   switch (modem_type) {
@@ -101,9 +98,9 @@ static int cellmodem_notify(void *context)
                   cellmodem_dev,
                   "connect",
                   chatcmd,
-                  "defaultroute",
-                  "lcp-echo-failure", "5",
-                  "lcp-echo-interval", "30",
+                  "usepeerdns",
+                  "lcp-echo-failure", "3",
+                  "lcp-echo-interval", "5",
                   "maxfail", "0",
                   "persist",
                   NULL};
