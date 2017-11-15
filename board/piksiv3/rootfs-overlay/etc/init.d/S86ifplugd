@@ -1,17 +1,8 @@
 #!/bin/sh
 
 name="ifplugd"
+cmd="ifplugd -M -I -t 1 -n -f"
+dir="/"
+user=""
 
-start() {
-  if [ -f "/etc/ifplugd/ifplugd.action" ]; then
-    ifplugd -M -I -t 1
-  else
-    echo "ERROR: firmware not found"
-  fi
-}
-
-stop() {
-  ifplugd -k
-}
-
-source /etc/init.d/template_command.inc.sh
+source /etc/init.d/template_process.inc.sh

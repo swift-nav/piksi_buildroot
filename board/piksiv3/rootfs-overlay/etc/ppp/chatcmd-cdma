@@ -1,6 +1,0 @@
-#!/bin/ash
-
-set -e
-
-/usr/sbin/chat -v -f /etc/ppp/chatscript-cdma
-/etc/ppp/ip-up

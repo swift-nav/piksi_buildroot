@@ -79,16 +79,20 @@ static int cellmodem_notify(void *context)
     cellmodem_pppd_pid = 0;
   }
 
-  if (!cellmodem_enabled)
+  if (!cellmodem_enabled) {
+    system("route del default");
+    system("route add default eth0");
     return 0;
+  }
 
   char chatcmd[256];
   switch (modem_type) {
   case MODEM_TYPE_GSM:
-    snprintf(chatcmd, sizeof(chatcmd), "/etc/ppp/chatcmd-gsm %s", cellmodem_apn);
+    snprintf(chatcmd, sizeof(chatcmd),
+             "/usr/sbin/chat -v -T %s -f /etc/ppp/chatscript-gsm", cellmodem_apn);
     break;
   case MODEM_TYPE_CDMA:
-    strcpy(chatcmd, "/etc/ppp/chatcmd-cdma");
+    strcpy(chatcmd, "/usr/sbin/chat -v -f /etc/ppp/chatscript-cdma");
     break;
   }
 
@@ -97,6 +101,11 @@ static int cellmodem_notify(void *context)
                   cellmodem_dev,
                   "connect",
                   chatcmd,
+                  "defaultroute",
+                  "lcp-echo-failure", "2",
+                  "lcp-echo-interval", "10",
+                  "maxfail", "0",
+                  "persist",
                   NULL};
 
   /* Create a new pppd process. */
