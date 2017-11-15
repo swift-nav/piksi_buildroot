@@ -102,8 +102,8 @@ static int cellmodem_notify(void *context)
                   "connect",
                   chatcmd,
                   "defaultroute",
-                  "lcp-echo-failure", "2",
-                  "lcp-echo-interval", "10",
+                  "lcp-echo-failure", "5",
+                  "lcp-echo-interval", "30",
                   "maxfail", "0",
                   "persist",
                   NULL};
