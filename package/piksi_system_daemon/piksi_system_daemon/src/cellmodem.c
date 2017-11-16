@@ -102,6 +102,7 @@ static int cellmodem_notify(void *context)
                   "lcp-echo-failure", "3",
                   "lcp-echo-interval", "5",
                   "maxfail", "0",
+                  "holdoff", "0",
                   "persist",
                   NULL};
 
