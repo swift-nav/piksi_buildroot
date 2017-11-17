@@ -62,7 +62,3 @@ check process klogd with pidfile /var/run/klogd.pid
 check process standalone_file_logger with pidfile /var/run/standalone_file_logger.pid
     start program = "/etc/init.d/S83standalone_file_logger start"
     stop program = "/etc/init.d/S83standalone_file_logger stop"
-
-check process ifplugd with pidfile /var/run/ifplugd.pid
-    start program = "/etc/init.d/S86ifplugd start"
-    stop program = "/etc/init.d/S86ifplugd stop"

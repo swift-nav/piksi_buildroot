@@ -1,8 +1,13 @@
 #!/bin/sh
 
 name="ifplugd"
-cmd="ifplugd -M -I -t 1 -n -f"
-dir="/"
-user=""
 
-source /etc/init.d/template_process.inc.sh
+start() {
+  ifplugd -M -I -t 1 -f
+}
+
+stop() {
+  ifplugd -k
+}
+
+source /etc/init.d/template_command.inc.sh
