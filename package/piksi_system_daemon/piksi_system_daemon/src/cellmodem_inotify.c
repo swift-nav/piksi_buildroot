@@ -30,6 +30,15 @@
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
+typedef struct {
+  sbp_zmq_pubsub_ctx_t *pubsub_ctx;
+  zloop_t *loop;
+  zmq_pollitem_t pollitem;
+  int inotify_fd;
+  int watch_descriptor;
+  char cellmodem_dev[32];
+} inotify_ctx_t;
+
 bool cellmodem_tty_exists(const char* path) {
 
   char full_path[PATH_MAX];

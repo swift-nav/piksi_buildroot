@@ -13,15 +13,6 @@
 #ifndef _SWIFT_CELLMODEM_INOTIFY_H
 #define _SWIFT_CELLMODEM_INOTIFY_H
 
-typedef struct {
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx;
-  zloop_t *loop;
-  zmq_pollitem_t pollitem;
-  int inotify_fd;
-  int watch_descriptor;
-  char cellmodem_dev[32];
-} inotify_ctx_t;
-
 bool cellmodem_tty_exists(const char* path);
 void async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx, const char* cellmodem_dev);
 
