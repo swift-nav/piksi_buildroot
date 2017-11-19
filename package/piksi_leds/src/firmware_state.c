@@ -20,6 +20,10 @@
 
 #include "firmware_state.h"
 
+/* These really belong in libsbp */
+#define SBP_ECEF_FLAGS_MODE_MASK 0x7
+#define SBP_HEARTBEAT_FLAGS_ANTENNA_SHIFT 31
+
 static u8 base_obs_counter;
 static struct soln_state soln_state;
 
@@ -37,21 +41,21 @@ u8 firmware_state_obs_counter_get(void)
 static void sbp_msg_pos_ecef_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
 {
   msg_pos_ecef_t *msg = (void*)msg_;
-  soln_state.spp.mode = msg->flags & 7;
+  soln_state.spp.mode = msg->flags & SBP_ECEF_FLAGS_MODE_MASK;
   clock_gettime(CLOCK_MONOTONIC, &soln_state.spp.systime);
 }
 
 static void sbp_msg_baseline_ecef_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
 {
   msg_baseline_ecef_t *msg = (void*)msg_;
-  soln_state.dgnss.mode = msg->flags & 7;
+  soln_state.dgnss.mode = msg->flags & SBP_ECEF_FLAGS_MODE_MASK;
   clock_gettime(CLOCK_MONOTONIC, &soln_state.dgnss.systime);
 }
 
 static void sbp_msg_heartbeat_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
 {
   msg_heartbeat_t *msg = (void*)msg_;
-  soln_state.antenna = msg->flags >> 31;
+  soln_state.antenna = msg->flags >> SBP_HEARTBEAT_FLAGS_ANTENNA_SHIFT;
 }
 
 static void sbp_msg_tracking_state_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)

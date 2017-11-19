@@ -19,14 +19,16 @@
 
 #define PROGRAM_NAME "piksi_leds"
 
-#define PUB_ENDPOINT ">tcp://localhost:43031"
-#define SUB_ENDPOINT ">tcp://localhost:43030"
+#define PUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43031"
+#define SUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43030"
 
 #define DURO_EEPROM_PATH "/sys/devices/soc0/amba/e0005000.i2c/i2c-1/1-0050/eeprom"
 
 static bool board_is_duro(void)
 {
   int fd = open(DURO_EEPROM_PATH, O_RDONLY);
+  if (fd < 0)
+    return false;
   char buf[6];
   read(fd, buf, 6);
   close(fd);
@@ -40,7 +42,8 @@ int main(void)
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
-  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
+  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT_EXTERNAL_SBP,
+                                                    SUB_ENDPOINT_EXTERNAL_SBP);
   if (ctx == NULL) {
     exit(EXIT_FAILURE);
   }
