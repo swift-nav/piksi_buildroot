@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-PIKSI_INS_REF_VERSION = v5
+PIKSI_INS_REF_VERSION = v6
 PIKSI_INS_REF_SITE = ssh://git@github.com/swift-nav/piksi_inertial_ipsec_crl.git
 PIKSI_INS_REF_SITE_METHOD = git
 PIKSI_INS_REF_DEPENDENCIES = host-llvm_obfuscator
@@ -15,6 +15,9 @@ ifeq    ($(BR2_RUN_TESTS),y)
 define PIKSI_INS_REF_BUILD_CMDS_TESTS
 	$(MAKE) -C $(@D) clean
 	$(MAKE) -C $(@D) submodules_as_archives
+	$(MAKE) CC=$(TARGET_CC) CXX=$(TARGET_CXX) AR=ar STRIP=strip HOSTCC=$(TARGET_CC) \
+					HOSTCXX=$(TARGET_CXX) OBJCOPY=objcopy DEBUG=y \
+		-C $(@D) test || :
 	$(MAKE) CC=$(TARGET_CC) CXX=$(TARGET_CXX) AR=ar STRIP=strip HOSTCC=$(TARGET_CC) \
 					HOSTCXX=$(TARGET_CXX) OBJCOPY=objcopy DEBUG=y \
 		-C $(@D) test
@@ -30,7 +33,11 @@ define PIKSI_INS_REF_BUILD_FOR_TARGET
 	$(MAKE) CC=$(LLVM_OBF_CC) CXX=$(LLVM_OBF_CXX) AR=$(LLVM_OBF_AR) \
 				  STRIP=$(LLVM_OBF_STRIP) HOSTCC=$(LLVM_OBF_HOSTCC) \
 					HOSTCXX=$(LLVM_OBF_HOSTCXX) OBJCOPY=$(LLVM_OBF_OBJCOPY) \
-		-C $(@D) all
+					-C $(@D) all || :
+	$(MAKE) CC=$(LLVM_OBF_CC) CXX=$(LLVM_OBF_CXX) AR=$(LLVM_OBF_AR) \
+				  STRIP=$(LLVM_OBF_STRIP) HOSTCC=$(LLVM_OBF_HOSTCC) \
+					HOSTCXX=$(LLVM_OBF_HOSTCXX) OBJCOPY=$(LLVM_OBF_OBJCOPY) \
+					-C $(@D) all
 endef
 endif # ($(BR2_BUILD_TESTS),y)
 
