@@ -156,6 +156,7 @@ static char eth_gateway[16] = "192.168.0.1";
 
 static void eth_update_config(void)
 {
+  system("/etc/init.d/S86ifplugd stop");
   system("ifdown -f eth0");
 
   FILE *interfaces = fopen("/etc/network/interfaces", "w");
@@ -169,7 +170,7 @@ static void eth_update_config(void)
   }
   fclose(interfaces);
 
-  system("ifup eth0 &");
+  system("/etc/init.d/S86ifplugd start");
 }
 
 static int eth_ip_mode_notify(void *context)

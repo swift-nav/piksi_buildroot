@@ -17,6 +17,8 @@
 #include <libpiksi/logging.h>
 #include <libnetwork.h>
 
+#define PROGRAM_NAME "skylark_download_daemon"
+
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
@@ -87,8 +89,16 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static void cycle_connection(int signum)
+{
+  (void)signum;
+  libnetwork_cycle_connection();
+}
+
 int main(int argc, char *argv[])
 {
+  logging_init(PROGRAM_NAME);
+
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
     exit(EXIT_FAILURE);
@@ -97,6 +107,17 @@ int main(int argc, char *argv[])
   int fd = open(fifo_file_path, O_WRONLY);
   if (fd < 0) {
     piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  struct sigaction cycle_conn_sa;
+  cycle_conn_sa.sa_handler = cycle_connection;
+  sigemptyset(&cycle_conn_sa.sa_mask);
+  cycle_conn_sa.sa_flags = 0;
+
+  if ((sigaction(SIGUSR1, &cycle_conn_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up SIGUSR1 handler");
     exit(EXIT_FAILURE);
   }
 
@@ -109,5 +130,7 @@ int main(int argc, char *argv[])
   skylark_download(&config);
 
   close(fd);
-  exit(EXIT_FAILURE);
+
+  logging_deinit();
+  exit(EXIT_SUCCESS);
 }
