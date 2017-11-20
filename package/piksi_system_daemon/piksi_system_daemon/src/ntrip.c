@@ -18,7 +18,25 @@
 #define FIFO_FILE_PATH "/var/run/ntrip"
 
 static bool ntrip_enabled;
+static bool ntrip_debug;
 static char ntrip_url[256];
+
+static char *ntrip_argv_normal[] = {
+  "ntrip_daemon",
+  "--file", FIFO_FILE_PATH,
+  "--url", ntrip_url,
+  NULL,
+};
+
+static char *ntrip_argv_debug[] = {
+  "ntrip_daemon",
+  "--debug",
+  "--file", FIFO_FILE_PATH,
+  "--url", ntrip_url,
+  NULL,
+};
+
+static char** ntrip_argv = ntrip_argv_normal;
 
 typedef struct {
   int (*execfn)(void);
@@ -26,14 +44,7 @@ typedef struct {
 } ntrip_process_t;
 
 static int ntrip_daemon_execfn(void) {
-  char *argv[] = {
-    "ntrip_daemon",
-    "--file", FIFO_FILE_PATH,
-    "--url", ntrip_url,
-    NULL,
-  };
-
-  return execvp(argv[0], argv);
+  return execvp(ntrip_argv[0], ntrip_argv);
 }
 
 static int ntrip_adapter_execfn(void) {
@@ -82,6 +93,8 @@ static int ntrip_notify(void *context)
       continue;
     }
 
+    ntrip_argv = ntrip_debug ? ntrip_argv_debug : ntrip_argv_normal;
+
     process->pid = fork();
     if (process->pid == 0) {
       process->execfn();
@@ -99,6 +112,11 @@ void ntrip_init(settings_ctx_t *settings_ctx)
 
   settings_register(settings_ctx, "ntrip", "enable",
                     &ntrip_enabled, sizeof(ntrip_enabled),
+                    SETTINGS_TYPE_BOOL,
+                    ntrip_notify, NULL);
+
+  settings_register(settings_ctx, "ntrip", "debug",
+                    &ntrip_debug, sizeof(ntrip_debug),
                     SETTINGS_TYPE_BOOL,
                     ntrip_notify, NULL);
 
