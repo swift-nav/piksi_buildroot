@@ -1,0 +1,13 @@
+#!/bin/sh
+
+name="ifplugd"
+
+start() {
+  ifplugd -M -I -t 1 -f
+}
+
+stop() {
+  ifplugd -k
+}
+
+source /etc/init.d/template_command.inc.sh
