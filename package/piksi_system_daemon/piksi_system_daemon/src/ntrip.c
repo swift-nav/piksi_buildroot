@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <unistd.h>
 #include <libpiksi/logging.h>
 
 #include "ntrip.h"
@@ -17,7 +18,25 @@
 #define FIFO_FILE_PATH "/var/run/ntrip"
 
 static bool ntrip_enabled;
+static bool ntrip_debug;
 static char ntrip_url[256];
+
+static char *ntrip_argv_normal[] = {
+  "ntrip_daemon",
+  "--file", FIFO_FILE_PATH,
+  "--url", ntrip_url,
+  NULL,
+};
+
+static char *ntrip_argv_debug[] = {
+  "ntrip_daemon",
+  "--debug",
+  "--file", FIFO_FILE_PATH,
+  "--url", ntrip_url,
+  NULL,
+};
+
+static char** ntrip_argv = ntrip_argv_normal;
 
 typedef struct {
   int (*execfn)(void);
@@ -25,14 +44,7 @@ typedef struct {
 } ntrip_process_t;
 
 static int ntrip_daemon_execfn(void) {
-  char *argv[] = {
-    "ntrip_daemon",
-    "--file", FIFO_FILE_PATH,
-    "--url", ntrip_url,
-    NULL,
-  };
-
-  return execvp(argv[0], argv);
+  return execvp(ntrip_argv[0], ntrip_argv);
 }
 
 static int ntrip_adapter_execfn(void) {
@@ -68,12 +80,20 @@ static int ntrip_notify(void *context)
         piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
                   process->pid, errno, strerror(errno));
       }
+      sleep(1.0);
+      ret = kill(process->pid, SIGKILL);
+      if (ret != 0 && errno != ESRCH) {
+        piksi_log(LOG_ERR, "force kill pid %d error (%d) \"%s\"",
+                  process->pid, errno, strerror(errno));
+      }
       process->pid = 0;
     }
 
     if (!ntrip_enabled || strcmp(ntrip_url, "") == 0) {
       continue;
     }
+
+    ntrip_argv = ntrip_debug ? ntrip_argv_debug : ntrip_argv_normal;
 
     process->pid = fork();
     if (process->pid == 0) {
@@ -95,8 +115,36 @@ void ntrip_init(settings_ctx_t *settings_ctx)
                     SETTINGS_TYPE_BOOL,
                     ntrip_notify, NULL);
 
+  settings_register(settings_ctx, "ntrip", "debug",
+                    &ntrip_debug, sizeof(ntrip_debug),
+                    SETTINGS_TYPE_BOOL,
+                    ntrip_notify, NULL);
+
   settings_register(settings_ctx, "ntrip", "url",
                     &ntrip_url, sizeof(ntrip_url),
                     SETTINGS_TYPE_STRING,
                     ntrip_notify, NULL);
+}
+
+void ntrip_reconnect() {
+
+  for (int i=0; i<ntrip_processes_count; i++) {
+
+    ntrip_process_t *process = &ntrip_processes[i];
+
+    if (process->execfn == ntrip_daemon_execfn) {
+
+      if (process->pid == 0) {
+        piksi_log(LOG_ERR, "Asked to tell ntrip_daemon to reconnect, but it isn't running");
+        return;
+      }
+
+      int ret = kill(process->pid, SIGUSR1);
+
+      if (ret != 0) {
+        piksi_log(LOG_ERR, "ntrip_reconnect: kill pid %d error (%d) \"%s\"",
+                  process->pid, errno, strerror(errno));
+      }
+    }
+  }
 }

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Gareth McMullin <gareth@swiftnav.com>
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,13 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef __CELLMODEM_H
-#define __CELLMODEM_H
+#ifndef _SWIFT_CELLMODEM_INOTIFY_H
+#define _SWIFT_CELLMODEM_INOTIFY_H
 
-#include <libpiksi/settings.h>
+bool cellmodem_tty_exists(const char* path);
+void async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx, const char* cellmodem_dev);
 
-int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx);
-void handle_pppd_respawn(void *arg);
-int pppd_respawn(zloop_t *loop, int timer_id, void *arg);
-
-#endif
+#endif//_SWIFT_CELLMODEM_INOTIFY_H

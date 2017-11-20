@@ -59,4 +59,17 @@ void skylark_download(const network_config_t *config);
  */
 void skylark_upload(const network_config_t *config);
 
+/**
+ * @brief Graceful termination handler for libnetwork daemons.
+ *
+ * @details Grafcefully stop the upload/download loops started by
+ * ntrip_download, skylark_download, or skylark_upload.
+ */
+void libnetwork_shutdown(void);
+
+/**
+ * @brief Cycle (reconnect) the current network connection
+ */
+void libnetwork_cycle_connection(void);
+
 #endif /* SWIFTNAV_LIBNETWORK_H */

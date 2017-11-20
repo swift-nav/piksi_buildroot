@@ -2,6 +2,7 @@ TARGET=piksi_system_daemon
 SOURCES= \
 	async-child.c \
 	cellmodem.c \
+	cellmodem_inotify.c \
 	main.c \
 	protocols.c \
 	ports.c \
