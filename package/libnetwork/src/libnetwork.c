@@ -27,7 +27,7 @@
 #include "libnetwork.h"
 
 /** How large to configure the recv buffer to avoid excessive buffering. */
-const size_t RECV_BUFFER_SIZE = 4096;
+const long RECV_BUFFER_SIZE = 4096L;
 /** Max number of callbacks from CURLOPT_XFERINFOFUNCTION before we attempt to
  * reconnect to the server */
 const curl_off_t MAX_STALLED_INTERVALS = 30;
@@ -316,6 +316,7 @@ static void network_request(CURL *curl)
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE,     1L);
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPINTVL,     5L);
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPIDLE,      20L);
+  curl_easy_setopt(curl, CURLOPT_BUFFERSIZE,        RECV_BUFFER_SIZE);
 
   while (true) {
 

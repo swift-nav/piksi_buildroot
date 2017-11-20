@@ -10,10 +10,16 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/inotify.h>
+#include <unistd.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <stdbool.h>
 
 #include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/settings.h>
@@ -21,6 +27,7 @@
 #include <libsbp/logging.h>
 
 #include "cellmodem.h"
+#include "cellmodem_inotify.h"
 #include "async-child.h"
 
 /* External settings */
@@ -49,10 +56,20 @@ static void pppd_output_callback(const char *buf, void *arg)
                   SBP_MSG_LOG, sizeof(*msg) + strlen(buf), (void*)msg);
 }
 
-static int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
+void handle_pppd_respawn(void *arg)
 {
   if(cellmodem_enabled && (cellmodem_pppd_pid == 0))
     cellmodem_notify(arg);
+}
+
+int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
+{
+  (void)loop;
+  (void)timer_id;
+
+  handle_pppd_respawn(arg);
+
+  return 0;
 }
 
 static void pppd_exit_callback(int status, void *arg)
@@ -63,7 +80,7 @@ static void pppd_exit_callback(int status, void *arg)
     return;
 
   /* Respawn dead pppd */
-  zloop_timer(sbp_zmq_pubsub_zloop_get(pubsub_ctx), 5000, 1, pppd_respawn, pubsub_ctx);
+  zloop_timer(sbp_zmq_pubsub_zloop_get(pubsub_ctx), 500, 1, pppd_respawn, pubsub_ctx);
 }
 
 static int cellmodem_notify(void *context)
@@ -82,6 +99,11 @@ static int cellmodem_notify(void *context)
   if (!cellmodem_enabled)
     return 0;
 
+  if (!cellmodem_tty_exists(cellmodem_dev)) {
+    async_wait_for_tty(pubsub_ctx, cellmodem_dev);
+    return 0;
+  }
+
   char chatcmd[256];
   switch (modem_type) {
   case MODEM_TYPE_GSM:
@@ -98,6 +120,9 @@ static int cellmodem_notify(void *context)
                   cellmodem_dev,
                   "connect",
                   chatcmd,
+                  "usepeerdns",
+                  "lcp-echo-failure", "3",
+                  "lcp-echo-interval", "5",
                   NULL};
 
   /* Create a new pppd process. */

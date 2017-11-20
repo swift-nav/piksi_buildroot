@@ -1,0 +1,22 @@
+#!/bin/ash
+
+interface=$1
+shift
+
+action=$1
+shift
+
+case "$action" in
+  up)
+    ifup $interface
+    break
+  ;;
+  down)
+    ifdown $interface
+    break;
+  ;;
+  *)
+    echo "Unknown action for interface $interface"
+    break;
+  ;;
+esac
