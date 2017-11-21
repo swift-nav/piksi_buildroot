@@ -46,9 +46,15 @@ define PIKSI_INS_REF_BUILD_CMDS
 	$(PIKSI_INS_REF_BUILD_CMDS_TESTS)
 endef
 
+ifneq    ($(BR2_BUILD_TESTS),y)
+define PIKSI_INS_REF_INSTALL_CMDS_TESTS
+	$(INSTALL) -D -m 0755 $(@D)/bin/ip_unlock_test $(TARGET_DIR)/usr/bin
+endef
+endif
+
 define PIKSI_INS_REF_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/bin/selfverify_test $(TARGET_DIR)/usr/bin
-	$(INSTALL) -D -m 0755 $(@D)/bin/ip_unlock_test $(TARGET_DIR)/usr/bin
+	$(PIKSI_INS_REF_INSTALL_CMDS_TESTS)
 endef
 
 $(eval $(generic-package))
