@@ -14,28 +14,28 @@
 
 #define CONNECT_RETRY_TIME_s 10
 
-static int addr_parse(const char *addr, struct sockaddr_in *s_addr)
+static int addr_parse(const char *addr, struct sockaddr *s_addr, socklet_t *s_addr_len)
 {
-  char ip[16];
+  char hostname[256];
   int port;
-  if (sscanf(addr, "%15[^:]:%d", ip, &port) != 2) {
+  if (sscanf(addr, "%255[^:]:%d", hostname, &port) != 2) {
     syslog(LOG_ERR, "error parsing address");
     return 1;
   }
 
-  memset(s_addr, 0, sizeof(*s_addr));
-  s_addr->sin_family = AF_INET;
-  s_addr->sin_port = htons(port);
-
-  if (inet_aton(ip, &s_addr->sin_addr) == 0) {
-    syslog(LOG_ERR, "invalid address");
+  struct addrinfo *resolutions = NULL;
+  if (getaddrinfo(hostname, NULL, NULL, &resolutions) != 0) {
+    syslog(LOG_ERR, "address resolution failed");
     return 1;
   }
+
+  memcpy(s_addr, resolutions->ai_addr, resolutions->ai_addrlen);
+  freeaddrinfo(resolutions);
 
   return 0;
 }
 
-static int socket_create(const struct sockaddr_in *addr)
+static int socket_create(const struct sockaddr *addr, socklet_t addr_len)
 {
   int ret;
 
@@ -44,7 +44,7 @@ static int socket_create(const struct sockaddr_in *addr)
     return fd;
   }
 
-  ret = connect(fd, (struct sockaddr *)addr, sizeof(*addr));
+  ret = connect(fd, addr, addr_len);
   if (ret != 0) {
     goto err;
   }
@@ -59,13 +59,14 @@ err:
 
 int tcp_connect_loop(const char *addr)
 {
-  struct sockaddr_in s_addr;
-  if (addr_parse(addr, &s_addr) != 0) {
+  struct sockaddr_storage s_addr;
+  socklet_t s_addr_len;
+  if (addr_parse(addr, &s_addr, &s_addr_len) != 0) {
     return 1;
   }
 
   while (1) {
-    int fd = socket_create(&s_addr);
+    int fd = socket_create((struct sockaddr *) &s_addr, s_addr_len);
     if (fd < 0) {
       debug_printf("error connecting TCP socket\n");
       sleep(CONNECT_RETRY_TIME_s);
