@@ -1,0 +1,5 @@
+config BR2_PACKAGE_PIKSI_LEDS
+	bool "piksi_leds"
+	select BR2_PACKAGE_CZMQ
+	select BR2_PACKAGE_LIBSBP
+	select BR2_PACKAGE_LIBPIKSI
