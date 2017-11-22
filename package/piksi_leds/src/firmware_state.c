@@ -26,6 +26,7 @@
 
 static u8 base_obs_counter;
 static struct soln_state soln_state;
+static bool heartbeat_seen = false;
 
 static void sbp_msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
@@ -36,6 +37,11 @@ static void sbp_msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void *ctx)
 u8 firmware_state_obs_counter_get(void)
 {
   return base_obs_counter;
+}
+
+bool firmware_state_heartbeat_seen(void)
+{
+  return heartbeat_seen;
 }
 
 static void sbp_msg_pos_ecef_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
@@ -56,6 +62,7 @@ static void sbp_msg_heartbeat_callback(u16 sender_id, u8 len, u8 msg_[], void *c
 {
   msg_heartbeat_t *msg = (void*)msg_;
   soln_state.antenna = msg->flags >> SBP_HEARTBEAT_FLAGS_ANTENNA_SHIFT;
+  heartbeat_seen = true;
 }
 
 static void sbp_msg_tracking_state_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
