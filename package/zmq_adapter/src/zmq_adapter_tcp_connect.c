@@ -14,13 +14,22 @@
 
 #define CONNECT_RETRY_TIME_s 10
 
-static int addr_parse(const char *addr, struct sockaddr *s_addr, socklen_t *s_addr_len)
+typedef enum
+{
+  SUCCESS,
+  PARSE_FAILURE,
+  RESOLVE_FAILURE,
+  OTHER_ERROR
+
+} process_addr_t;
+
+static process_addr_t process_addr(const char *addr, struct sockaddr *s_addr, socklen_t *s_addr_len)
 {
   char hostname[256] = {0};
   int port;
   if (sscanf(addr, "%255[^:]:%d", hostname, &port) != 2) {
     syslog(LOG_ERR, "error parsing address");
-    return 1;
+    return PARSE_FAILURE;
   }
 
   debug_printf("connecting to %s\n", hostname);
@@ -28,12 +37,12 @@ static int addr_parse(const char *addr, struct sockaddr *s_addr, socklen_t *s_ad
   struct addrinfo *resolutions = NULL;
   if (getaddrinfo(hostname, NULL, NULL, &resolutions) != 0) {
     syslog(LOG_ERR, "address resolution failed");
-    return 1;
+    return RESOLVE_FAILURE;
   }
 
   if (resolutions == NULL) {
     syslog(LOG_ERR, "no addresses returned by name resolution");
-    return 1;
+    return RESOLVE_FAILURE;
   }
 
   memcpy(s_addr, resolutions->ai_addr, resolutions->ai_addrlen);
@@ -47,10 +56,10 @@ static int addr_parse(const char *addr, struct sockaddr *s_addr, socklen_t *s_ad
     ((struct sockaddr_in6*)s_addr)->sin6_port = htons(port);
   } else {
     syslog(LOG_ERR, "unknown address family returned from name resolution");
-    return 1;
+    return OTHER_ERROR;
   }
 
-  return 0;
+  return SUCCESS;
 }
 
 static int socket_create(const struct sockaddr *addr, socklen_t addr_len)
@@ -118,11 +127,17 @@ int tcp_connect_loop(const char *addr)
   struct sockaddr_storage s_addr;
   socklen_t s_addr_len = 0;
 
-  if (addr_parse(addr, (struct sockaddr *) &s_addr, &s_addr_len) != 0) {
-    return 1;
-  }
-
   while (1) {
+
+    process_addr_t res = process_addr(addr, (struct sockaddr *) &s_addr, &s_addr_len);
+
+    if (res == RESOLVE_FAILURE) {
+      sleep(CONNECT_RETRY_TIME_s);
+      continue;
+    } else if (res != SUCCESS) {
+      return 1;
+    }
+
     int fd = socket_create((struct sockaddr *) &s_addr, s_addr_len);
     if (fd < 0) {
       debug_printf("error connecting TCP socket\n");
