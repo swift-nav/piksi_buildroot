@@ -77,9 +77,10 @@ err:
 
 static bool configure_socket(int fd)
 {
+  int ret = 0;
 #ifdef TCP_USER_TIMEOUT
   unsigned int timeout = 5000;
-  int ret = setsockopt(fd, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
+  ret = setsockopt(fd, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
   if (ret < 0) {
     syslog(LOG_ERR, "setsockopt error %d", errno);
     return false;
