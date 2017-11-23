@@ -31,6 +31,11 @@ static int addr_parse(const char *addr, struct sockaddr *s_addr, socklen_t *s_ad
     return 1;
   }
 
+  if (resolutions == NULL) {
+    syslog(LOG_ERR, "no addresses returned by name resolution");
+    return 1;
+  }
+
   memcpy(s_addr, resolutions->ai_addr, resolutions->ai_addrlen);
   freeaddrinfo(resolutions);
 
@@ -70,7 +75,7 @@ err:
   return ret;
 }
 
-bool configure_socket(int fd)
+static bool configure_socket(int fd)
 {
 #ifdef TCP_USER_TIMEOUT
   unsigned int timeout = 5000;
