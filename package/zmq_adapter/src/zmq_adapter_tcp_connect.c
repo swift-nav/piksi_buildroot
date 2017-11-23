@@ -41,7 +41,7 @@ static int addr_parse(const char *addr, struct sockaddr *s_addr, socklen_t *s_ad
   } else if (resolutions->ai_family == AF_INET6) {
     ((struct sockaddr_in6*)s_addr)->sin6_port = htons(port);
   } else {
-    syslog(LOG_ERR, "unknown address family returned from solution");
+    syslog(LOG_ERR, "unknown address family returned from name resolution");
     return 1;
   }
 
