@@ -67,6 +67,12 @@ struct settings_ctx_s {
   registration_state_t registration_state;
 };
 
+enum {
+  SBP_WRITE_STATUS_OK,
+  SBP_WRITE_STATUS_VALUE_REJECTED,
+  SBP_WRITE_STATUS_SETTING_REJECTED,
+};
+
 static const char * const bool_enum_names[] = {"False", "True", NULL};
 
 static int float_to_string(const void *priv, char *str, int slen,
@@ -553,6 +559,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
     return;
   }
 
+  u8 status = SBP_WRITE_STATUS_OK;
   if (!setting_data->readonly) {
     /* Store copy and update value */
     memcpy(setting_data->var_copy, setting_data->var, setting_data->var_len);
@@ -562,18 +569,22 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
                                              value)) {
       /* Revert value if conversion fails */
       memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
+      status = SBP_WRITE_STATUS_VALUE_REJECTED;
     } else if (setting_data->notify != NULL) {
       /* Call notify function */
       if (setting_data->notify(setting_data->notify_context) != 0) {
         /* Revert value if notify returns error */
         memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
+        status = SBP_WRITE_STATUS_VALUE_REJECTED;
       }
     }
+  } else {
+    status = SBP_WRITE_STATUS_VALUE_REJECTED;
   }
 
   /* Build message */
-  u8 resp[SBP_PAYLOAD_SIZE_MAX];
-  u8 resp_len = 0;
+  u8 resp[SBP_PAYLOAD_SIZE_MAX] = {status};
+  u8 resp_len = 1;
   int l;
 
   l = message_header_get(setting_data, &resp[resp_len], sizeof(resp) - resp_len);
@@ -591,7 +602,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
   resp_len += l;
 
   if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                      SBP_MSG_SETTINGS_READ_RESP, resp_len, resp) != 0) {
+                      SBP_MSG_SETTINGS_WRITE_RESP, resp_len, resp) != 0) {
     piksi_log(LOG_ERR, "error sending settings read response");
     return;
   }

@@ -33,6 +33,12 @@ struct setting {
   bool dirty;
 };
 
+enum {
+  SBP_WRITE_STATUS_OK,
+  SBP_WRITE_STATUS_VALUE_REJECTED,
+  SBP_WRITE_STATUS_SETTING_REJECTED,
+};
+
 static struct setting *settings_head;
 
 /* Register a new setting in our linked list */
@@ -180,19 +186,26 @@ static void settings_register_callback(u16 sender_id, u8 len, u8 msg[], void *co
                        rlen, (u8*)buf, SBP_SENDER_ID);
 }
 
-static void settings_read_reply_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id; (void)context;
+  msg_settings_write_resp_t *msg = (void*)msg_;
 
   static struct setting *s = NULL;
   const char *section = NULL, *setting = NULL, *value = NULL;
 
-  if(!settings_parse_setting(len, msg, &section, &setting, &value, NULL))
-    piksi_log(LOG_WARNING, "Error in register message");
+  if (msg->status != 0) {
+    return;
+  }
+
+  if(!settings_parse_setting(len - 1, msg->setting, &section, &setting, &value, NULL)) {
+    piksi_log(LOG_WARNING, "Error in write reply message");
+    return;
+  }
 
   s = settings_lookup(section, setting);
   if (s == NULL) {
-    piksi_log(LOG_WARNING, "Read reply for non-existent setting");
+    piksi_log(LOG_WARNING, "Write reply for non-existent setting");
     return;
   }
 
@@ -328,12 +341,34 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   fclose(f);
 }
 
+static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)sender_id;
+
+  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
+
+  const char *section = NULL, *setting = NULL, *value = NULL, *type = NULL;
+  if (settings_parse_setting(len, msg, &section, &setting, &value, &type) &&
+      settings_lookup(section, setting) != NULL) {
+    /* This setting looks good; we'll leave it to the owner to complain if
+     * there's a problem with the value. */
+    return;
+  }
+
+  u8 resp[] = {SBP_WRITE_STATUS_SETTING_REJECTED};
+  /* Reply with write response rejecting this setting */
+  sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP,
+                       sizeof(resp), resp, SBP_SENDER_ID);
+}
+
 void settings_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
 {
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_SAVE,
                                settings_save_callback, tx_ctx, NULL);
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_RESP,
-                               settings_read_reply_callback, tx_ctx, NULL);
+  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE,
+                               settings_write_callback, tx_ctx, NULL);
+  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE_RESP,
+                               settings_write_reply_callback, tx_ctx, NULL);
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_REQ,
                                settings_read_callback, tx_ctx, NULL);
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_REQ,
