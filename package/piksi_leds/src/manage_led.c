@@ -259,6 +259,7 @@ static void * manage_led_thread(void *arg) {
     }
     led_adp8866_leds_set(init_states,
                          sizeof(init_states) / sizeof(init_states[0]));
+    sleep(2);
   }
 
   while (!firmware_state_heartbeat_seen())
