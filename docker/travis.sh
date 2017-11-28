@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -x
-
 set -euo pipefail
 IFS=$'\n\t'
 
@@ -16,12 +14,12 @@ else
   file_names=$( git diff --name-only "$TRAVIS_COMMIT_RANGE" || echo "" )
 fi
 
-echo ">>> Files in current pull request:"
+echo ">>> Files associated with current build request:"
 echo "$file_names"
 
 echo "..."
 
-if echo "$file_names" | grep -q "^Dockerfile.base$"; then
+if echo "$file_names" | grep -q "^.*/Dockerfile.base$"; then
 	"$D/base.bash"
 else
   echo "No modifications to base Docker image found..."
