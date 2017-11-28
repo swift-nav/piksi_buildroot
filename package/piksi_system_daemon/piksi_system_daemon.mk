@@ -25,7 +25,7 @@ endif
 
 ifeq ($(BR2_RUN_TESTS),y)
 define PIKSI_SYSTEM_DAEMON_INSTALL_TARGET_CMDS_TESTS_RUN
-	chroot $(TARGET_DIR) run_piksi_system_daemon_test
+	sudo chroot $(TARGET_DIR) run_piksi_system_daemon_test
 endef
 endif
 
