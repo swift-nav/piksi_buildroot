@@ -85,6 +85,8 @@ docker-build-image:
 
 docker-populate-volume:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		ls -l buildroot
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		git submodule update --init --recursive
 
 docker-setup: docker-build-image docker-populate-volume
