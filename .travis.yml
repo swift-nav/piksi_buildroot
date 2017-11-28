@@ -21,10 +21,8 @@ before_install:
   - ssh-add /tmp/travis_ssh_key
   - pip install --user --upgrade awscli
   - git fetch --tags --unshallow
-  - chmod 0600 $HOME/.ssh/config
-  - chmod 0700 $HOME/.ssh
-  - sudo chown root $HOME/.ssh/config
-  - sudo chown root $HOME/.ssh
+  - sudo apt-get update
+  - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
 
 after_script:
   - rm /tmp/travis_ssh_key
