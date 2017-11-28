@@ -85,7 +85,7 @@ docker-build-image:
 
 docker-populate-volume:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		ls -l buildroot
+		sudo chown -R $(USER) /piksi_buildroot
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		git submodule update --init --recursive
 
