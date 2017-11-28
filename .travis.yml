@@ -15,17 +15,17 @@ branches:
     - v1.3.0-release
 
 before_install:
-  - openssl aes-256-cbc -K $encrypted_09ba210c188e_key -iv $encrypted_09ba210c188e_iv -in .travis_ssh_key.enc -out /tmp/travis_ssh_key -d
+  - openssl aes-256-cbc -K $encrypted_09ba210c188e_key -iv $encrypted_09ba210c188e_iv -in .travis_piksi_ins_ref_key.enc -out /tmp/travis_piksi_ins_ref_key -d
   - eval "$(ssh-agent -s)"
-  - chmod 0600 /tmp/travis_ssh_key
-  - ssh-add /tmp/travis_ssh_key
+  - chmod 0600 /tmp/travis_piksi_ins_ref_key
+  - ssh-add /tmp/travis_piksi_ins_ref_key
   - pip install --user --upgrade awscli
   - git fetch --tags --unshallow
   - sudo apt-get update
   - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
 
 after_script:
-  - rm /tmp/travis_ssh_key
+  - rm /tmp/travis_piksi_ins_ref_key
 
 matrix:
   include:
