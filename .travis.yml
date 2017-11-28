@@ -25,6 +25,7 @@ before_install:
   - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
 
 after_script:
+  - ssh-agent -k
   - rm /tmp/travis_piksi_ins_ref_key
 
 matrix:
