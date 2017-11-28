@@ -66,7 +66,7 @@ static int socket_create(const struct sockaddr *addr, socklen_t addr_len)
 {
   int ret;
 
-  int fd = socket(AF_INET, SOCK_STREAM, 0);
+  int fd = socket(addr->sa_family, SOCK_STREAM, 0);
   if (fd < 0) {
     return fd;
   }
