@@ -17,6 +17,7 @@ rm -rf /home/$USER/.ssh
 cp -r /host-ssh /home/$USER/.ssh
 
 chmod 0750 /root
+find /root -type f -exec chmod g+rw {} \;
 
 chown -R $USER:users /home/$USER/.ssh
 
