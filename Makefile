@@ -10,11 +10,12 @@ DOCKER_TAG = piksi_buildroot$(DOCKER_SUFFIX)
 DOCKER_RUN_ARGS :=                                                            \
   --rm                                                                        \
   -e USER=$(USER)                                                             \
-  -e UID=$(shell id -u)                                                \
+  -e UID=$(shell id -u)                                                       \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
-  -v $(HOME)/.ssh:/host-ssh                                                   \
+  --hostname piksi-builder$(DOCKER_SUFFIX)                                    \
+  -v $(HOME)/.ssh:/host-ssh:ro                                                \
   -v `pwd`:/piksi_buildroot                                                   \
   -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
