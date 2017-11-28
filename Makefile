@@ -1,30 +1,11 @@
-BR2_EXTERNAL:=$(shell pwd)
+SHELL        := /bin/bash
+BR2_EXTERNAL := $(shell pwd)
 
 ifeq ($(HW_CONFIG),)
-  HW_CONFIG=prod
+HW_CONFIG    := prod
 endif
 
-DOCKER_BUILD_VOLUME = piksi_buildroot-buildroot$(DOCKER_SUFFIX)
-DOCKER_TAG = piksi_buildroot$(DOCKER_SUFFIX)
-
-DOCKER_RUN_ARGS :=                                                            \
-  --rm                                                                        \
-  -e USER=$(USER)                                                             \
-  -e UID=$(shell id -u)                                                       \
-  -e HW_CONFIG=$(HW_CONFIG)                                                   \
-  -e BR2_EXTERNAL=/piksi_buildroot                                            \
-  -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
-  --hostname piksi-builder$(DOCKER_SUFFIX)                                    \
-  -v $(HOME)/.ssh:/host-ssh:ro                                                \
-  -v `pwd`:/piksi_buildroot                                                   \
-  -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
-  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
-
-ifneq ($(SSH_AUTH_SOCK),)
-DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
-endif
-
-DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
+include docker/docker.mk
 
 .PHONY: all firmware config image clean host-config host-image host-clean     \
         docker-setup docker-make-image docker-make-clean                      \
