@@ -1,4 +1,4 @@
-ARG VERSION_TAG=latest
+ARG VERSION_TAG
 
 FROM swiftnav/buildroot-base:$VERSION_TAG
 
