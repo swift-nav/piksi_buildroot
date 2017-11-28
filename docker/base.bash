@@ -3,11 +3,11 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-VERSION_TAG=2017.11.13
+D=$( (cd "$(dirname "$0")" >/dev/null; pwd -P) )
+
+VERSION_TAG=$(cat $D/version_tag)
 DOCKER_REPO_NAME=swiftnav/buildroot-base
 DOCKER_USER=swiftnav
-
-D=$( (cd "$(dirname "$0")" >/dev/null; pwd -P) )
 
 build_dir=$(mktemp -d)
 trap 'rm -rfv $build_dir' EXIT

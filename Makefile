@@ -9,10 +9,12 @@ DOCKER_TAG = piksi_buildroot$(DOCKER_SUFFIX)
 
 DOCKER_RUN_ARGS :=                                                            \
   --rm                                                                        \
+  -e USER=$(USER)                                                             \
+  -e UID=$(shell echo $$UID)                                                \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
-  -v $(HOME)/.ssh:/root/.ssh                                                  \
+  -v $(HOME)/.ssh:/host-ssh                                                   \
   -v `pwd`:/piksi_buildroot                                                   \
   -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
@@ -77,7 +79,9 @@ host-clean:
 	rm -rf buildroot/host_output
 
 docker-build-image:
-	docker build --no-cache --force-rm --tag $(DOCKER_TAG) -f docker/Dockerfile .
+	docker build --no-cache --force-rm \
+		--build-arg VERSION_TAG=$(shell cat docker/version_tag) \
+		--tag $(DOCKER_TAG) -f docker/Dockerfile .
 
 docker-populate-volume:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
@@ -113,7 +117,8 @@ docker-pkg-%: docker-config
 		make -C buildroot $* O=output
 
 docker-run:
-	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) -ti $(DOCKER_TAG)
+	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) \
+		--tty --interactive $(DOCKER_TAG)
 
 docker-cp:
 	docker run $(DOCKER_RUN_ARGS) --name=piksi_buildroot_copy -d piksi_buildroot

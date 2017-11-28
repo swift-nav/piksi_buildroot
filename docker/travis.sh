@@ -8,6 +8,6 @@ else
   file_names=`(git diff --name-only $TRAVIS_COMMIT_RANGE || echo "") | tr '\n' ' '`
 fi
 
-if echo $file_names | grep -q "Dockerfile"; then
+if echo $file_names | grep -q "Dockerfile.base"; then
 	$D/base.bash
 fi
