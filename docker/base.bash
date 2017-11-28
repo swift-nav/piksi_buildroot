@@ -3,9 +3,9 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-D=$( (cd "$(dirname "$0")" >/dev/null; pwd -P) )
+D=$( (cd "$(dirname "$0")" || exit 1 >/dev/null; pwd -P) )
 
-VERSION_TAG=$(cat $D/version_tag)
+VERSION_TAG=$(cat "$D/version_tag")
 DOCKER_REPO_NAME=swiftnav/buildroot-base
 DOCKER_USER=swiftnav
 
@@ -19,8 +19,12 @@ docker build \
   --force-rm \
   --no-cache \
   -f Dockerfile.base \
-  -t $DOCKER_REPO_NAME:$VERSION_TAG \
+  -t "$DOCKER_REPO_NAME:$VERSION_TAG" \
   .
 
-docker login --username="${DOCKER_USER:-swiftnav}" --password="$DOCKER_PASS"
-docker push "$DOCKER_REPO_NAME:$VERSION_TAG"
+if [[ -n "$DOCKER_PASS" ]]; then
+  docker login --username="${DOCKER_USER:-swiftnav}" --password="$DOCKER_PASS"
+  docker push "$DOCKER_REPO_NAME:$VERSION_TAG"
+else
+  echo "WARNING: Not pushing new image to Docker Hub"
+fi
