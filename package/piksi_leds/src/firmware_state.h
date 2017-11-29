@@ -39,5 +39,6 @@ struct soln_state {
 void firmware_state_init(sbp_zmq_rx_ctx_t *ctx);
 u8 firmware_state_obs_counter_get(void);
 void firmware_state_get(struct soln_state *);
+bool firmware_state_heartbeat_seen(void);
 
 #endif

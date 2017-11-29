@@ -251,6 +251,19 @@ static void * manage_led_thread(void *arg) {
   bool is_duro = (bool)arg;
 
   led_adp8866_init(is_duro);
+  {
+    led_adp8866_led_state_t init_states[LED_ADP8866_LED_COUNT];
+    for (int i = 0; i < LED_ADP8866_LED_COUNT; i++) {
+      init_states[i].led = i;
+      init_states[i].brightness = 255;
+    }
+    led_adp8866_leds_set(init_states,
+                         sizeof(init_states) / sizeof(init_states[0]));
+    sleep(2);
+  }
+
+  while (!firmware_state_heartbeat_seen())
+    usleep(MANAGE_LED_THREAD_PERIOD_MS * 1000);
 
   while (true) {
     device_state_t dev_state = get_device_state();
