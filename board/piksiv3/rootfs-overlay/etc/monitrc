@@ -4,9 +4,6 @@ set logfile syslog
 set pidfile /var/run/monit_.pid
 set daemon 5
 
-set httpd port 2812
-  allow piksi:piksi
-
 check process zmq_router_sbp with pidfile /var/run/zmq_router_sbp.pid
     start program = "/etc/init.d/S80zmq_router_sbp start"
     stop program = "/etc/init.d/S80zmq_router_sbp stop"
