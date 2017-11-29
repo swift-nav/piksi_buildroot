@@ -1,21 +1,11 @@
-BR2_EXTERNAL:=$(shell pwd)
+SHELL        := /bin/bash
+BR2_EXTERNAL := $(shell pwd)
 
 ifeq ($(HW_CONFIG),)
-  HW_CONFIG=prod
+HW_CONFIG    := prod
 endif
 
-DOCKER_BUILD_VOLUME = piksi_buildroot-buildroot$(DOCKER_SUFFIX)
-DOCKER_TAG = piksi_buildroot$(DOCKER_SUFFIX)
-
-DOCKER_RUN_ARGS :=                                                            \
-  --rm                                                                        \
-  -e HW_CONFIG=$(HW_CONFIG)                                                   \
-  -e BR2_EXTERNAL=/piksi_buildroot                                            \
-  -v `pwd`:/piksi_buildroot                                                   \
-  -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
-  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
-
-DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
+include docker/docker.mk
 
 .PHONY: all firmware config image clean host-config host-image host-clean     \
         docker-setup docker-make-image docker-make-clean                      \
@@ -71,9 +61,13 @@ host-clean:
 	rm -rf buildroot/host_output
 
 docker-build-image:
-	docker build --no-cache --force-rm --tag $(DOCKER_TAG) .
+	docker build --no-cache --force-rm \
+		--build-arg VERSION_TAG=$(shell cat docker/version_tag) \
+		--tag $(DOCKER_TAG) -f docker/Dockerfile .
 
 docker-populate-volume:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		sudo chown -R $(USER) /piksi_buildroot
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		git submodule update --init --recursive
 
@@ -107,4 +101,10 @@ docker-pkg-%: docker-config
 		make -C buildroot $* O=output
 
 docker-run:
-	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) -ti $(DOCKER_TAG)
+	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) \
+		--tty --interactive $(DOCKER_TAG)
+
+docker-cp:
+	docker run $(DOCKER_RUN_ARGS) --name=piksi_buildroot_copy -d piksi_buildroot
+	docker cp piksi_buildroot_copy:$(SRC) $(DST) || :
+	docker stop piksi_buildroot_copy
