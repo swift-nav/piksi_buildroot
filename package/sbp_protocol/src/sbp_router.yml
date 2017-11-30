@@ -34,7 +34,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # Publish: SBP MSG_POS_LLH
           - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # Publish: SBP MSG_HEARTBEAT
           - { action: REJECT }
-      - dst_port: SBP_PORT_GEOID
+      - dst_port: SBP_PORT_SAMPLE
         filters:
           - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # SBP MSG_POS_LLH
           - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # SBP MSG_HEARTBEAT
@@ -137,7 +137,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x75, 0x00] } # SBP_MSG_GLO_BIASES
           - { action: REJECT }
 
-  - name: SBP_PORT_GEOID
+  - name: SBP_PORT_SAMPLE
     pub_addr: "@tcp://127.0.0.1:43090"
     sub_addr: "@tcp://127.0.0.1:43091"
     forwarding_rules:
