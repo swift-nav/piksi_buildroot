@@ -1,7 +1,7 @@
 #!/bin/sh
 
 name="sample_daemon"
-cmd="sample_daemon --ofset 10"
+cmd="sample_daemon --ofset -32.1597"
 dir="/"
 user=""
 
