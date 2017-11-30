@@ -21,6 +21,10 @@ find /root -type f -exec chmod g+rw {} \;
 
 chown -R "$USER:users" "/home/$USER/.ssh"
 
+chown -R "$USER:users" "/piksi_buildroot/buildroot"
+chown -R "$USER:users" "/piksi_buildroot/buildroot/output"
+chown -R "$USER:users" "/piksi_buildroot/buildroot/output/images"
+
 chmod 0700 "/home/$USER/.ssh"
 find "/home/$USER/.ssh" -type f -exec chmod 0400 {} \;
 

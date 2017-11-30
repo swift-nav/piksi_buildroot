@@ -6,7 +6,7 @@ BR2_HAS_PIKSI_INS_REF := $(shell git ls-remote $(PIKSI_INS_REF_REPO) &>/dev/null
 
 export BR2_HAS_PIKSI_INS_REF
 
-DOCKER_RUN_ARGS :=                                                            \
+DOCKER_SETUP_ARGS :=                                                          \
   --rm                                                                        \
   -e USER=$(USER)                                                             \
   -e UID=$(shell id -u)                                                       \
@@ -17,8 +17,11 @@ DOCKER_RUN_ARGS :=                                                            \
   --hostname piksi-builder$(DOCKER_SUFFIX)                                    \
   -v $(HOME)/.ssh:/host-ssh:ro                                                \
   -v `pwd`:/piksi_buildroot                                                   \
-  -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
+
+DOCKER_RUN_ARGS :=                                                            \
+  $(DOCKER_SETUP_ARGS)                                                        \
+  -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
 
 ifneq ($(SSH_AUTH_SOCK),)
 DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
