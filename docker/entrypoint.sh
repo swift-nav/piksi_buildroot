@@ -5,7 +5,7 @@ export USER=$USER
 sudo rm -rf "/home/$USER/.ssh"
 sudo cp -r /host-ssh "/home/$USER/.ssh"
 
-sudo chmod 0750 /root
+sudo chmod 0770 /root
 sudo find /root -type f -exec chmod g+rw {} \;
 
 sudo chown -R "$USER:$USER" "/home/$USER/.ssh"
