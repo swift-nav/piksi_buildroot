@@ -38,12 +38,17 @@ static int addr_parse(const char *addr, struct sockaddr_in *s_addr)
 static int socket_create(const struct sockaddr_in *addr)
 {
   int ret;
-
+  int broadcastEnable = 1;
   int fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd < 0) {
     return fd;
   }
-
+  
+  ret = setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
+  if (ret != 0) {
+    goto err;
+  }
+  
   ret = connect(fd, (struct sockaddr *)addr, sizeof(*addr));
   if (ret != 0) {
     goto err;
