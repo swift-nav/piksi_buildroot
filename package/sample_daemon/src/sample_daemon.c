@@ -50,7 +50,7 @@ static int parse_options(int argc, char *argv[])
   };
 
   const struct option long_opts[] = {
-    {"offset", no_argument, 0, OPT_ID_OFFSET},
+    {"offset", required_argument, 0, OPT_ID_OFFSET},
     {0, 0, 0, 0},
   };
 
