@@ -34,8 +34,7 @@ download_fw() {
   mkdir -p $FIRMWARE_DIR
 
   # Download piksi_firmware
-  fetch $FW_S3_PATH/piksi_firmware_v3_$HW_CONFIG.stripped.elf \
-    $FIRMWARE_DIR/piksi_firmware.elf
+  wget -O $FIRMWARE_DIR/piksi_firmware.elf "https://swiftnav-artifacts-pull-requests.s3.amazonaws.com/piksi_firmware_private/v1.2.14-4-g811abf13/v3/piksi_firmware_v3_prod.stripped.elf?Signature=RyY0cj87Wc6CIjVqxaHR8BdvESk%3D&Expires=1543708790&AWSAccessKeyId=AKIAI3BP7FDHCVOX4TZA"
 
   # Download piksi_fpga
   if [ "$HW_CONFIG" == "microzed" ]; then
