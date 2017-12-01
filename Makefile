@@ -63,11 +63,14 @@ host-clean:
 docker-build-image:
 	docker build --no-cache --force-rm \
 		--build-arg VERSION_TAG=$(shell cat docker/version_tag) \
+		--build-arg USER=$(USER) \
+		--build-arg UID=$(shell id -u) \
+		--build-arg GID=$(shell id -g) \
 		--tag $(DOCKER_TAG) -f docker/Dockerfile .
 
 docker-populate-volume:
-	docker run $(DOCKER_SETUP_ARGS) $(DOCKER_TAG) \
-		sh -c "sudo chown -R $(USER) /piksi_buildroot && git submodule update --init --recursive"
+	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
+		git submodule update --init --recursive
 
 docker-setup: docker-build-image docker-populate-volume
 
@@ -91,7 +94,7 @@ docker-make-host-clean:
 		make host-clean
 
 docker-config:
-	docker run $(DOCKER_SETUP_ARGS) $(DOCKER_TAG) \
+	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make -C buildroot O=output piksiv3_defconfig
 
 docker-pkg-%: docker-config
@@ -100,7 +103,7 @@ docker-pkg-%: docker-config
 
 docker-run:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) \
-		--tty --interactive $(DOCKER_TAG)
+		--tty --interactive $(DOCKER_TAG) || :
 
 docker-cp:
 	docker run $(DOCKER_RUN_ARGS) --name=piksi_buildroot_copy -d piksi_buildroot
