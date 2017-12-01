@@ -1,27 +1,25 @@
 #!/bin/sh
 
 export USER=$USER
-export UID=$UID
 
-useradd \
-  --shell /bin/bash \
-  --gid users \
-  --groups sudo,root,tty \
-  --uid "$UID" "$USER"
+sudo rm -rf "/home/$USER/.ssh"
+sudo cp -r /host-ssh "/home/$USER/.ssh"
 
-echo "$USER ALL=NOPASSWD: ALL" >/etc/sudoers.d/"$USER"
+sudo chmod 0770 /root
+sudo find /root -type f -exec chmod g+rw {} \;
 
-mkdir -p /home/"$USER"
+sudo chown -R "$USER:$USER" "/home/$USER/.ssh"
+sudo chmod 0700 "/home/$USER/.ssh"
 
-rm -rf "/home/$USER/.ssh"
-cp -r /host-ssh "/home/$USER/.ssh"
+sudo find "/home/$USER/.ssh" -type f -exec chmod 0400 {} \;
 
-chmod 0750 /root
-find /root -type f -exec chmod g+rw {} \;
+[ -d "/piksi_buildroot/buildroot" ] && \
+  sudo chown "$USER:$USER" "/piksi_buildroot/buildroot"
 
-chown -R "$USER:users" "/home/$USER/.ssh"
+[ -d "/piksi_buildroot/buildroot/output" ] && \
+  sudo chown "$USER:$USER" "/piksi_buildroot/buildroot/output"
 
-chmod 0700 "/home/$USER/.ssh"
-find "/home/$USER/.ssh" -type f -exec chmod 0400 {} \;
+[ -d "/piksi_buildroot/buildroot/output/images" ] && \
+  sudo chown "$USER:$USER" "/piksi_buildroot/buildroot/output/images"
 
-sudo --preserve-env --user="$USER" --shell -- "$@"
+exec sudo --preserve-env --user="$USER" --shell -- "$@"
