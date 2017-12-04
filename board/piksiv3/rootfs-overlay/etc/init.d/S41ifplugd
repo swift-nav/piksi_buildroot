@@ -3,7 +3,7 @@
 name="ifplugd"
 
 start() {
-  ifplugd -a -M -I -t 1 -f
+  ifplugd -M -I -t 1 -f
 }
 
 stop() {
