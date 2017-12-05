@@ -65,3 +65,7 @@ check process klogd with pidfile /var/run/klogd.pid
 check process standalone_file_logger with pidfile /var/run/standalone_file_logger.pid
     start program = "/etc/init.d/S83standalone_file_logger start"
     stop program = "/etc/init.d/S83standalone_file_logger stop"
+
+check process piksi_ins with pidfile /var/run/PoseDaemon.pid
+    start program = "/etc/init.d/S150piksi_ins start"
+    stop program = "/etc/init.d/S150piksi_ins stop"
