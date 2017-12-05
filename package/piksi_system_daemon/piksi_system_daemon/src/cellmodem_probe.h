@@ -10,10 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef _SWIFT_CELLMODEM_INOTIFY_H
-#define _SWIFT_CELLMODEM_INOTIFY_H
+#ifndef __CELLMODEM_PROBE_H
+#define __CELLMODEM_PROBE_H
 
-bool cellmodem_tty_exists(const char* path);
-void async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx);
+#include <libpiksi/sbp_zmq_pubsub.h>
 
-#endif//_SWIFT_CELLMODEM_INOTIFY_H
+enum modem_type cellmodem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ctx);
+
+#endif

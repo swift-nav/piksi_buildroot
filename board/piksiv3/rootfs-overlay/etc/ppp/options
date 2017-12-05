@@ -3,5 +3,5 @@ noauth
 usepeerdns
 defaultroute
 nodetach
-persist
-
+lcp-echo-failure 3
+lcp-echo-interval 5
