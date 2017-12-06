@@ -57,6 +57,7 @@ static int modem_read(int fd, char *buf, size_t len, const char *const *response
     for(int i = 0; responses[i]; i++) {
       int rlen = strlen(responses[i]);
       if ((n >= rlen) && (strcmp(buf + n - rlen, responses[i]) == 0)) {
+        buf[n - rlen] = 0;
         return i;
       }
     }
@@ -76,22 +77,20 @@ static int cellmodem_command(int fd, const char *cmd, char *response, size_t len
     return -1;
 
   /* Check command echo */
-  char *tmp = strtok(buf, DELIM);
-  if ((tmp == NULL) || (strcmp(tmp, cmd) != 0))
+  if (strncmp(buf, cmd, strlen(cmd)) != 0)
     return -2;
 
   /* Pull out response */
   if (response) {
-    tmp = strtok(NULL, DELIM);
-    if (tmp == NULL)
-      return -3;
-    strncpy(response, tmp, len);
-  }
+    /* Strip \r\n junk */
+    int i;
+    for (i = strlen(buf) - 1; (buf[i] == '\r') || (buf[i] == '\n'); i--)
+      buf[i] = 0;
+    for (i = strlen(cmd); (buf[i] == '\r') || (buf[i] == '\n'); i++)
+      ;
 
-  /* Check for OK response */
-  tmp = strtok(NULL, DELIM);
-  if ((tmp == NULL) || (strcmp(tmp, "OK") != 0))
-    return -4;
+    strncpy(response, buf + i, len);
+  }
 
   return 0;
 }
