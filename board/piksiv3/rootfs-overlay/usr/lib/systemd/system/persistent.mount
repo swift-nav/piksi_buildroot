@@ -1,0 +1,8 @@
+[Unit]
+Description=Mount persistent partition
+
+[Mount]
+What=/dev/mtdblock_persistent
+Where=/persistent
+Type=jffs2
+Options=defaults
