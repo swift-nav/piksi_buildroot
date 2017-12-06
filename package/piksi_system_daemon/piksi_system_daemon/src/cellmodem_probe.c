@@ -35,6 +35,11 @@ static const char *const response_strs[] = {
   NULL
 };
 
+/* Read a string from the modem, expected to end in one of the strings in
+ * `responses`.  `buf` must be large enough for the full response including
+ * the matched response.  A negative response indicates the expected string
+ * was not read, otherwise an index into `responses` is returned.
+ */
 static int modem_read(int fd, char *buf, size_t len, const char *const *responses)
 {
   int n = 0;
@@ -62,9 +67,14 @@ static int modem_read(int fd, char *buf, size_t len, const char *const *response
       }
     }
   } while (n < len - 1);
+  return -4;
 }
 
-#define DELIM "\r\n"
+/* Send a command and read back the response.  The modem is expected to reply
+ * with the echoed command, then the response, then `OK\r\n`.  When this
+ * pattern is matched, the response is returned in `response` and the return
+ * value is zero; returns negative otherwise.
+ */
 static int cellmodem_command(int fd, const char *cmd, char *response, size_t len)
 {
   /* Send command */
@@ -129,8 +139,10 @@ enum modem_type cellmodem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ct
 
   /* Set to raw mode */
   struct termios tio = {0};
+  tcgetattr(fd, &tio);
   cfmakeraw(&tio);
-  cfsetspeed(&tio, B115200);
+  tio.c_cc[VMIN] = 0;
+  tio.c_cc[VTIME] = 0;
   if (tcsetattr(fd, TCSAFLUSH, &tio) < 0) {
     piksi_log(LOG_WARNING, "%s: tcsetattr failed on %s: %s", __func__, dev, strerror(errno));
     close(fd);
