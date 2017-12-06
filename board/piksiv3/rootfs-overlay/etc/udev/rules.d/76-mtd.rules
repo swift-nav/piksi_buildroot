@@ -1,0 +1,1 @@
+ACTION=="add", KERNEL=="mtd[0-9]*", SUBSYSTEM=="mtd", ATTR{name}=="qspi-factory", SYMLINK+="mtd_factory", TAG+="systemd", ENV{SYSTEMD_WANTS}="init-factory-data.service"
