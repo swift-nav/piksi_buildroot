@@ -1,7 +1,7 @@
 #!/bin/sh
 echo "Started $0 $*"
 
-ROOT=
+ROOT=`realpath $(dirname $(realpath $0))/../board/piksiv3/rootfs-overlay`
 
 # parse command line params
 action=
