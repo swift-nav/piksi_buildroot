@@ -5,14 +5,14 @@ ifeq ($(HW_CONFIG),)
 HW_CONFIG    := prod
 endif
 
-include docker/docker.mk
-
 .PHONY: all firmware config image clean host-config host-image host-clean     \
         docker-setup docker-make-image docker-make-clean                      \
         docker-make-host-image docker-make-host-clean docker-run              \
         docker-config pkg-% docker-pkg-%                                      \
 
 all: firmware image
+
+include docker/docker.mk
 
 firmware:
 	./fetch_firmware.sh
@@ -85,6 +85,8 @@ docker-make-clean:
 docker-make-clean-volume:
 	docker volume rm $(DOCKER_BUILD_VOLUME)
 
+docker-make-clean-all: docker-make-clean docker-make-clean-volume
+
 docker-make-host-image:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make host-image
@@ -105,7 +107,15 @@ docker-run:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) \
 		--tty --interactive $(DOCKER_TAG) || :
 
+flush-rootfs:
+	find buildroot/output -name .stamp_target_installed -delete
+	rm -rf buildroot/output/target/*
+
+docker-make-flush-rootfs:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make flush-rootfs
+
 docker-cp:
-	docker run $(DOCKER_RUN_ARGS) --name=piksi_buildroot_copy -d piksi_buildroot
+	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG)-copy -d $(DOCKER_TAG)
 	docker cp piksi_buildroot_copy:$(SRC) $(DST) || :
 	docker stop piksi_buildroot_copy
