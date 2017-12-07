@@ -1,0 +1,12 @@
+[Unit]
+Description=Initialize image table data
+Wants=dev-mtd_image_table.device dev-mtd_loader.device
+After=dev-mtd_image_table.device dev-mtd_loader.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/mkdir -p /img_tbl/loader
+ExecStartPre=/bin/ln -s /dev/mtd_image_table /img_tbl/mtd
+ExecStartPre=/bin/ln -s /dev/mtd_loader /img_tbl/loader/mtd
+ExecStart=/bin/image_table_tool

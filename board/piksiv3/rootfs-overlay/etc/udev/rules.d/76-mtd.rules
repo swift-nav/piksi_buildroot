@@ -1,3 +1,7 @@
 ACTION=="add", KERNEL=="mtd[0-9]*", SUBSYSTEM=="mtd", ATTR{name}=="qspi-factory", SYMLINK+="mtd_factory", TAG+="systemd", ENV{SYSTEMD_WANTS}="init-factory-data.service"
 
-ACTION=="add", KERNEL=="mtdblock[0-9]*", SUBSYSTEM=="block", SUBSYSTEMS=="mtd", ATTRS{name}=="qspi-persistent", SYMLINK+="mtdblock_persistent", TAG+="systemd"
+ACTION=="add", KERNEL=="mtdblock[0-9]*", SUBSYSTEM=="block", SUBSYSTEMS=="mtd", ATTRS{name}=="qspi-persistent", SYMLINK+="mtdblock_persistent", TAG+="systemd", ENV{SYSTEMD_WANTS}="persistent.mount"
+
+ACTION=="add", KERNEL=="mtd[0-9]*", SUBSYSTEM=="mtd", ATTR{name}=="qspi-image-table", SYMLINK+="mtd_image_table", TAG+="systemd" ENV{SYSTEMD_WANTS}="init-image-table.service"
+
+ACTION=="add", KERNEL=="mtd[0-9]*", SUBSYSTEM=="mtd", ATTR{name}=="qspi-loader", SYMLINK+="mtd_loader", TAG+="systemd" ENV{SYSTEMD_WANTS}="init-image-table.service"
