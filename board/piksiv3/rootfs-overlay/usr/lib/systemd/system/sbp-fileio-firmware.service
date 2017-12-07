@@ -1,0 +1,10 @@
+[Unit]
+Description=sbp fileio daemon external
+Wants=init-factory-data.service zmq_router@sbp_router.service
+After=init-factory-data.service zmq_router@sbp_router.service
+
+[Service]
+ExecStart=/bin/sbp_fileio_daemon -p >tcp://localhost:43041 -s >tcp://localhost:43040
+
+[Install]
+WantedBy=multi-user.target
