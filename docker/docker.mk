@@ -18,6 +18,7 @@ export BR2_HAS_PIKSI_INS_REF
 DOCKER_RUN_ARGS :=                                                            \
   --rm                                                                        \
   -e USER=$(USER)                                                             \
+  -e GID=$(shell id -g)                                                       \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -e BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF)                           \
