@@ -36,7 +36,7 @@ endef
 endif
 ifeq ($(BR2_RUN_TESTS),y)
 define STANDALONE_FILE_LOGGER_INSTALL_TARGET_CMDS_TESTS_RUN
-	chroot $(TARGET_DIR) test_standalone_file_logger
+	sudo chroot $(TARGET_DIR) test_standalone_file_logger
 endef
 endif
 define STANDALONE_FILE_LOGGER_INSTALL_TARGET_CMDS

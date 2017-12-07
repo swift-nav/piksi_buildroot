@@ -187,6 +187,7 @@ static int wifi_config_notify(void *context)
 
 static void eth_update_config(void)
 {
+  system("/etc/init.d/S83ifplugd stop");
   system("ifdown -f eth0");
 
   FILE *interfaces = fopen("/etc/network/interfaces.d/eth0.cfg", "w");
@@ -200,7 +201,7 @@ static void eth_update_config(void)
   }
   fclose(interfaces);
 
-  system("ifup eth0 &");
+  system("/etc/init.d/S83ifplugd start");
 }
 
 static int eth_ip_mode_notify(void *context)

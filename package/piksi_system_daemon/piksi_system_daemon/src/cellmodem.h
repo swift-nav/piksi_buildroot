@@ -16,5 +16,7 @@
 #include <libpiksi/settings.h>
 
 int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx);
+void handle_pppd_respawn(void *arg);
+int pppd_respawn(zloop_t *loop, int timer_id, void *arg);
 
 #endif

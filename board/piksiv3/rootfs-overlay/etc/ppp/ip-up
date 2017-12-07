@@ -1,4 +1,35 @@
-#!/bin/sh
-route del default
-route add default ppp0
+#!/bin/ash
 
+interface_name=$1 ; shift
+tty_device=$1     ; shift
+speed=$1          ; shift
+local_ip=$1       ; shift
+
+echo "pppd ip-up script invoked" | sbp_log --debug
+
+route del default
+route add default "$interface_name"
+
+if [ "$USEPEERDNS" = "1" ]; then
+
+  echo "pppd dns 1: $DNS1" | sbp_log --debug
+  echo "pppd dns 2: $DNS1" | sbp_log --debug
+
+  cat /etc/resolv.conf.head  >/etc/resolv.conf
+  echo "nameserver $DNS1"   >>/etc/resolv.conf
+  echo "nameserver $DNS2"   >>/etc/resolv.conf
+fi
+
+ntrip_daemon_pid=`pgrep ntrip_daemon`
+
+if [ -n "$ntrip_daemon_pid" ]; then
+  kill -SIGUSR1 "$ntrip_daemon_pid"
+fi
+
+skylark_download_daemon_pid=`pgrep skylark_download_daemon`
+
+if [ -n "$skylark_download_daemon_pid" ]; then
+  kill -SIGUSR1 "$skylark_download_daemon_pid"
+fi
+
+# vim: ft=sh:
