@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Read /factory/uuid and generate /cfg/{device_uuid,sbp_sender_id}
+
+UUID=`cat /factory/uuid`
+
+mkdir -p /cfg
+printf "%u" "0x${UUID:28:4}" > /cfg/sbp_sender_id
+printf "%s-%s-%s-%s-%s" "${UUID:0:8}" ${UUID:8:4} ${UUID:12:4} ${UUID:16:4} ${UUID:20:12} > /cfg/device_uuid

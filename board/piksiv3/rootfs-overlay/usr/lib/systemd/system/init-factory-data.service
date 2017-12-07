@@ -7,3 +7,4 @@ RemainAfterExit=yes
 ExecStartPre=/bin/mkdir -p /factory
 ExecStartPre=/bin/ln -s /dev/mtd_factory /factory/mtd
 ExecStart=/bin/factory_data_tool
+ExecStartPost=/usr/lib/swiftnav/populate_cfg
