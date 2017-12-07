@@ -1,0 +1,12 @@
+[Unit]
+Description=Load FPGA image
+Wants=zmq_adapter@rpmsg_piksi100.service zmq_adapter@rpmsg_piksi101.service 
+After=zmq_adapter@rpmsg_piksi100.service zmq_adapter@rpmsg_piksi101.service 
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/swiftnav/load_fpga_image
+
+[Install]
+WantedBy=multi-user.target

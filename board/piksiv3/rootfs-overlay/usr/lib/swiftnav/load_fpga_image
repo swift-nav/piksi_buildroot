@@ -1,0 +1,13 @@
+#!/bin/sh
+
+
+bit="/lib/firmware/piksi_fpga.bit"
+if [ -f "$bit" ]; then
+  cat "$bit" > /dev/xdevcfg
+  prog_done=`cat /sys/devices/soc0/amba/f8007000.devcfg/prog_done`
+  if [ "$prog_done" != "1" ]; then
+    echo "ERROR: configuration failed"
+  fi
+else
+  echo "ERROR: bitstream not found"
+fi
