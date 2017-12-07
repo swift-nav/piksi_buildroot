@@ -1,0 +1,10 @@
+[Unit]
+Description=Piksi System Daemon
+Wants=sbp-settingsd.service
+After=sbp-settingsd.service
+
+[Service]
+ExecStart=/bin/piksi_system_daemon
+
+[Install]
+WantedBy=multi-user.target

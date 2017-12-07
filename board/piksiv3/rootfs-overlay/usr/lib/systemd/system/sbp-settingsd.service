@@ -1,0 +1,10 @@
+[Unit]
+Description=SBP Settings Daemon
+Wants=sbp-fileio-firmware.service sbp-fileio-external.service
+After=sbp-fileio-firmware.service sbp-fileio-external.service
+
+[Service]
+ExecStart=/bin/sbp_settings_daemon
+
+[Install]
+WantedBy=multi-user.target
