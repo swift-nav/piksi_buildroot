@@ -6,15 +6,15 @@ ARG USER
 ARG UID
 ARG GID
 
-RUN groupadd --gid $GID $USER && \
+RUN ( grep -q :$GID: /etc/group || groupadd --gid $GID $USER ) && \
     useradd \
       --shell /bin/bash \
-      --gid $USER \
+      --gid $GID \
       --groups sudo,root,tty \
       --uid "$UID" "$USER" && \
     echo "$USER ALL=NOPASSWD: ALL" >/etc/sudoers.d/"$USER" && \
     mkdir -p /home/"$USER" && \
-    chown "$USER:$USER" /home/"$USER"
+    chown "$USER:$GID" /home/"$USER"
 
 ADD docker/entrypoint.sh /entrypoint.sh
 
