@@ -154,10 +154,10 @@ static char eth_ip_addr[16] = "192.168.0.222";
 static char eth_netmask[16] = "255.255.255.0";
 static char eth_gateway[16] = "192.168.0.1";
 
-static u8 eth_ip_mode = IP_CFG_DHCP;
-static char eth_ip_addr[16] = "192.168.1.222";
-static char eth_netmask[16] = "255.255.255.0";
-static char eth_gateway[16] = "192.168.1.1";
+static u8 usb_eth_ip_mode = IP_CFG_DHCP;
+static char usb_eth_ip_addr[16] = "192.168.1.222";
+static char usb_eth_netmask[16] = "255.255.255.0";
+static char usb_eth_gateway[16] = "192.168.1.1";
 
 static void eth_update_config(void)
 {
@@ -173,6 +173,21 @@ static void eth_update_config(void)
   fclose(interfaces);
 }
 
+static void usb_eth_update_config(void)
+{
+  eth_update_config();
+  FILE *interfaces = fopen("/etc/network/interfaces", "a");
+  if (usb_eth_ip_mode == IP_CFG_DHCP) {
+    fprintf(interfaces, "\niface usb0 inet dhcp\n");
+  } else {
+    fprintf(interfaces, "\niface usb0 inet static\n");
+    fprintf(interfaces, "\taddress %s\n", usb_eth_ip_addr);
+    fprintf(interfaces, "\tnetmask %s\n", usb_eth_netmask);
+    fprintf(interfaces, "\tgateway %s\n", usb_eth_gateway);
+  }
+  fclose(interfaces);
+  system("ifup usb0 &");
+}
 
 static void eth_update(void)
 {
@@ -190,21 +205,6 @@ static void usb_eth_update(void)
   system("ifup usb0 &");
 }
 
-static void usb_eth_update_config(void)
-{
-  eth_update_config();
-  FILE *interfaces = fopen("/etc/network/interfaces", "a");
-  if (usb_eth_ip_mode == IP_CFG_DHCP) {
-    fprintf(interfaces, "iface usb0 inet dhcp\n");
-  } else {
-    fprintf(interfaces, "iface usb0 inet static\n");
-    fprintf(interfaces, "\taddress %s\n", usb_eth_ip_addr);
-    fprintf(interfaces, "\tnetmask %s\n", usb_eth_netmask);
-    fprintf(interfaces, "\tgateway %s\n", eth_gateway);
-  }
-  fclose(interfaces);
-  system("ifup usb0 &");
-}
 
 static int eth_ip_mode_notify(void *context)
 {
