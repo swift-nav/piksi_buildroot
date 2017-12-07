@@ -1,0 +1,2 @@
+ACTION=="add", KERNEL=="rpmsg_piksi100", SUBSYSTEM=="rpmsg_piksi", TAG+="systemd" ENV{SYSTEMD_WANTS}="zmq_adapter@%k.service"
+ACTION=="add", KERNEL=="rpmsg_piksi101", SUBSYSTEM=="rpmsg_piksi", TAG+="systemd" ENV{SYSTEMD_WANTS}="zmq_adapter@%k.service"

@@ -1,0 +1,8 @@
+[Unit]
+Description=zmq adapter
+Wants=piksi-system-daemon.service
+After=piksi-system-daemon.service
+
+[Service]
+EnvironmentFile=/etc/zmq_adapter/%i
+ExecStart=/bin/zmq_adapter --file ${FILE} -p ${PUB} -s ${SUB}

@@ -1,0 +1,3 @@
+FILE=/dev/rpmsg_piksi101
+PUB=">tcp://127.0.0.1:44011"
+SUB=">tcp://127.0.0.1:44010"
