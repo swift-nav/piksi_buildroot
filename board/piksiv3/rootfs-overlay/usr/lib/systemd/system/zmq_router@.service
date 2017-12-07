@@ -1,0 +1,8 @@
+[Unit]
+Description=zmq router
+
+[Service]
+ExecStart=/bin/zmq_router -f /etc/zmq_router/%i.yml
+
+[Install]
+WantedBy=multi-user.target
