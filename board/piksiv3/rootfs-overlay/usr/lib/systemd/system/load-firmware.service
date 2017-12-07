@@ -1,0 +1,12 @@
+[Unit]
+Description=Load firmware
+Wants=load-fpga-image.service
+After=load-fpga-image.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/modprobe zynq_remoteproc
+
+[Install]
+WantedBy=multi-user.target
