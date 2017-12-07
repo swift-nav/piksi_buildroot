@@ -148,16 +148,19 @@ static int flow_control_notify(void *context)
 }
 
 static const char const * ip_mode_enum_names[] = {"Static", "DHCP", NULL};
-enum {IP_CFG_STATIC, IP_CFG_DHCP};
+enum {IP_CFG_STATIC, IP_CFG_DHCP}; 
 static u8 eth_ip_mode = IP_CFG_STATIC;
 static char eth_ip_addr[16] = "192.168.0.222";
 static char eth_netmask[16] = "255.255.255.0";
 static char eth_gateway[16] = "192.168.0.1";
 
+static u8 eth_ip_mode = IP_CFG_DHCP;
+static char eth_ip_addr[16] = "192.168.1.222";
+static char eth_netmask[16] = "255.255.255.0";
+static char eth_gateway[16] = "192.168.1.1";
+
 static void eth_update_config(void)
 {
-  system("ifdown -f eth0");
-
   FILE *interfaces = fopen("/etc/network/interfaces", "w");
   if (eth_ip_mode == IP_CFG_DHCP) {
     fprintf(interfaces, "iface eth0 inet dhcp\n");
@@ -168,14 +171,45 @@ static void eth_update_config(void)
     fprintf(interfaces, "\tgateway %s\n", eth_gateway);
   }
   fclose(interfaces);
+}
 
+
+static void eth_update(void)
+{
+  system("ifdown -f eth0");
+  eth_update_config();
+  usb_eth_update_config();
   system("ifup eth0 &");
+}
+
+static void usb_eth_update(void)
+{
+  system("ifdown -f usb0");
+  eth_update_config();
+  usb_eth_update_config();
+  system("ifup usb0 &");
+}
+
+static void usb_eth_update_config(void)
+{
+  eth_update_config();
+  FILE *interfaces = fopen("/etc/network/interfaces", "a");
+  if (usb_eth_ip_mode == IP_CFG_DHCP) {
+    fprintf(interfaces, "iface usb0 inet dhcp\n");
+  } else {
+    fprintf(interfaces, "iface usb0 inet static\n");
+    fprintf(interfaces, "\taddress %s\n", usb_eth_ip_addr);
+    fprintf(interfaces, "\tnetmask %s\n", usb_eth_netmask);
+    fprintf(interfaces, "\tgateway %s\n", eth_gateway);
+  }
+  fclose(interfaces);
+  system("ifup usb0 &");
 }
 
 static int eth_ip_mode_notify(void *context)
 {
   (void)context;
-  eth_update_config();
+  eth_update();
   return 0;
 }
 
@@ -187,7 +221,26 @@ static int eth_ip_config_notify(void *context)
     return -1;
   }
 
-  eth_update_config();
+  eth_update();
+  return 0;
+}
+
+static int usb_eth_ip_mode_notify(void *context)
+{
+  (void)context;
+  usb_eth_update();
+  return 0;
+}
+
+static int usb_eth_ip_config_notify(void *context)
+{
+  char *ip = (char *)context;
+
+  if (inet_addr(ip) == INADDR_NONE) {
+    return -1;
+  }
+
+  usb_eth_update();
   return 0;
 }
 
@@ -520,7 +573,20 @@ int main(void)
                     sizeof(eth_gateway), SETTINGS_TYPE_STRING,
                     eth_ip_config_notify, &eth_gateway);
 
-  sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
+  settings_register(settings_ctx, "usb_ethernet", "ip_config_mode", &usb_eth_ip_mode,
+                    sizeof(eth_ip_mode), settings_type_ip_mode,
+                    usb_eth_ip_mode_notify, &usb_eth_ip_mode);
+  settings_register(settings_ctx, "usb_ethernet", "ip_address", &usb_eth_ip_addr,
+                    sizeof(eth_ip_addr), SETTINGS_TYPE_STRING,
+                    usb_eth_ip_config_notify, &usb_eth_ip_addr);
+  settings_register(settings_ctx, "usb_ethernet", "netmask", &usb_eth_netmask,
+                    sizeof(eth_netmask), SETTINGS_TYPE_STRING,
+                    usb_eth_ip_config_notify, &usb_eth_netmask);
+  settings_register(settings_ctx, "usb_ethernet", "gateway", &usb_eth_gateway,
+                    sizeof(eth_gateway), SETTINGS_TYPE_STRING,
+                    usb_eth_ip_config_notify, &usb_eth_gateway);
+  
+sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET, reset_callback, NULL, NULL);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
