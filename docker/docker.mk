@@ -39,15 +39,19 @@ DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
 docker-wipe:
 	@echo "WARNING: This will wipe all Piksi related Docker images, containers, and volumes!"
 	@read -p "Continue? (y/[n]) " x && { [[ "$$x" == "y" ]] || exit 0; } && \
-		echo -n "Wiping docker images, containers, and volumes" && \
+		echo -n "Wiping all Piksi related docker materials" && \
 		{ sleep 0.25; echo -n .; sleep 0.25; echo -n .; sleep 0.25; echo -n .; sleep 0.25; echo; } && \
 		{ \
+			echo "... stopping Piksi containers"; \
 			running_images=`docker ps --format '{{.Names}},{{.ID}}' | grep '^piksi_.*,.*$$' | cut -f2 -d,`; \
 			[[ -z "$$running_images" ]] || docker stop -t 1 $$running_images; \
+			echo "... removing Piksi containers"; \
 			stopped_images=`docker ps -a --format '{{.Names }},{{.ID}}' | grep '^piksi_.*,.*$$' | cut -f2 -d,`; \
 			[[ -z "$$stopped_images" ]] || docker rm -f $$stopped_images; \
+			echo "... removing Piksi images"; \
 			images=`docker images --format '{{.Repository}},{{.ID}}' | grep '^piksi_.*,.*$$' | cut -f2 -d,`; \
-			[[ -z "$$images" ]] || xargs -t docker rmi -f $$images; \
+			[[ -z "$$images" ]] || docker rmi -f $$images; \
+			echo "... removing Piksi volumes"; \
 			volumes=`docker volume ls --format '{{.Name}}' | grep '^piksi_.*$$'`; \
 			[[ -z "$$volumes" ]] || docker volume rm $$volumes; \
 		}

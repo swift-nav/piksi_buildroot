@@ -4,6 +4,16 @@ set logfile syslog
 set pidfile /var/run/monit_.pid
 set daemon 5
 
+set httpd port 2812 and
+  use address localhost  # only accept connection from localhost
+  allow localhost        # allow localhost to connect to the server and
+
+## Or try this:
+# set httpd unixsocket /var/run/monit.sock and
+#     allow localhost
+
+include /etc/monitrc.d/*.monitrc
+
 check process zmq_router_sbp with pidfile /var/run/zmq_router_sbp.pid
     start program = "/etc/init.d/S80zmq_router_sbp start"
     stop program = "/etc/init.d/S80zmq_router_sbp stop"
@@ -44,10 +54,6 @@ check process zmq_adapter_rpmsg_piksi100 with pidfile /var/run/zmq_adapter_rpmsg
 check process zmq_adapter_rpmsg_piksi101 with pidfile /var/run/zmq_adapter_rpmsg_piksi101.pid
     start program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi101 start"
     stop program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi101 stop"
-
-check process sample_daemon with pidfile /var/run/sample_daemon.pid
-    start program = "/etc/init.d/S83sample_daemon start"
-    stop program = "/etc/init.d/S83sample_daemon stop"
 
 check process sshd with pidfile /var/run/sshd.pid
     start program = "/etc/init.d/S50sshd start"

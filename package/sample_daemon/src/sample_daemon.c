@@ -73,6 +73,16 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static void heartbeat_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void) sender_id;
+  (void) len;
+  (void) msg;
+  (void) context;
+
+  sbp_log(LOG_DEBUG, "Got piksi heartbeat...");
+}
+
 static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void) sender_id;
@@ -113,6 +123,11 @@ int main(int argc, char *argv[])
   if (sbp_init(sbp_zmq_pubsub_rx_ctx_get(ctx),
                sbp_zmq_pubsub_tx_ctx_get(ctx)) != 0) {
     piksi_log(LOG_ERR, "Error initializing SBP!");
+    exit(EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_HEARTBEAT, heartbeat_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "Error setting MSG_POS_LLH callback!");
     exit(EXIT_FAILURE);
   }
 

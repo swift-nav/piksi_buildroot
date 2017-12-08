@@ -20,6 +20,7 @@ RUN \
       vim \
       silversearcher-ag \
       realpath \
+      awscli \
       sudo && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
