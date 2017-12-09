@@ -1,7 +1,7 @@
 [Unit]
 Description=Piksi System Daemon
-Wants=sbp-settingsd.service
-After=sbp-settingsd.service
+Wants=init-image-table.service sbp-settingsd.service
+After=init-image-table.service sbp-settingsd.service
 
 [Service]
 ExecStart=/bin/piksi_system_daemon
