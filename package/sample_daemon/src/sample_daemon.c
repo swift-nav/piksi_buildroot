@@ -30,8 +30,8 @@
 
 #define PROGRAM_NAME "sample_daemon"
 
-#define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43090"
-#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43091"
+#define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
+#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031" /* SBP External In */
 
 static double offset = 0;
 

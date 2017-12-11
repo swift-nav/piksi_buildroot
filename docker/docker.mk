@@ -23,9 +23,10 @@ DOCKER_RUN_ARGS :=                                                            \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -e BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF)                           \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
-  --hostname piksi-builder$(_DOCKER_SUFFIX)                                    \
+  --hostname piksi-builder$(_DOCKER_SUFFIX)                                   \
   --user $(USER)                                                              \
   -v $(HOME)/.ssh:/host-ssh:ro                                                \
+  -v $(HOME)/.aws:/host-aws:ro                                                \
   -v `pwd`:/piksi_buildroot                                                   \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
   -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
