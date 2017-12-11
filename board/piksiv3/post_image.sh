@@ -156,8 +156,11 @@ else
   echo "*** NO FIRMWARE FILES FOUND, NOT BUILDING PRODUCTION IMAGE ***"
 fi
 
+bold=$(tput rev)
+normal=$(tput sgr0)
+
 echo
-echo -e "PROD firmware image located in:\n\t$PROD_BIN_PATH"
-echo -e "DEV firmware image located in:\n\t$DEV_BIN_PATH"
-echo -e "FAILSAFE firmware image located in:\n\t$FAILSAFE_BIN_PATH"
+echo -e "${bold}>>> PROD firmware image located at:${normal}\n\t$PROD_BIN_PATH"
+echo -e "${bold}>>> DEV firmware image located at:${normal}\n\t$DEV_BIN_PATH"
+echo -e "${bold}>>> FAILSAFE firmware image located at:${normal}\n\t$FAILSAFE_BIN_PATH"
 echo

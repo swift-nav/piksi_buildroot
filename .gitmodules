@@ -1,4 +1,3 @@
 [submodule "buildroot"]
 	path = buildroot
-	url = https://github.com/swift-nav/buildroot
-	branch = v2017.02.01-swiftnav
+	url = git://git.buildroot.net/buildroot

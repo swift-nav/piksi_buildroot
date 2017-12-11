@@ -4,13 +4,9 @@ set logfile syslog
 set pidfile /var/run/monit_.pid
 set daemon 5
 
-set httpd port 2812 and
-  use address localhost  # only accept connection from localhost
-  allow localhost        # allow localhost to connect to the server and
-
-## Or try this:
-# set httpd unixsocket /var/run/monit.sock and
-#     allow localhost
+# Or try this:
+set httpd unixsocket /var/run/monit.sock and
+    allow localhost
 
 include /etc/monitrc.d/*.monitrc
 
