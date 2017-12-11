@@ -3,6 +3,7 @@ SOURCES= \
 	async-child.c \
 	cellmodem.c \
 	cellmodem_inotify.c \
+	cellmodem_probe.c \
 	main.c \
 	protocols.c \
 	ports.c \

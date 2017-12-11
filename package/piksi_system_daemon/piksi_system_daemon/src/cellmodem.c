@@ -30,11 +30,9 @@
 #include "cellmodem_inotify.h"
 #include "async-child.h"
 
+static enum modem_type modem_type = MODEM_TYPE_GSM;
+static char *cellmodem_dev;
 /* External settings */
-static const char * const modem_type_names[] = {"GSM", "CDMA", NULL};
-enum {MODEM_TYPE_GSM, MODEM_TYPE_CDMA};
-static u8 modem_type = MODEM_TYPE_GSM;
-static char cellmodem_dev[32] = "ttyACM0";
 static char cellmodem_apn[32] = "INTERNET";
 static bool cellmodem_enabled;
 static bool cellmodem_debug;
@@ -56,10 +54,16 @@ static void pppd_output_callback(const char *buf, void *arg)
                   SBP_MSG_LOG, sizeof(*msg) + strlen(buf), (void*)msg);
 }
 
-void handle_pppd_respawn(void *arg)
+void cellmodem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type)
 {
-  if(cellmodem_enabled && (cellmodem_pppd_pid == 0))
-    cellmodem_notify(arg);
+  cellmodem_dev = dev;
+  modem_type = type;
+
+  if(cellmodem_enabled &&
+     (cellmodem_dev != NULL) &&
+     (modem_type != MODEM_TYPE_INVALID) &&
+     (cellmodem_pppd_pid == 0))
+    cellmodem_notify(pubsub_ctx);
 }
 
 int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
@@ -67,7 +71,7 @@ int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
   (void)loop;
   (void)timer_id;
 
-  handle_pppd_respawn(arg);
+  cellmodem_notify(arg);
 
   return 0;
 }
@@ -96,11 +100,9 @@ static int cellmodem_notify(void *context)
     cellmodem_pppd_pid = 0;
   }
 
-  if (!cellmodem_enabled)
-    return 0;
-
-  if (!cellmodem_tty_exists(cellmodem_dev)) {
-    async_wait_for_tty(pubsub_ctx, cellmodem_dev);
+  if ((!cellmodem_enabled) ||
+      (cellmodem_dev == NULL) ||
+      (modem_type == MODEM_TYPE_INVALID)) {
     return 0;
   }
 
@@ -120,9 +122,6 @@ static int cellmodem_notify(void *context)
                   cellmodem_dev,
                   "connect",
                   chatcmd,
-                  "usepeerdns",
-                  "lcp-echo-failure", "3",
-                  "lcp-echo-interval", "5",
                   NULL};
 
   /* Create a new pppd process. */
@@ -135,15 +134,6 @@ static int cellmodem_notify(void *context)
 
 int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx)
 {
-  settings_type_t settings_type_modem_type;
-  settings_type_register_enum(settings_ctx, modem_type_names,
-                              &settings_type_modem_type);
-  settings_register(settings_ctx, "cell_modem", "modem_type", &modem_type,
-                    sizeof(modem_type), settings_type_modem_type,
-                    cellmodem_notify, pubsub_ctx);
-  settings_register(settings_ctx, "cell_modem", "device", &cellmodem_dev,
-                    sizeof(cellmodem_dev), SETTINGS_TYPE_STRING,
-                    cellmodem_notify, pubsub_ctx);
   settings_register(settings_ctx, "cell_modem", "APN", &cellmodem_apn,
                     sizeof(cellmodem_apn), SETTINGS_TYPE_STRING,
                     cellmodem_notify, pubsub_ctx);
@@ -153,5 +143,6 @@ int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ct
   settings_register(settings_ctx, "cell_modem", "debug", &cellmodem_debug,
                     sizeof(cellmodem_debug), SETTINGS_TYPE_BOOL,
                     NULL, NULL);
+  async_wait_for_tty(pubsub_ctx);
   return 0;
 }

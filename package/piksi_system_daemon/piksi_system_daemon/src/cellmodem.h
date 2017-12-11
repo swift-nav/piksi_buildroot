@@ -15,8 +15,14 @@
 
 #include <libpiksi/settings.h>
 
+enum modem_type {
+  MODEM_TYPE_INVALID,
+  MODEM_TYPE_GSM,
+  MODEM_TYPE_CDMA,
+};
+
 int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx);
-void handle_pppd_respawn(void *arg);
+void cellmodem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type);
 int pppd_respawn(zloop_t *loop, int timer_id, void *arg);
 
 #endif
