@@ -4,7 +4,6 @@ set logfile syslog
 set pidfile /var/run/monit_.pid
 set daemon 5
 
-# Or try this:
 set httpd unixsocket /var/run/monit.sock and
     allow localhost
 
