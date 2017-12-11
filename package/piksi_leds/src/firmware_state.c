@@ -17,7 +17,6 @@
 #include <libsbp/navigation.h>
 #include <libsbp/system.h>
 #include <libsbp/tracking.h>
-#include <c/include/libsbp/system.h>
 
 #include "firmware_state.h"
 
