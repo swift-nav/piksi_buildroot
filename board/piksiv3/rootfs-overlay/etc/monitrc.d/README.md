@@ -1,4 +1,4 @@
-Additional config resource for monit can go in this directory in order to
+Additional config resources for monit can go in this directory in order to
 dynamically add a service that monit should manage.
 
 For example:
