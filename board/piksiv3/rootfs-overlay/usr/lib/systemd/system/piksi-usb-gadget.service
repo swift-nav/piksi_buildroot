@@ -1,0 +1,7 @@
+[Unit]
+Description=Configure usb gadget
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/swiftnav/piksi-usb-gadget
