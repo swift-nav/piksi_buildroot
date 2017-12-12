@@ -15,7 +15,7 @@
 
 set -xe
 
-FW_VERSION=${1:-v1.2.14}
+FW_VERSION=${1:-v1.2.14-4-g811abf13}
 NAP_VERSION=${2:-v1.2.14}
 
 FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
@@ -34,8 +34,7 @@ download_fw() {
   mkdir -p $FIRMWARE_DIR
 
   # Download piksi_firmware
-  fetch $FW_S3_PATH/piksi_firmware_v3_$HW_CONFIG.stripped.elf \
-    $FIRMWARE_DIR/piksi_firmware.elf
+  wget -O $FIRMWARE_DIR/piksi_firmware.elf "https://swiftnav-artifacts-pull-requests.s3.amazonaws.com/piksi_firmware_private/v1.2.14-7-g68f36516/v3/piksi_firmware_v3_prod.stripped.elf?Signature=EWqUQ9AbH18T%2FZqv2FWygL55cQY%3D&Expires=1544601796&AWSAccessKeyId=AKIAI3BP7FDHCVOX4TZA"
 
   # Download piksi_fpga
   if [ "$HW_CONFIG" == "microzed" ]; then
