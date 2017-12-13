@@ -126,7 +126,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x48, 0x00] } # SBP_MSG_BASE_POS_ECEF
           - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # SBP_MSG_OBS
           - { action: ACCEPT, prefix: [0x55, 0x86, 0x00] } # SBP_MSG_EPHEMERIS_GPS
-          - { action: ACCEPT, prefix: [0x55, 0x85, 0x00] } # SBP_MSG_EPHEMERIS_GLO
+          - { action: ACCEPT, prefix: [0x55, 0x88, 0x00] } # SBP_MSG_EPHEMERIS_GLO
           - { action: ACCEPT, prefix: [0x55, 0x84, 0x00] } # SBP_MSG_EPHEMERIS_SBAS
           - { action: ACCEPT, prefix: [0x55, 0x75, 0x00] } # SBP_MSG_GLO_BIASES
           - { action: REJECT }
