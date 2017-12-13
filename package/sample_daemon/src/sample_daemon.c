@@ -22,8 +22,6 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include <curl/curl.h>
-
 #include <czmq.h>
 
 #include <libpiksi/logging.h>
