@@ -156,6 +156,13 @@ else
   echo "*** NO FIRMWARE FILES FOUND, NOT BUILDING PRODUCTION IMAGE ***"
 fi
 
+# Strip absolute path in case we're inside the docker container
+if [[ -n "$BR2_EXTERNAL_piksi_buildroot_PATH" ]]; then
+  PROD_BIN_PATH=${PROD_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
+  DEV_BIN_PATH=${DEV_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
+  FAILSAFE_BIN_PATH=${FAILSAFE_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
+fi
+
 bold=$(tput rev)
 normal=$(tput sgr0)
 

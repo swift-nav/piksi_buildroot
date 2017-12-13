@@ -11,7 +11,7 @@ SAMPLE_DAEMON_SITE_METHOD = local
 SAMPLE_DAEMON_DEPENDENCIES = czmq libsbp libpiksi libcurl libnetwork
 
 define SAMPLE_DAEMON_BUILD_CMDS
-    $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D)/src all
+    $(MAKE) CROSS=$(TARGET_CROSS) LD=$(TARGET_LD) -C $(@D)/src all
 endef
 
 define SAMPLE_DAEMON_INSTALL_TARGET_CMDS

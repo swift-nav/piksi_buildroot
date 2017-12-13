@@ -46,7 +46,7 @@ void piksi_vlog(int priority, const char *format, va_list ap)
 
 #define NUM_LOG_LEVELS 8
 
-void sbp_log(int priority, const char *msg_text)
+void sbp_log(int priority, const char *msg_text, ...)
 {
   const char *log_args[NUM_LOG_LEVELS] = {"emerg", "alert", "crit",
                                           "error", "warn", "notice",
@@ -66,8 +66,15 @@ void sbp_log(int priority, const char *msg_text)
     return;
   }
 
-  char msg_buf[1024];
-  snprintf(msg_buf, sizeof(msg_buf), "%s: %s", log_ident, msg_text);
+  char formatted_msg[2048];
+
+  va_list ap;
+  va_start(ap, msg_text);
+  vsnprintf(formatted_msg, sizeof(formatted_msg), msg_text, ap);
+  va_end(ap);
+
+  char msg_buf[2048];
+  snprintf(msg_buf, sizeof(msg_buf), "%s: %s", log_ident, formatted_msg);
 
   fputs(msg_buf, output);
 

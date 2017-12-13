@@ -117,5 +117,5 @@ docker-make-flush-rootfs:
 
 docker-cp:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG)-copy -d $(DOCKER_TAG)
-	docker cp piksi_buildroot_copy:$(SRC) $(DST) || :
-	docker stop piksi_buildroot_copy
+	docker cp $(DOCKER_TAG)-copy:$(SRC) $(DST) || :
+	docker stop $(DOCKER_TAG)-copy
