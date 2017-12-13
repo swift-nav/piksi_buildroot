@@ -1,0 +1,10 @@
+[Unit]
+Description=Mount
+After=dev-%i.device
+BindsTo=dev-%i.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/mkdir -p /media/%I
+ExecStart=/bin/mount -t auto -o sync /dev/%I /media/%I

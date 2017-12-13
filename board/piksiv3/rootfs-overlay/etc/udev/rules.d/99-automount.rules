@@ -1,0 +1,3 @@
+ACTION=="add", KERNEL=="sd*", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}="mount-removable@%k.service"
+
+ACTION=="add", KERNEL=="mmc*", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}="mount-removable@%k.service"
