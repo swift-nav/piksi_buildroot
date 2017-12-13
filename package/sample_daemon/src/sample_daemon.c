@@ -229,10 +229,9 @@ cleanup:
   sbp_zmq_pubsub_destroy(&ctx);
   settings_destroy(&settings_ctx);
   logging_deinit();
-  exit(status);
 
   if (enable_broadcast)
     close_udp_broadcast_socket(&udp_context);
 
-  return status; // not reached
+  return status;
 }
