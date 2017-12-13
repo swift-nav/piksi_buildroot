@@ -28,6 +28,13 @@ sudo find "/home/$USER/.aws" -type f -exec chmod 0400 {} \;
 sudo chmod 0770 /root
 sudo find /root -type f -exec chmod g+rw {} \;
 
+## Copy in persistent history
+
+[ -e "/host-tmp/piksi_buildroot_bash_history" ] && \
+  { sudo cp /host-tmp/piksi_buildroot_bash_history /home/$USER/.bash_history;
+    sudo chown $USER:$GID /home/$USER/.bash_history;
+  }
+
 [ -d "/piksi_buildroot/buildroot" ] && \
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot"
 
@@ -37,4 +44,8 @@ sudo find /root -type f -exec chmod g+rw {} \;
 [ -d "/piksi_buildroot/buildroot/output/images" ] && \
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/output/images"
 
-exec sudo --preserve-env --user="$USER" --shell -- "$@"
+sudo --preserve-env --user="$USER" --shell -- "$@"
+
+[ -e "/home/$USER/.bash_history" ] \
+  && sudo cp /home/$USER/.bash_history /host-tmp/piksi_buildroot_bash_history \
+  || true
