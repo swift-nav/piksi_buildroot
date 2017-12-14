@@ -111,9 +111,9 @@ make libpiksi-rebuild
 make image
 ```
 
-# Building the sample daemon
+## Building the sample daemon
 
-In order to build the sample daemon located [here](packages/sample_daemon), set
+In order to build the sample daemon located [here](package/sample_daemon), set
 the `BR2_BUILD_SAMPLE_DAEMON` environement variables to `y` in the build
 environment:
 
@@ -121,7 +121,11 @@ environment:
 export BR2_BUILD_SAMPLE_DAEMON=y
 ```
 
-Then build using Docker (or Linux native):
+Then build normally:
 ```
+# Docker
 make docker-make-image
+
+# or, Linux native
+make image
 ```

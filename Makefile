@@ -14,6 +14,7 @@ DOCKER_RUN_ARGS :=                                                            \
   -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
   -v `pwd`:/piksi_buildroot                                                   \
   -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
+  -v $(HOME)/.aws:/root/.aws:ro                                               \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
 
 DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
