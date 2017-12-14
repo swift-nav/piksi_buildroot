@@ -30,6 +30,10 @@ clean:
 		! -path buildroot/output/images -print -exec rm -rf {} \;
 	rm -rf buildroot/output/images/*
 
+flush-rootfs:
+	find buildroot/output -name .stamp_target_installed -delete
+	rm -rf buildroot/output/target/*
+
 # 'Package-specific:'
 # '  pkg-<pkg>                  - Build and install <pkg> and all its dependencies'
 # '  pkg-<pkg>-source           - Only download the source files for <pkg>'
@@ -107,9 +111,9 @@ docker-run:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) \
 		--tty --interactive $(DOCKER_TAG) || :
 
-flush-rootfs:
-	find buildroot/output -name .stamp_target_installed -delete
-	rm -rf buildroot/output/target/*
+docker-make-firmware:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make firmware
 
 docker-make-flush-rootfs:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
