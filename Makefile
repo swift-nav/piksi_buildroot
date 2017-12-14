@@ -99,6 +99,10 @@ docker-make-host-clean:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make host-clean
 
+docker-make-firmware:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make firmware
+
 docker-config:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make -C buildroot O=output piksiv3_defconfig

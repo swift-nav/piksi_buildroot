@@ -45,7 +45,7 @@ trap 'rm -rf $LOG_FILE' EXIT
 
 generate_dev() {
 
-  echo -n "Generating DEV firmware image image... "
+  echo -n "Generating DEV firmware image... "
 
   # Ensure log is empty
   true >$LOG_FILE
