@@ -114,7 +114,7 @@ make image
 ## Building the sample daemon
 
 In order to build the sample daemon located [here](package/sample_daemon), set
-the `BR2_BUILD_SAMPLE_DAEMON` environement variables to `y` in the build
+the `BR2_BUILD_SAMPLE_DAEMON` environement variable to `y` in the build
 environment:
 
 ```
