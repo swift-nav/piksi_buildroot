@@ -24,6 +24,8 @@ DOCKER_RUN_ARGS :=                                                            \
   -e BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF)                           \
   -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
+  -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)                           \
+  -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)                                   \
   --hostname piksi-builder$(_DOCKER_SUFFIX)                                   \
   --user $(USER)                                                              \
   -v $(HOME)/.ssh:/host-ssh:ro                                                \
