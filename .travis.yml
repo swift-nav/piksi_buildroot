@@ -19,6 +19,7 @@ before_install:
   - eval "$(ssh-agent -s)"
   - chmod 0600 /tmp/travis_piksi_ins_ref_key
   - ssh-add /tmp/travis_piksi_ins_ref_key
+  - pip install --user --upgrade awscli
   - git fetch --tags --unshallow
   - sudo apt-get update
   - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
