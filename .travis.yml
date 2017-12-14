@@ -37,8 +37,6 @@ matrix:
     # Normal image build
     - env:
         - TRAVIS_TARGET=docker-make-image
-        - PRODUCT_VERSION=v3
-        - PRODUCT_REV=prod
       script:
         - make docker-setup
         - make docker-make-firmware
@@ -54,8 +52,6 @@ matrix:
     # Host image build to run tests
     - env:
         - TRAVIS_TARGET=docker-make-host-image
-        - PRODUCT_VERSION=v3
-        - PRODUCT_REV=prod
       script:
         - make firmware
         - make docker-setup
@@ -73,7 +69,6 @@ matrix:
         - TRAVIS_TARGET=docker-make-image
         - BR2_BUILD_SAMPLE_DAEMON=y
         - PRODUCT_REV=sdk_sample
-        - PRODUCT_VERSION=v3
       script:
         - make docker-setup
         - make docker-make-firmware
@@ -90,6 +85,8 @@ matrix:
 
 env:
   global:
+    - PRODUCT_VERSION=v3
+    - PRODUCT_REV=prod
     # Secure keys below are encrypted with travis encrypt gem
     # Example encryption: travis encrypt AWS_SECRET_ACCESS_KEY=foo
     # See https://docs.travis-ci.com/user/encryption-keys/
