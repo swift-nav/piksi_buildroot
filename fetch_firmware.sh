@@ -44,7 +44,6 @@ download_fw() {
   else
     fetch $NAP_S3_PATH/piksi_${HW_CONFIG}_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
   fi
-
 }
 
-download_fw "prod"
+download_fw "prod" || echo "ERROR: failed to download FPGA and RTOS artifacts"

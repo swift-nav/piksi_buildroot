@@ -11,8 +11,10 @@ DOCKER_RUN_ARGS :=                                                            \
   --rm                                                                        \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
+  -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
   -v `pwd`:/piksi_buildroot                                                   \
   -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
+  -v $(HOME)/.aws:/root/.aws:ro                                               \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
 
 DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
@@ -97,6 +99,10 @@ docker-make-host-image:
 docker-make-host-clean:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make host-clean
+
+docker-make-firmware:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make firmware
 
 docker-config:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \

@@ -18,7 +18,8 @@ RUN apt-get -y --force-yes install \
   lib32stdc++6 \
   lib32z1 \
   vim \
-  silversearcher-ag
+  silversearcher-ag \
+  awscli
 RUN apt-get -y --force-yes -t jessie-backports install \
   cmake
 
