@@ -31,9 +31,9 @@ DOCKER_RUN_ARGS :=                                                            \
   -v $(HOME)/.ssh:/host-ssh:ro                                                \
   -v $(HOME)/.aws:/host-aws:ro                                                \
   -v /tmp:/host-tmp:rw                                                        \
-  -v `pwd`:/piksi_buildroot                                                   \
-  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
-  -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
+  -v $(CURDIR):/piksi_buildroot                                               \
+  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                            \
+  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
 
 ifneq ($(SSH_AUTH_SOCK),)
 DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
