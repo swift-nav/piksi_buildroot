@@ -23,6 +23,7 @@ RUN \
       realpath \
       sudo \
       gdb-multiarch \
+      awscli \
       checkinstall \
       && \
   mkdir -p cmake-build && cd cmake-build && \
