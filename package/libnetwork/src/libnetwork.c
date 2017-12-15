@@ -343,7 +343,6 @@ static void network_request(CURL *curl)
 static struct curl_slist *ntrip_init(CURL *curl)
 {
   struct curl_slist *chunk = NULL;
-  chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
   chunk = curl_slist_append(chunk, "Ntrip-Version: Ntrip/2.0");
 
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
@@ -362,9 +361,6 @@ static struct curl_slist *skylark_init(CURL *curl)
 
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, device_buf);
-  chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
-  chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
-  chunk = curl_slist_append(chunk, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
 
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
   curl_easy_setopt(curl, CURLOPT_USERAGENT,  "skylark-agent/1.0");
@@ -430,6 +426,7 @@ void skylark_download(const network_config_t *config)
   }
 
   struct curl_slist *chunk = skylark_init(curl);
+  chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
 
   curl_easy_setopt(curl, CURLOPT_URL,              config->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
@@ -467,6 +464,8 @@ void skylark_upload(const network_config_t *config)
   }
 
   struct curl_slist *chunk = skylark_init(curl);
+  chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
+  chunk = curl_slist_append(chunk, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
 
   curl_easy_setopt(curl, CURLOPT_PUT,              1L);
   curl_easy_setopt(curl, CURLOPT_URL,              config->url);
