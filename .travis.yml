@@ -43,6 +43,18 @@ matrix:
       after_failure:
         - tail -n 500 host_build.out
 
+    - env:
+        - TRAVIS_TARGET=docker-make-image BR2_BUILD_SAMPLE_DAEMON=y
+      script:
+        - make firmware
+        - make docker-setup
+        - bash -c "while true; do sleep 1m; echo ...; done" &
+        - set -o pipefail && make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
+      after_success:
+        - PRODUCT_VERSION=v3 PRODUCT_REV=sample_daemon ./publish.sh build.out
+      after_failure:
+        - tail -n 500 build.out
+
 env:
   global:
     # Secure keys below are encrypted with travis encrypt gem
