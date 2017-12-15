@@ -22,13 +22,18 @@ DOCKER_RUN_ARGS :=                                                            \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -e BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF)                           \
+  -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
-  --hostname piksi-builder$(_DOCKER_SUFFIX)                                    \
+  -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)                           \
+  -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)                                   \
+  --hostname piksi-builder$(_DOCKER_SUFFIX)                                   \
   --user $(USER)                                                              \
   -v $(HOME)/.ssh:/host-ssh:ro                                                \
-  -v `pwd`:/piksi_buildroot                                                   \
-  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
-  -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
+  -v $(HOME)/.aws:/host-aws:ro                                                \
+  -v /tmp:/host-tmp:rw                                                        \
+  -v $(CURDIR):/piksi_buildroot                                               \
+  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                            \
+  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
 
 ifneq ($(SSH_AUTH_SOCK),)
 DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
@@ -39,15 +44,19 @@ DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
 docker-wipe:
 	@echo "WARNING: This will wipe all Piksi related Docker images, containers, and volumes!"
 	@read -p "Continue? (y/[n]) " x && { [[ "$$x" == "y" ]] || exit 0; } && \
-		echo -n "Wiping docker images, containers, and volumes" && \
+		echo -n "Wiping all Piksi related docker materials" && \
 		{ sleep 0.25; echo -n .; sleep 0.25; echo -n .; sleep 0.25; echo -n .; sleep 0.25; echo; } && \
 		{ \
+			echo "... stopping Piksi containers"; \
 			running_images=`docker ps --format '{{.Names}},{{.ID}}' | grep '^piksi_.*,.*$$' | cut -f2 -d,`; \
 			[[ -z "$$running_images" ]] || docker stop -t 1 $$running_images; \
+			echo "... removing Piksi containers"; \
 			stopped_images=`docker ps -a --format '{{.Names }},{{.ID}}' | grep '^piksi_.*,.*$$' | cut -f2 -d,`; \
 			[[ -z "$$stopped_images" ]] || docker rm -f $$stopped_images; \
+			echo "... removing Piksi images"; \
 			images=`docker images --format '{{.Repository}},{{.ID}}' | grep '^piksi_.*,.*$$' | cut -f2 -d,`; \
-			[[ -z "$$images" ]] || xargs -t docker rmi -f $$images; \
+			[[ -z "$$images" ]] || docker rmi -f $$images; \
+			echo "... removing Piksi volumes"; \
 			volumes=`docker volume ls --format '{{.Name}}' | grep '^piksi_.*$$'`; \
 			[[ -z "$$volumes" ]] || docker volume rm $$volumes; \
 		}

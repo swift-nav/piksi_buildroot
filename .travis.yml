@@ -35,20 +35,22 @@ matrix:
     - script:
         - ./docker/travis.sh
 
+    # Normal image build
     - env:
         - TRAVIS_TARGET=docker-make-image
       script:
-        - make firmware
         - make docker-setup
+        - make docker-make-firmware
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
       after_success:
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
+        - ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
         - SLACK_CHANNEL=github ./comment.sh
       after_failure:
         - tail -n 500 build.out
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out
+        - ./publish.sh build.out
 
+    # Host image build to run tests
     - env:
         - TRAVIS_TARGET=docker-make-host-image
       script:
@@ -58,13 +60,34 @@ matrix:
         - set -o pipefail && make docker-make-host-image 2>&1 | tee -a host_build.out | grep --line-buffered '^>>>'
       after_success:
         - git fetch --tags --unshallow
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh host_build.out
+        - ./publish.sh host_build.out
       after_failure:
         - tail -n 500 host_build.out
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out
+        - ./publish.sh build.out
+
+    # Normal build + SDK sample app
+    - env:
+        - TRAVIS_TARGET=docker-make-image
+        - BR2_BUILD_SAMPLE_DAEMON=y
+        - PRODUCT_REV=sdk_sample
+      script:
+        - make docker-setup
+        - make docker-make-firmware
+        - bash -c "while true; do sleep 1m; echo ...; done" &
+        - set -o pipefail && make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
+      after_success:
+        - ./publish.sh build.out
+        - SLACK_CHANNEL=github ./comment.sh
+      after_failure:
+        - tail -n 500 build.out
+        - ./publish.sh build.out
+
+
 
 env:
   global:
+    - PRODUCT_VERSION=v3
+    - PRODUCT_REV=prod
     # Secure keys below are encrypted with travis encrypt gem
     # Example encryption: travis encrypt AWS_SECRET_ACCESS_KEY=foo
     # See https://docs.travis-ci.com/user/encryption-keys/

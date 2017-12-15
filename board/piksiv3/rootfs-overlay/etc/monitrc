@@ -4,6 +4,11 @@ set logfile syslog
 set pidfile /var/run/monit_.pid
 set daemon 5
 
+set httpd unixsocket /var/run/monit.sock and
+    allow localhost
+
+include /etc/monitrc.d/*.monitrc
+
 check process zmq_router_sbp with pidfile /var/run/zmq_router_sbp.pid
     start program = "/etc/init.d/S80zmq_router_sbp start"
     stop program = "/etc/init.d/S80zmq_router_sbp stop"

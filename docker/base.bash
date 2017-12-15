@@ -22,7 +22,7 @@ docker build \
   -t "$DOCKER_REPO_NAME:$VERSION_TAG" \
   .
 
-if [[ -n "$DOCKER_PASS" ]]; then
+if [[ -n "${DOCKER_PASS:-}" ]]; then
   docker login --username="${DOCKER_USER:-swiftnav}" --password="$DOCKER_PASS"
   docker push "$DOCKER_REPO_NAME:$VERSION_TAG"
 else
