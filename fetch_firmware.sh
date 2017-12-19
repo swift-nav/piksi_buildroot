@@ -15,8 +15,8 @@
 
 set -xe
 
-FW_VERSION=${1:-v1.3.7}
-NAP_VERSION=${2:-v1.3.7}
+FW_VERSION=${1:-v1.3.9}
+NAP_VERSION=${2:-v1.3.9}
 
 FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
@@ -44,6 +44,7 @@ download_fw() {
   else
     fetch $NAP_S3_PATH/piksi_${HW_CONFIG}_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
   fi
+
 }
 
-download_fw "prod" || echo "ERROR: failed to download FPGA and RTOS artifacts"
+download_fw "prod"
