@@ -55,7 +55,7 @@ typedef struct {
 static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   [PORT_UART0] = {
     .name = "uart0",
-    .wl = "72,74,65535"
+    .wl = "72,74,117,65535"
   },
   [PORT_UART1] = {
     .name = "uart1",
