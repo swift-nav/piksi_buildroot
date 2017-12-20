@@ -49,11 +49,11 @@ matrix:
         - make firmware
         - make docker-setup
         - bash -c "while true; do sleep 1m; echo ...; done" &
-        - set -o pipefail && make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
+        - set -o pipefail && make docker-make-image 2>&1 | tee -a sdk_build.out | grep --line-buffered '^>>>'
       after_success:
-        - PRODUCT_VERSION=v3 PRODUCT_REV=sample_daemon ./publish.sh build.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh sdk_build.out
       after_failure:
-        - tail -n 500 build.out
+        - tail -n 500 sdk_build.out
 
 env:
   global:
