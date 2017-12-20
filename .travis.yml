@@ -76,7 +76,6 @@ matrix:
         - set -o pipefail && make docker-make-image 2>&1 | tee -a sdk_build.out | grep --line-buffered '^>>>'
       after_success:
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh sdk_build.out
-        - SLACK_CHANNEL=github ./comment.sh
       after_failure:
         - tail -n 500 build.out
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh sdk_build.out
