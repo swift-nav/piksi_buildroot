@@ -14,36 +14,6 @@
   - Board-specific files (rootfs overlay, device trees, scripts, etc.) in `board/piksiv3`
 
 
-## Fetching firmware binaries
-
-To build a production system image, the build process expects the following
-firmware and FPGA binaries to be present:
-
-```
-firmware/prod/piksi_firmware.elf
-firmware/prod/piksi_fpga.bit
-firmware/microzed/piksi_firmware.elf
-firmware/microzed/piksi_fpga.bit
-```
-
-You can use the following command to download these binaries from S3. Note that
-this requires `awscli` to be installed and AWS credentials to be properly
-configured.
-
-```
-# Docker
-make docker-make-firmware # (Requires 'make docker-setup` to be run first)
-
-# Linux native
-make firmware
-```
-
-Check `fetch-firmware.sh` to see which image versions are being used.
-
-Note that these binaries are only used by the production system image. In the
-development system image they are instead read from the network or SD
-card.
-
 ## Building
 
 ### Docker
@@ -129,3 +99,33 @@ make docker-make-image
 # or, Linux native
 make image
 ```
+
+## Fetching firmware binaries
+
+To build a production system image, the build process expects the following
+firmware and FPGA binaries to be present:
+
+```
+firmware/prod/piksi_firmware.elf
+firmware/prod/piksi_fpga.bit
+firmware/microzed/piksi_firmware.elf
+firmware/microzed/piksi_fpga.bit
+```
+
+You can use the following command to download these binaries from S3. Note that
+this requires `awscli` to be installed and AWS credentials to be properly
+configured if you are not building from a release branch.
+
+```
+# Docker
+make docker-make-firmware # (Requires 'make docker-setup` to be run first)
+
+# Linux native
+make firmware
+```
+
+Check `fetch-firmware.sh` to see which image versions are being used.
+
+Note that these binaries are only used by the production system image. In the
+development system image they are instead read from the network or SD
+card.
