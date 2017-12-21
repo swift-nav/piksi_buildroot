@@ -15,7 +15,15 @@ BR2_HAS_PIKSI_INS_REF := $(shell git ls-remote $(PIKSI_INS_REF_REPO) &>/dev/null
 
 export BR2_HAS_PIKSI_INS_REF
 
-DOCKER_RUN_ARGS :=                                                            \
+ifneq ($(AWS_ACCESS_KEY_ID),)
+AWS_VARIABLES := -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)
+endif
+
+ifneq ($(AWS_SECRET_ACCESS_KEY),)
+AWS_VARIABLES := $(AWS_VARIABLES) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
+endif
+
+DOCKER_SETUP_ARGS :=                                                          \
   --rm                                                                        \
   -e USER=$(USER)                                                             \
   -e GID=$(shell id -g)                                                       \
@@ -24,16 +32,18 @@ DOCKER_RUN_ARGS :=                                                            \
   -e BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF)                           \
   -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
-  -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)                           \
-  -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)                                   \
+  $(AWS_VARIABLES)                                                            \
   --hostname piksi-builder$(_DOCKER_SUFFIX)                                   \
   --user $(USER)                                                              \
   -v $(HOME)/.ssh:/host-ssh:ro                                                \
   -v $(HOME)/.aws:/host-aws:ro                                                \
   -v /tmp:/host-tmp:rw                                                        \
   -v $(CURDIR):/piksi_buildroot                                               \
-  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                            \
-  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
+  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot
+
+DOCKER_RUN_ARGS := \
+  $(DOCKER_SETUP_ARGS) \
+  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images
 
 ifneq ($(SSH_AUTH_SOCK),)
 DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
