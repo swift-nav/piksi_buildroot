@@ -13,7 +13,6 @@
   - Custom packages in `package`
   - Board-specific files (rootfs overlay, device trees, scripts, etc.) in `board/piksiv3`
 
-
 ## Fetching firmware binaries
 
 To build a production system image, the build process expects the following

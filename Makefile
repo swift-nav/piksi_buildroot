@@ -1,4 +1,4 @@
-BR2_EXTERNAL:=$(shell pwd)
+BR2_EXTERNAL:=$(CURDIR)
 
 ifeq ($(HW_CONFIG),)
   HW_CONFIG=prod
@@ -7,15 +7,18 @@ endif
 DOCKER_BUILD_VOLUME = piksi_buildroot-buildroot$(DOCKER_SUFFIX)
 DOCKER_TAG = piksi_buildroot$(DOCKER_SUFFIX)
 
-DOCKER_RUN_ARGS :=                                                            \
+DOCKER_SETUP_ARGS :=                                                          \
   --rm                                                                        \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
-  -v `pwd`:/piksi_buildroot                                                   \
-  -v `pwd`/buildroot/output/images:/piksi_buildroot/buildroot/output/images   \
+  -v $(CURDIR):/piksi_buildroot                                               \
   -v $(HOME)/.aws:/root/.aws:ro                                               \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot                        \
+
+DOCKER_RUN_ARGS :=                                                          \
+	$(DOCKER_SETUP_ARGS)                                                      \
+  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images \
 
 DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
 
@@ -76,7 +79,7 @@ docker-build-image:
 	docker build --no-cache --force-rm --tag $(DOCKER_TAG) .
 
 docker-populate-volume:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+	docker run $(DOCKER_SETUP_ARGS) $(DOCKER_TAG) \
 		git submodule update --init --recursive
 
 docker-setup: docker-build-image docker-populate-volume
