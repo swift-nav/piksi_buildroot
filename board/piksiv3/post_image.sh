@@ -163,8 +163,8 @@ if [[ -n "$BR2_EXTERNAL_piksi_buildroot_PATH" ]]; then
   FAILSAFE_BIN_PATH=${FAILSAFE_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 fi
 
-bold=$(tput rev)
-normal=$(tput sgr0)
+bold=$(tput rev &>/dev/null)
+normal=$(tput sgr0 &>/dev/null)
 
 echo
 echo -e "${bold}>>> PROD firmware image located at:${normal}\n\t$PROD_BIN_PATH"
