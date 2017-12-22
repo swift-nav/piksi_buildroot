@@ -3,8 +3,17 @@
 # Setup variables for invoking docker with sane settings for a development
 #   environement.
 
-ifneq ($(DOCKER_SUFFIX),)
+ifneq ("$(DOCKER_SUFFIX)","")
 _DOCKER_SUFFIX := -$(DOCKER_SUFFIX)
+endif
+
+ifeq ("$(OS)","Windows_NT")
+USER := $(USERNAME)
+UID  := 1000
+GID  := 1000
+else
+UID := $(shell id -u)
+GID := $(shell id -g)
 endif
 
 DOCKER_BUILD_VOLUME = piksi_buildroot-$(USER)$(_DOCKER_SUFFIX)
@@ -26,7 +35,7 @@ endif
 DOCKER_SETUP_ARGS :=                                                          \
   --rm                                                                        \
   -e USER=$(USER)                                                             \
-  -e GID=$(shell id -g)                                                       \
+  -e GID=$(GID)                                                               \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -e BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF)                           \
