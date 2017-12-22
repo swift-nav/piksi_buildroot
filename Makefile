@@ -1,5 +1,5 @@
 SHELL        := /bin/bash
-BR2_EXTERNAL := $(shell pwd)
+BR2_EXTERNAL := $(CURDIR)
 
 ifeq ($(HW_CONFIG),)
 HW_CONFIG    := prod
@@ -68,8 +68,8 @@ docker-build-image:
 	docker build --no-cache --force-rm \
 		--build-arg VERSION_TAG=$(shell cat docker/version_tag) \
 		--build-arg USER=$(USER) \
-		--build-arg UID=$(shell id -u) \
-		--build-arg GID=$(shell id -g) \
+		--build-arg UID=$(UID) \
+		--build-arg GID=$(GID) \
 		--tag $(DOCKER_TAG) -f docker/Dockerfile .
 
 docker-populate-volume:

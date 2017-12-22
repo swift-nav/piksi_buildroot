@@ -49,3 +49,5 @@ sudo --preserve-env --user="$USER" --shell -- "$@"
 [ -e "/home/$USER/.bash_history" ] \
   && sudo cp /home/$USER/.bash_history /host-tmp/piksi_buildroot_bash_history \
   || true
+
+# vim: ff=unix:
