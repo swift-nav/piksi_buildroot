@@ -52,7 +52,7 @@ sync_in() {
 
     sudo rsync \
       --exclude=.git --exclude=buildroot/output/images \
-      --archive --update --delete-during \
+      --archive --update --delete-during --ignore-errors \
       --no-owner --no-group --numeric-ids \
       /host/piksi_buildroot/ /piksi_buildroot/
 
@@ -67,7 +67,7 @@ sync_out() {
 
   sudo rsync \
     --exclude=.git --exclude=buildroot/output/images \
-    --archive --update --delete-during \
+    --archive --update --delete-during --ignore-errors \
     --no-owner --no-group --numeric-ids  \
     /piksi_buildroot/ /host/piksi_buildroot/
 
