@@ -44,19 +44,21 @@ sudo find /root -type f -exec chmod g+rw {} \;
 [ -d "/piksi_buildroot/buildroot/output/images" ] && \
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/output/images"
 
-if [[ -z "$ONLY_SYNC_OUT" ]]; then
+sync_in() {
+  if [[ -z "$ONLY_SYNC_OUT" ]]; then
 
-  echo "Syncing files into docker..."
-  trap 'echo Cannot cancel file sync\!' SIGINT
+    echo "Syncing files into docker..."
+    trap 'echo Cannot cancel file sync\!' SIGINT
 
-  sudo rsync \
-    --exclude=.git --exclude=buildroot/output/images \
-    --archive --update --delete-during \
-    --no-owner --no-group --numeric-ids \
-    /host/piksi_buildroot/ /piksi_buildroot/
+    sudo rsync \
+      --exclude=.git --exclude=buildroot/output/images \
+      --archive --update --delete-during \
+      --no-owner --no-group --numeric-ids \
+      /host/piksi_buildroot/ /piksi_buildroot/
 
-  trap - SIGINT
-fi
+    trap - SIGINT
+  fi
+}
 
 sync_out() {
   echo "Syncing files out of docker..."
@@ -75,6 +77,8 @@ sync_out() {
     && sudo cp /home/$USER/.bash_history /host/tmp/piksi_buildroot_bash_history \
     || true
 }
+
+sync_in
 
 sudo --preserve-env --user="$USER" --shell -- "$@" || true
 
