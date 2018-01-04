@@ -452,6 +452,41 @@ static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
   system("reboot -f");
 }
 
+static const char * const system_time_sources[] = {
+  "GPS+NTP", "GPS", "NTP", NULL
+};
+enum {SYSTEM_TIME_GPS_NTP, SYSTEM_TIME_GPS, SYSTEM_TIME_NTP};
+static u8 system_time_src;
+
+static int system_time_src_notify(void *context)
+{
+  static u8 oldsrc;
+  const char *ntpconf = NULL;
+
+  if (oldsrc == system_time_src) {
+    /* Avoid restarting ntpd if config hasn't changed */
+    return 0;
+  }
+
+  switch (system_time_src) {
+  case SYSTEM_TIME_GPS_NTP:
+    ntpconf = "/etc/ntp.conf.gpsntp";
+    break;
+  case SYSTEM_TIME_GPS:
+    ntpconf = "/etc/ntp.conf.gps";
+    break;
+  case SYSTEM_TIME_NTP:
+    ntpconf = "/etc/ntp.conf.ntp";
+    break;
+  default:
+    return -1;
+  }
+  unlink("/etc/ntp.conf");
+  symlink(ntpconf, "/etc/ntp.conf");
+  system("monit restart ntpd");
+  return 0;
+}
+
 int main(void)
 {
   logging_init(PROGRAM_NAME);
@@ -524,6 +559,13 @@ int main(void)
   settings_register(settings_ctx, "ethernet", "gateway", &eth_gateway,
                     sizeof(eth_gateway), SETTINGS_TYPE_STRING,
                     eth_ip_config_notify, &eth_gateway);
+
+  settings_type_t settings_type_time_source;
+  settings_type_register_enum(settings_ctx, system_time_sources,
+                              &settings_type_time_source);
+  settings_register(settings_ctx, "system", "system_time", &system_time_src,
+                    sizeof(system_time_src), settings_type_time_source,
+                    system_time_src_notify, &system_time_src);
 
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET, reset_callback, NULL, NULL);
