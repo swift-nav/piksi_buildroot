@@ -73,12 +73,19 @@ docker-build-image:
 		--tag $(DOCKER_TAG) -f docker/Dockerfile .
 
 docker-populate-volume:
-	docker run $(DOCKER_SETUP_ARGS) $(DOCKER_TAG) \
-		git submodule update --init --recursive
+	@echo Populating docker volume...
+	@git submodule update --init --recursive
+	@docker run $(DOCKER_SETUP_ARGS) $(DOCKER_TAG) \
+		/bin/bash -c 'echo ...hello from inside Docker'
+	@echo Done.
+
+docker-sync:
+	@docker run $(DOCKER_RUN_ARGS) -e ONLY_SYNC_OUT=y $(DOCKER_TAG) \
+		/bin/bash -c true
 
 docker-setup: docker-build-image docker-populate-volume
 
-docker-make-image: docker-config
+docker-make-image:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make image
 

@@ -32,7 +32,12 @@ ifneq ($(AWS_SECRET_ACCESS_KEY),)
 AWS_VARIABLES := $(AWS_VARIABLES) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
 endif
 
+ifeq ($(PIKSI_NON_INTERACTIVE_BUILD),)
+INTERACTIVE_ARGS := --interactive --tty
+endif
+
 DOCKER_SETUP_ARGS :=                                                          \
+	$(INTERACTIVE_ARGS) \
   --rm                                                                        \
   -e USER=$(USER)                                                             \
   -e GID=$(GID)                                                               \
@@ -44,11 +49,10 @@ DOCKER_SETUP_ARGS :=                                                          \
   $(AWS_VARIABLES)                                                            \
   --hostname piksi-builder$(_DOCKER_SUFFIX)                                   \
   --user $(USER)                                                              \
-  -v $(HOME)/.ssh:/host-ssh:ro                                                \
-  -v $(HOME)/.aws:/host-aws:ro                                                \
-  -v /tmp:/host-tmp:rw                                                        \
-  -v $(CURDIR):/piksi_buildroot                                               \
-  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot
+  -v $(HOME):/host/home:ro                                                    \
+  -v /tmp:/host/tmp:rw                                                        \
+  -v $(CURDIR):/host/piksi_buildroot                                          \
+  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot
 
 DOCKER_RUN_ARGS := \
   $(DOCKER_SETUP_ARGS) \
@@ -58,7 +62,7 @@ ifneq ($(SSH_AUTH_SOCK),)
 DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
 endif
 
-DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
+DOCKER_ARGS := --sig-proxy=true $(DOCKER_RUN_ARGS)
 
 docker-wipe:
 	@echo "WARNING: This will wipe all Piksi related Docker images, containers, and volumes!"
