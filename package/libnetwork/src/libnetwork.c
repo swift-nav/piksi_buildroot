@@ -332,9 +332,9 @@ static void network_request(CURL *curl)
       sbp_log(LOG_ERR, "Network Request Error - \"%s\"", error_buf);
       piksi_log(LOG_ERR, "curl request (error: %d) \"%s\"", code, error_buf);
     } else {
-      long response;
+      long response = 0;
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
-      if (response) {
+      if (response != 0) {
         sbp_log(LOG_INFO, "Network Request Response Code - (%d)", response);
         piksi_log(LOG_INFO, "curl request code %d", response);
       }
