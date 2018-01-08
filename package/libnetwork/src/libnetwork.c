@@ -37,6 +37,9 @@ const double PIPE_WARN_THRESHOLD = 0.90;
 /** Min amount time between "pipe full" warning messages. */
 const double PIPE_WARN_SECS = 5;
 
+/** Min amount time between NMEA messages. */
+const double XFER_SECS = 5;
+
 typedef struct {
   int fd;
   bool debug;
@@ -53,6 +56,7 @@ static volatile bool shutdown_signaled = false;
 static volatile bool cycle_connection_signaled = false;
 
 static time_t last_pipe_warn_time = 0;
+static time_t last_xfer_time = 0;
 
 void libnetwork_shutdown()
 {
@@ -165,6 +169,19 @@ static size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
   return -1;
 }
 
+static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
+{
+  time_t now = time(NULL);
+  if (now - last_xfer_time >= XFER_SECS) {
+    last_xfer_time = now;
+    // REPLACE THIS WITH A NMEA GGA cached value
+    size_t ret = sprintf(buf, "$GPGGA,231704.00,3745.7451670,N,12223.3432196,W,1,09,0.9,1.23,M,0.0,M,,*76\r\n");
+    return ret;
+  }
+
+  return CURL_READFUNC_PAUSE;
+}
+
 /**
  * Abort the connection if we make no progress for the last 30 intervals
  */
@@ -197,6 +214,11 @@ static int network_progress_check(network_progress_t *progress, curl_off_t bytes
   } else {
     progress->bytes = bytes;
     progress->count = 0;
+  }
+
+  time_t now = time(NULL);
+  if (now - last_xfer_time >= XFER_SECS) {
+    curl_easy_pause(xfer->curl, CURLPAUSE_CONT);
   }
 
   return 0;
@@ -390,7 +412,10 @@ void ntrip_download(const network_config_t *config)
 
   struct curl_slist *chunk = ntrip_init(curl);
 
+  curl_easy_setopt(curl, CURLOPT_PUT,              1L);
+  curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST,    "GET");
   curl_easy_setopt(curl, CURLOPT_URL,              config->url);
+  curl_easy_setopt(curl, CURLOPT_READFUNCTION,     network_download_read);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA,        &transfer);
   curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_download_progress);
