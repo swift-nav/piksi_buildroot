@@ -83,5 +83,5 @@ check process network_daemon with pidfile /var/run/network_daemon.pid
     stop program = "/etc/init.d/S86network_daemon stop"
 
 check process piksi_ins with pidfile /var/run/PoseDaemon.pid
-    start program = "/etc/init.d/S150piksi_ins start"
-    stop program = "/etc/init.d/S150piksi_ins stop"
+    start program = "/etc/init.d/S96piksi_ins start"
+    stop program = "/etc/init.d/S96piksi_ins stop"
