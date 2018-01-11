@@ -23,6 +23,8 @@ static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
 
+static double gga_xfer_secs = 0.0;
+
 static void usage(char *command)
 {
   printf("Usage: %s\n", command);
@@ -41,16 +43,22 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILE = 1,
     OPT_ID_URL,
     OPT_ID_DEBUG,
+    OPT_ID_INTERVAL,
   };
 
   const struct option long_opts[] = {
-    {"file",  required_argument, 0, OPT_ID_FILE},
-    {"url  ", required_argument, 0, OPT_ID_URL},
-    {"debug", no_argument,       0, OPT_ID_DEBUG},
+    {"file",      required_argument, 0, OPT_ID_FILE},
+    {"url  ",     required_argument, 0, OPT_ID_URL},
+    {"interval",  required_argument, 0, OPT_ID_INTERVAL},
+    {"debug",     no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
 
+  char* endptr;
+  int intarg;
+
   int opt;
+
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
       case OPT_ID_FILE: {
@@ -67,6 +75,16 @@ static int parse_options(int argc, char *argv[])
         debug = true;
       }
       break;
+
+      case OPT_ID_INTERVAL: {
+          intarg = strtol(optarg, &endptr, 10);
+          if (!(*optarg != '\0' && *endptr == '\0')) {
+            printf("Invalid option\n");
+            return -1;
+          }
+          gga_xfer_secs = intarg;
+        }
+        break;
 
       default: {
         puts("Invalid option");
@@ -101,6 +119,27 @@ static void cycle_connection(int signum)
   libnetwork_cycle_connection();
 }
 
+static bool configure_libnetwork(network_context_t* ctx, int fd) 
+{
+  network_status_t status = NETWORK_STATUS_SUCCESS;
+
+  if ((status = libnetwork_set_url(ctx, url)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_set_gga_upload_interval(ctx, gga_xfer_secs))
+      != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+
+  return true;
+
+exit_error:
+  piksi_log(LOG_ERR, "error configuring the libnetwork context: %d", status);
+  return false;
+}
+
 int main(int argc, char *argv[])
 {
   logging_init(PROGRAM_NAME);
@@ -112,17 +151,20 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
+  int print_gga_xfer_secs = (int) gga_xfer_secs;
+  piksi_log(LOG_INFO, "GGA upload interval: %d seconds", print_gga_xfer_secs);
+
   int fd = open(fifo_file_path, O_WRONLY);
   if (fd < 0) {
     piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
     exit(EXIT_FAILURE);
   }
 
-  network_config_t config = {
-    .url   = url,
-    .fd    = fd,
-    .debug = debug,
-  };
+  network_context_t* network_context = libnetwork_create(NETWORK_TYPE_NTRIP_DOWNLOAD);
+
+  if(!configure_libnetwork(network_context, fd)) {
+    exit(EXIT_FAILURE);
+  }
 
   /* Set up handler for signals which should terminate the program */
   struct sigaction terminate_sa;
@@ -149,12 +191,13 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  ntrip_download(&config);
+  ntrip_download(network_context);
 
   piksi_log(LOG_INFO, "Shutting down");
 
   close(fd);
   logging_deinit();
+  libnetwork_destroy(&network_context);
 
   exit(EXIT_SUCCESS);
 }

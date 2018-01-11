@@ -5,23 +5,29 @@ export GID
 
 ## Fix-up ssh
 
-sudo rm -rf "/home/$USER/.ssh"
-sudo cp -r /host-ssh "/home/$USER/.ssh"
+if [ -d "/home/$USER/.ssh" ]; then
 
-sudo chown -R "$USER:$GID" "/home/$USER/.ssh"
-sudo chmod 0700 "/home/$USER/.ssh"
+  sudo rm -rf "/home/$USER/.ssh"
+  sudo cp -r /host/home/.ssh "/home/$USER/.ssh"
 
-sudo find "/home/$USER/.ssh" -type f -exec chmod 0400 {} \;
+  sudo chown -R "$USER:$GID" "/home/$USER/.ssh"
+  sudo chmod 0700 "/home/$USER/.ssh"
+
+  sudo find "/home/$USER/.ssh" -type f -exec chmod 0400 {} \;
+fi
 
 ## Fix-up aws
 
-sudo rm -rf "/home/$USER/.aws"
-sudo cp -r /host-aws "/home/$USER/.aws"
+if [ -d "/home/$USER/.aws" ]; then
 
-sudo chown -R "$USER:$GID" "/home/$USER/.aws"
-sudo chmod 0700 "/home/$USER/.aws"
+  sudo rm -rf "/home/$USER/.aws"
+  sudo cp -r /host/home/.aws "/home/$USER/.aws"
 
-sudo find "/home/$USER/.aws" -type f -exec chmod 0400 {} \;
+  sudo chown -R "$USER:$GID" "/home/$USER/.aws"
+  sudo chmod 0700 "/home/$USER/.aws"
+
+  sudo find "/home/$USER/.aws" -type f -exec chmod 0400 {} \;
+fi
 
 ## Fix-up root home dir
 
@@ -30,8 +36,8 @@ sudo find /root -type f -exec chmod g+rw {} \;
 
 ## Copy in persistent history
 
-[ -e "/host-tmp/piksi_buildroot_bash_history" ] && \
-  { sudo cp /host-tmp/piksi_buildroot_bash_history /home/$USER/.bash_history;
+[ -e "/host/tmp/piksi_buildroot_bash_history" ] && \
+  { sudo cp /host/tmp/piksi_buildroot_bash_history /home/$USER/.bash_history;
     sudo chown $USER:$GID /home/$USER/.bash_history;
   }
 
@@ -45,9 +51,14 @@ sudo find /root -type f -exec chmod g+rw {} \;
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/output/images"
 
 sudo --preserve-env --user="$USER" --shell -- "$@"
+err_code=$?
 
 [ -e "/home/$USER/.bash_history" ] \
-  && sudo cp /home/$USER/.bash_history /host-tmp/piksi_buildroot_bash_history \
+  && sudo cp /home/$USER/.bash_history /host/tmp/piksi_buildroot_bash_history \
   || true
+
+echo ">>> Exit status: $err_code"
+
+exit $err_code
 
 # vim: ff=unix:

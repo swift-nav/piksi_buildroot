@@ -24,16 +24,87 @@
 
 #include <stdbool.h>
 
+typedef struct network_context_s network_context_t;
+
 /**
- * @struct  network_config_t
- *
- * @brief   Config for network.
+ * @brief   Standard settings type definitions.
  */
-typedef struct {
-  const char *url;  /**< Network url to connect to. */
-  int fd;           /**< File descriptor to read to or write from. */
-  bool debug;       /**< Enable debugging output */
-} network_config_t;
+typedef enum {
+  NETWORK_TYPE_INVALID,          /**< Context for an ntrip download session  */
+  NETWORK_TYPE_NTRIP_DOWNLOAD,   /**< Context for an ntrip download session  */
+  NETWORK_TYPE_SKYLARK_UPLOAD,   /**< Context for a skylark upload session   */
+  NETWORK_TYPE_SKYLARK_DOWNLOAD, /**< Context for a skylark download session */
+} network_type_t;
+
+/**
+ * @brief   Error type
+ */
+typedef enum {
+  NETWORK_STATUS_INVALID_SETTING = -1, /**< The setting is invalid for this type        */
+  NETWORK_STATUS_URL_TOO_LARGE   = -2, /**< The URL specified is too large              */
+  NETWORK_STATUS_SUCCESS         =  0, /**< The operation was successful                */
+} network_status_t;
+
+/**
+ * @brief Create a context for a libnetwork session
+ *
+ * @param[in] type          The type of libnetwork session, @see @c network_type_t
+ *
+ * @return                  The network_context_t that was created, NULL on error.
+ */
+network_context_t* libnetwork_create(network_type_t type);
+
+/**
+ * @brief   Destroy a libnetwork context.
+ * @details Deinitialize and destroy a libnetwork context.
+ *
+ * @note    The context pointer will be set to NULL by this function.
+ *
+ * @param[inout] ctx        Double pointer to the context to destroy.
+ */
+void libnetwork_destroy(network_context_t **ctx);
+
+/**
+ * @brief Set the FD for this context
+ *
+ * @return                   The operation result.
+ *
+ * @retval  0                The setting was registered successfully.
+ * @retval <0                An error occurred. @see @c network_status_t
+ */
+network_status_t libnetwork_set_fd(network_context_t* context, int fd);
+
+/**
+ * @brief Set the url for this context
+ *
+ * @return                   The operation result.
+ *
+ * @retval  0                The setting was registered successfully.
+ * @retval <0                An error occurred. @see @c network_status_t
+ */
+network_status_t libnetwork_set_url(network_context_t* context, const char* url);
+
+/**
+ * @brief Set the debug flag for this context
+ *
+ * @return                   The operation result.
+ *
+ * @retval  0                The setting was registered successfully.
+ * @retval <0                An error occurred. @see @c network_status_t
+ */
+network_status_t libnetwork_set_debug(network_context_t* context, bool debug);
+
+/**
+ * @brief Set the NTRIP GGA upload frequency for this context, this is only valid for session created with type LIBNETWORK_NTRIP_DOWNLOAD
+ *
+ * @param[in] gga_interval   The GGA upload interval in seconds.
+ *
+ * @return                   The operation result.
+ *
+ * @retval  0                The setting was registered successfully.
+ * @retval <0                An error occurred. @see @c network_status_t
+ */
+network_status_t libnetwork_set_gga_upload_interval(network_context_t* context, int gga_interval);
 
 /**
  * @brief   Download from ntrip.
@@ -41,7 +112,7 @@ typedef struct {
  *
  * @param[in] config        Pointer to the config to use.
  */
-void ntrip_download(const network_config_t *config);
+void ntrip_download(network_context_t *ctx);
 
 /**
  * @brief   Download from skylark.
@@ -49,7 +120,7 @@ void ntrip_download(const network_config_t *config);
  *
  * @param[in] config        Pointer to the config to use.
  */
-void skylark_download(const network_config_t *config);
+void skylark_download(network_context_t *ctx);
 
 /**
  * @brief   Upload to skylark.
@@ -57,7 +128,7 @@ void skylark_download(const network_config_t *config);
  *
  * @param[in] config        Pointer to the config to use.
  */
-void skylark_upload(const network_config_t *config);
+void skylark_upload(network_context_t *ctx);
 
 /**
  * @brief Graceful termination handler for libnetwork daemons.

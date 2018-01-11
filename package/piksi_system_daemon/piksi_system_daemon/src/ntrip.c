@@ -20,11 +20,15 @@
 static bool ntrip_enabled;
 static bool ntrip_debug;
 static char ntrip_url[256];
+static char ntrip_internval_s[16];
+
+static int ntrip_internval = 0;
 
 static char *ntrip_argv_normal[] = {
   "ntrip_daemon",
   "--file", FIFO_FILE_PATH,
   "--url", ntrip_url,
+  "--interval", ntrip_internval_s,
   NULL,
 };
 
@@ -33,6 +37,7 @@ static char *ntrip_argv_debug[] = {
   "--debug",
   "--file", FIFO_FILE_PATH,
   "--url", ntrip_url,
+  "--interval", ntrip_internval_s,
   NULL,
 };
 
@@ -70,6 +75,8 @@ static const int ntrip_processes_count =
 static int ntrip_notify(void *context)
 {
   (void)context;
+
+  snprintf(ntrip_internval_s, sizeof(ntrip_internval_s), "%d", ntrip_internval);
 
   for (int i=0; i<ntrip_processes_count; i++) {
     ntrip_process_t *process = &ntrip_processes[i];
@@ -123,6 +130,11 @@ void ntrip_init(settings_ctx_t *settings_ctx)
   settings_register(settings_ctx, "ntrip", "url",
                     &ntrip_url, sizeof(ntrip_url),
                     SETTINGS_TYPE_STRING,
+                    ntrip_notify, NULL);
+
+  settings_register(settings_ctx, "ntrip", "interval",
+                    &ntrip_internval, sizeof(ntrip_internval),
+                    SETTINGS_TYPE_INT,
                     ntrip_notify, NULL);
 }
 

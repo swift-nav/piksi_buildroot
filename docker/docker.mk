@@ -32,7 +32,12 @@ ifneq ($(AWS_SECRET_ACCESS_KEY),)
 AWS_VARIABLES := $(AWS_VARIABLES) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
 endif
 
+ifeq ($(PIKSI_NON_INTERACTIVE_BUILD),)
+INTERACTIVE_ARGS := $(shell tty &>/dev/null && echo "--tty --interactive")
+endif
+
 DOCKER_SETUP_ARGS :=                                                          \
+  $(INTERACTIVE_ARGS)                                                         \
   --rm                                                                        \
   -e USER=$(USER)                                                             \
   -e GID=$(GID)                                                               \
@@ -44,9 +49,8 @@ DOCKER_SETUP_ARGS :=                                                          \
   $(AWS_VARIABLES)                                                            \
   --hostname piksi-builder$(_DOCKER_SUFFIX)                                   \
   --user $(USER)                                                              \
-  -v $(HOME)/.ssh:/host-ssh:ro                                                \
-  -v $(HOME)/.aws:/host-aws:ro                                                \
-  -v /tmp:/host-tmp:rw                                                        \
+  -v $(HOME):/host/home:ro                                                    \
+  -v /tmp:/host/tmp:rw                                                        \
   -v $(CURDIR):/piksi_buildroot                                               \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot
 

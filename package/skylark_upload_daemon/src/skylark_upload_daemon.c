@@ -17,6 +17,8 @@
 #include <libpiksi/logging.h>
 #include <libnetwork.h>
 
+#define PROGRAM_NAME "skylark_upload_daemon"
+
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
@@ -87,8 +89,28 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static bool configure_libnetwork(network_context_t* ctx, int fd) 
+{
+  network_status_t status = NETWORK_STATUS_SUCCESS;
+
+  if ((status = libnetwork_set_url(ctx, url)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+
+  return true;
+
+exit_error:
+  piksi_log(LOG_ERR, "error configuring the libnetwork context: %d", status);
+  return false;
+}
+
 int main(int argc, char *argv[])
 {
+  logging_init(PROGRAM_NAME);
+
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
     exit(EXIT_FAILURE);
@@ -100,14 +122,17 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  network_config_t config = {
-    .url   = url,
-    .fd    = fd,
-    .debug = debug,
-  };
+  network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_UPLOAD);
 
-  skylark_upload(&config);
+  if(!configure_libnetwork(network_context, fd)) {
+    exit(EXIT_FAILURE);
+  }
+
+  skylark_upload(network_context);
 
   close(fd);
+  logging_deinit();
+  libnetwork_destroy(&network_context);
+
   exit(EXIT_FAILURE);
 }
