@@ -77,3 +77,7 @@ check process nmea_daemon with pidfile /var/run/nmea_daemon.pid
 check process health_daemon with pidfile /var/run/health_daemon.pid
     start program = "/etc/init.d/S86health_daemon start"
     stop program = "/etc/init.d/S86health_daemon stop"
+
+check process piksi_ins with pidfile /var/run/PoseDaemon.pid
+    start program = "/etc/init.d/S96piksi_ins start"
+    stop program = "/etc/init.d/S96piksi_ins stop"
