@@ -95,6 +95,24 @@ static void cycle_connection(int signum)
   libnetwork_cycle_connection();
 }
 
+static bool configure_libnetwork(network_context_t* ctx, int fd) 
+{
+  network_status_t status = NETWORK_STATUS_SUCCESS;
+
+  if ((status = libnetwork_set_url(ctx, url)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+
+  return true;
+
+exit_error:
+  piksi_log(LOG_ERR, "error configuring the libnetwork context: %d", status);
+  return false;
+}
+
 int main(int argc, char *argv[])
 {
   logging_init(PROGRAM_NAME);
@@ -121,16 +139,17 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  network_config_t config = {
-    .url   = url,
-    .fd    = fd,
-    .debug = debug,
-  };
+  network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_DOWNLOAD);
 
-  skylark_download(&config);
+  if(!configure_libnetwork(network_context, fd)) {
+    exit(EXIT_FAILURE);
+  }
+
+  skylark_download(network_context);
 
   close(fd);
-
+  libnetwork_destroy(&network_context);
   logging_deinit();
+
   exit(EXIT_SUCCESS);
 }
