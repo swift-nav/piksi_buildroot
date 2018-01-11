@@ -35,7 +35,7 @@
 const long RECV_BUFFER_SIZE = 4096L;
 /** Max number of callbacks from CURLOPT_XFERINFOFUNCTION before we attempt to
  * reconnect to the server */
-const curl_off_t MAX_STALLED_INTERVALS = 30;
+const curl_off_t MAX_STALLED_INTERVALS = 300;
 
 /** Threshold at which to issue a warning that the pipe will fill up. */
 const double PIPE_WARN_THRESHOLD = 0.90;
