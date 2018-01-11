@@ -76,7 +76,6 @@ struct context_node {
 typedef LIST_HEAD(context_nodes_head, context_node) context_nodes_head_t;
 
 context_nodes_head_t context_nodes_head = LIST_HEAD_INITIALIZER(context_nodes_head);
-bool context_nodes_head_initialized = false;
 
 static network_context_t empty_context = {
   .type = NETWORK_TYPE_INVALID,
@@ -114,11 +113,6 @@ void libnetwork_cycle_connection()
 
 network_context_t* libnetwork_create(network_type_t type)
 {
-  if (!context_nodes_head_initialized) {
-    LIST_INIT(&context_nodes_head);
-    context_nodes_head_initialized = true;
-  }
-
   context_node_t* node = malloc(sizeof(context_node_t));
   if (node == NULL)
     return NULL;
