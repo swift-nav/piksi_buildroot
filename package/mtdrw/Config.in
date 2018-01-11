@@ -1,0 +1,3 @@
+config BR2_PACKAGE_MTDRW
+	bool "mtdrw"
+	depends on BR2_LINUX_KERNEL
