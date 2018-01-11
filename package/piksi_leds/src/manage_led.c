@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
+#include <sys/mman.h>
 #include <libsbp/common.h>
 
 #include "led_adp8866.h"
@@ -80,6 +81,9 @@ typedef struct {
   struct timespec state_change; /* Time of previous on/off event */
   bool on_off;                  /* Current state */
 } blinker_state_t;
+
+static int network_available_fd;
+static const char *network_available;
 
 static u32 elapsed_ms(const struct timespec *then) {
   struct timespec now;
@@ -214,7 +218,11 @@ static void handle_link(rgb_led_state_t *s) {
     on_off = false;
   }
 
-  *s = on_off ? LED_COLOR_RED : LED_COLOR_OFF;
+  if (network_available && (*network_available == '1')) {
+    *s = on_off ? LED_COLOR_OFF : LED_COLOR_RED;
+  } else {
+    *s = on_off ? LED_COLOR_RED : LED_COLOR_OFF;
+  }
 }
 
 /** Handle MODE LED state.
@@ -293,7 +301,16 @@ static void * manage_led_thread(void *arg) {
   return NULL;
 }
 
+void sigbus_handler(int signum) {
+  /* Just don't crash if the file is empty */
+  lseek(network_available_fd, 0, SEEK_SET);
+  write(network_available_fd, "0", 1);
+}
+
 void manage_led_setup(bool is_duro) {
+  network_available_fd = open("/var/run/network_available", O_CREAT | O_RDWR, 0644);
+  network_available = mmap(NULL, 4, PROT_READ, MAP_SHARED, network_available_fd, 0);
+  signal(SIGBUS, sigbus_handler);
   pthread_t thread;
   pthread_create(&thread, NULL, manage_led_thread, (void*)is_duro);
 }
