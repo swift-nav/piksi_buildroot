@@ -73,3 +73,7 @@ check process piksi_leds with pidfile /var/run/piksi_leds.pid
 check process nmea_daemon with pidfile /var/run/nmea_daemon.pid
     start program = "/etc/init.d/S85nmea_daemon start"
     stop program = "/etc/init.d/S85nmea_daemon stop"
+
+check process health_daemon with pidfile /var/run/health_daemon.pid
+    start program = "/etc/init.d/S86health_daemon start"
+    stop program = "/etc/init.d/S86health_daemon stop"

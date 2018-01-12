@@ -1,0 +1,5 @@
+config BR2_PACKAGE_HEALTH_DAEMON
+  bool "health_daemon"
+  select BR2_PACKAGE_CZMQ
+  select BR2_PACKAGE_LIBSBP
+  select BR2_PACKAGE_LIBPIKSI
