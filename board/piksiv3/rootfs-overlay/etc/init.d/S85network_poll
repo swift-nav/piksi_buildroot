@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="network_poll"
+cmd="/etc/init.d/network_poll.sh"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh
