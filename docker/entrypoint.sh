@@ -5,7 +5,7 @@ export GID
 
 ## Fix-up ssh
 
-if [ -d "/home/$USER/.ssh" ]; then
+if [ -d "/host/home/.ssh" ]; then
 
   sudo rm -rf "/home/$USER/.ssh"
   sudo cp -r /host/home/.ssh "/home/$USER/.ssh"
@@ -18,7 +18,7 @@ fi
 
 ## Fix-up aws
 
-if [ -d "/home/$USER/.aws" ]; then
+if [ -d "/host/home/.aws" ]; then
 
   sudo rm -rf "/home/$USER/.aws"
   sudo cp -r /host/home/.aws "/home/$USER/.aws"
