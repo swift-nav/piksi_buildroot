@@ -33,7 +33,7 @@ int sbp_init(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
   return 0;
 }
 
-void sbp_message_send(u8 msg_type, u8 len, u8 *payload, u16 sender_id)
+void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id)
 {
   if (ctx.tx_ctx == NULL) {
     return;
