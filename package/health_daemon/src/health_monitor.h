@@ -40,6 +40,11 @@ void health_monitor_set_timer_resolution(u32 resolution);
 void health_monitor_reset_timer(health_monitor_t* monitor);
 
 /*
+ * Access shared log function
+ */
+log_fn_t health_monitor_get_log(health_monitor_t* monitor);
+
+/*
  * Allocate Monitor
  */
 health_monitor_t* health_monitor_create(void);
