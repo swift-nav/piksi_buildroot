@@ -22,6 +22,8 @@ define HOST_LLVM_OBFUSCATOR_INSTALL_CMDS
 	mkdir -p $(HOST_DIR)/opt/llvm-obfuscator
 	rsync -az $(@D)/opt/llvm-obfuscator/ $(HOST_DIR)/opt/llvm-obfuscator/
 	rsync -az --ignore-existing \
+		$(SYSROOT)/lib/ $(HOST_DIR)/opt/llvm-obfuscator/sysroot/lib/
+	rsync -az --ignore-existing \
 		$(SYSROOT)/usr/lib/ $(HOST_DIR)/opt/llvm-obfuscator/sysroot/usr/lib/
 	rsync -az --ignore-existing \
 		$(SYSROOT)/usr/include/ $(HOST_DIR)/opt/llvm-obfuscator/sysroot/usr/include/
