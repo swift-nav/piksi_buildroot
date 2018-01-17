@@ -67,6 +67,14 @@ void health_monitor_reset_timer(health_monitor_t* monitor)
 }
 
 /*
+ * Access shared log function
+ */
+log_fn_t health_monitor_get_log(health_monitor_t* monitor)
+{
+  return monitor->log_fn;
+}
+
+/*
  * Call Monitor Message Callback
  */
 static void health_monitor_message_callback(u16 sender_id, u8 len, u8 msg[], void *ctx)
