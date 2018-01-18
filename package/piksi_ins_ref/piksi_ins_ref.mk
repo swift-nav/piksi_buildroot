@@ -6,10 +6,10 @@
 
 ifeq    ($(BR2_HAS_PIKSI_INS_REF),y)
 
-PIKSI_INS_REF_VERSION = v6
+PIKSI_INS_REF_VERSION = v9
 PIKSI_INS_REF_SITE = ssh://git@github.com/swift-nav/piksi_inertial_ipsec_crl.git
 PIKSI_INS_REF_SITE_METHOD = git
-PIKSI_INS_REF_DEPENDENCIES = host-llvm_obfuscator
+PIKSI_INS_REF_DEPENDENCIES = host-llvm_obfuscator czmq
 
 ifeq    ($(BR2_BUILD_TESTS),y)
 ifeq    ($(BR2_RUN_TESTS),y)
@@ -35,10 +35,12 @@ define PIKSI_INS_REF_BUILD_FOR_TARGET
 	$(MAKE) CC=$(LLVM_OBF_CC) CXX=$(LLVM_OBF_CXX) AR=$(LLVM_OBF_AR) \
 				  STRIP=$(LLVM_OBF_STRIP) HOSTCC=$(LLVM_OBF_HOSTCC) \
 					HOSTCXX=$(LLVM_OBF_HOSTCXX) OBJCOPY=$(LLVM_OBF_OBJCOPY) \
+					TEST_CZMQ_LINK=y \
 					-C $(@D) all || :
 	$(MAKE) CC=$(LLVM_OBF_CC) CXX=$(LLVM_OBF_CXX) AR=$(LLVM_OBF_AR) \
 				  STRIP=$(LLVM_OBF_STRIP) HOSTCC=$(LLVM_OBF_HOSTCC) \
 					HOSTCXX=$(LLVM_OBF_HOSTCXX) OBJCOPY=$(LLVM_OBF_OBJCOPY) \
+					TEST_CZMQ_LINK=y \
 					-C $(@D) all
 endef
 endif # ($(BR2_BUILD_TESTS),y)
