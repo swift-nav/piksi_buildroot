@@ -273,11 +273,13 @@ void led_adp8866_init(bool is_duro) {
   init_reg_isc(is_duro);
 
   if (!id_check()) {
+    exit(2);
     return;
   }
 
   if (!configure()) {
     piksi_log(LOG_WARNING, "Failed to configure LED driver");
+    exit(3);
   }
 
   led_adp8866_led_state_t led_states[LED_ADP8866_LED_COUNT];
@@ -289,6 +291,7 @@ void led_adp8866_init(bool is_duro) {
 
   if (!leds_set(led_states, LED_ADP8866_LED_COUNT)) {
     piksi_log(LOG_WARNING, "Failed to initialize LED states");
+    exit(4);
   }
 }
 
