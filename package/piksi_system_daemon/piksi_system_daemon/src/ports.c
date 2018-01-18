@@ -100,7 +100,7 @@ typedef struct {
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
-    .opts = "--file /dev/ttyPS0 --nonblock --outq 8192",
+    .opts = "--file /dev/ttyPS0 --nonblock --outq 8192 --sensitive-sbp",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -110,7 +110,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "uart1",
-    .opts = "--file /dev/ttyPS1 --nonblock --outq 8192",
+    .opts = "--file /dev/ttyPS1 --nonblock --outq 8192 --sensitive-sbp",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -120,7 +120,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "usb0",
-    .opts = "--file /dev/ttyGS0 --nonblock --outq 8192",
+    .opts = "--file /dev/ttyGS0 --nonblock --outq 8192 --sensitive-sbp",
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -130,7 +130,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "tcp_server0",
-    .opts = "",
+    .opts = "--debug",
     .opts_data.tcp_server_data.port = 55555,
     .opts_get = opts_get_tcp_server,
     .type = PORT_TYPE_TCP_SERVER,

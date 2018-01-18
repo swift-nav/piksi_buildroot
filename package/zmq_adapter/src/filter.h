@@ -33,4 +33,6 @@ filter_t * filter_create(const char *name, const char *filename);
 void filter_destroy(filter_t **filter);
 int filter_process(filter_t *filter, const uint8_t *msg, uint32_t msg_length);
 
+void filter_allow_sensitive_settings_write();
+
 #endif /* SWIFTNAV_FILTER_H */

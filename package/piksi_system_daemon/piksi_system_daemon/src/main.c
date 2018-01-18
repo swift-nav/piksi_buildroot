@@ -154,6 +154,8 @@ static char eth_ip_addr[16] = "192.168.0.222";
 static char eth_netmask[16] = "255.255.255.0";
 static char eth_gateway[16] = "192.168.0.1";
 
+static bool ssh_enable = true;
+
 static void eth_update_config(void)
 {
   system("/etc/init.d/S83ifplugd stop");
@@ -189,6 +191,30 @@ static int eth_ip_config_notify(void *context)
   }
 
   eth_update_config();
+  return 0;
+}
+
+static int ssh_enable_notify(void *context)
+{
+  (void) context;
+
+  if (ssh_enable) {
+
+    system("ln -s /etc/ssh.monitrc /etc/monitrc.d");
+    system("rm /persistent/disable_ssh");
+
+    system("/etc/init.d/S50sshd start");
+    system("monit reload");
+
+    return 0;
+  }
+
+  system("rm /etc/monitrc.d/ssh.monitrc");
+  system("monit reload");
+
+  system("/etc/init.d/S50sshd stop");
+  system("echo >/persistent/disable_ssh");
+
   return 0;
 }
 
@@ -559,6 +585,10 @@ int main(void)
   settings_register(settings_ctx, "ethernet", "gateway", &eth_gateway,
                     sizeof(eth_gateway), SETTINGS_TYPE_STRING,
                     eth_ip_config_notify, &eth_gateway);
+
+  settings_register(settings_ctx, "ssh", "enable", &ssh_enable,
+                    sizeof(ssh_enable), SETTINGS_TYPE_BOOL,
+                    ssh_enable_notify, &ssh_enable);
 
   settings_type_t settings_type_time_source;
   settings_type_register_enum(settings_ctx, system_time_sources,
