@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
+ * Copyright (C) 2018 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -26,16 +26,16 @@ typedef void (*log_fn_t)(int priority, const char *msg_text, ...);
 /*
  * Get debug from health context
  */
-bool health_context_get_debug(health_ctx_t* health_ctx);
+bool health_context_get_debug(health_ctx_t *health_ctx);
 
 /*
  * Get log from health context
  */
-log_fn_t health_context_get_log(health_ctx_t* health_ctx);
+log_fn_t health_context_get_log(health_ctx_t *health_ctx);
 
 /*
  * Get sbp_ctx from health context
  */
-sbp_zmq_pubsub_ctx_t* health_context_get_sbp_ctx(health_ctx_t* health_ctx);
+sbp_zmq_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx);
 
 #endif /* __HEALTH_CONTEXT_H */

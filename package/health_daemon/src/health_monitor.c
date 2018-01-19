@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
+ * Copyright (C) 2018 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -29,20 +29,21 @@
 #define DEFAULT_HEALTH_THREAD_TIMER_RESOLUTION (1000u)
 
 struct health_monitor_s {
-  health_ctx_t* health_ctx;
+  health_ctx_t *health_ctx;
   log_fn_t log_fn;
   u16 msg_type;
   health_msg_callback_t msg_cb;
-  zloop_t* loop;
+  zloop_t *loop;
   health_timer_callback_t timer_cb;
-  void* timer_handle;
+  void *timer_handle;
   bool timer_active;
   u32 timer_period;
   u32 timer_calls;
-  void* user_data;
+  void *user_data;
 };
 
 static u32 g_health_timer_resolution = DEFAULT_HEALTH_THREAD_TIMER_RESOLUTION;
+
 void health_monitor_set_timer_resolution(u32 resolution)
 {
   g_health_timer_resolution = resolution;
@@ -51,7 +52,7 @@ void health_monitor_set_timer_resolution(u32 resolution)
 /*
  * Evaluate Timer Threshold
  */
-static bool health_monitor_timer_past_threshold(health_monitor_t* monitor)
+static bool health_monitor_timer_past_threshold(health_monitor_t *monitor)
 {
   if (monitor->timer_calls * g_health_timer_resolution > monitor->timer_period)
   {
@@ -64,7 +65,7 @@ static bool health_monitor_timer_past_threshold(health_monitor_t* monitor)
 /*
  * Reset Timer and Count
  */
-void health_monitor_reset_timer(health_monitor_t* monitor)
+void health_monitor_reset_timer(health_monitor_t *monitor)
 {
   zloop_ticket_reset(monitor->loop, monitor->timer_handle);
   monitor->timer_calls = 0;
@@ -73,7 +74,7 @@ void health_monitor_reset_timer(health_monitor_t* monitor)
 /*
  * Access shared log function
  */
-log_fn_t health_monitor_get_log(health_monitor_t* monitor)
+log_fn_t health_monitor_get_log(health_monitor_t *monitor)
 {
   return monitor->log_fn;
 }
@@ -162,10 +163,12 @@ int health_monitor_register_setting_handler(health_monitor_t *monitor,
 /*
  * Call Monitor Message Callback
  */
-static void health_monitor_message_callback(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void health_monitor_message_callback(u16 sender_id,
+                                            u8 len, u8 msg[],
+                                            void *ctx)
 {
   int result = 0;
-  health_monitor_t* monitor = (health_monitor_t *)ctx;
+  health_monitor_t *monitor = (health_monitor_t *)ctx;
   assert(monitor != NULL);
 
   if (health_context_get_debug(monitor->health_ctx)) {
@@ -189,7 +192,7 @@ static int health_monitor_timer_callback(zloop_t *loop, int timer_id, void *arg)
 {
   (void)loop;
   (void)timer_id;
-  health_monitor_t* monitor = (health_monitor_t*)arg;
+  health_monitor_t *monitor = (health_monitor_t*)arg;
   assert(monitor != NULL);
 
   if (health_context_get_debug(monitor->health_ctx)) {
@@ -208,13 +211,15 @@ static int health_monitor_timer_callback(zloop_t *loop, int timer_id, void *arg)
     }
     monitor->timer_calls = 0;
   }
-  monitor->timer_handle = zloop_ticket(monitor->loop, health_monitor_timer_callback, monitor);
+  monitor->timer_handle = zloop_ticket(monitor->loop,
+                                       health_monitor_timer_callback,
+                                       monitor);
   return 0;
 }
 
-health_monitor_t* health_monitor_create(void)
+health_monitor_t *health_monitor_create(void)
 {
-  health_monitor_t* monitor = malloc(sizeof(health_monitor_t));
+  health_monitor_t *monitor = malloc(sizeof(health_monitor_t));
   if (monitor == NULL) {
     return NULL;
   }
@@ -222,12 +227,12 @@ health_monitor_t* health_monitor_create(void)
   return monitor;
 }
 
-void health_monitor_destroy(health_monitor_t** monitor_ptr)
+void health_monitor_destroy(health_monitor_t **monitor_ptr)
 {
   if (monitor_ptr == NULL || *monitor_ptr == NULL) {
     return;
   }
-  health_monitor_t* monitor = *monitor_ptr;
+  health_monitor_t *monitor = *monitor_ptr;
   if (monitor->timer_handle != NULL) {
     zloop_ticket_delete(monitor->loop, monitor->timer_handle);
   }
@@ -235,7 +240,7 @@ void health_monitor_destroy(health_monitor_t** monitor_ptr)
   *monitor_ptr = NULL;
 }
 
-int health_monitor_init(health_monitor_t* monitor, health_ctx_t* health_ctx,
+int health_monitor_init(health_monitor_t *monitor, health_ctx_t *health_ctx,
                        u16 msg_type, health_msg_callback_t msg_cb,
                        u32 timer_period, health_timer_callback_t timer_cb,
                        void *user_data)
@@ -244,7 +249,7 @@ int health_monitor_init(health_monitor_t* monitor, health_ctx_t* health_ctx,
     return -1;
   }
   monitor->health_ctx = health_ctx;
-  sbp_zmq_pubsub_ctx_t* sbp_ctx = health_context_get_sbp_ctx(monitor->health_ctx);
+  sbp_zmq_pubsub_ctx_t *sbp_ctx = health_context_get_sbp_ctx(monitor->health_ctx);
   monitor->log_fn = health_context_get_log(monitor->health_ctx);
 
   monitor->msg_type = msg_type;
@@ -271,11 +276,14 @@ int health_monitor_init(health_monitor_t* monitor, health_ctx_t* health_ctx,
     zloop_set_ticket_delay(monitor->loop, g_health_timer_resolution);
     if (monitor->timer_period < g_health_timer_resolution)
     {
-      monitor->log_fn(LOG_WARNING, "Timer period lower than resolution of %d ms!", g_health_timer_resolution);
+      monitor->log_fn(LOG_WARNING,
+                      "Timer period lower than resolution of %d ms!",
+                      g_health_timer_resolution);
     }
 
     /* Use proxy callback for timer returns */
-    monitor->timer_handle = zloop_ticket(monitor->loop, health_monitor_timer_callback, monitor);
+    monitor->timer_handle = zloop_ticket(monitor->loop,
+                                         health_monitor_timer_callback, monitor);
     if (monitor->timer_handle == NULL)
     {
       return -1;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
+ * Copyright (C) 2018 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -47,20 +47,20 @@
 struct health_ctx_s {
   double health_debug;
   log_fn_t log_fn;
-  sbp_zmq_pubsub_ctx_t* sbp_ctx;
+  sbp_zmq_pubsub_ctx_t *sbp_ctx;
 };
 
-bool health_context_get_debug(health_ctx_t* health_ctx)
+bool health_context_get_debug(health_ctx_t *health_ctx)
 {
   return health_ctx->health_debug;
 }
 
-log_fn_t health_context_get_log(health_ctx_t* health_ctx)
+log_fn_t health_context_get_log(health_ctx_t *health_ctx)
 {
   return health_ctx->log_fn;
 }
 
-sbp_zmq_pubsub_ctx_t* health_context_get_sbp_ctx(health_ctx_t* health_ctx)
+sbp_zmq_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx)
 {
   return health_ctx->sbp_ctx;
 }
@@ -76,7 +76,8 @@ static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
   {gnss_obs_timeout_health_monitor_init, gnss_obs_timeout_health_monitor_deinit},
   {gnss_bias_timeout_health_monitor_init, gnss_bias_timeout_health_monitor_deinit}
 };
-static size_t health_monitor_init_pairs_n = sizeof(health_monitor_init_pairs) / sizeof(health_monitor_init_fn_pair_t);
+static size_t health_monitor_init_pairs_n = (sizeof(health_monitor_init_pairs) /
+                                             sizeof(health_monitor_init_fn_pair_t));
 
 static void usage(char *command)
 {
@@ -129,7 +130,8 @@ int main(int argc, char *argv[])
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
-  g_health_ctx.sbp_ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  g_health_ctx.sbp_ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT,
+                                               SBP_SUB_ENDPOINT);
   if (g_health_ctx.sbp_ctx == NULL) {
     exit(EXIT_FAILURE);
   }
