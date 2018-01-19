@@ -10,22 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef __HEALTH_CONTEXT_H
-#define __HEALTH_CONTEXT_H
+#ifndef __HEALTH_MONITOR_GNSS_OBS_H
+#define __HEALTH_MONITOR_GNSS_OBS_H
 
-/*
- * Shared context for use by health monitors
- */
-typedef struct health_ctx_s health_ctx_t;
+int glo_obs_timeout_health_monitor_init(health_ctx_t *health_ctx);
+void glo_obs_timeout_health_monitor_deinit(void);
 
-/*
- * Get debug from health context
- */
-bool health_context_get_debug(health_ctx_t *health_ctx);
-
-/*
- * Get sbp_ctx from health context
- */
-sbp_zmq_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx);
-
-#endif /* __HEALTH_CONTEXT_H */
+#endif /* __HEALTH_MONITOR_GNSS_OBS_H */
