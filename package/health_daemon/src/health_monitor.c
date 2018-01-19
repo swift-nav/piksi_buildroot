@@ -19,10 +19,14 @@
 #include <libsbp/navigation.h>
 #include <libsbp/system.h>
 #include <libsbp/tracking.h>
+#include <libsbp/settings.h>
 
 #include "health_monitor.h"
 
-#define DEFAULT_HEALTH_THREAD_TIMER_RESOLUTION (10u)
+#define SBP_PAYLOAD_SIZE_MAX (255u)
+#define MSG_SETTING_REQ_SENDER_ID (0x42u)
+
+#define DEFAULT_HEALTH_THREAD_TIMER_RESOLUTION (1000u)
 
 struct health_monitor_s {
   health_ctx_t* health_ctx;
@@ -72,6 +76,87 @@ void health_monitor_reset_timer(health_monitor_t* monitor)
 log_fn_t health_monitor_get_log(health_monitor_t* monitor)
 {
   return monitor->log_fn;
+}
+
+/*
+ * Send a request to read a particular setting
+ */
+int health_monitor_send_setting_read_request(health_monitor_t *monitor,
+                                             const char *section,
+                                             const char *name)
+{
+  if (monitor  == NULL || section == NULL || name == NULL) {
+    return -1;
+  }
+  sbp_zmq_pubsub_ctx_t *sbp_ctx = health_context_get_sbp_ctx(monitor->health_ctx);
+  if (sbp_ctx == NULL) {
+    return -1;
+  }
+
+  u8 msg[SBP_PAYLOAD_SIZE_MAX];
+  u8 msg_n = 0;
+  int written;
+
+  /* Section */
+  written = snprintf((char *)&msg[msg_n], SBP_PAYLOAD_SIZE_MAX - msg_n, "%s", section);
+  if ((written < 0) || ((u8)written >= SBP_PAYLOAD_SIZE_MAX - msg_n)) {
+    return -1;
+  }
+  msg_n += written + 1;
+
+  /* Name */
+  written = snprintf((char *)&msg[msg_n], SBP_PAYLOAD_SIZE_MAX - msg_n, "%s", name);
+  if ((written < 0) || ((u8)written >= SBP_PAYLOAD_SIZE_MAX - msg_n)) {
+    return -1;
+  }
+  msg_n += written + 1;
+
+  if (sbp_zmq_tx_send_from(sbp_zmq_pubsub_tx_ctx_get(sbp_ctx),
+                           SBP_MSG_SETTINGS_READ_REQ, msg_n, msg,
+                           MSG_SETTING_REQ_SENDER_ID) != 0) {
+    return -1;
+  }
+  return 0;
+}
+
+/*
+ * Register a callback for handling a message type
+ */
+int health_monitor_register_message_handler(health_monitor_t *monitor,
+                                            u16 msg_type,
+                                            sbp_msg_callback_t callback)
+{
+  if (monitor == NULL || callback == NULL) {
+    return -1;
+  }
+  sbp_zmq_pubsub_ctx_t *sbp_ctx = health_context_get_sbp_ctx(monitor->health_ctx);
+  if (sbp_ctx == NULL) {
+    return -1;
+  }
+
+  sbp_zmq_rx_ctx_t *rx_ctx = sbp_zmq_pubsub_rx_ctx_get(sbp_ctx);
+  if (rx_ctx == NULL) {
+    return -1;
+  }
+
+  if (sbp_zmq_rx_callback_register(rx_ctx, msg_type,
+                                   callback, monitor, NULL) != 0)
+  {
+    return -1;
+  }
+
+  return 0;
+}
+
+/*
+ * Register a callback to handle settings changes
+ */
+int health_monitor_register_setting_handler(health_monitor_t *monitor,
+                                            sbp_msg_callback_t callback)
+{
+  return health_monitor_register_message_handler(monitor,
+                                                 SBP_MSG_SETTINGS_READ_RESP,
+                                                 callback);
 }
 
 /*
@@ -166,15 +251,8 @@ int health_monitor_init(health_monitor_t* monitor, health_ctx_t* health_ctx,
   monitor->msg_cb = msg_cb;
   if (monitor->msg_type != 0)
   {
-    sbp_zmq_rx_ctx_t* rx_ctx = sbp_zmq_pubsub_rx_ctx_get(sbp_ctx);
-    if (rx_ctx == NULL) {
-      return -1;
-    }
-
-    /* Use proxy callback for messages */
-    if (sbp_zmq_rx_callback_register(rx_ctx, monitor->msg_type,
-                                     health_monitor_message_callback,
-                                     monitor, NULL) != 0)
+    if (health_monitor_register_message_handler(monitor, monitor->msg_type,
+                                                health_monitor_message_callback) != 0)
     {
       return -1;
     }

@@ -45,6 +45,26 @@ void health_monitor_reset_timer(health_monitor_t* monitor);
 log_fn_t health_monitor_get_log(health_monitor_t* monitor);
 
 /*
+ * Send a request to read a particular setting
+ */
+int health_monitor_send_setting_read_request(health_monitor_t *monitor,
+                                             const char *section,
+                                             const char *name);
+
+/*
+ * Register a callback for handling a message type
+ */
+int health_monitor_register_message_handler(health_monitor_t *monitor,
+                                            u16 msg_type,
+                                            sbp_msg_callback_t callback);
+
+/*
+ * Register a callback to handle settings changes
+ */
+int health_monitor_register_setting_handler(health_monitor_t *monitor,
+                                            sbp_msg_callback_t callback);
+
+/*
  * Allocate Monitor
  */
 health_monitor_t* health_monitor_create(void);
