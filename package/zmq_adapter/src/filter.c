@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <syslog.h>
+#include <sys/queue.h>
 
 #include <libpiksi/logging.h>
 
@@ -36,25 +37,31 @@ typedef struct filter_interface_s {
   filter_create_fn_t create;
   filter_destroy_fn_t destroy;
   filter_process_fn_t process;
-  struct filter_interface_s *next;
+  SLIST_ENTRY(filter_interface_s) next;
 } filter_interface_t;
 
-struct filter_s {
+typedef SLIST_HEAD(filter_interface_head_s, filter_interface_s) filter_interface_head_t;
+
+static filter_interface_head_t filter_interface_list = SLIST_HEAD_INITIALIZER(filter_interface_list);
+
+typedef struct filter_s {
   void *state;
   filter_interface_t *interface;
-};
+  SLIST_ENTRY(filter_s) next;
+} filter_t;
 
-static filter_interface_t *filter_interface_list = NULL;
+typedef SLIST_HEAD(filter_list_s, filter_s) filter_list_t;
 
 static filter_interface_t * filter_interface_lookup(const char *name)
 {
   filter_interface_t *interface;
-  for (interface = filter_interface_list; interface != NULL;
-       interface = interface->next) {
+
+  SLIST_FOREACH(interface, &filter_interface_list, next) {
     if (strcasecmp(name, interface->name) == 0) {
       return interface;
     }
   }
+
   return NULL;
 }
 
@@ -65,10 +72,9 @@ int filter_interface_register(const char *name,
 {
   filter_interface_t *interface = (filter_interface_t *)
                                       malloc(sizeof(*interface));
+
   if (interface == NULL) {
-
     syslog(LOG_ERR, "error allocating filter interface");
-
     return -1;
   }
 
@@ -77,7 +83,7 @@ int filter_interface_register(const char *name,
     .create = create,
     .destroy = destroy,
     .process = process,
-    .next = NULL
+    .next = { NULL }
   };
 
   if (interface->name == NULL) {
@@ -87,12 +93,7 @@ int filter_interface_register(const char *name,
     return -1;
   }
 
-  /* Add to list */
-  filter_interface_t **p_next = &filter_interface_list;
-  while (*p_next != NULL) {
-    p_next = &(*p_next)->next;
-  }
-  *p_next = interface;
+  SLIST_INSERT_HEAD(&filter_interface_list, interface, next);
 
   return 0;
 }
@@ -106,7 +107,7 @@ int filter_interface_valid(const char *name)
   return 0;
 }
 
-filter_t * filter_create(const char *name, const char *filename)
+static filter_t * filter_create_one(const char* name, const char* filename)
 {
   /* Look up interface */
   filter_interface_t *interface = filter_interface_lookup(name);
@@ -136,11 +137,45 @@ filter_t * filter_create(const char *name, const char *filename)
   return filter;
 }
 
-void filter_destroy(filter_t **filter)
+filter_list_t * filter_create(filter_spec_t specs[], size_t spec_count)
 {
-  (*filter)->interface->destroy(&(*filter)->state);
-  free(*filter);
-  *filter = NULL;
+  filter_t *filter = NULL;
+
+  filter_list_t* list = malloc(sizeof(*list));
+  SLIST_INIT(list);
+
+  for (int x = 0; x < spec_count; x++) {
+
+    filter = filter_create_one(specs[x].name, specs[x].filename);
+    if (filter == NULL)
+      goto filter_create_error;
+
+    SLIST_INSERT_HEAD(list, filter, next);
+  }
+
+  return list;
+
+filter_create_error:
+  SLIST_FOREACH(filter, list, next) {
+    free(filter);
+  }
+
+  free(list);
+
+  return NULL;
+}
+
+void filter_destroy(filter_list_t **filter_list)
+{
+  filter_t* filter = NULL;
+
+  SLIST_FOREACH(filter, *filter_list, next) {
+    filter->interface->destroy(&filter->state);
+    free(filter);
+  }
+
+  free(filter_list);
+  *filter_list = NULL;
 }
 
 /* Parse SBP message payload into setting parameters */
@@ -302,12 +337,17 @@ static bool reject_sensitive_settings_write(const uint8_t *msg, uint32_t msg_len
   return reject;
 }
 
-int filter_process(filter_t *filter, const uint8_t *msg, uint32_t msg_length)
+int filter_process(filter_list_t *filter_list, const uint8_t *msg, uint32_t msg_length)
 {
-  if (reject_sensitive_settings_write(msg, msg_length))
-    return 1;
+  filter_t *filter = NULL;
 
-  return filter->interface->process(filter->state, msg, msg_length);
+  SLIST_FOREACH(filter, filter_list, next) {
+    int reject = filter->interface->process(filter->state, msg, msg_length);
+    if (reject != 0)
+      return reject;
+  }
+
+  return 0;
 }
 
 void filter_allow_sensitive_settings_write()

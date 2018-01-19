@@ -15,6 +15,7 @@
 #include "filter.h"
 #include "protocols.h"
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 #include <stdlib.h>
 #include <getopt.h>
 #include <dlfcn.h>
@@ -53,7 +54,7 @@ typedef struct {
   int read_fd;
   int write_fd;
   framer_t *framer;
-  filter_t *filter;
+  filter_list_t *filter_list;
 } handle_t;
 
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
@@ -372,9 +373,9 @@ static void handle_deinit(handle_t *handle)
     assert(handle->framer == NULL);
   }
 
-  if (handle->filter != NULL) {
-    filter_destroy(&handle->filter);
-    assert(handle->filter == NULL);
+  if (handle->filter_list != NULL) {
+    filter_destroy(&handle->filter_list);
+    assert(handle->filter_list == NULL);
   }
 }
 
@@ -383,15 +384,19 @@ static int handle_init(handle_t *handle, zsock_t *zsock,
                        const char *framer_name, const char *filter_name,
                        const char *filter_config)
 {
+  filter_spec_t filter_specs[] = {
+    { .name = filter_name, .filename = filter_config }
+  };
+  
   *handle = (handle_t) {
     .zsock = zsock,
     .read_fd = read_fd,
     .write_fd = write_fd,
     .framer = framer_create(framer_name),
-    .filter = filter_create(filter_name, filter_config)
+    .filter_list = filter_create(filter_specs, COUNT_OF(filter_specs))
   };
 
-  if ((handle->framer == NULL) || (handle->filter == NULL)) {
+  if ((handle->framer == NULL) || (handle->filter_list == NULL)) {
     handle_deinit(handle);
     return -1;
   }
@@ -651,7 +656,7 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
     }
 
     /* Pass frame through filter */
-    if (filter_process(handle->filter, frame, frame_length) != 0) {
+    if (filter_process(handle->filter_list, frame, frame_length) != 0) {
       continue;
     }
 

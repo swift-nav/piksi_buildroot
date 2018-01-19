@@ -15,10 +15,11 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
-typedef struct filter_s filter_t;
+typedef struct filter_list_s filter_list_t;
 
-typedef void * (*filter_create_fn_t)(const char *filename);
+typedef void* (*filter_create_fn_t)(const char *filename);
 typedef void (*filter_destroy_fn_t)(void **state);
 typedef int (*filter_process_fn_t)(void *state, const uint8_t *msg,
                                    uint32_t msg_length);
@@ -29,9 +30,14 @@ int filter_interface_register(const char *name,
                               filter_process_fn_t process);
 int filter_interface_valid(const char *name);
 
-filter_t * filter_create(const char *name, const char *filename);
-void filter_destroy(filter_t **filter);
-int filter_process(filter_t *filter, const uint8_t *msg, uint32_t msg_length);
+typedef struct {
+  const char* name;
+  const char* filename;
+} filter_spec_t;
+
+filter_list_t* filter_create(filter_spec_t filter_specs[], size_t spec_count);
+void filter_destroy(filter_list_t **filter_list);
+int filter_process(filter_list_t *filter_list, const uint8_t *msg, uint32_t msg_length);
 
 void filter_allow_sensitive_settings_write();
 
