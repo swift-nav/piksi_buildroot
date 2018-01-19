@@ -10,10 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef __HEALTH_THREAD_BASELINE_H
-#define __HEALTH_THREAD_BASELINE_H
+#ifndef __HEALTH_MONITOR_GNSS_OBS_H
+#define __HEALTH_MONITOR_GNSS_OBS_H
 
-int baseline_threshold_health_monitor_init(health_ctx_t *health_ctx);
-void baseline_threshold_health_monitor_deinit(void);
+int glo_obs_timeout_health_monitor_init(health_ctx_t *health_ctx);
+void glo_obs_timeout_health_monitor_deinit(void);
 
-#endif /* __HEALTH_THREAD_BASELINE_H */
+#endif /* __HEALTH_MONITOR_GNSS_OBS_H */
