@@ -12,7 +12,7 @@ endif
 
 all: firmware image
 
-include docker/docker.mk
+include scripts/docker.mk
 
 firmware:
 	./fetch_firmware.sh
@@ -64,6 +64,18 @@ host-image: host-config
 host-clean:
 	rm -rf buildroot/host_output
 
+rebuild-changed: BUILD_TEMP=/tmp
+rebuild-changed: _rebuild_changed
+
+_rebuild_changed:
+	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
+		make -C buildroot \
+			$(shell scripts/changed_project_targets.py) O=output
+
+_print_db:
+	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
+		make -C buildroot all O=output -np
+
 docker-build-image:
 	docker build --no-cache --force-rm \
 		--build-arg VERSION_TAG=$(shell cat docker/version_tag) \
@@ -77,6 +89,10 @@ docker-populate-volume:
 		git submodule update --init --recursive
 
 docker-setup: docker-build-image docker-populate-volume
+
+docker-rebuild-changed:
+	docker run $(DOCKER_ARGS) -e BUILD_TEMP=/host/tmp $(DOCKER_TAG) \
+		make _rebuild_changed
 
 docker-make-image: docker-config
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
