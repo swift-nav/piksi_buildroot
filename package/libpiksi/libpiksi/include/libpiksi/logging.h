@@ -25,6 +25,8 @@
 #include <libpiksi/common.h>
 #include <syslog.h>
 
+extern "C" {
+
 /**
  * @brief   Initialize logging.
  * @details Initialize the global logging state for the process.
@@ -67,6 +69,8 @@ void piksi_vlog(int priority, const char *format, va_list ap);
  * @param[in] msg_text      The log message text to send.
  */
 void sbp_log(int priority, const char *msg_text, ...);
+
+} // extern "C"
 
 #endif /* LIBPIKSI_LOGGING_H */
 

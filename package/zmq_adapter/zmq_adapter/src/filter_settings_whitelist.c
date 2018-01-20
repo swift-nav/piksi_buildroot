@@ -59,6 +59,8 @@ typedef struct {
   FILE* keys_fp;
 } filter_swl_state_t;
 
+#ifdef __SN_TEST_EXCLUDE
+
 /* Parse SBP message payload into setting parameters */
 static bool parse_setting(u8 len, u8 msg[],
                           const char **section,
@@ -244,13 +246,19 @@ static size_t collate_whitelist(const char* whitelist, size_t whitelist_length, 
     }
 
     char leading_space[512];
+
+    if (sscanf(entry, "%512[ \t\f\v]", leading_space) > 0) {
+      log_blast(LOG_ERR, MSG_ERROR_NO_SPACES);
+      exit(-2);
+    }
+
     char entry_stripped[512];
 
-    sscanf(entry, "%512[ \t\v\f]%512[^ \t\v\f]", leading_space, entry_stripped);
+    sscanf(entry, "%512[^ \t\f\v]", entry_stripped);
 
     if (strlen(entry_stripped) != len) {
       log_blast(LOG_ERR, MSG_ERROR_NO_SPACES);
-      exit(-1);
+      exit(-3);
     }
 
     if (entries != NULL) {
@@ -260,8 +268,8 @@ static size_t collate_whitelist(const char* whitelist, size_t whitelist_length, 
 
     count++;
 
-    whitelist_length -= len;
-    whitelist += len;
+    whitelist_length -= len + 1;
+    whitelist += len + 1;
   }
 
   return count;
@@ -282,7 +290,8 @@ void * filter_swl_create(const char *filename)
   fseek(s->keys_fp, 0, SEEK_SET);
   
   int fd = fileno(s->keys_fp);
-  s->whitelist = mmap(NULL, s->whitelist_size, PROT_READ, MAP_SHARED, fd, 0);
+  s->whitelist = ((const char*)
+    mmap(NULL, s->whitelist_size, PROT_READ, MAP_SHARED, fd, 0));
 
   whitelist_entry_t* entries = NULL;
   size_t count = collate_whitelist(s->whitelist, s->whitelist_size, entries);
@@ -321,3 +330,5 @@ int filter_swl_process(void *state, const uint8_t *msg, uint32_t msg_length)
 {
   return reject_sensitive_settings_write(msg, msg_length);
 }
+
+#endif //__SN_TEST_EXCLUDE

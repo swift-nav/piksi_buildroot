@@ -26,6 +26,8 @@
 
 #include <libpiksi/common.h>
 
+extern "C" {
+
 /**
  * @brief   Get the SBP sender ID for the system.
  * @details Returns the board-specific SBP sender ID.
@@ -70,6 +72,8 @@ int zmq_simple_loop(zloop_t *zloop);
  * @retval -1               An error occurred.
  */
 int zmq_simple_loop_timeout(zloop_t *zloop, u32 timeout_ms);
+
+} // extern "C"
 
 #endif /* LIBPIKSI_UTIL_H */
 
