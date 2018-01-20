@@ -11,8 +11,9 @@ SOURCES= \
 	framer_none.c \
 	filter.c \
 	filter_none.c \
+	filter_settings_whitelist.c \
 	protocols.c
-LIBS=-lczmq -lzmq -lsbp -lpiksi -ldl
+LIBS=-lczmq -lzmq -lsbp -lpiksi -ldl -lcmph
 CFLAGS=-std=gnu11 -Wall
 
 CROSS=
@@ -20,10 +21,15 @@ CROSS=
 CC=$(CROSS)gcc
 
 all: program
-program: $(TARGET)
+program: $(TARGET) $(TARGET).a
 
-$(TARGET): $(SOURCES)
+OBJS=$(SOURCES:.c=.o)
+
+$(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES) $(LIBS)
+
+$(TARGET).a: $(OBJS)
+	$(AR) $(ARFLAGS) $@ $^
 
 clean:
 	rm -rf $(TARGET)
