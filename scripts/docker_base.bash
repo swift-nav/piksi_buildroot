@@ -5,7 +5,7 @@ IFS=$'\n\t'
 
 D=$( (cd "$(dirname "$0")" || exit 1 >/dev/null; pwd -P) )
 
-VERSION_TAG=$(cat "$D/version_tag")
+VERSION_TAG=$(cat "$D/docker_version_tag")
 DOCKER_REPO_NAME=swiftnav/buildroot-base
 DOCKER_USER=swiftnav
 

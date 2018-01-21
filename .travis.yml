@@ -34,7 +34,7 @@ matrix:
 
     # Check if docker base image needs to be re-built
     - script:
-        - ./scripts/travis.sh
+        - ./scripts/docker_travis.sh
 
     # Normal image build
     - env:

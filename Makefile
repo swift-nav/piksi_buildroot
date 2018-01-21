@@ -78,11 +78,11 @@ _print_db:
 
 docker-build-image:
 	docker build --no-cache --force-rm \
-		--build-arg VERSION_TAG=$(shell cat docker/version_tag) \
+		--build-arg VERSION_TAG=$(shell cat scripts/docker_version_tag) \
 		--build-arg USER=$(USER) \
 		--build-arg UID=$(UID) \
 		--build-arg GID=$(GID) \
-		--tag $(DOCKER_TAG) -f docker/Dockerfile .
+		--tag $(DOCKER_TAG) -f scripts/Dockerfile .
 
 docker-populate-volume:
 	docker run $(DOCKER_SETUP_ARGS) $(DOCKER_TAG) \
