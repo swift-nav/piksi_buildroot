@@ -24,6 +24,9 @@
 
 #include "glo_bias_monitor.h"
 
+/* these are from fw private, consider moving to libpiski */
+#define MSG_FORWARD_SENDER_ID (0u)
+
 #define GNSS_BIAS_ALERT_RATE_LIMIT (240000) /* ms */
 
 static health_monitor_t *glo_bias_monitor;
@@ -76,6 +79,22 @@ static int glo_bias_timer_callback(health_monitor_t *monitor, void *context)
   return 0;
 }
 
+static int sbp_msg_glo_biases_callback(health_monitor_t *monitor,
+                                     u16 sender_id, u8 len, u8 msg_[], void *ctx)
+{
+  (void)monitor;
+  (void)len;
+  (void)msg_;
+  (void)ctx;
+
+  if (sender_id == MSG_FORWARD_SENDER_ID)
+  {
+    return 0;
+  }
+  return 1; // only reset if glo biases message is from base
+}
+
+
 int glo_bias_timeout_health_monitor_init(health_ctx_t *health_ctx)
 {
   glo_bias_monitor = health_monitor_create();
@@ -84,7 +103,7 @@ int glo_bias_timeout_health_monitor_init(health_ctx_t *health_ctx)
   }
 
   if (health_monitor_init(glo_bias_monitor, health_ctx,
-                          SBP_MSG_GLO_BIASES, NULL,
+                          SBP_MSG_GLO_BIASES, sbp_msg_glo_biases_callback,
                           GNSS_BIAS_ALERT_RATE_LIMIT, glo_bias_timer_callback,
                           NULL) != 0) {
     return -1;

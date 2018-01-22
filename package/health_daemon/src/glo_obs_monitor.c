@@ -99,7 +99,7 @@ static int sbp_msg_glo_obs_callback(health_monitor_t *monitor,
   (void)msg_;
   (void)ctx;
 
-  if (sender_id != MSG_FORWARD_SENDER_ID)
+  if (sender_id == MSG_FORWARD_SENDER_ID)
   {
     if (check_obs_msg_for_glo_obs(msg_, len)) {
       return 0;
