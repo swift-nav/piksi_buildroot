@@ -22,7 +22,7 @@
 #include "health_monitor.h"
 #include "utils.h"
 
-#include "gnss_bias_monitor.h"
+#include "glo_bias_monitor.h"
 
 #define GNSS_BIAS_ALERT_RATE_LIMIT (240000) /* ms */
 

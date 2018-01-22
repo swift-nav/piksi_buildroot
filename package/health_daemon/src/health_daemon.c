@@ -36,8 +36,8 @@
 
 /* Include custom health monitors here */
 #include "baseline_monitor.h"
-#include "gnss_obs_monitor.h"
-#include "gnss_bias_monitor.h"
+#include "glo_obs_monitor.h"
+#include "glo_bias_monitor.h"
 
 #define PROGRAM_NAME "health_daemon"
 

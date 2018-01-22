@@ -22,7 +22,7 @@
 #include "health_monitor.h"
 #include "utils.h"
 
-#include "gnss_obs_monitor.h"
+#include "glo_obs_monitor.h"
 
 /* these are from fw private, consider moving to libpiski */
 #define MSG_FORWARD_SENDER_ID (0u)
