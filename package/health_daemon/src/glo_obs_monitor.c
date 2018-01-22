@@ -111,15 +111,14 @@ static int sbp_msg_glo_obs_callback(health_monitor_t *monitor,
 static int glo_obs_timer_callback(health_monitor_t *monitor, void *context)
 {
   (void)context;
-  log_fn_t log_fn = health_monitor_get_log(monitor);
   if (glo_obs_ctx.glonass_enabled) {
-    log_fn(LOG_WARNING,
+    sbp_log(LOG_WARNING,
            "Glonass Observations Timeout - no glonass observations received within %d sec window",
            GNSS_OBS_ALERT_RATE_LIMIT/1000);
   }
   if (!glo_obs_ctx.glo_setting_read_resp)
   {
-    log_fn(LOG_DEBUG, "Glonass Status Unknown - Sending Glonass Setting Request");
+    piksi_log(LOG_DEBUG, "Glonass Status Unknown - Sending Glonass Setting Request");
     health_monitor_send_setting_read_request(monitor,
                                              SETTING_SECTION_ACQUISITION,
                                              SETTING_GLONASS_ACQUISITION_ENABLED);

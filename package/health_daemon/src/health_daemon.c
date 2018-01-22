@@ -46,18 +46,12 @@
 
 struct health_ctx_s {
   double health_debug;
-  log_fn_t log_fn;
   sbp_zmq_pubsub_ctx_t *sbp_ctx;
 };
 
 bool health_context_get_debug(health_ctx_t *health_ctx)
 {
   return health_ctx->health_debug;
-}
-
-log_fn_t health_context_get_log(health_ctx_t *health_ctx)
-{
-  return health_ctx->log_fn;
 }
 
 sbp_zmq_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx)
@@ -67,7 +61,6 @@ sbp_zmq_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx)
 
 static health_ctx_t g_health_ctx = {
   .health_debug = false,
-  .log_fn = sbp_log,
   .sbp_ctx = NULL
 };
 
@@ -125,7 +118,7 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  sbp_log(LOG_DEBUG, "Startup...");
+  piksi_log(LOG_DEBUG, "Startup...");
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
@@ -139,11 +132,11 @@ int main(int argc, char *argv[])
   for (u8 i = 0; i < health_monitor_init_pairs_n; i++)
   {
     if (health_monitor_init_pairs[i].init(&g_health_ctx) != 0) {
-      sbp_log(LOG_ERR, "Error setting up health monitor! id: %d", i);
+      piksi_log(LOG_ERR, "Error setting up health monitor! id: %d", i);
     }
   }
 
-  sbp_log(LOG_DEBUG, "Running...");
+  piksi_log(LOG_DEBUG, "Running...");
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(g_health_ctx.sbp_ctx));
 
   for (u8 i = 0; i < health_monitor_init_pairs_n; i++)
@@ -152,7 +145,7 @@ int main(int argc, char *argv[])
   }
 
   sbp_zmq_pubsub_destroy(&g_health_ctx.sbp_ctx);
-  sbp_log(LOG_DEBUG, "Shutdown...");
+  piksi_log(LOG_DEBUG, "Shutdown...");
   logging_deinit();
   exit(EXIT_SUCCESS);
 }

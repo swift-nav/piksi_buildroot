@@ -40,11 +40,6 @@ void health_monitor_set_timer_resolution(u32 resolution);
 void health_monitor_reset_timer(health_monitor_t *monitor);
 
 /*
- * Access shared log function
- */
-log_fn_t health_monitor_get_log(health_monitor_t *monitor);
-
-/*
  * Send a request to read a particular setting
  */
 int health_monitor_send_setting_read_request(health_monitor_t *monitor,

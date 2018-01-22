@@ -93,12 +93,12 @@ static int sbp_msg_baseline_ecef_callback(health_monitor_t *monitor,
 static int baseline_threshold_rate_limiting_timer_callback(health_monitor_t *monitor,
                                                            void *context)
 {
+  (void)monitor;
   (void)context;
-  log_fn_t log_fn = health_monitor_get_log(monitor);
   if (baseline_monitor_ctx.past_threshold) {
-    log_fn(LOG_WARNING,
-           "Baseline Distance Over Threshold: %.4fm",
-           baseline_monitor_ctx.distance_over_threshold);
+    sbp_log(LOG_WARNING,
+            "Baseline Distance Over Threshold: %.4fm",
+            baseline_monitor_ctx.distance_over_threshold);
     baseline_monitor_ctx.past_threshold = false;
   }
 
