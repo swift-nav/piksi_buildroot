@@ -73,8 +73,8 @@ static health_ctx_t g_health_ctx = {
 
 static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
   {baseline_threshold_health_monitor_init, baseline_threshold_health_monitor_deinit},
-  {gnss_obs_timeout_health_monitor_init, gnss_obs_timeout_health_monitor_deinit},
-  {gnss_bias_timeout_health_monitor_init, gnss_bias_timeout_health_monitor_deinit}
+  {glo_obs_timeout_health_monitor_init, glo_obs_timeout_health_monitor_deinit},
+  {glo_bias_timeout_health_monitor_init, glo_bias_timeout_health_monitor_deinit}
 };
 static size_t health_monitor_init_pairs_n = (sizeof(health_monitor_init_pairs) /
                                              sizeof(health_monitor_init_fn_pair_t));

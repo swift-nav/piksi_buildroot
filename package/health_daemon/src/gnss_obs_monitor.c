@@ -43,14 +43,14 @@ static inline bool is_glo(u8 code)
   return (CODE_GLO_L1OF == code) || (CODE_GLO_L2OF == code);
 }
 
-static health_monitor_t *gnss_obs_monitor;
+static health_monitor_t *glo_obs_monitor;
 
-static struct gnss_obs_ctx_s {
-  bool gnss_read_resp;
-  bool gnss_enabled;
-} gnss_obs_ctx = {
-  .gnss_read_resp = false,
-  .gnss_enabled = false
+static struct glo_obs_ctx_s {
+  bool glo_setting_read_resp;
+  bool glonass_enabled;
+} glo_obs_ctx = {
+  .glo_setting_read_resp = false,
+  .glonass_enabled = false
 };
 
 static void sbp_msg_read_resp_callback(u16 sender_id, u8 len,
@@ -63,18 +63,18 @@ static void sbp_msg_read_resp_callback(u16 sender_id, u8 len,
   const char *section, *name, *value;
   if(health_util_parse_setting_read_resp(msg_, len,
                                          &section, &name, &value) == 0) {
-    bool last_gnss_enabled = gnss_obs_ctx.gnss_enabled;
-    if (health_util_check_gnss_enabled(section, name, value,
-                                       &gnss_obs_ctx.gnss_enabled) == 0) {
-      gnss_obs_ctx.gnss_read_resp = true;
-      if (gnss_obs_ctx.gnss_enabled && !last_gnss_enabled) {
+    bool last_glonass_enabled = glo_obs_ctx.glonass_enabled;
+    if (health_util_check_glonass_enabled(section, name, value,
+                                       &glo_obs_ctx.glonass_enabled) == 0) {
+      glo_obs_ctx.glo_setting_read_resp = true;
+      if (glo_obs_ctx.glonass_enabled && !last_glonass_enabled) {
         health_monitor_reset_timer(monitor);
       }
     }
   }
 }
 
-static bool check_obs_msg_for_gnss(u8 *msg, u8 len)
+static bool check_obs_msg_for_glo_obs(u8 *msg, u8 len)
 {
   u8 obs_in_msg =
     (len - sizeof(observation_header_t)) / sizeof(packed_obs_content_t);
@@ -91,7 +91,7 @@ static bool check_obs_msg_for_gnss(u8 *msg, u8 len)
   return false;
 }
 
-static int sbp_msg_gnss_obs_callback(health_monitor_t *monitor,
+static int sbp_msg_glo_obs_callback(health_monitor_t *monitor,
                                      u16 sender_id, u8 len, u8 msg_[], void *ctx)
 {
   (void)monitor;
@@ -101,23 +101,23 @@ static int sbp_msg_gnss_obs_callback(health_monitor_t *monitor,
 
   if (sender_id != MSG_FORWARD_SENDER_ID)
   {
-    if (check_obs_msg_for_gnss(msg_, len)) {
+    if (check_obs_msg_for_glo_obs(msg_, len)) {
       return 0;
     }
   }
   return 1; // only reset if glo obs found
 }
 
-static int gnss_obs_timer_callback(health_monitor_t *monitor, void *context)
+static int glo_obs_timer_callback(health_monitor_t *monitor, void *context)
 {
   (void)context;
   log_fn_t log_fn = health_monitor_get_log(monitor);
-  if (gnss_obs_ctx.gnss_enabled) {
+  if (glo_obs_ctx.glonass_enabled) {
     log_fn(LOG_WARNING,
            "Glonass Observations Timeout - no glonass observations received within %d sec window",
            GNSS_OBS_ALERT_RATE_LIMIT/1000);
   }
-  if (!gnss_obs_ctx.gnss_read_resp)
+  if (!glo_obs_ctx.glo_setting_read_resp)
   {
     log_fn(LOG_DEBUG, "Glonass Status Unknown - Sending Glonass Setting Request");
     health_monitor_send_setting_read_request(monitor,
@@ -128,21 +128,21 @@ static int gnss_obs_timer_callback(health_monitor_t *monitor, void *context)
   return 0;
 }
 
-int gnss_obs_timeout_health_monitor_init(health_ctx_t *health_ctx)
+int glo_obs_timeout_health_monitor_init(health_ctx_t *health_ctx)
 {
-  gnss_obs_monitor = health_monitor_create();
-  if (gnss_obs_monitor == NULL) {
+  glo_obs_monitor = health_monitor_create();
+  if (glo_obs_monitor == NULL) {
     return -1;
   }
 
-  if (health_monitor_init(gnss_obs_monitor, health_ctx,
-                          SBP_MSG_OBS, sbp_msg_gnss_obs_callback,
-                          GNSS_OBS_ALERT_RATE_LIMIT, gnss_obs_timer_callback,
+  if (health_monitor_init(glo_obs_monitor, health_ctx,
+                          SBP_MSG_OBS, sbp_msg_glo_obs_callback,
+                          GNSS_OBS_ALERT_RATE_LIMIT, glo_obs_timer_callback,
                           NULL) != 0) {
     return -1;
   }
 
-  if (health_monitor_register_setting_handler(gnss_obs_monitor,
+  if (health_monitor_register_setting_handler(glo_obs_monitor,
                                               sbp_msg_read_resp_callback) != 0) {
     return -1;
   }
@@ -150,10 +150,10 @@ int gnss_obs_timeout_health_monitor_init(health_ctx_t *health_ctx)
   return 0;
 }
 
-void gnss_obs_timeout_health_monitor_deinit(void)
+void glo_obs_timeout_health_monitor_deinit(void)
 {
-  if (gnss_obs_monitor != NULL) {
-    health_monitor_destroy(&gnss_obs_monitor);
+  if (glo_obs_monitor != NULL) {
+    health_monitor_destroy(&glo_obs_monitor);
   }
 }
 

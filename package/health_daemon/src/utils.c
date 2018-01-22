@@ -50,7 +50,7 @@ int health_util_parse_setting_read_resp(const u8 *msg, u8 msg_n,
   return 0;
 }
 
-int health_util_check_gnss_enabled(const char *section, const char *name,
+int health_util_check_glonass_enabled(const char *section, const char *name,
                                    const char *value, bool *result)
 {
   if (section == NULL || name == NULL || value == NULL) {

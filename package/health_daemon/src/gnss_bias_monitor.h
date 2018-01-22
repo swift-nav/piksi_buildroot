@@ -13,7 +13,7 @@
 #ifndef __HEALTH_MONITOR_GNSS_BIAS_H
 #define __HEALTH_MONITOR_GNSS_BIAS_H
 
-int gnss_bias_timeout_health_monitor_init(health_ctx_t *health_ctx);
-void gnss_bias_timeout_health_monitor_deinit(void);
+int glo_bias_timeout_health_monitor_init(health_ctx_t *health_ctx);
+void glo_bias_timeout_health_monitor_deinit(void);
 
 #endif /* __HEALTH_MONITOR_GNSS_BIAS_H */

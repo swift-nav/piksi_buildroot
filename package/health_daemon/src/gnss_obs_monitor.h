@@ -13,7 +13,7 @@
 #ifndef __HEALTH_MONITOR_GNSS_OBS_H
 #define __HEALTH_MONITOR_GNSS_OBS_H
 
-int gnss_obs_timeout_health_monitor_init(health_ctx_t *health_ctx);
-void gnss_obs_timeout_health_monitor_deinit(void);
+int glo_obs_timeout_health_monitor_init(health_ctx_t *health_ctx);
+void glo_obs_timeout_health_monitor_deinit(void);
 
 #endif /* __HEALTH_MONITOR_GNSS_OBS_H */
