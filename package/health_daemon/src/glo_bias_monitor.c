@@ -66,7 +66,7 @@ static int glo_bias_timer_callback(health_monitor_t *monitor, void *context)
   log_fn_t log_fn = health_monitor_get_log(monitor);
   if (glo_bias_ctx.glonass_enabled) {
     log_fn(LOG_WARNING,
-           "Glonass Biases Msg Timeout - no biases msg receieved within %d sec window",
+           "Glonass Biases Msg Timeout - no biases msg received within %d sec window",
            GNSS_BIAS_ALERT_RATE_LIMIT/1000);
   }
   if (!glo_bias_ctx.glo_setting_read_resp)
