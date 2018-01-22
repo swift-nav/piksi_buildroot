@@ -19,19 +19,9 @@
 typedef struct health_ctx_s health_ctx_t;
 
 /*
- * Log function signature for sharing sbp_log (or other configured log)
- */
-typedef void (*log_fn_t)(int priority, const char *msg_text, ...);
-
-/*
  * Get debug from health context
  */
 bool health_context_get_debug(health_ctx_t *health_ctx);
-
-/*
- * Get log from health context
- */
-log_fn_t health_context_get_log(health_ctx_t *health_ctx);
 
 /*
  * Get sbp_ctx from health context

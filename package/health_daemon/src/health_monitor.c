@@ -30,7 +30,6 @@
 
 struct health_monitor_s {
   health_ctx_t *health_ctx;
-  log_fn_t log_fn;
   u16 msg_type;
   health_msg_callback_t msg_cb;
   zloop_t *loop;
@@ -69,14 +68,6 @@ void health_monitor_reset_timer(health_monitor_t *monitor)
 {
   zloop_ticket_reset(monitor->loop, monitor->timer_handle);
   monitor->timer_calls = 0;
-}
-
-/*
- * Access shared log function
- */
-log_fn_t health_monitor_get_log(health_monitor_t *monitor)
-{
-  return monitor->log_fn;
 }
 
 /*
@@ -172,7 +163,7 @@ static void health_monitor_message_callback(u16 sender_id,
   assert(monitor != NULL);
 
   if (health_context_get_debug(monitor->health_ctx)) {
-    monitor->log_fn(LOG_DEBUG, "Health Monitor Message Callback!");
+    piksi_log(LOG_DEBUG, "Health Monitor Message Callback!");
   }
   // Currently only passthrough
   if (monitor->msg_cb != NULL)
@@ -196,14 +187,14 @@ static int health_monitor_timer_callback(zloop_t *loop, int timer_id, void *arg)
   assert(monitor != NULL);
 
   if (health_context_get_debug(monitor->health_ctx)) {
-    monitor->log_fn(LOG_DEBUG, "Health Monitor Timer Callback!");
+    piksi_log(LOG_DEBUG, "Health Monitor Timer Callback!");
   }
   monitor->timer_calls++;
   // Currently only passthrough
   if (health_monitor_timer_past_threshold(monitor))
   {
     if (health_context_get_debug(monitor->health_ctx)) {
-      monitor->log_fn(LOG_DEBUG, "Timer Past Threshold!");
+      piksi_log(LOG_DEBUG, "Timer Past Threshold!");
     }
     if (monitor->timer_cb != NULL)
     {
@@ -250,7 +241,6 @@ int health_monitor_init(health_monitor_t *monitor, health_ctx_t *health_ctx,
   }
   monitor->health_ctx = health_ctx;
   sbp_zmq_pubsub_ctx_t *sbp_ctx = health_context_get_sbp_ctx(monitor->health_ctx);
-  monitor->log_fn = health_context_get_log(monitor->health_ctx);
 
   monitor->msg_type = msg_type;
   monitor->msg_cb = msg_cb;
@@ -276,9 +266,9 @@ int health_monitor_init(health_monitor_t *monitor, health_ctx_t *health_ctx,
     zloop_set_ticket_delay(monitor->loop, g_health_timer_resolution);
     if (monitor->timer_period < g_health_timer_resolution)
     {
-      monitor->log_fn(LOG_WARNING,
-                      "Timer period lower than resolution of %d ms!",
-                      g_health_timer_resolution);
+      sbp_log(LOG_WARNING,
+              "Timer period lower than resolution of %d ms!",
+              g_health_timer_resolution);
     }
 
     /* Use proxy callback for timer returns */
