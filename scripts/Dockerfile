@@ -16,6 +16,6 @@ RUN ( grep -q :$GID: /etc/group || groupadd --gid $GID $USER ) && \
     mkdir -p /home/"$USER" && \
     chown "$USER:$GID" /home/"$USER"
 
-ADD docker/entrypoint.sh /entrypoint.sh
+ADD scripts/docker_entrypoint.sh /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

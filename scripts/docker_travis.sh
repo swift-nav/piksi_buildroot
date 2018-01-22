@@ -20,7 +20,7 @@ echo "$file_names"
 echo "..."
 
 if echo "$file_names" | grep -q -E "/Dockerfile[.]base"; then
-	"$D/base.bash"
+	"$D/docker_base.bash"
 else
   echo "No modifications to base Docker image found..."
 fi
