@@ -34,14 +34,24 @@ extern bool debug;
       __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
     fflush(stdout); }
 
+#define log_blast(level, message, ...) { \
+  piksi_log(level, message, ## __VA_ARGS__); \
+  sbp_log(level, message, ## __VA_ARGS__); \
+  fprintf(stderr, message, ## __VA_ARGS__); \
+  fprintf(stderr, "\n"); \
+  fflush(stderr); }
+
 #define MSG_ERROR_EMPTY_LINES \
-  "filter_settings_whitelist: invalid config file, lines cannot be empty"
+  "filter_settings_whitelist: invalid config file, lines cannot be empty (lineno: %zu)"
 
 #define MSG_ERROR_NO_TRAILING_SPACES \
   "filter_settings_whitelist: invalid config file, leading spaces not allowed"
 
 #define MSG_ERROR_NO_LEADING_SPACES \
   "filter_settings_whitelist: invalid config file, trailing spaces not allowed"
+
+#define MSG_REJECT_SETTING_WRITE \
+  "Setting write for '%s' rejected, not in interface whitelist"
 
 typedef struct {
   const uint8_t *msg;
@@ -173,10 +183,7 @@ static void write_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   if (setting_in_whitelist(state, setting_composed, setting_composed_len))
     return;
 
-  const char* reject_msg = "This interface is not allowed to write sensitive settings";
-
-  syslog(LOG_ERR, reject_msg);
-  sbp_log(LOG_ERR, reject_msg);
+  log_blast(LOG_ERR, MSG_REJECT_SETTING_WRITE, setting_composed);
 
   state->reject = true;
 }
@@ -206,9 +213,11 @@ static bool reject_sensitive_settings_write(filter_swl_state_t* state, const uin
   uint16_t msg_type = le16toh(*(uint16_t *)&msg[SBP_MSG_TYPE_OFFSET]);
  
   if (msg_type != SBP_MSG_SETTINGS_WRITE) {
+#if 0
     debug_printf("filter: msg_type: %04hx\n", msg_type);
     debug_printf("filter: msg_type: %02hhx, %02hhx, %02hhx, %02hhx, %02hhx, %02hhx\n",
         msg[0], msg[1], msg[2], msg[3], msg[4], msg[5]);
+#endif
     return false;
   }
 
@@ -253,26 +262,22 @@ static bool isallspace(const char* s, size_t len)
   return true;
 }
 
-static void log_blast(int level, const char* message)
-{
-  piksi_log(level, message);
-  sbp_log(level, message);
-  fprintf(stderr, message);
-  fprintf(stderr, "\n");
-  fflush(stderr);
-}
-
-static ssize_t collate_whitelist(const char* whitelist, size_t whitelist_length, whitelist_entry_t *entries, cmph_t* hash)
+/**
+ * whitelist_length does NOT include the NULL terminator in it's size
+ */
+static ssize_t collate_whitelist(const char* whitelist,
+                                 ssize_t whitelist_length,
+                                 whitelist_entry_t *entries,
+                                 cmph_t* hash)
 {
   char entry[512] = {0};
 
   size_t count = 0;
   size_t offset = 0;
 
-  // Subtract out NULL terminator
-  whitelist_length -= 1;
-
   while (whitelist_length > 0) {
+
+    assert( whitelist_length > 0 );
 
     entry[0] = '\0';
     sscanf(whitelist, "%512[^\n]\n", entry);
@@ -283,7 +288,7 @@ static ssize_t collate_whitelist(const char* whitelist, size_t whitelist_length,
     offset += len + 1/*newline*/; 
 
     if (len == 0 || isallspace(entry, len)) {
-      log_blast(LOG_ERR, MSG_ERROR_EMPTY_LINES);
+      log_blast(LOG_ERR, MSG_ERROR_EMPTY_LINES, count);
       return -1;
     }
 
@@ -324,25 +329,55 @@ void * filter_swl_create(const char *filename)
 {
   filter_swl_state_t *s = (filter_swl_state_t *)malloc(sizeof(*s));
   if (s == NULL) {
-    return NULL;
+    exit(-101);
   }
 
+  *s = (filter_swl_state_t) {
+    .hash = NULL,
+    .source = NULL,
+    .whitelist_fd = -1,
+    .whitelist = MAP_FAILED,
+    .whitelist_size = 0,
+    .keys_fp = NULL,
+    .whitelist_entries = NULL,
+    .whitelist_entry_count = 0,
+    .reject = false,
+  };
+
   s->keys_fp = fopen(filename, "r");
+  if (s->keys_fp == NULL) {
+    log_blast(LOG_ERR, "Failed to open settings whitelist config");
+    exit(-102);
+  }
+
+  s->whitelist_fd = open(filename, O_RDONLY);
+  if (s->whitelist_fd < 0) {
+    log_blast(LOG_ERR, "Failed to open settings whitelist config: %s", strerror(errno));
+    exit(-103);
+  }
 
   fseek(s->keys_fp, 0, SEEK_END);
   s->whitelist_size = ftell(s->keys_fp);
 
   fseek(s->keys_fp, 0, SEEK_SET);
   
-  int fd = fileno(s->keys_fp);
   s->whitelist = ((const char*)
-    mmap(NULL, s->whitelist_size, PROT_READ, MAP_SHARED, fd, 0));
+    mmap(NULL, s->whitelist_size, PROT_READ, MAP_SHARED, s->whitelist_fd, 0));
+
+  if (s->whitelist == MAP_FAILED) {
+    log_blast(LOG_ERR, "Failed to mmap whitelist config: %s", strerror(errno));
+    exit(-104);
+  }
 
   whitelist_entry_t* entries = NULL;
-  size_t count = collate_whitelist(s->whitelist, s->whitelist_size, entries, NULL);
+  ssize_t count = collate_whitelist(s->whitelist, s->whitelist_size, entries, NULL);
 
-  if (count < 0)
+  if (count < 0) {
+    log_blast(LOG_ERR, "Error loading settings whitelist config (%d), exiting...", count);
     exit(count);
+  }
+
+  log_blast(LOG_DEBUG, "Found %d whitelist entries, whitelist size: %zu", count, s->whitelist_size);
 
   s->source = cmph_io_nlfile_adapter(s->keys_fp);
   cmph_config_t *config = cmph_config_new(s->source);
@@ -363,14 +398,26 @@ void filter_swl_destroy(void **s)
 {
   filter_swl_state_t** state = (filter_swl_state_t**) s;
 
-  munmap((void*)(*state)->whitelist, (*state)->whitelist_size);
+  if (*state == NULL)
+    return;
 
-  cmph_destroy((*state)->hash);
+  if ((*state)->whitelist != MAP_FAILED)
+    munmap((void*)(*state)->whitelist, (*state)->whitelist_size);
 
-  cmph_io_nlfile_adapter_destroy((*state)->source);
-  fclose((*state)->keys_fp);
+  if ((*state)->hash != NULL)
+    cmph_destroy((*state)->hash);
 
-  free((*state)->whitelist_entries);
+  if ((*state)->source != NULL)
+    cmph_io_nlfile_adapter_destroy((*state)->source);
+
+  if ((*state)->keys_fp != NULL)
+    fclose((*state)->keys_fp);
+
+  if ((*state)->whitelist_fd != -1)
+    close((*state)->whitelist_fd);
+
+  if ((*state)->whitelist_entries != NULL)
+    free((*state)->whitelist_entries);
 
   free(*state);
   *state = NULL;

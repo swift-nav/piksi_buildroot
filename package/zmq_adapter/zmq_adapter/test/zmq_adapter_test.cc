@@ -34,14 +34,14 @@ TEST_F(ZmqAdapterTest, NormalOperation) {
     "net.addr\n"
     "net.mask\n";
 
-  ssize_t entry_count = collate_whitelist(whitelist, sizeof(whitelist), NULL, NULL);
+  ssize_t entry_count = collate_whitelist(whitelist, sizeof(whitelist) - 1, NULL, NULL);
 
   ASSERT_GT(entry_count, 0);
   ASSERT_EQ(entry_count, 3);
 
   whitelist_entry_t* entries = (whitelist_entry_t*) malloc(entry_count*sizeof(*entries));
 
-  entry_count = collate_whitelist(whitelist, sizeof(whitelist), entries, hash);
+  entry_count = collate_whitelist(whitelist, sizeof(whitelist) - 1, entries, hash);
   ASSERT_EQ(entry_count, 3);
 
   ASSERT_EQ(strncmp(whitelist + entries[2].offset, "net.ip", entries[2].length), 0);
@@ -74,7 +74,7 @@ TEST_F(ZmqAdapterTest, Error_LeadingOrTrailingWhitespace) {
     "net.addr\n"
     "net.mask\n";
 
-  ssize_t entries = collate_whitelist(whitelist, sizeof(whitelist), NULL, NULL);
+  ssize_t entries = collate_whitelist(whitelist, sizeof(whitelist) - 1, NULL, NULL);
   ASSERT_EQ(entries, -2);
 
   char whitelist2[] = 
@@ -82,7 +82,7 @@ TEST_F(ZmqAdapterTest, Error_LeadingOrTrailingWhitespace) {
     "net.addr   \n"
     "net.mask\n";
 
-  entries = collate_whitelist(whitelist2, sizeof(whitelist2), NULL, NULL);
+  entries = collate_whitelist(whitelist2, sizeof(whitelist2) - 1, NULL, NULL);
   ASSERT_EQ(entries, -3);
 }
 
@@ -93,7 +93,7 @@ TEST_F(ZmqAdapterTest, Error_EmptyLine) {
     "\n"
     "net.mask\n";
 
-  ssize_t entries = collate_whitelist(whitelist, sizeof(whitelist), NULL, NULL);
+  ssize_t entries = collate_whitelist(whitelist, sizeof(whitelist) - 1, NULL, NULL);
   ASSERT_EQ(entries, -1);
 
   char whitelist2[] = 
@@ -101,7 +101,7 @@ TEST_F(ZmqAdapterTest, Error_EmptyLine) {
     "     \t\n"
     "net.mask\n";
 
-  entries = collate_whitelist(whitelist2, sizeof(whitelist2), NULL, NULL);
+  entries = collate_whitelist(whitelist2, sizeof(whitelist2) - 1, NULL, NULL);
   ASSERT_EQ(entries, -1);
 }
 

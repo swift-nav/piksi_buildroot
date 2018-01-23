@@ -340,11 +340,6 @@ static int parse_options(int argc, char *argv[])
     return -1;
   }
 
-  if (settings_whitelist_config == NULL) {
-    fprintf(stderr, "Settings whitelist was not specified\n");
-    return -1;
-  }
-
   if ((strcasecmp(filter_in_name, FILTER_NONE_NAME) == 0) !=
       (filter_in_config == NULL)) {
     fprintf(stderr, "invalid input filter settings\n");
@@ -391,17 +386,32 @@ static int handle_init(handle_t *handle, zsock_t *zsock,
                        const char *framer_name, const char *filter_name,
                        const char *filter_config)
 {
-  filter_spec_t filter_specs[] = {
+  filter_spec_t* filter_specs;
+  size_t filter_specs_count = 0;
+
+  filter_spec_t filter_specs_default[] = {
+    { .name = filter_name, .filename = filter_config }
+  };
+
+  filter_spec_t filter_specs_swl[] = {
     { .name = FILTER_SWL_NAME, .filename = settings_whitelist_config },
     { .name = filter_name, .filename = filter_config }
   };
+
+  if (settings_whitelist_config != NULL) {
+    filter_specs = filter_specs_swl;
+    filter_specs_count = COUNT_OF(filter_specs_swl);
+  } else {
+    filter_specs = filter_specs_default;
+    filter_specs_count = COUNT_OF(filter_specs_default);
+  }
   
   *handle = (handle_t) {
     .zsock = zsock,
     .read_fd = read_fd,
     .write_fd = write_fd,
     .framer = framer_create(framer_name),
-    .filter_list = filter_create(filter_specs, COUNT_OF(filter_specs))
+    .filter_list = filter_create(filter_specs, filter_specs_count)
   };
 
   if ((handle->framer == NULL) || (handle->filter_list == NULL)) {
