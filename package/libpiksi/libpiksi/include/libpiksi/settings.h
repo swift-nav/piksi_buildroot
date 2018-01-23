@@ -24,7 +24,9 @@
 
 #include <libpiksi/common.h>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 /**
  * @brief   Settings type.
@@ -227,7 +229,9 @@ int settings_reader_add(settings_ctx_t *ctx, zloop_t *zloop);
  */
 int settings_reader_remove(settings_ctx_t *ctx, zloop_t *zloop);
 
+#ifdef __cplusplus
 } // extern "C"
+#endif
 
 #endif /* LIBPIKSI_SETTINGS_H */
 

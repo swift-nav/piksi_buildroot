@@ -13,7 +13,7 @@ CC=$(CROSS)g++
 all: program
 program: $(TARGET)
 
-$(TARGET): $(SOURCES)
+$(TARGET): $(SOURCES) ../src/zmq_adapter.a
 	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES) $(LIBS)
 
 clean:

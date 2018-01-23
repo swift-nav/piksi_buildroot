@@ -26,7 +26,9 @@
 
 #include <libpiksi/common.h>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 /**
  * @brief   Get the SBP sender ID for the system.
@@ -73,7 +75,9 @@ int zmq_simple_loop(zloop_t *zloop);
  */
 int zmq_simple_loop_timeout(zloop_t *zloop, u32 timeout_ms);
 
+#ifdef __cplusplus
 } // extern "C"
+#endif
 
 #endif /* LIBPIKSI_UTIL_H */
 

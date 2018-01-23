@@ -10,14 +10,22 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_FILTER_NONE_H
-#define SWIFTNAV_FILTER_NONE_H
+#ifndef SWIFTNAV_FILTER_SWL_H
+#define SWIFTNAV_FILTER_SWL_H
 
 #include <stdint.h>
 #include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void * filter_swl_create(const char *filename);
 void filter_swl_destroy(void **state);
 int filter_swl_process(void *state, const uint8_t *msg, uint32_t msg_length);
 
-#endif /* SWIFTNAV_FILTER_NONE_H */
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+#endif /* SWIFTNAV_FILTER_SWL_H */

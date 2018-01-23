@@ -22,8 +22,6 @@
 #include <libsbp/sbp.h>
 #include <libsbp/settings.h>
 
-static bool allow_sensitive_settings_write = false;
-
 typedef struct filter_interface_s {
   const char *name;
   filter_create_fn_t create;
@@ -181,9 +179,4 @@ int filter_process(filter_list_t *filter_list, const uint8_t *msg, uint32_t msg_
   }
 
   return 0;
-}
-
-void filter_allow_sensitive_settings_write()
-{
-  allow_sensitive_settings_write = true;
 }

@@ -15,6 +15,7 @@
 #include "filter.h"
 #include "framer_none.h"
 #include "filter_none.h"
+#include "filter_settings_whitelist.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -122,6 +123,14 @@ int protocols_import(const char *path)
                                 filter_none_destroy,
                                 filter_none_process) != 0) {
     syslog(LOG_ERR, "error registering none filter");
+    return -1;
+  }
+
+  if (filter_interface_register("settings_whitelist",
+                                filter_swl_create,
+                                filter_swl_destroy,
+                                filter_swl_process) != 0) {
+    syslog(LOG_ERR, "error registering settings whitelist filter");
     return -1;
   }
 

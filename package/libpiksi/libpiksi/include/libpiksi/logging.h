@@ -25,7 +25,9 @@
 #include <libpiksi/common.h>
 #include <syslog.h>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 /**
  * @brief   Initialize logging.
@@ -70,7 +72,9 @@ void piksi_vlog(int priority, const char *format, va_list ap);
  */
 void sbp_log(int priority, const char *msg_text, ...);
 
+#ifdef __cplusplus
 } // extern "C"
+#endif
 
 #endif /* LIBPIKSI_LOGGING_H */
 

@@ -31,6 +31,7 @@
 #define ZSOCK_RESTART_RETRY_DELAY_ms 1
 #define FRAMER_NONE_NAME "none"
 #define FILTER_NONE_NAME "none"
+#define FILTER_SWL_NAME "settings_whitelist"
 
 typedef enum {
   IO_INVALID,
@@ -69,6 +70,7 @@ static const char *filter_in_name = FRAMER_NONE_NAME;
 static const char *filter_out_name = FRAMER_NONE_NAME;
 static const char *filter_in_config = NULL;
 static const char *filter_out_config = NULL;
+static const char *settings_whitelist_config = NULL;
 static int rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
 static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
 static bool nonblock = false;
@@ -136,8 +138,8 @@ static void usage(char *command)
   fprintf(stderr, "\t--debug\n");
   fprintf(stderr, "\t--outq <n>\n");
   fprintf(stderr, "\t\tmax tty output queue size (bytes)\n");
-  fprintf(stderr, "\t--sensitive-sbp<n>\n");
-  fprintf(stderr, "\t\tAllow sensitive SBP messages\n");
+  fprintf(stderr, "\t--settings-whitelist <file>\n");
+  fprintf(stderr, "\t\twhitelist of settings that are allowed to be set on this port\n");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -158,7 +160,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILTER_OUT_CONFIG,
     OPT_ID_NONBLOCK,
     OPT_ID_OUTQ,
-    OPT_ID_SENSITIVE_SBP,
+    OPT_ID_SETTINGS_WHITELIST,
   };
 
   const struct option long_opts[] = {
@@ -182,7 +184,7 @@ static int parse_options(int argc, char *argv[])
     {"debug",             no_argument,       0, OPT_ID_DEBUG},
     {"nonblock",          no_argument,       0, OPT_ID_NONBLOCK},
     {"outq",              required_argument, 0, OPT_ID_OUTQ},
-    {"sensitive-sbp",     no_argument,       0, OPT_ID_SENSITIVE_SBP},
+    {"settings-whitelist",required_argument, 0, OPT_ID_SETTINGS_WHITELIST},
     {0, 0, 0, 0}
   };
 
@@ -281,8 +283,8 @@ static int parse_options(int argc, char *argv[])
       }
       break;
 
-      case OPT_ID_SENSITIVE_SBP: {
-        filter_allow_sensitive_settings_write();
+      case OPT_ID_SETTINGS_WHITELIST: {
+        settings_whitelist_config = optarg;
       }
       break;
 
@@ -338,6 +340,11 @@ static int parse_options(int argc, char *argv[])
     return -1;
   }
 
+  if (settings_whitelist_config == NULL) {
+    fprintf(stderr, "Settings whitelist was not specified\n");
+    return -1;
+  }
+
   if ((strcasecmp(filter_in_name, FILTER_NONE_NAME) == 0) !=
       (filter_in_config == NULL)) {
     fprintf(stderr, "invalid input filter settings\n");
@@ -385,6 +392,7 @@ static int handle_init(handle_t *handle, zsock_t *zsock,
                        const char *filter_config)
 {
   filter_spec_t filter_specs[] = {
+    { .name = FILTER_SWL_NAME, .filename = settings_whitelist_config },
     { .name = filter_name, .filename = filter_config }
   };
   
