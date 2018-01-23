@@ -385,7 +385,7 @@ void * filter_swl_create(const char *filename)
   s->hash = cmph_new(config);
   cmph_config_destroy(config);
 
-  entries = (whitelist_entry_t*) malloc(count * sizeof(whitelist_entry_t));
+  entries = (whitelist_entry_t*) malloc(count * sizeof(*entries));
   collate_whitelist(s->whitelist, s->whitelist_size, entries, s->hash);
 
   s->whitelist_entries = entries;
@@ -426,5 +426,5 @@ void filter_swl_destroy(void **s)
 int filter_swl_process(void *state, const uint8_t *msg, uint32_t msg_length)
 {
   filter_swl_state_t* ctx = (filter_swl_state_t*) state;
-  return reject_sensitive_settings_write(ctx, msg, msg_length);
+  return reject_sensitive_settings_write(ctx, msg, msg_length) ? 1 : 0;
 }
