@@ -16,11 +16,15 @@
 #define SETTING_SECTION_ACQUISITION "acquisition"
 #define SETTING_GLONASS_ACQUISITION_ENABLED "glonass_acquisition_enabled"
 
-int health_util_parse_setting_read_resp(const u8 *msg, u8 msg_n,
-                                        const char **section, const char **name,
+int health_util_parse_setting_read_resp(const u8 *msg,
+                                        u8 msg_n,
+                                        const char **section,
+                                        const char **name,
                                         const char **value);
 
-int health_util_check_glonass_enabled(const char *section, const char *name,
-                                   const char *value, bool *result);
+int health_util_check_glonass_enabled(const char *section,
+                                      const char *name,
+                                      const char *value,
+                                      bool *result);
 
 #endif /* __HEALTH_MONITOR_UTILS_H */

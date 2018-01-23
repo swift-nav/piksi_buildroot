@@ -15,25 +15,25 @@
 
 #include "utils.h"
 
-static const char * const bool_names[] = {"False", "True"};
-static const char * const section_acquisition = SETTING_SECTION_ACQUISITION;
-static const char * const name_glonass_enabled = SETTING_GLONASS_ACQUISITION_ENABLED;
+static const char *const bool_names[] = { "False", "True" };
+static const char *const section_acquisition = SETTING_SECTION_ACQUISITION;
+static const char *const name_glonass_enabled =
+  SETTING_GLONASS_ACQUISITION_ENABLED;
 
-int health_util_parse_setting_read_resp(const u8 *msg, u8 msg_n,
-                                        const char **section, const char **name,
+int health_util_parse_setting_read_resp(const u8 *msg,
+                                        u8 msg_n,
+                                        const char **section,
+                                        const char **name,
                                         const char **value)
 {
-  const char **result_holders[] = {section, name, value};
+  const char **result_holders[] = { section, name, value };
   u8 start = 0;
   u8 end = 0;
-  for (u8 i = 0; i < sizeof(result_holders)/sizeof(*result_holders); i++)
-  {
+  for (u8 i = 0; i < sizeof(result_holders) / sizeof(*result_holders); i++) {
     bool found = false;
     *(result_holders[i]) = NULL;
-    while(end < msg_n)
-    {
-      if (msg[end] == '\0')
-      {
+    while (end < msg_n) {
+      if (msg[end] == '\0') {
         if (end == start) {
           return -1;
         } else {
@@ -51,8 +51,10 @@ int health_util_parse_setting_read_resp(const u8 *msg, u8 msg_n,
   return 0;
 }
 
-int health_util_check_glonass_enabled(const char *section, const char *name,
-                                   const char *value, bool *result)
+int health_util_check_glonass_enabled(const char *section,
+                                      const char *name,
+                                      const char *value,
+                                      bool *result)
 {
   if (section == NULL || name == NULL || value == NULL) {
     return -1;
@@ -63,9 +65,9 @@ int health_util_check_glonass_enabled(const char *section, const char *name,
     return -1;
   }
 
-  if (strcmp(value, bool_names[(u8)true]) == 0) {
+  if (strcmp(value, bool_names[(u8) true]) == 0) {
     *result = true;
-  } else if (strcmp(value, bool_names[(u8)false]) == 0) {
+  } else if (strcmp(value, bool_names[(u8) false]) == 0) {
     *result = false;
   } else {
     return -1;
@@ -73,4 +75,3 @@ int health_util_check_glonass_enabled(const char *section, const char *name,
 
   return 0;
 }
-

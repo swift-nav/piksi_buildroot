@@ -26,14 +26,14 @@
 
 /* From libswiftnav-private - These really belong in libsbp */
 /* Define Position types - currently aligned to SBP messages */
-#define NO_POSITION         0
-#define SPP_POSITION        1
-#define DGNSS_POSITION      2
-#define FLOAT_POSITION      3
-#define FIXED_POSITION      4
-#define POSITION_MODE_MASK  0x07 /* Bits 0-2 */
+#define NO_POSITION 0
+#define SPP_POSITION 1
+#define DGNSS_POSITION 2
+#define FLOAT_POSITION 3
+#define FIXED_POSITION 4
+#define POSITION_MODE_MASK 0x07 /* Bits 0-2 */
 
-#define BASELINE_THRESHOLD (80000.0f) /* m */
+#define BASELINE_THRESHOLD (80000.0f)     /* m */
 #define BASELINE_ALERT_RATE_LIMIT (1000u) /* ms */
 
 #define MM_TO_M_FLOAT(val_in_mm) ((float)(val_in_mm) / 1000)
@@ -42,56 +42,51 @@ static health_monitor_t *baseline_monitor;
 static struct baseline_monitor_ctx_s {
   bool past_threshold;
   float distance_over_threshold;
-} baseline_monitor_ctx = {
-  false,
-  0.0
-};
+} baseline_monitor_ctx = { false, 0.0 };
 
 static int sbp_msg_baseline_ecef_callback(health_monitor_t *monitor,
-                                          u16 sender_id, u8 len, u8 msg_[],
+                                          u16 sender_id,
+                                          u8 len,
+                                          u8 msg_[],
                                           void *ctx)
 {
   int result = 0;
   (void)monitor;
   (void)sender_id;
   (void)len;
-  msg_baseline_ecef_t *msg = (msg_baseline_ecef_t  *)msg_;
+  msg_baseline_ecef_t *msg = (msg_baseline_ecef_t *)msg_;
   (void)ctx;
 
   u8 fix_mode = (msg->flags & POSITION_MODE_MASK);
-  switch (fix_mode)
-  {
-    case DGNSS_POSITION:
-    case FLOAT_POSITION:
-    case FIXED_POSITION:
-    {
-      float x_m = MM_TO_M_FLOAT(msg->x);
-      float y_m = MM_TO_M_FLOAT(msg->y);
-      float z_m = MM_TO_M_FLOAT(msg->z);
-      float distance = (float)sqrt(pow(x_m, 2) + pow(y_m, 2) + pow(z_m, 2));
-      if (distance > BASELINE_THRESHOLD)
-      {
-        baseline_monitor_ctx.distance_over_threshold = distance;
-        baseline_monitor_ctx.past_threshold = true;
-        result = 1;
-      }
-    } break;
-    case NO_POSITION:
-    case SPP_POSITION:
-    {
-      baseline_monitor_ctx.past_threshold = false;
-    } break;
-    default:
-    {
-      result = -1;
-    } break;
+  switch (fix_mode) {
+  case DGNSS_POSITION:
+  case FLOAT_POSITION:
+  case FIXED_POSITION: {
+    float x_m = MM_TO_M_FLOAT(msg->x);
+    float y_m = MM_TO_M_FLOAT(msg->y);
+    float z_m = MM_TO_M_FLOAT(msg->z);
+    float distance = (float)sqrt(pow(x_m, 2) + pow(y_m, 2) + pow(z_m, 2));
+    if (distance > BASELINE_THRESHOLD) {
+      baseline_monitor_ctx.distance_over_threshold = distance;
+      baseline_monitor_ctx.past_threshold = true;
+      result = 1;
+    }
+  } break;
+  case NO_POSITION:
+  case SPP_POSITION: {
+    baseline_monitor_ctx.past_threshold = false;
+  } break;
+  default: {
+    result = -1;
+  } break;
   }
 
   return result;
 }
 
-static int baseline_threshold_rate_limiting_timer_callback(health_monitor_t *monitor,
-                                                           void *context)
+static int
+baseline_threshold_rate_limiting_timer_callback(health_monitor_t *monitor,
+                                                void *context)
 {
   (void)monitor;
   (void)context;
@@ -112,11 +107,13 @@ int baseline_threshold_health_monitor_init(health_ctx_t *health_ctx)
     return -1;
   }
 
-  return health_monitor_init(
-      baseline_monitor, health_ctx,
-      SBP_MSG_BASELINE_ECEF, sbp_msg_baseline_ecef_callback,
-      BASELINE_ALERT_RATE_LIMIT, baseline_threshold_rate_limiting_timer_callback,
-      NULL);
+  return health_monitor_init(baseline_monitor,
+                             health_ctx,
+                             SBP_MSG_BASELINE_ECEF,
+                             sbp_msg_baseline_ecef_callback,
+                             BASELINE_ALERT_RATE_LIMIT,
+                             baseline_threshold_rate_limiting_timer_callback,
+                             NULL);
 }
 
 void baseline_threshold_health_monitor_deinit(void)
@@ -125,5 +122,3 @@ void baseline_threshold_health_monitor_deinit(void)
     health_monitor_destroy(&baseline_monitor);
   }
 }
-
-
