@@ -200,21 +200,11 @@ static int ssh_enable_notify(void *context)
 
   if (ssh_enable) {
 
-    system("ln -s /etc/ssh.monitrc /etc/monitrc.d");
-    system("rm /persistent/disable_ssh");
-
-    system("/etc/init.d/S50sshd start");
-    system("monit reload");
-
+    system("/lib/enable_ssh &");
     return 0;
   }
 
-  system("rm /etc/monitrc.d/ssh.monitrc");
-  system("monit reload");
-
-  system("/etc/init.d/S50sshd stop");
-  system("echo >/persistent/disable_ssh");
-
+  system("/lib/disable_ssh &");
   return 0;
 }
 

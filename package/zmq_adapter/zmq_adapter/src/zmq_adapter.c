@@ -71,8 +71,8 @@ static const char *filter_out_name = FRAMER_NONE_NAME;
 static const char *filter_in_config = NULL;
 static const char *filter_out_config = NULL;
 static const char *settings_whitelist_config = NULL;
-static int rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
-static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
+static uint32_t rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
+static uint32_t startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
 static bool nonblock = false;
 static int outq;
 
@@ -96,6 +96,28 @@ static pid_t *pids[] = {
   &req_pid,
   &rep_pid
 };
+
+#define _CHECK_CAST_SIGNED(var, FromType, ToType) \
+  do { if (var < 0) { \
+		int invalid_cast_from_ ## FromType ## _to_ ## ToType = 0; \
+    assert( invalid_cast_from_ ## FromType ## _to_ ## ToType ); \
+  } } while(false); \
+
+#define _CHECK_CAST_UNSIGNED(var, FromType, ToType, Max) \
+  do { if ((FromType)var > (FromType)Max) { \
+		int invalid_cast_from_ ## FromType ## _to_ ## ToType = 0; \
+    assert( invalid_cast_from_ ## FromType ## _to_ ## ToType ); \
+  } } while(false);
+
+#define CHECK_SIZET_TO_SSIZET(var) \
+  _CHECK_CAST_UNSIGNED(var, size_t, ssize_t, SSIZE_MAX)
+
+#define CHECK_SIZET_TO_INT(var) \
+  _CHECK_CAST_UNSIGNED(var, size_t, int, INT_MAX)
+
+#define SIZET_TO_SSIZET(var) (ssize_t)(var)
+
+#define SIZET_TO_INT(var) (int)(var)
 
 static void usage(char *command)
 {
@@ -229,12 +251,12 @@ static int parse_options(int argc, char *argv[])
       break;
 
       case OPT_ID_REP_TIMEOUT: {
-        rep_timeout_ms = strtol(optarg, NULL, 10);
+        rep_timeout_ms = strtoul(optarg, NULL, 10);
       }
       break;
 
       case OPT_ID_STARTUP_DELAY: {
-        startup_delay_ms = strtol(optarg, NULL, 10);
+        startup_delay_ms = strtoul(optarg, NULL, 10);
       }
       break;
 
@@ -393,8 +415,8 @@ static int handle_init(handle_t *handle, zsock_t *zsock,
     { .name = filter_name, .filename = filter_config }
   };
 
+    //{ .name = FILTER_SWL_NAME, .filename = settings_whitelist_config },
   filter_spec_t filter_specs_swl[] = {
-    { .name = FILTER_SWL_NAME, .filename = settings_whitelist_config },
     { .name = filter_name, .filename = filter_config }
   };
 
@@ -544,7 +566,8 @@ static ssize_t zsock_read(zsock_t *zsock, void *buffer, size_t count)
   zmsg_destroy(&msg);
   assert(msg == NULL);
 
-  return buffer_index;
+  CHECK_SIZET_TO_SSIZET(buffer_index);
+  return SIZET_TO_SSIZET(buffer_index);
 }
 
 static ssize_t zsock_write(zsock_t *zsock, const void *buffer, size_t count)
@@ -577,7 +600,9 @@ static ssize_t zsock_write(zsock_t *zsock, const void *buffer, size_t count)
   }
 
   assert(msg == NULL);
-  return count;
+
+  CHECK_SIZET_TO_SSIZET(count);
+  return SIZET_TO_SSIZET(count);
 }
 
 static ssize_t fd_read(int fd, void *buffer, size_t count)
@@ -598,9 +623,12 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
   if (isatty(fd) && (outq > 0)) {
     int qlen;
     ioctl(fd, TIOCOUTQ, &qlen);
-    if (qlen + count > outq) {
+    CHECK_SIZET_TO_INT(count);
+    int count_i32 = SIZET_TO_INT(count);
+    if (qlen + count_i32 > outq) {
       /* Fake success so upper layer doesn't retry */
-      return count;
+      CHECK_SIZET_TO_SSIZET(count);
+      return SIZET_TO_SSIZET(count);
     }
   }
 
@@ -613,7 +641,8 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
       /* Our output buffer is full and we're in non-blocking mode.
        * Just silently drop the rest of the output...
        */
-      return count;
+      CHECK_SIZET_TO_SSIZET(count);
+      return SIZET_TO_SSIZET(count);
     } else {
       return ret;
     }
@@ -641,7 +670,7 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 static ssize_t handle_write_all(handle_t *handle,
                                 const void *buffer, size_t count)
 {
-  uint32_t buffer_index = 0;
+  size_t buffer_index = 0;
   while (buffer_index < count) {
     ssize_t write_count = handle_write(handle,
                                        &((uint8_t *)buffer)[buffer_index],
@@ -649,18 +678,21 @@ static ssize_t handle_write_all(handle_t *handle,
     if (write_count < 0) {
       return write_count;
     }
-    buffer_index += write_count;
+    buffer_index += (size_t)write_count;
   }
-  return buffer_index;
+
+  CHECK_SIZET_TO_SSIZET(buffer_index);
+  return SIZET_TO_SSIZET(buffer_index);
 }
 
 static ssize_t handle_write_one_via_framer(handle_t *handle,
-                                           const void *buffer, size_t count,
+                                           const void *buffer,
+                                           size_t count,
                                            size_t *frames_written)
 {
   /* Pass data through framer */
   *frames_written = 0;
-  uint32_t buffer_index = 0;
+  size_t buffer_index = 0;
   while (1) {
     const uint8_t *frame;
     uint32_t frame_length;
@@ -669,8 +701,9 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
                        &((uint8_t *)buffer)[buffer_index],
                        count - buffer_index,
                        &frame, &frame_length);
+
     if (frame == NULL) {
-      return buffer_index;
+      break;
     }
 
     /* Pass frame through filter */
@@ -683,23 +716,25 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
     if (write_count < 0) {
       return write_count;
     }
-    if (write_count != frame_length) {
+    if (write_count != (ssize_t)frame_length) {
       syslog(LOG_ERR, "warning: write_count != frame_length");
     }
 
     *frames_written += 1;
-
-    return buffer_index;
+    break;
   }
-  return buffer_index;
+
+  CHECK_SIZET_TO_SSIZET(buffer_index);
+  return SIZET_TO_SSIZET(buffer_index);
 }
 
 static ssize_t handle_write_all_via_framer(handle_t *handle,
-                                           const void *buffer, size_t count,
+                                           const void *buffer,
+                                           size_t count,
                                            size_t *frames_written)
 {
   *frames_written = 0;
-  uint32_t buffer_index = 0;
+  size_t buffer_index = 0;
   while (1) {
     size_t frames;
     ssize_t write_count =
@@ -711,15 +746,17 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
       return write_count;
     }
 
-    buffer_index += write_count;
+    buffer_index += (size_t)write_count;
 
     if (frames == 0) {
-      return buffer_index;
+      break;
     }
 
     *frames_written += frames;
   }
-  return buffer_index;
+
+  CHECK_SIZET_TO_SSIZET(buffer_index);
+  return SIZET_TO_SSIZET(buffer_index);
 }
 
 static ssize_t frame_transfer(handle_t *read_handle, handle_t *write_handle,
@@ -738,7 +775,8 @@ static ssize_t frame_transfer(handle_t *read_handle, handle_t *write_handle,
   /* Write to write_handle via framer */
   size_t frames_written;
   ssize_t write_count = handle_write_one_via_framer(write_handle,
-                                                    buffer, read_count,
+                                                    buffer,
+                                                    (size_t)read_count,
                                                     &frames_written);
   if (write_count < 0) {
     return write_count;
@@ -768,7 +806,8 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     /* Write to write_handle via framer */
     size_t frames_written;
     ssize_t write_count = handle_write_all_via_framer(write_handle,
-                                                      buffer, read_count,
+                                                      buffer,
+                                                      read_count,
                                                       &frames_written);
     if (write_count < 0) {
       debug_printf("write_count %d errno %s (%d)\n",
@@ -790,7 +829,7 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
 {
   debug_printf("io loop begin\n");
 
-  int poll_timeout_ms = rep_handle->zsock != NULL ? rep_timeout_ms : -1;
+  int poll_timeout_ms = rep_handle->zsock != NULL ? (int)rep_timeout_ms : -1;
   bool reply_pending = false;
 
   while (1) {
@@ -1108,8 +1147,7 @@ void io_loop_wait_one(void)
       /* Retry if interrupted */
       continue;
     } else if (pid >= 0) {
-      int i;
-      for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
+      for (size_t i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
         if (pid_wait_check(&pub_pid, pid) == 0) {
           /* Return if a child from the list was terminated */
           return;
@@ -1126,8 +1164,7 @@ void io_loop_wait_one(void)
 
 void io_loop_terminate(void)
 {
-  int i;
-  for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
+  for (size_t i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
     pid_terminate(pids[i]);
   }
 }

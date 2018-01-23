@@ -100,7 +100,7 @@ typedef struct {
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
-    .opts = "--file /dev/ttyPS0 --nonblock --outq 8192",
+    .opts = "--file /dev/ttyPS0 --nonblock --outq 8192 --debug",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -110,7 +110,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "uart1",
-    .opts = "--file /dev/ttyPS1 --nonblock --outq 8192",
+    .opts = "--file /dev/ttyPS1 --nonblock --outq 8192 --debug",
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,

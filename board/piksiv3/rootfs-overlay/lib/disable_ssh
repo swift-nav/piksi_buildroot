@@ -1,0 +1,7 @@
+#!/bin/ash
+
+rm -f /etc/monitrc.d/ssh.monitrc
+monit reload
+
+/etc/init.d/S50sshd stop
+echo >/persistent/disable_ssh

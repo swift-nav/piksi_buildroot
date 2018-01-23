@@ -14,7 +14,7 @@ SOURCES= \
 	filter_settings_whitelist.c \
 	protocols.c
 LIBS=-lczmq -lzmq -lsbp -lpiksi -ldl -lcmph
-CFLAGS=-std=gnu11 -Wall
+CFLAGS=-std=gnu11 -Wall -Wextra -Wconversion
 
 CROSS=
 

@@ -1,0 +1,7 @@
+#!/bin/ash
+
+ln -s /etc/ssh.monitrc /etc/monitrc.d
+rm -f /persistent/disable_ssh
+
+/etc/init.d/S50sshd start
+monit reload

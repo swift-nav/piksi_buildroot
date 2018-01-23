@@ -346,7 +346,7 @@ void * filter_swl_create(const char *filename)
 
   s->keys_fp = fopen(filename, "r");
   if (s->keys_fp == NULL) {
-    log_blast(LOG_ERR, "Failed to open settings whitelist config");
+    log_blast(LOG_ERR, "Failed to open settings whitelist config: %s", filename);
     exit(-102);
   }
 
