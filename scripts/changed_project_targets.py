@@ -6,6 +6,10 @@ import subprocess
 import hashlib
 import pickle
 
+if 'BUILD_TEMP' not in os.environ:
+    sys.stderr.write("BUILD_TEMP must be set")
+    sys.exit(-1)
+
 BUILD_TEMP = os.environ['BUILD_TEMP']
 SLASH = bytes(os.path.sep, 'utf8')
 
@@ -86,8 +90,16 @@ def topological(graph):
 
 packages = set()
 
-for line in call('git', 'status', '-s'):
-    line = line[3:]
+def get_files_changed():
+    if 'SINCE' in os.environ and os.environ['SINCE'] != '':
+        since = os.environ['SINCE']
+        for line in call('git', 'diff', '--name-only', since):
+            yield line
+    for line in call('git', 'status', '-s'):
+        line = line[3:]
+        yield line
+
+for line in get_files_changed():
     if not line.startswith(b'package' + SLASH):
         continue
     package = line.split(b'package' + SLASH, 1)[1]
@@ -100,3 +112,5 @@ for dep in reversed(topological(deps)):
     if dep in packages:
         target = (dep + b'-rebuild').decode('utf8')
         print(target)
+
+# vim: et:sts=4:sw=4:ts=4:
