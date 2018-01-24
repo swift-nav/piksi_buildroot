@@ -111,6 +111,7 @@ ports:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
           - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
           - { action: REJECT }
       - dst_port: SBP_PORT_SETTINGS_DAEMON
         filters:
