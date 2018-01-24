@@ -9,6 +9,7 @@ endif
         docker-setup docker-make-image docker-make-clean                      \
         docker-make-host-image docker-make-host-clean docker-run              \
         docker-config pkg-% docker-pkg-%                                      \
+        docker-rebuild-changed rebuild-changed _rebuild_changed               \
 
 all: firmware image
 
@@ -64,13 +65,14 @@ host-image: host-config
 host-clean:
 	rm -rf buildroot/host_output
 
-rebuild-changed: BUILD_TEMP=/tmp
+rebuild-changed: export BUILD_TEMP=/tmp SINCE=$(SINCE)
 rebuild-changed: _rebuild_changed
 
 _rebuild_changed:
 	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
 		make -C buildroot \
-			$(shell scripts/changed_project_targets.py) O=output
+			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py) \
+			O=output
 
 _print_db:
 	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
@@ -91,7 +93,8 @@ docker-populate-volume:
 docker-setup: docker-build-image docker-populate-volume
 
 docker-rebuild-changed:
-	docker run $(DOCKER_ARGS) -e BUILD_TEMP=/host/tmp $(DOCKER_TAG) \
+	docker run $(DOCKER_ARGS) -e BUILD_TEMP=/host/tmp -e SINCE=$(SINCE) \
+		$(DOCKER_TAG) \
 		make _rebuild_changed
 
 docker-make-image: docker-config
