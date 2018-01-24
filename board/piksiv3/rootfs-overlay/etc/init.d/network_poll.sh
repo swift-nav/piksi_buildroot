@@ -1,8 +1,30 @@
 #!/bin/ash
 
+touch /var/run/skylark_enabled
+touch /var/run/ntrip_enabled
+
+skylark_enabled() {
+  if [ x`cat /var/run/skylark_enabled` != "x0" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+ntrip_enabled() {
+  if [ x`cat /var/run/ntrip_enabled` != "x0" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 should_check_inet() {
-  [ x`cat /var/run/skylark_enabled` != "x0" ] || \
-    [ x`cat /var/run/ntrip_enabled` != "x0" ]
+  if skylark_enabled || ntrip_enabled; then
+    return 0
+  else
+    return 1
+  fi
 }
 
 while true; do
@@ -16,6 +38,9 @@ while true; do
     echo "No route to Internet" | sbp_log --warn
   fi
 done &
+
+child_pid=$!
+trap 'kill $child_pid; exit' EXIT STOP TERM
 
 while true; do
   if ! should_check_inet; then
