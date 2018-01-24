@@ -106,8 +106,11 @@ static int skylark_notify(void *context)
     }
 
     if (!skylark_enabled) {
+      system("echo 0 >/var/run/skylark_enabled");
       continue;
     }
+
+    system("echo 1 >/var/run/skylark_enabled");
 
     process->pid = fork();
     if (process->pid == 0) {
