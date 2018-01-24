@@ -24,7 +24,9 @@ endef
 
 ifeq    ($(BR2_RUN_TESTS),y) ####
 define ZMQ_ADAPTER_INSTALL_TARGET_CMDS_TESTS_RUN
-	sudo chroot $(TARGET_DIR) test_zmq_adapter
+	LD_LIBRARY_PATH=$(TARGET_DIR)/usr/lib \
+		valgrind --leak-check=full --error-exitcode=1 \
+		$(TARGET_DIR)/usr/bin/test_zmq_adapter
 endef
 endif # ($(BR2_RUN_TESTS),y) ####
 

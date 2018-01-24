@@ -336,7 +336,7 @@ void * filter_swl_create(const char *filename)
     .hash = NULL,
     .source = NULL,
     .whitelist_fd = -1,
-    .whitelist = MAP_FAILED,
+    .whitelist = (const char*)MAP_FAILED,
     .whitelist_size = 0,
     .keys_fp = NULL,
     .whitelist_entries = NULL,

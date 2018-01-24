@@ -4,7 +4,7 @@ SOURCES= \
 LIBS= \
 	-lczmq -lzmq -lsbp -lpiksi -lpthread -lgtest -ldl -lcmph \
 	../src/zmq_adapter.a
-CFLAGS=-std=gnu++11 -z muldefs -I../src
+CFLAGS=-std=gnu++11 -z muldefs -I../src -g
 
 CROSS=
 

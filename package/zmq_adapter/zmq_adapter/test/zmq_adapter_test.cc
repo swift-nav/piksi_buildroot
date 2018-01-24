@@ -65,6 +65,8 @@ TEST_F(ZmqAdapterTest, NormalOperation) {
 
   cmph_destroy(hash);
   cmph_io_vector_adapter_destroy(source);
+
+  free(entries);
 }
 
 TEST_F(ZmqAdapterTest, Error_LeadingOrTrailingWhitespace) {

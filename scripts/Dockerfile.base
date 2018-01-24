@@ -24,6 +24,7 @@ RUN \
       sudo \
       gdb-multiarch \
       awscli \
+      valgrind \
       checkinstall \
       && \
   mkdir -p cmake-build && cd cmake-build && \
