@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
+ * Copyright (C) 2018 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -13,7 +13,7 @@
 #ifndef __HEALTH_THREAD_BASELINE_H
 #define __HEALTH_THREAD_BASELINE_H
 
-int baseline_threshold_health_monitor_init(health_ctx_t* health_ctx);
+int baseline_threshold_health_monitor_init(health_ctx_t *health_ctx);
 void baseline_threshold_health_monitor_deinit(void);
 
 #endif /* __HEALTH_THREAD_BASELINE_H */
