@@ -9,8 +9,9 @@ while true; do
   if ! should_check_inet; then
     sleep 1
     continue
+  else
+    sleep 10
   fi
-  sleep 10
   if [ x`cat /var/run/network_available` != "x1" ]; then
     echo "No route to Internet" | sbp_log --warn
   fi
