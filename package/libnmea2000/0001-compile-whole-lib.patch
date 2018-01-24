@@ -1,0 +1,29 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c62ad3a..ee99503 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -30,8 +30,5 @@ add_compile_options(
+   -g
+ )
+ 
+-enable_testing()
+-
+ add_subdirectory(src)
+ add_subdirectory(third-party/catch)
+-add_subdirectory(test)
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index d7fab27..e61e808 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -27,6 +27,11 @@ add_library(nmea2000
+   N2kStream.cpp
+   N2kMessages.cpp
+   Seasmart.cpp
++  ActisenseReader.cpp
++  N2kDeviceList.cpp
++  N2kGroupFunction.cpp
++  N2kGroupFunctionDefaultHandlers.cpp
++  NMEA2000.cpp
+ )
+ 
+ target_include_directories(nmea2000
