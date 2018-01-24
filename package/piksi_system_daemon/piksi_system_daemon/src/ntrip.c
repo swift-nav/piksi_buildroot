@@ -97,8 +97,11 @@ static int ntrip_notify(void *context)
     }
 
     if (!ntrip_enabled || strcmp(ntrip_url, "") == 0) {
+      system("echo 0 >/var/run/ntrip_enabled");
       continue;
     }
+
+    system("echo 1 >/var/run/ntrip_enabled");
 
     ntrip_argv = ntrip_debug ? ntrip_argv_debug : ntrip_argv_normal;
 
