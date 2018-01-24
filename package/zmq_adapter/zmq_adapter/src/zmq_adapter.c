@@ -415,9 +415,9 @@ static int handle_init(handle_t *handle, zsock_t *zsock,
     { .name = filter_name, .filename = filter_config }
   };
 
-    //{ .name = FILTER_SWL_NAME, .filename = settings_whitelist_config },
   filter_spec_t filter_specs_swl[] = {
-    { .name = filter_name, .filename = filter_config }
+    { .name = filter_name, .filename = filter_config },
+    { .name = FILTER_SWL_NAME, .filename = settings_whitelist_config },
   };
 
   if (settings_whitelist_config != NULL) {
