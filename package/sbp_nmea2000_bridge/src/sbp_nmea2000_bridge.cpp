@@ -201,6 +201,18 @@ namespace {
                        tN2kTimeSource::N2ktimes_GPS);
       NMEA2000.SendMsg(N2kMsg);
     }
+
+    void callback_sbp_pos_llh(u16 sender_id, u8 len, u8 msg[], void *context) {
+      UNUSED(sender_id);
+      UNUSED(len);
+      UNUSED(context);
+
+      auto *sbp_pos = reinterpret_cast<msg_pos_llh_t*>(msg);
+
+      tN2kMsg N2kMsg;
+      SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
+      NMEA2000.SendMsg(N2kMsg);
+    }
 }  // namespace
 
 int main(int argc, char *argv[]) {
@@ -328,6 +340,9 @@ int main(int argc, char *argv[]) {
   piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16, SBP_MSG_UTC_TIME);
+  piksi_check(sbp_callback_register(SBP_MSG_POS_LLH, callback_sbp_pos_llh,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16, SBP_MSG_POS_LLH);
 
   // Read the serial number.
   std::string serial_num_str;
