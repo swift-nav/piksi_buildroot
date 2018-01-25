@@ -64,6 +64,8 @@ namespace {
     // Not used at present, actually.
     constexpr char cEndpointPub[] = ">tcp://127.0.0.1:43091";
 
+    constexpr char cSerialNumberPath[] = "/factory/mfg_id";
+
     void usage(char *command) {
       std::cout << "Usage: " << command << " [--bitrate N]" << std::endl
                 << "Where N is an acceptable CAN bitrate." << std::endl;
@@ -107,7 +109,7 @@ namespace {
       return 0;
     }
 
-    void piksi_check(int err, const char* format, ...){
+    void piksi_check(int err, const char* format, ...) {
       if (err != 0) {
         va_list ap;
         va_start(ap, format);
@@ -121,10 +123,10 @@ namespace {
       }
     }
 
-    int callback_can(zloop_t *loop, zmq_pollitem_t *item,
-                     void *interface_name_void){
+    int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
+                           void *interface_name_void) {
       UNUSED(loop);
-      auto interface_name = reinterpret_cast<std::string*>(interface_name_void);
+      auto interface_name = reinterpret_cast<const char*>(interface_name_void);
 
       canfd_frame frame;
       ssize_t bytes_read = recvfrom(item->fd, &frame,sizeof(frame),
@@ -132,7 +134,7 @@ namespace {
               /*src_addr=*/NULL,
               /*addrlen=*/NULL);
       piksi_check(bytes_read < 0, "Could not read interface %s.",
-                  interface_name->c_str());
+                  interface_name);
 
       std::cout << "Read " << bytes_read << " bytes from " << interface_name
                 <<" ID: " << std::setfill('0') << std::setw(4) << std::hex
@@ -146,7 +148,7 @@ namespace {
 
       return 0;
     }
-}
+}  // namespace
 
 int main(int argc, char *argv[]) {
   logging_init(cProgramName);
@@ -256,18 +258,43 @@ int main(int argc, char *argv[]) {
   // Put the CAN sockets into ZMQ pollitems.
   zmq_pollitem_t pollitem_can0 = {};
   zmq_pollitem_t pollitem_can1 = {};
-  pollitem_can0.events = ZMQ_POLLIN;
-  pollitem_can1.events = ZMQ_POLLIN;
-  pollitem_can0.fd = socket_can0;
-  pollitem_can1.fd = socket_can1;
+  if(debug) {
+    pollitem_can0.events = ZMQ_POLLIN;
+    pollitem_can1.events = ZMQ_POLLIN;
+    pollitem_can0.fd = socket_can0;
+    pollitem_can1.fd = socket_can1;
 
-  // Add CAN pollers to the zloop.
-  std::string interface_name_can0(cInterfaceNameCan0);
-  std::string interface_name_can1(cInterfaceNameCan1);
-  zloop_poller(sbp_zmq_pubsub_zloop_get(ctx), &pollitem_can0,
-               callback_can, static_cast<void*>(&interface_name_can0));
-  zloop_poller(sbp_zmq_pubsub_zloop_get(ctx), &pollitem_can1,
-               callback_can, static_cast<void*>(&interface_name_can1));
+    // Add CAN pollers to the zloop.
+    zloop_poller(sbp_zmq_pubsub_zloop_get(ctx), &pollitem_can0,
+                 callback_can_debug, const_cast<char *>(cInterfaceNameCan0));
+    zloop_poller(sbp_zmq_pubsub_zloop_get(ctx), &pollitem_can1,
+                 callback_can_debug, const_cast<char *>(cInterfaceNameCan1));
+  }
+
+  // Read the serial number.
+  std::string serial_num_str;
+  unsigned long serial_num;
+  { // The block automagically cleans up the file object.
+    std::fstream serial_num_file(cSerialNumberPath, std::ios_base::in);
+    serial_num_file >> serial_num_str;
+    std::stringstream ss;
+    ss.str(serial_num_str);
+    ss >> serial_num;
+  }
+
+  // Set N2K info and options.
+  NMEA2000.SetN2kCANSendFrameBufSize(32);
+  // TODO(lstrz): Need an elegant way to query for the proper info to include here.
+  // https://github.com/swift-nav/firmware_team_planning/issues/452
+  // ModelSerialCode, ProductCode, ModelID, SwCode, ModelVersion,
+  // LoadEquivalency, N2kVersion, CertificationLevel, UniqueNumber,
+  // DeviceFunction, DeviceClass, ManufacturerCode, IndustryGroup
+  NMEA2000.SetProductInformation(serial_num_str.c_str());
+  NMEA2000.SetDeviceInformation(serial_num, /*_DeviceFunction=*/0xff,
+          /*_DeviceClass=*/0xff, /*_ManufacturerCode=*/883);
+  NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode);
+  NMEA2000.Open();
+  NMEA2000.ParseMessages();
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 
