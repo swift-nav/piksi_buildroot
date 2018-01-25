@@ -66,6 +66,30 @@ namespace {
 
     constexpr char cSerialNumberPath[] = "/factory/mfg_id";
 
+    class SequenceId{
+    public:
+        static u8 Get() {
+          return sequence_id_;
+        }
+
+        static u8 Next() {
+          ++sequence_id_;
+          if(sequence_id_ > 252){
+            sequence_id_ = 0;
+          }
+          return sequence_id_;
+        }
+    private:
+        static u8 sequence_id_;
+    };
+    u8 SequenceId::sequence_id_ = 0;
+
+    // Cache current time for N2k.
+    struct TimeForN2k{
+        uint16_t DaysSince1970;
+        double SecondsSinceMidnight;
+    } TimeForN2k;
+
     void usage(char *command) {
       std::cout << "Usage: " << command << " [--bitrate N]" << std::endl
                 << "Where N is an acceptable CAN bitrate." << std::endl;
@@ -147,6 +171,35 @@ namespace {
       std::cout << std::endl;
 
       return 0;
+    }
+
+    void callback_sbp_utc_time(u16 sender_id, u8 len, u8 msg[], void *context) {
+      UNUSED(sender_id);
+      UNUSED(len);
+      UNUSED(context);
+
+      auto sbp_utc_time = reinterpret_cast<msg_utc_time_t*>(msg);
+      tm tm_utc_time;
+      // 1900 is the starting year (year 0) in tm_year, so subtract 1900.
+      tm_utc_time.tm_year = sbp_utc_time->year - 1900;
+      // 0 is the starting month in tm_mon, so subtract 1.
+      tm_utc_time.tm_mon = sbp_utc_time->month - 1;
+      tm_utc_time.tm_mday = sbp_utc_time->day;
+      tm_utc_time.tm_hour = sbp_utc_time->hours;
+      tm_utc_time.tm_min = sbp_utc_time->minutes;
+      tm_utc_time.tm_sec = sbp_utc_time->seconds;
+      tm_utc_time.tm_isdst = -1;  // No idea. mktime() will know.
+      time_t utc_time_since_epoch = mktime(&tm_utc_time);
+      TimeForN2k.DaysSince1970 =
+              static_cast<u16>(utc_time_since_epoch / (3600 * 24));
+      TimeForN2k.SecondsSinceMidnight =
+              utc_time_since_epoch % (3600 * 24) + sbp_utc_time->ns * 10e-9;
+
+      tN2kMsg N2kMsg;
+      SetN2kSystemTime(N2kMsg, SequenceId::Next(), TimeForN2k.DaysSince1970,
+                       TimeForN2k.SecondsSinceMidnight,
+                       tN2kTimeSource::N2ktimes_GPS);
+      NMEA2000.SendMsg(N2kMsg);
     }
 }  // namespace
 
@@ -270,6 +323,11 @@ int main(int argc, char *argv[]) {
     zloop_poller(sbp_zmq_pubsub_zloop_get(ctx), &pollitem_can1,
                  callback_can_debug, const_cast<char *>(cInterfaceNameCan1));
   }
+
+  // Register callbacks for SBP messages.
+  piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16, SBP_MSG_UTC_TIME);
 
   // Read the serial number.
   std::string serial_num_str;

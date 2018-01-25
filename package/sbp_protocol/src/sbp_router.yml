@@ -35,6 +35,7 @@ ports:
           - { action: REJECT }
       - dst_port: SBP_PORT_CAN
         filters:
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0x01] } # Publish: SBP_MSG_UTC_TIME
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
