@@ -35,6 +35,7 @@ ports:
           - { action: REJECT }
       - dst_port: SBP_PORT_CAN
         filters:
+          - { action: ACCEPT, prefix: [0x55, 0x41, 0x00] } # Publish: SBP_MSG_TRACKING_STATE
           - { action: ACCEPT, prefix: [0x55, 0x03, 0x01] } # Publish: SBP_MSG_UTC_TIME
           - { action: ACCEPT, prefix: [0x55, 0x08, 0x02] } # Publish: SBP_MSG_DOPS
           - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # Publish: SBP_MSG_POS_LLH

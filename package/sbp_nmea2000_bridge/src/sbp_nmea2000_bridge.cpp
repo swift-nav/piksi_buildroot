@@ -27,7 +27,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <vector>
 
 extern "C" {
 #include <libpiksi/sbp_zmq_pubsub.h>
@@ -75,6 +74,10 @@ namespace {
     // will not fit in the  map anymore.
     class TowSequenceIdMap {
     public:
+        u8 LatestSequenceId() {
+          return sequence_id_;
+        }
+
         u8 operator[](u32 tow) {
           if(tow > buffer_[head_].first) {  // Add new tow->sid mapping.
             IncrementHead();
@@ -296,6 +299,89 @@ namespace {
                         sbp_dops->tdop / 100.0);
       NMEA2000.SendMsg(N2kMsg);
     }
+
+    // PGN 129540
+    void callback_sbp_tracking_state(u16 sender_id, u8 len, u8 msg[],
+                                     void *context) {
+      UNUSED(sender_id);
+      UNUSED(context);
+
+      constexpr u8 cConstellationMaxSats = 64;
+      std::array<std::pair<u8, u8>, cConstellationMaxSats> sats_gps = {};
+      std::array<std::pair<u8, u8>, cConstellationMaxSats> sats_glo = {};
+      auto sats_gps_end_it = sats_gps.begin();
+      auto sats_glo_end_it = sats_glo.begin();
+      auto sbp_tracking_state = reinterpret_cast<msg_tracking_state_t*>(msg);
+      for(u8 i = 0; i < (len / sizeof(tracking_channel_state_t)); ++i) {
+        auto tracking_channel_state = sbp_tracking_state->states[i];
+        switch(tracking_channel_state.sid.code) {
+          case 0:  /* GPS satellites. Fallthrough. */
+          case 1:
+          case 2:
+          case 5:
+          case 6:
+            *sats_gps_end_it = std::make_pair(tracking_channel_state.sid.sat,
+                                              tracking_channel_state.cn0);
+            ++sats_gps_end_it;
+            break;
+          case 3:  /* GLONASS satellites. Fallthrough. */
+          case 4:
+            *sats_glo_end_it = std::make_pair(tracking_channel_state.sid.sat,
+                                              tracking_channel_state.cn0);
+            ++sats_glo_end_it;
+            break;
+          default:
+            exit(-1);  /* Should never happen. */
+        }
+      }
+
+      /* Remove duplicates. */
+      auto comparator_lower_than = [](const std::pair<u8, u8>& a,
+                                      const std::pair<u8, u8>& b) {
+          return a.first < b.first;
+      };
+      auto comparator_equal = [](const std::pair<u8, u8>& a,
+                                 const std::pair<u8, u8>& b) {
+          return a.first == b.first;
+      };
+      std::sort(sats_gps.begin(), sats_gps_end_it, comparator_lower_than);
+      std::sort(sats_glo.begin(), sats_glo_end_it, comparator_lower_than);
+      sats_gps_end_it = std::unique(sats_gps.begin(), sats_gps.end(),
+                                    comparator_equal);
+      sats_glo_end_it = std::unique(sats_glo.begin(), sats_glo.end(),
+                                    comparator_equal);
+
+      tN2kMsg N2kMsg;
+      N2kMsg.SetPGN(129540L);
+      N2kMsg.Priority=6;
+      // This sequence ID is a guess. Have no info to get a definite one.
+      N2kMsg.AddByte(tow_sequence_id_map.LatestSequenceId());
+      // TODO(lstrz): Can I get range residuals from someplace?
+      N2kMsg.AddByte(0xFF);
+      N2kMsg.AddByte(sats_gps_end_it - sats_gps.begin() +
+                     sats_glo_end_it - sats_glo.begin());
+      for(auto it = sats_gps.begin(); it != sats_gps_end_it; ++it) {
+        N2kMsg.AddByte(/*PRN=*/it->first);
+        // TODO(lstrz): Can I get elevation and azimuth from someplace?
+        N2kMsg.Add2ByteUDouble(/*elevation=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
+        N2kMsg.Add2ByteUDouble(/*azimuth=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
+        N2kMsg.Add2ByteUDouble(/*CN0=*/it->second * 0.25, 0.01, N2kDoubleNA);
+        N2kMsg.Add4ByteUInt(/*rangeResiduals=*/N2kInt32NA);
+        // TODO(lstrz): Is the satellite used? Can I get that info someplece?
+        N2kMsg.AddByte(/*tracked=*/0xFF);
+      }
+      for(auto it = sats_glo.begin(); it != sats_glo_end_it; ++it) {
+        N2kMsg.AddByte(/*PRN=*/it->first + 64);
+        // TODO(lstrz): Can I get elevation and azimuth from someplace?
+        N2kMsg.Add2ByteUDouble(/*elevation=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
+        N2kMsg.Add2ByteUDouble(/*azimuth=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
+        N2kMsg.Add2ByteUDouble(/*CN0=*/it->second * 0.25, 0.01, N2kDoubleNA);
+        N2kMsg.Add4ByteUInt(/*rangeResiduals=*/N2kInt32NA);
+        // TODO(lstrz): Is the satellite used? Can I get that info someplece?
+        N2kMsg.AddByte(/*tracked=*/0xF1);
+      }
+      NMEA2000.SendMsg(N2kMsg);
+    }
 }  // namespace
 
 int main(int argc, char *argv[]) {
@@ -420,6 +506,11 @@ int main(int argc, char *argv[]) {
   }
 
   // Register callbacks for SBP messages.
+  piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
+                                    callback_sbp_tracking_state,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_TRACKING_STATE);
   piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,
