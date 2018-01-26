@@ -37,6 +37,7 @@ extern "C" {
 #include <libsbp/navigation.h>
 #include <libsbp/orientation.h>
 #include <libsbp/sbp.h>
+#include <libsbp/system.h>
 #include <libsbp/tracking.h>
 }
 
@@ -422,6 +423,17 @@ namespace {
       }
       NMEA2000.SendMsg(N2kMsg);
     }
+
+    void callback_sbp_heartbeat(u16 sender_id, u8 len, u8 msg[],
+                                void *context) {
+      UNUSED(sender_id);
+      UNUSED(len);
+      UNUSED(msg);
+      UNUSED(context);
+
+      // This checks for new CAN messages and sends out a heartbeat.
+      NMEA2000.ParseMessages();
+    }
 }  // namespace
 
 int main(int argc, char *argv[]) {
@@ -572,6 +584,10 @@ int main(int argc, char *argv[]) {
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,
               SBP_MSG_DOPS);
+  piksi_check(sbp_callback_register(SBP_MSG_HEARTBEAT, callback_sbp_heartbeat,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_HEARTBEAT);
 
   // Read the serial number.
   std::string serial_num_str;

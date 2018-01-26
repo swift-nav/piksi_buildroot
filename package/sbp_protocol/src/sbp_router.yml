@@ -41,6 +41,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # Publish: SBP_MSG_POS_LLH
           - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # Publish: SBP_MSG_VEL_NED
           - { action: ACCEPT, prefix: [0x55, 0x0F, 0x02] } # Publish: SBP_MSG_BASELINE_HEADING
+          - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # Publish: SBP_MSG_HEARTBEAT
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
