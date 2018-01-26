@@ -12,7 +12,8 @@ SOURCES= \
 	filter.c \
 	filter_none.c \
 	filter_settings_whitelist.c \
-	protocols.c
+	protocols.c \
+	logging.c
 LIBS=-lczmq -lzmq -lsbp -lpiksi -ldl -lcmph
 CFLAGS += -std=gnu11 -Wall -Wextra -Wconversion
 

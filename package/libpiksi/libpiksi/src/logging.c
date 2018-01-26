@@ -48,6 +48,14 @@ void piksi_vlog(int priority, const char *format, va_list ap)
 
 void sbp_log(int priority, const char *msg_text, ...)
 {
+  va_list ap;
+  va_start(ap, msg_text);
+  sbp_vlog(priority, msg_text, ap);
+  va_end(ap);
+}
+
+void sbp_vlog(int priority, const char *msg_text, va_list ap)
+{
   const char *log_args[NUM_LOG_LEVELS] = {"emerg", "alert", "crit",
                                           "error", "warn", "notice",
                                           "info", "debug"};
@@ -64,7 +72,7 @@ void sbp_log(int priority, const char *msg_text, ...)
   } else {
     char cmd_buf[256];
     snprintf(cmd_buf, sizeof(cmd_buf), "sbp_log --%s", log_args[priority]);
-    output = popen (cmd_buf, "w");
+    output = popen(cmd_buf, "w");
   }
 
   if (output == 0) {
@@ -74,10 +82,7 @@ void sbp_log(int priority, const char *msg_text, ...)
 
   char formatted_msg[2048];
 
-  va_list ap;
-  va_start(ap, msg_text);
   vsnprintf(formatted_msg, sizeof(formatted_msg), msg_text, ap);
-  va_end(ap);
 
   char msg_buf[2048];
   snprintf(msg_buf, sizeof(msg_buf), "%s: %s", log_ident, formatted_msg);

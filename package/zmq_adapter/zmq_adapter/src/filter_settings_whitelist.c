@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -12,34 +12,27 @@
 
 #include "filter_settings_whitelist.h"
 
-#include <cmph.h>
+#include "logging.h"
+
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <string.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include <libpiksi/logging.h>
+#include <cmph.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/settings.h>
 
 #define SBP_MSG_TYPE_OFFSET 1
 #define SBP_MSG_SIZE_MIN    6
-
-extern bool debug;
-
-#define debug_printf(format, ...) \
-  if (debug) { \
-    fprintf(stdout, "[PID %d] %s+%d(%s) " format, getpid(), \
-      __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
-    fflush(stdout); }
-
-#define log_blast(level, message, ...) { \
-  piksi_log(level, message, ## __VA_ARGS__); \
-  sbp_log(level, message, ## __VA_ARGS__); \
-  fprintf(stderr, message, ## __VA_ARGS__); \
-  fprintf(stderr, "\n"); \
-  fflush(stderr); }
 
 #define MSG_ERROR_EMPTY_LINES \
   "filter_settings_whitelist: invalid config file, lines cannot be empty (lineno: %zu)"
@@ -74,6 +67,14 @@ typedef struct {
   size_t whitelist_entry_count;
   bool reject;
 } filter_swl_state_t;
+
+extern bool debug;
+
+#define debug_printf(format, ...) \
+  if (debug) { \
+    fprintf(stdout, "[PID %d] %s+%d(%s) " format, getpid(), \
+      __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
+    fflush(stdout); }
 
 /* Parse SBP message payload into setting parameters */
 static bool parse_setting(u8 len, u8 msg[],
@@ -127,12 +128,12 @@ static bool parse_setting(u8 len, u8 msg[],
 static bool setting_in_whitelist(filter_swl_state_t* state, char* setting_name, size_t length)
 {
   if (setting_name == NULL) {
-    piksi_log(LOG_WARNING, "settings name is NULL");
+    zmq_adapter_log(LOG_WARNING, "settings name is NULL");
     return false;
   }
 
   if (length == 0) {
-    piksi_log(LOG_WARNING, "settings name has zero length");
+    zmq_adapter_log(LOG_WARNING, "settings name has zero length");
     return false;
   }
 
@@ -183,7 +184,7 @@ static void write_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   if (setting_in_whitelist(state, setting_composed, setting_composed_len))
     return;
 
-  log_blast(LOG_ERR, MSG_REJECT_SETTING_WRITE, setting_composed);
+  zmq_adapter_log(LOG_ERR|LOG_SBP, MSG_REJECT_SETTING_WRITE, setting_composed);
 
   state->reject = true;
 }
@@ -245,7 +246,7 @@ static bool reject_sensitive_settings_write(filter_swl_state_t* state, const uin
   }
 
   if (retval != SBP_OK_CALLBACK_EXECUTED) {
-    piksi_log(LOG_WARNING, "Error during SBP processing: %d", retval);
+    zmq_adapter_log(LOG_WARNING, "Error during SBP processing: %d", retval);
   }
 
   debug_printf("filter: sensitive write reject: %hhd, retval: %hhd\n", state->reject, retval);
@@ -288,14 +289,14 @@ static ssize_t collate_whitelist(const char* whitelist,
     offset += len + 1/*newline*/; 
 
     if (len == 0 || isallspace(entry, len)) {
-      log_blast(LOG_ERR, MSG_ERROR_EMPTY_LINES, count);
+      zmq_adapter_log(LOG_ERR|LOG_SBP, MSG_ERROR_EMPTY_LINES, count);
       return -1;
     }
 
     char leading_space[512];
 
     if (sscanf(entry, "%512[ \t\f\v]", leading_space) > 0) {
-      log_blast(LOG_ERR, MSG_ERROR_NO_LEADING_SPACES);
+      zmq_adapter_log(LOG_ERR|LOG_SBP, MSG_ERROR_NO_LEADING_SPACES);
       return -2;
     }
 
@@ -304,7 +305,7 @@ static ssize_t collate_whitelist(const char* whitelist,
     sscanf(entry, "%512[^ \t\f\v]", entry_stripped);
 
     if (strlen(entry_stripped) != len) {
-      log_blast(LOG_ERR, MSG_ERROR_NO_TRAILING_SPACES);
+      zmq_adapter_log(LOG_ERR|LOG_SBP, MSG_ERROR_NO_TRAILING_SPACES);
       return -3;
     }
 
@@ -346,13 +347,13 @@ void * filter_swl_create(const char *filename)
 
   s->keys_fp = fopen(filename, "r");
   if (s->keys_fp == NULL) {
-    log_blast(LOG_ERR, "Failed to open settings whitelist config: %s", filename);
+    zmq_adapter_log(LOG_ERR|LOG_SBP, "Failed to open settings whitelist config: %s", filename);
     exit(-102);
   }
 
   s->whitelist_fd = open(filename, O_RDONLY);
   if (s->whitelist_fd < 0) {
-    log_blast(LOG_ERR, "Failed to open settings whitelist config: %s", strerror(errno));
+    zmq_adapter_log(LOG_ERR|LOG_SBP, "Failed to open settings whitelist config: %s", strerror(errno));
     exit(-103);
   }
 
@@ -365,19 +366,19 @@ void * filter_swl_create(const char *filename)
     mmap(NULL, s->whitelist_size, PROT_READ, MAP_SHARED, s->whitelist_fd, 0));
 
   if (s->whitelist == MAP_FAILED) {
-    log_blast(LOG_ERR, "Failed to mmap whitelist config: %s", strerror(errno));
-    exit(-104);
+    zmq_adapter_log(LOG_ERR|LOG_SBP, "Failed to mmap whitelist config: %s", strerror(errno));
+    exit(-105);
   }
 
   whitelist_entry_t* entries = NULL;
   ssize_t count = collate_whitelist(s->whitelist, s->whitelist_size, entries, NULL);
 
   if (count < 0) {
-    log_blast(LOG_ERR, "Error loading settings whitelist config (%d), exiting...", count);
+    zmq_adapter_log(LOG_ERR|LOG_SBP, "Error loading settings whitelist config (%d), exiting...", count);
     exit(count);
   }
 
-  log_blast(LOG_DEBUG, "Found %d whitelist entries, whitelist size: %zu", count, s->whitelist_size);
+  zmq_adapter_log(LOG_DEBUG|LOG_SBP, "Found %d whitelist entries, whitelist size: %zu", count, s->whitelist_size);
 
   s->source = cmph_io_nlfile_adapter(s->keys_fp);
   cmph_config_t *config = cmph_config_new(s->source);

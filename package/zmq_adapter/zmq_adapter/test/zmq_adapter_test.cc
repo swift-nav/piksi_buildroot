@@ -12,9 +12,11 @@
 
 #include <gtest/gtest.h>
 
+#include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 
 #include "filter.h"
+#include "logging.h"
 #include "protocols.h"
 
 #include "filter_settings_whitelist.h"
@@ -203,14 +205,13 @@ TEST_F(ZmqAdapterTest, ProcessSbpPacket) {
   ASSERT_EQ(filters, nullptr);
 }
 
-typedef void (*log_fn_t) (int priority, const char *format, va_list args);
-extern log_fn_t log_fn;
-
-void filter_log_func(int priority, const char* message, va_list args) {
+void test_log_func(int priority, const char* message, va_list args) {
 
   static const char* priorities[] = {
     "emerg", "alert", "crit", "error", "warn", "notice", "info", "debug"
   };
+
+  priority &= ~LOG_FACMASK;
 
   fprintf(stderr, "%s: ", priorities[priority]);
   vfprintf(stderr, message, args);
@@ -219,7 +220,9 @@ void filter_log_func(int priority, const char* message, va_list args) {
 
 int main(int argc, char** argv) {
 
-  log_fn = filter_log_func;
+  logging_init("zmq_adapter_test");
+
+  zmq_adapter_set_log_fn(test_log_func);
 
   settings_whitelist_dir = getenv("SETTINGS_WHITELIST_DIR");
   assert(settings_whitelist_dir != NULL);
