@@ -404,6 +404,8 @@ namespace {
       for(auto it = sats_gps.begin(); it != sats_gps_end_it; ++it) {
         N2kMsg.AddByte(/*PRN=*/it->first);
         // TODO(lstrz): Can I get elevation and azimuth from someplace?
+        // Stefan: not in SBP, but see NMEA 183 message GSV implementation,
+        // we have (should have) some there I think
         N2kMsg.Add2ByteUDouble(/*elevation=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
         N2kMsg.Add2ByteUDouble(/*azimuth=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
         N2kMsg.Add2ByteUDouble(/*CN0=*/it->second * 0.25, 0.01, N2kDoubleNA);
@@ -414,6 +416,8 @@ namespace {
       for(auto it = sats_glo.begin(); it != sats_glo_end_it; ++it) {
         N2kMsg.AddByte(/*PRN=*/it->first + 64);
         // TODO(lstrz): Can I get elevation and azimuth from someplace?
+        // Stefan: not in SBP, but see NMEA 183 message GSV implementation,
+        // we have (should have) some there I think
         N2kMsg.Add2ByteUDouble(/*elevation=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
         N2kMsg.Add2ByteUDouble(/*azimuth=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
         N2kMsg.Add2ByteUDouble(/*CN0=*/it->second * 0.25, 0.01, N2kDoubleNA);
