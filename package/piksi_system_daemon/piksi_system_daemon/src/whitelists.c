@@ -56,48 +56,59 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   [PORT_UART0] = {
     .name = "uart0",
     .wl = "72,74,117,65535"
+    /*  This filter represents the messages a base station must output for a
+        rover to be able to calculate differential GNSS positions against it.
+        This filter removes all other messages to save bandwidth. Ephemeris
+        messages used to be included in this filter, but their bursty nature
+        tended to swamp communication links so they were taken out.
+        MsgBasePosECEF                72
+        MsgObs                        74
+        MsgGloBiases                 117        
+        MsgHeartbeat               65535
+    */
+
   },
   [PORT_UART1] = {
     .name = "uart1",
     .wl = "23,29,65,72,74,80,117,134,136,144,163,165,166,167,171,175,181,185,187,188,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,65280,65282,65535"
     /*  This filter represents the messages in use by the console.
         It removes all ECEF nav messages as well as parts of nav msg.
-        MsgThreadState             23
-        MsgUartState               29
-        MsgTrackingState           65
-        MsgBasePosECEF             72
-        MsgObs                     74
-        MsgSpecan                  80
-        MsgGloBiases              117        
-        MsgEphemerisGPS           134
-        MsgEphemerisGlo           136
-        MsgIono                   144
-        MsgFileioReadResp         163
-        MsgSettingsReadResp       165
-        MsgSettingsReadByIn       166
-        MsgSettingsReadByIn       167
-        MsgFileioWriteResp        171
-        MsgSettingsWriteResp      175
-        MsgDeviceMonitor          181
-        MsgCommandResp            185
-        MsgNetworkStateResp       187
-        MsgCommandOutput          188
-        MsgExtEvent               257
-        MsgGPSTime                258
-        MsgUtcTime                259
-        MsgDops                   520
-        MsgPosLLH                 522
-        MsgBaselineNED            524
-        MsgVelNED                 526
-        MsgBaselineHeading        527
-        MsgAgeCorrections         528
-        MsgLog                   1025
-        MsgImuRaw                2304
-        MsgImuAux                2305
-        MsgMagRaw                2306
-        MsgStartup              65280
-        MsgDgnssStatus          65282
-        MsgHeartbeat            65535 */
+        MsgThreadState                23
+        MsgUartState                  29
+        MsgTrackingState              65
+        MsgBasePosECEF                72
+        MsgObs                        74
+        MsgSpecan                     80
+        MsgGloBiases                 117        
+        MsgEphemerisGPS              134
+        MsgEphemerisGlo              136
+        MsgIono                      144
+        MsgFileioReadResp            163
+        MsgSettingsReadResp          165
+        MsgSettingsReadByIndexDone   166
+        MsgSettingsReadByIndexResp   167
+        MsgFileioWriteResp           171
+        MsgSettingsWriteResp         175
+        MsgDeviceMonitor             181
+        MsgCommandResp               185
+        MsgNetworkStateResp          187
+        MsgCommandOutput             188
+        MsgExtEvent                  257
+        MsgGPSTime                   258
+        MsgUtcTime                   259
+        MsgDops                      520
+        MsgPosLLH                    522
+        MsgBaselineNED               524
+        MsgVelNED                    526
+        MsgBaselineHeading           527
+        MsgAgeCorrections            528
+        MsgLog                      1025
+        MsgImuRaw                   2304
+        MsgImuAux                   2305
+        MsgMagRaw                   2306
+        MsgStartup                 65280
+        MsgDgnssStatus             65282
+        MsgHeartbeat               65535 */
   },
   [PORT_USB0] = {
     .name = "usb0",
@@ -105,19 +116,171 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_TCP_SERVER0] = {
     .name = "tcp_server0",
-    .wl = ""
+    .wl = "23,29,65,72,74,80,117,134,136,144,163,165,166,167,171,175,181,185,187,188,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,65280,65282,65535"
+    /*  This filter represents the messages in use by the console.
+        It removes all ECEF nav messages as well as parts of nav msg.
+        MsgThreadState                23
+        MsgUartState                  29
+        MsgTrackingState              65
+        MsgBasePosECEF                72
+        MsgObs                        74
+        MsgSpecan                     80
+        MsgGloBiases                 117        
+        MsgEphemerisGPS              134
+        MsgEphemerisGlo              136
+        MsgIono                      144
+        MsgFileioReadResp            163
+        MsgSettingsReadResp          165
+        MsgSettingsReadByIndexDone   166
+        MsgSettingsReadByIndexResp   167
+        MsgFileioWriteResp           171
+        MsgSettingsWriteResp         175
+        MsgDeviceMonitor             181
+        MsgCommandResp               185
+        MsgNetworkStateResp          187
+        MsgCommandOutput             188
+        MsgExtEvent                  257
+        MsgGPSTime                   258
+        MsgUtcTime                   259
+        MsgDops                      520
+        MsgPosLLH                    522
+        MsgBaselineNED               524
+        MsgVelNED                    526
+        MsgBaselineHeading           527
+        MsgAgeCorrections            528
+        MsgLog                      1025
+        MsgImuRaw                   2304
+        MsgImuAux                   2305
+        MsgMagRaw                   2306
+        MsgStartup                 65280
+        MsgDgnssStatus             65282
+        MsgHeartbeat               65535 */
   },
   [PORT_TCP_SERVER1] = {
     .name = "tcp_server1",
-    .wl = ""
+    .wl = "23,29,65,72,74,80,117,134,136,144,163,165,166,167,171,175,181,185,187,188,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,65280,65282,65535"
+    /*  This filter represents the messages in use by the console.
+        It removes all ECEF nav messages as well as parts of nav msg.
+        MsgThreadState                23
+        MsgUartState                  29
+        MsgTrackingState              65
+        MsgBasePosECEF                72
+        MsgObs                        74
+        MsgSpecan                     80
+        MsgGloBiases                 117        
+        MsgEphemerisGPS              134
+        MsgEphemerisGlo              136
+        MsgIono                      144
+        MsgFileioReadResp            163
+        MsgSettingsReadResp          165
+        MsgSettingsReadByIndexDone   166
+        MsgSettingsReadByIndexResp   167
+        MsgFileioWriteResp           171
+        MsgSettingsWriteResp         175
+        MsgDeviceMonitor             181
+        MsgCommandResp               185
+        MsgNetworkStateResp          187
+        MsgCommandOutput             188
+        MsgExtEvent                  257
+        MsgGPSTime                   258
+        MsgUtcTime                   259
+        MsgDops                      520
+        MsgPosLLH                    522
+        MsgBaselineNED               524
+        MsgVelNED                    526
+        MsgBaselineHeading           527
+        MsgAgeCorrections            528
+        MsgLog                      1025
+        MsgImuRaw                   2304
+        MsgImuAux                   2305
+        MsgMagRaw                   2306
+        MsgStartup                 65280
+        MsgDgnssStatus             65282
+        MsgHeartbeat               65535 */
   },
   [PORT_TCP_CLIENT0] = {
     .name = "tcp_client0",
-    .wl = ""
+    .wl = "23,29,65,72,74,80,117,134,136,144,163,165,166,167,171,175,181,185,187,188,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,65280,65282,65535"
+    /*  This filter represents the messages in use by the console.
+        It removes all ECEF nav messages as well as parts of nav msg.
+        MsgThreadState                23
+        MsgUartState                  29
+        MsgTrackingState              65
+        MsgBasePosECEF                72
+        MsgObs                        74
+        MsgSpecan                     80
+        MsgGloBiases                 117        
+        MsgEphemerisGPS              134
+        MsgEphemerisGlo              136
+        MsgIono                      144
+        MsgFileioReadResp            163
+        MsgSettingsReadResp          165
+        MsgSettingsReadByIndexDone   166
+        MsgSettingsReadByIndexResp   167
+        MsgFileioWriteResp           171
+        MsgSettingsWriteResp         175
+        MsgDeviceMonitor             181
+        MsgCommandResp               185
+        MsgNetworkStateResp          187
+        MsgCommandOutput             188
+        MsgExtEvent                  257
+        MsgGPSTime                   258
+        MsgUtcTime                   259
+        MsgDops                      520
+        MsgPosLLH                    522
+        MsgBaselineNED               524
+        MsgVelNED                    526
+        MsgBaselineHeading           527
+        MsgAgeCorrections            528
+        MsgLog                      1025
+        MsgImuRaw                   2304
+        MsgImuAux                   2305
+        MsgMagRaw                   2306
+        MsgStartup                 65280
+        MsgDgnssStatus             65282
+        MsgHeartbeat               65535 */
   },
   [PORT_TCP_CLIENT1] = {
     .name = "tcp_client1",
-    .wl = ""
+    .wl = "23,29,65,72,74,80,117,134,136,144,163,165,166,167,171,175,181,185,187,188,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,65280,65282,65535"
+    /*  This filter represents the messages in use by the console.
+        It removes all ECEF nav messages as well as parts of nav msg.
+        MsgThreadState                23
+        MsgUartState                  29
+        MsgTrackingState              65
+        MsgBasePosECEF                72
+        MsgObs                        74
+        MsgSpecan                     80
+        MsgGloBiases                 117        
+        MsgEphemerisGPS              134
+        MsgEphemerisGlo              136
+        MsgIono                      144
+        MsgFileioReadResp            163
+        MsgSettingsReadResp          165
+        MsgSettingsReadByIndexDone   166
+        MsgSettingsReadByIndexResp   167
+        MsgFileioWriteResp           171
+        MsgSettingsWriteResp         175
+        MsgDeviceMonitor             181
+        MsgCommandResp               185
+        MsgNetworkStateResp          187
+        MsgCommandOutput             188
+        MsgExtEvent                  257
+        MsgGPSTime                   258
+        MsgUtcTime                   259
+        MsgDops                      520
+        MsgPosLLH                    522
+        MsgBaselineNED               524
+        MsgVelNED                    526
+        MsgBaselineHeading           527
+        MsgAgeCorrections            528
+        MsgLog                      1025
+        MsgImuRaw                   2304
+        MsgImuAux                   2305
+        MsgMagRaw                   2306
+        MsgStartup                 65280
+        MsgDgnssStatus             65282
+        MsgHeartbeat               65535 */
   },
   [PORT_UDP_SERVER0] = {
     .name = "udp_server0",
@@ -129,11 +292,87 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_UDP_CLIENT0] = {
     .name = "udp_client0",
-    .wl = ""
+    .wl = "23,29,65,72,74,80,117,134,136,144,163,165,166,167,171,175,181,185,187,188,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,65280,65282,65535"
+    /*  This filter represents the messages in use by the console.
+        It removes all ECEF nav messages as well as parts of nav msg.
+        MsgThreadState                23
+        MsgUartState                  29
+        MsgTrackingState              65
+        MsgBasePosECEF                72
+        MsgObs                        74
+        MsgSpecan                     80
+        MsgGloBiases                 117        
+        MsgEphemerisGPS              134
+        MsgEphemerisGlo              136
+        MsgIono                      144
+        MsgFileioReadResp            163
+        MsgSettingsReadResp          165
+        MsgSettingsReadByIndexDone   166
+        MsgSettingsReadByIndexResp   167
+        MsgFileioWriteResp           171
+        MsgSettingsWriteResp         175
+        MsgDeviceMonitor             181
+        MsgCommandResp               185
+        MsgNetworkStateResp          187
+        MsgCommandOutput             188
+        MsgExtEvent                  257
+        MsgGPSTime                   258
+        MsgUtcTime                   259
+        MsgDops                      520
+        MsgPosLLH                    522
+        MsgBaselineNED               524
+        MsgVelNED                    526
+        MsgBaselineHeading           527
+        MsgAgeCorrections            528
+        MsgLog                      1025
+        MsgImuRaw                   2304
+        MsgImuAux                   2305
+        MsgMagRaw                   2306
+        MsgStartup                 65280
+        MsgDgnssStatus             65282
+        MsgHeartbeat               65535 */
   },
   [PORT_UDP_CLIENT1] = {
     .name = "udp_client1",
-    .wl = ""
+    .wl = "23,29,65,72,74,80,117,134,136,144,163,165,166,167,171,175,181,185,187,188,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,65280,65282,65535"
+    /*  This filter represents the messages in use by the console.
+        It removes all ECEF nav messages as well as parts of nav msg.
+        MsgThreadState                23
+        MsgUartState                  29
+        MsgTrackingState              65
+        MsgBasePosECEF                72
+        MsgObs                        74
+        MsgSpecan                     80
+        MsgGloBiases                 117        
+        MsgEphemerisGPS              134
+        MsgEphemerisGlo              136
+        MsgIono                      144
+        MsgFileioReadResp            163
+        MsgSettingsReadResp          165
+        MsgSettingsReadByIndexDone   166
+        MsgSettingsReadByIndexResp   167
+        MsgFileioWriteResp           171
+        MsgSettingsWriteResp         175
+        MsgDeviceMonitor             181
+        MsgCommandResp               185
+        MsgNetworkStateResp          187
+        MsgCommandOutput             188
+        MsgExtEvent                  257
+        MsgGPSTime                   258
+        MsgUtcTime                   259
+        MsgDops                      520
+        MsgPosLLH                    522
+        MsgBaselineNED               524
+        MsgVelNED                    526
+        MsgBaselineHeading           527
+        MsgAgeCorrections            528
+        MsgLog                      1025
+        MsgImuRaw                   2304
+        MsgImuAux                   2305
+        MsgMagRaw                   2306
+        MsgStartup                 65280
+        MsgDgnssStatus             65282
+        MsgHeartbeat               65535 */
   }
 };
 
