@@ -11,6 +11,7 @@
  */
 
 #include <algorithm>
+#include <array>
 #include <czmq.h>
 #include <fstream>
 #include <getopt.h>
@@ -66,23 +67,67 @@ namespace {
 
     constexpr char cSerialNumberPath[] = "/factory/mfg_id";
 
-    class SequenceId{
+    // Maps time of week to a sequence ID in a circular buffer.
+    // Assumes that time of week monotonously increases and that every
+    // time of week value will go through this map. In other words, if values
+    // (increasing order) tow1, tow2, tow4 are already mapped, the value tow3
+    // will not fit in the  map anymore.
+    class TowSequenceIdMap {
     public:
-        static u8 Get() {
-          return sequence_id_;
+        u8 operator[](u32 tow) {
+          if(tow > buffer_[head_].first) {  // Add new tow->sid mapping.
+            IncrementHead();
+            IncrementSequenceId();
+            buffer_[head_].first = tow;
+            buffer_[head_].second = sequence_id_;
+            return sequence_id_;
+          }
+
+          if(tow < buffer_[GetOldestEntryIndex()].first) {  // Tow too old.
+            return 0xFF;
+          }
+
+          // Look up tow in the map.
+          // The map is small enough for linear search to be ok-ish.
+          for(auto p : buffer_) {
+            if(p.first == tow) {
+              return p.second;
+            }
+          }
+
+          return 0xFF;  // Tow not found.
+        }
+    private:
+        void IncrementHead() {
+          ++head_;
+          if(head_ >= buffer_.size()){
+            head_ = 0;
+          }
         }
 
-        static u8 Next() {
+        u8 GetOldestEntryIndex() {
+          u8 oldest_entry_index = head_ + 1;
+          if(oldest_entry_index >= buffer_.size()){
+            oldest_entry_index = 0;
+          }
+          return oldest_entry_index;
+        }
+
+        u8 IncrementSequenceId() {
           ++sequence_id_;
           if(sequence_id_ > 252){
             sequence_id_ = 0;
           }
           return sequence_id_;
         }
-    private:
-        static u8 sequence_id_;
+
+        // TODO(lstrz): Determine if a smaller buffer size would be enough.
+        static constexpr u32 cSequenceIdBufferSize = 16;
+        std::array<std::pair<u32, u8>, cSequenceIdBufferSize> buffer_ = {};
+        u8 head_ = 0;
+        u8 sequence_id_ = 0;
     };
-    u8 SequenceId::sequence_id_ = 0;
+    TowSequenceIdMap tow_sequence_id_map;
 
     // Cache current time for N2k.
     struct TimeForN2k{
@@ -173,6 +218,7 @@ namespace {
       return 0;
     }
 
+    // PGN 126992
     void callback_sbp_utc_time(u16 sender_id, u8 len, u8 msg[], void *context) {
       UNUSED(sender_id);
       UNUSED(len);
@@ -196,12 +242,14 @@ namespace {
               utc_time_since_epoch % (3600 * 24) + sbp_utc_time->ns * 10e-9;
 
       tN2kMsg N2kMsg;
-      SetN2kSystemTime(N2kMsg, SequenceId::Next(), TimeForN2k.DaysSince1970,
+      SetN2kSystemTime(N2kMsg, tow_sequence_id_map[sbp_utc_time->tow],
+                       TimeForN2k.DaysSince1970,
                        TimeForN2k.SecondsSinceMidnight,
                        tN2kTimeSource::N2ktimes_GPS);
       NMEA2000.SendMsg(N2kMsg);
     }
 
+    // PGN 129025
     void callback_sbp_pos_llh(u16 sender_id, u8 len, u8 msg[], void *context) {
       UNUSED(sender_id);
       UNUSED(len);
@@ -211,6 +259,26 @@ namespace {
 
       tN2kMsg N2kMsg;
       SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
+      NMEA2000.SendMsg(N2kMsg);
+    }
+
+    // PGN 129539
+    void callback_sbp_dops(u16 sender_id, u8 len, u8 msg[], void *context){
+      UNUSED(sender_id);
+      UNUSED(len);
+      UNUSED(context);
+
+      auto sbp_dops = reinterpret_cast<msg_dops_t*>(msg);
+
+      tN2kMsg N2kMsg;
+      SetN2kGNSSDOPData(N2kMsg, tow_sequence_id_map[sbp_dops->tow],
+              /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
+              /*ActualMode=*/(sbp_dops->flags == 0) ?
+                             tN2kGNSSDOPmode::N2kGNSSdm_Error :
+                             tN2kGNSSDOPmode::N2kGNSSdm_3D,
+                        sbp_dops->hdop / 100.0,
+                        sbp_dops->vdop / 100.0,
+                        sbp_dops->tdop / 100.0);
       NMEA2000.SendMsg(N2kMsg);
     }
 }  // namespace
@@ -343,6 +411,9 @@ int main(int argc, char *argv[]) {
   piksi_check(sbp_callback_register(SBP_MSG_POS_LLH, callback_sbp_pos_llh,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16, SBP_MSG_POS_LLH);
+  piksi_check(sbp_callback_register(SBP_MSG_DOPS, callback_sbp_dops,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16, SBP_MSG_DOPS);
 
   // Read the serial number.
   std::string serial_num_str;
