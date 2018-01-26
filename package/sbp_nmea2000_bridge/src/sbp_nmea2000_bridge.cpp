@@ -182,6 +182,29 @@ namespace {
       return 0;
     }
 
+    void calculate_cog_sog(const msg_vel_ned_t *sbp_vel_ned,
+                           double *cog_rad, double *sog_mps) {
+      /* Millimeters to meters. */
+      double vel_north_mps = sbp_vel_ned->n / 1000.0;
+      double vel_east_mps = sbp_vel_ned->e / 1000.0;
+
+      *cog_rad = atan2(vel_east_mps, vel_north_mps);
+
+      /* Convert negative values to positive */
+      constexpr double kFullCircleRad = 2 * 3.1415926535897932384626433832795;
+      if (*cog_rad < 0.0) {
+        *cog_rad += kFullCircleRad;
+      }
+
+      /* Avoid having duplicate values for same point (0 and 360) */
+      if (fabs(kFullCircleRad - *cog_rad) < 10e-1) {
+        *cog_rad = 0;
+      }
+
+      *sog_mps = sqrt(vel_north_mps * vel_north_mps +
+                      vel_north_mps * vel_north_mps);
+    }
+
     void piksi_check(int err, const char* format, ...) {
       if (err != 0) {
         va_list ap;
@@ -277,6 +300,23 @@ namespace {
 
       tN2kMsg N2kMsg;
       SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
+      NMEA2000.SendMsg(N2kMsg);
+    }
+
+    // PGN 129026
+    void callback_sbp_vel_ned(u16 sender_id, u8 len, u8 msg[], void *context){
+      UNUSED(sender_id);
+      UNUSED(len);
+      UNUSED(context);
+
+      auto *sbp_vel_ned = reinterpret_cast<msg_vel_ned_t*>(msg);
+      double cog_rad, sog_mps;
+      calculate_cog_sog(sbp_vel_ned, &cog_rad, &sog_mps);
+
+      tN2kMsg N2kMsg;
+      SetN2kCOGSOGRapid(N2kMsg, tow_sequence_id_map[sbp_vel_ned->tow],
+                        tN2kHeadingReference::N2khr_true,
+                        cog_rad, sog_mps);
       NMEA2000.SendMsg(N2kMsg);
     }
 
@@ -524,6 +564,10 @@ int main(int argc, char *argv[]) {
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,
               SBP_MSG_POS_LLH);
+  piksi_check(sbp_callback_register(SBP_MSG_VEL_NED, callback_sbp_vel_ned,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_VEL_NED);
   piksi_check(sbp_callback_register(SBP_MSG_DOPS, callback_sbp_dops,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,

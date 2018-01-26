@@ -39,6 +39,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x03, 0x01] } # Publish: SBP_MSG_UTC_TIME
           - { action: ACCEPT, prefix: [0x55, 0x08, 0x02] } # Publish: SBP_MSG_DOPS
           - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # Publish: SBP_MSG_POS_LLH
+          - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # Publish: SBP_MSG_VEL_NED
           - { action: ACCEPT, prefix: [0x55, 0x0F, 0x02] } # Publish: SBP_MSG_BASELINE_HEADING
           - { action: REJECT }
 
