@@ -11,14 +11,18 @@
  */
 
 #include "zmq_adapter.h"
+
+#include "cast_check.h"
 #include "framer.h"
 #include "filter.h"
 #include "protocols.h"
+
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
-#include <stdlib.h>
-#include <getopt.h>
+
 #include <dlfcn.h>
+#include <getopt.h>
+#include <stdlib.h>
 #include <syslog.h>
 
 #define PROGRAM_NAME "zmq_adapter"
@@ -68,8 +72,8 @@ static const char *filter_out_name = FRAMER_NONE_NAME;
 static const char *filter_in_config = NULL;
 static const char *filter_out_config = NULL;
 static const char *settings_whitelist_config = NULL;
-static uint32_t rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
-static uint32_t startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
+static int rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
+static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
 static bool nonblock = false;
 static int outq;
 
@@ -78,9 +82,9 @@ static const char *zmq_sub_addr = NULL;
 static const char *zmq_req_addr = NULL;
 static const char *zmq_rep_addr = NULL;
 static const char *file_path = NULL;
-static int tcp_listen_port = -1;
+static uint16_t tcp_listen_port = 0;
 static const char *tcp_connect_addr = NULL;
-static int udp_listen_port = -1;
+static uint16_t udp_listen_port = 0;
 static const char *udp_connect_addr = NULL;
 
 static pid_t pub_pid = -1;
@@ -93,28 +97,6 @@ static pid_t *pids[] = {
   &req_pid,
   &rep_pid
 };
-
-#define _CHECK_CAST_SIGNED(var, FromType, ToType) \
-  do { if (var < 0) { \
-		int invalid_cast_from_ ## FromType ## _to_ ## ToType = 0; \
-    assert( invalid_cast_from_ ## FromType ## _to_ ## ToType ); \
-  } } while(false); \
-
-#define _CHECK_CAST_UNSIGNED(var, FromType, ToType, Max) \
-  do { if ((FromType)var > (FromType)Max) { \
-		int invalid_cast_from_ ## FromType ## _to_ ## ToType = 0; \
-    assert( invalid_cast_from_ ## FromType ## _to_ ## ToType ); \
-  } } while(false);
-
-#define CHECK_SIZET_TO_SSIZET(var) \
-  _CHECK_CAST_UNSIGNED(var, size_t, ssize_t, SSIZE_MAX)
-
-#define CHECK_SIZET_TO_INT(var) \
-  _CHECK_CAST_UNSIGNED(var, size_t, int, INT_MAX)
-
-#define SIZET_TO_SSIZET(var) (ssize_t)(var)
-
-#define SIZET_TO_INT(var) (int)(var)
 
 static void usage(char *command)
 {
@@ -225,7 +207,7 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_TCP_LISTEN: {
         io_mode = IO_TCP_LISTEN;
-        tcp_listen_port = strtol(optarg, NULL, 10);
+        tcp_listen_port = ulong_to_uint16(strtoul(optarg, NULL, 10));
       }
       break;
 
@@ -237,7 +219,7 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_UDP_LISTEN: {
         io_mode = IO_UDP_LISTEN;
-        udp_listen_port = strtol(optarg, NULL, 10);
+        udp_listen_port = ulong_to_uint16(strtoul(optarg, NULL, 10));
       }
       break;
 
@@ -248,12 +230,12 @@ static int parse_options(int argc, char *argv[])
       break;
 
       case OPT_ID_REP_TIMEOUT: {
-        rep_timeout_ms = strtoul(optarg, NULL, 10);
+        rep_timeout_ms = ulong_to_int(strtoul(optarg, NULL, 10));
       }
       break;
 
       case OPT_ID_STARTUP_DELAY: {
-        startup_delay_ms = strtoul(optarg, NULL, 10);
+        startup_delay_ms = ulong_to_int(strtoul(optarg, NULL, 10));
       }
       break;
 
@@ -298,7 +280,7 @@ static int parse_options(int argc, char *argv[])
       break;
 
       case OPT_ID_OUTQ: {
-        outq = strtol(optarg, NULL, 10);
+        outq = ulong_to_int(strtoul(optarg, NULL, 10));
       }
       break;
 
@@ -506,7 +488,7 @@ static zsock_t * zsock_start(int type)
     return zsock;
   }
 
-  usleep(1000 * startup_delay_ms);
+  usleep((useconds_t)(1000 * startup_delay_ms));
   debug_printf("opened socket: %s\n", addr);
   return zsock;
 }
@@ -563,8 +545,7 @@ static ssize_t zsock_read(zsock_t *zsock, void *buffer, size_t count)
   zmsg_destroy(&msg);
   assert(msg == NULL);
 
-  CHECK_SIZET_TO_SSIZET(buffer_index);
-  return SIZET_TO_SSIZET(buffer_index);
+  return sizet_to_ssizet(buffer_index);
 }
 
 static ssize_t zsock_write(zsock_t *zsock, const void *buffer, size_t count)
@@ -598,8 +579,7 @@ static ssize_t zsock_write(zsock_t *zsock, const void *buffer, size_t count)
 
   assert(msg == NULL);
 
-  CHECK_SIZET_TO_SSIZET(count);
-  return SIZET_TO_SSIZET(count);
+  return sizet_to_ssizet(count);
 }
 
 static ssize_t fd_read(int fd, void *buffer, size_t count)
@@ -620,12 +600,9 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
   if (isatty(fd) && (outq > 0)) {
     int qlen;
     ioctl(fd, TIOCOUTQ, &qlen);
-    CHECK_SIZET_TO_INT(count);
-    int count_i32 = SIZET_TO_INT(count);
-    if (qlen + count_i32 > outq) {
+    if (qlen + sizet_to_int(count) > outq) {
       /* Fake success so upper layer doesn't retry */
-      CHECK_SIZET_TO_SSIZET(count);
-      return SIZET_TO_SSIZET(count);
+      return sizet_to_ssizet(count);
     }
   }
 
@@ -638,8 +615,7 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
       /* Our output buffer is full and we're in non-blocking mode.
        * Just silently drop the rest of the output...
        */
-      CHECK_SIZET_TO_SSIZET(count);
-      return SIZET_TO_SSIZET(count);
+      return sizet_to_ssizet(count);
     } else {
       return ret;
     }
@@ -678,8 +654,7 @@ static ssize_t handle_write_all(handle_t *handle,
     buffer_index += (size_t)write_count;
   }
 
-  CHECK_SIZET_TO_SSIZET(buffer_index);
-  return SIZET_TO_SSIZET(buffer_index);
+  return sizet_to_ssizet(buffer_index);
 }
 
 static ssize_t handle_write_one_via_framer(handle_t *handle,
@@ -696,7 +671,7 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
     buffer_index +=
         framer_process(handle->framer,
                        &((uint8_t *)buffer)[buffer_index],
-                       count - buffer_index,
+                       sizet_to_uint32(count - buffer_index),
                        &frame, &frame_length);
 
     if (frame == NULL) {
@@ -721,8 +696,7 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
     break;
   }
 
-  CHECK_SIZET_TO_SSIZET(buffer_index);
-  return SIZET_TO_SSIZET(buffer_index);
+  return sizet_to_ssizet(buffer_index);
 }
 
 static ssize_t handle_write_all_via_framer(handle_t *handle,
@@ -752,8 +726,7 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
     *frames_written += frames;
   }
 
-  CHECK_SIZET_TO_SSIZET(buffer_index);
-  return SIZET_TO_SSIZET(buffer_index);
+  return sizet_to_ssizet(buffer_index);
 }
 
 static ssize_t frame_transfer(handle_t *read_handle, handle_t *write_handle,
@@ -773,7 +746,7 @@ static ssize_t frame_transfer(handle_t *read_handle, handle_t *write_handle,
   size_t frames_written;
   ssize_t write_count = handle_write_one_via_framer(write_handle,
                                                     buffer,
-                                                    (size_t)read_count,
+                                                    ssizet_to_sizet(read_count),
                                                     &frames_written);
   if (write_count < 0) {
     return write_count;
@@ -795,7 +768,7 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     uint8_t buffer[READ_BUFFER_SIZE];
     ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
     if (read_count <= 0) {
-      debug_printf("read_count %d errno %s (%d)\n",
+      debug_printf("read_count %zd errno %s (%d)\n",
           read_count, strerror(errno), errno);
       break;
     }
@@ -804,17 +777,17 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     size_t frames_written;
     ssize_t write_count = handle_write_all_via_framer(write_handle,
                                                       buffer,
-                                                      read_count,
+                                                      ssizet_to_sizet(read_count),
                                                       &frames_written);
     if (write_count < 0) {
-      debug_printf("write_count %d errno %s (%d)\n",
+      debug_printf("write_count %zd errno %s (%d)\n",
           write_count, strerror(errno), errno);
       break;
     }
 
     if (write_count != read_count) {
       syslog(LOG_ERR, "warning: write_count != read_count");
-      debug_printf("write_count != read_count %d %d\n",
+      debug_printf("write_count != read_count %zd %zd\n",
           write_count, read_count);
     }
   }
@@ -826,7 +799,7 @@ static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
 {
   debug_printf("io loop begin\n");
 
-  int poll_timeout_ms = rep_handle->zsock != NULL ? (int)rep_timeout_ms : -1;
+  int poll_timeout_ms = rep_handle->zsock != NULL ? rep_timeout_ms : -1;
   bool reply_pending = false;
 
   while (1) {
@@ -1225,7 +1198,7 @@ int main(int argc, char *argv[])
     break;
 
     case IO_TCP_LISTEN: {
-      extern int tcp_listen_loop(int port);
+      extern int tcp_listen_loop(uint16_t port);
       ret = tcp_listen_loop(tcp_listen_port);
     }
     break;
@@ -1237,7 +1210,7 @@ int main(int argc, char *argv[])
     break;
 
     case IO_UDP_LISTEN: {
-      extern int udp_listen_loop(int port);
+      extern int udp_listen_loop(uint16_t port);
       ret = udp_listen_loop(udp_listen_port);
     }
     break;

@@ -12,6 +12,7 @@
 
 #include "filter_settings_whitelist.h"
 
+#include "cast_check.h"
 #include "logging.h"
 
 #include <assert.h>
@@ -137,7 +138,7 @@ static bool setting_in_whitelist(filter_swl_state_t* state, char* setting_name, 
     return false;
   }
 
-  uint32_t index = cmph_search(state->hash, setting_name, length);
+  uint32_t index = cmph_search(state->hash, setting_name, sizet_to_uint32(length));
 
   if (index >= state->whitelist_entry_count) {
     return false;
@@ -175,8 +176,8 @@ static void write_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   debug_printf("filter: sensitive write check: section: %s, setting: %s, value: %s\n", section, setting, value);
 
   char setting_composed[512] = { 0 };
-  int setting_composed_len =
-    snprintf(setting_composed, sizeof(setting_composed), "%s.%s", section, setting);
+  size_t setting_composed_len =
+    (size_t)snprintf(setting_composed, sizeof(setting_composed), "%s.%s", section, setting);
 
   if (setting_composed_len >= sizeof(setting_composed))
     return;
@@ -197,9 +198,9 @@ static u32 one_buffer_read(u8* buff, u32 n, void* context)
   memcpy(buff, ctx->msg, read_size);
 
   ctx->msg += read_size;
-  ctx->msg_length -= read_size;
+  ctx->msg_length -= (uint32_t)read_size;
 
-  return read_size;
+  return (u32)read_size;
 }
 
 static bool reject_sensitive_settings_write(filter_swl_state_t* state, const uint8_t *msg, uint32_t msg_length)
@@ -210,8 +211,11 @@ static bool reject_sensitive_settings_write(filter_swl_state_t* state, const uin
     return true;
   }
 
-  /* Search for corresponding rule */
+  assert(SBP_MSG_SIZE_MIN - SBP_MSG_TYPE_OFFSET >= 2);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
   uint16_t msg_type = le16toh(*(uint16_t *)&msg[SBP_MSG_TYPE_OFFSET]);
+#pragma GCC diagnostic pop
  
   if (msg_type != SBP_MSG_SETTINGS_WRITE) {
 #if 0
@@ -256,7 +260,7 @@ static bool reject_sensitive_settings_write(filter_swl_state_t* state, const uin
 
 static bool isallspace(const char* s, size_t len)
 {
-  for (int x = 0; x < len; x++) {
+  for (size_t x = 0; x < len; x++) {
     if (!isspace(s[x]))
       return false;
   }
@@ -267,7 +271,7 @@ static bool isallspace(const char* s, size_t len)
  * whitelist_length does NOT include the NULL terminator in it's size
  */
 static ssize_t collate_whitelist(const char* whitelist,
-                                 ssize_t whitelist_length,
+                                 size_t whitelist_length,
                                  whitelist_entry_t *entries,
                                  cmph_t* hash)
 {
@@ -311,7 +315,7 @@ static ssize_t collate_whitelist(const char* whitelist,
 
     if (entries != NULL) {
 
-      uint32_t index = cmph_search(hash, entry, len);
+      uint32_t index = cmph_search(hash, entry, sizet_to_uint32(len));
 
       entries[index].offset = previous_offset;
       entries[index].length = len;
@@ -323,7 +327,7 @@ static ssize_t collate_whitelist(const char* whitelist,
     whitelist += len + 1;
   }
 
-  return count;
+  return sizet_to_ssizet(count);
 }
 
 void * filter_swl_create(const char *filename)
@@ -358,7 +362,14 @@ void * filter_swl_create(const char *filename)
   }
 
   fseek(s->keys_fp, 0, SEEK_END);
-  s->whitelist_size = ftell(s->keys_fp);
+
+  ssize_t pos = ftell(s->keys_fp);
+  if (pos < 0) {
+    zmq_adapter_log(LOG_ERR|LOG_SBP, "Failed to discover file size: %s", strerror(errno));
+    exit(-104);
+  }
+
+  s->whitelist_size = ssizet_to_sizet(pos);
 
   fseek(s->keys_fp, 0, SEEK_SET);
   
@@ -375,7 +386,7 @@ void * filter_swl_create(const char *filename)
 
   if (count < 0) {
     zmq_adapter_log(LOG_ERR|LOG_SBP, "Error loading settings whitelist config (%d), exiting...", count);
-    exit(count);
+    exit(-105);
   }
 
   zmq_adapter_log(LOG_DEBUG|LOG_SBP, "Found %d whitelist entries, whitelist size: %zu", count, s->whitelist_size);
@@ -386,11 +397,11 @@ void * filter_swl_create(const char *filename)
   s->hash = cmph_new(config);
   cmph_config_destroy(config);
 
-  entries = (whitelist_entry_t*) malloc(count * sizeof(*entries));
+  entries = (whitelist_entry_t*) malloc(ssizet_to_sizet(count) * sizeof(*entries));
   collate_whitelist(s->whitelist, s->whitelist_size, entries, s->hash);
 
   s->whitelist_entries = entries;
-  s->whitelist_entry_count = count;
+  s->whitelist_entry_count = SSIZET_TO_SIZET(count);
 
   return (void *)s;
 }

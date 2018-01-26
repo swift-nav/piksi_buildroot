@@ -15,7 +15,7 @@ SOURCES= \
 	protocols.c \
 	logging.c
 LIBS=-lczmq -lzmq -lsbp -lpiksi -ldl -lcmph
-CFLAGS += -std=gnu11 -Wall -Wextra -Wconversion
+CFLAGS += -std=gnu11 -Wall -Wextra -Wconversion -Wformat-security -Werror -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2
 
 CROSS=
 

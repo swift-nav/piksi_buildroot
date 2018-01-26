@@ -12,7 +12,7 @@
 
 #include "zmq_adapter.h"
 
-static int socket_create(int port)
+static int socket_create(uint16_t port)
 {
   int ret;
 
@@ -46,7 +46,7 @@ err:
   return ret;
 }
 
-int udp_listen_loop(int port)
+int udp_listen_loop(uint16_t port)
 {
   int fd = socket_create(port);
   if (fd < 0) {

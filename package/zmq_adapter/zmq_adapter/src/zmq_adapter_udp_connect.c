@@ -17,8 +17,8 @@
 static int addr_parse(const char *addr, struct sockaddr_in *s_addr)
 {
   char ip[16];
-  int port;
-  if (sscanf(addr, "%15[^:]:%d", ip, &port) != 2) {
+  uint16_t port;
+  if (sscanf(addr, "%15[^:]:%hu", ip, &port) != 2) {
     syslog(LOG_ERR, "error parsing address");
     return 1;
   }

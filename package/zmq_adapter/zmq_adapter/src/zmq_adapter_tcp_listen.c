@@ -14,7 +14,7 @@
 
 #define SOCKET_LISTEN_BACKLOG_LENGTH 16
 
-static int socket_create(int port)
+static int socket_create(uint16_t port)
 {
   int ret;
 
@@ -82,7 +82,7 @@ static void server_loop(int server_fd)
   }
 }
 
-int tcp_listen_loop(int port)
+int tcp_listen_loop(uint16_t port)
 {
   int server_fd = socket_create(port);
   if (server_fd < 0) {

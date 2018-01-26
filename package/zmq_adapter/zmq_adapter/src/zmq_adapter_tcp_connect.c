@@ -23,11 +23,11 @@ typedef enum
 
 } process_addr_t;
 
-static process_addr_t process_addr(const char *addr, struct sockaddr *s_addr, socklen_t *s_addr_len)
+static process_addr_t process_addr(const char *addr, struct sockaddr_storage *s_addr, socklen_t *s_addr_len)
 {
   char hostname[256] = {0};
-  int port;
-  if (sscanf(addr, "%255[^:]:%d", hostname, &port) != 2) {
+  uint16_t port;
+  if (sscanf(addr, "%255[^:]:%hu", hostname, &port) != 2) {
     syslog(LOG_ERR, "error parsing address");
     return PARSE_FAILURE;
   }
@@ -129,7 +129,7 @@ int tcp_connect_loop(const char *addr)
 
   while (1) {
 
-    process_addr_t res = process_addr(addr, (struct sockaddr *) &s_addr, &s_addr_len);
+    process_addr_t res = process_addr(addr, &s_addr, &s_addr_len);
 
     if (res == RESOLVE_FAILURE) {
       sleep(CONNECT_RETRY_TIME_s);

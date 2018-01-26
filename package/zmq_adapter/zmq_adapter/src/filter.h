@@ -47,8 +47,6 @@ filter_list_t* filter_create(filter_spec_t filter_specs[], size_t spec_count);
 void filter_destroy(filter_list_t **filter_list);
 int filter_process(filter_list_t *filter_list, const uint8_t *msg, uint32_t msg_length);
 
-void filter_allow_sensitive_settings_write();
-
 #ifdef __cplusplus
 } // extern "C"
 #endif
