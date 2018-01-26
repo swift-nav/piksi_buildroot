@@ -48,7 +48,7 @@ static int skylark_upload_adapter_execfn(void) {
     "--file", UPLOAD_FIFO_FILE_PATH,
     "-s", ">tcp://127.0.0.1:43080",
     "--filter-out", "sbp",
-    "--filter-out-config", "/etc/skylark_upload_filter_out_config",
+    "--filter-out-config", "/etc/filter.d/filter_out/skylark_upload",
     NULL,
   };
 

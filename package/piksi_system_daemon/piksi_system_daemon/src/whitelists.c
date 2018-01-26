@@ -445,7 +445,7 @@ int whitelist_notify(void *context)
 
   /* Parsed successfully, write config file and accept setting */
   char fn[256];
-  sprintf(fn, "/etc/%s_filter_out_config", port_whitelist_config->name);
+  sprintf(fn, "/etc/filter.d/filter_out/%s", port_whitelist_config->name);
   FILE *cfg = fopen(fn, "w");
   for (int i = 0; i < entries; i++) {
     fprintf(cfg, "%x %x\n", whitelist[i].id, whitelist[i].div);
