@@ -130,6 +130,10 @@ docker-run:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) \
 		--tty --interactive $(DOCKER_TAG) || :
 
+docker-exec:
+	docker exec $(DOCKER_ENV_ARGS) --interactive --tty \
+		$(DOCKER_TAG) /bin/bash -s 'export PS1="\u@\h:\w\$$"'
+
 docker-make-firmware:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make firmware
