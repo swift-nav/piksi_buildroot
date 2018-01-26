@@ -171,9 +171,14 @@ filter_create_error:
 
 void filter_destroy(filter_list_t **filter_list)
 {
-  filter_t* filter = NULL;
+  assert(filter_list != NULL);
 
-  SLIST_FOREACH(filter, *filter_list, next) {
+  if (*filter_list == NULL)
+    return;
+
+  while(!SLIST_EMPTY(*filter_list)) {
+    filter_t* filter = SLIST_FIRST(*filter_list);
+    SLIST_REMOVE_HEAD(*filter_list, next);
     filter->interface->destroy(&filter->state);
     free(filter);
   }

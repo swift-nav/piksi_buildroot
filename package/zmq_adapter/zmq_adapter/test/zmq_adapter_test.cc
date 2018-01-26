@@ -114,6 +114,64 @@ TEST_F(ZmqAdapterTest, Error_EmptyLine) {
   ASSERT_EQ(entries, -1);
 }
 
+#define SBP_FRAME_SIZE_MAX 264
+#define SBP_PAYLOAD_SIZE_MAX (255u)
+
+static u8 send_buffer[SBP_FRAME_SIZE_MAX];
+static u32 send_buffer_length;
+
+static u32 send_buffer_write(u8 *buff, u32 n, void *context)
+{
+  u32 len = MIN(sizeof(send_buffer) - send_buffer_length, n);
+  memcpy(&send_buffer[send_buffer_length], buff, len);
+  send_buffer_length += len;
+  return len;
+}
+
+int build_sbp_message(const char* section, const char* name, const char* value)
+{
+  u8 msg[SBP_PAYLOAD_SIZE_MAX];
+  u8 msg_n = 0;
+  int written;
+
+  /* Section */
+  written =
+    snprintf((char *)&msg[msg_n], SBP_PAYLOAD_SIZE_MAX - msg_n, "%s", section);
+  if ((written < 0) || ((u8)written >= SBP_PAYLOAD_SIZE_MAX - msg_n)) {
+    return -1;
+  }
+  msg_n = (u8)(msg_n + written + 1);
+
+  /* Name */
+  written =
+    snprintf((char *)&msg[msg_n], SBP_PAYLOAD_SIZE_MAX - msg_n, "%s", name);
+  if ((written < 0) || ((u8)written >= SBP_PAYLOAD_SIZE_MAX - msg_n)) {
+    return -1;
+  }
+  msg_n = (u8)(msg_n + written + 1);
+
+  /* Value */
+  written =
+    snprintf((char *)&msg[msg_n], SBP_PAYLOAD_SIZE_MAX - msg_n, "%s", value);
+  if ((written < 0) || ((u8)written >= SBP_PAYLOAD_SIZE_MAX - msg_n)) {
+    return -1;
+  }
+  msg_n = (u8)(msg_n + written + 1);
+
+  sbp_state_t sbp_state;
+  sbp_state_init(&sbp_state);
+
+  u16 sender_id = 0x42U;
+  u16 msg_type = SBP_MSG_SETTINGS_WRITE;
+
+  send_buffer_length = 0;
+
+  if (sbp_send_message(&sbp_state, msg_type, sender_id, msg_n, msg,
+                       send_buffer_write) != SBP_OK) {
+    return -1;
+  }
+}
+
 TEST_F(ZmqAdapterTest, ProcessSbpPacket) {
 
   char settings_whitelist_config[128];
@@ -129,9 +187,20 @@ TEST_F(ZmqAdapterTest, ProcessSbpPacket) {
 
   filter_list_t* filters = filter_create(filter_specs, COUNT_OF(filter_specs));
 
-  ASSERT_NE((void*)NULL, filters);
+  ASSERT_NE(filters, nullptr);
+
+  build_sbp_message("ssh", "enable", "1");
+  int reject = filter_process(filters, send_buffer, send_buffer_length);
+
+  ASSERT_NE(reject, 0);
+
+  build_sbp_message("section_name", "setting_name", "1");
+  reject = filter_process(filters, send_buffer, send_buffer_length);
+
+  ASSERT_EQ(reject, 0);
 
   filter_destroy(&filters);
+  ASSERT_EQ(filters, nullptr);
 }
 
 typedef void (*log_fn_t) (int priority, const char *format, va_list args);
