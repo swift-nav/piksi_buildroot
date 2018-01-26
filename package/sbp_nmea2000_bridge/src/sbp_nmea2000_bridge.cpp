@@ -36,6 +36,7 @@ extern "C" {
 #include <libpiksi/logging.h>
 #include <libsbp/can.h>
 #include <libsbp/navigation.h>
+#include <libsbp/orientation.h>
 #include <libsbp/sbp.h>
 #include <libsbp/tracking.h>
 }
@@ -249,6 +250,20 @@ namespace {
       NMEA2000.SendMsg(N2kMsg);
     }
 
+    // PGN 127250
+    void callback_sbp_baseline_heading(u16 sender_id, u8 len, u8 msg[], void *context){
+      UNUSED(sender_id);
+      UNUSED(len);
+      UNUSED(context);
+
+      auto sbp_baseline_heading = reinterpret_cast<msg_baseline_heading_t*>(msg);
+
+      tN2kMsg N2kMsg;
+      SetN2kTrueHeading(N2kMsg, tow_sequence_id_map[sbp_baseline_heading->tow],
+                        DegToRad(sbp_baseline_heading->heading) / 1000.0);
+      NMEA2000.SendMsg(N2kMsg);
+    }
+
     // PGN 129025
     void callback_sbp_pos_llh(u16 sender_id, u8 len, u8 msg[], void *context) {
       UNUSED(sender_id);
@@ -407,13 +422,21 @@ int main(int argc, char *argv[]) {
   // Register callbacks for SBP messages.
   piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16, SBP_MSG_UTC_TIME);
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_UTC_TIME);
+  piksi_check(sbp_callback_register(SBP_MSG_BASELINE_HEADING,
+                                    callback_sbp_baseline_heading,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_BASELINE_HEADING);
   piksi_check(sbp_callback_register(SBP_MSG_POS_LLH, callback_sbp_pos_llh,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16, SBP_MSG_POS_LLH);
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_POS_LLH);
   piksi_check(sbp_callback_register(SBP_MSG_DOPS, callback_sbp_dops,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16, SBP_MSG_DOPS);
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_DOPS);
 
   // Read the serial number.
   std::string serial_num_str;
