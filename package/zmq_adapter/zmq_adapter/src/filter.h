@@ -17,6 +17,14 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#define FRAMER_NONE_NAME "none"
+#define FILTER_NONE_NAME "none"
+#define FILTER_SWL_NAME "settings_whitelist"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct filter_list_s filter_list_t;
 
 typedef void* (*filter_create_fn_t)(const char *filename);
@@ -40,5 +48,9 @@ void filter_destroy(filter_list_t **filter_list);
 int filter_process(filter_list_t *filter_list, const uint8_t *msg, uint32_t msg_length);
 
 void filter_allow_sensitive_settings_write();
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* SWIFTNAV_FILTER_H */

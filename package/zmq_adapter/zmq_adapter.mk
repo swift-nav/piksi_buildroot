@@ -13,6 +13,7 @@ ZMQ_ADAPTER_DEPENDENCIES = cmph czmq libsbp libpiksi
 ifeq    ($(BR2_BUILD_TESTS),y) ##
 
 ZMQ_ADAPTER_DEPENDENCIES += gtest
+ZMQ_ADAPTER_CFLAGS = -g
 
 define ZMQ_ADAPTER_BUILD_CMDS_TESTS
 	$(MAKE) CROSS=$(TARGET_CROSS) LD=$(TARGET_LD) -C $(@D) test
@@ -24,16 +25,22 @@ endef
 
 ifeq    ($(BR2_RUN_TESTS),y) ####
 define ZMQ_ADAPTER_INSTALL_TARGET_CMDS_TESTS_RUN
-	LD_LIBRARY_PATH=$(TARGET_DIR)/usr/lib \
-		valgrind --leak-check=full --error-exitcode=1 \
-		$(TARGET_DIR)/usr/bin/test_zmq_adapter
+	{ PROTOS=$$(mktemp -d); \
+		LD_LIBRARY_PATH=$(TARGET_DIR)/usr/lib \
+		SETTINGS_WHITELIST_DIR=$(@D)/test/data \
+		ADAPTER_PROTOCOL_DIR=$$PROTOS \
+			valgrind --leak-check=full --error-exitcode=1 \
+				$(TARGET_DIR)/usr/bin/test_zmq_adapter; \
+		rm -rf $$PROTOS; }
 endef
 endif # ($(BR2_RUN_TESTS),y) ####
 
 endif # ($(BR2_BUILD_TESTS),y) ##
 
 define ZMQ_ADAPTER_BUILD_CMDS
-    $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
+    CFLAGS=$(ZMQ_ADAPTER_CFLAGS) \
+		$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) \
+			-C $(@D) all
 		$(ZMQ_ADAPTER_BUILD_CMDS_TESTS)
 endef
 

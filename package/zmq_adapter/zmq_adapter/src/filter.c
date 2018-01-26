@@ -22,6 +22,20 @@
 #include <libsbp/sbp.h>
 #include <libsbp/settings.h>
 
+typedef void (*log_fn_t) (int priority, const char *format, va_list args);
+log_fn_t log_fn = NULL;
+
+static void log_msg(int priority, const char* format, ...) {
+  va_list ap;
+  va_start(ap, format);
+  if (log_fn == NULL) {
+    vsyslog(priority, format, ap);
+  } else {
+    log_fn(priority, format, ap);
+  }
+  va_end(ap);
+}
+
 typedef struct filter_interface_s {
   const char *name;
   filter_create_fn_t create;
@@ -64,7 +78,7 @@ int filter_interface_register(const char *name,
                                       malloc(sizeof(*interface));
 
   if (interface == NULL) {
-    syslog(LOG_ERR, "error allocating filter interface");
+    log_msg(LOG_ERR, "error allocating filter interface");
     return -1;
   }
 
@@ -77,7 +91,7 @@ int filter_interface_register(const char *name,
   };
 
   if (interface->name == NULL) {
-    syslog(LOG_ERR, "error allocating filter interface members");
+    log_msg(LOG_ERR, "error allocating filter interface members");
     free(interface);
     interface = NULL;
     return -1;
@@ -102,13 +116,13 @@ static filter_t * filter_create_one(const char* name, const char* filename)
   /* Look up interface */
   filter_interface_t *interface = filter_interface_lookup(name);
   if (interface == NULL) {
-    syslog(LOG_ERR, "unknown filter: %s", name);
+    log_msg(LOG_ERR, "unknown filter: %s", name);
     return NULL;
   }
 
   filter_t *filter = (filter_t *)malloc(sizeof(*filter));
   if (filter == NULL) {
-    syslog(LOG_ERR, "error allocating filter");
+    log_msg(LOG_ERR, "error allocating filter");
     return NULL;
   }
 
@@ -118,7 +132,7 @@ static filter_t * filter_create_one(const char* name, const char* filename)
   };
 
   if (filter->state == NULL) {
-    syslog(LOG_ERR, "error creating filter");
+    log_msg(LOG_ERR, "error creating filter");
     free(filter);
     filter = NULL;
     return NULL;
@@ -134,7 +148,7 @@ filter_list_t * filter_create(filter_spec_t specs[], size_t spec_count)
   filter_list_t* list = malloc(sizeof(*list));
   SLIST_INIT(list);
 
-  for (int x = 0; x < spec_count; x++) {
+  for (size_t x = 0; x < spec_count; x++) {
 
     filter = filter_create_one(specs[x].name, specs[x].filename);
     if (filter == NULL)
@@ -164,7 +178,7 @@ void filter_destroy(filter_list_t **filter_list)
     free(filter);
   }
 
-  free(filter_list);
+  free(*filter_list);
   *filter_list = NULL;
 }
 

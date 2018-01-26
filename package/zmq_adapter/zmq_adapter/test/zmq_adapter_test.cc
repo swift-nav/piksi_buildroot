@@ -12,8 +12,15 @@
 
 #include <gtest/gtest.h>
 
+#include <libpiksi/util.h>
+
+#include "filter.h"
+#include "protocols.h"
+
 #include "filter_settings_whitelist.h"
 #include "filter_settings_whitelist.c"
+
+char* settings_whitelist_dir;
 
 class ZmqAdapterTest : public ::testing::Test { };
 
@@ -107,7 +114,52 @@ TEST_F(ZmqAdapterTest, Error_EmptyLine) {
   ASSERT_EQ(entries, -1);
 }
 
+TEST_F(ZmqAdapterTest, ProcessSbpPacket) {
+
+  char settings_whitelist_config[128];
+  snprintf(settings_whitelist_config, sizeof(settings_whitelist_config),
+           "%s/%s", settings_whitelist_dir, "one_entry_whitelist");
+
+  fprintf(stderr, "settings_whitelist_config: %s\n", settings_whitelist_config);
+
+  filter_spec_t filter_specs[] = {
+    { .name = "none", .filename = NULL },
+    { .name = FILTER_SWL_NAME, .filename = settings_whitelist_config },
+  };
+
+  filter_list_t* filters = filter_create(filter_specs, COUNT_OF(filter_specs));
+
+  ASSERT_NE((void*)NULL, filters);
+
+  filter_destroy(&filters);
+}
+
+typedef void (*log_fn_t) (int priority, const char *format, va_list args);
+extern log_fn_t log_fn;
+
+void filter_log_func(int priority, const char* message, va_list args) {
+
+  static const char* priorities[] = {
+    "emerg", "alert", "crit", "error", "warn", "notice", "info", "debug"
+  };
+
+  fprintf(stderr, "%s: ", priorities[priority]);
+  vfprintf(stderr, message, args);
+  fprintf(stderr, "\n");
+}
+
 int main(int argc, char** argv) {
+
+  log_fn = filter_log_func;
+
+  settings_whitelist_dir = getenv("SETTINGS_WHITELIST_DIR");
+  assert(settings_whitelist_dir != NULL);
+
+  setenv("__SWIFTNAV_UNIT_UNDER_TEST__", "y", 1);
+
+  protocols_import(getenv("ADAPTER_PROTOCOL_DIR"));
+
   ::testing::InitGoogleTest(&argc, argv);
+
   return RUN_ALL_TESTS();
 }

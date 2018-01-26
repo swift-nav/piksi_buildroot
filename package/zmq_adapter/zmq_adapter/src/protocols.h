@@ -16,6 +16,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int protocols_import(const char *path);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* SWIFTNAV_PROTOCOLS_H */

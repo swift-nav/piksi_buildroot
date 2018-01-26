@@ -29,9 +29,6 @@
 #define STARTUP_DELAY_DEFAULT_ms 0
 #define ZSOCK_RESTART_RETRY_COUNT 3
 #define ZSOCK_RESTART_RETRY_DELAY_ms 1
-#define FRAMER_NONE_NAME "none"
-#define FILTER_NONE_NAME "none"
-#define FILTER_SWL_NAME "settings_whitelist"
 
 typedef enum {
   IO_INVALID,
