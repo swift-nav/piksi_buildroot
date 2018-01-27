@@ -77,6 +77,9 @@ extern bool debug;
       __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
     fflush(stdout); }
 
+typedef void (*filter_exit_fn_t) (int code);
+filter_exit_fn_t filter_exit_fn = exit;
+
 /* Parse SBP message payload into setting parameters */
 static bool parse_setting(u8 len, u8 msg[],
                           const char **section,
@@ -334,7 +337,7 @@ void * filter_swl_create(const char *filename)
 {
   filter_swl_state_t *s = (filter_swl_state_t *)malloc(sizeof(*s));
   if (s == NULL) {
-    exit(-101);
+    filter_exit_fn(-101);
   }
 
   *s = (filter_swl_state_t) {
@@ -352,13 +355,13 @@ void * filter_swl_create(const char *filename)
   s->keys_fp = fopen(filename, "r");
   if (s->keys_fp == NULL) {
     zmq_adapter_log(LOG_ERR|LOG_SBP, "Failed to open settings whitelist config: %s", filename);
-    exit(-102);
+    filter_exit_fn(-102);
   }
 
   s->whitelist_fd = open(filename, O_RDONLY);
   if (s->whitelist_fd < 0) {
     zmq_adapter_log(LOG_ERR|LOG_SBP, "Failed to open settings whitelist config: %s", strerror(errno));
-    exit(-103);
+    filter_exit_fn(-103);
   }
 
   fseek(s->keys_fp, 0, SEEK_END);
@@ -366,19 +369,23 @@ void * filter_swl_create(const char *filename)
   ssize_t pos = ftell(s->keys_fp);
   if (pos < 0) {
     zmq_adapter_log(LOG_ERR|LOG_SBP, "Failed to discover file size: %s", strerror(errno));
-    exit(-104);
+    filter_exit_fn(-104);
   }
 
   s->whitelist_size = ssizet_to_sizet(pos);
 
   fseek(s->keys_fp, 0, SEEK_SET);
   
-  s->whitelist = ((const char*)
-    mmap(NULL, s->whitelist_size, PROT_READ, MAP_SHARED, s->whitelist_fd, 0));
+  if (s->whitelist_size > 0) {
+    s->whitelist = ((const char*)
+      mmap(NULL, s->whitelist_size, PROT_READ, MAP_SHARED, s->whitelist_fd, 0));
 
-  if (s->whitelist == MAP_FAILED) {
-    zmq_adapter_log(LOG_ERR|LOG_SBP, "Failed to mmap whitelist config: %s", strerror(errno));
-    exit(-105);
+    if (s->whitelist == MAP_FAILED) {
+      zmq_adapter_log(LOG_ERR|LOG_SBP, "Failed to mmap whitelist config: %s", strerror(errno));
+      filter_exit_fn(-105);
+    }
+  } else {
+    s->whitelist = "";
   }
 
   whitelist_entry_t* entries = NULL;
@@ -386,7 +393,7 @@ void * filter_swl_create(const char *filename)
 
   if (count < 0) {
     zmq_adapter_log(LOG_ERR|LOG_SBP, "Error loading settings whitelist config (%d), exiting...", count);
-    exit(-105);
+    filter_exit_fn(-105);
   }
 
   zmq_adapter_log(LOG_DEBUG|LOG_SBP, "Found %d whitelist entries, whitelist size: %zu", count, s->whitelist_size);

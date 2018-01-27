@@ -174,11 +174,12 @@ int build_sbp_message(const char* section, const char* name, const char* value)
   }
 }
 
-TEST_F(ZmqAdapterTest, ProcessSbpPacket) {
-
+static void ProcessSbpPacket_Helper(const char* whitelist_filename,
+                                    bool reject_both)
+{
   char settings_whitelist_config[128];
   snprintf(settings_whitelist_config, sizeof(settings_whitelist_config),
-           "%s/%s", settings_whitelist_dir, "one_entry_whitelist");
+           "%s/%s", settings_whitelist_dir, whitelist_filename);
 
   fprintf(stderr, "settings_whitelist_config: %s\n", settings_whitelist_config);
 
@@ -199,10 +200,25 @@ TEST_F(ZmqAdapterTest, ProcessSbpPacket) {
   build_sbp_message("section_name", "setting_name", "1");
   reject = filter_process(filters, send_buffer, send_buffer_length);
 
-  ASSERT_EQ(reject, 0);
+  if (reject_both)
+    ASSERT_NE(reject, 0);
+  else
+    ASSERT_EQ(reject, 0);
 
   filter_destroy(&filters);
   ASSERT_EQ(filters, nullptr);
+}
+
+TEST_F(ZmqAdapterTest, ProcessSbpPacket) {
+  ProcessSbpPacket_Helper("one_entry_whitelist", false);
+}
+
+TEST_F(ZmqAdapterTest, ProcessSbpPacket_EmptyWhitelist) {
+  ProcessSbpPacket_Helper("empty_whitelist", true);
+}
+
+void test_exit(int code) {
+  ASSERT_TRUE(false);
 }
 
 void test_log_func(int priority, const char* message, va_list args) {
@@ -219,6 +235,8 @@ void test_log_func(int priority, const char* message, va_list args) {
 }
 
 int main(int argc, char** argv) {
+
+  filter_exit_fn = test_exit;
 
   logging_init("zmq_adapter_test");
 
