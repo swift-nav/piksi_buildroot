@@ -134,11 +134,94 @@ namespace {
     };
     TowSequenceIdMap tow_sequence_id_map;
 
-    // Cache current time for N2k.
-    struct TimeForN2k{
-        uint16_t DaysSince1970;
-        double SecondsSinceMidnight;
-    } TimeForN2k;
+    // Cache some info for composite N2k messages.
+    class N2kCompositeMessageCache {
+    public:
+        N2kCompositeMessageCache() {
+          // Pass a 1, as the smallest integer larger than 0, to initialize
+          // the bitfields to zero.
+          ResetIfOld(1);
+        }
+
+        void ResetIfOld(u32 tow) {
+          if(tow > tow_) {
+            tow_ = tow;
+            seconds_since_midnight_set_ = lat_set_ = lon_set_ = alt_set_ =
+            hdop_set_ = pdop_set_ = tow_set_ = days_since_1970_set_ =
+            gnss_metod_set_ = sat_count_set_ = ref_station_count_set_ = false;
+          }
+        }
+
+        bool IsAllFieldsSet() {
+          return seconds_since_midnight_set_ && lat_set_ && lon_set_ &&
+                 alt_set_ && hdop_set_ && pdop_set_ && tow_set_ &&
+                 days_since_1970_set_ && gnss_metod_set_ &&
+                 sat_count_set_ && ref_station_count_set_;
+        }
+
+        void SetFields(const u16 days_since_1970,
+                       const double seconds_since_midnight) {
+          days_since_1970_ = days_since_1970;
+          seconds_since_midnight_ = seconds_since_midnight;
+          days_since_1970_set_ = seconds_since_midnight_set_ = true;
+        }
+
+        void SetFields(const msg_pos_llh_t *msg) {
+          lat_ = msg->lat;
+          lon_ = msg->lon;
+          alt_ = msg->height;
+          sat_count_ = msg->n_sats;
+          gnss_metod_ = gnss_method_lut_[msg->flags];
+          lat_set_ = lon_set_ = alt_set_ = sat_count_set_ = gnss_metod_set_ =
+                  true;
+        }
+
+        void SetFields(const msg_dops_t *msg) {
+          hdop_ = msg->hdop;
+          pdop_ = msg->pdop;
+          hdop_set_ = pdop_set_ = true;
+        }
+
+        // PGN 129029
+        void FillN2kMsg(tN2kMsg *msg) {
+          SetN2kGNSS(*msg, tow_sequence_id_map[tow_], days_since_1970_,
+                     seconds_since_midnight_, lat_, lon_, alt_,
+                     tN2kGNSStype::N2kGNSSt_GPSGLONASS,
+                     tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_, hdop_,
+                     pdop_);
+          // Have to do GNSS method manually. It's not reverse engineered yet.
+          msg->Data[31] = gnss_metod_;
+        }
+    private:
+        // Maps SBP GNSS method code to N2K GNSS method code.
+        // 0xX2 is GPS + GLONASS type of system.
+        static constexpr u8 gnss_method_lut_[] = {0x02, 0x12, 0x22, 0x52, 0x42};
+
+        double seconds_since_midnight_ = 0;
+        double lat_ = 0;
+        double lon_ = 0;
+        double alt_ = 0;
+        double hdop_ = 0;
+        double pdop_ = 0;
+        u32 tow_ = 0;
+        uint16_t days_since_1970_ = 0;
+        u8 gnss_metod_ = 0;
+        u8 sat_count_ = 0;
+        u8 ref_station_count_ = 0;
+
+        bool seconds_since_midnight_set_ : 1;
+        bool lat_set_ : 1;
+        bool lon_set_ : 1;
+        bool alt_set_ : 1;
+        bool hdop_set_ : 1;
+        bool pdop_set_ : 1;
+        bool tow_set_ : 1;
+        bool days_since_1970_set_ : 1;
+        bool gnss_metod_set_ : 1;
+        bool sat_count_set_ : 1;
+        bool ref_station_count_set_ : 1;
+    };
+    N2kCompositeMessageCache n2k_composite_message_cache;
 
     void usage(char *command) {
       std::cout << "Usage: " << command << " [--bitrate N]" << std::endl
@@ -206,6 +289,26 @@ namespace {
                       vel_north_mps * vel_north_mps);
     }
 
+    void calculate_days_and_seconds_since_1970(const msg_utc_time_t *sbp_utc_t,
+                                               u16 *days_since_1970,
+                                               double *seconds_since_midnight) {
+      tm tm_utc_time;
+      // 1900 is the starting year (year 0) in tm_year, so subtract 1900.
+      tm_utc_time.tm_year = sbp_utc_t->year - 1900;
+      // 0 is the starting month in tm_mon, so subtract 1.
+      tm_utc_time.tm_mon = sbp_utc_t->month - 1;
+      tm_utc_time.tm_mday = sbp_utc_t->day;
+      tm_utc_time.tm_hour = sbp_utc_t->hours;
+      tm_utc_time.tm_min = sbp_utc_t->minutes;
+      tm_utc_time.tm_sec = sbp_utc_t->seconds;
+      tm_utc_time.tm_isdst = -1;  // No idea. mktime() will know.
+      time_t utc_time_since_epoch = mktime(&tm_utc_time);
+      *days_since_1970 =
+              static_cast<u16>(utc_time_since_epoch / (3600 * 24));
+      *seconds_since_midnight =
+              utc_time_since_epoch % (3600 * 24) + sbp_utc_t->ns * 10e-9;
+    }
+
     void piksi_check(int err, const char* format, ...) {
       if (err != 0) {
         va_list ap;
@@ -253,28 +356,26 @@ namespace {
       UNUSED(context);
 
       auto sbp_utc_time = reinterpret_cast<msg_utc_time_t*>(msg);
-      tm tm_utc_time;
-      // 1900 is the starting year (year 0) in tm_year, so subtract 1900.
-      tm_utc_time.tm_year = sbp_utc_time->year - 1900;
-      // 0 is the starting month in tm_mon, so subtract 1.
-      tm_utc_time.tm_mon = sbp_utc_time->month - 1;
-      tm_utc_time.tm_mday = sbp_utc_time->day;
-      tm_utc_time.tm_hour = sbp_utc_time->hours;
-      tm_utc_time.tm_min = sbp_utc_time->minutes;
-      tm_utc_time.tm_sec = sbp_utc_time->seconds;
-      tm_utc_time.tm_isdst = -1;  // No idea. mktime() will know.
-      time_t utc_time_since_epoch = mktime(&tm_utc_time);
-      TimeForN2k.DaysSince1970 =
-              static_cast<u16>(utc_time_since_epoch / (3600 * 24));
-      TimeForN2k.SecondsSinceMidnight =
-              utc_time_since_epoch % (3600 * 24) + sbp_utc_time->ns * 10e-9;
+      u16 days_since_1970;
+      double seconds_since_midnight;
+      calculate_days_and_seconds_since_1970(sbp_utc_time,
+                                            &days_since_1970,
+                                            &seconds_since_midnight);
 
       tN2kMsg N2kMsg;
       SetN2kSystemTime(N2kMsg, tow_sequence_id_map[sbp_utc_time->tow],
-                       TimeForN2k.DaysSince1970,
-                       TimeForN2k.SecondsSinceMidnight,
+                       days_since_1970, seconds_since_midnight,
                        tN2kTimeSource::N2ktimes_GPS);
       NMEA2000.SendMsg(N2kMsg);
+
+      n2k_composite_message_cache.ResetIfOld(sbp_utc_time->tow);
+      n2k_composite_message_cache.SetFields(days_since_1970,
+                                            seconds_since_midnight);
+      if(n2k_composite_message_cache.IsAllFieldsSet()){
+        N2kMsg.Clear();
+        n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
+        NMEA2000.SendMsg(N2kMsg);
+      }
     }
 
     // PGN 127250
@@ -302,6 +403,14 @@ namespace {
       tN2kMsg N2kMsg;
       SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
       NMEA2000.SendMsg(N2kMsg);
+
+      n2k_composite_message_cache.ResetIfOld(sbp_pos->tow);
+      n2k_composite_message_cache.SetFields(sbp_pos);
+      if(n2k_composite_message_cache.IsAllFieldsSet()){
+        N2kMsg.Clear();
+        n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
+        NMEA2000.SendMsg(N2kMsg);
+      }
     }
 
     // PGN 129026
@@ -339,6 +448,14 @@ namespace {
                         sbp_dops->vdop / 100.0,
                         sbp_dops->tdop / 100.0);
       NMEA2000.SendMsg(N2kMsg);
+
+      n2k_composite_message_cache.ResetIfOld(sbp_dops->tow);
+      n2k_composite_message_cache.SetFields(sbp_dops);
+      if(n2k_composite_message_cache.IsAllFieldsSet()){
+        N2kMsg.Clear();
+        n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
+        NMEA2000.SendMsg(N2kMsg);
+      }
     }
 
     // PGN 129540
@@ -423,7 +540,7 @@ namespace {
         N2kMsg.Add2ByteUDouble(/*CN0=*/it->second * 0.25, 0.01, N2kDoubleNA);
         N2kMsg.Add4ByteUInt(/*rangeResiduals=*/N2kInt32NA);
         // TODO(lstrz): Is the satellite used? Can I get that info someplece?
-        N2kMsg.AddByte(/*tracked=*/0xF1);
+        N2kMsg.AddByte(/*tracked=*/0xFF);
       }
       NMEA2000.SendMsg(N2kMsg);
     }
