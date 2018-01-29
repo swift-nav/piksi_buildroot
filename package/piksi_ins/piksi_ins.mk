@@ -3,7 +3,7 @@
 # piksi_ins
 #
 #############################################################
-PIKSI_INS_VERSION = d660c9b43422dbd4e5489a5c2a371d537242eea4
+PIKSI_INS_VERSION = 4680358073d5dfc02909517c443ccd902985ff3b
 PIKSI_INS_SITE = ssh://git@endpoint.carnegierobotics.com/opt/git/piksi_ins.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_INSTALL_STAGING = YES
