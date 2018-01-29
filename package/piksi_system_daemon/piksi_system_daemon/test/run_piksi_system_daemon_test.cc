@@ -43,11 +43,12 @@ class PiksiSystemDaemonTests : public ::testing::Test { };
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_whitespace) {
 
-  system("rm -f /etc/whitespace_filter_out_config");
+  system("mkdir -p /etc/filter.d/filter_out");
+  system("rm -f /etc/filter.d/filter_out/whitespace");
 
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_WHITESPACE]));
 
-  std::ifstream t("/etc/whitespace_filter_out_config");
+  std::ifstream t("/etc/filter.d/filter_out/whitespace");
   std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
 
   ASSERT_STREQ("", str.c_str());
@@ -55,11 +56,12 @@ TEST_F(PiksiSystemDaemonTests, Whitelist_whitespace) {
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_valid) {
 
-  system("rm -f /etc/valid_filter_out_config");
+  system("mkdir -p /etc/filter.d/filter_out");
+  system("rm -f /etc/filter.d/filter_out/valid");
 
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_VALID]));
 
-  std::ifstream t("/etc/valid_filter_out_config");
+  std::ifstream t("/etc/filter.d/filter_out/valid");
   std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
 
   ASSERT_STREQ("48 1\n4a 1\n", str.c_str());
@@ -67,13 +69,15 @@ TEST_F(PiksiSystemDaemonTests, Whitelist_valid) {
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_empty) {
 
-  system("rm -f /etc/valid_filter_out_config");
-  system("rm -f /etc/empty_filter_out_config");
+  system("mkdir -p /etc/filter.d/filter_out");
+
+  system("rm -f /etc/filter.d/filter_out/valid");
+  system("rm -f /etc/filter.d/filter_out/empty");
 
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_VALID]));
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_EMPTY]));
   
-  std::ifstream t("/etc/empty_filter_out_config");
+  std::ifstream t("/etc/filter.d/filter_out/empty");
   std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
 
   ASSERT_STREQ("", str.c_str());
