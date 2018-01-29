@@ -245,8 +245,6 @@ int main(int argc, char** argv) {
   settings_whitelist_dir = getenv("SETTINGS_WHITELIST_DIR");
   assert(settings_whitelist_dir != NULL);
 
-  setenv("__SWIFTNAV_UNIT_UNDER_TEST__", "y", 1);
-
   protocols_import(getenv("ADAPTER_PROTOCOL_DIR"));
 
   ::testing::InitGoogleTest(&argc, argv);

@@ -64,16 +64,9 @@ void sbp_vlog(int priority, const char *msg_text, va_list ap)
     priority = LOG_INFO;
   }
 
-  bool under_test = getenv("__SWIFTNAV_UNIT_UNDER_TEST__") != NULL;
-  FILE *output;
-
-  if (under_test) {
-    output = stderr;
-  } else {
-    char cmd_buf[256];
-    snprintf(cmd_buf, sizeof(cmd_buf), "sbp_log --%s", log_args[priority]);
-    output = popen(cmd_buf, "w");
-  }
+  char cmd_buf[256];
+  snprintf(cmd_buf, sizeof(cmd_buf), "sbp_log --%s", log_args[priority]);
+  FILE* output = popen(cmd_buf, "w");
 
   if (output == 0) {
     piksi_log(LOG_ERR, "couldn't call sbp_log.");
@@ -93,12 +86,8 @@ void sbp_vlog(int priority, const char *msg_text, va_list ap)
     piksi_log(LOG_ERR, "output to sbp_log failed.");
   }
 
-  if (under_test) {
-    fputs("\n", output);
-  } else {
-    if (pclose (output) != 0) {
-      piksi_log(LOG_ERR, "couldn't close sbp_log call.");
-      return;
-    }
+  if (pclose (output) != 0) {
+    piksi_log(LOG_ERR, "couldn't close sbp_log call.");
+    return;
   }
 }
