@@ -43,7 +43,6 @@ class PiksiSystemDaemonTests : public ::testing::Test { };
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_whitespace) {
 
-  system("mkdir -p /etc/filter.d/filter_out");
   system("rm -f /etc/filter.d/filter_out/whitespace");
 
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_WHITESPACE]));
@@ -56,7 +55,6 @@ TEST_F(PiksiSystemDaemonTests, Whitelist_whitespace) {
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_valid) {
 
-  system("mkdir -p /etc/filter.d/filter_out");
   system("rm -f /etc/filter.d/filter_out/valid");
 
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_VALID]));
@@ -69,7 +67,6 @@ TEST_F(PiksiSystemDaemonTests, Whitelist_valid) {
 
 TEST_F(PiksiSystemDaemonTests, Whitelist_empty) {
 
-  system("mkdir -p /etc/filter.d/filter_out");
 
   system("rm -f /etc/filter.d/filter_out/valid");
   system("rm -f /etc/filter.d/filter_out/empty");
@@ -84,6 +81,9 @@ TEST_F(PiksiSystemDaemonTests, Whitelist_empty) {
 }
 
 int main(int argc, char** argv) {
+  system("mkdir -p /etc/filter.d/filter_out");
   ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+  int ret = RUN_ALL_TESTS();
+  system("rm -rf /etc/filter.d");
+  return ret;
 }
