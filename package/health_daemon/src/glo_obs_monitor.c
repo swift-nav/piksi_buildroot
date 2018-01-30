@@ -22,12 +22,14 @@
 #include "health_monitor.h"
 #include "utils.h"
 
+#include "glo_health_context.h"
 #include "glo_obs_monitor.h"
 
 /* these are from fw private, consider moving to libpiski */
 #define MSG_FORWARD_SENDER_ID (0u)
 
-#define GNSS_OBS_ALERT_RATE_LIMIT (10000u) /* ms */
+#define GLO_OBS_ALERT_RATE_LIMIT (10000u)           /* ms */
+#define GLO_OBS_RESET_BASE_CONN_RATE_LIMIT (20000u) /* ms */
 
 /* Below stolen from libswiftnav/signal.h */
 #define CODE_GLO_L1OF (3u)
@@ -45,13 +47,13 @@ static inline bool is_glo(u8 code)
 
 static health_monitor_t *glo_obs_monitor;
 
+static u8 max_timeout_count_before_reset =
+  (u8)(GLO_OBS_ALERT_RATE_LIMIT / GLO_OBS_RESET_BASE_CONN_RATE_LIMIT);
+
 static struct glo_obs_ctx_s {
   bool glo_setting_read_resp;
-  bool glonass_enabled;
-  bool base_obs_found;
-} glo_obs_ctx = { .glo_setting_read_resp = false,
-                  .glonass_enabled = false,
-                  .base_obs_found = false };
+  u8 timeout_counter;
+} glo_obs_ctx = { .glo_setting_read_resp = false, .timeout_counter = 0 };
 
 static void
 sbp_msg_read_resp_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
@@ -63,14 +65,15 @@ sbp_msg_read_resp_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
   const char *section, *name, *value;
   if (health_util_parse_setting_read_resp(msg_, len, &section, &name, &value)
       == 0) {
-    bool last_glonass_enabled = glo_obs_ctx.glonass_enabled;
+    bool glonass_enabled;
     if (health_util_check_glonass_enabled(
-          section, name, value, &glo_obs_ctx.glonass_enabled)
+          section, name, value, &glonass_enabled)
         == 0) {
-      glo_obs_ctx.glo_setting_read_resp = true;
-      if (glo_obs_ctx.glonass_enabled && !last_glonass_enabled) {
+      if (glonass_enabled && !glo_context_is_glonass_enabled()) {
         health_monitor_reset_timer(monitor);
       }
+      glo_context_set_glonass_enabled(glonass_enabled);
+      glo_obs_ctx.glo_setting_read_resp = true;
     }
   }
 }
@@ -104,7 +107,8 @@ static int sbp_msg_glo_obs_callback(health_monitor_t *monitor,
   (void)ctx;
 
   if (sender_id == MSG_FORWARD_SENDER_ID) {
-    glo_obs_ctx.base_obs_found = true;
+    glo_context_receive_base_obs();
+    glo_obs_ctx.timeout_counter = 0;
     if (check_obs_msg_for_glo_obs(msg_, len)) {
       return 0;
     }
@@ -115,13 +119,16 @@ static int sbp_msg_glo_obs_callback(health_monitor_t *monitor,
 static int glo_obs_timer_callback(health_monitor_t *monitor, void *context)
 {
   (void)context;
-  if (glo_obs_ctx.glonass_enabled && glo_obs_ctx.base_obs_found) {
+  if (glo_context_is_glonass_enabled() && glo_context_is_connected_to_base()) {
     sbp_log(
       LOG_WARNING,
       "Reference Glonass Observations Timeout - no glonass observations received from base station within %d sec window",
-      GNSS_OBS_ALERT_RATE_LIMIT / 1000);
+      GLO_OBS_ALERT_RATE_LIMIT / 1000);
   }
-  glo_obs_ctx.base_obs_found = false;
+  if (glo_context_is_connected_to_base()
+      && glo_obs_ctx.timeout_counter > max_timeout_count_before_reset) {
+    glo_context_reset_connected_to_base();
+  }
   if (!glo_obs_ctx.glo_setting_read_resp) {
     piksi_log(LOG_DEBUG,
               "Glonass Status Unknown - Sending Glonass Setting Request");
@@ -130,6 +137,7 @@ static int glo_obs_timer_callback(health_monitor_t *monitor, void *context)
       SETTING_SECTION_ACQUISITION,
       SETTING_GLONASS_ACQUISITION_ENABLED);
   }
+  glo_obs_ctx.timeout_counter++;
 
   return 0;
 }
@@ -145,7 +153,7 @@ int glo_obs_timeout_health_monitor_init(health_ctx_t *health_ctx)
                           health_ctx,
                           SBP_MSG_OBS,
                           sbp_msg_glo_obs_callback,
-                          GNSS_OBS_ALERT_RATE_LIMIT,
+                          GLO_OBS_ALERT_RATE_LIMIT,
                           glo_obs_timer_callback,
                           NULL)
       != 0) {
