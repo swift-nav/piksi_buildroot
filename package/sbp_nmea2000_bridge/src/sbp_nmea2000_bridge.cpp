@@ -222,6 +222,7 @@ namespace {
         bool ref_station_count_set_ : 1;
     };
     N2kCompositeMessageCache n2k_composite_message_cache;
+    constexpr u8 N2kCompositeMessageCache::gnss_method_lut_[];
 
     void usage(char *command) {
       std::cout << "Usage: " << command << " [--bitrate N]" << std::endl
@@ -314,14 +315,21 @@ namespace {
         va_list ap;
         va_start(ap, format);
         piksi_log(LOG_ERR, format, ap);
-        if(debug){
-          printf(format, ap);
-          printf("\n");
-        }
         va_end(ap);
         exit(EXIT_FAILURE);
       }
     }
+
+    struct debug_stream {
+        template<typename T>
+        debug_stream& operator<<(T arg) {
+          if(debug) {
+            std::cout << std::dec << arg;
+          }
+          return *this;
+        }
+    };
+    debug_stream d;
 
     int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
                            void *interface_name_void) {
@@ -342,7 +350,7 @@ namespace {
                 << " Data: ";
       for (u32 i = 0; i < frame.len; ++i) {
         std::cout << std::setfill('0') << std::setw(2) << std::hex
-                  << frame.data[i];
+                  << static_cast<u16>(frame.data[i]);
       }
       std::cout << std::endl;
 
@@ -463,6 +471,11 @@ namespace {
                                      void *context) {
       UNUSED(sender_id);
       UNUSED(context);
+      d << "callback_sbp_tracking_state\n"
+        << "\tGot " << static_cast<u16>(len) << "/"
+        << sizeof(tracking_channel_state_t) << "="
+        << static_cast<u16>(len / sizeof(tracking_channel_state_t))
+        << " states. Message len is most likely statically allocated.\n";
 
       constexpr u8 cConstellationMaxSats = 64;
       std::array<std::pair<u8, u8>, cConstellationMaxSats> sats_gps = {};
@@ -472,8 +485,12 @@ namespace {
       auto sbp_tracking_state = reinterpret_cast<msg_tracking_state_t*>(msg);
       for(u8 i = 0; i < (len / sizeof(tracking_channel_state_t)); ++i) {
         auto tracking_channel_state = sbp_tracking_state->states[i];
+        if(tracking_channel_state.sid.sat == 0) {  // Invalid sat.
+          continue;
+        }
+
         switch(tracking_channel_state.sid.code) {
-          case 0:  /* GPS satellites. Fallthrough. */
+          case 0:  // GPS satellites. Fallthrough.
           case 1:
           case 2:
           case 5:
@@ -482,18 +499,19 @@ namespace {
                                               tracking_channel_state.cn0);
             ++sats_gps_end_it;
             break;
-          case 3:  /* GLONASS satellites. Fallthrough. */
+          case 3:  // GLONASS satellites. Fallthrough.
           case 4:
             *sats_glo_end_it = std::make_pair(tracking_channel_state.sid.sat,
                                               tracking_channel_state.cn0);
             ++sats_glo_end_it;
             break;
           default:
-            exit(-1);  /* Should never happen. */
+            d << "\tControl should have never reached this point.\n";
+            exit(-1);  // Should never happen.
         }
       }
 
-      /* Remove duplicates. */
+      // Sort and remove duplicates.
       auto comparator_lower_than = [](const std::pair<u8, u8>& a,
                                       const std::pair<u8, u8>& b) {
           return a.first < b.first;
@@ -504,10 +522,14 @@ namespace {
       };
       std::sort(sats_gps.begin(), sats_gps_end_it, comparator_lower_than);
       std::sort(sats_glo.begin(), sats_glo_end_it, comparator_lower_than);
-      sats_gps_end_it = std::unique(sats_gps.begin(), sats_gps.end(),
+      sats_gps_end_it = std::unique(sats_gps.begin(), sats_gps_end_it,
                                     comparator_equal);
-      sats_glo_end_it = std::unique(sats_glo.begin(), sats_glo.end(),
+      sats_glo_end_it = std::unique(sats_glo.begin(), sats_glo_end_it,
                                     comparator_equal);
+      d << "\tDeduplicated. " << sats_gps_end_it - sats_gps.begin() +
+                                 sats_glo_end_it - sats_glo.begin()
+        << " sats left. GPS: " << sats_gps_end_it - sats_gps.begin()
+        << " GLONASS: " << sats_glo_end_it - sats_glo.begin() << "\n";
 
       tN2kMsg N2kMsg;
       N2kMsg.SetPGN(129540L);
@@ -543,6 +565,8 @@ namespace {
         N2kMsg.AddByte(/*tracked=*/0xFF);
       }
       NMEA2000.SendMsg(N2kMsg);
+
+      d << "\tDone.\n";
     }
 
     void callback_sbp_heartbeat(u16 sender_id, u8 len, u8 msg[],
