@@ -16,6 +16,9 @@
 
 #include "glo_health_context.h"
 
+/**
+ * \brief private context for glo health state
+ */
 static struct glo_health_ctx_s {
   bool glonass_enabled;
   bool connected_to_base;

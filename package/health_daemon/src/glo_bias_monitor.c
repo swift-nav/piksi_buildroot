@@ -10,6 +10,20 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+/**
+ * \file glo_bias_monitor.c
+ * \brief GLONASS Bias Message Health Monitor
+ *
+ * When glonass acquisition is enabled, it is expected that glonass bias
+ * measurements will be received periodically. This monitor will track
+ * bias messages and alert after a specified time period if no biases are
+ * received. Will not alert when not connected to a base station (no base
+ * obs messages being received).
+ * \author Ben Altieri
+ * \version v1.4.0
+ * \date 2018-01-30
+ */
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -30,8 +44,17 @@
 
 #define GLO_BIAS_ALERT_RATE_LIMIT (240000) /* ms */
 
+/**
+ * \brief Private context for the glo bias health monitor
+ */
 static health_monitor_t *glo_bias_monitor;
 
+/**
+ * \brief glo_bias_timer_callback - handler for glo_bias_monitor timeouts
+ * \param monitor: health monitor associated with this callback
+ * \param context: user context associated with the monitor
+ * \return 0 for success, otherwise error
+ */
 static int glo_bias_timer_callback(health_monitor_t *monitor, void *context)
 {
   (void)monitor;
@@ -39,13 +62,22 @@ static int glo_bias_timer_callback(health_monitor_t *monitor, void *context)
   if (glo_context_is_glonass_enabled() && glo_context_is_connected_to_base()) {
     sbp_log(
       LOG_WARNING,
-      "Reference Glonass Biases Msg Timeout - no biases received from base station within %d sec window",
+      "Reference GLONASS Biases Msg Timeout - no biases received from base station within %d sec window",
       GLO_BIAS_ALERT_RATE_LIMIT / 1000);
   }
 
   return 0;
 }
 
+/**
+ * \brief sbp_msg_glo_biases_callback - handler for glo bias sbp messages
+ * \param monitor: health monitor associated with this callback
+ * \param sender_id: message sender id
+ * \param len: length of the message in bytes
+ * \param msg_[]: pointer to message data
+ * \param ctx: user context associated with the monitor
+ * \return 0 resets timeout, 1 skips the reset, -1 for error
+ */
 static int sbp_msg_glo_biases_callback(health_monitor_t *monitor,
                                        u16 sender_id,
                                        u8 len,
