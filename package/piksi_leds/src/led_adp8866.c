@@ -27,8 +27,6 @@
 
 static int led_i2c;
 
-static u8 brightness_cache[LED_ADP8866_LED_COUNT] = {0};
-
 /*
  * Duro connected different outputs of the adp8866 driver to the RGB
  * Unfortunately we need different routing on RGB for addressing this
@@ -218,9 +216,6 @@ static bool leds_set(const led_adp8866_led_state_t *led_states,
                     (led_state->brightness << LED_ADP8866_ISCn_SCDn_Pos)) !=
           0) {
         ret = false;
-      } else {
-        /* Update cache */
-        brightness_cache[led_state->led] = led_state->brightness;
       }
     }
   }
@@ -244,11 +239,6 @@ static u32 modified_states_get(const led_adp8866_led_state_t *input_states,
   for (u32 i = 0; i < input_states_count; i++) {
     const led_adp8866_led_state_t *input_state = &input_states[i];
     led_adp8866_led_state_t *output_state = &output_states[output_states_count];
-
-    /* Compare brightness */
-    if (input_state->brightness == brightness_cache[input_state->led]) {
-      continue;
-    }
 
     /* Append to output states */
     *output_state = *input_state;
