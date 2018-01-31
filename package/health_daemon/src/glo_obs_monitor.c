@@ -10,6 +10,21 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+/**
+ * \file glo_obs_monitor.c
+ * \brief GLONASS Observations Health Monitor
+ *
+ * When glonass acquisition is enabled, it is expected that glonass obs
+ * measurements will be received periodically. This monitor will track
+ * base obs messages and inspect them for glonass observations, and
+ * subsequently alert after a specified time period if none are
+ * received. Will not alert when not connected to a base station (no base
+ * obs messages being received).
+ * \author Ben Altieri
+ * \version v1.4.0
+ * \date 2018-01-30
+ */
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -22,12 +37,14 @@
 #include "health_monitor.h"
 #include "utils.h"
 
+#include "glo_health_context.h"
 #include "glo_obs_monitor.h"
 
 /* these are from fw private, consider moving to libpiski */
 #define MSG_FORWARD_SENDER_ID (0u)
 
-#define GNSS_OBS_ALERT_RATE_LIMIT (10000u) /* ms */
+#define GLO_OBS_ALERT_RATE_LIMIT (10000u)           /* ms */
+#define GLO_OBS_RESET_BASE_CONN_RATE_LIMIT (20000u) /* ms */
 
 /* Below stolen from libswiftnav/signal.h */
 #define CODE_GLO_L1OF (3u)
@@ -43,16 +60,35 @@ static inline bool is_glo(u8 code)
   return (CODE_GLO_L1OF == code) || (CODE_GLO_L2OF == code);
 }
 
+/**
+ * \brief Private context for the glo obs health monitor
+ */
 static health_monitor_t *glo_obs_monitor;
 
+static u8 max_timeout_count_before_reset =
+  (u8)(GLO_OBS_ALERT_RATE_LIMIT / GLO_OBS_RESET_BASE_CONN_RATE_LIMIT);
+
+/**
+ * \brief Private global data for glo obs callbacks
+ */
 static struct glo_obs_ctx_s {
   bool glo_setting_read_resp;
-  bool glonass_enabled;
-  bool base_obs_found;
-} glo_obs_ctx = { .glo_setting_read_resp = false,
-                  .glonass_enabled = false,
-                  .base_obs_found = false };
+  u8 timeout_counter;
+} glo_obs_ctx = { .glo_setting_read_resp = false, .timeout_counter = 0 };
 
+/**
+ * \brief sbp_msg_read_resp_callback - catch glo setting read response message
+ *
+ * The current settings api requires us to receive any setting read response
+ * and inspect it manually. This callback handles that process while also
+ * checking for a specific setting - glonass_acquisition_enabled. If found,
+ * this handler sets a global context to allow multiple glo monitors to share
+ * the state.
+ * \param sender_id: message sender id
+ * \param len: length of the message in bytes
+ * \param msg_[]: pointer to message data
+ * \param ctx: user context associated with the monitor
+ */
 static void
 sbp_msg_read_resp_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
 {
@@ -63,18 +99,25 @@ sbp_msg_read_resp_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
   const char *section, *name, *value;
   if (health_util_parse_setting_read_resp(msg_, len, &section, &name, &value)
       == 0) {
-    bool last_glonass_enabled = glo_obs_ctx.glonass_enabled;
+    bool glonass_enabled;
     if (health_util_check_glonass_enabled(
-          section, name, value, &glo_obs_ctx.glonass_enabled)
+          section, name, value, &glonass_enabled)
         == 0) {
-      glo_obs_ctx.glo_setting_read_resp = true;
-      if (glo_obs_ctx.glonass_enabled && !last_glonass_enabled) {
+      if (glonass_enabled && !glo_context_is_glonass_enabled()) {
         health_monitor_reset_timer(monitor);
       }
+      glo_context_set_glonass_enabled(glonass_enabled);
+      glo_obs_ctx.glo_setting_read_resp = true;
     }
   }
 }
 
+/**
+ * \brief check_obs_msg_for_glo_obs - iterates an obs msg and checks for glo obs
+ * \param msg: pointer reference to message buffer
+ * \param len: length of the message in bytes
+ * \return true if glo obs found in the message, otherwise false
+ */
 static bool check_obs_msg_for_glo_obs(u8 *msg, u8 len)
 {
   u8 obs_in_msg =
@@ -92,6 +135,15 @@ static bool check_obs_msg_for_glo_obs(u8 *msg, u8 len)
   return false;
 }
 
+/**
+ * \brief sbp_msg_glo_obs_callback - handler for glo obs sbp messages
+ * \param monitor: health monitor associated with this callback
+ * \param sender_id: message sender id
+ * \param len: length of the message in bytes
+ * \param msg_[]: pointer to message data
+ * \param ctx: user context associated with the monitor
+ * \return 0 resets timeout, 1 skips the reset, -1 for error
+ */
 static int sbp_msg_glo_obs_callback(health_monitor_t *monitor,
                                     u16 sender_id,
                                     u8 len,
@@ -104,7 +156,8 @@ static int sbp_msg_glo_obs_callback(health_monitor_t *monitor,
   (void)ctx;
 
   if (sender_id == MSG_FORWARD_SENDER_ID) {
-    glo_obs_ctx.base_obs_found = true;
+    glo_context_receive_base_obs();
+    glo_obs_ctx.timeout_counter = 0;
     if (check_obs_msg_for_glo_obs(msg_, len)) {
       return 0;
     }
@@ -112,24 +165,34 @@ static int sbp_msg_glo_obs_callback(health_monitor_t *monitor,
   return 1; // only reset if glo obs found
 }
 
+/**
+ * \brief glo_obs_timer_callback - handler for glo_obs_monitor timeouts
+ * \param monitor: health monitor associated with this callback
+ * \param context: user context associated with this callback
+ * \return 0 for success, otherwise error
+ */
 static int glo_obs_timer_callback(health_monitor_t *monitor, void *context)
 {
   (void)context;
-  if (glo_obs_ctx.glonass_enabled && glo_obs_ctx.base_obs_found) {
+  if (glo_context_is_glonass_enabled() && glo_context_is_connected_to_base()) {
     sbp_log(
       LOG_WARNING,
-      "Reference Glonass Observations Timeout - no glonass observations received from base station within %d sec window",
-      GNSS_OBS_ALERT_RATE_LIMIT / 1000);
+      "Reference GLONASS Observations Timeout - no glonass observations received from base station within %d sec window",
+      GLO_OBS_ALERT_RATE_LIMIT / 1000);
   }
-  glo_obs_ctx.base_obs_found = false;
+  if (glo_context_is_connected_to_base()
+      && glo_obs_ctx.timeout_counter > max_timeout_count_before_reset) {
+    glo_context_reset_connected_to_base();
+  }
   if (!glo_obs_ctx.glo_setting_read_resp) {
     piksi_log(LOG_DEBUG,
-              "Glonass Status Unknown - Sending Glonass Setting Request");
+              "GLONASS Status Unknown - Sending GLONASS Setting Request");
     health_monitor_send_setting_read_request(
       monitor,
       SETTING_SECTION_ACQUISITION,
       SETTING_GLONASS_ACQUISITION_ENABLED);
   }
+  glo_obs_ctx.timeout_counter++;
 
   return 0;
 }
@@ -145,7 +208,7 @@ int glo_obs_timeout_health_monitor_init(health_ctx_t *health_ctx)
                           health_ctx,
                           SBP_MSG_OBS,
                           sbp_msg_glo_obs_callback,
-                          GNSS_OBS_ALERT_RATE_LIMIT,
+                          GLO_OBS_ALERT_RATE_LIMIT,
                           glo_obs_timer_callback,
                           NULL)
       != 0) {

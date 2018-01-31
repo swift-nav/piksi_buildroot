@@ -10,10 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef __HEALTH_MONITOR_GNSS_BIAS_H
-#define __HEALTH_MONITOR_GNSS_BIAS_H
+#ifndef __HEALTH_MONITOR_GLO_BIAS_H
+#define __HEALTH_MONITOR_GLO_BIAS_H
 
 int glo_bias_timeout_health_monitor_init(health_ctx_t *health_ctx);
 void glo_bias_timeout_health_monitor_deinit(void);
 
-#endif /* __HEALTH_MONITOR_GNSS_BIAS_H */
+#endif /* __HEALTH_MONITOR_GLO_BIAS_H */
