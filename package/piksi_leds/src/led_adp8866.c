@@ -19,6 +19,7 @@
 #include <libpiksi/logging.h>
 
 #include <string.h>
+#include <errno.h>
 
 #define LED_I2C_ADDR 0x27
 #define LED_I2C_TIMEOUT 1
@@ -26,6 +27,8 @@
 #define LED_LEVEL_SET_VALUE 0x20
 
 static int led_i2c;
+
+static u8 brightness_cache[LED_ADP8866_LED_COUNT] = {1};
 
 /*
  * Duro connected different outputs of the adp8866 driver to the RGB
@@ -79,6 +82,7 @@ static int i2c_read(u8 addr, u8 *data) {
  * \return 0 if the operation succeeded, error message otherwise.
  */
 static int i2c_write(u8 addr, u8 data) {
+  int ret = 0;
   u8 buf[2] = {addr, data};
   struct i2c_msg msgs[] = {{
     .addr = LED_I2C_ADDR,
@@ -86,7 +90,8 @@ static int i2c_write(u8 addr, u8 data) {
     .buf = buf,
   }};
   struct i2c_rdwr_ioctl_data transaction = {.msgs = msgs, .nmsgs = 1};
-  return ioctl(led_i2c, I2C_RDWR, &transaction) < 0;
+  ret = ioctl(led_i2c, I2C_RDWR, &transaction);
+  return ret < 0;
 }
 
 /** Verify the contents of the MFDVID register.
@@ -204,7 +209,8 @@ static bool configure(void) {
  * \return true if the operation succeeded, false otherwise.
  */
 static bool leds_set(const led_adp8866_led_state_t *led_states,
-                     u32 led_states_count) {
+                     u32 led_states_count)
+{
   bool ret = true;
 
   {
@@ -213,9 +219,19 @@ static bool leds_set(const led_adp8866_led_state_t *led_states,
 
       /* Write ISCn */
       if (i2c_write(isc_route[led_state->led],
-                    (led_state->brightness << LED_ADP8866_ISCn_SCDn_Pos)) !=
-          0) {
-        ret = false;
+                    (led_state->brightness << LED_ADP8866_ISCn_SCDn_Pos))
+          != 0) {
+        if (errno == ETIMEDOUT) {
+          ret = (i2c_write(isc_route[led_state->led],
+                     (led_state->brightness << LED_ADP8866_ISCn_SCDn_Pos)) == 0);
+        }
+      }
+
+      if (ret) {
+        /* Update cache */
+        brightness_cache[led_state->led] = led_state->brightness;
+      } else {
+        break;
       }
     }
   }
@@ -239,6 +255,11 @@ static u32 modified_states_get(const led_adp8866_led_state_t *input_states,
   for (u32 i = 0; i < input_states_count; i++) {
     const led_adp8866_led_state_t *input_state = &input_states[i];
     led_adp8866_led_state_t *output_state = &output_states[output_states_count];
+
+    /* Compare brightness */
+    if (input_state->brightness == brightness_cache[input_state->led]) {
+      continue;
+    }
 
     /* Append to output states */
     *output_state = *input_state;
