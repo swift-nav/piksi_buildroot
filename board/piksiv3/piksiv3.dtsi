@@ -63,3 +63,6 @@
   status = "okay";
 };
 
+&L2 {
+  status = "disabled";
+};
