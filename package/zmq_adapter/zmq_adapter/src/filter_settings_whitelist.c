@@ -285,8 +285,6 @@ static ssize_t collate_whitelist(const char* whitelist,
 
   while (whitelist_length > 0) {
 
-    assert( whitelist_length > 0 );
-
     entry[0] = '\0';
     sscanf(whitelist, "%512[^\n]\n", entry);
 

@@ -24,8 +24,8 @@ int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
   return snprintf(buf, buf_size,
                   "-f sbp "
                   "--filter-out sbp "
-                  "--filter-out-config /etc/filter.d/filter_out/%s"
-                  "--settings-whitelist /etc/filter.d/settings_whitelist/%s"
+                  "--filter-out-config /etc/filter.d/filter_out/%s "
+                  "--settings-whitelist /etc/filter.d/settings_whitelist/%s "
                   "-p >tcp://127.0.0.1:43031 "
                   "-s >tcp://127.0.0.1:43030",
                   port_name,
