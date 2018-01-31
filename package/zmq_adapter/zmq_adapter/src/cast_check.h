@@ -29,7 +29,7 @@ typedef unsigned long unsigned_long;
 	assert((var > (FromType)Max) ? ((INVALID_CAST_FROM_ ## FromType ## _TO_ ## ToType)) : true)
 
 #define _DEFINE_HELPER_VAR(FromType, ToType) \
-	static bool INVALID_CAST_FROM_ ## FromType ## _TO_ ## ToType __attribute__((unused)) = false;
+	static const bool INVALID_CAST_FROM_ ## FromType ## _TO_ ## ToType __attribute__((unused)) = false;
 
 /* size_t -> ssize_t */
 
