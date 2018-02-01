@@ -23,12 +23,15 @@
 
 #define LED_I2C_ADDR 0x27
 #define LED_I2C_TIMEOUT 1
+#define LED_I2C_WRITE_RETRY_COUNT 3
 
 #define LED_LEVEL_SET_VALUE 0x20
 
 static int led_i2c;
 
-static u8 brightness_cache[LED_ADP8866_LED_COUNT] = {1};
+#define LED_I2C_CACHE_INITIAL_BRIGHTNESS (0u)
+static led_adp8866_led_state_t led_state_cache[LED_ADP8866_LED_COUNT];
+static bool flush_led_state_cache = false;
 
 /*
  * Duro connected different outputs of the adp8866 driver to the RGB
@@ -82,7 +85,6 @@ static int i2c_read(u8 addr, u8 *data) {
  * \return 0 if the operation succeeded, error message otherwise.
  */
 static int i2c_write(u8 addr, u8 data) {
-  int ret = 0;
   u8 buf[2] = {addr, data};
   struct i2c_msg msgs[] = {{
     .addr = LED_I2C_ADDR,
@@ -90,8 +92,7 @@ static int i2c_write(u8 addr, u8 data) {
     .buf = buf,
   }};
   struct i2c_rdwr_ioctl_data transaction = {.msgs = msgs, .nmsgs = 1};
-  ret = ioctl(led_i2c, I2C_RDWR, &transaction);
-  return ret < 0;
+  return ioctl(led_i2c, I2C_RDWR, &transaction) < 0;
 }
 
 /** Verify the contents of the MFDVID register.
@@ -217,26 +218,54 @@ static bool leds_set(const led_adp8866_led_state_t *led_states,
     for (u32 i = 0; i < led_states_count; i++) {
       const led_adp8866_led_state_t *led_state = &led_states[i];
 
+      led_state_cache[led_state->led].brightness = led_state->brightness;
       /* Write ISCn */
-      if (i2c_write(isc_route[led_state->led],
-                    (led_state->brightness << LED_ADP8866_ISCn_SCDn_Pos))
-          != 0) {
-        if (errno == ETIMEDOUT) {
-          ret = (i2c_write(isc_route[led_state->led],
-                     (led_state->brightness << LED_ADP8866_ISCn_SCDn_Pos)) == 0);
+      bool success = false;
+      u8 retries = LED_I2C_WRITE_RETRY_COUNT;
+      while (retries--) {
+        if (i2c_write(isc_route[led_state->led],
+                      (led_state->brightness << LED_ADP8866_ISCn_SCDn_Pos))
+            != 0) {
+          if (errno == ETIMEDOUT) {
+            piksi_log(LOG_WARNING, "LED I2C Write Timeout. Retries left: %d", retries);
+          } else {
+            piksi_log(LOG_ERR, "LED I2C Write Failure. ERRNO = %d", errno);
+            ret = false;
+            break;
+          }
+        } else {
+          success = true;
+          break;
         }
       }
 
-      if (ret) {
-        /* Update cache */
-        brightness_cache[led_state->led] = led_state->brightness;
-      } else {
-        break;
+      if (!success) {
+        flush_led_state_cache = true;
       }
     }
   }
 
   return ret;
+}
+
+/** Initialize LED state cache
+ *
+ */
+static void led_cache_init(void)
+{
+  for (u32 i = 0; i < LED_ADP8866_LED_COUNT; i++) {
+    led_state_cache[i].led = i;
+    led_state_cache[i].brightness = LED_I2C_CACHE_INITIAL_BRIGHTNESS;
+  }
+}
+
+/** Flush LED state cache
+ *
+ * \return true if the operation succeeded, false otherwise.
+ */
+static bool led_cache_flush(void)
+{
+  return leds_set(led_state_cache, LED_ADP8866_LED_COUNT);
 }
 
 /** Get an array of modified LED states.
@@ -257,7 +286,7 @@ static u32 modified_states_get(const led_adp8866_led_state_t *input_states,
     led_adp8866_led_state_t *output_state = &output_states[output_states_count];
 
     /* Compare brightness */
-    if (input_state->brightness == brightness_cache[input_state->led]) {
+    if (input_state->brightness == led_state_cache[input_state->led].brightness) {
       continue;
     }
 
@@ -293,14 +322,8 @@ void led_adp8866_init(bool is_duro) {
     exit(3);
   }
 
-  led_adp8866_led_state_t led_states[LED_ADP8866_LED_COUNT];
-  for (u32 i = 0; i < LED_ADP8866_LED_COUNT; i++) {
-    led_adp8866_led_state_t *led_state = &led_states[i];
-    led_state->led = i;
-    led_state->brightness = 0;
-  }
-
-  if (!leds_set(led_states, LED_ADP8866_LED_COUNT)) {
+  led_cache_init();
+  if (!led_cache_flush()) {
     piksi_log(LOG_WARNING, "Failed to initialize LED states");
     exit(4);
   }
@@ -328,6 +351,11 @@ bool led_adp8866_leds_set(const led_adp8866_led_state_t *led_states,
   led_adp8866_led_state_t modified_states[LED_ADP8866_LED_COUNT];
   u32 modified_states_count =
       modified_states_get(led_states, led_states_count, modified_states);
+
+  if (flush_led_state_cache) {
+    led_cache_flush();
+    flush_led_state_cache = false;
+  }
 
   if (modified_states_count == 0) {
     return true;
