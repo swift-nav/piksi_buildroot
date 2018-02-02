@@ -62,4 +62,3 @@
 &can1 {
   status = "okay";
 };
-
