@@ -1,5 +1,7 @@
 #!/bin/sh
 
+exit 0
+
 name="network_poll"
 cmd="/etc/init.d/network_poll.sh"
 dir="/"
