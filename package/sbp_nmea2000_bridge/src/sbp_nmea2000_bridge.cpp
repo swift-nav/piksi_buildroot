@@ -302,12 +302,14 @@ namespace {
       tm_utc_time.tm_hour = sbp_utc_t->hours;
       tm_utc_time.tm_min = sbp_utc_t->minutes;
       tm_utc_time.tm_sec = sbp_utc_t->seconds;
-      tm_utc_time.tm_isdst = -1;  // No idea. mktime() will know.
+      tm_utc_time.tm_isdst = -1;  // -1 means no idea. mktime() will know.
       time_t utc_time_since_epoch = mktime(&tm_utc_time);
+
+      constexpr u32 cSecondsInADay = 60 * 60 * 24;
       *days_since_1970 =
-              static_cast<u16>(utc_time_since_epoch / (3600 * 24));
+              static_cast<u16>(utc_time_since_epoch / cSecondsInADay);
       *seconds_since_midnight =
-              utc_time_since_epoch % (3600 * 24) + sbp_utc_t->ns * 10e-9;
+              (utc_time_since_epoch % cSecondsInADay) + sbp_utc_t->ns * 1e-9;
     }
 
     void piksi_check(int err, const char* format, ...) {
@@ -362,6 +364,7 @@ namespace {
       UNUSED(sender_id);
       UNUSED(len);
       UNUSED(context);
+      d << __FUNCTION__ << "\n";
 
       auto sbp_utc_time = reinterpret_cast<msg_utc_time_t*>(msg);
       u16 days_since_1970;
@@ -369,6 +372,8 @@ namespace {
       calculate_days_and_seconds_since_1970(sbp_utc_time,
                                             &days_since_1970,
                                             &seconds_since_midnight);
+      d << "\tDays since 1970: " << days_since_1970 << "\n"
+        << "\tSeconds since midnight: " << seconds_since_midnight << "\n";
 
       tN2kMsg N2kMsg;
       SetN2kSystemTime(N2kMsg, tow_sequence_id_map[sbp_utc_time->tow],
@@ -379,11 +384,13 @@ namespace {
       n2k_composite_message_cache.ResetIfOld(sbp_utc_time->tow);
       n2k_composite_message_cache.SetFields(days_since_1970,
                                             seconds_since_midnight);
-      if(n2k_composite_message_cache.IsAllFieldsSet()){
+      if(n2k_composite_message_cache.IsAllFieldsSet()) {
         N2kMsg.Clear();
         n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
         NMEA2000.SendMsg(N2kMsg);
       }
+
+      d << "\tDone.\n";
     }
 
     // PGN 127250
@@ -471,7 +478,7 @@ namespace {
                                      void *context) {
       UNUSED(sender_id);
       UNUSED(context);
-      d << "callback_sbp_tracking_state\n"
+      d << __FUNCTION__ << "\n"
         << "\tGot " << static_cast<u16>(len) << "/"
         << sizeof(tracking_channel_state_t) << "="
         << static_cast<u16>(len / sizeof(tracking_channel_state_t))
