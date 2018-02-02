@@ -191,6 +191,8 @@ namespace {
                      pdop_);
           // Have to do GNSS method manually. It's not reverse engineered yet.
           msg->Data[31] = gnss_metod_;
+          // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
+          msg->Data[32] = 0xFC;
         }
     private:
         // Maps SBP GNSS method code to N2K GNSS method code.
@@ -398,13 +400,22 @@ namespace {
       UNUSED(sender_id);
       UNUSED(len);
       UNUSED(context);
+      d << __FUNCTION__ << "\n";
 
-      auto sbp_baseline_heading = reinterpret_cast<msg_baseline_heading_t*>(msg);
+      auto sbp_baseline_heading =
+              reinterpret_cast<msg_baseline_heading_t*>(msg);
+
+      d << "\tBaseline heading in deg: "
+        << sbp_baseline_heading->heading / 1000.0 << "\n"
+        << "\tBaseline heading in rad: "
+        << DegToRad(sbp_baseline_heading->heading / 1000.0) << "\n";
 
       tN2kMsg N2kMsg;
       SetN2kTrueHeading(N2kMsg, tow_sequence_id_map[sbp_baseline_heading->tow],
-                        DegToRad(sbp_baseline_heading->heading) / 1000.0);
+                        DegToRad(sbp_baseline_heading->heading / 1000.0));
       NMEA2000.SendMsg(N2kMsg);
+
+      d << "\tDone.\n";
     }
 
     // PGN 129025
@@ -412,8 +423,13 @@ namespace {
       UNUSED(sender_id);
       UNUSED(len);
       UNUSED(context);
+      d << __FUNCTION__ << "\n";
 
       auto *sbp_pos = reinterpret_cast<msg_pos_llh_t*>(msg);
+
+      d << "\tLat: " << sbp_pos->lat << "\n"
+        << "\tLon: " << sbp_pos->lon << "\n"
+        << "\tAlt: " << sbp_pos->height << "\n";
 
       tN2kMsg N2kMsg;
       SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
@@ -426,6 +442,8 @@ namespace {
         n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
         NMEA2000.SendMsg(N2kMsg);
       }
+
+      d << "\tDone.\n";
     }
 
     // PGN 129026
@@ -433,16 +451,22 @@ namespace {
       UNUSED(sender_id);
       UNUSED(len);
       UNUSED(context);
+      d << __FUNCTION__ << "\n";
 
       auto *sbp_vel_ned = reinterpret_cast<msg_vel_ned_t*>(msg);
       double cog_rad, sog_mps;
       calculate_cog_sog(sbp_vel_ned, &cog_rad, &sog_mps);
+
+      d << "\tCourse over ground in rad: " << cog_rad << "\n"
+        << "\tSpeed over ground in m/s: " << sog_mps << "\n";
 
       tN2kMsg N2kMsg;
       SetN2kCOGSOGRapid(N2kMsg, tow_sequence_id_map[sbp_vel_ned->tow],
                         tN2kHeadingReference::N2khr_true,
                         cog_rad, sog_mps);
       NMEA2000.SendMsg(N2kMsg);
+
+      d << "\tDone.\n";
     }
 
     // PGN 129539
@@ -450,6 +474,7 @@ namespace {
       UNUSED(sender_id);
       UNUSED(len);
       UNUSED(context);
+      d << __FUNCTION__ << "\n";
 
       auto sbp_dops = reinterpret_cast<msg_dops_t*>(msg);
 
@@ -464,6 +489,10 @@ namespace {
                         sbp_dops->tdop / 100.0);
       NMEA2000.SendMsg(N2kMsg);
 
+      d << "\tHDOP: " << sbp_dops->hdop / 100.0 << "\n"
+        << "\tVDOP: " << sbp_dops->vdop / 100.0 << "\n"
+        << "\tTDOP: " << sbp_dops->tdop / 100.0 << "\n";
+
       n2k_composite_message_cache.ResetIfOld(sbp_dops->tow);
       n2k_composite_message_cache.SetFields(sbp_dops);
       if(n2k_composite_message_cache.IsAllFieldsSet()){
@@ -471,6 +500,8 @@ namespace {
         n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
         NMEA2000.SendMsg(N2kMsg);
       }
+
+      d << "\tDone.\n";
     }
 
     // PGN 129540
@@ -582,9 +613,12 @@ namespace {
       UNUSED(len);
       UNUSED(msg);
       UNUSED(context);
+      d << __FUNCTION__ << "\n";
 
       // This checks for new CAN messages and sends out a heartbeat.
       NMEA2000.ParseMessages();
+
+      d << "\tDone.\n";
     }
 }  // namespace
 
@@ -763,6 +797,7 @@ int main(int argc, char *argv[]) {
   NMEA2000.SetDeviceInformation(serial_num, /*_DeviceFunction=*/0xff,
           /*_DeviceClass=*/0xff, /*_ManufacturerCode=*/883);
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode);
+  NMEA2000.SetHeartbeatInterval(1000);
   NMEA2000.Open();
   NMEA2000.ParseMessages();
 
