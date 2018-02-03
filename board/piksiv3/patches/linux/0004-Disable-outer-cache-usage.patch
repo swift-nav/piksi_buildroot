@@ -1,0 +1,90 @@
+From 39b637fce92459ad7eb9d92b0ff70a00cf88ecc3 Mon Sep 17 00:00:00 2001
+From: Jason Mobarak <jason@swiftnav.com>
+Date: Sat, 3 Feb 2018 11:46:19 -0800
+Subject: [PATCH] Disable outer cache usage
+
+---
+ arch/arm/mm/proc-v7-2level.S       | 2 +-
+ arch/arm/mm/proc-v7-3level.S       | 4 ++--
+ drivers/iommu/io-pgtable-arm-v7s.c | 4 ++--
+ drivers/iommu/io-pgtable-arm.c     | 4 ++--
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/arch/arm/mm/proc-v7-2level.S b/arch/arm/mm/proc-v7-2level.S
+index c6141a5435c3..87bc9dc6f703 100644
+--- a/arch/arm/mm/proc-v7-2level.S
++++ b/arch/arm/mm/proc-v7-2level.S
+@@ -20,7 +20,7 @@
+ #define TTB_IRGN_WB	((1 << 0) | (1 << 6))
+ 
+ /* PTWs cacheable, inner WB not shareable, outer WB not shareable */
+-#define TTB_FLAGS_UP	TTB_IRGN_WB|TTB_RGN_OC_WB
++#define TTB_FLAGS_UP	TTB_IRGN_WB|TTB_RGN_NC
+ #define PMD_FLAGS_UP	PMD_SECT_WB
+ 
+ /* PTWs cacheable, inner WBWA shareable, outer WBWA not shareable */
+diff --git a/arch/arm/mm/proc-v7-3level.S b/arch/arm/mm/proc-v7-3level.S
+index 5e5720e8bc5f..58c8b75833ab 100644
+--- a/arch/arm/mm/proc-v7-3level.S
++++ b/arch/arm/mm/proc-v7-3level.S
+@@ -33,11 +33,11 @@
+ #define TTB_EAE		(1 << 31)
+ 
+ /* PTWs cacheable, inner WB not shareable, outer WB not shareable */
+-#define TTB_FLAGS_UP	(TTB_IRGN_WB|TTB_RGN_OC_WB)
++#define TTB_FLAGS_UP	(TTB_IRGN_WB|TTB_RGN_NC)
+ #define PMD_FLAGS_UP	(PMD_SECT_WB)
+ 
+ /* PTWs cacheable, inner WBWA shareable, outer WBWA not shareable */
+-#define TTB_FLAGS_SMP	(TTB_IRGN_WBWA|TTB_S|TTB_RGN_OC_WBWA)
++#define TTB_FLAGS_SMP	(TTB_IRGN_WBWA|TTB_S|TTB_RGN_NC)
+ #define PMD_FLAGS_SMP	(PMD_SECT_WBWA|PMD_SECT_S)
+ 
+ #ifndef __ARMEB__
+diff --git a/drivers/iommu/io-pgtable-arm-v7s.c b/drivers/iommu/io-pgtable-arm-v7s.c
+index 9488e3c97bcb..ecf05bf7a93b 100644
+--- a/drivers/iommu/io-pgtable-arm-v7s.c
++++ b/drivers/iommu/io-pgtable-arm-v7s.c
+@@ -668,7 +668,7 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
+ 				ARM_V7S_PRRR_DS0 | ARM_V7S_PRRR_DS1 |
+ 				ARM_V7S_PRRR_NS1 | ARM_V7S_PRRR_NOS(7);
+ 	cfg->arm_v7s_cfg.nmrr = ARM_V7S_NMRR_IR(7, ARM_V7S_RGN_WBWA) |
+-				ARM_V7S_NMRR_OR(7, ARM_V7S_RGN_WBWA);
++				ARM_V7S_NMRR_OR(7, ARM_V7S_RGN_NC);
+ 
+ 	/* Looking good; allocate a pgd */
+ 	data->pgd = __arm_v7s_alloc_table(1, GFP_KERNEL, data);
+@@ -682,7 +682,7 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
+ 	cfg->arm_v7s_cfg.ttbr[0] = virt_to_phys(data->pgd) |
+ 				   ARM_V7S_TTBR_S | ARM_V7S_TTBR_NOS |
+ 				   ARM_V7S_TTBR_IRGN_ATTR(ARM_V7S_RGN_WBWA) |
+-				   ARM_V7S_TTBR_ORGN_ATTR(ARM_V7S_RGN_WBWA);
++				   ARM_V7S_TTBR_ORGN_ATTR(ARM_V7S_RGN_NC);
+ 	cfg->arm_v7s_cfg.ttbr[1] = 0;
+ 	return &data->iop;
+ 
+diff --git a/drivers/iommu/io-pgtable-arm.c b/drivers/iommu/io-pgtable-arm.c
+index f433b516098a..97fd578d2cfd 100644
+--- a/drivers/iommu/io-pgtable-arm.c
++++ b/drivers/iommu/io-pgtable-arm.c
+@@ -671,7 +671,7 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
+ 	/* TCR */
+ 	reg = (ARM_LPAE_TCR_SH_IS << ARM_LPAE_TCR_SH0_SHIFT) |
+ 	      (ARM_LPAE_TCR_RGN_WBWA << ARM_LPAE_TCR_IRGN0_SHIFT) |
+-	      (ARM_LPAE_TCR_RGN_WBWA << ARM_LPAE_TCR_ORGN0_SHIFT);
++	      (ARM_LPAE_TCR_RGN_NC << ARM_LPAE_TCR_ORGN0_SHIFT);
+ 
+ 	switch (ARM_LPAE_GRANULE(data)) {
+ 	case SZ_4K:
+@@ -775,7 +775,7 @@ arm_64_lpae_alloc_pgtable_s2(struct io_pgtable_cfg *cfg, void *cookie)
+ 	reg = ARM_64_LPAE_S2_TCR_RES1 |
+ 	     (ARM_LPAE_TCR_SH_IS << ARM_LPAE_TCR_SH0_SHIFT) |
+ 	     (ARM_LPAE_TCR_RGN_WBWA << ARM_LPAE_TCR_IRGN0_SHIFT) |
+-	     (ARM_LPAE_TCR_RGN_WBWA << ARM_LPAE_TCR_ORGN0_SHIFT);
++	     (ARM_LPAE_TCR_RGN_NC << ARM_LPAE_TCR_ORGN0_SHIFT);
+ 
+ 	sl = ARM_LPAE_START_LVL(data);
+ 
+-- 
+2.15.1
+
