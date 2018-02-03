@@ -68,6 +68,17 @@ namespace {
 
     constexpr char cSerialNumberPath[] = "/factory/mfg_id";
 
+    struct debug_stream {
+        template<typename T>
+        debug_stream& operator<<(T arg) {
+          if(debug) {
+            std::cout << std::dec << arg;
+          }
+          return *this;
+        }
+    };
+    debug_stream d;
+
     // Maps time of week to a sequence ID in a circular buffer.
     // Assumes that time of week monotonously increases and that every
     // time of week value will go through this map. In other words, if values
@@ -147,43 +158,51 @@ namespace {
           if(tow > tow_) {
             tow_ = tow;
             seconds_since_midnight_set_ = lat_set_ = lon_set_ = alt_set_ =
-            hdop_set_ = pdop_set_ = tow_set_ = days_since_1970_set_ =
-            gnss_metod_set_ = sat_count_set_ = ref_station_count_set_ = false;
+            hdop_set_ = pdop_set_ = days_since_1970_set_ =
+            gnss_metod_set_ = sat_count_set_ = false;
           }
         }
 
         bool IsAllFieldsSet() {
           return seconds_since_midnight_set_ && lat_set_ && lon_set_ &&
-                 alt_set_ && hdop_set_ && pdop_set_ && tow_set_ &&
+                 alt_set_ && hdop_set_ && pdop_set_ &&
                  days_since_1970_set_ && gnss_metod_set_ &&
-                 sat_count_set_ && ref_station_count_set_;
+                 sat_count_set_;
         }
 
-        void SetFields(const u16 days_since_1970,
+        void SetFields(const u32 tow, const u16 days_since_1970,
                        const double seconds_since_midnight) {
-          days_since_1970_ = days_since_1970;
-          seconds_since_midnight_ = seconds_since_midnight;
-          days_since_1970_set_ = seconds_since_midnight_set_ = true;
+          if(tow == tow_) {
+            days_since_1970_ = days_since_1970;
+            seconds_since_midnight_ = seconds_since_midnight;
+            days_since_1970_set_ = seconds_since_midnight_set_ = true;
+          }
         }
 
         void SetFields(const msg_pos_llh_t *msg) {
-          lat_ = msg->lat;
-          lon_ = msg->lon;
-          alt_ = msg->height;
-          sat_count_ = msg->n_sats;
-          gnss_metod_ = gnss_method_lut_[msg->flags];
-          lat_set_ = lon_set_ = alt_set_ = sat_count_set_ = gnss_metod_set_ =
-                  true;
+          if(msg->tow == tow_) {
+            lat_ = msg->lat;
+            lon_ = msg->lon;
+            alt_ = msg->height;
+            sat_count_ = msg->n_sats;
+            gnss_metod_ = gnss_method_lut_[msg->flags];
+            lat_set_ = lon_set_ = alt_set_ = sat_count_set_ = gnss_metod_set_ =
+                    true;
+          }
         }
 
         void SetFields(const msg_dops_t *msg) {
-          hdop_ = msg->hdop;
-          pdop_ = msg->pdop;
-          hdop_set_ = pdop_set_ = true;
+          if (msg->tow == tow_) {
+            hdop_ = msg->hdop;
+            pdop_ = msg->pdop;
+            hdop_set_ = pdop_set_ = true;
+          }
         }
 
         // PGN 129029
         void FillN2kMsg(tN2kMsg *msg) {
+          d << __FUNCTION__ << "\n";
+
           SetN2kGNSS(*msg, tow_sequence_id_map[tow_], days_since_1970_,
                      seconds_since_midnight_, lat_, lon_, alt_,
                      tN2kGNSStype::N2kGNSSt_GPSGLONASS,
@@ -193,6 +212,8 @@ namespace {
           msg->Data[31] = gnss_metod_;
           // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
           msg->Data[32] = 0xFC;
+
+          d << "\tDone.\n";
         }
     private:
         // Maps SBP GNSS method code to N2K GNSS method code.
@@ -209,7 +230,6 @@ namespace {
         uint16_t days_since_1970_ = 0;
         u8 gnss_metod_ = 0;
         u8 sat_count_ = 0;
-        u8 ref_station_count_ = 0;
 
         bool seconds_since_midnight_set_ : 1;
         bool lat_set_ : 1;
@@ -217,11 +237,9 @@ namespace {
         bool alt_set_ : 1;
         bool hdop_set_ : 1;
         bool pdop_set_ : 1;
-        bool tow_set_ : 1;
         bool days_since_1970_set_ : 1;
         bool gnss_metod_set_ : 1;
         bool sat_count_set_ : 1;
-        bool ref_station_count_set_ : 1;
     };
     N2kCompositeMessageCache n2k_composite_message_cache;
     constexpr u8 N2kCompositeMessageCache::gnss_method_lut_[];
@@ -324,17 +342,6 @@ namespace {
       }
     }
 
-    struct debug_stream {
-        template<typename T>
-        debug_stream& operator<<(T arg) {
-          if(debug) {
-            std::cout << std::dec << arg;
-          }
-          return *this;
-        }
-    };
-    debug_stream d;
-
     int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
                            void *interface_name_void) {
       UNUSED(loop);
@@ -374,7 +381,8 @@ namespace {
       calculate_days_and_seconds_since_1970(sbp_utc_time,
                                             &days_since_1970,
                                             &seconds_since_midnight);
-      d << "\tDays since 1970: " << days_since_1970 << "\n"
+      d << "\tTOW: " << sbp_utc_time->tow << "\n"
+        << "\tDays since 1970: " << days_since_1970 << "\n"
         << "\tSeconds since midnight: " << seconds_since_midnight << "\n";
 
       tN2kMsg N2kMsg;
@@ -384,7 +392,7 @@ namespace {
       NMEA2000.SendMsg(N2kMsg);
 
       n2k_composite_message_cache.ResetIfOld(sbp_utc_time->tow);
-      n2k_composite_message_cache.SetFields(days_since_1970,
+      n2k_composite_message_cache.SetFields(sbp_utc_time->tow, days_since_1970,
                                             seconds_since_midnight);
       if(n2k_composite_message_cache.IsAllFieldsSet()) {
         N2kMsg.Clear();
@@ -427,7 +435,8 @@ namespace {
 
       auto *sbp_pos = reinterpret_cast<msg_pos_llh_t*>(msg);
 
-      d << "\tLat: " << sbp_pos->lat << "\n"
+      d << "\tTOW: " << sbp_pos->tow << "\n"
+        << "\tLat: " << sbp_pos->lat << "\n"
         << "\tLon: " << sbp_pos->lon << "\n"
         << "\tAlt: " << sbp_pos->height << "\n";
 
@@ -489,7 +498,8 @@ namespace {
                         sbp_dops->tdop / 100.0);
       NMEA2000.SendMsg(N2kMsg);
 
-      d << "\tHDOP: " << sbp_dops->hdop / 100.0 << "\n"
+      d << "\tTOW: " << sbp_dops->tow << "\n"
+        << "\tHDOP: " << sbp_dops->hdop / 100.0 << "\n"
         << "\tVDOP: " << sbp_dops->vdop / 100.0 << "\n"
         << "\tTDOP: " << sbp_dops->tdop / 100.0 << "\n";
 
