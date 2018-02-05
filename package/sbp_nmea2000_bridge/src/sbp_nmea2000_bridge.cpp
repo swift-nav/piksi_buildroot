@@ -45,6 +45,7 @@ extern "C" {
 #include <N2kMessages.h>
 #include <libpiksi/common.h>
 #include "NMEA2000_CAN.h"
+#include "NMEA2000_SocketCAN.h"
 #include "sbp.h"
 
 #define UNUSED(x) (void)(x)
@@ -59,6 +60,9 @@ namespace {
 
     u32 bitrate_can0 = 500 * 1000;
     u32 bitrate_can1 = 500 * 1000;
+
+    constexpr int cEnable = 1;
+    constexpr int cDisable = 0;
 
     // Socket where this process will take in SBP messages to be put on the CAN.
     constexpr char cEndpointSub[] = ">tcp://127.0.0.1:43090";
@@ -338,6 +342,9 @@ namespace {
         va_start(ap, format);
         piksi_log(LOG_ERR, format, ap);
         va_end(ap);
+        if(debug) {
+          printf(format, ap);
+        }
         exit(EXIT_FAILURE);
       }
     }
@@ -701,14 +708,33 @@ int main(int argc, char *argv[]) {
   // Enable reception of CAN flexible datarate (FD) frames.
   // Does nothing at the moment, actually, due to FD not being supported
   // in hardware. Does not hurt the have it here, nonetheless.
-  int enable = 1;
   piksi_check(setsockopt(socket_can0, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
-                         &enable, sizeof(enable)),
+                         &cEnable, sizeof(cEnable)),
               "Could not enable reception of FD frames on %s.",
               cInterfaceNameCan0);
   piksi_check(setsockopt(socket_can1, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
-                         &enable, sizeof(enable)),
+                         &cEnable, sizeof(cEnable)),
               "Could not enable reception of FD frames on %s.",
+              cInterfaceNameCan1);
+
+  // Disable loopback on CAN sockets, so that messages are not received on other
+  // programs using the same interfaces.
+  piksi_check(setsockopt(socket_can0, SOL_CAN_RAW, CAN_RAW_LOOPBACK,
+                         &cDisable, sizeof(cDisable)),
+              "Could not disable loopback on %s.", cInterfaceNameCan0);
+  piksi_check(setsockopt(socket_can1, SOL_CAN_RAW, CAN_RAW_LOOPBACK,
+                         &cDisable, sizeof(cDisable)),
+              "Could not disable loopback on %s.", cInterfaceNameCan1);
+
+  // Disable receiving own messages on CAN sockets, so that messages are not
+  // received on the same socket they are sent from.
+  piksi_check(setsockopt(socket_can0, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
+                         &cDisable, sizeof(cDisable)),
+              "Could not disable reception of own messages on %s.",
+              cInterfaceNameCan0);
+  piksi_check(setsockopt(socket_can1, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
+                         &cDisable, sizeof(cDisable)),
+              "Could not disable reception of own messages on %s.",
               cInterfaceNameCan1);
 
   // Bind sockets to the network interfaces.
@@ -809,6 +835,7 @@ int main(int argc, char *argv[]) {
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode);
   NMEA2000.SetHeartbeatInterval(1000);
   NMEA2000.Open();
+  dynamic_cast<tNMEA2000_SocketCAN&>(NMEA2000).CANOpenForReal(socket_can0);
   NMEA2000.ParseMessages();
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
