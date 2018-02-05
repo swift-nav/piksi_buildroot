@@ -48,6 +48,10 @@ protected:
     virtual bool CANGetFrame(unsigned long &id, unsigned char &len, unsigned char *buf);
     
 public:
+    // Don't want to change the libnmea2000, but want to reuse a socket that is
+    // opened manually, so this function is added. This is a hack.
+    bool CANOpenForReal(int socket);
+
     tNMEA2000_SocketCAN();
     virtual void SetCANPort(const char *CANport);
   

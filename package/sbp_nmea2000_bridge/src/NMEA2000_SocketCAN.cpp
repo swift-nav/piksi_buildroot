@@ -58,6 +58,8 @@ tNMEA2000_SocketCAN::tNMEA2000_SocketCAN() : tNMEA2000()
 
 //*****************************************************************************
 bool tNMEA2000_SocketCAN::CANOpen() {
+    return true;
+
     struct ifreq ifr;
     struct sockaddr_can addr;
     int flags;
@@ -137,6 +139,26 @@ bool tNMEA2000_SocketCAN::CANGetFrame(unsigned long &id, unsigned char &len, uns
         }
     return false; 
 
+}
+
+
+//*****************************************************************************
+bool tNMEA2000_SocketCAN::CANOpenForReal(int socket) {
+    skt = socket;
+
+    //----- Set socket for non-blocking
+    int flags = fcntl(skt, F_GETFL, 0);
+    if (flags < 0) {
+        cerr << "Failed CAN flag fetch" << endl;
+        return (false);
+    }
+
+    if (fcntl(skt, F_SETFL, flags | O_NONBLOCK) < 0) {
+        cerr << "Failed CAN flag set" << endl;
+        return (false);
+    }
+
+    return true;
 }
 
 
