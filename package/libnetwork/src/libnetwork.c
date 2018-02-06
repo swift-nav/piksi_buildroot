@@ -60,6 +60,9 @@ struct network_context_s {
   curl_off_t bytes_transfered; /**< Current number of bytes transferred */
   curl_off_t stall_count;      /**< Number of times the bytes transferred have not changed */
 
+  long response_code;          /**< Response Code from last transfer request */
+  int (*response_code_check)(network_context_t* ctx); /**< Optional function reference to act on response code*/
+
   volatile bool shutdown_signaled;
   volatile bool cycle_connection_signaled;
 
@@ -89,11 +92,16 @@ static network_context_t empty_context = {
   .stall_count = 0,
   .shutdown_signaled = false,
   .cycle_connection_signaled = false,
+  .response_code = 0,
+  .response_code_check = NULL,
   .node = NULL,
   .url = "",
 };
 
 #define NMEA_GGA_FILE "/var/run/nmea_GGA"
+
+#define HTTP_RESPONSE_CODE_OK (200L)
+#define NTRIP_DROPPED_CONNECTION_WARNING "Connection dropped with no data. This may be because this NTRIP caster expects an NMEA GGA string to be sent from the receiver. You can enable this through the ntrip.gga_period setting."
 
 void libnetwork_shutdown()
 {
@@ -487,6 +495,15 @@ static void network_teardown(CURL *curl)
   curl_global_cleanup();
 }
 
+static int network_response_code_check(network_context_t* ctx)
+{
+  int result = 0;
+  if (ctx->response_code_check != NULL) {
+    result = ctx->response_code_check(ctx);
+  }
+  return result;
+}
+
 static void network_request(network_context_t* ctx, CURL *curl)
 {
   char error_buf[CURL_ERROR_SIZE];
@@ -520,6 +537,8 @@ static void network_request(network_context_t* ctx, CURL *curl)
       if (response != 0) {
         sbp_log(LOG_INFO, "Network Request Response Code - (%d)", response);
         piksi_log(LOG_INFO, "curl request code %d", response);
+        ctx->response_code = response;
+        network_response_code_check(ctx);
       }
     }
 
@@ -555,6 +574,19 @@ static struct curl_slist *skylark_init(CURL *curl)
   return chunk;
 }
 
+static int ntrip_response_code_check(network_context_t *ctx)
+{
+  if (ctx->response_code == HTTP_RESPONSE_CODE_OK
+      && ctx->bytes_transfered == 0) {
+    static bool warned = false;
+    if (!warned) {
+      sbp_log(LOG_WARNING, NTRIP_DROPPED_CONNECTION_WARNING);
+      warned = true;
+    }
+  }
+  return 0;
+}
+
 void ntrip_download(network_context_t *ctx)
 {
   CURL* curl = network_setup(ctx);
@@ -572,6 +604,8 @@ void ntrip_download(network_context_t *ctx)
     curl_easy_setopt(curl, CURLOPT_READDATA,         ctx);
 
     chunk = curl_slist_append(chunk, "Transfer-Encoding:");
+  } else {
+    ctx->response_code_check = ntrip_response_code_check;
   }
 
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
@@ -640,4 +674,3 @@ void skylark_upload(network_context_t* ctx)
   curl_slist_free_all(chunk);
   network_teardown(curl);
 }
-
