@@ -529,8 +529,8 @@ static void network_request(network_context_t* ctx, CURL *curl)
       continue;
 
     if (code != CURLE_OK) {
-      sbp_log(LOG_ERR, "Network Request Error - \"%s\"", error_buf);
-      piksi_log(LOG_ERR, "curl request (error: %d) \"%s\"", code, error_buf);
+      sbp_log(LOG_WARNING, "Network Request Error - \"%s\"", error_buf);
+      piksi_log(LOG_WARNING, "curl request (error: %d) \"%s\"", code, error_buf);
     } else {
       long response = 0;
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
