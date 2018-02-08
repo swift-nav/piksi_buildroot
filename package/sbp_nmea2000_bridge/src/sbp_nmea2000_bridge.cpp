@@ -202,8 +202,8 @@ namespace {
 
         void SetFields(const msg_dops_t *msg) {
           if (msg->tow == tow_) {
-            hdop_ = msg->hdop;
-            pdop_ = msg->pdop;
+            hdop_ = msg->hdop / 100.0;
+            pdop_ = msg->pdop / 100.0;
             hdop_set_ = pdop_set_ = true;
           }
         }
