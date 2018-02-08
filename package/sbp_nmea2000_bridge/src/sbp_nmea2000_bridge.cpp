@@ -58,6 +58,10 @@ namespace {
     constexpr char cInterfaceNameCan0[] = "can0";
     constexpr char cInterfaceNameCan1[] = "can1";
 
+    // Terminate with a zero.
+    constexpr unsigned long cTransmitPGNs[] = {126992, 127250, 129025, 129026,
+                                               129029, 129539, 129540, 0};
+
     u32 bitrate_can0 = 500 * 1000;
     u32 bitrate_can1 = 500 * 1000;
 
@@ -834,8 +838,11 @@ int main(int argc, char *argv[]) {
           /*_DeviceClass=*/0xff, /*_ManufacturerCode=*/883);
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode);
   NMEA2000.SetHeartbeatInterval(1000);
+  NMEA2000.ExtendTransmitMessages(cTransmitPGNs);
   NMEA2000.Open();
-  dynamic_cast<tNMEA2000_SocketCAN&>(NMEA2000).CANOpenForReal(socket_can0);
+  piksi_check(!dynamic_cast<tNMEA2000_SocketCAN&>(NMEA2000).CANOpenForReal(socket_can0),
+              "Could not open N2k for real.");
+  NMEA2000.SendIsoAddressClaim();
   NMEA2000.ParseMessages();
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
