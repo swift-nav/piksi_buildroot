@@ -218,9 +218,10 @@ namespace {
                      tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_, hdop_,
                      pdop_);
           // Have to do GNSS method manually. It's not reverse engineered yet.
-          msg->Data[31] = gnss_metod_;
+          // msg->Data[31] = gnss_metod_;
           // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
-          msg->Data[32] = 0xFC;
+          // 0: No integrity checking.
+          msg->Data[32] = 0xFC | 0x00;
 
           d << "\tDone.\n";
         }
