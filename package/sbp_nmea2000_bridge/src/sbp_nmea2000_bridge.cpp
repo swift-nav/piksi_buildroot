@@ -550,7 +550,7 @@ namespace {
         << static_cast<u16>(len / sizeof(tracking_channel_state_t))
         << " states. Message len is most likely statically allocated.\n";
 
-      constexpr u8 cConstellationMaxSats = 64;
+      constexpr u8 cConstellationMaxSats = 32;
       std::array<std::pair<u8, u8>, cConstellationMaxSats> sats_gps = {};
       std::array<std::pair<u8, u8>, cConstellationMaxSats> sats_glo = {};
       auto sats_gps_end_it = sats_gps.begin();
