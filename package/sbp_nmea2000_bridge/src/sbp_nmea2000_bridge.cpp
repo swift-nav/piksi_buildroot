@@ -54,6 +54,7 @@ namespace {
     constexpr char cProgramName[] = "sbp_nmea2000_bridge";
 
     bool debug = false;
+    int loopback = false;
 
     constexpr char cInterfaceNameCan0[] = "can0";
     constexpr char cInterfaceNameCan1[] = "can1";
@@ -253,7 +254,7 @@ namespace {
     constexpr u8 N2kCompositeMessageCache::gnss_method_lut_[];
 
     void usage(char *command) {
-      std::cout << "Usage: " << command << " [--bitrate N]" << std::endl
+      std::cout << "Usage: " << command << " [--bitrate N] [--debug] [--loopback]" << std::endl
                 << "Where N is an acceptable CAN bitrate." << std::endl;
 
       std::cout << std::endl << "Misc options:" << std::endl;
@@ -264,12 +265,14 @@ namespace {
       enum {
           OPT_ID_DEBUG = 0,
           OPT_ID_BITRATE = 1,
+          OPT_ID_LOOPBACK = 2,
       };
 
       constexpr option long_opts[] = {
-              {"debug",   no_argument,       nullptr, OPT_ID_DEBUG},
-              {"bitrate", required_argument, nullptr, OPT_ID_BITRATE},
-              {nullptr,   no_argument,       nullptr, 0}
+              {"debug",    no_argument,       nullptr, OPT_ID_DEBUG},
+              {"bitrate",  required_argument, nullptr, OPT_ID_BITRATE},
+              {"loopback", no_argument,       nullptr, OPT_ID_LOOPBACK},
+              {nullptr,    no_argument,       nullptr, 0}
       };
 
       int opt;
@@ -280,6 +283,9 @@ namespace {
             break;
           case OPT_ID_BITRATE:
             bitrate_can0 = bitrate_can1 = static_cast<u32>(atoi(optarg));
+            break;
+          case OPT_ID_LOOPBACK:
+            loopback = true;
             break;
           default:
             piksi_log(LOG_ERR, "Invalid option.");
@@ -729,23 +735,23 @@ int main(int argc, char *argv[]) {
               "Could not enable reception of FD frames on %s.",
               cInterfaceNameCan1);
 
-  // Disable loopback on CAN sockets, so that messages are not received on other
-  // programs using the same interfaces.
+  // Disable loopback on CAN interfaces, so that messages are not received on
+  // other programs using the same interfaces.
   piksi_check(setsockopt(socket_can0, SOL_CAN_RAW, CAN_RAW_LOOPBACK,
-                         &cDisable, sizeof(cDisable)),
+                         &loopback, sizeof(loopback)),
               "Could not disable loopback on %s.", cInterfaceNameCan0);
   piksi_check(setsockopt(socket_can1, SOL_CAN_RAW, CAN_RAW_LOOPBACK,
-                         &cDisable, sizeof(cDisable)),
+                         &loopback, sizeof(loopback)),
               "Could not disable loopback on %s.", cInterfaceNameCan1);
 
   // Disable receiving own messages on CAN sockets, so that messages are not
   // received on the same socket they are sent from.
   piksi_check(setsockopt(socket_can0, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
-                         &cDisable, sizeof(cDisable)),
+                         &loopback, sizeof(loopback)),
               "Could not disable reception of own messages on %s.",
               cInterfaceNameCan0);
   piksi_check(setsockopt(socket_can1, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
-                         &cDisable, sizeof(cDisable)),
+                         &loopback, sizeof(loopback)),
               "Could not disable reception of own messages on %s.",
               cInterfaceNameCan1);
 
