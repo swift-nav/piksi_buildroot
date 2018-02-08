@@ -62,8 +62,8 @@ namespace {
     constexpr unsigned long cTransmitPGNs[] = {126992, 127250, 129025, 129026,
                                                129029, 129539, 129540, 0};
 
-    u32 bitrate_can0 = 500 * 1000;
-    u32 bitrate_can1 = 500 * 1000;
+    u32 bitrate_can0 = 250 * 1000;
+    u32 bitrate_can1 = 250 * 1000;
 
     constexpr int cEnable = 1;
     constexpr int cDisable = 0;
