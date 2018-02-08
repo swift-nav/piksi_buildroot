@@ -33,7 +33,6 @@ extern "C" {
 #include <libpiksi/sbp_zmq_rx.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
-#include <libsbp/can.h>
 #include <libsbp/navigation.h>
 #include <libsbp/orientation.h>
 #include <libsbp/sbp.h>
@@ -861,9 +860,9 @@ int main(int argc, char *argv[]) {
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode);
   NMEA2000.SetHeartbeatInterval(1000);
   NMEA2000.ExtendTransmitMessages(cTransmitPGNs);
-  NMEA2000.Open();
   piksi_check(!dynamic_cast<tNMEA2000_SocketCAN&>(NMEA2000).CANOpenForReal(socket_can0),
               "Could not open N2k for real.");
+  NMEA2000.Open();
   NMEA2000.SendIsoAddressClaim();
   NMEA2000.ParseMessages();
 
