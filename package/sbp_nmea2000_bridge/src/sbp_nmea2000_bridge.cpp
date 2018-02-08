@@ -226,7 +226,14 @@ namespace {
         }
     private:
         // Maps SBP GNSS method code to N2K GNSS method code.
-        // 0xX2 is GPS + GLONASS type of system.
+        // 0x2X is GPS + GLONASS type of system.
+        // The values from the lookup table are bitfields, which is why the
+        // order is reverse.
+        // 0: Invalid               -> 0x20: GPS + GLONASS, no GPS
+        // 1: Single Point Position -> 0x21: GPS + GLONASS, GNSS fix
+        // 2: Differential GNSS     -> 0x22: GPS + GLONASS, DGNSS fix
+        // 3: Float RTK             -> 0x25: GPS + GLONASS, RTK Float
+        // 4: Fixed RTK             -> 0x24: GPS + GLONASS, RTK Fixed Integer
         static constexpr u8 gnss_method_lut_[] = {0x02, 0x12, 0x22, 0x52, 0x42};
 
         double seconds_since_midnight_ = 0;
