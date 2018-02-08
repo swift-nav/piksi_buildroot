@@ -585,8 +585,17 @@ namespace {
                                     comparator_equal);
       sats_glo_end_it = std::unique(sats_glo.begin(), sats_glo_end_it,
                                     comparator_equal);
-      d << "\tDeduplicated. " << sats_gps_end_it - sats_gps.begin() +
-                                 sats_glo_end_it - sats_glo.begin()
+
+      // Triton2 screen that this was tested with acted weird in regards
+      // to sat count:
+      //  - up to 12 sats (inclusive), everything was displayed fine
+      //  - from 13 to 17 sats (inclusive), number 12 would be shown on screen
+      //  - from 18 and upwards, no sat count number would be shown
+      // The problem has to do with the number of detailed sat infos actually
+      // sent, not just the count that was sent.
+      u8 sat_count = sats_gps_end_it - sats_gps.begin() +
+                     sats_glo_end_it - sats_glo.begin();
+      d << "\tDeduplicated. " << static_cast<u16>(sat_count)
         << " sats left. GPS: " << sats_gps_end_it - sats_gps.begin()
         << " GLONASS: " << sats_glo_end_it - sats_glo.begin() << "\n";
 
@@ -597,8 +606,7 @@ namespace {
       N2kMsg.AddByte(tow_sequence_id_map.LatestSequenceId());
       // TODO(lstrz): Can I get range residuals from someplace?
       N2kMsg.AddByte(0xFF);
-      N2kMsg.AddByte(sats_gps_end_it - sats_gps.begin() +
-                     sats_glo_end_it - sats_glo.begin());
+      N2kMsg.AddByte(sat_count);
       for(auto it = sats_gps.begin(); it != sats_gps_end_it; ++it) {
         N2kMsg.AddByte(/*PRN=*/it->first);
         // TODO(lstrz): Can I get elevation and azimuth from someplace?
