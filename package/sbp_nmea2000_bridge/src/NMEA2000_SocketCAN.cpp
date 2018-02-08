@@ -149,13 +149,13 @@ bool tNMEA2000_SocketCAN::CANOpenForReal(int socket) {
     //----- Set socket for non-blocking
     int flags = fcntl(skt, F_GETFL, 0);
     if (flags < 0) {
-        cerr << "Failed CAN flag fetch" << endl;
-        return (false);
+        // cerr << "Failed CAN flag fetch" << endl;
+        return false;
     }
 
     if (fcntl(skt, F_SETFL, flags | O_NONBLOCK) < 0) {
-        cerr << "Failed CAN flag set" << endl;
-        return (false);
+        // cerr << "Failed CAN flag set" << endl;
+        return false;
     }
 
     return true;
