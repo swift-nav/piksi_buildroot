@@ -590,31 +590,31 @@ namespace {
       N2kMsg.Priority=6;
       // This sequence ID is a guess. Have no tow to get a definite one.
       N2kMsg.AddByte(tow_sequence_id_cache.LatestSequenceId());
-      // TODO(lstrz): Can I get range residuals from someplace?
+      // TODO: At present, we can't get range residuals.
       N2kMsg.AddByte(0xFF);
       N2kMsg.AddByte(sat_count);
       for(auto it = sats_gps.begin(); it != sats_gps_end_it; ++it) {
         N2kMsg.AddByte(/*PRN=*/it->first);
-        // TODO(lstrz): Can I get elevation and azimuth from someplace?
-        // Stefan: not in SBP, but see NMEA 183 message GSV implementation,
-        // we have (should have) some there I think
+        // TODO: At present, we can't get azimuth and elevation.
         N2kMsg.Add2ByteUDouble(/*elevation=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
         N2kMsg.Add2ByteUDouble(/*azimuth=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
         N2kMsg.Add2ByteUDouble(/*CN0=*/it->second * 0.25, 0.01, N2kDoubleNA);
+        // TODO: At present, we can't get range residuals.
         N2kMsg.Add4ByteUInt(/*rangeResiduals=*/N2kInt32NA);
-        // TODO(lstrz): Is the satellite used? Can I get that info someplece?
+        // TODO: At present, we can't tel if the satellite is used in the solution.
         N2kMsg.AddByte(/*tracked=*/0xFF);
       }
       for(auto it = sats_glo.begin(); it != sats_glo_end_it; ++it) {
         N2kMsg.AddByte(/*PRN=*/it->first + 64);
-        // TODO(lstrz): Can I get elevation and azimuth from someplace?
+        // TODO: At present, we can't get azimuth and elevation.
         // Stefan: not in SBP, but see NMEA 183 message GSV implementation,
         // we have (should have) some there I think
         N2kMsg.Add2ByteUDouble(/*elevation=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
         N2kMsg.Add2ByteUDouble(/*azimuth=*/N2kDoubleNA, 0.0001, N2kDoubleNA);
         N2kMsg.Add2ByteUDouble(/*CN0=*/it->second * 0.25, 0.01, N2kDoubleNA);
+        // TODO: At present, we can't get range residuals.
         N2kMsg.Add4ByteUInt(/*rangeResiduals=*/N2kInt32NA);
-        // TODO(lstrz): Is the satellite used? Can I get that info someplece?
+        // TODO: At present, we can't tel if the satellite is used in the solution.
         N2kMsg.AddByte(/*tracked=*/0xFF);
       }
       NMEA2000.SendMsg(N2kMsg);
