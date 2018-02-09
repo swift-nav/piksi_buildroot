@@ -177,7 +177,7 @@ static int glo_obs_timer_callback(health_monitor_t *monitor, void *context)
   if (glo_context_is_glonass_enabled() && glo_context_is_connected_to_base()) {
     sbp_log(
       LOG_WARNING,
-      "Reference GLONASS Observations Timeout - no glonass observations received from base station within %d sec window",
+      "Reference GLONASS Observations Timeout - no glonass observations received from base station within %d sec window. Disable GLONASS acquisition to suppress this message.",
       GLO_OBS_ALERT_RATE_LIMIT / 1000);
   }
   if (glo_context_is_connected_to_base()
