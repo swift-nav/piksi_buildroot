@@ -20,7 +20,7 @@ DOCKER_BUILD_VOLUME = piksi_buildroot-$(USER)$(_DOCKER_SUFFIX)
 DOCKER_TAG = piksi_buildroot-$(USER)$(_DOCKER_SUFFIX)
 
 PIKSI_INS_REF_REPO := git@github.com:swift-nav/piksi_inertial_ipsec_crl.git
-BR2_HAS_PIKSI_INS_REF := $(shell git ls-remote $(PIKSI_INS_REF_REPO) &>/dev/null && echo y)
+#BR2_HAS_PIKSI_INS_REF := $(shell git ls-remote $(PIKSI_INS_REF_REPO) &>/dev/null && echo y)
 
 export BR2_HAS_PIKSI_INS_REF
 

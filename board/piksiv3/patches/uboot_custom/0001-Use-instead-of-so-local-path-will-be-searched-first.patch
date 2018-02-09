@@ -1,0 +1,25 @@
+From 8f8af0d7f9f2243f67027a6ae62007e29f0940c2 Mon Sep 17 00:00:00 2001
+From: Jason Mobarak <jason@swiftnav.com>
+Date: Thu, 8 Feb 2018 22:21:48 -0800
+Subject: [PATCH] Use " instead of < so local path will be searched first
+
+---
+ tools/fdtgrep.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/fdtgrep.c b/tools/fdtgrep.c
+index 67aa41a..f9b37bf 100644
+--- a/tools/fdtgrep.c
++++ b/tools/fdtgrep.c
+@@ -16,7 +16,7 @@
+ #include <string.h>
+ #include <unistd.h>
+ 
+-#include <../include/libfdt.h>
++#include "../include/libfdt.h"
+ #include <libfdt_internal.h>
+ 
+ /* Define DEBUG to get some debugging output on stderr */
+-- 
+2.15.1
+

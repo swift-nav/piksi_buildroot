@@ -3,7 +3,7 @@ SOURCES= \
 	factory_data_tool.c \
 	uboot/factory_data.c
 LIBS=-lz
-CFLAGS=-std=gnu11
+CFLAGS += -std=gnu11
 
 CROSS=
 

@@ -19,7 +19,8 @@ define IMAGE_TABLE_TOOL_BUILD_CMDS
 	cp $(IMAGE_TABLE_TOOL_UBOOT_DIR)/include/image_table.h $(@D)/uboot
 	cp $(IMAGE_TABLE_TOOL_UBOOT_DIR)/common/image_table.c $(@D)/uboot
 
-	$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
+	CFLAGS="$(TARGET_CFLAGS)" LDFLAGS="$(TARGET_LDFLAGS)" \
+		$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef
 
 define IMAGE_TABLE_TOOL_INSTALL_TARGET_CMDS

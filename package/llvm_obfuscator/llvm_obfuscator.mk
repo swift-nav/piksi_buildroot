@@ -16,7 +16,7 @@ define HOST_LLVM_OBFUSCATOR_PRE_EXTRACT_FIXUP
 endef
 
 HOST_LLVM_OBFUSCATOR_PRE_EXTRACT_HOOKS += HOST_LLVM_OBFUSCATOR_PRE_EXTRACT_FIXUP
-SYSROOT = $(shell find $(HOST_DIR)/usr -name 'sysroot')
+SYSROOT = $(shell find $(HOST_DIR)/arm-buildroot-linux-gnueabihf -name 'sysroot')
 
 define HOST_LLVM_OBFUSCATOR_INSTALL_CMDS
 	mkdir -p $(HOST_DIR)/opt/llvm-obfuscator

@@ -3,7 +3,7 @@ SOURCES= \
 	main.c \
 
 LIBS=-lczmq -lsbp
-CFLAGS=-std=gnu11
+CFLAGS += -std=gnu11
 
 CROSS=
 

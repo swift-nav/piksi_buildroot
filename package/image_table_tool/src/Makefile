@@ -3,7 +3,7 @@ SOURCES= \
 	image_table_tool.c \
 	uboot/image_table.c
 LIBS=-lz
-CFLAGS=-std=gnu11
+CFLAGS += -std=gnu11
 
 CROSS=
 

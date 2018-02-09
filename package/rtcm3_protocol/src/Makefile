@@ -1,8 +1,8 @@
 TARGET=librtcm3_protocol
 SOURCES=info_rtcm3.c framer_rtcm3.c
-CFLAGS=-std=gnu11 -fPIC
+CFLAGS += -std=gnu11 -fPIC
 ARFLAGS=rcs
-LDFLAGS=-shared
+LDFLAGS += -shared
 
 CROSS=
 

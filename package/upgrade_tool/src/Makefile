@@ -9,7 +9,7 @@ SOURCES= \
 	uboot/image_table.c \
 	uboot/factory_data.c
 LIBS=-lz
-CFLAGS=-std=gnu11
+CFLAGS += -std=gnu11
 
 CROSS=
 

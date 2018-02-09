@@ -6,7 +6,7 @@ SOURCES= \
 
 LIBS=-lczmq -lsbp -lpiksi
 
-CFLAGS=-std=gnu11
+CFLAGS += -std=gnu11
 ARFLAGS=rcs
 
 CROSS=
