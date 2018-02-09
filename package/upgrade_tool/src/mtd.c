@@ -150,6 +150,8 @@ int mtd_write_and_verify(const partition_info_t *partition_info,
   debug_printf("writing mtd%d 0x%08x - 0x%08x...\n",
                partition_info->mtd_num, offset, offset + length);
 
+  int error_count = 0;
+
   /* write data */
   uint32_t write_offset = 0;
   while (write_offset < length) {
@@ -160,8 +162,11 @@ int mtd_write_and_verify(const partition_info_t *partition_info,
     }
 
     const void *write_data = &((const uint8_t *)data)[write_offset];
-    if (write(fd, write_data, write_length) != write_length) {
-      printf("error writing flash\n");
+    int written_len = write(fd, write_data, write_length);
+    if (written_len != write_length) {
+      printf("error writing flash: %s (write length: %d)\n", strerror(errno), written_len);
+      if (error_count++ < 2)
+        continue;
       return -1;
     }
 

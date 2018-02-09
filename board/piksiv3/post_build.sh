@@ -12,6 +12,11 @@ ROOTFS=$1
 FIRMWARE_DIR_ROOTFS=$ROOTFS/lib/firmware
 FIRMWARE_DIR=$BASE_DIR/../../firmware
 
+(
+  cd $FIRMWARE_DIR_ROOTFS
+  ln -s piksi_firmware.elf rproc-1b000000.remoteproc-fw
+)
+
 # Create firmware directory in the rootfs
 mkdir -p $FIRMWARE_DIR_ROOTFS
 
