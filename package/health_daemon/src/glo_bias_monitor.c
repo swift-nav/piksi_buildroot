@@ -62,7 +62,7 @@ static int glo_bias_timer_callback(health_monitor_t *monitor, void *context)
   if (glo_context_is_glonass_enabled() && glo_context_is_connected_to_base()) {
     sbp_log(
       LOG_WARNING,
-      "Reference GLONASS Biases Msg Timeout - no biases received from base station within %d sec window",
+      "Reference GLONASS Biases Msg Timeout - no biases received from base station within %d sec window. Disable GLONASS acquisition to suppress this message.",
       GLO_BIAS_ALERT_RATE_LIMIT / 1000);
   }
 
