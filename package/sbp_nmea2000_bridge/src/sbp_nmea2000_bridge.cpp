@@ -87,55 +87,31 @@ namespace {
     };
     debug_stream d;
 
-    // Maps time of week to a sequence ID in a circular buffer.
-    // Assumes that time of week monotonously increases and that every
-    // time of week value will go through this map. In other words, if values
-    // (increasing order) tow1, tow2, tow4 are already mapped, the value tow3
-    // will not fit in the  map anymore.
-    class TowSequenceIdMap {
+    // Caches the curren tow to a sequence ID. If tow changes, the sequence ID
+    // is incremented. Testing has shown that tow monotnously increases and
+    // that there is no need to remembere previous tow -> sequence ID mappings.
+    class TowSequenceIdCache {
     public:
         u8 LatestSequenceId() {
           return sequence_id_;
         }
 
         u8 operator[](u32 tow) {
-          if(tow > buffer_[head_].first) {  // Add new tow->sid mapping.
-            IncrementHead();
-            IncrementSequenceId();
-            buffer_[head_].first = tow;
-            buffer_[head_].second = sequence_id_;
-            return sequence_id_;
-          }
-
-          if(tow < buffer_[GetOldestEntryIndex()].first) {  // Tow too old.
+          if(tow == 0) {  // Invalid tow.
             return 0xFF;
           }
 
-          // Look up tow in the map.
-          // The map is small enough for linear search to be ok-ish.
-          for(auto p : buffer_) {
-            if(p.first == tow) {
-              return p.second;
-            }
+          if (tow > tow_) {  // Update the tow->sid mapping.
+            IncrementSequenceId();
+            tow_ = tow;
+            return sequence_id_;
+          } else if (tow < tow_) {  // Tow too old. This should not happen.
+            return 0xFF;  // Invalid tow.
+          } else {
+            return sequence_id_;
           }
-
-          return 0xFF;  // Tow not found.
         }
     private:
-        void IncrementHead() {
-          ++head_;
-          if(head_ >= buffer_.size()){
-            head_ = 0;
-          }
-        }
-
-        u8 GetOldestEntryIndex() {
-          u8 oldest_entry_index = head_ + 1;
-          if(oldest_entry_index >= buffer_.size()){
-            oldest_entry_index = 0;
-          }
-          return oldest_entry_index;
-        }
 
         u8 IncrementSequenceId() {
           ++sequence_id_;
@@ -145,13 +121,10 @@ namespace {
           return sequence_id_;
         }
 
-        // TODO(lstrz): Determine if a smaller buffer size would be enough.
-        static constexpr u32 cSequenceIdBufferSize = 16;
-        std::array<std::pair<u32, u8>, cSequenceIdBufferSize> buffer_ = {};
-        u8 head_ = 0;
+        u32 tow_ = 0;
         u8 sequence_id_ = 0;
     };
-    TowSequenceIdMap tow_sequence_id_map;
+    TowSequenceIdCache tow_sequence_id_cache;
 
     // Cache some info for composite N2k messages.
     class N2kCompositeMessageCache {
@@ -211,7 +184,7 @@ namespace {
         void FillN2kMsg(tN2kMsg *msg) {
           d << __FUNCTION__ << "\n";
 
-          SetN2kGNSS(*msg, tow_sequence_id_map[tow_], days_since_1970_,
+          SetN2kGNSS(*msg, tow_sequence_id_cache[tow_], days_since_1970_,
                      seconds_since_midnight_, lat_, lon_, alt_,
                      tN2kGNSStype::N2kGNSSt_GPSGLONASS,
                      tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_, hdop_,
@@ -410,7 +383,7 @@ namespace {
         << "\tSeconds since midnight: " << seconds_since_midnight << "\n";
 
       tN2kMsg N2kMsg;
-      SetN2kSystemTime(N2kMsg, tow_sequence_id_map[sbp_utc_time->tow],
+      SetN2kSystemTime(N2kMsg, tow_sequence_id_cache[sbp_utc_time->tow],
                        days_since_1970, seconds_since_midnight,
                        tN2kTimeSource::N2ktimes_GPS);
       NMEA2000.SendMsg(N2kMsg);
@@ -443,7 +416,7 @@ namespace {
         << DegToRad(sbp_baseline_heading->heading / 1000.0) << "\n";
 
       tN2kMsg N2kMsg;
-      SetN2kTrueHeading(N2kMsg, tow_sequence_id_map[sbp_baseline_heading->tow],
+      SetN2kTrueHeading(N2kMsg, tow_sequence_id_cache[sbp_baseline_heading->tow],
                         DegToRad(sbp_baseline_heading->heading / 1000.0));
       NMEA2000.SendMsg(N2kMsg);
 
@@ -494,7 +467,7 @@ namespace {
         << "\tSpeed over ground in m/s: " << sog_mps << "\n";
 
       tN2kMsg N2kMsg;
-      SetN2kCOGSOGRapid(N2kMsg, tow_sequence_id_map[sbp_vel_ned->tow],
+      SetN2kCOGSOGRapid(N2kMsg, tow_sequence_id_cache[sbp_vel_ned->tow],
                         tN2kHeadingReference::N2khr_true,
                         cog_rad, sog_mps);
       NMEA2000.SendMsg(N2kMsg);
@@ -512,7 +485,7 @@ namespace {
       auto sbp_dops = reinterpret_cast<msg_dops_t*>(msg);
 
       tN2kMsg N2kMsg;
-      SetN2kGNSSDOPData(N2kMsg, tow_sequence_id_map[sbp_dops->tow],
+      SetN2kGNSSDOPData(N2kMsg, tow_sequence_id_cache[sbp_dops->tow],
               /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
               /*ActualMode=*/(sbp_dops->flags == 0) ?
                              tN2kGNSSDOPmode::N2kGNSSdm_Error :
@@ -615,8 +588,8 @@ namespace {
       tN2kMsg N2kMsg;
       N2kMsg.SetPGN(129540L);
       N2kMsg.Priority=6;
-      // This sequence ID is a guess. Have no info to get a definite one.
-      N2kMsg.AddByte(tow_sequence_id_map.LatestSequenceId());
+      // This sequence ID is a guess. Have no tow to get a definite one.
+      N2kMsg.AddByte(tow_sequence_id_cache.LatestSequenceId());
       // TODO(lstrz): Can I get range residuals from someplace?
       N2kMsg.AddByte(0xFF);
       N2kMsg.AddByte(sat_count);
@@ -691,8 +664,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Set the CAN bitrate. This must be done before turning them back on.
-  printf("Setting bitrate to %" PRIu32 " and %" PRIu32 ".\n",
-         bitrate_can0, bitrate_can1);
+  d << "Setting bitrate to " << bitrate_can0 << " and " << bitrate_can1 << "\n";
   piksi_check(can_set_bitrate(cInterfaceNameCan0, bitrate_can0),
               "Could not set bitrate %" PRId32 " on interface %s",
               bitrate_can0, cInterfaceNameCan0);
