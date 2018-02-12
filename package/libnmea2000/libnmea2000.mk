@@ -10,11 +10,11 @@ LIBNMEA2000_SITE_METHOD = git
 LIBNMEA2000_INSTALL_STAGING = YES
 
 define LIBNMEA2000_INSTALL_TARGET_CMDS
-    for i in $(@D)/src/*.so; do $(INSTALL) $$i $(TARGET_DIR)/usr/lib/; done
+    for i in $(@D)/src/*.a; do $(INSTALL) $$i $(TARGET_DIR)/usr/lib/; done
 endef
 
 define LIBNMEA2000_INSTALL_STAGING_CMDS
-    for i in $(@D)/src/*.so; do $(INSTALL) $$i $(STAGING_DIR)/usr/lib/; done
+    for i in $(@D)/src/*.a; do $(INSTALL) $$i $(STAGING_DIR)/usr/lib/; done
     for i in $(@D)/src/*.h; do $(INSTALL) $$i $(STAGING_DIR)/usr/include/; done
 endef
 

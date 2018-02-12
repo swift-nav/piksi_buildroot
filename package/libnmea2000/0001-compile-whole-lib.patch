@@ -12,10 +12,15 @@ index c62ad3a..ee99503 100644
  add_subdirectory(third-party/catch)
 -add_subdirectory(test)
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index d7fab27..e61e808 100644
+index d7fab27..6d87ddf 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -27,6 +27,11 @@ add_library(nmea2000
+@@ -23,10 +23,16 @@
+ 
+ 
+ add_library(nmea2000
++  STATIC
+   N2kMsg.cpp
    N2kStream.cpp
    N2kMessages.cpp
    Seasmart.cpp
