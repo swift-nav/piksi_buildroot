@@ -33,16 +33,16 @@
 #define FIXED_POSITION 4
 #define POSITION_MODE_MASK 0x07 /* Bits 0-2 */
 
-#define BASELINE_THRESHOLD (80000.0f)     /* m */
-#define BASELINE_ALERT_RATE_LIMIT (1000u) /* ms */
+#define BASELINE_THRESHOLD_M (80000.0f)     /* m */
+#define BASELINE_ALERT_RATE_LIMIT (1000u)   /* ms */
 
-#define MM_TO_M_FLOAT(val_in_mm) ((float)(val_in_mm) / 1000)
+#define MM_TO_M_FLOAT(val_in_mm) ((float)(val_in_mm) / 1000.0f)
 static health_monitor_t *baseline_monitor;
 
 static struct baseline_monitor_ctx_s {
   bool past_threshold;
   float distance_over_threshold;
-} baseline_monitor_ctx = { false, 0.0 };
+} baseline_monitor_ctx = { false, 0.0f };
 
 static int sbp_msg_baseline_ecef_callback(health_monitor_t *monitor,
                                           u16 sender_id,
@@ -65,8 +65,8 @@ static int sbp_msg_baseline_ecef_callback(health_monitor_t *monitor,
     float x_m = MM_TO_M_FLOAT(msg->x);
     float y_m = MM_TO_M_FLOAT(msg->y);
     float z_m = MM_TO_M_FLOAT(msg->z);
-    float distance = (float)sqrt(pow(x_m, 2) + pow(y_m, 2) + pow(z_m, 2));
-    if (distance > BASELINE_THRESHOLD) {
+    float distance = sqrtf(x_m * x_m + y_m * y_m + z_m * z_m);
+    if (distance > BASELINE_THRESHOLD_M) {
       baseline_monitor_ctx.distance_over_threshold = distance;
       baseline_monitor_ctx.past_threshold = true;
       result = 1;
