@@ -19,6 +19,9 @@
 #include <libpiksi/logging.h>
 #include <libsbp/file_io.h>
 
+#include <pthread.h>
+#include <aio.h>
+
 #include "sbp_fileio.h"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
@@ -28,11 +31,46 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 
+/* Asynchronous IO cleanup thread */
+static pthread_mutex_t aio_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+static struct aio_request_node {
+  struct aiocb cb;
+  struct aio_request_node *next;
+} *aio_request_head;
+
+void *aio_cleanup_thread(void *data)
+{
+  for (;;) {
+    sleep(5);
+    pthread_mutex_lock(&aio_list_mutex);
+    while (aio_request_head) {
+      /* Bail on first request that isn't complete */
+      if (aio_error(&aio_request_head->cb) == EINPROGRESS)
+        break;
+
+      /* Close file and free resources on completed request */
+      struct aio_request_node *c = aio_request_head;
+      aio_request_head = c->next;
+      fprintf(stderr, "%15d aio cleanup %p %d\n", time(NULL), c, aio_return(&c->cb));
+      close(c->cb.aio_fildes);
+      free((void*)c->cb.aio_buf);
+      free(c);
+
+    }
+    pthread_mutex_unlock(&aio_list_mutex);
+  }
+  return NULL;
+}
+
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
 void sbp_fileio_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
 {
+  /* Start thread to clean up async IO requests */
+  pthread_t thread;
+  pthread_create(&thread, NULL, aio_cleanup_thread, NULL);
+
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ,
                                read_cb, tx_ctx, NULL);
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ,
@@ -166,9 +204,32 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
   int f = open(msg->filename, O_WRONLY | O_CREAT, 0666);
-  lseek(f, msg->offset, SEEK_SET);
-  write(f, msg_ + headerlen, len - headerlen);
-  close(f);
+  //lseek(f, msg->offset, SEEK_SET);
+  //write(f, msg_ + headerlen, len - headerlen);
+  //close(f);
+
+  /* Set up and submit async IO request */
+  struct aio_request_node *c = calloc(1, sizeof(*c));
+  c->cb.aio_fildes = f;
+  c->cb.aio_offset = msg->offset;
+  c->cb.aio_nbytes = len - headerlen;
+  c->cb.aio_buf = malloc(c->cb.aio_nbytes);
+  memcpy((void*)c->cb.aio_buf, msg_ + headerlen, c->cb.aio_nbytes);
+  fprintf(stderr, "%15d aio submit %p write(%d (%s), ..., %d) @ 0x%x\n",
+          time(NULL), c, f, msg->filename, c->cb.aio_nbytes, msg->offset);
+  aio_write(&c->cb);
+
+  /* Add request to list to be cleaned up when done */
+  pthread_mutex_lock(&aio_list_mutex);
+  if (aio_request_head == NULL) {
+    aio_request_head = c;
+  } else {
+    struct aio_request_node *x;
+    for (x = aio_request_head; x->next; x = x->next)
+      ;
+    x->next = c;
+  }
+  pthread_mutex_unlock(&aio_list_mutex);
 
   msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
   sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
