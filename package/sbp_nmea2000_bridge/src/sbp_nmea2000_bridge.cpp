@@ -134,7 +134,6 @@ namespace {
           Reset();
         }
 
-        // TODO Fix tow 0 being valid.
         void ResetIfOld(u32 tow) {
           constexpr u32 cOverflowDiff = 1000 * 60 * 60;  // One hour in ms.
           if(tow > tow_ ||  // Check if new tow or if overflown.
