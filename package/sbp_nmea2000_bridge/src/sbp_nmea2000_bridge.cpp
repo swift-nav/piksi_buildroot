@@ -43,6 +43,7 @@ extern "C" {
 #define USE_N2K_CAN 5
 #include <N2kMessages.h>
 #include <libpiksi/common.h>
+#include <c/include/libsbp/navigation.h>
 #include "NMEA2000_CAN.h"
 #include "NMEA2000_SocketCAN.h"
 #include "sbp.h"
@@ -86,6 +87,10 @@ namespace {
         }
     };
     debug_stream d;
+
+    bool IsFlagsValid(const uint8_t flags, const uint8_t bits) {
+      return (flags & ((1 << bits) - 1)) != 0;
+    }
 
     // Caches the curren tow to a sequence ID. If tow changes, the sequence ID
     // is incremented. Testing has shown that tow monotnously increases and
@@ -135,6 +140,7 @@ namespace {
           ResetIfOld(1);
         }
 
+        // TODO Fix tow 0 being valid.
         void ResetIfOld(u32 tow) {
           if(tow > tow_) {
             tow_ = tow;
@@ -165,7 +171,7 @@ namespace {
             lat_ = msg->lat;
             lon_ = msg->lon;
             alt_ = msg->height;
-            sat_count_ = msg->n_sats;
+            sat_count_ = msg->n_sats;  // Sats used in solution.
             gnss_metod_ = gnss_method_lut_[msg->flags];
             lat_set_ = lon_set_ = alt_set_ = sat_count_set_ = gnss_metod_set_ =
                     true;
@@ -184,6 +190,7 @@ namespace {
         void FillN2kMsg(tN2kMsg *msg) {
           d << __FUNCTION__ << "\n";
 
+          d << "\tSats used in solution: " << sat_count_ << "\n";
           SetN2kGNSS(*msg, tow_sequence_id_cache[tow_], days_since_1970_,
                      seconds_since_midnight_, lat_, lon_, alt_,
                      tN2kGNSStype::N2kGNSSt_GPSGLONASS,
@@ -218,7 +225,7 @@ namespace {
         u32 tow_ = 0;
         uint16_t days_since_1970_ = 0;
         u8 gnss_metod_ = 0;
-        u8 sat_count_ = 0;
+        u8 sat_count_ = 0;  // Number of sats used in solution.
 
         bool seconds_since_midnight_set_ : 1;
         bool lat_set_ : 1;
@@ -283,19 +290,19 @@ namespace {
 
     void calculate_cog_sog(const msg_vel_ned_t *sbp_vel_ned,
                            double *cog_rad, double *sog_mps) {
-      /* Millimeters to meters. */
+      // Millimeters to meters.
       double vel_north_mps = sbp_vel_ned->n / 1000.0;
       double vel_east_mps = sbp_vel_ned->e / 1000.0;
 
       *cog_rad = atan2(vel_east_mps, vel_north_mps);
 
-      /* Convert negative values to positive */
+      // Convert negative values to positive.
       constexpr double kFullCircleRad = 2 * 3.1415926535897932384626433832795;
       if (*cog_rad < 0.0) {
         *cog_rad += kFullCircleRad;
       }
 
-      /* Avoid having duplicate values for same point (0 and 360) */
+      // Avoid having duplicate values for same point (0 and 360).
       if (fabs(kFullCircleRad - *cog_rad) < 10e-1) {
         *cog_rad = 0;
       }
@@ -438,7 +445,11 @@ namespace {
         << "\tAlt: " << sbp_pos->height << "\n";
 
       tN2kMsg N2kMsg;
-      SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
+      if(IsFlagsValid(sbp_pos->flags, /*bits=*/3)) {
+        SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
+      } else {
+        SetN2kLatLonRapid(N2kMsg, N2kDoubleNA, N2kDoubleNA);
+      }
       NMEA2000.SendMsg(N2kMsg);
 
       n2k_composite_message_cache.ResetIfOld(sbp_pos->tow);
@@ -467,9 +478,15 @@ namespace {
         << "\tSpeed over ground in m/s: " << sog_mps << "\n";
 
       tN2kMsg N2kMsg;
-      SetN2kCOGSOGRapid(N2kMsg, tow_sequence_id_cache[sbp_vel_ned->tow],
-                        tN2kHeadingReference::N2khr_true,
-                        cog_rad, sog_mps);
+      if(IsFlagsValid(sbp_vel_ned->flags, /*bits=*/3)) {
+        SetN2kCOGSOGRapid(N2kMsg, tow_sequence_id_cache[sbp_vel_ned->tow],
+                          tN2kHeadingReference::N2khr_true,
+                          cog_rad, sog_mps);
+      } else {
+        SetN2kCOGSOGRapid(N2kMsg, /*sequence ID=*/0xFF,
+                          tN2kHeadingReference::N2khr_true,
+                          N2kDoubleNA, N2kDoubleNA);
+      }
       NMEA2000.SendMsg(N2kMsg);
 
       d << "\tDone.\n";
@@ -579,6 +596,7 @@ namespace {
       //  - from 18 and upwards, no sat count number would be shown
       // The problem has to do with the number of detailed sat infos actually
       // sent, not just the count that was sent.
+      // This is the number of tracked satellites.
       u8 sat_count = sats_gps_end_it - sats_gps.begin() +
                      sats_glo_end_it - sats_glo.begin();
       d << "\tDeduplicated. " << static_cast<u16>(sat_count)
