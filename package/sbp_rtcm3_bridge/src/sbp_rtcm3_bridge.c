@@ -148,7 +148,7 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   } else {
     leap_second = gps_tod + 86400 - utc_tod;
   }
-  
+
   rtcm2sbp_set_leap_second(leap_second,&state);
 }
 
@@ -199,6 +199,11 @@ int main(int argc, char *argv[])
 
   if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting UTC TIME callback");
+    exit(EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_SETTINGS_READ_RESP, sbp_read_resp_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting SBP READ RESP callback");
     exit(EXIT_FAILURE);
   }
 
