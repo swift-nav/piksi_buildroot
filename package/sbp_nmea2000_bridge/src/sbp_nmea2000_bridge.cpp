@@ -88,10 +88,6 @@ namespace {
     };
     debug_stream d;
 
-    bool IsFlagsValid(const uint8_t flags, const uint8_t bits) {
-      return (flags & ((1 << bits) - 1)) != 0;
-    }
-
     // Caches the curren tow to a sequence ID. If tow changes, the sequence ID
     // is incremented. Testing has shown that tow monotnously increases and
     // that there is no need to remembere previous tow -> sequence ID mappings.
@@ -135,18 +131,16 @@ namespace {
     class N2kCompositeMessageCache {
     public:
         N2kCompositeMessageCache() {
-          // Pass a 1, as the smallest integer larger than 0, to initialize
-          // the bitfields to zero.
-          ResetIfOld(1);
+          Reset();
         }
 
         // TODO Fix tow 0 being valid.
         void ResetIfOld(u32 tow) {
-          if(tow > tow_) {
+          constexpr u32 cOverflowDiff = 1000 * 60 * 60;  // One hour in ms.
+          if(tow > tow_ ||  // Check if new tow or if overflown.
+             tow < tow_ && tow_ - tow <= cOverflowDiff) {
             tow_ = tow;
-            seconds_since_midnight_set_ = lat_set_ = lon_set_ = alt_set_ =
-            hdop_set_ = pdop_set_ = days_since_1970_set_ =
-            gnss_metod_set_ = sat_count_set_ = false;
+            Reset();
           }
         }
 
@@ -197,7 +191,7 @@ namespace {
                      tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_, hdop_,
                      pdop_);
           // Have to do GNSS method manually. It's not reverse engineered yet.
-          // msg->Data[31] = gnss_metod_;
+          msg->Data[31] = gnss_metod_;
           // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
           // 0: No integrity checking.
           msg->Data[32] = 0xFC | 0x00;
@@ -205,6 +199,12 @@ namespace {
           d << "\tDone.\n";
         }
     private:
+        void Reset() {
+          seconds_since_midnight_set_ = lat_set_ = lon_set_ = alt_set_ =
+          hdop_set_ = pdop_set_ = days_since_1970_set_ =
+          gnss_metod_set_ = sat_count_set_ = false;
+        }
+
         // Maps SBP GNSS method code to N2K GNSS method code.
         // 0x2X is GPS + GLONASS type of system.
         // The values from the lookup table are bitfields, which is why the
@@ -223,7 +223,7 @@ namespace {
         double hdop_ = 0;
         double pdop_ = 0;
         u32 tow_ = 0;
-        uint16_t days_since_1970_ = 0;
+        u16 days_since_1970_ = 0;
         u8 gnss_metod_ = 0;
         u8 sat_count_ = 0;  // Number of sats used in solution.
 
@@ -286,6 +286,10 @@ namespace {
       }
 
       return 0;
+    }
+
+    bool is_flags_valid(const u8 flags, const u8 bits) {
+      return (flags & ((1 << bits) - 1)) != 0;
     }
 
     void calculate_cog_sog(const msg_vel_ned_t *sbp_vel_ned,
@@ -390,18 +394,27 @@ namespace {
         << "\tSeconds since midnight: " << seconds_since_midnight << "\n";
 
       tN2kMsg N2kMsg;
-      SetN2kSystemTime(N2kMsg, tow_sequence_id_cache[sbp_utc_time->tow],
-                       days_since_1970, seconds_since_midnight,
-                       tN2kTimeSource::N2ktimes_GPS);
+      if (is_flags_valid(sbp_utc_time->flags, /*bits=*/3)) {
+        SetN2kSystemTime(N2kMsg, tow_sequence_id_cache[sbp_utc_time->tow],
+                         days_since_1970, seconds_since_midnight,
+                         tN2kTimeSource::N2ktimes_GPS);
+      } else {
+        SetN2kSystemTime(N2kMsg, /*sequence ID=*/0xFF,
+                         N2kUInt16NA, N2kDoubleNA,
+                         tN2kTimeSource::N2ktimes_GPS);
+      }
       NMEA2000.SendMsg(N2kMsg);
 
-      n2k_composite_message_cache.ResetIfOld(sbp_utc_time->tow);
-      n2k_composite_message_cache.SetFields(sbp_utc_time->tow, days_since_1970,
-                                            seconds_since_midnight);
-      if(n2k_composite_message_cache.IsAllFieldsSet()) {
-        N2kMsg.Clear();
-        n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
-        NMEA2000.SendMsg(N2kMsg);
+      if (is_flags_valid(sbp_utc_time->flags, /*bits=*/3)) {
+        n2k_composite_message_cache.ResetIfOld(sbp_utc_time->tow);
+        n2k_composite_message_cache.SetFields(sbp_utc_time->tow,
+                                              days_since_1970,
+                                              seconds_since_midnight);
+        if (n2k_composite_message_cache.IsAllFieldsSet()) {
+          N2kMsg.Clear();
+          n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
+          NMEA2000.SendMsg(N2kMsg);
+        }
       }
 
       d << "\tDone.\n";
@@ -445,19 +458,21 @@ namespace {
         << "\tAlt: " << sbp_pos->height << "\n";
 
       tN2kMsg N2kMsg;
-      if(IsFlagsValid(sbp_pos->flags, /*bits=*/3)) {
+      if(is_flags_valid(sbp_pos->flags, /*bits=*/3)) {
         SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
       } else {
         SetN2kLatLonRapid(N2kMsg, N2kDoubleNA, N2kDoubleNA);
       }
       NMEA2000.SendMsg(N2kMsg);
 
-      n2k_composite_message_cache.ResetIfOld(sbp_pos->tow);
-      n2k_composite_message_cache.SetFields(sbp_pos);
-      if(n2k_composite_message_cache.IsAllFieldsSet()){
-        N2kMsg.Clear();
-        n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
-        NMEA2000.SendMsg(N2kMsg);
+      if (is_flags_valid(sbp_pos->flags, /*bits=*/3)) {
+        n2k_composite_message_cache.ResetIfOld(sbp_pos->tow);
+        n2k_composite_message_cache.SetFields(sbp_pos);
+        if (n2k_composite_message_cache.IsAllFieldsSet()) {
+          N2kMsg.Clear();
+          n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
+          NMEA2000.SendMsg(N2kMsg);
+        }
       }
 
       d << "\tDone.\n";
@@ -478,7 +493,7 @@ namespace {
         << "\tSpeed over ground in m/s: " << sog_mps << "\n";
 
       tN2kMsg N2kMsg;
-      if(IsFlagsValid(sbp_vel_ned->flags, /*bits=*/3)) {
+      if(is_flags_valid(sbp_vel_ned->flags, /*bits=*/3)) {
         SetN2kCOGSOGRapid(N2kMsg, tow_sequence_id_cache[sbp_vel_ned->tow],
                           tN2kHeadingReference::N2khr_true,
                           cog_rad, sog_mps);
@@ -502,14 +517,19 @@ namespace {
       auto sbp_dops = reinterpret_cast<msg_dops_t*>(msg);
 
       tN2kMsg N2kMsg;
-      SetN2kGNSSDOPData(N2kMsg, tow_sequence_id_cache[sbp_dops->tow],
-              /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
-              /*ActualMode=*/(sbp_dops->flags == 0) ?
-                             tN2kGNSSDOPmode::N2kGNSSdm_Error :
-                             tN2kGNSSDOPmode::N2kGNSSdm_3D,
-                        sbp_dops->hdop / 100.0,
-                        sbp_dops->vdop / 100.0,
-                        sbp_dops->tdop / 100.0);
+      if (is_flags_valid(sbp_dops->flags, /*bits=*/3)) {
+        SetN2kGNSSDOPData(N2kMsg, tow_sequence_id_cache[sbp_dops->tow],
+                /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
+                /*ActualMode=*/tN2kGNSSDOPmode::N2kGNSSdm_3D,
+                          sbp_dops->hdop / 100.0,
+                          sbp_dops->vdop / 100.0,
+                          sbp_dops->tdop / 100.0);
+      } else {
+        SetN2kGNSSDOPData(N2kMsg, /*sequence ID=*/0xFF,
+                /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
+                /*ActualMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Error,
+                          N2kDoubleNA, N2kDoubleNA, N2kDoubleNA);
+      }
       NMEA2000.SendMsg(N2kMsg);
 
       d << "\tTOW: " << sbp_dops->tow << "\n"
@@ -517,12 +537,14 @@ namespace {
         << "\tVDOP: " << sbp_dops->vdop / 100.0 << "\n"
         << "\tTDOP: " << sbp_dops->tdop / 100.0 << "\n";
 
-      n2k_composite_message_cache.ResetIfOld(sbp_dops->tow);
-      n2k_composite_message_cache.SetFields(sbp_dops);
-      if(n2k_composite_message_cache.IsAllFieldsSet()){
-        N2kMsg.Clear();
-        n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
-        NMEA2000.SendMsg(N2kMsg);
+      if (is_flags_valid(sbp_dops->flags, /*bits=*/3)) {
+        n2k_composite_message_cache.ResetIfOld(sbp_dops->tow);
+        n2k_composite_message_cache.SetFields(sbp_dops);
+        if (n2k_composite_message_cache.IsAllFieldsSet()) {
+          N2kMsg.Clear();
+          n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
+          NMEA2000.SendMsg(N2kMsg);
+        }
       }
 
       d << "\tDone.\n";
