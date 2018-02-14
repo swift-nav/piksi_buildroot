@@ -150,11 +150,9 @@ namespace {
         }
 
         bool IsAllFieldsSet() {
-          return seconds_since_midnight_set_ && lat_set_ && lon_set_ &&
-                 alt_set_ && hdop_set_ && pdop_set_ &&
-                 days_since_1970_set_ && gnss_metod_set_ &&
-                 sat_count_set_ && (tow_ % 1000) == 0;
-          // TODO Tni % 1000 is temporary fix to achieve 1 Hz. +- 5ms is fine.
+          return utc_time_set_ && pos_llh_set_ && dops_set_ &&
+                 (tow_ % 1000) == 0;
+          // The '% 1000' is temporary fix to achieve 1 Hz. +- 5ms is fine.
         }
 
         void SetFields(const u32 tow, const u16 days_since_1970,
@@ -162,7 +160,7 @@ namespace {
           if(tow == tow_) {
             days_since_1970_ = days_since_1970;
             seconds_since_midnight_ = seconds_since_midnight;
-            days_since_1970_set_ = seconds_since_midnight_set_ = true;
+            utc_time_set_ = true;
           }
         }
 
@@ -173,8 +171,7 @@ namespace {
             alt_ = msg->height;
             sat_count_ = msg->n_sats;  // Sats used in solution.
             gnss_metod_ = gnss_method_lut_[msg->flags & 0x07];
-            lat_set_ = lon_set_ = alt_set_ = sat_count_set_ = gnss_metod_set_ =
-                    true;
+            pos_llh_set_ = true;
           }
         }
 
@@ -182,7 +179,7 @@ namespace {
           if (msg->tow == tow_) {
             hdop_ = static_cast<double>(msg->hdop) / 100.0;
             pdop_ = static_cast<double>(msg->pdop) / 100.0;
-            hdop_set_ = pdop_set_ = true;
+            dops_set_ = true;
           }
         }
 
@@ -211,9 +208,7 @@ namespace {
         }
     private:
         void Reset() {
-          seconds_since_midnight_set_ = lat_set_ = lon_set_ = alt_set_ =
-          hdop_set_ = pdop_set_ = days_since_1970_set_ =
-          gnss_metod_set_ = sat_count_set_ = false;
+          utc_time_set_ = pos_llh_set_ = dops_set_ = false;
         }
 
         // Maps SBP GNSS method code to N2K GNSS method code.
@@ -239,16 +234,9 @@ namespace {
         u8 gnss_metod_ = 0;
         u8 sat_count_ = 0;  // Number of sats used in solution.
 
-        // TODO(lstrz): We only need three flags here.
-        bool seconds_since_midnight_set_ = false;
-        bool lat_set_ = false;
-        bool lon_set_ = false;
-        bool alt_set_ = false;
-        bool hdop_set_ = false;
-        bool pdop_set_ = false;
-        bool days_since_1970_set_ = false;
-        bool gnss_metod_set_ = false;
-        bool sat_count_set_ = false;
+        bool utc_time_set_ = false;
+        bool pos_llh_set_ = false;
+        bool dops_set_ = false;
     };
     N2kCompositeMessageCache n2k_composite_message_cache;
     constexpr u8 N2kCompositeMessageCache::gnss_method_lut_[];
