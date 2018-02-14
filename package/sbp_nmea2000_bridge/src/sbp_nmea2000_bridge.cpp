@@ -851,28 +851,28 @@ int main(int argc, char *argv[]) {
   }
 
   // Register callbacks for SBP messages.
-//  piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
-//                                    callback_sbp_tracking_state,
-//                                    sbp_zmq_pubsub_zloop_get(ctx)),
-//              "Could not register callback. Message: %" PRIu16,
-//              SBP_MSG_TRACKING_STATE);
+  piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
+                                    callback_sbp_tracking_state,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_TRACKING_STATE);
   piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,
               SBP_MSG_UTC_TIME);
-//  piksi_check(sbp_callback_register(SBP_MSG_BASELINE_HEADING,
-//                                    callback_sbp_baseline_heading,
-//                                    sbp_zmq_pubsub_zloop_get(ctx)),
-//              "Could not register callback. Message: %" PRIu16,
-//              SBP_MSG_BASELINE_HEADING);
+  piksi_check(sbp_callback_register(SBP_MSG_BASELINE_HEADING,
+                                    callback_sbp_baseline_heading,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_BASELINE_HEADING);
   piksi_check(sbp_callback_register(SBP_MSG_POS_LLH, callback_sbp_pos_llh,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,
               SBP_MSG_POS_LLH);
-//  piksi_check(sbp_callback_register(SBP_MSG_VEL_NED, callback_sbp_vel_ned,
-//                                    sbp_zmq_pubsub_zloop_get(ctx)),
-//              "Could not register callback. Message: %" PRIu16,
-//              SBP_MSG_VEL_NED);
+  piksi_check(sbp_callback_register(SBP_MSG_VEL_NED, callback_sbp_vel_ned,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_VEL_NED);
   piksi_check(sbp_callback_register(SBP_MSG_DOPS, callback_sbp_dops,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,
@@ -896,9 +896,11 @@ int main(int argc, char *argv[]) {
   // ModelSerialCode, ProductCode, ModelID, SwCode, ModelVersion,
   // LoadEquivalency, N2kVersion, CertificationLevel, UniqueNumber,
   // DeviceFunction, DeviceClass, ManufacturerCode, IndustryGroup
-  NMEA2000.SetProductInformation(manufacturers_model_serial_code, 0xFFFF, 0, 0,
-                                 0, 0xFF, cNmeaNetworkMessageDatabaseVersion,
-                                 0xFF);
+  NMEA2000.SetProductInformation(manufacturers_model_serial_code,
+                                 cNmeaManufacturersProductCode, 0, 0,
+                                 0, cLoadEquivalency,
+                                 cNmeaNetworkMessageDatabaseVersion,
+                                 cNMEA2000CertificationLevel);
   NMEA2000.SetDeviceInformation(0x1337,
           /*_DeviceFunction=*/0xff,
           /*_DeviceClass=*/0xff, /*_ManufacturerCode=*/883);
