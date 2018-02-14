@@ -149,10 +149,16 @@ namespace {
           }
         }
 
-        bool IsAllFieldsSet() {
-          return utc_time_set_ && pos_llh_set_ && dops_set_ &&
-                 (tow_ % 1000) == 0;
-          // The '% 1000' is temporary fix to achieve 1 Hz. +- 5ms is fine.
+        bool IsReadyToSend(bool is_valid) {
+          // Checking ((tow_ % 10000) / 100) limits divider to two digits.
+          if(is_valid) {
+            divider_counter_ = ((tow_ % 10000) / 100) % divider_;
+            return utc_time_set_ && pos_llh_set_ && dops_set_ &&
+                   divider_counter_ == 0;
+          } else {  // This should be hit only by a single SBP message.
+            divider_counter_ = (divider_counter_ + 1) % divider_;
+            return divider_counter_ == 0;
+          }
         }
 
         void SetFields(const u32 tow, const u16 days_since_1970,
@@ -184,25 +190,42 @@ namespace {
         }
 
         // PGN 129029
-        // TODO(lstrz): Write a proper divider.
-        void FillN2kMsg(tN2kMsg *msg) {
+        void FillN2kMsg(tN2kMsg *msg, bool is_valid) {
           d << __FUNCTION__ << "\n";
 
-          d << "\tSats used in solution: " << static_cast<u16>(sat_count_) << "\n";
-          SetN2kGNSS(*msg, tow_sequence_id_cache[tow_], days_since_1970_,
-                     seconds_since_midnight_, lat_, lon_, alt_,
-                     tN2kGNSStype::N2kGNSSt_GPSGLONASS,
-                     tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_, hdop_,
-                     pdop_, /*GeoidalSeparation=*/N2kDoubleNA);
-          // We've hardcoded reference station count to zero. That's a lie when
-          // RTK is in use. We're happy with it, for now.
+          if(is_valid) {
+            d << "\tSats used in solution: " << static_cast<u16>(sat_count_)
+              << "\n";
+            SetN2kGNSS(*msg, tow_sequence_id_cache[tow_], days_since_1970_,
+                       seconds_since_midnight_, lat_, lon_, alt_,
+                       tN2kGNSStype::N2kGNSSt_GPSGLONASS,
+                       tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_, hdop_,
+                       pdop_, /*GeoidalSeparation=*/N2kDoubleNA);
+            // We've hardcoded reference station count to zero.
+            // That's a lie when RTK is in use. We're happy with it, for now.
 
-          // Have to do GNSS method manually. It's not reverse engineered yet.
-          msg->Data[31] = gnss_metod_;
-          // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
-          // That's why there are two values binary ORed together.
-          // 0: No integrity checking.
-          msg->Data[32] = 0xFC | 0x00;
+            // Have to do GNSS method manually. It's not reverse engineered yet.
+            msg->Data[31] = gnss_metod_;
+            // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
+            // That's why there are two values binary ORed together.
+            // 0: No integrity checking.
+            msg->Data[32] = 0xFC | 0x00;
+          } else {
+            SetN2kGNSS(*msg, /*sequence ID=*/0xFF,
+                    /*DaysSince1970=*/N2kUInt16NA,
+                    /*SecondsSinceMidnight=*/N2kDoubleNA,
+                    /*Latitude=*/N2kDoubleNA, /*Longitude=*/N2kDoubleNA,
+                    /*Altitude=*/N2kDoubleNA, tN2kGNSStype::N2kGNSSt_GPSGLONASS,
+                       tN2kGNSSmethod::N2kGNSSm_PreciseGNSS,
+                    /*nSatellites=*/N2kUInt8NA, /*HDOP=*/N2kDoubleNA,
+                    /*PDOP=*/N2kDoubleNA, /*GeoidalSeparation=*/N2kDoubleNA);
+            // Have to do GNSS method manually. It's not reverse engineered yet.
+            msg->Data[31] = gnss_metod_;
+            // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
+            // That's why there are two values binary ORed together.
+            // 0: No integrity checking.
+            msg->Data[32] = 0xFC | 0x00;
+          }
 
           d << "\tDone.\n";
         }
@@ -222,6 +245,9 @@ namespace {
         // 4: Fixed RTK             -> 0x24: GPS + GLONASS, RTK Fixed Integer
         static constexpr u8 gnss_method_lut_[] = {0x02, 0x12, 0x22, 0x52,
                                                   0x42, 0x02, 0x02, 0x02};
+        // Need to change logic in IsReadyToSend to support more than
+        // two digit dividers.
+        static constexpr u8 divider_ = 10;
 
         double seconds_since_midnight_ = 0.0;
         double lat_ = 0.0;
@@ -233,6 +259,7 @@ namespace {
         u16 days_since_1970_ = 0;
         u8 gnss_metod_ = 0;
         u8 sat_count_ = 0;  // Number of sats used in solution.
+        u8 divider_counter_ = 0;
 
         bool utc_time_set_ = false;
         bool pos_llh_set_ = false;
@@ -396,8 +423,10 @@ namespace {
         << "\tDays since 1970: " << days_since_1970 << "\n"
         << "\tSeconds since midnight: " << seconds_since_midnight << "\n";
 
+      bool is_valid = is_flags_valid(sbp_utc_time->flags, /*bits=*/3);
+
       tN2kMsg N2kMsg;
-      if (is_flags_valid(sbp_utc_time->flags, /*bits=*/3)) {
+      if (is_valid) {
         SetN2kSystemTime(N2kMsg, tow_sequence_id_cache[sbp_utc_time->tow],
                          days_since_1970, seconds_since_midnight,
                          tN2kTimeSource::N2ktimes_GPS);
@@ -408,16 +437,15 @@ namespace {
       }
       NMEA2000.SendMsg(N2kMsg);
 
-      if (is_flags_valid(sbp_utc_time->flags, /*bits=*/3)) {
-        n2k_composite_message_cache.ResetIfOld(sbp_utc_time->tow);
-        n2k_composite_message_cache.SetFields(sbp_utc_time->tow,
-                                              days_since_1970,
-                                              seconds_since_midnight);
-        if (n2k_composite_message_cache.IsAllFieldsSet()) {
-          N2kMsg.Clear();
-          n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
-          NMEA2000.SendMsg(N2kMsg);
-        }
+      n2k_composite_message_cache.ResetIfOld(sbp_utc_time->tow);
+      n2k_composite_message_cache.SetFields(sbp_utc_time->tow,
+                                            days_since_1970,
+                                            seconds_since_midnight);
+      if (is_valid &&
+          n2k_composite_message_cache.IsReadyToSend(/*is_valid=*/true)) {
+        N2kMsg.Clear();
+        n2k_composite_message_cache.FillN2kMsg(&N2kMsg, /*is_valid=*/true);
+        NMEA2000.SendMsg(N2kMsg);
       }
 
       d << "\tDone.\n";
@@ -460,25 +488,24 @@ namespace {
         << "\tLon: " << sbp_pos->lon << "\n"
         << "\tAlt: " << sbp_pos->height << "\n";
 
+      bool is_valid =is_flags_valid(sbp_pos->flags, /*bits=*/3);
+
       tN2kMsg N2kMsg;
-      if(is_flags_valid(sbp_pos->flags, /*bits=*/3)) {
+      if(is_valid) {
         SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
       } else {
         SetN2kLatLonRapid(N2kMsg, N2kDoubleNA, N2kDoubleNA);
       }
       NMEA2000.SendMsg(N2kMsg);
 
-      if (is_flags_valid(sbp_pos->flags, /*bits=*/3)) {
-        n2k_composite_message_cache.ResetIfOld(sbp_pos->tow);
-        n2k_composite_message_cache.SetFields(sbp_pos);
-        if (n2k_composite_message_cache.IsAllFieldsSet()) {
-          N2kMsg.Clear();
-          n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
-          NMEA2000.SendMsg(N2kMsg);
-        }
-      } else {
-        // TODO(lstrz): In case of invalid position, UTC message marks an epoch.
-        // Then send an invalid 129029 on every tenth epoch.
+      // In case of invalid position, pos_llh message marks an epoch.
+      // Therefore, we don't check for validity here.
+      n2k_composite_message_cache.ResetIfOld(sbp_pos->tow);
+      n2k_composite_message_cache.SetFields(sbp_pos);
+      if (n2k_composite_message_cache.IsReadyToSend(is_valid)) {
+        N2kMsg.Clear();
+        n2k_composite_message_cache.FillN2kMsg(&N2kMsg, is_valid);
+        NMEA2000.SendMsg(N2kMsg);
       }
 
       d << "\tDone.\n";
@@ -522,8 +549,10 @@ namespace {
 
       auto sbp_dops = reinterpret_cast<msg_dops_t*>(msg);
 
+      bool is_valid = is_flags_valid(sbp_dops->flags, /*bits=*/3);
+
       tN2kMsg N2kMsg;
-      if (is_flags_valid(sbp_dops->flags, /*bits=*/3)) {
+      if (is_valid) {
         SetN2kGNSSDOPData(N2kMsg, tow_sequence_id_cache[sbp_dops->tow],
                 /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
                 /*ActualMode=*/tN2kGNSSDOPmode::N2kGNSSdm_3D,
@@ -543,14 +572,13 @@ namespace {
         << "\tVDOP: " << sbp_dops->vdop / 100.0 << "\n"
         << "\tTDOP: " << sbp_dops->tdop / 100.0 << "\n";
 
-      if (is_flags_valid(sbp_dops->flags, /*bits=*/3)) {
-        n2k_composite_message_cache.ResetIfOld(sbp_dops->tow);
-        n2k_composite_message_cache.SetFields(sbp_dops);
-        if (n2k_composite_message_cache.IsAllFieldsSet()) {
-          N2kMsg.Clear();
-          n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
-          NMEA2000.SendMsg(N2kMsg);
-        }
+      n2k_composite_message_cache.ResetIfOld(sbp_dops->tow);
+      n2k_composite_message_cache.SetFields(sbp_dops);
+      if (is_valid &&
+          n2k_composite_message_cache.IsReadyToSend(/*is_valid=*/true)) {
+        N2kMsg.Clear();
+        n2k_composite_message_cache.FillN2kMsg(&N2kMsg, /*is_valid=*/true);
+        NMEA2000.SendMsg(N2kMsg);
       }
 
       d << "\tDone.\n";
@@ -823,28 +851,28 @@ int main(int argc, char *argv[]) {
   }
 
   // Register callbacks for SBP messages.
-  piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
-                                    callback_sbp_tracking_state,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_TRACKING_STATE);
+//  piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
+//                                    callback_sbp_tracking_state,
+//                                    sbp_zmq_pubsub_zloop_get(ctx)),
+//              "Could not register callback. Message: %" PRIu16,
+//              SBP_MSG_TRACKING_STATE);
   piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,
               SBP_MSG_UTC_TIME);
-  piksi_check(sbp_callback_register(SBP_MSG_BASELINE_HEADING,
-                                    callback_sbp_baseline_heading,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_BASELINE_HEADING);
+//  piksi_check(sbp_callback_register(SBP_MSG_BASELINE_HEADING,
+//                                    callback_sbp_baseline_heading,
+//                                    sbp_zmq_pubsub_zloop_get(ctx)),
+//              "Could not register callback. Message: %" PRIu16,
+//              SBP_MSG_BASELINE_HEADING);
   piksi_check(sbp_callback_register(SBP_MSG_POS_LLH, callback_sbp_pos_llh,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,
               SBP_MSG_POS_LLH);
-  piksi_check(sbp_callback_register(SBP_MSG_VEL_NED, callback_sbp_vel_ned,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_VEL_NED);
+//  piksi_check(sbp_callback_register(SBP_MSG_VEL_NED, callback_sbp_vel_ned,
+//                                    sbp_zmq_pubsub_zloop_get(ctx)),
+//              "Could not register callback. Message: %" PRIu16,
+//              SBP_MSG_VEL_NED);
   piksi_check(sbp_callback_register(SBP_MSG_DOPS, callback_sbp_dops,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not register callback. Message: %" PRIu16,
@@ -868,7 +896,9 @@ int main(int argc, char *argv[]) {
   // ModelSerialCode, ProductCode, ModelID, SwCode, ModelVersion,
   // LoadEquivalency, N2kVersion, CertificationLevel, UniqueNumber,
   // DeviceFunction, DeviceClass, ManufacturerCode, IndustryGroup
-  NMEA2000.SetProductInformation(manufacturers_model_serial_code, 0xFFFF, 0, 0, 0, 0xFF, cNmeaNetworkMessageDatabaseVersion, 0xFF);
+  NMEA2000.SetProductInformation(manufacturers_model_serial_code, 0xFFFF, 0, 0,
+                                 0, 0xFF, cNmeaNetworkMessageDatabaseVersion,
+                                 0xFF);
   NMEA2000.SetDeviceInformation(0x1337,
           /*_DeviceFunction=*/0xff,
           /*_DeviceClass=*/0xff, /*_ManufacturerCode=*/883);
