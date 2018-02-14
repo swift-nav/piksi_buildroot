@@ -356,8 +356,6 @@ namespace {
       tm_utc_time.tm_min = sbp_utc_t->minutes;
       tm_utc_time.tm_sec = sbp_utc_t->seconds;
       tm_utc_time.tm_isdst = -1;  // -1 means no idea. mktime() will know.
-      // TODO(lstrz): Verify sizeof(time_t).
-      // TODO(lstrz): Verify that mktime handles leap years.
       time_t utc_time_since_epoch = mktime(&tm_utc_time);
 
       constexpr u32 cSecondsInADay = 60 * 60 * 24;
