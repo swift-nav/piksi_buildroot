@@ -46,6 +46,7 @@ static double offset = 0;
 static bool enable_broadcast = false;
 static int broadcast_port = 56666;
 static char broadcast_hostname[256] = "255.255.255.255";
+static bool ntrip_enable = false;
 
 static udp_broadcast_context udp_context;
 
@@ -133,6 +134,7 @@ static int notify_settings_changed(void *context)
   (void)context;
 
   sbp_log(LOG_DEBUG, "Settings changed: enable_broadcast = %d, broadcast port = %d, offset = %04.04f", enable_broadcast, broadcast_port, offset);
+  sbp_log(LOG_DEBUG, "Settings watched: ntrip_enable= %d", ntrip_enable);
 
   close_udp_broadcast_socket(&udp_context);
 
@@ -221,6 +223,11 @@ int main(int argc, char *argv[])
                     &broadcast_hostname, sizeof(broadcast_hostname),
                     SETTINGS_TYPE_STRING,
                     notify_settings_changed, NULL);
+
+  settings_add_watch(settings_ctx, "ntrip", "enable",
+                     &ntrip_enable, sizeof(ntrip_enable),
+                     SETTINGS_TYPE_BOOL,
+                     notify_settings_changed, NULL);
 
   sbp_log(LOG_INFO, "Ready!");
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
