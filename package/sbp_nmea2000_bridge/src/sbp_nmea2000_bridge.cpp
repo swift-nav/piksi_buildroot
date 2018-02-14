@@ -43,6 +43,7 @@ extern "C" {
 #define USE_N2K_CAN 5
 #include <N2kMessages.h>
 #include <libpiksi/common.h>
+#include <c/include/libsbp/orientation.h>
 #include "NMEA2000_CAN.h"
 #include "NMEA2000_SocketCAN.h"
 #include "sbp.h"
@@ -426,10 +427,15 @@ namespace {
         << "\tBaseline heading in rad: "
         << DegToRad(sbp_baseline_heading->heading / 1000.0) << "\n";
 
-      // TODO(lstrz): The only valid heading here is 4: Fixed RTK.
+      bool is_valid = (sbp_baseline_heading->flags & 0x07) == 4;
+
       tN2kMsg N2kMsg;
-      SetN2kTrueHeading(N2kMsg, tow_to_sid(sbp_baseline_heading->tow),
-                        DegToRad(sbp_baseline_heading->heading / 1000.0));
+      if (is_valid) {
+        SetN2kTrueHeading(N2kMsg, tow_to_sid(sbp_baseline_heading->tow),
+                          DegToRad(sbp_baseline_heading->heading / 1000.0));
+      } else {
+        SetN2kTrueHeading(N2kMsg, /*sequence ID=*/0xFF, N2kDoubleNA);
+      }
       NMEA2000.SendMsg(N2kMsg);
 
       d << "\tDone.\n";
