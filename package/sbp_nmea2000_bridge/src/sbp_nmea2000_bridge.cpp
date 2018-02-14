@@ -43,7 +43,6 @@ extern "C" {
 #define USE_N2K_CAN 5
 #include <N2kMessages.h>
 #include <libpiksi/common.h>
-#include <c/include/libsbp/navigation.h>
 #include "NMEA2000_CAN.h"
 #include "NMEA2000_SocketCAN.h"
 #include "sbp.h"
@@ -75,7 +74,16 @@ namespace {
     // Not used at present, actually.
     constexpr char cEndpointPub[] = ">tcp://127.0.0.1:43091";
 
-    constexpr char cSerialNumberPath[] = "/factory/mfg_id";
+    // Product information.
+    constexpr u16 cNmeaNetworkMessageDatabaseVersion = 2100;
+    constexpr u16 cNmeaManufacturersProductCode = 0xFFFF;  // Assigned by NMEA.
+//    u8 cManufacturersModelId[32] = "";  // Piksi Multi or Piksi Duro or Piksi Nano.
+//    u8 cManufacturersSoftwareVersionCode[32] = "";  // 1.3.something and so on.
+//    u8 cManufacturersModelVersion[32] = "";  // Hardware revision?
+    char manufacturers_model_serial_code[32] = "";
+    constexpr char cModelSerialCodePath[] = "/factory/mfg_id";
+    constexpr u8 cNMEA2000CertificationLevel = 2;  // Not applicable any more. Part of old standard.
+    constexpr u8 cLoadEquivalency = 8;
 
     struct debug_stream {
         template<typename T>
@@ -130,14 +138,12 @@ namespace {
     // Cache some info for composite N2k messages.
     class N2kCompositeMessageCache {
     public:
-        N2kCompositeMessageCache() {
-          Reset();
-        }
+        N2kCompositeMessageCache() = default;
 
         void ResetIfOld(u32 tow) {
           constexpr u32 cOverflowDiff = 1000 * 60 * 60;  // One hour in ms.
-          if(tow > tow_ ||  // Check if new tow or if overflown.
-             tow < tow_ && tow_ - tow <= cOverflowDiff) {
+          if((tow > tow_) ||  // Check if new tow or if overflown.
+             ((tow < tow_) && ((tow_ - tow) <= cOverflowDiff))) {
             tow_ = tow;
             Reset();
           }
@@ -147,7 +153,8 @@ namespace {
           return seconds_since_midnight_set_ && lat_set_ && lon_set_ &&
                  alt_set_ && hdop_set_ && pdop_set_ &&
                  days_since_1970_set_ && gnss_metod_set_ &&
-                 sat_count_set_;
+                 sat_count_set_ && (tow_ % 1000) == 0;
+          // TODO Tni % 1000 is temporary fix to achieve 1 Hz. +- 5ms is fine.
         }
 
         void SetFields(const u32 tow, const u16 days_since_1970,
@@ -165,7 +172,7 @@ namespace {
             lon_ = msg->lon;
             alt_ = msg->height;
             sat_count_ = msg->n_sats;  // Sats used in solution.
-            gnss_metod_ = gnss_method_lut_[msg->flags];
+            gnss_metod_ = gnss_method_lut_[msg->flags & 0x07];
             lat_set_ = lon_set_ = alt_set_ = sat_count_set_ = gnss_metod_set_ =
                     true;
           }
@@ -173,25 +180,30 @@ namespace {
 
         void SetFields(const msg_dops_t *msg) {
           if (msg->tow == tow_) {
-            hdop_ = msg->hdop / 100.0;
-            pdop_ = msg->pdop / 100.0;
+            hdop_ = static_cast<double>(msg->hdop) / 100.0;
+            pdop_ = static_cast<double>(msg->pdop) / 100.0;
             hdop_set_ = pdop_set_ = true;
           }
         }
 
         // PGN 129029
+        // TODO(lstrz): Write a proper divider.
         void FillN2kMsg(tN2kMsg *msg) {
           d << __FUNCTION__ << "\n";
 
-          d << "\tSats used in solution: " << sat_count_ << "\n";
+          d << "\tSats used in solution: " << static_cast<u16>(sat_count_) << "\n";
           SetN2kGNSS(*msg, tow_sequence_id_cache[tow_], days_since_1970_,
                      seconds_since_midnight_, lat_, lon_, alt_,
                      tN2kGNSStype::N2kGNSSt_GPSGLONASS,
                      tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_, hdop_,
-                     pdop_);
+                     pdop_, /*GeoidalSeparation=*/N2kDoubleNA);
+          // We've hardcoded reference station count to zero. That's a lie when
+          // RTK is in use. We're happy with it, for now.
+
           // Have to do GNSS method manually. It's not reverse engineered yet.
           msg->Data[31] = gnss_metod_;
           // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
+          // That's why there are two values binary ORed together.
           // 0: No integrity checking.
           msg->Data[32] = 0xFC | 0x00;
 
@@ -213,28 +225,30 @@ namespace {
         // 2: Differential GNSS     -> 0x22: GPS + GLONASS, DGNSS fix
         // 3: Float RTK             -> 0x25: GPS + GLONASS, RTK Float
         // 4: Fixed RTK             -> 0x24: GPS + GLONASS, RTK Fixed Integer
-        static constexpr u8 gnss_method_lut_[] = {0x02, 0x12, 0x22, 0x52, 0x42};
+        static constexpr u8 gnss_method_lut_[] = {0x02, 0x12, 0x22, 0x52,
+                                                  0x42, 0x02, 0x02, 0x02};
 
-        double seconds_since_midnight_ = 0;
-        double lat_ = 0;
-        double lon_ = 0;
-        double alt_ = 0;
-        double hdop_ = 0;
-        double pdop_ = 0;
+        double seconds_since_midnight_ = 0.0;
+        double lat_ = 0.0;
+        double lon_ = 0.0;
+        double alt_ = 0.0;
+        double hdop_ = 0.0;
+        double pdop_ = 0.0;
         u32 tow_ = 0;
         u16 days_since_1970_ = 0;
         u8 gnss_metod_ = 0;
         u8 sat_count_ = 0;  // Number of sats used in solution.
 
-        bool seconds_since_midnight_set_ : 1;
-        bool lat_set_ : 1;
-        bool lon_set_ : 1;
-        bool alt_set_ : 1;
-        bool hdop_set_ : 1;
-        bool pdop_set_ : 1;
-        bool days_since_1970_set_ : 1;
-        bool gnss_metod_set_ : 1;
-        bool sat_count_set_ : 1;
+        // TODO(lstrz): We only need three flags here.
+        bool seconds_since_midnight_set_ = false;
+        bool lat_set_ = false;
+        bool lon_set_ = false;
+        bool alt_set_ = false;
+        bool hdop_set_ = false;
+        bool pdop_set_ = false;
+        bool days_since_1970_set_ = false;
+        bool gnss_metod_set_ = false;
+        bool sat_count_set_ = false;
     };
     N2kCompositeMessageCache n2k_composite_message_cache;
     constexpr u8 N2kCompositeMessageCache::gnss_method_lut_[];
@@ -327,6 +341,8 @@ namespace {
       tm_utc_time.tm_min = sbp_utc_t->minutes;
       tm_utc_time.tm_sec = sbp_utc_t->seconds;
       tm_utc_time.tm_isdst = -1;  // -1 means no idea. mktime() will know.
+      // TODO(lstrz): Verify sizeof(time_t).
+      // TODO(lstrz): Verify that mktime handles leap years.
       time_t utc_time_since_epoch = mktime(&tm_utc_time);
 
       constexpr u32 cSecondsInADay = 60 * 60 * 24;
@@ -472,6 +488,9 @@ namespace {
           n2k_composite_message_cache.FillN2kMsg(&N2kMsg);
           NMEA2000.SendMsg(N2kMsg);
         }
+      } else {
+        // TODO(lstrz): In case of invalid position, UTC message marks an epoch.
+        // Then send an invalid 129029 on every tenth epoch.
       }
 
       d << "\tDone.\n";
@@ -848,14 +867,10 @@ int main(int argc, char *argv[]) {
               SBP_MSG_HEARTBEAT);
 
   // Read the serial number.
-  std::string serial_num_str;
-  unsigned long serial_num;
   { // The block automagically cleans up the file object.
-    std::fstream serial_num_file(cSerialNumberPath, std::ios_base::in);
-    serial_num_file >> serial_num_str;
-    std::stringstream ss;
-    ss.str(serial_num_str);
-    ss >> serial_num;
+    std::fstream serial_num_file(cModelSerialCodePath, std::ios_base::in);
+    serial_num_file.read(manufacturers_model_serial_code,
+                         sizeof(manufacturers_model_serial_code) - 1);
   }
 
   // Set N2K info and options.
@@ -865,8 +880,9 @@ int main(int argc, char *argv[]) {
   // ModelSerialCode, ProductCode, ModelID, SwCode, ModelVersion,
   // LoadEquivalency, N2kVersion, CertificationLevel, UniqueNumber,
   // DeviceFunction, DeviceClass, ManufacturerCode, IndustryGroup
-  NMEA2000.SetProductInformation(serial_num_str.c_str());
-  NMEA2000.SetDeviceInformation(serial_num, /*_DeviceFunction=*/0xff,
+  NMEA2000.SetProductInformation(manufacturers_model_serial_code, 0xFFFF, 0, 0, 0, 0xFF, cNmeaNetworkMessageDatabaseVersion, 0xFF);
+  NMEA2000.SetDeviceInformation(0x1337,
+          /*_DeviceFunction=*/0xff,
           /*_DeviceClass=*/0xff, /*_ManufacturerCode=*/883);
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode);
   NMEA2000.SetHeartbeatInterval(1000);
