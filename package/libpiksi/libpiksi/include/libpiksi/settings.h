@@ -147,6 +147,30 @@ int settings_register_readonly(settings_ctx_t *ctx, const char *section,
                                size_t var_len, settings_type_t type);
 
 /**
+ * @brief   Create and add a watch only setting.
+ * @details Create and add a watch only setting.
+ *
+ * @param[in] ctx           Pointer to the context to use.
+ * @param[in] section       String describing the setting section.
+ * @param[in] name          String describing the setting name.
+ * @param[in] var           Address of the setting variable. This location will
+ *                          be written directly by the settings module.
+ * @param[in] var_len       Size of the setting variable.
+ * @param[in] type          Type of the setting.
+ * @param[in] notify        Notify function to be executed when the setting is
+ *                          updated by a write response
+ * @param[in] notify_context Context passed to the notify function.
+ *
+ * @return                  The operation result.
+ * @retval 0                The setting was registered successfully.
+ * @retval -1               An error occurred.
+ */
+int settings_add_watch(settings_ctx_t *ctx, const char *section,
+                       const char *name, void *var, size_t var_len,
+                       settings_type_t type, settings_notify_fn notify,
+                       void *notify_context);
+
+/**
  * @brief   Read and process incoming data.
  * @details Read and process a single incoming ZMQ message.
  *

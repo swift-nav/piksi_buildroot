@@ -21,10 +21,22 @@
 #define PUB_ENDPOINT ">tcp://127.0.0.1:43071"
 #define SUB_ENDPOINT ">tcp://127.0.0.1:43070"
 
-#define REGISTER_TIMEOUT_ms 100
+#define REGISTER_TIMEOUT_MS 100
 #define REGISTER_TRIES 5
 
+#define WATCH_INIT_TIMEOUT_MS 100
+#define WATCH_INIT_TRIES 5
+
 #define SBP_PAYLOAD_SIZE_MAX 255
+
+#ifdef SBP_MSG_SETTINGS_WRITE_RESP
+/* this should be specified in libsbp */
+enum {
+  SBP_WRITE_STATUS_OK,
+  SBP_WRITE_STATUS_VALUE_REJECTED,
+  SBP_WRITE_STATUS_SETTING_REJECTED,
+};
+#endif
 
 typedef int (*to_string_fn)(const void *priv, char *str, int slen,
                             const void *blob, int blen);
@@ -50,6 +62,7 @@ typedef struct setting_data_s {
   settings_notify_fn notify;
   void *notify_context;
   bool readonly;
+  bool watchonly;
   struct setting_data_s *next;
 } setting_data_t;
 
@@ -65,6 +78,12 @@ struct settings_ctx_s {
   type_data_t *type_data_list;
   setting_data_t *setting_data_list;
   registration_state_t registration_state;
+  bool write_callback_registered;
+#ifdef SBP_MSG_SETTINGS_WRITE_RESP
+  bool write_resp_callback_registered;
+#else
+  bool read_resp_callback_registered;
+#endif
 };
 
 static const char * const bool_enum_names[] = {"False", "True", NULL};
@@ -404,16 +423,33 @@ static void setting_data_members_destroy(setting_data_t *setting_data)
   }
 }
 
-static int setting_register(settings_ctx_t *ctx, const char *section,
-                            const char *name, void *var, size_t var_len,
-                            settings_type_t type, settings_notify_fn notify,
-                            void *notify_context, bool readonly)
+static void setting_data_list_remove(settings_ctx_t *ctx,
+                                     setting_data_t **setting_data)
+{
+  if (ctx->setting_data_list != NULL) {
+    setting_data_t *s;
+    /* Find element before the one to remove */
+    for (s = ctx->setting_data_list; s->next != NULL; s = s->next) {
+      if (s->next == *setting_data) {
+        setting_data_members_destroy(s->next);
+        free(s->next);
+        *setting_data = NULL;
+        s->next = s->next->next;
+      }
+    }
+  }
+}
+
+static setting_data_t * setting_create_setting(settings_ctx_t *ctx, const char *section,
+                                               const char *name, void *var, size_t var_len,
+                                               settings_type_t type, settings_notify_fn notify,
+                                               void *notify_context, bool readonly, bool watchonly)
 {
   /* Look up type data */
   type_data_t *type_data = type_data_lookup(ctx, type);
   if (type_data == NULL) {
     piksi_log(LOG_ERR, "invalid type");
-    return -1;
+    return NULL;
   }
 
   /* Set up setting data */
@@ -421,7 +457,7 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
                                      malloc(sizeof(*setting_data));
   if (setting_data == NULL) {
     piksi_log(LOG_ERR, "error allocating setting data");
-    return -1;
+    return NULL;
   }
 
   *setting_data = (setting_data_t) {
@@ -434,6 +470,7 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
     .notify = notify,
     .notify_context = notify_context,
     .readonly = readonly,
+    .watchonly = watchonly,
     .next = NULL
   };
 
@@ -444,12 +481,67 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
     setting_data_members_destroy(setting_data);
     free(setting_data);
     setting_data = NULL;
+  }
+
+  return setting_data;
+}
+
+static int setting_perform_request_reply_from(settings_ctx_t *ctx,
+                                              u16 message_type,
+                                              u8 *message,
+                                              u8 message_length,
+                                              u8 header_length,
+                                              u32 timeout_ms,
+                                              u8 retries,
+                                              u16 sender_id)
+{
+  /* Register with daemon */
+  compare_init(ctx, message, header_length);
+
+  u8 tries = 0;
+  bool success = false;
+  do {
+    sbp_zmq_tx_send_from(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+                         message_type,
+                         message_length,
+                         message,
+                         sender_id);
+    zmq_simple_loop_timeout(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
+                            timeout_ms);
+    success = compare_match(ctx);
+  } while (!success && (++tries < retries));
+
+  compare_deinit(ctx);
+
+  if (!success) {
+    piksi_log(LOG_ERR, "setting req/reply failed");
     return -1;
   }
 
-  /* Add to list */
-  setting_data_list_insert(ctx, setting_data);
+  return 0;
+}
 
+static int setting_perform_request_reply(settings_ctx_t *ctx,
+                                         u16 message_type,
+                                         u8 *message,
+                                         u8 message_length,
+                                         u8 header_length,
+                                         u16 timeout_ms,
+                                         u8 retries)
+{
+  u16 sender_id = sbp_sender_id_get();
+  return setting_perform_request_reply_from(ctx,
+                                            message_type,
+                                            message,
+                                            message_length,
+                                            header_length,
+                                            timeout_ms,
+                                            retries,
+                                            sender_id);
+}
+
+static int setting_register(settings_ctx_t *ctx, setting_data_t *setting_data)
+{
   /* Build message */
   u8 msg[SBP_PAYLOAD_SIZE_MAX];
   u8 msg_len = 0;
@@ -471,27 +563,161 @@ static int setting_register(settings_ctx_t *ctx, const char *section,
   }
   msg_len += l;
 
-  /* Register with daemon */
-  compare_init(ctx, msg, msg_header_len);
+  return setting_perform_request_reply(ctx,
+                                       SBP_MSG_SETTINGS_REGISTER,
+                                       msg,
+                                       msg_len,
+                                       msg_header_len,
+                                       REGISTER_TIMEOUT_MS,
+                                       REGISTER_TRIES);
+}
 
-  u8 tries = 0;
-  bool success = false;
-  do {
-    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                    SBP_MSG_SETTINGS_REGISTER, msg_len, msg);
-    zmq_simple_loop_timeout(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
-                            REGISTER_TIMEOUT_ms);
-    success = compare_match(ctx);
+static int setting_read_watched_value(settings_ctx_t *ctx, setting_data_t *setting_data)
+{
+  /* Build message */
+  u8 msg[SBP_PAYLOAD_SIZE_MAX];
+  u8 msg_len = 0;
+  int l;
 
-  } while (!success && (++tries < REGISTER_TRIES));
-
-  compare_deinit(ctx);
-
-  if (!success) {
-    piksi_log(LOG_ERR, "setting registration failed");
+  if (!setting_data->watchonly) {
+    piksi_log(LOG_ERR, "cannot update non-watchonly setting manually");
     return -1;
   }
 
+  l = message_header_get(setting_data, &msg[msg_len], sizeof(msg) - msg_len);
+  if (l < 0) {
+    piksi_log(LOG_ERR, "error building settings read req message");
+    return -1;
+  }
+  msg_len += l;
+
+  return setting_perform_request_reply_from(ctx,
+                                            SBP_MSG_SETTINGS_READ_REQ,
+                                            msg,
+                                            msg_len,
+                                            msg_len,
+                                            WATCH_INIT_TIMEOUT_MS,
+                                            WATCH_INIT_TRIES,
+                                            SBP_SENDER_ID);
+}
+
+static int setting_parse_setting_text(const u8 *msg,
+                                      u8 msg_n,
+                                      const char **section,
+                                      const char **name,
+                                      const char **value)
+{
+  const char **result_holders[] = { section, name, value };
+  u8 start = 0;
+  u8 end = 0;
+  for (u8 i = 0; i < sizeof(result_holders) / sizeof(*result_holders); i++) {
+    bool found = false;
+    *(result_holders[i]) = NULL;
+    while (end < msg_n) {
+      if (msg[end] == '\0') {
+        if (end == start) {
+          return -1;
+        } else {
+          *(result_holders[i]) = (const char *)msg + start;
+          start = (u8)(end + 1);
+          found = true;
+        }
+      }
+      end++;
+      if (found) {
+        break;
+      }
+    }
+  }
+  return 0;
+}
+
+static int setting_format_setting(setting_data_t *setting_data, char *buf, int len)
+{
+  int result = 0;
+  int written = 0;
+
+  result = message_header_get(setting_data, buf, len - written);
+  if (result < 0) {
+    return result;
+  }
+  written += result;
+
+  result = message_data_get(setting_data, buf + written, len - written);
+  if (result < 0) {
+    return result;
+  }
+  written += result;
+
+  return written;
+}
+
+#ifdef SBP_MSG_SETTINGS_WRITE_RESP
+static void setting_update_value(setting_data_t *setting_data, const char *value, u8 *write_result)
+{
+  *write_result = SBP_WRITE_STATUS_OK;
+  /* Store copy and update value */
+  memcpy(setting_data->var_copy, setting_data->var, setting_data->var_len);
+  if (!setting_data->type_data->from_string(setting_data->type_data->priv,
+        setting_data->var,
+        setting_data->var_len,
+        value)) {
+    /* Revert value if conversion fails */
+    memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
+    *write_result = SBP_WRITE_STATUS_VALUE_REJECTED;
+  } else if (setting_data->notify != NULL) {
+    /* Call notify function */
+    if (setting_data->notify(setting_data->notify_context) != 0) {
+      /* Revert value if notify returns error */
+      memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
+      *write_result = SBP_WRITE_STATUS_VALUE_REJECTED;
+    }
+  }
+}
+#else
+static void setting_update_value(setting_data_t *setting_data, const char *value)
+{
+  /* Store copy and update value */
+  memcpy(setting_data->var_copy, setting_data->var, setting_data->var_len);
+  if (!setting_data->type_data->from_string(setting_data->type_data->priv,
+        setting_data->var,
+        setting_data->var_len,
+        value)) {
+    /* Revert value if conversion fails */
+    memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
+  } else if (setting_data->notify != NULL) {
+    /* Call notify function */
+    if (setting_data->notify(setting_data->notify_context) != 0) {
+      /* Revert value if notify returns error */
+      memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
+    }
+  }
+}
+#endif
+
+#ifdef SBP_MSG_SETTINGS_WRITE_RESP
+static int setting_send_write_response(settings_ctx_t *ctx,
+                                         msg_settings_write_resp_t *write_response,
+                                         u8 len)
+{
+  if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+        SBP_MSG_SETTINGS_WRITE_RESP, len, (u8 *)write_response) != 0) {
+    piksi_log(LOG_ERR, "error sending settings write response");
+    return -1;
+  }
+  return 0;
+}
+#endif
+
+static int setting_send_read_response(settings_ctx_t *ctx,
+                                      msg_settings_read_resp_t *read_response,
+                                      u8 len)
+{
+  if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+        SBP_MSG_SETTINGS_READ_RESP, len, (u8 *)read_response) != 0) {
+    piksi_log(LOG_ERR, "error sending settings read response");
+    return -1;
+  }
   return 0;
 }
 
@@ -520,29 +746,86 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
   const char *section = NULL;
   const char *name = NULL;
   const char *value = NULL;
-  section = (const char *)msg;
-  for (int i = 0, tok = 0; i < len; i++) {
-    if (msg[i] == '\0') {
-      tok++;
-      switch (tok) {
-      case 1:
-        name = (const char *)&msg[i+1];
-        break;
-      case 2:
-        if (i + 1 < len)
-          value = (const char *)&msg[i+1];
-        break;
-      case 3:
-        if (i == len-1)
-          break;
-      default:
-        piksi_log(LOG_WARNING, "error in settings write message");
-        return;
-      }
-    }
+  if (setting_parse_setting_text(msg, len, &section, &name, &value) != 0) {
+    piksi_log(LOG_WARNING, "error in settings write message");
+    return;
   }
 
-  if (value == NULL) {
+  /* Look up setting data */
+  setting_data_t *setting_data = setting_data_lookup(ctx, section, name);
+  if (setting_data == NULL || setting_data->watchonly) {
+    return;
+  }
+
+#ifdef SBP_MSG_SETTINGS_WRITE_RESP
+  u8 write_result = SBP_WRITE_STATUS_OK;
+  if (!setting_data->readonly) {
+    setting_update_value(setting_data, value, &write_result);
+  }
+#else
+  if (!setting_data->readonly) {
+    setting_update_value(setting_data, value);
+  }
+#endif
+
+  u8 resp[SBP_PAYLOAD_SIZE_MAX];
+  u8 resp_len = 0;
+  msg_settings_read_resp_t *read_response = (msg_settings_read_resp_t *)resp;
+  resp_len = setting_format_setting(setting_data, read_response->setting, SBP_PAYLOAD_SIZE_MAX);
+
+  setting_send_read_response(ctx, read_response, resp_len);
+}
+
+static void settings_read_resp_callback(u16 sender_id, u8 len, u8 msg[],
+                                         void* context)
+{
+  settings_ctx_t *ctx = (settings_ctx_t *)context;
+  msg_settings_read_resp_t *read_response = (msg_settings_read_resp_t *)msg;
+
+  /* Check for a response to a pending read request */
+  compare_check(ctx, read_response->setting, len);
+
+  /* Extract parameters from message:
+   * 3 null terminated strings: section, setting and value
+   */
+  const char *section = NULL;
+  const char *name = NULL;
+  const char *value = NULL;
+  if (setting_parse_setting_text(read_response->setting, len,
+                                 &section, &name, &value) != 0) {
+    piksi_log(LOG_WARNING, "error in settings read resp message");
+    return;
+  }
+
+  /* Look up setting data */
+  setting_data_t *setting_data = setting_data_lookup(ctx, section, name);
+  if (setting_data == NULL) {
+    return;
+  }
+
+  if (!setting_data->watchonly) {
+    return;
+  }
+
+  setting_update_value(setting_data, value);
+}
+
+#ifdef SBP_MSG_SETTINGS_WRITE_RESP
+static void settings_write_resp_callback(u16 sender_id, u8 len, u8 msg[],
+                                         void* context)
+{
+  settings_ctx_t *ctx = (settings_ctx_t *)context;
+  msg_settings_write_resp_t *write_response = (msg_settings_write_resp_t *)msg;
+
+  /* Extract parameters from message:
+   * 3 null terminated strings: section, setting and value
+   */
+  const char *section = NULL;
+  const char *name = NULL;
+  const char *value = NULL;
+  if (setting_parse_setting_text(write_response->setting,
+                                 len - sizeof(write_response->status),
+                                 &section, &name, &value) != 0) {
     piksi_log(LOG_WARNING, "error in settings write message");
     return;
   }
@@ -553,49 +836,64 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
     return;
   }
 
-  if (!setting_data->readonly) {
-    /* Store copy and update value */
-    memcpy(setting_data->var_copy, setting_data->var, setting_data->var_len);
-    if (!setting_data->type_data->from_string(setting_data->type_data->priv,
-                                             setting_data->var,
-                                             setting_data->var_len,
-                                             value)) {
-      /* Revert value if conversion fails */
-      memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
-    } else if (setting_data->notify != NULL) {
-      /* Call notify function */
-      if (setting_data->notify(setting_data->notify_context) != 0) {
-        /* Revert value if notify returns error */
-        memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
-      }
-    }
-  }
-
-  /* Build message */
-  u8 resp[SBP_PAYLOAD_SIZE_MAX];
-  u8 resp_len = 0;
-  int l;
-
-  l = message_header_get(setting_data, &resp[resp_len], sizeof(resp) - resp_len);
-  if (l < 0) {
-    piksi_log(LOG_ERR, "error building settings message");
+  if (!setting_data->watchonly) {
     return;
   }
-  resp_len += l;
 
-  l = message_data_get(setting_data, &resp[resp_len], sizeof(resp) - resp_len);
-  if (l < 0) {
-    piksi_log(LOG_ERR, "error building settings message");
-    return;
-  }
-  resp_len += l;
-
-  if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                      SBP_MSG_SETTINGS_READ_RESP, resp_len, resp) != 0) {
-    piksi_log(LOG_ERR, "error sending settings read response");
-    return;
+  u8 write_result = SBP_WRITE_STATUS_OK;
+  setting_update_value(setting_data, value, &write_result);
+  if (write_result != SBP_WRITE_STATUS_OK) {
+    piksi_log(LOG_WARNING, "error updating watch only setting");
   }
 }
+#endif
+
+static int settings_register_write_callback(settings_ctx_t *ctx)
+{
+  if (!ctx->write_callback_registered) {
+    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                                     SBP_MSG_SETTINGS_WRITE,
+                                     settings_write_callback, ctx, NULL) != 0) {
+      piksi_log(LOG_ERR, "error registering settings write callback");
+      return -1;
+    } else {
+      ctx->write_callback_registered = true;
+    }
+  }
+  return 0;
+}
+
+static int settings_register_read_resp_callback(settings_ctx_t *ctx)
+{
+  if (!ctx->read_resp_callback_registered) {
+    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                                     SBP_MSG_SETTINGS_READ_RESP,
+                                     settings_read_resp_callback, ctx, NULL) != 0) {
+      piksi_log(LOG_ERR, "error registering settings read resp callback");
+      return -1;
+    } else {
+      ctx->read_resp_callback_registered = true;
+    }
+  }
+  return 0;
+}
+
+#ifdef SBP_MSG_SETTINGS_WRITE_RESP
+static int settings_register_write_resp_callback(settings_ctx_t *ctx)
+{
+  if (!ctx->write_resp_callback_registered) {
+    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                                     SBP_MSG_SETTINGS_WRITE_RESP,
+                                     settings_write_resp_callback, ctx, NULL) != 0) {
+      piksi_log(LOG_ERR, "error registering settings write resp callback");
+      return -1;
+    } else {
+      ctx->write_resp_callback_registered = true;
+    }
+  }
+  return 0;
+}
+#endif
 
 static void members_destroy(settings_ctx_t *ctx)
 {
@@ -644,6 +942,12 @@ settings_ctx_t * settings_create(void)
   ctx->type_data_list = NULL;
   ctx->setting_data_list = NULL;
   ctx->registration_state.pending = false;
+  ctx->write_callback_registered = false;
+#ifdef SBP_MSG_SETTINGS_WRITE_RESP
+  ctx->write_resp_callback_registered = false;
+#else
+  ctx->read_resp_callback_registered = false;
+#endif
 
   /* Register standard types */
   settings_type_t type;
@@ -676,14 +980,6 @@ settings_ctx_t * settings_create(void)
   }
   assert(type == SETTINGS_TYPE_BOOL);
 
-  if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                   SBP_MSG_SETTINGS_WRITE,
-                                   settings_write_callback, ctx, NULL) != 0) {
-    piksi_log(LOG_ERR, "error registering settings write callback");
-    destroy(&ctx);
-    return ctx;
-  }
-
   return ctx;
 }
 
@@ -707,31 +1003,84 @@ int settings_type_register_enum(settings_ctx_t *ctx,
                        enum_names, type);
 }
 
-int settings_register(settings_ctx_t *ctx, const char *section,
-                      const char *name, void *var, size_t var_len,
-                      settings_type_t type, settings_notify_fn notify,
-                      void *notify_context)
+static int settings_add_setting(settings_ctx_t *ctx,
+                                const char *section, const char *name,
+                                void *var, size_t var_len, settings_type_t type,
+                                settings_notify_fn notify, void *notify_context,
+                                bool readonly, bool watchonly)
 {
   assert(ctx != NULL);
   assert(section != NULL);
   assert(name != NULL);
   assert(var != NULL);
 
-  return setting_register(ctx, section, name, var, var_len, type,
-                          notify, notify_context, false);
+  if (setting_data_lookup(ctx, section, name) != NULL) {
+    piksi_log(LOG_ERR, "setting add failed - duplicate setting");
+    return -1;
+  }
+
+  setting_data_t *setting_data = setting_create_setting(ctx, section, name,
+                                                        var, var_len, type,
+                                                        notify, notify_context,
+                                                        readonly, watchonly);
+  if (setting_data == NULL) {
+    piksi_log(LOG_ERR, "error creating setting data");
+    return -1;
+  }
+
+  /* Add to list */
+  setting_data_list_insert(ctx, setting_data);
+
+  if (watchonly) {
+#ifdef SBP_MSG_SETTINGS_WRITE_RESP
+    if (settings_register_write_resp_callback(ctx) != 0) {
+      piksi_log(LOG_ERR, "error registering settings write resp callback");
+    }
+#else
+    if (settings_register_read_resp_callback(ctx) != 0) {
+      piksi_log(LOG_ERR, "error registering settings read callback");
+    }
+#endif
+    if (setting_read_watched_value(ctx, setting_data) != 0) {
+      piksi_log(LOG_ERR, "error reading watched setting to initial value");
+    }
+  } else {
+    if (settings_register_write_callback(ctx) != 0) {
+      piksi_log(LOG_ERR, "error registering settings write callback");
+    }
+    if (setting_register(ctx, setting_data) != 0) {
+      piksi_log(LOG_ERR, "error registering setting with settings manager");
+      setting_data_list_remove(ctx, &setting_data);
+      return -1;
+    }
+  }
+  return 0;
+}
+
+int settings_register(settings_ctx_t *ctx, const char *section,
+                      const char *name, void *var, size_t var_len,
+                      settings_type_t type, settings_notify_fn notify,
+                      void *notify_context)
+{
+  return settings_add_setting(ctx, section, name, var, var_len, type,
+                              notify, notify_context, false, false);
 }
 
 int settings_register_readonly(settings_ctx_t *ctx, const char *section,
                                const char *name, const void *var,
                                size_t var_len, settings_type_t type)
 {
-  assert(ctx != NULL);
-  assert(section != NULL);
-  assert(name != NULL);
-  assert(var != NULL);
+  return settings_add_setting(ctx, section, name, (void *)var, var_len, type,
+                             NULL, NULL, true, false);
+}
 
-  return setting_register(ctx, section, name, (void *)var, var_len, type,
-                          NULL, NULL, true);
+int settings_add_watch(settings_ctx_t *ctx, const char *section,
+                       const char *name, void *var, size_t var_len,
+                       settings_type_t type, settings_notify_fn notify,
+                       void *notify_context)
+{
+  return settings_add_setting(ctx, section, name, var, var_len, type,
+                              notify, notify_context, false, true);
 }
 
 int settings_read(settings_ctx_t *ctx)
