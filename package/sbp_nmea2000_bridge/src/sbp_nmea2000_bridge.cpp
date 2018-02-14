@@ -96,45 +96,6 @@ namespace {
     };
     debug_stream d;
 
-    // Caches the curren tow to a sequence ID. If tow changes, the sequence ID
-    // is incremented. Testing has shown that tow monotnously increases and
-    // that there is no need to remembere previous tow -> sequence ID mappings.
-    class TowSequenceIdCache {
-    public:
-        u8 LatestSequenceId() {
-          return sequence_id_;
-        }
-
-        u8 operator[](u32 tow) {
-          if(tow == 0) {  // Invalid tow.
-            return 0xFF;
-          }
-
-          if (tow > tow_) {  // Update the tow->sid mapping.
-            IncrementSequenceId();
-            tow_ = tow;
-            return sequence_id_;
-          } else if (tow < tow_) {  // Tow too old. This should not happen.
-            return 0xFF;  // Invalid tow.
-          } else {
-            return sequence_id_;
-          }
-        }
-    private:
-
-        u8 IncrementSequenceId() {
-          ++sequence_id_;
-          if(sequence_id_ > 252){
-            sequence_id_ = 0;
-          }
-          return sequence_id_;
-        }
-
-        u32 tow_ = 0;
-        u8 sequence_id_ = 0;
-    };
-    TowSequenceIdCache tow_sequence_id_cache;
-
     // Cache some info for composite N2k messages.
     class N2kCompositeMessageCache {
     public:
@@ -152,11 +113,11 @@ namespace {
         bool IsReadyToSend(bool is_valid) {
           // Checking ((tow_ % 10000) / 100) limits divider to two digits.
           if(is_valid) {
-            divider_counter_ = ((tow_ % 10000) / 100) % divider_;
+            divider_counter_ = ((tow_ % 10000) / 100) % cDivider;
             return utc_time_set_ && pos_llh_set_ && dops_set_ &&
                    divider_counter_ == 0;
           } else {  // This should be hit only by a single SBP message.
-            divider_counter_ = (divider_counter_ + 1) % divider_;
+            divider_counter_ = (divider_counter_ + 1) % cDivider;
             return divider_counter_ == 0;
           }
         }
@@ -247,7 +208,7 @@ namespace {
                                                   0x42, 0x02, 0x02, 0x02};
         // Need to change logic in IsReadyToSend to support more than
         // two digit dividers.
-        static constexpr u8 divider_ = 10;
+        static constexpr u8 cDivider = 10;
 
         double seconds_since_midnight_ = 0.0;
         double lat_ = 0.0;
@@ -316,8 +277,8 @@ namespace {
       return 0;
     }
 
-    bool is_flags_valid(const u8 flags, const u8 bits) {
-      return (flags & ((1 << bits) - 1)) != 0;
+    u8 tow_to_sid(const u32 tow) {
+      return tow % 251;  // 251 is prime and close to the SID limit of 252.
     }
 
     void calculate_cog_sog(const msg_vel_ned_t *sbp_vel_ned,
@@ -421,11 +382,11 @@ namespace {
         << "\tDays since 1970: " << days_since_1970 << "\n"
         << "\tSeconds since midnight: " << seconds_since_midnight << "\n";
 
-      bool is_valid = is_flags_valid(sbp_utc_time->flags, /*bits=*/3);
+      bool is_valid = (sbp_utc_time->flags & 0x07) != 0;
 
       tN2kMsg N2kMsg;
       if (is_valid) {
-        SetN2kSystemTime(N2kMsg, tow_sequence_id_cache[sbp_utc_time->tow],
+        SetN2kSystemTime(N2kMsg, tow_to_sid(sbp_utc_time->tow),
                          days_since_1970, seconds_since_midnight,
                          tN2kTimeSource::N2ktimes_GPS);
       } else {
@@ -450,7 +411,8 @@ namespace {
     }
 
     // PGN 127250
-    void callback_sbp_baseline_heading(u16 sender_id, u8 len, u8 msg[], void *context){
+    void callback_sbp_baseline_heading(u16 sender_id, u8 len, u8 msg[],
+                                       void *context){
       UNUSED(sender_id);
       UNUSED(len);
       UNUSED(context);
@@ -464,8 +426,9 @@ namespace {
         << "\tBaseline heading in rad: "
         << DegToRad(sbp_baseline_heading->heading / 1000.0) << "\n";
 
+      // TODO(lstrz): The only valid heading here is 4: Fixed RTK.
       tN2kMsg N2kMsg;
-      SetN2kTrueHeading(N2kMsg, tow_sequence_id_cache[sbp_baseline_heading->tow],
+      SetN2kTrueHeading(N2kMsg, tow_to_sid(sbp_baseline_heading->tow),
                         DegToRad(sbp_baseline_heading->heading / 1000.0));
       NMEA2000.SendMsg(N2kMsg);
 
@@ -486,7 +449,7 @@ namespace {
         << "\tLon: " << sbp_pos->lon << "\n"
         << "\tAlt: " << sbp_pos->height << "\n";
 
-      bool is_valid =is_flags_valid(sbp_pos->flags, /*bits=*/3);
+      bool is_valid = (sbp_pos->flags & 0x07) != 0;
 
       tN2kMsg N2kMsg;
       if(is_valid) {
@@ -523,9 +486,11 @@ namespace {
       d << "\tCourse over ground in rad: " << cog_rad << "\n"
         << "\tSpeed over ground in m/s: " << sog_mps << "\n";
 
+      bool is_valid = (sbp_vel_ned->flags & 0x07) != 0;
+
       tN2kMsg N2kMsg;
-      if(is_flags_valid(sbp_vel_ned->flags, /*bits=*/3)) {
-        SetN2kCOGSOGRapid(N2kMsg, tow_sequence_id_cache[sbp_vel_ned->tow],
+      if(is_valid) {
+        SetN2kCOGSOGRapid(N2kMsg, tow_to_sid(sbp_vel_ned->tow),
                           tN2kHeadingReference::N2khr_true,
                           cog_rad, sog_mps);
       } else {
@@ -547,11 +512,11 @@ namespace {
 
       auto sbp_dops = reinterpret_cast<msg_dops_t*>(msg);
 
-      bool is_valid = is_flags_valid(sbp_dops->flags, /*bits=*/3);
+      bool is_valid = (sbp_dops->flags & 0x07) != 0;
 
       tN2kMsg N2kMsg;
       if (is_valid) {
-        SetN2kGNSSDOPData(N2kMsg, tow_sequence_id_cache[sbp_dops->tow],
+        SetN2kGNSSDOPData(N2kMsg, tow_to_sid(sbp_dops->tow),
                 /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
                 /*ActualMode=*/tN2kGNSSDOPmode::N2kGNSSdm_3D,
                           sbp_dops->hdop / 100.0,
@@ -605,6 +570,8 @@ namespace {
           continue;
         }
 
+        // TODO(lstrz): Implement a divider.
+        // TODO(lstrz): Make sure to sort same SIDs by CN0. Higher wins.
         switch(tracking_channel_state.sid.code) {
           case 0:  // GPS satellites. Fallthrough.
           case 1:
@@ -674,7 +641,9 @@ namespace {
         // TODO: At present, we can't get range residuals.
         N2kMsg.Add4ByteUInt(/*rangeResiduals=*/N2kInt32NA);
         // TODO: At present, we can't tel if the satellite is used in the solution.
-        N2kMsg.AddByte(/*tracked=*/0xFF);
+        // Byte contains two 4-bit fields. One is reserved. Other is PRN status.
+        // 1: Tracked but not used in solution.
+        N2kMsg.AddByte(/*tracked=*/0xF1);
       }
       for(auto it = sats_glo.begin(); it != sats_glo_end_it; ++it) {
         N2kMsg.AddByte(/*PRN=*/it->first + 64);
@@ -687,7 +656,9 @@ namespace {
         // TODO: At present, we can't get range residuals.
         N2kMsg.Add4ByteUInt(/*rangeResiduals=*/N2kInt32NA);
         // TODO: At present, we can't tel if the satellite is used in the solution.
-        N2kMsg.AddByte(/*tracked=*/0xFF);
+        // Byte contains two 4-bit fields. One is reserved. Other is PRN status.
+        // 1: Tracked but not used in solution.
+        N2kMsg.AddByte(/*tracked=*/0xF1);
       }
       NMEA2000.SendMsg(N2kMsg);
 
