@@ -7,7 +7,7 @@ SOURCES= \
 
 LIBS=-lczmq -lsbp -lpiksi -lpthread
 
-CFLAGS=-std=gnu11
+CFLAGS += -std=gnu11
 
 CROSS=
 

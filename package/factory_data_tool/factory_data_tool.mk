@@ -20,7 +20,8 @@ define FACTORY_DATA_TOOL_BUILD_CMDS
 	cp $(FACTORY_DATA_TOOL_UBOOT_DIR)/include/factory_data.h $(@D)/uboot
 	cp $(FACTORY_DATA_TOOL_UBOOT_DIR)/common/factory_data.c $(@D)/uboot
 
-	$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
+	CFLAGS="$(TARGET_CFLAGS)" LDFLAGS="$(TARGET_LDFLAGS)" \
+		$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef
 
 define FACTORY_DATA_TOOL_INSTALL_TARGET_CMDS

@@ -21,10 +21,10 @@ UBOOT_CUSTOM_MAKE_OPTS += \
 define UBOOT_CUSTOM_BUILD_CMDS
 	$(foreach cfg,$(call qstrip,$(BR2_PACKAGE_UBOOT_CUSTOM_CONFIGS)), \
 		$(TARGET_CONFIGURE_OPTS) \
-			$(MAKE) O=$(@D)/build/$(cfg) -C $(@D) $(UBOOT_CUSTOM_MAKE_OPTS) \
+			$(MAKE) O=$(@D)/build/$(cfg) CFLAGS="$(TARGET_CFLAGS)" LDFLAGS="$(TARGET_LDFLAGS)" -C $(@D) $(UBOOT_CUSTOM_MAKE_OPTS) \
 				$(cfg)_config; \
 		$(TARGET_CONFIGURE_OPTS) \
-			$(MAKE) O=$(@D)/build/$(cfg) -C $(@D) $(UBOOT_CUSTOM_MAKE_OPTS); \
+			$(MAKE) O=$(@D)/build/$(cfg) CFLAGS="$(TARGET_CFLAGS)" LDFLAGS="$(TARGET_LDFLAGS)" -C $(@D) $(UBOOT_CUSTOM_MAKE_OPTS); \
 	)
 endef
 

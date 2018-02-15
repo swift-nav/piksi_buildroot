@@ -4,7 +4,7 @@ SOURCES= \
 	sbp_fileio.c
 
 LIBS=-lczmq -lsbp -lpiksi
-CFLAGS=-std=gnu11
+CFLAGS += -std=gnu11
 
 CROSS=
 
