@@ -1,0 +1,16 @@
+//
+// Created by Luka Strizic on 2/15/18.
+//
+
+#ifndef PIKSI_BUILDROOT_SBPTONMEA2KCONVERTER_H
+#define PIKSI_BUILDROOT_SBPTONMEA2KCONVERTER_H
+
+
+
+class SbpToNmea2kConverter {
+
+};
+
+
+
+#endif //PIKSI_BUILDROOT_SBPTONMEA2KCONVERTER_H
