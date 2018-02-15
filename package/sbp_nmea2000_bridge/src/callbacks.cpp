@@ -17,145 +17,6 @@ extern "C" {
 
 namespace {
     SbpToNmea2kConverter converter;
-
-    u8 tow_to_sid(const u32 tow) {
-      // 251 is prime and close to the SID limit of 252.
-      return tow % 251;
-    }
-
-    // Cache some info for composite N2k messages.
-    // This makes the SBP -> NMEA2000 conversion stateful.
-    class N2kCompositeMessageCache {
-    public:
-        N2kCompositeMessageCache() = default;
-
-        void ResetIfOld(u32 tow) {
-          constexpr u32 cOverflowDiff = 1000 * 60 * 60;  // One hour in ms.
-          if((tow > tow_) ||  // Check if new tow or if overflown.
-             ((tow < tow_) && ((tow_ - tow) <= cOverflowDiff))) {
-            tow_ = tow;
-            Reset();
-          }
-        }
-
-        bool IsReadyToSend(bool is_valid) {
-          // Checking ((tow_ % 10000) / 100) limits divider to two digits.
-          if(is_valid) {
-            divider_counter_ = ((tow_ % 10000) / 100) % cDivider;
-            return utc_time_set_ && pos_llh_set_ && dops_set_ &&
-                   divider_counter_ == 0;
-          } else {  // This should be hit only by a single SBP message.
-            divider_counter_ = (divider_counter_ + 1) % cDivider;
-            return divider_counter_ == 0;
-          }
-        }
-
-        void SetFields(const u32 tow, const u16 days_since_1970,
-                       const double seconds_since_midnight) {
-          if(tow == tow_) {
-            days_since_1970_ = days_since_1970;
-            seconds_since_midnight_ = seconds_since_midnight;
-            utc_time_set_ = true;
-          }
-        }
-
-        void SetFields(const msg_pos_llh_t *msg) {
-          if(msg->tow == tow_) {
-            lat_ = msg->lat;
-            lon_ = msg->lon;
-            alt_ = msg->height;
-            sat_count_ = msg->n_sats;  // Sats used in solution.
-            gnss_metod_ = gnss_method_lut_[msg->flags & 0x07];
-            pos_llh_set_ = true;
-          }
-        }
-
-        void SetFields(const msg_dops_t *msg) {
-          if (msg->tow == tow_) {
-            hdop_ = static_cast<double>(msg->hdop) / 100.0;
-            pdop_ = static_cast<double>(msg->pdop) / 100.0;
-            dops_set_ = true;
-          }
-        }
-
-        // PGN 129029
-        void FillN2kMsg(tN2kMsg *msg, bool is_valid) {
-          d << __FUNCTION__ << "\n";
-
-          if(is_valid) {
-            d << "\tSats used in solution: " << static_cast<u16>(sat_count_)
-              << "\n";
-            SetN2kGNSS(*msg, tow_to_sid(tow_), days_since_1970_,
-                       seconds_since_midnight_, lat_, lon_, alt_,
-                       tN2kGNSStype::N2kGNSSt_GPSGLONASS,
-                       tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_, hdop_,
-                       pdop_, /*GeoidalSeparation=*/N2kDoubleNA);
-            // We've hardcoded reference station count to zero.
-            // That's a lie when RTK is in use. We're happy with it, for now.
-
-            // Have to do GNSS method manually. It's not reverse engineered yet.
-            msg->Data[31] = gnss_metod_;
-            // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
-            // That's why there are two values binary ORed together.
-            // 0: No integrity checking.
-            msg->Data[32] = 0xFC | 0x00;
-          } else {
-            SetN2kGNSS(*msg, /*sequence ID=*/0xFF,
-                    /*DaysSince1970=*/N2kUInt16NA,
-                    /*SecondsSinceMidnight=*/N2kDoubleNA,
-                    /*Latitude=*/N2kDoubleNA, /*Longitude=*/N2kDoubleNA,
-                    /*Altitude=*/N2kDoubleNA, tN2kGNSStype::N2kGNSSt_GPSGLONASS,
-                       tN2kGNSSmethod::N2kGNSSm_PreciseGNSS,
-                    /*nSatellites=*/N2kUInt8NA, /*HDOP=*/N2kDoubleNA,
-                    /*PDOP=*/N2kDoubleNA, /*GeoidalSeparation=*/N2kDoubleNA);
-            // Have to do GNSS method manually. It's not reverse engineered yet.
-            msg->Data[31] = gnss_metod_;
-            // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
-            // That's why there are two values binary ORed together.
-            // 0: No integrity checking.
-            msg->Data[32] = 0xFC | 0x00;
-          }
-
-          d << "\tDone.\n";
-        }
-    private:
-        void Reset() {
-          utc_time_set_ = pos_llh_set_ = dops_set_ = false;
-        }
-
-        // Maps SBP GNSS method code to N2K GNSS method code.
-        // 0x2X is GPS + GLONASS type of system.
-        // The values from the lookup table are bitfields, which is why the
-        // order is reverse.
-        // 0: Invalid               -> 0x20: GPS + GLONASS, no GPS
-        // 1: Single Point Position -> 0x21: GPS + GLONASS, GNSS fix
-        // 2: Differential GNSS     -> 0x22: GPS + GLONASS, DGNSS fix
-        // 3: Float RTK             -> 0x25: GPS + GLONASS, RTK Float
-        // 4: Fixed RTK             -> 0x24: GPS + GLONASS, RTK Fixed Integer
-        static constexpr u8 gnss_method_lut_[] = {0x02, 0x12, 0x22, 0x52,
-                                                  0x42, 0x02, 0x02, 0x02};
-        // Need to change logic in IsReadyToSend to support more than
-        // two digit dividers.
-        static constexpr u8 cDivider = 10;
-
-        double seconds_since_midnight_ = 0.0;
-        double lat_ = 0.0;
-        double lon_ = 0.0;
-        double alt_ = 0.0;
-        double hdop_ = 0.0;
-        double pdop_ = 0.0;
-        u32 tow_ = 0;
-        u16 days_since_1970_ = 0;
-        u8 gnss_metod_ = 0;
-        u8 sat_count_ = 0;  // Number of sats used in solution.
-        u8 divider_counter_ = 0;
-
-        bool utc_time_set_ = false;
-        bool pos_llh_set_ = false;
-        bool dops_set_ = false;
-    };
-    N2kCompositeMessageCache n2k_composite_message_cache;
-    constexpr u8 N2kCompositeMessageCache::gnss_method_lut_[];
 }
 
 int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
@@ -165,21 +26,17 @@ int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
 
   canfd_frame frame;
   ssize_t bytes_read = recvfrom(item->fd, &frame,sizeof(frame),
-          /*flags=*/0,
-          /*src_addr=*/NULL,
-          /*addrlen=*/NULL);
-  piksi_check(bytes_read < 0, "Could not read interface %s.",
-              interface_name);
+          /*flags=*/0, /*src_addr=*/NULL, /*addrlen=*/NULL);
+  piksi_check(bytes_read < 0, "Could not read interface %s.", interface_name);
 
-  std::cout << "Read " << bytes_read << " bytes from " << interface_name
-            <<" ID: " << std::setfill('0') << std::setw(4) << std::hex
-            << frame.can_id
-            << " Data: ";
+  d << "Read " << bytes_read << " bytes from " << interface_name <<" ID: "
+    << std::setfill('0') << std::setw(4) << std::hex << frame.can_id
+    << " Data: ";
   for (u32 i = 0; i < frame.len; ++i) {
-    std::cout << std::setfill('0') << std::setw(2) << std::hex
-              << static_cast<u16>(frame.data[i]);
+    d << std::setfill('0') << std::setw(2) << std::hex
+      << static_cast<u16>(frame.data[i]);
   }
-  std::cout << std::endl;
+  d << "\n";
 
   return 0;
 }
