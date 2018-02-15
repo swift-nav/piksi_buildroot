@@ -85,6 +85,7 @@ namespace {
     constexpr char cModelSerialCodePath[] = "/factory/mfg_id";
     constexpr u8 cNMEA2000CertificationLevel = 2;  // Not applicable any more. Part of old standard.
     constexpr u8 cLoadEquivalency = 8;
+    u8 last_sid = 0;
 
     struct debug_stream {
         template<typename T>
@@ -96,6 +97,11 @@ namespace {
         }
     };
     debug_stream d;
+
+    u8 tow_to_sid(const u32 tow) {
+      // 251 is prime and close to the SID limit of 252.
+      return (last_sid = tow % 251);
+    }
 
     // Cache some info for composite N2k messages.
     class N2kCompositeMessageCache {
@@ -158,7 +164,7 @@ namespace {
           if(is_valid) {
             d << "\tSats used in solution: " << static_cast<u16>(sat_count_)
               << "\n";
-            SetN2kGNSS(*msg, tow_sequence_id_cache[tow_], days_since_1970_,
+            SetN2kGNSS(*msg, tow_to_sid(tow_), days_since_1970_,
                        seconds_since_midnight_, lat_, lon_, alt_,
                        tN2kGNSStype::N2kGNSSt_GPSGLONASS,
                        tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_, hdop_,
@@ -276,10 +282,6 @@ namespace {
       }
 
       return 0;
-    }
-
-    u8 tow_to_sid(const u32 tow) {
-      return tow % 251;  // 251 is prime and close to the SID limit of 252.
     }
 
     void calculate_cog_sog(const msg_vel_ned_t *sbp_vel_ned,
@@ -577,7 +579,6 @@ namespace {
         }
 
         // TODO(lstrz): Implement a divider.
-        // TODO(lstrz): Make sure to sort same SIDs by CN0. Higher wins.
         switch(tracking_channel_state.sid.code) {
           case 0:  // GPS satellites. Fallthrough.
           case 1:
@@ -603,7 +604,8 @@ namespace {
       // Sort and remove duplicates.
       auto comparator_lower_than = [](const std::pair<u8, u8>& a,
                                       const std::pair<u8, u8>& b) {
-          return a.first < b.first;
+          // First is the satellite ID, second is the CN0.
+          a.first < b.first ? true : a.second > b.second;
       };
       auto comparator_equal = [](const std::pair<u8, u8>& a,
                                  const std::pair<u8, u8>& b) {
@@ -634,7 +636,7 @@ namespace {
       N2kMsg.SetPGN(129540L);
       N2kMsg.Priority=6;
       // This sequence ID is a guess. Have no tow to get a definite one.
-      N2kMsg.AddByte(tow_sequence_id_cache.LatestSequenceId());
+      N2kMsg.AddByte(last_sid);
       // TODO: At present, we can't get range residuals.
       N2kMsg.AddByte(0xFF);
       N2kMsg.AddByte(sat_count);
