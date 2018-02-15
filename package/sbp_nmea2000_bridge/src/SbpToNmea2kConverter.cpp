@@ -30,6 +30,28 @@ namespace {
     }
 }  // namespace
 
+// SBP_MSG_BASELINE_HEADING 527 -> PGN 127250
+bool SbpToNmea2kConverter::Sbp527ToPgn127250(const msg_baseline_heading_t *msg,
+                                             tN2kMsg *n2kMsg) {
+  d << __FUNCTION__ << "\n";
+
+  d << "\tBaseline heading in deg: "
+    << msg->heading / 1000.0 << "\n"
+    << "\tBaseline heading in rad: "
+    << DegToRad(msg->heading / 1000.0) << "\n";
+
+  bool is_valid = (msg->flags & 0x07) == 4;
+
+  if (is_valid) {
+    SetN2kTrueHeading(*n2kMsg, tow_to_sid(msg->tow),
+                      DegToRad(msg->heading / 1000.0));
+  } else {
+    SetN2kTrueHeading(*n2kMsg, /*sequence ID=*/0xFF, N2kDoubleNA);
+  }
+  d << "\tDone.\n";
+
+  return true;
+}
 
 // SBP_MSG_VEL_NED 522 -> GNSS DOPs PGN 129025
 bool SbpToNmea2kConverter::Sbp522ToPgn129025(const msg_pos_llh_t *msg,
@@ -48,7 +70,6 @@ bool SbpToNmea2kConverter::Sbp522ToPgn129025(const msg_pos_llh_t *msg,
   } else {
     SetN2kLatLonRapid(*n2kMsg, N2kDoubleNA, N2kDoubleNA);
   }
-
   d << "\tDone.\n";
 
   return true;
@@ -69,15 +90,12 @@ bool SbpToNmea2kConverter::Sbp526ToPgn129026(const msg_vel_ned_t *msg,
 
   if(is_valid) {
     SetN2kCOGSOGRapid(*n2kMsg, tow_to_sid(msg->tow),
-                      tN2kHeadingReference::N2khr_true,
-                      cog_rad, sog_mps);
+                      tN2kHeadingReference::N2khr_true, cog_rad, sog_mps);
   } else {
     SetN2kCOGSOGRapid(*n2kMsg, /*sequence ID=*/0xFF,
                       tN2kHeadingReference::N2khr_true,
                       N2kDoubleNA, N2kDoubleNA);
   }
-  NMEA2000.SendMsg(*n2kMsg);
-
   d << "\tDone.\n";
 
   return true;
@@ -121,13 +139,12 @@ bool SbpToNmea2kConverter::Sbp259And520And522ToPgn129029(const bool is_valid,
     // 0: No integrity checking.
     msg->Data[32] = 0xFC | 0x00;
   }
-
   d << "\tDone.\n";
 
   return true;
 }
 
-// SBP_DOPS 520 -> GNSS DOPs PGN 129539
+// SBP_MSG_DOPS 520 -> GNSS DOPs PGN 129539
 bool SbpToNmea2kConverter::Sbp520ToPgn129539(const msg_dops_t *msg,
                                              tN2kMsg *n2kMsg) {
   d << __FUNCTION__ << "\n";
@@ -150,13 +167,12 @@ bool SbpToNmea2kConverter::Sbp520ToPgn129539(const msg_dops_t *msg,
     << "\tHDOP: " << msg->hdop / 100.0 << "\n"
     << "\tVDOP: " << msg->vdop / 100.0 << "\n"
     << "\tTDOP: " << msg->tdop / 100.0 << "\n";
-
   d << "\tDone.\n";
 
   return true;
 }
 
-// SBP_TRACKING_STATE 65 -> GNSS Sats in View PGN 129540
+// SBP_MSG_TRACKING_STATE 65 -> GNSS Sats in View PGN 129540
 bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
                                              const u8 len, tN2kMsg *n2kMsg) {
 

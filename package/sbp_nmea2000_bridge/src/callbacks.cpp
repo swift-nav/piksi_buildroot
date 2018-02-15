@@ -257,28 +257,12 @@ void callback_sbp_baseline_heading(u16 sender_id, u8 len, u8 msg[],
   UNUSED(sender_id);
   UNUSED(len);
   UNUSED(context);
-  d << __FUNCTION__ << "\n";
 
-  auto sbp_baseline_heading =
-          reinterpret_cast<msg_baseline_heading_t*>(msg);
-
-  d << "\tBaseline heading in deg: "
-    << sbp_baseline_heading->heading / 1000.0 << "\n"
-    << "\tBaseline heading in rad: "
-    << DegToRad(sbp_baseline_heading->heading / 1000.0) << "\n";
-
-  bool is_valid = (sbp_baseline_heading->flags & 0x07) == 4;
-
-  tN2kMsg N2kMsg;
-  if (is_valid) {
-    SetN2kTrueHeading(N2kMsg, tow_to_sid(sbp_baseline_heading->tow),
-                      DegToRad(sbp_baseline_heading->heading / 1000.0));
-  } else {
-    SetN2kTrueHeading(N2kMsg, /*sequence ID=*/0xFF, N2kDoubleNA);
+  tN2kMsg n2kMsg;
+  if(converter.Sbp527ToPgn127250(reinterpret_cast<msg_baseline_heading_t *>(msg),
+                                 &n2kMsg)) {
+    NMEA2000.SendMsg(n2kMsg);
   }
-  NMEA2000.SendMsg(N2kMsg);
-
-  d << "\tDone.\n";
 }
 
 // PGN 129025
@@ -305,8 +289,6 @@ void callback_sbp_pos_llh(u16 sender_id, u8 len, u8 msg[], void *context) {
       NMEA2000.SendMsg(n2kMsg);
     }
   }
-
-  d << "\tDone.\n";
 }
 
 // PGN 129026
@@ -320,8 +302,6 @@ void callback_sbp_vel_ned(u16 sender_id, u8 len, u8 msg[], void *context) {
                                   &n2kMsg)) {
     NMEA2000.SendMsg(n2kMsg);
   }
-
-  d << "\tDone.\n";
 }
 
 // PGN 129539
