@@ -19,7 +19,7 @@ ntrip_enabled() {
   fi
 }
 
-should_check_inet() {
+should_warn_on_no_inet() {
   if skylark_enabled || ntrip_enabled; then
     return 0
   else
@@ -28,7 +28,7 @@ should_check_inet() {
 }
 
 while true; do
-  if ! should_check_inet; then
+  if ! should_warn_on_no_inet; then
     sleep 1
     continue
   else
@@ -43,10 +43,6 @@ child_pid=$!
 trap 'kill $child_pid; exit' EXIT STOP TERM
 
 while true; do
-  if ! should_check_inet; then
-    sleep 1
-    continue
-  fi
   if ping -w 5 -c 1 8.8.8.8 >/dev/null 2>&1 || \
      ping -w 5 -c 1 114.114.114.114 > /dev/null 2>&1; then
     echo 1 > /var/run/network_available
