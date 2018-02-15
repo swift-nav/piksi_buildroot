@@ -156,28 +156,6 @@ namespace {
     };
     N2kCompositeMessageCache n2k_composite_message_cache;
     constexpr u8 N2kCompositeMessageCache::gnss_method_lut_[];
-
-    void calculate_days_and_seconds_since_1970(const msg_utc_time_t *sbp_utc_t,
-                                               u16 *days_since_1970,
-                                               double *seconds_since_midnight) {
-      tm tm_utc_time;
-      // 1900 is the starting year (year 0) in tm_year, so subtract 1900.
-      tm_utc_time.tm_year = sbp_utc_t->year - 1900;
-      // 0 is the starting month in tm_mon, so subtract 1.
-      tm_utc_time.tm_mon = sbp_utc_t->month - 1;
-      tm_utc_time.tm_mday = sbp_utc_t->day;
-      tm_utc_time.tm_hour = sbp_utc_t->hours;
-      tm_utc_time.tm_min = sbp_utc_t->minutes;
-      tm_utc_time.tm_sec = sbp_utc_t->seconds;
-      tm_utc_time.tm_isdst = -1;  // -1 means no idea. mktime() will know.
-      time_t utc_time_since_epoch = mktime(&tm_utc_time);
-
-      constexpr u32 cSecondsInADay = 60 * 60 * 24;
-      *days_since_1970 =
-              static_cast<u16>(utc_time_since_epoch / cSecondsInADay);
-      *seconds_since_midnight =
-              (utc_time_since_epoch % cSecondsInADay) + sbp_utc_t->ns * 1e-9;
-    }
 }
 
 int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
@@ -211,44 +189,27 @@ void callback_sbp_utc_time(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(sender_id);
   UNUSED(len);
   UNUSED(context);
-  d << __FUNCTION__ << "\n";
 
   auto sbp_utc_time = reinterpret_cast<msg_utc_time_t*>(msg);
-  u16 days_since_1970;
-  double seconds_since_midnight;
-  calculate_days_and_seconds_since_1970(sbp_utc_time,
-                                        &days_since_1970,
-                                        &seconds_since_midnight);
-  d << "\tTOW: " << sbp_utc_time->tow << "\n"
-    << "\tDays since 1970: " << days_since_1970 << "\n"
-    << "\tSeconds since midnight: " << seconds_since_midnight << "\n";
-
   bool is_valid = (sbp_utc_time->flags & 0x07) != 0;
 
-  tN2kMsg N2kMsg;
-  if (is_valid) {
-    SetN2kSystemTime(N2kMsg, tow_to_sid(sbp_utc_time->tow),
-                     days_since_1970, seconds_since_midnight,
-                     tN2kTimeSource::N2ktimes_GPS);
-  } else {
-    SetN2kSystemTime(N2kMsg, /*sequence ID=*/0xFF,
-                     N2kUInt16NA, N2kDoubleNA,
-                     tN2kTimeSource::N2ktimes_GPS);
-  }
-  NMEA2000.SendMsg(N2kMsg);
-
-  n2k_composite_message_cache.ResetIfOld(sbp_utc_time->tow);
-  n2k_composite_message_cache.SetFields(sbp_utc_time->tow,
-                                        days_since_1970,
-                                        seconds_since_midnight);
-  if (is_valid &&
-      n2k_composite_message_cache.IsReadyToSend(/*is_valid=*/true)) {
-    N2kMsg.Clear();
-    n2k_composite_message_cache.FillN2kMsg(&N2kMsg, /*is_valid=*/true);
-    NMEA2000.SendMsg(N2kMsg);
+  tN2kMsg n2kMsg;
+  u16 days_since_1970;
+  double seconds_since_midnight;
+  if (converter.Sbp259ToPgn126992(sbp_utc_time, &n2kMsg, &days_since_1970,
+                                  &seconds_since_midnight)) {
+    NMEA2000.SendMsg(n2kMsg);
   }
 
-  d << "\tDone.\n";
+  converter.ResetPgn129029CacheIfOld(sbp_utc_time->tow);
+  converter.SetPgn129029CacheFields(sbp_utc_time->tow, days_since_1970,
+                                    seconds_since_midnight);
+  if (is_valid && converter.IsPgn129029Ready(/*is_valid=*/true)) {
+    n2kMsg.Clear();
+    if (converter.Sbp259And520And522ToPgn129029(/*is_valid=*/true, &n2kMsg)) {
+      NMEA2000.SendMsg(n2kMsg);
+    }
+  }
 }
 
 // PGN 127250

@@ -28,7 +28,56 @@ namespace {
       *sog_mps = sqrt(vel_north_mps * vel_north_mps +
                       vel_north_mps * vel_north_mps);
     }
+
+    void calculate_days_and_seconds_since_1970(const msg_utc_time_t *msg,
+                                               u16 *days_since_1970,
+                                               double *seconds_since_midnight) {
+      tm tm_utc_time;
+      // 1900 is the starting year (year 0) in tm_year, so subtract 1900.
+      tm_utc_time.tm_year = msg->year - 1900;
+      // 0 is the starting month in tm_mon, so subtract 1.
+      tm_utc_time.tm_mon = msg->month - 1;
+      tm_utc_time.tm_mday = msg->day;
+      tm_utc_time.tm_hour = msg->hours;
+      tm_utc_time.tm_min = msg->minutes;
+      tm_utc_time.tm_sec = msg->seconds;
+      tm_utc_time.tm_isdst = -1;  // -1 means no idea. mktime() will know.
+      time_t utc_time_since_epoch = mktime(&tm_utc_time);
+
+      constexpr u32 cSecondsInADay = 60 * 60 * 24;
+      *days_since_1970 =
+              static_cast<u16>(utc_time_since_epoch / cSecondsInADay);
+      *seconds_since_midnight =
+              (utc_time_since_epoch % cSecondsInADay) + msg->ns * 1e-9;
+    }
 }  // namespace
+
+// SBP_MSG_UTC_TIME 259 -> System Time 126992
+bool SbpToNmea2kConverter::Sbp259ToPgn126992(const msg_utc_time_t *msg,
+                                             tN2kMsg *n2kMsg,
+                                             u16 *days_since_1970,
+                                             double *seconds_since_midnight) {
+  d << __FUNCTION__ << "\n";
+
+  calculate_days_and_seconds_since_1970(msg, days_since_1970,
+                                        seconds_since_midnight);
+  d << "\tTOW: " << msg->tow << "\n"
+    << "\tDays since 1970: " << days_since_1970 << "\n"
+    << "\tSeconds since midnight: " << seconds_since_midnight << "\n";
+
+  bool is_valid = (msg->flags & 0x07) != 0;
+
+  if (is_valid) {
+    SetN2kSystemTime(*n2kMsg, tow_to_sid(msg->tow), *days_since_1970,
+                     *seconds_since_midnight, tN2kTimeSource::N2ktimes_GPS);
+  } else {
+    SetN2kSystemTime(*n2kMsg, /*sequence ID=*/0xFF, N2kUInt16NA,
+                     N2kDoubleNA, tN2kTimeSource::N2ktimes_GPS);
+  }
+  d << "\tDone.\n";
+
+  return true;
+}
 
 // SBP_MSG_BASELINE_HEADING 527 -> PGN 127250
 bool SbpToNmea2kConverter::Sbp527ToPgn127250(const msg_baseline_heading_t *msg,

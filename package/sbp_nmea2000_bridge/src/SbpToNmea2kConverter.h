@@ -11,6 +11,9 @@ extern "C" {
 
 class SbpToNmea2kConverter {
 public:
+    bool Sbp259ToPgn126992(const msg_utc_time_t *msg, tN2kMsg *n2kMsg,
+                           u16 *days_since_1970,
+                           double *seconds_since_midnight);
     bool Sbp527ToPgn127250(const msg_baseline_heading_t *msg, tN2kMsg *n2kMsg);
     bool Sbp522ToPgn129025(const msg_pos_llh_t *msg, tN2kMsg *n2kMsg);
     bool Sbp526ToPgn129026(const msg_vel_ned_t *msg, tN2kMsg *n2kMsg);
