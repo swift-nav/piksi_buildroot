@@ -11,6 +11,7 @@ extern "C" {
 
 class SbpToNmea2kConverter {
 public:
+    bool Sbp526ToPgn129026(const msg_vel_ned_t *msg, tN2kMsg *n2kMsg);
     bool Sbp259And520And522ToPgn129029(const bool is_valid, tN2kMsg *msg);
     bool Sbp520ToPgn129539(const msg_dops_t *msg, tN2kMsg *n2kMsg);
 

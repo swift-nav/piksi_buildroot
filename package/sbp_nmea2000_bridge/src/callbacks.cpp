@@ -157,29 +157,6 @@ namespace {
     N2kCompositeMessageCache n2k_composite_message_cache;
     constexpr u8 N2kCompositeMessageCache::gnss_method_lut_[];
 
-    void calculate_cog_sog(const msg_vel_ned_t *sbp_vel_ned,
-                           double *cog_rad, double *sog_mps) {
-      // Millimeters to meters.
-      double vel_north_mps = sbp_vel_ned->n / 1000.0;
-      double vel_east_mps = sbp_vel_ned->e / 1000.0;
-
-      *cog_rad = atan2(vel_east_mps, vel_north_mps);
-
-      // Convert negative values to positive.
-      constexpr double kFullCircleRad = 2 * 3.1415926535897932384626433832795;
-      if (*cog_rad < 0.0) {
-        *cog_rad += kFullCircleRad;
-      }
-
-      // Avoid having duplicate values for same point (0 and 360).
-      if (fabs(kFullCircleRad - *cog_rad) < 10e-1) {
-        *cog_rad = 0;
-      }
-
-      *sog_mps = sqrt(vel_north_mps * vel_north_mps +
-                      vel_north_mps * vel_north_mps);
-    }
-
     void calculate_days_and_seconds_since_1970(const msg_utc_time_t *sbp_utc_t,
                                                u16 *days_since_1970,
                                                double *seconds_since_midnight) {
@@ -346,28 +323,10 @@ void callback_sbp_vel_ned(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(sender_id);
   UNUSED(len);
   UNUSED(context);
-  d << __FUNCTION__ << "\n";
 
-  auto *sbp_vel_ned = reinterpret_cast<msg_vel_ned_t*>(msg);
-  double cog_rad, sog_mps;
-  calculate_cog_sog(sbp_vel_ned, &cog_rad, &sog_mps);
-
-  d << "\tCourse over ground in rad: " << cog_rad << "\n"
-    << "\tSpeed over ground in m/s: " << sog_mps << "\n";
-
-  bool is_valid = (sbp_vel_ned->flags & 0x07) != 0;
-
-  tN2kMsg N2kMsg;
-  if(is_valid) {
-    SetN2kCOGSOGRapid(N2kMsg, tow_to_sid(sbp_vel_ned->tow),
-                      tN2kHeadingReference::N2khr_true,
-                      cog_rad, sog_mps);
-  } else {
-    SetN2kCOGSOGRapid(N2kMsg, /*sequence ID=*/0xFF,
-                      tN2kHeadingReference::N2khr_true,
-                      N2kDoubleNA, N2kDoubleNA);
-  }
-  NMEA2000.SendMsg(N2kMsg);
+  tN2kMsg n2kMsg;
+  converter.Sbp526ToPgn129026(reinterpret_cast<msg_vel_ned_t*>(msg), &n2kMsg);
+  NMEA2000.SendMsg(n2kMsg);
 
   d << "\tDone.\n";
 }

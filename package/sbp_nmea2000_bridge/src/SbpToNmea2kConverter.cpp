@@ -1,10 +1,65 @@
 #include <algorithm>
 #include <array>
+#include <cmath>
 
 #include "common.h"
 #include "SbpToNmea2kConverter.h"
 
-// SBP_UTC_TIME, SBP_DOPS, SBP_POS_LLH 259, 520, 522 -> GNSS Position Data PGN 129029
+namespace {
+    void calculate_cog_sog(const msg_vel_ned_t *sbp_vel_ned,
+                           double *cog_rad, double *sog_mps) {
+      // Millimeters to meters.
+      double vel_north_mps = sbp_vel_ned->n / 1000.0;
+      double vel_east_mps = sbp_vel_ned->e / 1000.0;
+
+      *cog_rad = atan2(vel_east_mps, vel_north_mps);
+
+      // Convert negative values to positive.
+      constexpr double kFullCircleRad = 2 * 3.1415926535897932384626433832795;
+      if (*cog_rad < 0.0) {
+        *cog_rad += kFullCircleRad;
+      }
+
+      // Avoid having duplicate values for same point (0 and 360).
+      if (fabs(kFullCircleRad - *cog_rad) < 10e-1) {
+        *cog_rad = 0;
+      }
+
+      *sog_mps = sqrt(vel_north_mps * vel_north_mps +
+                      vel_north_mps * vel_north_mps);
+    }
+}  // namespace
+
+// SBP_MSG_VEL_NED 526 -> GNSS DOPs PGN 129026
+bool SbpToNmea2kConverter::Sbp526ToPgn129026(const msg_vel_ned_t *msg,
+                                             tN2kMsg *n2kMsg) {
+  d << __FUNCTION__ << "\n";
+
+  double cog_rad, sog_mps;
+  calculate_cog_sog(msg, &cog_rad, &sog_mps);
+
+  d << "\tCourse over ground in rad: " << cog_rad << "\n"
+    << "\tSpeed over ground in m/s: " << sog_mps << "\n";
+
+  bool is_valid = (msg->flags & 0x07) != 0;
+
+  if(is_valid) {
+    SetN2kCOGSOGRapid(*n2kMsg, tow_to_sid(msg->tow),
+                      tN2kHeadingReference::N2khr_true,
+                      cog_rad, sog_mps);
+  } else {
+    SetN2kCOGSOGRapid(*n2kMsg, /*sequence ID=*/0xFF,
+                      tN2kHeadingReference::N2khr_true,
+                      N2kDoubleNA, N2kDoubleNA);
+  }
+  NMEA2000.SendMsg(*n2kMsg);
+
+  d << "\tDone.\n";
+
+  return true;
+}
+
+// SBP_MSG_UTC_TIME, SBP_MSG_DOPS, SBP_MSG_POS_LLH 259, 520, 522 -> GNSS Position Data PGN 129029
 bool SbpToNmea2kConverter::Sbp259And520And522ToPgn129029(const bool is_valid,
                                                          tN2kMsg *msg) {
   d << __FUNCTION__ << "\n";
@@ -260,3 +315,5 @@ u8 SbpToNmea2kConverter::tow_to_sid(const u32 tow) {
   // 251 is prime and close to the SID limit of 252.
   return (last_sid = tow % 251);
 }
+
+constexpr u8 SbpToNmea2kConverter::gnss_method_lut_[];
