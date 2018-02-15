@@ -560,6 +560,14 @@ namespace {
                                      void *context) {
       UNUSED(sender_id);
       UNUSED(context);
+
+      // Divide by the divisor. Very hacky to have it in a static.
+      constexpr u8 cDivider = 2;
+      static u8 divider_counter = 0;
+      if ((++divider_counter % cDivider) != 0) {
+        return;
+      }
+
       d << __FUNCTION__ << "\n"
         << "\tGot " << static_cast<u16>(len) << "/"
         << sizeof(tracking_channel_state_t) << "="
@@ -578,8 +586,7 @@ namespace {
           continue;
         }
 
-        // TODO(lstrz): Implement a divider.
-        switch(tracking_channel_state.sid.code) {
+        switch (tracking_channel_state.sid.code) {
           case 0:  // GPS satellites. Fallthrough.
           case 1:
           case 2:
