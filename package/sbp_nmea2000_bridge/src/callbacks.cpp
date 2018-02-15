@@ -377,43 +377,24 @@ void callback_sbp_dops(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(sender_id);
   UNUSED(len);
   UNUSED(context);
-  d << __FUNCTION__ << "\n";
 
   auto sbp_dops = reinterpret_cast<msg_dops_t*>(msg);
-
   bool is_valid = (sbp_dops->flags & 0x07) != 0;
 
-  tN2kMsg N2kMsg;
-  if (is_valid) {
-    SetN2kGNSSDOPData(N2kMsg, tow_to_sid(sbp_dops->tow),
-            /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
-            /*ActualMode=*/tN2kGNSSDOPmode::N2kGNSSdm_3D,
-                      sbp_dops->hdop / 100.0,
-                      sbp_dops->vdop / 100.0,
-                      sbp_dops->tdop / 100.0);
-  } else {
-    SetN2kGNSSDOPData(N2kMsg, /*sequence ID=*/0xFF,
-            /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
-            /*ActualMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Error,
-                      N2kDoubleNA, N2kDoubleNA, N2kDoubleNA);
+  tN2kMsg n2kMsg;
+  if (converter.Sbp520ToPgn129539(sbp_dops, &n2kMsg)) {
+    NMEA2000.SendMsg(n2kMsg);
   }
-  NMEA2000.SendMsg(N2kMsg);
 
-  d << "\tTOW: " << sbp_dops->tow << "\n"
-    << "\tHDOP: " << sbp_dops->hdop / 100.0 << "\n"
-    << "\tVDOP: " << sbp_dops->vdop / 100.0 << "\n"
-    << "\tTDOP: " << sbp_dops->tdop / 100.0 << "\n";
-
-  n2k_composite_message_cache.ResetIfOld(sbp_dops->tow);
-  n2k_composite_message_cache.SetFields(sbp_dops);
+  converter.ResetPgn129029CacheIfOld(sbp_dops->tow);
+  converter.SetPgn129029CacheFields(sbp_dops);
   if (is_valid &&
-      n2k_composite_message_cache.IsReadyToSend(/*is_valid=*/true)) {
-    N2kMsg.Clear();
-    n2k_composite_message_cache.FillN2kMsg(&N2kMsg, /*is_valid=*/true);
-    NMEA2000.SendMsg(N2kMsg);
+      converter.IsPgn129029Ready(/*is_valid=*/true)) {
+    n2kMsg.Clear();
+    if (converter.Sbp259And520And522ToPgn129029(/*is_valid=*/true, &n2kMsg)) {
+      NMEA2000.SendMsg(n2kMsg);
+    }
   }
-
-  d << "\tDone.\n";
 }
 
 // PGN 129540
@@ -427,7 +408,6 @@ void callback_sbp_tracking_state(u16 sender_id, u8 len, u8 msg[],
                                 len, &n2kMsg)) {
     NMEA2000.SendMsg(n2kMsg);
   }
-
 }
 
 void callback_sbp_heartbeat(u16 sender_id, u8 len, u8 msg[], void *context) {

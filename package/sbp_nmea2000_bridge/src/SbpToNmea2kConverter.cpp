@@ -4,6 +4,79 @@
 #include "common.h"
 #include "SbpToNmea2kConverter.h"
 
+// SBP_UTC_TIME, SBP_DOPS, SBP_POS_LLH 259, 520, 522 -> GNSS Position Data PGN 129029
+bool SbpToNmea2kConverter::Sbp259And520And522ToPgn129029(const bool is_valid,
+                                                         tN2kMsg *msg) {
+  d << __FUNCTION__ << "\n";
+
+  if(is_valid) {
+    d << "\tSats used in solution: " << static_cast<u16>(sat_count_cache_)
+      << "\n";
+    // We hardcode reference station count to zero.
+    // That's a lie when RTK is in use. We're happy with it, for now.
+    SetN2kGNSS(*msg, tow_to_sid(tow_cache_), days_since_1970_cache_,
+               seconds_since_midnight_cache_, lat_cache_, lon_cache_,
+               alt_cache_, tN2kGNSStype::N2kGNSSt_GPSGLONASS,
+               tN2kGNSSmethod::N2kGNSSm_PreciseGNSS, sat_count_cache_,
+               hdop_cache_, pdop_cache_, /*GeoidalSeparation=*/N2kDoubleNA);
+
+    // Have to do GNSS method manually. It's not reverse engineered yet.
+    msg->Data[31] = gnss_metod_cache_;
+    // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
+    // That's why there are two values binary ORed together.
+    // 0: No integrity checking.
+    msg->Data[32] = 0xFC | 0x00;
+  } else {
+    SetN2kGNSS(*msg, /*sequence ID=*/0xFF,
+            /*DaysSince1970=*/N2kUInt16NA,
+            /*SecondsSinceMidnight=*/N2kDoubleNA,
+            /*Latitude=*/N2kDoubleNA, /*Longitude=*/N2kDoubleNA,
+            /*Altitude=*/N2kDoubleNA, tN2kGNSStype::N2kGNSSt_GPSGLONASS,
+               tN2kGNSSmethod::N2kGNSSm_PreciseGNSS,
+            /*nSatellites=*/N2kUInt8NA, /*HDOP=*/N2kDoubleNA,
+            /*PDOP=*/N2kDoubleNA, /*GeoidalSeparation=*/N2kDoubleNA);
+    // Have to do GNSS method manually. It's not reverse engineered yet.
+    msg->Data[31] = gnss_metod_cache_;
+    // Have to set integrity manually. 6 bits reserved. 2 bits set to 0.
+    // That's why there are two values binary ORed together.
+    // 0: No integrity checking.
+    msg->Data[32] = 0xFC | 0x00;
+  }
+
+  d << "\tDone.\n";
+
+  return true;
+}
+
+// SBP_DOPS 520 -> GNSS DOPs PGN 129539
+bool SbpToNmea2kConverter::Sbp520ToPgn129539(const msg_dops_t *msg,
+                                             tN2kMsg *n2kMsg) {
+  d << __FUNCTION__ << "\n";
+
+  bool is_valid = (msg->flags & 0x07) != 0;
+
+  if (is_valid) {
+    SetN2kGNSSDOPData(*n2kMsg, tow_to_sid(msg->tow),
+            /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
+            /*ActualMode=*/tN2kGNSSDOPmode::N2kGNSSdm_3D,
+                      msg->hdop / 100.0, msg->vdop / 100.0, msg->tdop / 100.0);
+  } else {
+    SetN2kGNSSDOPData(*n2kMsg, /*sequence ID=*/0xFF,
+            /*DesiredMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Auto,
+            /*ActualMode=*/tN2kGNSSDOPmode::N2kGNSSdm_Error,
+                      N2kDoubleNA, N2kDoubleNA, N2kDoubleNA);
+  }
+
+  d << "\tTOW: " << msg->tow << "\n"
+    << "\tHDOP: " << msg->hdop / 100.0 << "\n"
+    << "\tVDOP: " << msg->vdop / 100.0 << "\n"
+    << "\tTDOP: " << msg->tdop / 100.0 << "\n";
+
+  d << "\tDone.\n";
+
+  return true;
+}
+
 // SBP_TRACKING_STATE 65 -> GNSS Sats in View PGN 129540
 bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
                                              const u8 len, tN2kMsg *n2kMsg) {
@@ -124,6 +197,63 @@ bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
   d << "\tDone.\n";
 
   return true;
+}
+
+void SbpToNmea2kConverter::ResetPgn129029CacheIfOld(const u32 tow) {
+  constexpr u32 cOverflowDiff = 1000 * 60 * 60;  // One hour in ms.
+  if((tow > tow_cache_) ||  // Check if new tow or if overflown.
+     ((tow < tow_cache_) && ((tow_cache_ - tow) <= cOverflowDiff))) {
+    tow_cache_ = tow;
+    ResetPgn129029Cache();
+  }
+}
+
+bool SbpToNmea2kConverter::IsPgn129029Ready(const bool is_valid) {
+      // Checking ((tow_cache_ % 10000) / 100) limits divider to two digits.
+      if(is_valid) {
+        divider_pgn129029_counter_ = ((tow_cache_ % 10000) / 100) %
+                cDividerPgn129029;
+        return utc_time_cached_ && pos_llh_cached_ && dops_cached_ &&
+                divider_pgn129029_counter_ == 0;
+      } else {  // This should be hit only by a single SBP message.
+        divider_pgn129029_counter_ = (divider_pgn129029_counter_ + 1) %
+                cDividerPgn129029;
+        return divider_pgn129029_counter_ == 0;
+      }
+    }
+
+void
+SbpToNmea2kConverter::SetPgn129029CacheFields(const u32 tow,
+                                              const u16 days_since_1970,
+                                              const double seconds_since_midnight) {
+  if(tow == tow_cache_) {
+    days_since_1970_cache_ = days_since_1970;
+    seconds_since_midnight_cache_ = seconds_since_midnight;
+    utc_time_cached_ = true;
+  }
+}
+
+void SbpToNmea2kConverter::SetPgn129029CacheFields(const msg_pos_llh_t *msg) {
+  if(msg->tow == tow_cache_) {
+    lat_cache_ = msg->lat;
+    lon_cache_ = msg->lon;
+    alt_cache_ = msg->height;
+    sat_count_cache_ = msg->n_sats;  // Sats used in solution.
+    gnss_metod_cache_ = gnss_method_lut_[msg->flags & 0x07];
+    pos_llh_cached_ = true;
+  }
+}
+
+void SbpToNmea2kConverter::SetPgn129029CacheFields(const msg_dops_t *msg) {
+  if (msg->tow == tow_cache_) {
+    hdop_cache_ = static_cast<double>(msg->hdop) / 100.0;
+    pdop_cache_ = static_cast<double>(msg->pdop) / 100.0;
+    dops_cached_ = true;
+  }
+}
+
+void SbpToNmea2kConverter::ResetPgn129029Cache() {
+  utc_time_cached_ = pos_llh_cached_ = dops_cached_ = false;
 }
 
 u8 SbpToNmea2kConverter::tow_to_sid(const u32 tow) {
