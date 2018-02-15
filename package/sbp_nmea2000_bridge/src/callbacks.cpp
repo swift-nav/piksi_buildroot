@@ -286,33 +286,24 @@ void callback_sbp_pos_llh(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(sender_id);
   UNUSED(len);
   UNUSED(context);
-  d << __FUNCTION__ << "\n";
 
   auto *sbp_pos = reinterpret_cast<msg_pos_llh_t*>(msg);
-
-  d << "\tTOW: " << sbp_pos->tow << "\n"
-    << "\tLat: " << sbp_pos->lat << "\n"
-    << "\tLon: " << sbp_pos->lon << "\n"
-    << "\tAlt: " << sbp_pos->height << "\n";
-
   bool is_valid = (sbp_pos->flags & 0x07) != 0;
 
-  tN2kMsg N2kMsg;
-  if(is_valid) {
-    SetN2kLatLonRapid(N2kMsg, sbp_pos->lat, sbp_pos->lon);
-  } else {
-    SetN2kLatLonRapid(N2kMsg, N2kDoubleNA, N2kDoubleNA);
+  tN2kMsg n2kMsg;
+  if (converter.Sbp522ToPgn129025(sbp_pos, &n2kMsg)) {
+    NMEA2000.SendMsg(n2kMsg);
   }
-  NMEA2000.SendMsg(N2kMsg);
 
   // In case of invalid position, pos_llh message marks an epoch.
   // Therefore, we don't check for validity here.
-  n2k_composite_message_cache.ResetIfOld(sbp_pos->tow);
-  n2k_composite_message_cache.SetFields(sbp_pos);
-  if (n2k_composite_message_cache.IsReadyToSend(is_valid)) {
-    N2kMsg.Clear();
-    n2k_composite_message_cache.FillN2kMsg(&N2kMsg, is_valid);
-    NMEA2000.SendMsg(N2kMsg);
+  converter.ResetPgn129029CacheIfOld(sbp_pos->tow);
+  converter.SetPgn129029CacheFields(sbp_pos);
+  if (converter.IsPgn129029Ready(is_valid)) {
+    n2kMsg.Clear();
+    if (converter.Sbp259And520And522ToPgn129029(is_valid, &n2kMsg)) {
+      NMEA2000.SendMsg(n2kMsg);
+    }
   }
 
   d << "\tDone.\n";
@@ -325,8 +316,10 @@ void callback_sbp_vel_ned(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(context);
 
   tN2kMsg n2kMsg;
-  converter.Sbp526ToPgn129026(reinterpret_cast<msg_vel_ned_t*>(msg), &n2kMsg);
-  NMEA2000.SendMsg(n2kMsg);
+  if (converter.Sbp526ToPgn129026(reinterpret_cast<msg_vel_ned_t*>(msg),
+                                  &n2kMsg)) {
+    NMEA2000.SendMsg(n2kMsg);
+  }
 
   d << "\tDone.\n";
 }

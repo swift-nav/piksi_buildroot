@@ -30,6 +30,30 @@ namespace {
     }
 }  // namespace
 
+
+// SBP_MSG_VEL_NED 522 -> GNSS DOPs PGN 129025
+bool SbpToNmea2kConverter::Sbp522ToPgn129025(const msg_pos_llh_t *msg,
+                                             tN2kMsg *n2kMsg) {
+  d << __FUNCTION__ << "\n";
+
+  d << "\tTOW: " << msg->tow << "\n"
+    << "\tLat: " << msg->lat << "\n"
+    << "\tLon: " << msg->lon << "\n"
+    << "\tAlt: " << msg->height << "\n";
+
+  bool is_valid = (msg->flags & 0x07) != 0;
+
+  if(is_valid) {
+    SetN2kLatLonRapid(*n2kMsg, msg->lat, msg->lon);
+  } else {
+    SetN2kLatLonRapid(*n2kMsg, N2kDoubleNA, N2kDoubleNA);
+  }
+
+  d << "\tDone.\n";
+
+  return true;
+}
+
 // SBP_MSG_VEL_NED 526 -> GNSS DOPs PGN 129026
 bool SbpToNmea2kConverter::Sbp526ToPgn129026(const msg_vel_ned_t *msg,
                                              tN2kMsg *n2kMsg) {
