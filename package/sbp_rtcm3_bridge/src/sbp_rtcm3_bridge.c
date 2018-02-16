@@ -15,6 +15,7 @@
 #include <getopt.h>
 #include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/settings.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 #include <libsbp/navigation.h>
@@ -35,6 +36,8 @@
 bool rtcm3_debug = false;
 
 struct rtcm3_sbp_state state;
+
+bool simulator_enabled_watch = false;
 
 static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 {
@@ -152,14 +155,26 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   rtcm2sbp_set_leap_second(leap_second,&state);
 }
 
+static int notify_simulator_enable_changed(void *context)
+{
+  (void)context;
+  sbp_simulator_enabled_set(simulator_enabled_watch);
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
+  int status = EXIT_SUCCESS;
+  settings_ctx_t *settings_ctx = NULL;
+  sbp_zmq_pubsub_ctx_t *ctx = NULL;
+
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
     usage(argv[0]);
-    exit(EXIT_FAILURE);
+    status = EXIT_FAILURE;
+    goto cleanup;
   }
 
   /* Need to init state variable before we get SBP in */
@@ -168,46 +183,71 @@ int main(int argc, char *argv[])
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
-  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT,
-                                                    SBP_SUB_ENDPOINT);
+  ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (ctx == NULL) {
-    exit(EXIT_FAILURE);
+    status = EXIT_FAILURE;
+    goto cleanup;
   }
 
   zsock_t *rtcm3_sub = zsock_new_sub(RTCM3_SUB_ENDPOINT, "");
   if (rtcm3_sub == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
-    exit(EXIT_FAILURE);
+    status = EXIT_FAILURE;
+    goto cleanup;
   }
 
   if (zloop_reader(sbp_zmq_pubsub_zloop_get(ctx), rtcm3_sub,
                    rtcm3_reader_handler, NULL) != 0) {
     piksi_log(LOG_ERR, "error adding reader");
-    exit(EXIT_FAILURE);
+    status = EXIT_FAILURE;
+    goto cleanup;
   }
 
   if (sbp_init(sbp_zmq_pubsub_rx_ctx_get(ctx),
                sbp_zmq_pubsub_tx_ctx_get(ctx)) != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
-    exit(EXIT_FAILURE);
+    status = EXIT_FAILURE;
+    goto cleanup;
   }
 
   if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
-    exit(EXIT_FAILURE);
+    status = EXIT_FAILURE;
+    goto cleanup;
   }
 
   if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting UTC TIME callback");
-    exit(EXIT_FAILURE);
+    status = EXIT_FAILURE;
+    goto cleanup;
   }
 
-  if (sbp_callback_register(SBP_MSG_SETTINGS_READ_RESP, sbp_read_resp_callback, NULL) != 0) {
-    piksi_log(LOG_ERR, "error setting SBP READ RESP callback");
-    exit(EXIT_FAILURE);
+  settings_ctx = settings_create();
+
+  if (settings_ctx == NULL) {
+    sbp_log(LOG_ERR, "Error registering for settings!");
+    status = EXIT_FAILURE;
+    goto cleanup;
   }
+
+  if (settings_reader_add(settings_ctx,
+                          sbp_zmq_pubsub_zloop_get(ctx)) != 0) {
+    sbp_log(LOG_ERR, "Error registering for settings read!");
+    status = EXIT_FAILURE;
+    goto cleanup;
+  }
+
+  settings_add_watch(settings_ctx, "simulator", "enabled",
+                     &simulator_enabled_watch , sizeof(simulator_enabled_watch),
+                     SETTINGS_TYPE_BOOL,
+                     notify_simulator_enable_changed, NULL);
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 
-  exit(EXIT_SUCCESS);
+cleanup:
+  sbp_zmq_pubsub_destroy(&ctx);
+  settings_destroy(&settings_ctx);
+  logging_deinit();
+
+  return status;
 }
