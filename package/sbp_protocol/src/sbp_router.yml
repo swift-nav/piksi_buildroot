@@ -10,6 +10,10 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0xAE, 0x00] } # Settings register
           - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
           - { action: REJECT }
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
       - dst_port: SBP_PORT_EXTERNAL
         filters:
           - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
@@ -49,6 +53,7 @@ ports:
       - dst_port: SBP_PORT_SETTINGS_CLIENT
         filters:
           - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
+          - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
           - { action: REJECT }
 
   - name: SBP_PORT_EXTERNAL
@@ -110,12 +115,15 @@ ports:
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
-          - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
           - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
           - { action: REJECT }
       - dst_port: SBP_PORT_SETTINGS_DAEMON
         filters:
           - { action: ACCEPT }
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
 
   - name: SBP_PORT_SKYLARK
     pub_addr: "@tcp://127.0.0.1:43080"
