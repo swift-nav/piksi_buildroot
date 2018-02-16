@@ -35,6 +35,7 @@ extern "C" {
 
 #include "callbacks.h"
 #include "common.h"
+#include "device_and_product_info.h"
 #include "NMEA2000_SocketCAN.h"
 
 namespace {
@@ -64,12 +65,13 @@ namespace {
     // Product information.
     constexpr u16 cNmeaNetworkMessageDatabaseVersion = 2100;
     constexpr u16 cNmeaManufacturersProductCode = 0xFFFF;  // Assigned by NMEA.
-//    u8 cManufacturersModelId[32] = "";  // Piksi Multi or Piksi Duro or Piksi Nano.
+    char manufacturers_model_id[32] = "";  // Piksi Multi or Piksi Duro or Piksi Nano.
 //    u8 cManufacturersSoftwareVersionCode[32] = "";  // 1.3.something and so on.
-//    u8 cManufacturersModelVersion[32] = "";  // Hardware revision?
+    constexpr char cManufacturersModelVersion[32] = "Rev. X";
     char manufacturers_model_serial_code[32] = "";
-    constexpr char cModelSerialCodePath[] = "/factory/mfg_id";
-    constexpr u8 cNMEA2000CertificationLevel = 2;  // Not applicable any more. Part of old standard.
+    // cNMEA2000CertificationLevel is not applicable any more per standard.
+    // Therefore, a value of 2 is used.
+    constexpr u8 cNMEA2000CertificationLevel = 2;
     constexpr u8 cLoadEquivalency = 8;
 
     void usage(char *command) {
@@ -292,14 +294,12 @@ int main(int argc, char *argv[]) {
               "Could not register callback. Message: %" PRIu16,
               SBP_MSG_HEARTBEAT);
 
-  // Read the serial number.
-  { // The block automagically cleans up the file object.
-    std::fstream serial_num_file(cModelSerialCodePath, std::ios_base::in);
-    serial_num_file.read(manufacturers_model_serial_code,
-                         sizeof(manufacturers_model_serial_code) - 1);
-  }
-
   // Set N2K info and options.
+  get_manufacturers_model_id(sizeof(manufacturers_model_id),
+                             manufacturers_model_id);
+  get_manufacturers_model_serial_code(sizeof(manufacturers_model_serial_code),
+                                      manufacturers_model_serial_code);
+
   NMEA2000.SetN2kCANSendFrameBufSize(32);
   // TODO(lstrz): Need an elegant way to query for the proper info to include here.
   // https://github.com/swift-nav/firmware_team_planning/issues/452
@@ -308,7 +308,7 @@ int main(int argc, char *argv[]) {
   // DeviceFunction, DeviceClass, ManufacturerCode, IndustryGroup
   NMEA2000.SetProductInformation(manufacturers_model_serial_code,
                                  cNmeaManufacturersProductCode, 0, 0,
-                                 0, cLoadEquivalency,
+                                 cManufacturersModelVersion, cLoadEquivalency,
                                  cNmeaNetworkMessageDatabaseVersion,
                                  cNMEA2000CertificationLevel);
   NMEA2000.SetDeviceInformation(0x1337,
