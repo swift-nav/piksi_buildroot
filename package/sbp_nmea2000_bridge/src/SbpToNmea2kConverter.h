@@ -46,9 +46,10 @@ private:
     // 4: Fixed RTK             -> 0x24: GPS + GLONASS, RTK Fixed Integer
     static constexpr u8 gnss_method_lut_[] = {0x02, 0x12, 0x22, 0x52,
                                               0x42, 0x02, 0x02, 0x02};
-    // Need to change logic in IsReadyToSend to support more than
-    // two digit dividers.
+    // To support more than two digit dividers,
+    // need to change logic in IsReadyToSend.
     static constexpr u8 cDividerPgn129029 = 10;
+    static constexpr u8 cDividerPgn129540 = 2;
 
     double seconds_since_midnight_cache_ = 0.0;
     double lat_cache_ = 0.0;
@@ -61,6 +62,7 @@ private:
     u8 gnss_metod_cache_ = 0;
     u8 sat_count_cache_ = 0;  // Number of sats used in solution.
     u8 divider_pgn129029_counter_ = 0;
+    u8 divider_pgn129540_counter_ = 0;
     bool utc_time_cached_ = false;
     bool pos_llh_cached_ = false;
     bool dops_cached_ = false;

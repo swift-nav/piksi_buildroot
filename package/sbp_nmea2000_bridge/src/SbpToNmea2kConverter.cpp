@@ -224,12 +224,7 @@ bool SbpToNmea2kConverter::Sbp520ToPgn129539(const msg_dops_t *msg,
 // SBP_MSG_TRACKING_STATE 65 -> GNSS Sats in View PGN 129540
 bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
                                              const u8 len, tN2kMsg *n2kMsg) {
-
-  // Divide by the divisor. Very hacky to have it in a static.
-  // TODO(lstrz): Make this non-static.
-  constexpr u8 cDivider = 2;
-  static u8 divider_counter = 0;
-  if ((++divider_counter % cDivider) != 0) {
+  if ((++divider_pgn129540_counter_ % cDividerPgn129540) != 0) {
     return false;
   }
 
