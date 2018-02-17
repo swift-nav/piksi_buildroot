@@ -47,6 +47,7 @@
 struct health_ctx_s {
   double health_debug;
   sbp_zmq_pubsub_ctx_t *sbp_ctx;
+  settings_ctx_t *settings_ctx;
 };
 
 bool health_context_get_debug(health_ctx_t *health_ctx)
@@ -59,7 +60,12 @@ sbp_zmq_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx)
   return health_ctx->sbp_ctx;
 }
 
-static health_ctx_t g_health_ctx = { .health_debug = false, .sbp_ctx = NULL };
+settings_ctx_t *health_context_get_settings_ctx(health_ctx_t *health_ctx)
+{
+  return health_ctx->settings_ctx;
+}
+
+static health_ctx_t health_ctx = { .health_debug = false, .sbp_ctx = NULL };
 
 static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
   { baseline_threshold_health_monitor_init,
@@ -93,7 +99,7 @@ static int parse_options(int argc, char *argv[])
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
     case OPT_ID_DEBUG: {
-      g_health_ctx.health_debug = true;
+      health_ctx.health_debug = true;
     } break;
     default: {
       puts("Invalid option");
@@ -107,6 +113,7 @@ static int parse_options(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+  int status = EXIT_SUCCESS;
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
@@ -119,27 +126,47 @@ int main(int argc, char *argv[])
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
-  g_health_ctx.sbp_ctx =
+  health_ctx.sbp_ctx =
     sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
-  if (g_health_ctx.sbp_ctx == NULL) {
-    exit(EXIT_FAILURE);
+  if (health_ctx.sbp_ctx == NULL) {
+    status = EXIT_FAILURE;
+    goto cleanup;
+  }
+
+  health_ctx.settings_ctx = settings_create();
+  if (health_ctx.settings_ctx == NULL) {
+    sbp_log(LOG_ERR, "Error registering for settings!");
+    status = EXIT_FAILURE;
+    goto cleanup;
+  }
+
+  if (settings_reader_add(health_ctx.settings_ctx,
+                          sbp_zmq_pubsub_zloop_get(health_ctx.sbp_ctx)) != 0) {
+    sbp_log(LOG_ERR, "Error registering for settings read!");
+    status = EXIT_FAILURE;
+    goto cleanup;
   }
 
   for (u8 i = 0; i < health_monitor_init_pairs_n; i++) {
-    if (health_monitor_init_pairs[i].init(&g_health_ctx) != 0) {
+    if (health_monitor_init_pairs[i].init(&health_ctx) != 0) {
       piksi_log(LOG_ERR, "Error setting up health monitor! id: %d", i);
     }
   }
 
   piksi_log(LOG_DEBUG, "Running...");
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(g_health_ctx.sbp_ctx));
+  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(health_ctx.sbp_ctx));
 
   for (u8 i = 0; i < health_monitor_init_pairs_n; i++) {
     health_monitor_init_pairs[i].deinit();
   }
 
-  sbp_zmq_pubsub_destroy(&g_health_ctx.sbp_ctx);
+  sbp_zmq_pubsub_destroy(&health_ctx.sbp_ctx);
+
+cleanup:
   piksi_log(LOG_DEBUG, "Shutdown...");
+  sbp_zmq_pubsub_destroy(&health_ctx.sbp_ctx);
+  settings_destroy(&health_ctx.settings_ctx);
   logging_deinit();
-  exit(EXIT_SUCCESS);
+
+  return status;
 }
