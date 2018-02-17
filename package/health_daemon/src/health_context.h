@@ -28,4 +28,9 @@ bool health_context_get_debug(health_ctx_t *health_ctx);
  */
 sbp_zmq_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx);
 
+/*
+ * Get settings_ctx from health context
+ */
+settings_ctx_t *health_context_get_settings_ctx(health_ctx_t *health_ctx);
+
 #endif /* __HEALTH_CONTEXT_H */
