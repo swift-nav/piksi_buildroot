@@ -263,6 +263,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Register callbacks for SBP messages.
+  // TODO(lstrz): Tracking state causes a SIGSEGV.
   piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
                                     callback_sbp_tracking_state,
                                     sbp_zmq_pubsub_zloop_get(ctx)),
@@ -306,13 +307,31 @@ int main(int argc, char *argv[]) {
   // ModelSerialCode, ProductCode, ModelID, SwCode, ModelVersion,
   // LoadEquivalency, N2kVersion, CertificationLevel, UniqueNumber,
   // DeviceFunction, DeviceClass, ManufacturerCode, IndustryGroup
+
+  cout << "Product Information:\n"
+       << "\tNMEA Network Message Database Version: "
+       << cNmeaNetworkMessageDatabaseVersion
+       << "\tNMEA Manufacturer's Product Code: "
+       << cNmeaManufacturersProductCode
+       << "\tManufacturer's Model ID: "
+       << manufacturers_model_id
+//       << "\tManufacturer's Software Version Code: "
+//       << cManufacturersSoftwareVersionCode
+       << "\tManufacturer's Model Version: "
+       << cManufacturersModelVersion
+       << "\tManufacturer's Model Serial Code: "
+       << manufacturers_model_serial_code
+       << "\tNMEA2000 Certification Level: "
+       << cNMEA2000CertificationLevel
+       << "\tLoad Equivalency: "
+       << cLoadEquivalency;
+
   NMEA2000.SetProductInformation(manufacturers_model_serial_code,
                                  cNmeaManufacturersProductCode, 0, 0,
                                  cManufacturersModelVersion, cLoadEquivalency,
                                  cNmeaNetworkMessageDatabaseVersion,
                                  cNMEA2000CertificationLevel);
-  NMEA2000.SetDeviceInformation(0x1337,
-          /*_DeviceFunction=*/0xff,
+  NMEA2000.SetDeviceInformation(0x1337, /*_DeviceFunction=*/0xff,
           /*_DeviceClass=*/0xff, /*_ManufacturerCode=*/883);
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode);
   NMEA2000.SetHeartbeatInterval(1000);

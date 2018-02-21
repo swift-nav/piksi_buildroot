@@ -84,12 +84,12 @@ bool SbpToNmea2kConverter::Sbp527ToPgn127250(const msg_baseline_heading_t *msg,
                                              tN2kMsg *n2kMsg) {
   d << __FUNCTION__ << "\n";
 
+  bool is_valid = (msg->flags & 0x07) == 4;
+
   d << "\tBaseline heading in deg: "
     << msg->heading / 1000.0 << "\n"
-    << "\tBaseline heading in rad: "
-    << DegToRad(msg->heading / 1000.0) << "\n";
-
-  bool is_valid = (msg->flags & 0x07) == 4;
+    << "\tBaseline heading in rad: " << DegToRad(msg->heading / 1000.0) << "\n"
+    << "\tValid: " << is_valid << " " << static_cast<u16>(msg->flags & 0x07) << "\n";
 
   if (is_valid) {
     SetN2kTrueHeading(*n2kMsg, tow_to_sid(msg->tow),
@@ -224,7 +224,9 @@ bool SbpToNmea2kConverter::Sbp520ToPgn129539(const msg_dops_t *msg,
 // SBP_MSG_TRACKING_STATE 65 -> GNSS Sats in View PGN 129540
 bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
                                              const u8 len, tN2kMsg *n2kMsg) {
-  if ((++divider_pgn129540_counter_ % cDividerPgn129540) != 0) {
+  divider_pgn129540_counter_ = (divider_pgn129540_counter_ + 1) %
+          cDividerPgn129540;
+  if (divider_pgn129540_counter_ != 0) {
     return false;
   }
 
@@ -264,6 +266,12 @@ bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
       default:
         d << "\tControl should have never reached this point.\n";
         exit(-1);  // Should never happen.
+    }
+    if (sats_gps_end_it == sats_gps.end() ||
+        sats_glo_end_it == sats_glo.end()) {
+      d << "\tControl should have never reached this point." <<
+        "Need to increase cConstellationMaxSats.\n";
+      exit(-1);  // Should never happen.
     }
   }
 
