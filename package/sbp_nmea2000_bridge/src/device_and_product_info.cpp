@@ -5,6 +5,8 @@
 namespace {
     constexpr char cEepromPath[] =
             "/sys/devices/soc0/amba/e0005000.i2c/i2c-1/1-0050/eeprom";
+    constexpr char cManufacturersSoftwareVersionCodePath[] =
+            "/img_tbl/boot/name";
     constexpr char cManufacturersModelSerialCodePath[] = "/factory/mfg_id";
 }  // namespace
 
@@ -24,6 +26,18 @@ bool get_manufacturers_model_id(const size_t len,
     return false;
   }
 
+  return true;
+}
+
+
+bool
+get_manufacturers_software_version_code(const size_t len,
+                                        char *manufacturers_software_version_code) {
+  std::fstream manufacturers_software_version_code_file(
+          cManufacturersSoftwareVersionCodePath,
+          std::ios_base::in);
+  manufacturers_software_version_code_file.get(
+          manufacturers_software_version_code, len);
   return true;
 }
 
