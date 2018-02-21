@@ -66,7 +66,7 @@ namespace {
     constexpr u16 cNmeaNetworkMessageDatabaseVersion = 2100;
     constexpr u16 cNmeaManufacturersProductCode = 0xFFFF;  // Assigned by NMEA.
     char manufacturers_model_id[32] = "";  // Piksi Multi or Piksi Duro or Piksi Nano.
-//    u8 cManufacturersSoftwareVersionCode[32] = "";  // 1.3.something and so on.
+    char manufacturers_software_version_code[32] = "";
     constexpr char cManufacturersModelVersion[32] = "Rev. X";
     char manufacturers_model_serial_code[32] = "";
     // cNMEA2000CertificationLevel is not applicable any more per standard.
@@ -298,6 +298,9 @@ int main(int argc, char *argv[]) {
   // Set N2K info and options.
   get_manufacturers_model_id(sizeof(manufacturers_model_id),
                              manufacturers_model_id);
+  get_manufacturers_software_version_code(
+          sizeof(manufacturers_software_version_code),
+          manufacturers_software_version_code);
   get_manufacturers_model_serial_code(sizeof(manufacturers_model_serial_code),
                                       manufacturers_model_serial_code);
 
@@ -315,8 +318,8 @@ int main(int argc, char *argv[]) {
        << cNmeaManufacturersProductCode
        << "\tManufacturer's Model ID: "
        << manufacturers_model_id
-//       << "\tManufacturer's Software Version Code: "
-//       << cManufacturersSoftwareVersionCode
+       << "\tManufacturer's Software Version Code: "
+       << manufacturers_software_version_code
        << "\tManufacturer's Model Version: "
        << cManufacturersModelVersion
        << "\tManufacturer's Model Serial Code: "
