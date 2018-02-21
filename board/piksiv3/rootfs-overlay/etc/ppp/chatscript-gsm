@@ -3,14 +3,12 @@ ABORT "NO DIALTONE"
 ABORT "ERROR"
 ABORT "NO ANSWER"
 ABORT "BUSY"
-"" "AT&D2"
-OK "AT+CGDCONT=1,\"IP\",\"\T\",,0,0"
-OK ""
-
-# Hologram diagnostics
 ECHO ON
-"" AT
+'' 'AT&D2'
+'OK' AT+CGDCONT=1,"IP","\T",,0,0
+OK AT
 OK ATI
+# Hologram diagnostics
 OK AT+CPIN?
 OK AT+CCID
 OK AT+CRSM=176,28539,0,0,12
@@ -20,6 +18,5 @@ OK AT+CREG?
 OK AT+CGREG?
 OK AT+CGDCONT?
 OK AT+COPS?
-
-OK "ATD*99***1#"
-CONNECT ""
+OK ATD*99***1#
+CONNECT ''
