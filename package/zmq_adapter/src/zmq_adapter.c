@@ -17,7 +17,11 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <dlfcn.h>
+#include <libpiksi/logging.h>
 #include <syslog.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/zmq_protocols"
@@ -29,9 +33,7 @@
 #define FRAMER_NONE_NAME "none"
 #define FILTER_NONE_NAME "none"
 
-#define SYSLOG_IDENTITY "zmq_adapter"
-#define SYSLOG_FACILITY LOG_LOCAL0
-#define SYSLOG_OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)
+#define PROGRAM_NAME "zmq_adapter"
 
 typedef enum {
   IO_INVALID,
@@ -352,6 +354,8 @@ static void terminate_handler(int signum)
     killpg(0, signum);
   }
 
+  logging_deinit();
+
   /* Exit */
   _exit(EXIT_SUCCESS);
 }
@@ -561,17 +565,24 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
   }
 }
 
+#define MSG_ERROR_SERIAL_FLUSH "Flushed stale data, the output data rate is " \
+  "too fast for this interface."
+
 static ssize_t fd_write(int fd, const void *buffer, size_t count)
 {
   if (isatty(fd) && (outq > 0)) {
     int qlen;
     ioctl(fd, TIOCOUTQ, &qlen);
     if (qlen + count > outq) {
-      /* Fake success so upper layer doesn't retry */
-      return count;
+      /* Flush the output buffer, otherwise we'll get behind and start
+       * transmitting partial SBP packets, we must drop some data here, so we
+       * choose to drop old data rather than new data here.
+       */
+      tcflush(fd, TCOFLUSH);
+      piksi_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH);
+      sbp_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH);
     }
   }
-
   while (1) {
     ssize_t ret = write(fd, buffer, count);
     /* Retry if interrupted */
@@ -1102,7 +1113,7 @@ void io_loop_terminate(void)
 
 int main(int argc, char *argv[])
 {
-  openlog(SYSLOG_IDENTITY, SYSLOG_OPTIONS, SYSLOG_FACILITY);
+  logging_init(PROGRAM_NAME);
 
   setpgid(0, 0); /* Set PGID = PID */
 

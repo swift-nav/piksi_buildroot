@@ -97,10 +97,14 @@ typedef struct {
   restart_type_t restart;
 } port_config_t;
 
+// This is the default for most serial devices, we need to drop and flush
+//   data when we get to this point to avoid sending partial SBP packets.
+#define SERIAL_XMIT_SIZE "4096"
+
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
-    .opts = "--file /dev/ttyPS0 --nonblock --outq 8192",
+    .opts = "--file /dev/ttyPS0 --nonblock --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -110,7 +114,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "uart1",
-    .opts = "--file /dev/ttyPS1 --nonblock --outq 8192",
+    .opts = "--file /dev/ttyPS1 --debug --nonblock --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -120,7 +124,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "usb0",
-    .opts = "--file /dev/ttyGS0 --nonblock --outq 8192",
+    .opts = "--file /dev/ttyGS0 --nonblock --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
