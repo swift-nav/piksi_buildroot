@@ -69,6 +69,16 @@ int zmq_simple_loop(zloop_t *zloop);
  */
 int zmq_simple_loop_timeout(zloop_t *zloop, u32 timeout_ms);
 
+#define MAX(a,b) \
+  ({ typeof (a) _a = (a); \
+  typeof (b) _b = (b); \
+  _a > _b ? _a : _b; })
+
+#define MIN(a,b) \
+  ({ typeof (a) _a = (a); \
+  typeof (b) _b = (b); \
+  _a < _b ? _a : _b; })
+
 #endif /* LIBPIKSI_UTIL_H */
 
 /** @} */

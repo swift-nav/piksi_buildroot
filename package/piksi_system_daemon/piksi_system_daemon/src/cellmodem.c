@@ -24,6 +24,7 @@
 #include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 #include <libsbp/logging.h>
 
 #include "cellmodem.h"
@@ -40,18 +41,50 @@ static int cellmodem_pppd_pid;
 
 static int cellmodem_notify(void *context);
 
+#define SBP_PAYLOAD_SIZE_MAX (255u)
+enum { STORAGE_SIZE = SBP_PAYLOAD_SIZE_MAX-1 };
+
 static void pppd_output_callback(const char *buf, void *arg)
 {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = arg;
+
   if (!cellmodem_debug)
     return;
 
-  msg_log_t *msg = alloca(256);
+  int len = strlen(buf);
+  static char storage[SBP_PAYLOAD_SIZE_MAX] = {0};
+
+  static char* buffer = storage;
+  static size_t remaining = STORAGE_SIZE;
+
+  size_t copy_len = MIN(remaining, len);
+
+  memcpy(buffer, buf, copy_len);
+  buffer = &buffer[copy_len];
+
+  remaining -= copy_len;
+
+  // Hacky workaround for things that are sent one character at a time...
+  if (len == 1 && (strcmp(storage, "NO CARRIER") != 0 &&
+                   strcmp(storage, "OK") != 0 &&
+                   strcmp(storage, "AT") != 0 &&
+                   strcmp(storage, "AT&D2") != 0))
+  {
+     return;
+  }
+
+  msg_log_t *msg = alloca(sizeof(storage) + 1);
   msg->level = 7;
-  strncpy(msg->text, buf, 255);
+
+  strncpy(msg->text, storage, sizeof(storage));
 
   sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
-                  SBP_MSG_LOG, sizeof(*msg) + strlen(buf), (void*)msg);
+                  SBP_MSG_LOG, sizeof(*msg) + strlen(storage), (void*)msg);
+
+  // Reset
+  buffer = &storage[0];
+  remaining = STORAGE_SIZE;
+  memset(buffer, 0, remaining);
 }
 
 void cellmodem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type)
