@@ -576,7 +576,7 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
     if (qlen + count > outq) {
       /* Flush the output buffer, otherwise we'll get behind and start
        * transmitting partial SBP packets, we must drop some data here, so we
-       * choose to drop old data rather than new data here.
+       * choose to drop old data rather than new data.
        */
       tcflush(fd, TCOFLUSH);
       piksi_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH);
