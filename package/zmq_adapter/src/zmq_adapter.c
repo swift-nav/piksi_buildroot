@@ -81,6 +81,7 @@ static const char *zmq_pub_addr = NULL;
 static const char *zmq_sub_addr = NULL;
 static const char *zmq_req_addr = NULL;
 static const char *zmq_rep_addr = NULL;
+static const char *port_name = "<unknown>";
 static const char *file_path = NULL;
 static int tcp_listen_port = -1;
 static const char *tcp_connect_addr = NULL;
@@ -145,6 +146,7 @@ static int parse_options(int argc, char *argv[])
 {
   enum {
     OPT_ID_STDIO = 1,
+    OPT_ID_NAME,
     OPT_ID_FILE,
     OPT_ID_TCP_LISTEN,
     OPT_ID_TCP_CONNECT,
@@ -168,6 +170,7 @@ static int parse_options(int argc, char *argv[])
     {"rep",               required_argument, 0, 'y'},
     {"framer",            required_argument, 0, 'f'},
     {"stdio",             no_argument,       0, OPT_ID_STDIO},
+    {"name",              required_argument, 0, OPT_ID_NAME},
     {"file",              required_argument, 0, OPT_ID_FILE},
     {"tcp-l",             required_argument, 0, OPT_ID_TCP_LISTEN},
     {"tcp-c",             required_argument, 0, OPT_ID_TCP_CONNECT},
@@ -192,6 +195,11 @@ static int parse_options(int argc, char *argv[])
     switch (c) {
       case OPT_ID_STDIO: {
         io_mode = IO_STDIO;
+      }
+      break;
+
+      case OPT_ID_NAME: {
+        port_name = optarg;
       }
       break;
 
@@ -565,8 +573,7 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
   }
 }
 
-#define MSG_ERROR_SERIAL_FLUSH "Flushed stale data, the output data rate is " \
-  "too fast for this interface."
+#define MSG_ERROR_SERIAL_FLUSH "Interface %s output buffer is full. Dropping data."
 
 static ssize_t fd_write(int fd, const void *buffer, size_t count)
 {
@@ -579,8 +586,21 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
        * choose to drop old data rather than new data.
        */
       tcflush(fd, TCOFLUSH);
-      piksi_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH);
-      sbp_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH);
+      ioctl(fd, TIOCOUTQ, &qlen);
+      if (qlen != 0 ) {
+        if (strstr(port_name, "usb") != port_name) {
+          piksi_log(LOG_WARNING, "Cloud not completely flush tty: %d bytes remaining.", qlen);
+        } else {
+          // USB gadget serial can't flush properly for some reason, ignore...
+          //   (This is ignored ad infinitum because this condition occurs on
+          //   start-up before the interface is read from, after the interface
+          //   is read from, it never occurs again.)
+          return count;
+        }
+      }
+      piksi_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH, port_name);
+      sbp_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH, port_name);
+      return count;
     }
   }
   while (1) {

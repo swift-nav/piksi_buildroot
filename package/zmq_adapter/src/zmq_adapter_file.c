@@ -64,6 +64,7 @@ int file_loop(const char *file_path, int need_read, int need_write)
 
   io_loop_start(fd_read, fd_write);
   io_loop_wait();
+  io_loop_terminate();
 
   if (need_read) {
     close(fd_read);
