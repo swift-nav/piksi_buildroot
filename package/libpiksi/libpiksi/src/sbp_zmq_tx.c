@@ -15,16 +15,6 @@
 #include <libpiksi/logging.h>
 #include <assert.h>
 
-#define SBP_FRAME_SIZE_MAX 264
-
-struct sbp_zmq_tx_ctx_s {
-  zsock_t *zsock;
-  u16 sender_id;
-  sbp_state_t sbp_state;
-  u8 send_buffer[SBP_FRAME_SIZE_MAX];
-  u32 send_buffer_length;
-};
-
 static void send_buffer_reset(sbp_zmq_tx_ctx_t *ctx)
 {
   ctx->send_buffer_length = 0;

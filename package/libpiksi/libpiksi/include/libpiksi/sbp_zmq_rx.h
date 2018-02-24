@@ -29,7 +29,14 @@
  *
  * @brief   Opaque context for SBP ZMQ RX.
  */
-typedef struct sbp_zmq_rx_ctx_s sbp_zmq_rx_ctx_t;
+
+typedef struct sbp_zmq_rx_ctx_s {
+  zsock_t *zsock;
+  sbp_state_t sbp_state;
+  const u8 *receive_buffer;
+  u32 receive_buffer_length;
+  bool reader_interrupt;
+} sbp_zmq_rx_ctx_t;
 
 /**
  * @brief   Create an SBP ZMQ RX context.

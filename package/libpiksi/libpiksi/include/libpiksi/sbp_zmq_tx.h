@@ -24,12 +24,20 @@
 
 #include <libpiksi/common.h>
 
+#define SBP_FRAME_SIZE_MAX 264
+
 /**
  * @struct  sbp_zmq_tx_ctx_t
  *
  * @brief   Opaque context for SBP ZMQ TX.
  */
-typedef struct sbp_zmq_tx_ctx_s sbp_zmq_tx_ctx_t;
+typedef struct sbp_zmq_tx_ctx_s {
+  zsock_t *zsock;
+  u16 sender_id;
+  sbp_state_t sbp_state;
+  u8 send_buffer[SBP_FRAME_SIZE_MAX];
+  u32 send_buffer_length;
+} sbp_zmq_tx_ctx_t;
 
 /**
  * @brief   Create an SBP ZMQ TX context.

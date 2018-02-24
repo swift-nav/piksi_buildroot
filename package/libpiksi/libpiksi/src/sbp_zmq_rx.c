@@ -15,13 +15,6 @@
 #include <libpiksi/logging.h>
 #include <assert.h>
 
-struct sbp_zmq_rx_ctx_s {
-  zsock_t *zsock;
-  sbp_state_t sbp_state;
-  const u8 *receive_buffer;
-  u32 receive_buffer_length;
-  bool reader_interrupt;
-};
 
 static u32 receive_buffer_read(u8 *buff, u32 n, void *context)
 {
