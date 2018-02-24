@@ -118,7 +118,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "uart1",
-    .opts = "--name uart1 --file /dev/ttyPS1 --debug --nonblock --outq " SERIAL_XMIT_SIZE,
+    .opts = "--name uart1 --file /dev/ttyPS1 --nonblock --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,

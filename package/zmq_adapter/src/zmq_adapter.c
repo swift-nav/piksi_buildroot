@@ -587,7 +587,7 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
        */
       tcflush(fd, TCOFLUSH);
       ioctl(fd, TIOCOUTQ, &qlen);
-      if (qlen != 0 ) {
+      if (qlen != 0) {
         if (strstr(port_name, "usb") != port_name) {
           piksi_log(LOG_WARNING, "Cloud not completely flush tty: %d bytes remaining.", qlen);
         } else {
