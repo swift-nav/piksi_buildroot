@@ -29,15 +29,6 @@
 
 #define SBP_PAYLOAD_SIZE_MAX 255
 
-#ifdef SBP_MSG_SETTINGS_WRITE_RESP
-/* this should be specified in libsbp */
-enum {
-  SBP_WRITE_STATUS_OK,
-  SBP_WRITE_STATUS_VALUE_REJECTED,
-  SBP_WRITE_STATUS_SETTING_REJECTED,
-};
-#endif
-
 typedef int (*to_string_fn)(const void *priv, char *str, int slen,
                             const void *blob, int blen);
 typedef bool (*from_string_fn)(const void *priv, void *blob, int blen,
@@ -79,11 +70,7 @@ struct settings_ctx_s {
   setting_data_t *setting_data_list;
   registration_state_t registration_state;
   bool write_callback_registered;
-#ifdef SBP_MSG_SETTINGS_WRITE_RESP
-  bool write_resp_callback_registered;
-#else
   bool read_resp_callback_registered;
-#endif
 };
 
 static const char * const bool_enum_names[] = {"False", "True", NULL};
@@ -652,29 +639,6 @@ static int setting_format_setting(setting_data_t *setting_data, char *buf, int l
   return written;
 }
 
-#ifdef SBP_MSG_SETTINGS_WRITE_RESP
-static void setting_update_value(setting_data_t *setting_data, const char *value, u8 *write_result)
-{
-  *write_result = SBP_WRITE_STATUS_OK;
-  /* Store copy and update value */
-  memcpy(setting_data->var_copy, setting_data->var, setting_data->var_len);
-  if (!setting_data->type_data->from_string(setting_data->type_data->priv,
-        setting_data->var,
-        setting_data->var_len,
-        value)) {
-    /* Revert value if conversion fails */
-    memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
-    *write_result = SBP_WRITE_STATUS_VALUE_REJECTED;
-  } else if (setting_data->notify != NULL) {
-    /* Call notify function */
-    if (setting_data->notify(setting_data->notify_context) != 0) {
-      /* Revert value if notify returns error */
-      memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
-      *write_result = SBP_WRITE_STATUS_VALUE_REJECTED;
-    }
-  }
-}
-#else
 static void setting_update_value(setting_data_t *setting_data, const char *value)
 {
   /* Store copy and update value */
@@ -693,21 +657,6 @@ static void setting_update_value(setting_data_t *setting_data, const char *value
     }
   }
 }
-#endif
-
-#ifdef SBP_MSG_SETTINGS_WRITE_RESP
-static int setting_send_write_response(settings_ctx_t *ctx,
-                                         msg_settings_write_resp_t *write_response,
-                                         u8 len)
-{
-  if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-        SBP_MSG_SETTINGS_WRITE_RESP, len, (u8 *)write_response) != 0) {
-    piksi_log(LOG_ERR, "error sending settings write response");
-    return -1;
-  }
-  return 0;
-}
-#endif
 
 static int setting_send_read_response(settings_ctx_t *ctx,
                                       msg_settings_read_resp_t *read_response,
@@ -757,16 +706,9 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
     return;
   }
 
-#ifdef SBP_MSG_SETTINGS_WRITE_RESP
-  u8 write_result = SBP_WRITE_STATUS_OK;
-  if (!setting_data->readonly) {
-    setting_update_value(setting_data, value, &write_result);
-  }
-#else
   if (!setting_data->readonly) {
     setting_update_value(setting_data, value);
   }
-#endif
 
   u8 resp[SBP_PAYLOAD_SIZE_MAX];
   u8 resp_len = 0;
@@ -810,44 +752,6 @@ static void settings_read_resp_callback(u16 sender_id, u8 len, u8 msg[],
   setting_update_value(setting_data, value);
 }
 
-#ifdef SBP_MSG_SETTINGS_WRITE_RESP
-static void settings_write_resp_callback(u16 sender_id, u8 len, u8 msg[],
-                                         void* context)
-{
-  settings_ctx_t *ctx = (settings_ctx_t *)context;
-  msg_settings_write_resp_t *write_response = (msg_settings_write_resp_t *)msg;
-
-  /* Extract parameters from message:
-   * 3 null terminated strings: section, setting and value
-   */
-  const char *section = NULL;
-  const char *name = NULL;
-  const char *value = NULL;
-  if (setting_parse_setting_text(write_response->setting,
-                                 len - sizeof(write_response->status),
-                                 &section, &name, &value) != 0) {
-    piksi_log(LOG_WARNING, "error in settings write message");
-    return;
-  }
-
-  /* Look up setting data */
-  setting_data_t *setting_data = setting_data_lookup(ctx, section, name);
-  if (setting_data == NULL) {
-    return;
-  }
-
-  if (!setting_data->watchonly) {
-    return;
-  }
-
-  u8 write_result = SBP_WRITE_STATUS_OK;
-  setting_update_value(setting_data, value, &write_result);
-  if (write_result != SBP_WRITE_STATUS_OK) {
-    piksi_log(LOG_WARNING, "error updating watch only setting");
-  }
-}
-#endif
-
 static int settings_register_write_callback(settings_ctx_t *ctx)
 {
   if (!ctx->write_callback_registered) {
@@ -877,23 +781,6 @@ static int settings_register_read_resp_callback(settings_ctx_t *ctx)
   }
   return 0;
 }
-
-#ifdef SBP_MSG_SETTINGS_WRITE_RESP
-static int settings_register_write_resp_callback(settings_ctx_t *ctx)
-{
-  if (!ctx->write_resp_callback_registered) {
-    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                     SBP_MSG_SETTINGS_WRITE_RESP,
-                                     settings_write_resp_callback, ctx, NULL) != 0) {
-      piksi_log(LOG_ERR, "error registering settings write resp callback");
-      return -1;
-    } else {
-      ctx->write_resp_callback_registered = true;
-    }
-  }
-  return 0;
-}
-#endif
 
 static void members_destroy(settings_ctx_t *ctx)
 {
@@ -943,11 +830,7 @@ settings_ctx_t * settings_create(void)
   ctx->setting_data_list = NULL;
   ctx->registration_state.pending = false;
   ctx->write_callback_registered = false;
-#ifdef SBP_MSG_SETTINGS_WRITE_RESP
-  ctx->write_resp_callback_registered = false;
-#else
   ctx->read_resp_callback_registered = false;
-#endif
 
   /* Register standard types */
   settings_type_t type;
@@ -1032,15 +915,9 @@ static int settings_add_setting(settings_ctx_t *ctx,
   setting_data_list_insert(ctx, setting_data);
 
   if (watchonly) {
-#ifdef SBP_MSG_SETTINGS_WRITE_RESP
-    if (settings_register_write_resp_callback(ctx) != 0) {
-      piksi_log(LOG_ERR, "error registering settings write resp callback");
-    }
-#else
     if (settings_register_read_resp_callback(ctx) != 0) {
       piksi_log(LOG_ERR, "error registering settings read callback");
     }
-#endif
     if (setting_read_watched_value(ctx, setting_data) != 0) {
       piksi_log(LOG_ERR, "error reading watched setting to initial value");
     }
