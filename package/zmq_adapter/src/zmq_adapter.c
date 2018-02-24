@@ -591,10 +591,11 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
         if (strstr(port_name, "usb") != port_name) {
           piksi_log(LOG_WARNING, "Cloud not completely flush tty: %d bytes remaining.", qlen);
         } else {
-          // USB gadget serial can't flush properly for some reason, ignore...
-          //   (This is ignored ad infinitum because this condition occurs on
-          //   start-up before the interface is read from, after the interface
-          //   is read from, it never occurs again.)
+          /* USB gadget serial can't flush properly for some reason, ignore...
+           *   (This is ignored ad infinitum because this condition occurs on
+           *   start-up before the interface is read from, after the interface
+           *   is read from, it never occurs again.)
+           */
           return count;
         }
       }
