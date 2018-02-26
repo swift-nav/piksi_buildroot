@@ -589,7 +589,7 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
       ioctl(fd, TIOCOUTQ, &qlen);
       if (qlen != 0) {
         if (strstr(port_name, "usb") != port_name) {
-          piksi_log(LOG_WARNING, "Cloud not completely flush tty: %d bytes remaining.", qlen);
+          piksi_log(LOG_WARNING, "Could not completely flush tty: %d bytes remaining.", qlen);
         } else {
           /* USB gadget serial can't flush properly for some reason, ignore...
            *   (This is ignored ad infinitum because this condition occurs on
