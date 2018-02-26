@@ -17,7 +17,11 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <dlfcn.h>
+#include <libpiksi/logging.h>
 #include <syslog.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/zmq_protocols"
@@ -29,9 +33,7 @@
 #define FRAMER_NONE_NAME "none"
 #define FILTER_NONE_NAME "none"
 
-#define SYSLOG_IDENTITY "zmq_adapter"
-#define SYSLOG_FACILITY LOG_LOCAL0
-#define SYSLOG_OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)
+#define PROGRAM_NAME "zmq_adapter"
 
 typedef enum {
   IO_INVALID,
@@ -79,6 +81,7 @@ static const char *zmq_pub_addr = NULL;
 static const char *zmq_sub_addr = NULL;
 static const char *zmq_req_addr = NULL;
 static const char *zmq_rep_addr = NULL;
+static const char *port_name = "<unknown>";
 static const char *file_path = NULL;
 static int tcp_listen_port = -1;
 static const char *tcp_connect_addr = NULL;
@@ -143,6 +146,7 @@ static int parse_options(int argc, char *argv[])
 {
   enum {
     OPT_ID_STDIO = 1,
+    OPT_ID_NAME,
     OPT_ID_FILE,
     OPT_ID_TCP_LISTEN,
     OPT_ID_TCP_CONNECT,
@@ -166,6 +170,7 @@ static int parse_options(int argc, char *argv[])
     {"rep",               required_argument, 0, 'y'},
     {"framer",            required_argument, 0, 'f'},
     {"stdio",             no_argument,       0, OPT_ID_STDIO},
+    {"name",              required_argument, 0, OPT_ID_NAME},
     {"file",              required_argument, 0, OPT_ID_FILE},
     {"tcp-l",             required_argument, 0, OPT_ID_TCP_LISTEN},
     {"tcp-c",             required_argument, 0, OPT_ID_TCP_CONNECT},
@@ -190,6 +195,11 @@ static int parse_options(int argc, char *argv[])
     switch (c) {
       case OPT_ID_STDIO: {
         io_mode = IO_STDIO;
+      }
+      break;
+
+      case OPT_ID_NAME: {
+        port_name = optarg;
       }
       break;
 
@@ -351,6 +361,8 @@ static void terminate_handler(int signum)
   if (getpid() == getpgid(0)) {
     killpg(0, signum);
   }
+
+  logging_deinit();
 
   /* Exit */
   _exit(EXIT_SUCCESS);
@@ -561,17 +573,37 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
   }
 }
 
+#define MSG_ERROR_SERIAL_FLUSH "Interface %s output buffer is full. Dropping data."
+
 static ssize_t fd_write(int fd, const void *buffer, size_t count)
 {
   if (isatty(fd) && (outq > 0)) {
     int qlen;
     ioctl(fd, TIOCOUTQ, &qlen);
     if (qlen + count > outq) {
-      /* Fake success so upper layer doesn't retry */
+      /* Flush the output buffer, otherwise we'll get behind and start
+       * transmitting partial SBP packets, we must drop some data here, so we
+       * choose to drop old data rather than new data.
+       */
+      tcflush(fd, TCOFLUSH);
+      ioctl(fd, TIOCOUTQ, &qlen);
+      if (qlen != 0) {
+        if (strstr(port_name, "usb") != port_name) {
+          piksi_log(LOG_WARNING, "Cloud not completely flush tty: %d bytes remaining.", qlen);
+        } else {
+          /* USB gadget serial can't flush properly for some reason, ignore...
+           *   (This is ignored ad infinitum because this condition occurs on
+           *   start-up before the interface is read from, after the interface
+           *   is read from, it never occurs again.)
+           */
+          return count;
+        }
+      }
+      piksi_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH, port_name);
+      sbp_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH, port_name);
       return count;
     }
   }
-
   while (1) {
     ssize_t ret = write(fd, buffer, count);
     /* Retry if interrupted */
@@ -1102,7 +1134,7 @@ void io_loop_terminate(void)
 
 int main(int argc, char *argv[])
 {
-  openlog(SYSLOG_IDENTITY, SYSLOG_OPTIONS, SYSLOG_FACILITY);
+  logging_init(PROGRAM_NAME);
 
   setpgid(0, 0); /* Set PGID = PID */
 

@@ -97,10 +97,18 @@ typedef struct {
   restart_type_t restart;
 } port_config_t;
 
+// This is the default for most serial devices, we need to drop and flush
+//   data when we get to this point to avoid sending partial SBP packets.
+//   See https://elixir.bootlin.com/linux/v4.6/source/include/linux/serial.h#L29
+#define SERIAL_XMIT_SIZE "4096"
+
+// See https://elixir.bootlin.com/linux/v4.6/source/drivers/usb/gadget/function/u_serial.c#L83
+#define USB_SERIAL_XMIT_SIZE "8192"
+
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
-    .opts = "--file /dev/ttyPS0 --nonblock --outq 8192",
+    .opts = "--name uart0 --file /dev/ttyPS0 --nonblock --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -110,7 +118,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "uart1",
-    .opts = "--file /dev/ttyPS1 --nonblock --outq 8192",
+    .opts = "--name uart1 --file /dev/ttyPS1 --nonblock --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -120,7 +128,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "usb0",
-    .opts = "--file /dev/ttyGS0 --nonblock --outq 8192",
+    .opts = "--name usb0 --file /dev/ttyGS0 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
