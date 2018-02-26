@@ -1,13 +1,69 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
- * be be distributed together with this source. All other rights reserved.
+ * be distributed together with this source. All other rights reserved.
  *
  * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
+/**
+ * @file settings.c
+ * @brief Implementation of Settings Client APIs
+ *
+ * The piksi settings daemon acts as the manager for onboard settings
+ * registration and read responses for read requests while individual
+ * processes are responsible for the ownership of settings values and
+ * must respond to write requests with the value of the setting as a
+ * response to the question of whether or not a write request was
+ * valid and accepted by that process.
+ *
+ * This module provides a context and APIs for client interactions
+ * with the settings manager. Where previously these APIs were intended
+ * only for settings owning processes to register settings and respond
+ * to write requests, the intention will be to allow a fully formed
+ * settings client to be built upon these APIs to include read requests
+ * and other client side queries.
+ *
+ * The high level approach to the client is to hold a list of unique
+ * settings that can be configured as owned or non-owned (watch-only)
+ * by the process running the client. Each setting which is added to
+ * the list will be kept in sync with the settings daemon and/or the
+ * owning process via asynchronous messages recieved in the zmq routed
+ * endpoint for the client.
+ *
+ * Standard usage is as follow, initialize the settings context:
+ * \code{.c}
+ * // Create the settings context
+ * settings_ctx_t *settings_ctx = settings_create();
+ * \endcode
+ * Add a reader to the main zmq context zloop (if applicable)
+ * \code{.c}
+ * // Depending on you implementation this will vary
+ * settings_reader_add(settings_ctx, zmq_pubsub_ctx_zloop);
+ * \endcode
+ * For settings owners, a setting is registered as follows:
+ * \code{.c}
+ * settings_register(settings_ctx, "sample_process", "sample_setting",
+                     &sample_setting_data, sizeof(sample_setting_data),
+                     SETTINGS_TYPE_BOOL,
+                     optional_notify_callback, optional_callback_data);
+ * \endcode
+ * For a process that is tracking a non-owned setting, the process is similar:
+ * \code{.c}
+ * settings_add_watch(settings_ctx, "sample_process", "sample_setting",
+                      &sample_setting_data, sizeof(sample_setting_data),
+                      SETTINGS_TYPE_BOOL,
+                      optional_notify_callback, optional_callback_data);
+ * \endcode
+ * The main difference here is that an owned setting will response to write
+ * requests only, while a watch-only setting is updated on write responses
+ * to stay in sync with successful updates as reported by settings owners.
+ * @version v1.4
+ * @date 2018-02-23
  */
 
 #include <libpiksi/settings.h>
@@ -35,6 +91,13 @@ typedef bool (*from_string_fn)(const void *priv, void *blob, int blen,
                                const char *str);
 typedef int (*format_type_fn)(const void *priv, char *str, int slen);
 
+/**
+ * @brief Type Data
+ *
+ * This structure encapsulates the codec for values of a given type
+ * which the settings context uses to build a list of known types
+ * that it can support when settings are added to the settings list.
+ */
 typedef struct type_data_s {
   to_string_fn to_string;
   from_string_fn from_string;
@@ -43,6 +106,14 @@ typedef struct type_data_s {
   struct type_data_s *next;
 } type_data_t;
 
+/**
+ * @brief Setting Data
+ *
+ * This structure holds the information use to serialize settings
+ * information into sbp messages, as well as internal flags used
+ * to evaluate sbp settings callback behavior managed within the
+ * settings context.
+ */
 typedef struct setting_data_s {
   char *section;
   char *name;
@@ -57,6 +128,13 @@ typedef struct setting_data_s {
   struct setting_data_s *next;
 } setting_data_t;
 
+/**
+ * @brief Registration Helper Struct
+ *
+ * This helper struct is used watch for asyc callbacks during the
+ * registration/add watch read req phases of setup to allow a
+ * synchronous blocking stragety. These are for ephemeral use.
+ */
 typedef struct {
   bool pending;
   bool match;
@@ -64,6 +142,14 @@ typedef struct {
   u8 compare_data_len;
 } registration_state_t;
 
+/**
+ * @brief Settings Context
+ *
+ * This is the main context for managing client interactions with
+ * the settings manager. It implements the client messaging context
+ * as well as the list of types and settings necessary to perform
+ * the registration, watching and callback functionality of the client.
+ */
 struct settings_ctx_s {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx;
   type_data_t *type_data_list;
@@ -229,6 +315,13 @@ static int enum_format_type(const void *priv, char *str, int slen)
   return n;
 }
 
+/**
+ * @brief message_header_get - to allow formatting of identity only
+ * @param setting_data: the setting to format
+ * @param buf: buffer to hold formatted header string
+ * @param blen: length of the destination buffer
+ * @return bytes written to the buffer, -1 in case of failure
+ */
 static int message_header_get(setting_data_t *setting_data, char *buf, int blen)
 {
   int n = 0;
@@ -251,6 +344,13 @@ static int message_header_get(setting_data_t *setting_data, char *buf, int blen)
   return n;
 }
 
+/**
+ * @brief message_data_get - formatting of value and type
+ * @param setting_data: the setting to format
+ * @param buf: buffer to hold formatted data string
+ * @param blen: length of the destination buffer
+ * @return bytes written to the buffer, -1 in case of failure
+ */
 static int message_data_get(setting_data_t *setting_data, char *buf, int blen)
 {
   int n = 0;
@@ -278,6 +378,12 @@ static int message_data_get(setting_data_t *setting_data, char *buf, int blen)
   return n;
 }
 
+/**
+ * @brief type_data_lookup - retrieves type node from settings context
+ * @param ctx: settings context
+ * @param type: type struct to be matched
+ * @return the setting type entry if a match is found, otherwise NULL
+ */
 static type_data_t * type_data_lookup(settings_ctx_t *ctx, settings_type_t type)
 {
   type_data_t *type_data = ctx->type_data_list;
@@ -287,6 +393,13 @@ static type_data_t * type_data_lookup(settings_ctx_t *ctx, settings_type_t type)
   return type_data;
 }
 
+/**
+ * @brief setting_data_lookup - retrieves setting node from settings context
+ * @param ctx: settings context
+ * @param section: setting section string to match
+ * @param name: setting name string to match
+ * @return the setting type entry if a match is found, otherwise NULL
+ */
 static setting_data_t * setting_data_lookup(settings_ctx_t *ctx,
                                             const char *section,
                                             const char *name)
@@ -321,6 +434,12 @@ static void setting_data_list_insert(settings_ctx_t *ctx,
   }
 }
 
+/**
+ * @brief compare_init - set up compare structure for synchronous req/reply
+ * @param ctx: settings context
+ * @param data: formatted settings header string to match with incoming messages
+ * @param data_len: length of match string
+ */
 static void compare_init(settings_ctx_t *ctx, const u8 *data, u8 data_len)
 {
   registration_state_t *r = &ctx->registration_state;
@@ -333,6 +452,12 @@ static void compare_init(settings_ctx_t *ctx, const u8 *data, u8 data_len)
   r->pending = true;
 }
 
+/**
+ * @brief compare_check - used by message callbacks to perform comparison
+ * @param ctx: settings context
+ * @param data: settings message payload string to match with header string
+ * @param data_len: length of payload string
+ */
 static void compare_check(settings_ctx_t *ctx, const u8 *data, u8 data_len)
 {
   registration_state_t *r = &ctx->registration_state;
@@ -349,18 +474,40 @@ static void compare_check(settings_ctx_t *ctx, const u8 *data, u8 data_len)
   }
 }
 
+/**
+ * @brief compare_deinit - clean up compare structure after transaction
+ * @param ctx: settings context
+ */
 static void compare_deinit(settings_ctx_t *ctx)
 {
   registration_state_t *r = &ctx->registration_state;
   r->pending = false;
 }
 
+/**
+ * @brief compare_match - returns status of current comparison
+ * This is used as the value to block on until the comparison has been matched
+ * successfully or until (based on implementation) a number of retries or a
+ * timeout has expired.
+ * @param ctx: settings context
+ * @return true if response was matched, false if not response has been received
+ */
 static bool compare_match(settings_ctx_t *ctx)
 {
   registration_state_t *r = &ctx->registration_state;
   return r->match;
 }
 
+/**
+ * @brief type_register - register type data for reference when adding settings
+ * @param ctx: settings context
+ * @param to_string: serialization method
+ * @param from_string: deserialization method
+ * @param format_type: ?
+ * @param priv: private data used in ser/des methods
+ * @param type: type enum that is used to identify this type
+ * @return
+ */
 static int type_register(settings_ctx_t *ctx, to_string_fn to_string,
                          from_string_fn from_string, format_type_fn format_type,
                          const void *priv, settings_type_t *type)
@@ -392,6 +539,10 @@ static int type_register(settings_ctx_t *ctx, to_string_fn to_string,
   return 0;
 }
 
+/**
+ * @brief setting_data_members_destroy - deinit for settings data
+ * @param setting_data: setting to deinit
+ */
 static void setting_data_members_destroy(setting_data_t *setting_data)
 {
   if (setting_data->section) {
@@ -410,6 +561,11 @@ static void setting_data_members_destroy(setting_data_t *setting_data)
   }
 }
 
+/**
+ * @brief setting_data_list_remove - remove a setting from the settings context
+ * @param ctx: settings context
+ * @param setting_data: setting to remove
+ */
 static void setting_data_list_remove(settings_ctx_t *ctx,
                                      setting_data_t **setting_data)
 {
@@ -427,6 +583,20 @@ static void setting_data_list_remove(settings_ctx_t *ctx,
   }
 }
 
+/**
+ * @brief setting_create_setting - factory for new settings
+ * @param ctx: settings context
+ * @param section: section identifier
+ * @param name: setting name
+ * @param var: non-owning reference to location the data is stored
+ * @param var_len: length of data storage
+ * @param type: type identifier
+ * @param notify: optional notification callback
+ * @param notify_context: optional data reference to pass during notification
+ * @param readonly: set to true to disable value updates
+ * @param watchonly: set to true to indicate a non-owned setting watch
+ * @return the newly created setting, NULL if failed
+ */
 static setting_data_t * setting_create_setting(settings_ctx_t *ctx, const char *section,
                                                const char *name, void *var, size_t var_len,
                                                settings_type_t type, settings_notify_fn notify,
@@ -473,6 +643,21 @@ static setting_data_t * setting_create_setting(settings_ctx_t *ctx, const char *
   return setting_data;
 }
 
+/**
+ * @brief setting_perform_request_reply_from
+ * Performs a synchronous req/reply transation for the provided
+ * message using the compare structure to match the header in callbacks.
+ * Uses an explicit sender_id to allow for settings interactions with manager.
+ * @param ctx: settings context
+ * @param message_type: sbp message to use when sending the message
+ * @param message: sbp message payload
+ * @param message_length: length of payload
+ * @param header_length: length of the substring to match during compare
+ * @param timeout_ms: timeout between retries
+ * @param retries: number of times to retry the transaction
+ * @param sender_id: sender_id to use for outgoing message
+ * @return zero on success, -1 the transaction failed to complete
+ */
 static int setting_perform_request_reply_from(settings_ctx_t *ctx,
                                               u16 message_type,
                                               u8 *message,
@@ -508,6 +693,17 @@ static int setting_perform_request_reply_from(settings_ctx_t *ctx,
   return 0;
 }
 
+/**
+ * @brief setting_perform_request_reply - same as above but with implicit sender_id
+ * @param ctx: settings context
+ * @param message_type: sbp message to use when sending the message
+ * @param message: sbp message payload
+ * @param message_length: length of payload
+ * @param header_length: length of the substring to match during compare
+ * @param timeout_ms: timeout between retries
+ * @param retries: number of times to retry the transaction
+ * @return zero on success, -1 the transaction failed to complete
+ */
 static int setting_perform_request_reply(settings_ctx_t *ctx,
                                          u16 message_type,
                                          u8 *message,
@@ -527,6 +723,12 @@ static int setting_perform_request_reply(settings_ctx_t *ctx,
                                             sender_id);
 }
 
+/**
+ * @brief setting_register - perform SBP_MSG_SETTINGS_REGISTER req/reply
+ * @param ctx: settings context
+ * @param setting_data: setting to register with settings daemon
+ * @return zero on success, -1 the transaction failed to complete
+ */
 static int setting_register(settings_ctx_t *ctx, setting_data_t *setting_data)
 {
   /* Build message */
@@ -559,6 +761,12 @@ static int setting_register(settings_ctx_t *ctx, setting_data_t *setting_data)
                                        REGISTER_TRIES);
 }
 
+/**
+ * @brief setting_read_watched_value - perform SBP_MSG_SETTINGS_READ_REQ req/reply
+ * @param ctx: setting context
+ * @param setting_data: setting to read from settings daemon
+ * @return zero on success, -1 the transaction failed to complete
+ */
 static int setting_read_watched_value(settings_ctx_t *ctx, setting_data_t *setting_data)
 {
   /* Build message */
@@ -588,6 +796,15 @@ static int setting_read_watched_value(settings_ctx_t *ctx, setting_data_t *setti
                                             SBP_SENDER_ID);
 }
 
+/**
+ * @brief setting_parse_setting_text - parse main components of settings payload
+ * @param msg: raw sbp message
+ * @param msg_n: length of sbp message
+ * @param section: reference to location of section string in message
+ * @param name: reference to location of name string in message
+ * @param value: reference to location of value string in message
+ * @return zero on successful parse, -1 on parsing error
+ */
 static int setting_parse_setting_text(const u8 *msg,
                                       u8 msg_n,
                                       const char **section,
@@ -619,6 +836,13 @@ static int setting_parse_setting_text(const u8 *msg,
   return 0;
 }
 
+/**
+ * @brief setting_format_setting - formats a fully formed setting message payload
+ * @param setting_data: the setting to format
+ * @param buf: buffer to hold formatted setting string
+ * @param len: length of the destination buffer
+ * @return bytes written to the buffer, -1 in case of failure
+ */
 static int setting_format_setting(setting_data_t *setting_data, char *buf, int len)
 {
   int result = 0;
@@ -639,6 +863,11 @@ static int setting_format_setting(setting_data_t *setting_data, char *buf, int l
   return written;
 }
 
+/**
+ * @brief setting_update_value - process value string and update internal data on success
+ * @param setting_data: setting to update
+ * @param value: value string to evaluate
+ */
 static void setting_update_value(setting_data_t *setting_data, const char *value)
 {
   /* Store copy and update value */
@@ -658,6 +887,13 @@ static void setting_update_value(setting_data_t *setting_data, const char *value
   }
 }
 
+/**
+ * @brief setting_send_read_response
+ * @param ctx: settings context
+ * @param read_response: pre-formatted read response sbp message
+ * @param len: length of the message
+ * @return zero on success, -1 if message failed to send
+ */
 static int setting_send_read_response(settings_ctx_t *ctx,
                                       msg_settings_read_resp_t *read_response,
                                       u8 len)
@@ -670,6 +906,9 @@ static int setting_send_read_response(settings_ctx_t *ctx,
   return 0;
 }
 
+/**
+ * @brief settings_write_callback - callback for SBP_MSG_SETTINGS_WRITE
+ */
 static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
                                     void* context)
 {
@@ -718,6 +957,9 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
   setting_send_read_response(ctx, read_response, resp_len);
 }
 
+/**
+ * @brief settings_read_resp_callback - callback for SBP_MSG_SETTINGS_READ_RESP
+ */
 static void settings_read_resp_callback(u16 sender_id, u8 len, u8 msg[],
                                          void* context)
 {
@@ -752,6 +994,11 @@ static void settings_read_resp_callback(u16 sender_id, u8 len, u8 msg[],
   setting_update_value(setting_data, value);
 }
 
+/**
+ * @brief settings_register_write_callback - register callback for SBP_MSG_SETTINGS_WRITE
+ * @param ctx: settings context
+ * @return zero on success, -1 if registration failed
+ */
 static int settings_register_write_callback(settings_ctx_t *ctx)
 {
   if (!ctx->write_callback_registered) {
@@ -767,6 +1014,11 @@ static int settings_register_write_callback(settings_ctx_t *ctx)
   return 0;
 }
 
+/**
+ * @brief settings_register_read_resp_callback - register callback for SBP_MSG_SETTINGS_READ_RESP
+ * @param ctx: settings context
+ * @return zero on success, -1 if registration failed
+ */
 static int settings_register_read_resp_callback(settings_ctx_t *ctx)
 {
   if (!ctx->read_resp_callback_registered) {
@@ -782,6 +1034,10 @@ static int settings_register_read_resp_callback(settings_ctx_t *ctx)
   return 0;
 }
 
+/**
+ * @brief members_destroy - deinit for settings context members
+ * @param ctx: settings context to deinit
+ */
 static void members_destroy(settings_ctx_t *ctx)
 {
   if (ctx->pubsub_ctx != NULL) {
@@ -804,6 +1060,10 @@ static void members_destroy(settings_ctx_t *ctx)
   }
 }
 
+/**
+ * @brief destroy - deinit for settings context
+ * @param ctx: settings context to deinit
+ */
 static void destroy(settings_ctx_t **ctx)
 {
   members_destroy(*ctx);
@@ -886,6 +1146,24 @@ int settings_type_register_enum(settings_ctx_t *ctx,
                        enum_names, type);
 }
 
+/**
+ * @brief settings_add_setting - internal subroutine for handling new settings
+ * This method forwards all parameters to the setting factory to create a new
+ * settings but also performs the addition of the setting to the settings context
+ * internal list and performs either registration of the setting (if owned) or
+ * a value update (if watch only) to fully initialize the new setting.
+ * @param ctx: settings context
+ * @param section: section identifier
+ * @param name: setting name
+ * @param var: non-owning reference to location the data is stored
+ * @param var_len: length of data storage
+ * @param type: type identifier
+ * @param notify: optional notification callback
+ * @param notify_context: optional data reference to pass during notification
+ * @param readonly: set to true to disable value updates
+ * @param watchonly: set to true to indicate a non-owned setting watch
+ * @return zero on success, -1 if the addition of the setting has failed
+ */
 static int settings_add_setting(settings_ctx_t *ctx,
                                 const char *section, const char *name,
                                 void *var, size_t var_len, settings_type_t type,
