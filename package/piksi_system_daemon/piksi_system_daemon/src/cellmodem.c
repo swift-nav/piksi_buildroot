@@ -34,7 +34,7 @@
 static enum modem_type modem_type = MODEM_TYPE_GSM;
 static char *cellmodem_dev;
 /* External settings */
-static char cellmodem_apn[32] = "INTERNET";
+static char cellmodem_apn[32] = "hologram";
 static bool cellmodem_enabled;
 static bool cellmodem_debug;
 static int cellmodem_pppd_pid;
