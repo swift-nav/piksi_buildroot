@@ -64,6 +64,26 @@ typedef int (*settings_notify_fn)(void *context);
 typedef struct settings_ctx_s settings_ctx_t;
 
 /**
+ * @brief Parse a setting message to obtain the section, name and value
+ *
+ * @param[in] msg          raw sbp message
+ * @param[in] msg_n        length of sbp message
+ *
+ * @param[out] section     reference to location of section string in message
+ * @param[out] name        reference to location of name string in message
+ * @param[out] value       reference to location of value string in message
+ *
+ * @return                 The operation result.
+ * @retval 0               Parsing operation successful
+ * @retval -1              An error occurred.
+ */
+int setting_parse_setting_text(const u8 *msg,
+                               u8 msg_n,
+                               const char **section,
+                               const char **name,
+                               const char **value);
+
+/**
  * @brief   Create a settings context.
  * @details Create and initialize a settings context.
  *

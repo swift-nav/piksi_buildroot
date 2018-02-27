@@ -131,7 +131,7 @@ typedef struct setting_data_s {
 /**
  * @brief Registration Helper Struct
  *
- * This helper struct is used watch for asyc callbacks during the
+ * This helper struct is used watch for async callbacks during the
  * registration/add watch read req phases of setup to allow a
  * synchronous blocking stragety. These are for ephemeral use.
  */
@@ -796,20 +796,11 @@ static int setting_read_watched_value(settings_ctx_t *ctx, setting_data_t *setti
                                             SBP_SENDER_ID);
 }
 
-/**
- * @brief setting_parse_setting_text - parse main components of settings payload
- * @param msg: raw sbp message
- * @param msg_n: length of sbp message
- * @param section: reference to location of section string in message
- * @param name: reference to location of name string in message
- * @param value: reference to location of value string in message
- * @return zero on successful parse, -1 on parsing error
- */
-static int setting_parse_setting_text(const u8 *msg,
-                                      u8 msg_n,
-                                      const char **section,
-                                      const char **name,
-                                      const char **value)
+int setting_parse_setting_text(const u8 *msg,
+                               u8 msg_n,
+                               const char **section,
+                               const char **name,
+                               const char **value)
 {
   const char **result_holders[] = { section, name, value };
   u8 start = 0;
