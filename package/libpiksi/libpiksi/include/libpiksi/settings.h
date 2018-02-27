@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
- * be be distributed together with this source. All other rights reserved.
+ * be distributed together with this source. All other rights reserved.
  *
  * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
@@ -62,6 +62,26 @@ typedef int (*settings_notify_fn)(void *context);
  * @brief   Opaque context for settings.
  */
 typedef struct settings_ctx_s settings_ctx_t;
+
+/**
+ * @brief Parse a setting message to obtain the section, name and value
+ *
+ * @param[in] msg          raw sbp message
+ * @param[in] msg_n        length of sbp message
+ *
+ * @param[out] section     reference to location of section string in message
+ * @param[out] name        reference to location of name string in message
+ * @param[out] value       reference to location of value string in message
+ *
+ * @return                 The operation result.
+ * @retval 0               Parsing operation successful
+ * @retval -1              An error occurred.
+ */
+int setting_parse_setting_text(const u8 *msg,
+                               u8 msg_n,
+                               const char **section,
+                               const char **name,
+                               const char **value);
 
 /**
  * @brief   Create a settings context.
@@ -145,6 +165,30 @@ int settings_register(settings_ctx_t *ctx, const char *section,
 int settings_register_readonly(settings_ctx_t *ctx, const char *section,
                                const char *name, const void *var,
                                size_t var_len, settings_type_t type);
+
+/**
+ * @brief   Create and add a watch only setting.
+ * @details Create and add a watch only setting.
+ *
+ * @param[in] ctx           Pointer to the context to use.
+ * @param[in] section       String describing the setting section.
+ * @param[in] name          String describing the setting name.
+ * @param[in] var           Address of the setting variable. This location will
+ *                          be written directly by the settings module.
+ * @param[in] var_len       Size of the setting variable.
+ * @param[in] type          Type of the setting.
+ * @param[in] notify        Notify function to be executed when the setting is
+ *                          updated by a write response
+ * @param[in] notify_context Context passed to the notify function.
+ *
+ * @return                  The operation result.
+ * @retval 0                The setting was registered successfully.
+ * @retval -1               An error occurred.
+ */
+int settings_add_watch(settings_ctx_t *ctx, const char *section,
+                       const char *name, void *var, size_t var_len,
+                       settings_type_t type, settings_notify_fn notify,
+                       void *notify_context);
 
 /**
  * @brief   Read and process incoming data.
