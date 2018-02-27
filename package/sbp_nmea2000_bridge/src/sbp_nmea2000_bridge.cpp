@@ -189,14 +189,6 @@ namespace {
     }
 }  // namespace
 
-static int zloop_timer_handler(zloop_t *loop, int timer_id, void *arg) {
-  UNUSED(loop);
-  UNUSED(timer_id);
-  UNUSED(arg);
-  NMEA2000.ParseMessages();
-  return 0;
-}
-
 int main(int argc, char *argv[]) {
   logging_init(cProgramName);
 
