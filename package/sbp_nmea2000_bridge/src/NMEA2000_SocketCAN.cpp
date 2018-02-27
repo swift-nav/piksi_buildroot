@@ -51,8 +51,9 @@ char _CANport[50] = "can0";                                                     
 
 
 //*****************************************************************************
-tNMEA2000_SocketCAN::tNMEA2000_SocketCAN() : tNMEA2000()
+tNMEA2000_SocketCAN::tNMEA2000_SocketCAN(char *unused) : tNMEA2000()
 {
+    (void)unused;
 }
 
 
@@ -135,7 +136,7 @@ bool tNMEA2000_SocketCAN::CANGetFrame(unsigned long &id, unsigned char &len, uns
             len = frame_rd.can_dlc;
             id  = frame_rd.can_id;
             return true;
-            }       
+            }
         }
     return false; 
 

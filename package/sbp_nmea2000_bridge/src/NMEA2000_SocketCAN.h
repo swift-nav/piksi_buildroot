@@ -52,7 +52,7 @@ public:
     // opened manually, so this function is added. This is a hack.
     bool CANOpenForReal(int socket);
 
-    tNMEA2000_SocketCAN();
+    tNMEA2000_SocketCAN(char *unused);
     virtual void SetCANPort(const char *CANport);
   
 };

@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-LIBNMEA2000_VERSION = ecd56bcf57f90b860759626b9a248d9e05e7ba50
+LIBNMEA2000_VERSION = d471eb504d7e817096172b913d572dc6ea102836
 LIBNMEA2000_SITE = https://github.com/ttlappalainen/NMEA2000.git
 LIBNMEA2000_SITE_METHOD = git
 LIBNMEA2000_INSTALL_STAGING = YES

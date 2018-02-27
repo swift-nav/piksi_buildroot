@@ -32,3 +32,16 @@ index d7fab27..6d87ddf 100644
  )
  
  target_include_directories(nmea2000
+diff --git a/src/N2kMsg.h b/src/N2kMsg.h
+index 5e00449..b5fff0e 100644
+--- a/src/N2kMsg.h
++++ b/src/N2kMsg.h
+@@ -83,7 +83,7 @@ double GetBuf8ByteDouble(double precision, int &index, const unsigned char *buf,
+ class tN2kMsg
+ {
+ public:
+-  static const int MaxDataLen=223; // with fast packet 1. frame can have 6 byte and rest 31 frames 7 bytes
++  static const int MaxDataLen= 1785;
+   unsigned char Priority;
+   unsigned long PGN;
+   mutable unsigned char Source;
