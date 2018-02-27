@@ -42,13 +42,25 @@ namespace {
     constexpr char cProgramName[] = "sbp_nmea2000_bridge";
 
     int loopback = false;
+    bool n2k_tracking = true;
+    bool n2k_utc = true;
+    bool n2k_heading = true;
+    bool n2k_llh = true;
+    bool n2k_vel_ned = true;
+    bool n2k_dops = true;
+    bool n2k_heartbeat = true;
 
     constexpr char cInterfaceNameCan0[] = "can0";
     constexpr char cInterfaceNameCan1[] = "can1";
 
     // Terminate with a zero.
-    constexpr unsigned long cTransmitPGNs[] = {126992, 127250, 129025, 129026,
-                                               129029, 129539, 129540, 0};
+    constexpr unsigned long cTransmitPGNsAll[] = {126992, 127250, 129025,
+                                                  129026, 129029, 129539,
+                                                  129540, 0};
+    constexpr unsigned long cTransmitPGNsBase[] = {126992, 129025, 129026,
+                                                   129029, 129539, 129540, 0};
+    constexpr unsigned long cTransmitPGNsRover[] = {127250, 0};
+    const unsigned long *transmit_pgns = cTransmitPGNsAll;
 
     u32 bitrate_can0 = 250 * 1000;
     u32 bitrate_can1 = 250 * 1000;
@@ -74,6 +86,13 @@ namespace {
     constexpr u8 cNMEA2000CertificationLevel = 2;
     constexpr u8 cLoadEquivalency = 8;
 
+    // Device information.
+    u32 unique_number = 0;
+    constexpr u16 cManufacturerCode = 883;
+    constexpr u8 cDeviceFunction = 145;  // Ownship position (GNSS).
+    constexpr u8 cDeviceClass = 60;  // Nvigation.
+    constexpr u8 cIndustryGroup = 0;  // Global.
+
     void usage(char *command) {
       std::cout << "Usage: " << command << " [--bitrate N] [--debug] [--loopback]" << std::endl
                 << "Where N is an acceptable CAN bitrate." << std::endl;
@@ -85,15 +104,33 @@ namespace {
     int parse_options(int argc, char *argv[]) {
       enum {
           OPT_ID_DEBUG = 0,
-          OPT_ID_BITRATE = 1,
-          OPT_ID_LOOPBACK = 2,
+          OPT_ID_BITRATE,
+          OPT_ID_LOOPBACK,
+          OPT_ID_NO_TRACKING,
+          OPT_ID_NO_UTC,
+          OPT_ID_NO_HEADING,
+          OPT_ID_NO_LLH,
+          OPT_ID_NO_VEL_NED,
+          OPT_ID_NO_DOPS,
+          OPT_ID_NO_HEARTBEAT,
+          OPT_ID_ROVER,
+          OPT_ID_BASE,
       };
 
       constexpr option long_opts[] = {
-              {"debug",    no_argument,       nullptr, OPT_ID_DEBUG},
-              {"bitrate",  required_argument, nullptr, OPT_ID_BITRATE},
-              {"loopback", no_argument,       nullptr, OPT_ID_LOOPBACK},
-              {nullptr,    no_argument,       nullptr, 0}
+              {"debug",        no_argument,       nullptr, OPT_ID_DEBUG},
+              {"bitrate",      required_argument, nullptr, OPT_ID_BITRATE},
+              {"loopback",     no_argument,       nullptr, OPT_ID_LOOPBACK},
+              {"no-tracking",  no_argument,       nullptr, OPT_ID_NO_TRACKING},
+              {"no-utc",       no_argument,       nullptr, OPT_ID_NO_UTC},
+              {"no-heading",   no_argument,       nullptr, OPT_ID_NO_HEADING},
+              {"no-llh",       no_argument,       nullptr, OPT_ID_NO_LLH},
+              {"no-vel-ned",   no_argument,       nullptr, OPT_ID_NO_VEL_NED},
+              {"no-dops",      no_argument,       nullptr, OPT_ID_NO_DOPS},
+              {"no-heartbeat", no_argument,       nullptr, OPT_ID_NO_HEARTBEAT},
+              {"rover",        no_argument,       nullptr, OPT_ID_ROVER},
+              {"base",         no_argument,       nullptr, OPT_ID_BASE},
+              {nullptr,        no_argument,       nullptr, 0}
       };
 
       int opt;
@@ -107,6 +144,35 @@ namespace {
             break;
           case OPT_ID_LOOPBACK:
             loopback = true;
+            break;
+          case OPT_ID_NO_TRACKING:
+            n2k_tracking = false;
+            break;
+          case OPT_ID_NO_UTC:
+            n2k_utc = false;
+            break;
+          case OPT_ID_NO_HEADING:
+            n2k_heading = false;
+            break;
+          case OPT_ID_NO_LLH:
+            n2k_llh = false;
+            break;
+          case OPT_ID_NO_VEL_NED:
+            n2k_vel_ned = false;
+            break;
+          case OPT_ID_NO_DOPS:
+            n2k_dops = false;
+            break;
+          case OPT_ID_NO_HEARTBEAT:
+            n2k_heartbeat = false;
+            break;
+          case OPT_ID_ROVER:
+            transmit_pgns = cTransmitPGNsRover;
+            n2k_tracking = n2k_utc = n2k_llh = n2k_vel_ned = n2k_dops = false;
+            break;
+          case OPT_ID_BASE:
+            transmit_pgns = cTransmitPGNsBase;
+            n2k_heading = false;
             break;
           default:
             piksi_log(LOG_ERR, "Invalid option.");
@@ -122,6 +188,14 @@ namespace {
       return 0;
     }
 }  // namespace
+
+static int zloop_timer_handler(zloop_t *loop, int timer_id, void *arg) {
+  UNUSED(loop);
+  UNUSED(timer_id);
+  UNUSED(arg);
+  NMEA2000.ParseMessages();
+  return 0;
+}
 
 int main(int argc, char *argv[]) {
   logging_init(cProgramName);
@@ -263,37 +337,50 @@ int main(int argc, char *argv[]) {
   }
 
   // Register callbacks for SBP messages.
-  // TODO(lstrz): Tracking state causes a SIGSEGV.
-  piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
-                                    callback_sbp_tracking_state,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_TRACKING_STATE);
-  piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_UTC_TIME);
-  piksi_check(sbp_callback_register(SBP_MSG_BASELINE_HEADING,
-                                    callback_sbp_baseline_heading,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_BASELINE_HEADING);
-  piksi_check(sbp_callback_register(SBP_MSG_POS_LLH, callback_sbp_pos_llh,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_POS_LLH);
-  piksi_check(sbp_callback_register(SBP_MSG_VEL_NED, callback_sbp_vel_ned,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_VEL_NED);
-  piksi_check(sbp_callback_register(SBP_MSG_DOPS, callback_sbp_dops,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_DOPS);
-  piksi_check(sbp_callback_register(SBP_MSG_HEARTBEAT, callback_sbp_heartbeat,
-                                    sbp_zmq_pubsub_zloop_get(ctx)),
-              "Could not register callback. Message: %" PRIu16,
-              SBP_MSG_HEARTBEAT);
+  if (n2k_tracking) {
+    piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
+                                      callback_sbp_tracking_state,
+                                      sbp_zmq_pubsub_zloop_get(ctx)),
+                "Could not register callback. Message: %" PRIu16,
+                SBP_MSG_TRACKING_STATE);
+  }
+  if (n2k_utc) {
+    piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
+                                      sbp_zmq_pubsub_zloop_get(ctx)),
+                "Could not register callback. Message: %" PRIu16,
+                SBP_MSG_UTC_TIME);
+  }
+  if (n2k_heading) {
+    piksi_check(sbp_callback_register(SBP_MSG_BASELINE_HEADING,
+                                      callback_sbp_baseline_heading,
+                                      sbp_zmq_pubsub_zloop_get(ctx)),
+                "Could not register callback. Message: %" PRIu16,
+                SBP_MSG_BASELINE_HEADING);
+  }
+  if (n2k_llh) {
+    piksi_check(sbp_callback_register(SBP_MSG_POS_LLH, callback_sbp_pos_llh,
+                                      sbp_zmq_pubsub_zloop_get(ctx)),
+                "Could not register callback. Message: %" PRIu16,
+                SBP_MSG_POS_LLH);
+  }
+  if (n2k_vel_ned) {
+    piksi_check(sbp_callback_register(SBP_MSG_VEL_NED, callback_sbp_vel_ned,
+                                      sbp_zmq_pubsub_zloop_get(ctx)),
+                "Could not register callback. Message: %" PRIu16,
+                SBP_MSG_VEL_NED);
+  }
+  if (n2k_dops) {
+    piksi_check(sbp_callback_register(SBP_MSG_DOPS, callback_sbp_dops,
+                                      sbp_zmq_pubsub_zloop_get(ctx)),
+                "Could not register callback. Message: %" PRIu16,
+                SBP_MSG_DOPS);
+  }
+  if(n2k_heartbeat) {
+    piksi_check(sbp_callback_register(SBP_MSG_HEARTBEAT, callback_sbp_heartbeat,
+                                      sbp_zmq_pubsub_zloop_get(ctx)),
+                "Could not register callback. Message: %" PRIu16,
+                SBP_MSG_HEARTBEAT);
+  }
 
   // Set N2K info and options.
   get_manufacturers_model_id(sizeof(manufacturers_model_id),
@@ -303,49 +390,55 @@ int main(int argc, char *argv[]) {
           manufacturers_software_version_code);
   get_manufacturers_model_serial_code(sizeof(manufacturers_model_serial_code),
                                       manufacturers_model_serial_code);
+  // Modulo with max possible valid value for the unique number.
+  unique_number = std::hash<std::string>{}(manufacturers_model_serial_code)
+                  % ((1 << 20) - 1);
 
   NMEA2000.SetN2kCANSendFrameBufSize(32);
-  // TODO(lstrz): Need an elegant way to query for the proper info to include here.
-  // https://github.com/swift-nav/firmware_team_planning/issues/452
-  // ModelSerialCode, ProductCode, ModelID, SwCode, ModelVersion,
-  // LoadEquivalency, N2kVersion, CertificationLevel, UniqueNumber,
-  // DeviceFunction, DeviceClass, ManufacturerCode, IndustryGroup
 
-  cout << "Product Information:\n"
+  cout << "Product Information:" << endl
        << "\tNMEA Network Message Database Version: "
-       << cNmeaNetworkMessageDatabaseVersion
+       << cNmeaNetworkMessageDatabaseVersion << endl
        << "\tNMEA Manufacturer's Product Code: "
-       << cNmeaManufacturersProductCode
+       << cNmeaManufacturersProductCode << endl
        << "\tManufacturer's Model ID: "
-       << manufacturers_model_id
+       << manufacturers_model_id << endl
        << "\tManufacturer's Software Version Code: "
-       << manufacturers_software_version_code
+       << manufacturers_software_version_code << endl
        << "\tManufacturer's Model Version: "
-       << cManufacturersModelVersion
+       << cManufacturersModelVersion << endl
        << "\tManufacturer's Model Serial Code: "
-       << manufacturers_model_serial_code
+       << manufacturers_model_serial_code << endl
        << "\tNMEA2000 Certification Level: "
-       << cNMEA2000CertificationLevel
+       << static_cast<u16>(cNMEA2000CertificationLevel) << endl
        << "\tLoad Equivalency: "
-       << cLoadEquivalency;
+       << static_cast<u16>(cLoadEquivalency) << endl;
+
+  cout << "Device Information:" << endl
+       << "\tUnique Number: " << unique_number << endl
+       << "\tManufacturer Code: " << cManufacturerCode << endl
+       << "\tDevice Function: " << static_cast<u16>(cDeviceFunction) << endl
+       << "\tDevice Class: " << static_cast<u16>(cDeviceClass) << endl
+       << "\tIndustry Group: " << static_cast<u16>(cIndustryGroup) << endl;
 
   NMEA2000.SetProductInformation(manufacturers_model_serial_code,
-                                 cNmeaManufacturersProductCode, 0, 0,
+                                 cNmeaManufacturersProductCode,
+                                 manufacturers_model_id,
+                                 manufacturers_software_version_code,
                                  cManufacturersModelVersion, cLoadEquivalency,
                                  cNmeaNetworkMessageDatabaseVersion,
                                  cNMEA2000CertificationLevel);
-  NMEA2000.SetDeviceInformation(0x1337, /*_DeviceFunction=*/0xff,
-          /*_DeviceClass=*/0xff, /*_ManufacturerCode=*/883);
+  NMEA2000.SetDeviceInformation(unique_number, cDeviceFunction, cDeviceClass,
+                                cManufacturerCode, cIndustryGroup);
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode);
   NMEA2000.SetHeartbeatInterval(1000);
-  NMEA2000.ExtendTransmitMessages(cTransmitPGNs);
+  NMEA2000.ExtendTransmitMessages(transmit_pgns);
   piksi_check(!dynamic_cast<tNMEA2000_SocketCAN&>(NMEA2000).CANOpenForReal(socket_can0),
               "Could not open N2k for real.");
-  NMEA2000.Open();
-  NMEA2000.SendIsoAddressClaim();
-  NMEA2000.ParseMessages();
 
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
+  while (zmq_simple_loop_timeout(sbp_zmq_pubsub_zloop_get(ctx), 50) != -1) {
+    NMEA2000.ParseMessages();
+  }
 
   exit(EXIT_SUCCESS);
 }

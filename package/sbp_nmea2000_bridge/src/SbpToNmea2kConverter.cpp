@@ -243,16 +243,13 @@ bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
   auto sats_glo_end_it = sats_glo.begin();
   for(u8 i = 0; i < (len / sizeof(tracking_channel_state_t)); ++i) {
     auto tracking_channel_state = msg->states[i];
-    if(tracking_channel_state.sid.sat == 0) {  // Invalid sat.
-      continue;
+    if(tracking_channel_state.sid.sat == 0 || tracking_channel_state.cn0 == 0) {
+      continue;  // Invalid sat.
     }
 
     switch (tracking_channel_state.sid.code) {
       case 0:  // GPS satellites. Fallthrough.
       case 1:
-      case 2:
-      case 5:
-      case 6:
         *sats_gps_end_it = std::make_pair(tracking_channel_state.sid.sat,
                                           tracking_channel_state.cn0);
         ++sats_gps_end_it;
@@ -263,6 +260,10 @@ bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
                                           tracking_channel_state.cn0);
         ++sats_glo_end_it;
         break;
+      case 2:
+      case 5:
+      case 6:
+        continue;
       default:
         d << "\tControl should have never reached this point.\n";
         exit(-1);  // Should never happen.
@@ -279,7 +280,7 @@ bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
   auto comparator_lower_than = [](const std::pair<u8, u8>& a,
                                   const std::pair<u8, u8>& b) {
       // First is the satellite ID, second is the CN0.
-      return a.first < b.first ? true : a.second > b.second;
+      return (a.first < b.first) ? (true) : (a.second > b.second);
   };
   auto comparator_equal = [](const std::pair<u8, u8>& a,
                              const std::pair<u8, u8>& b) {
