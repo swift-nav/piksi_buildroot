@@ -22,13 +22,13 @@ bool get_manufacturers_model_id(const size_t len,
 
   if (std::string(manufacturers_model_id, 4) == "DURO") {
     manufacturers_model_id[4] = '\0';
-  } else if (std::string(manufacturers_model_id) != "PIKSI") {
-    return false;
+  } else {
+    std::string str = "MULTI";
+    str.copy(manufacturers_model_id, len);
   }
 
   return true;
 }
-
 
 bool
 get_manufacturers_software_version_code(const size_t len,
