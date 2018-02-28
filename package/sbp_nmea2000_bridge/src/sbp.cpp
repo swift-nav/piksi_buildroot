@@ -12,6 +12,8 @@
 
 #include "sbp.h"
 
+#include <array>
+
 extern "C" {
 #include <libpiksi/logging.h>
 #include <libsbp/piksi.h>
@@ -21,13 +23,13 @@ static struct {
   sbp_zmq_rx_ctx_t *rx_ctx;
   sbp_zmq_tx_ctx_t *tx_ctx;
 } ctx = {
-  .rx_ctx = NULL,
-  .tx_ctx = NULL
+  .rx_ctx = nullptr,
+  .tx_ctx = nullptr
 };
 
 int sbp_init(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
 {
-  if(rx_ctx == NULL || tx_ctx == NULL){
+  if(rx_ctx == nullptr || tx_ctx == nullptr){
     return -1;
   }
   ctx.rx_ctx = rx_ctx;
@@ -37,7 +39,7 @@ int sbp_init(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
 
 void sbp_message_send(u8 msg_type, u8 len, u8 *payload, u16 sender_id)
 {
-  if (ctx.tx_ctx == NULL) {
+  if (ctx.tx_ctx == nullptr) {
     return;
   }
 
@@ -46,11 +48,12 @@ void sbp_message_send(u8 msg_type, u8 len, u8 *payload, u16 sender_id)
 
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context)
 {
-  if (ctx.rx_ctx == NULL) {
+  if (ctx.rx_ctx == nullptr) {
     return -1;
   }
 
-  return sbp_zmq_rx_callback_register(ctx.rx_ctx, msg_type, cb, context, NULL);
+  return sbp_zmq_rx_callback_register(ctx.rx_ctx, msg_type, cb, context,
+                                      nullptr);
 }
 
 void sbp_base_obs_invalid(double timediff)

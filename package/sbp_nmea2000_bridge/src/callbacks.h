@@ -6,6 +6,22 @@
 // The callbacks do the SBP -> NMEA2000 conversion and send out the
 // NMEA2000 messages after conversion.
 
+extern bool setting_sbp_utc;
+extern bool setting_sbp_heading;
+extern bool setting_sbp_llh;
+extern bool setting_sbp_vel_ned;
+extern bool setting_sbp_dops;
+extern bool setting_sbp_tracking;
+extern bool setting_sbp_heartbeat;
+
+extern bool setting_n2k_126992;
+extern bool setting_n2k_127250;
+extern bool setting_n2k_129025;
+extern bool setting_n2k_129026;
+extern bool setting_n2k_129029;
+extern bool setting_n2k_129539;
+extern bool setting_n2k_129540;
+
 int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
                        void *interface_name_void);
 

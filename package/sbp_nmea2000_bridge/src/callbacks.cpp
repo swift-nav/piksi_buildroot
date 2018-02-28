@@ -19,6 +19,22 @@ namespace {
     SbpToNmea2kConverter converter;
 }
 
+bool setting_sbp_tracking = true;
+bool setting_sbp_utc = true;
+bool setting_sbp_heading = true;
+bool setting_sbp_llh = true;
+bool setting_sbp_vel_ned = true;
+bool setting_sbp_dops = true;
+bool setting_sbp_heartbeat = true;
+
+bool setting_n2k_126992 = true;
+bool setting_n2k_127250 = true;
+bool setting_n2k_129025 = true;
+bool setting_n2k_129026 = true;
+bool setting_n2k_129029 = true;
+bool setting_n2k_129539 = true;
+bool setting_n2k_129540 = true;
+
 int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
                        void *interface_name_void) {
   UNUSED(loop);
@@ -47,6 +63,10 @@ void callback_sbp_utc_time(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(len);
   UNUSED(context);
 
+  if (!setting_sbp_utc) {
+    return;
+  }
+
   auto sbp_utc_time = reinterpret_cast<msg_utc_time_t*>(msg);
   bool is_valid = (sbp_utc_time->flags & 0x07) != 0;
 
@@ -54,7 +74,8 @@ void callback_sbp_utc_time(u16 sender_id, u8 len, u8 msg[], void *context) {
   u16 days_since_1970;
   double seconds_since_midnight;
   if (converter.Sbp259ToPgn126992(sbp_utc_time, &n2kMsg, &days_since_1970,
-                                  &seconds_since_midnight)) {
+                                  &seconds_since_midnight) &&
+      setting_n2k_126992) {
     NMEA2000.SendMsg(n2kMsg);
   }
 
@@ -63,7 +84,8 @@ void callback_sbp_utc_time(u16 sender_id, u8 len, u8 msg[], void *context) {
                                     seconds_since_midnight);
   if (is_valid && converter.IsPgn129029Ready(/*is_valid=*/true)) {
     n2kMsg.Clear();
-    if (converter.Sbp259And520And522ToPgn129029(/*is_valid=*/true, &n2kMsg)) {
+    if (converter.Sbp259And520And522ToPgn129029(/*is_valid=*/true, &n2kMsg) &&
+        setting_n2k_129029) {
       NMEA2000.SendMsg(n2kMsg);
     }
   }
@@ -76,9 +98,13 @@ void callback_sbp_baseline_heading(u16 sender_id, u8 len, u8 msg[],
   UNUSED(len);
   UNUSED(context);
 
+  if (!setting_sbp_heading) {
+    return;
+  }
+
   tN2kMsg n2kMsg;
   if(converter.Sbp527ToPgn127250(reinterpret_cast<msg_baseline_heading_t *>(msg),
-                                 &n2kMsg)) {
+                                 &n2kMsg) && setting_n2k_127250) {
     NMEA2000.SendMsg(n2kMsg);
   }
 }
@@ -89,11 +115,15 @@ void callback_sbp_pos_llh(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(len);
   UNUSED(context);
 
+  if (!setting_sbp_llh) {
+    return;
+  }
+
   auto *sbp_pos = reinterpret_cast<msg_pos_llh_t*>(msg);
   bool is_valid = (sbp_pos->flags & 0x07) != 0;
 
   tN2kMsg n2kMsg;
-  if (converter.Sbp522ToPgn129025(sbp_pos, &n2kMsg)) {
+  if (converter.Sbp522ToPgn129025(sbp_pos, &n2kMsg) && setting_n2k_129025) {
     NMEA2000.SendMsg(n2kMsg);
   }
 
@@ -103,7 +133,8 @@ void callback_sbp_pos_llh(u16 sender_id, u8 len, u8 msg[], void *context) {
   converter.SetPgn129029CacheFields(sbp_pos);
   if (converter.IsPgn129029Ready(is_valid)) {
     n2kMsg.Clear();
-    if (converter.Sbp259And520And522ToPgn129029(is_valid, &n2kMsg)) {
+    if (converter.Sbp259And520And522ToPgn129029(is_valid, &n2kMsg) &&
+        setting_n2k_129029) {
       NMEA2000.SendMsg(n2kMsg);
     }
   }
@@ -115,9 +146,13 @@ void callback_sbp_vel_ned(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(len);
   UNUSED(context);
 
+  if (!setting_sbp_vel_ned) {
+    return;
+  }
+
   tN2kMsg n2kMsg;
   if (converter.Sbp526ToPgn129026(reinterpret_cast<msg_vel_ned_t*>(msg),
-                                  &n2kMsg)) {
+                                  &n2kMsg) && setting_n2k_129026) {
     NMEA2000.SendMsg(n2kMsg);
   }
 }
@@ -128,11 +163,15 @@ void callback_sbp_dops(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(len);
   UNUSED(context);
 
+  if (!setting_sbp_dops) {
+    return;
+  }
+
   auto sbp_dops = reinterpret_cast<msg_dops_t*>(msg);
   bool is_valid = (sbp_dops->flags & 0x07) != 0;
 
   tN2kMsg n2kMsg;
-  if (converter.Sbp520ToPgn129539(sbp_dops, &n2kMsg)) {
+  if (converter.Sbp520ToPgn129539(sbp_dops, &n2kMsg) && setting_n2k_129539) {
     NMEA2000.SendMsg(n2kMsg);
   }
 
@@ -141,7 +180,8 @@ void callback_sbp_dops(u16 sender_id, u8 len, u8 msg[], void *context) {
   if (is_valid &&
       converter.IsPgn129029Ready(/*is_valid=*/true)) {
     n2kMsg.Clear();
-    if (converter.Sbp259And520And522ToPgn129029(/*is_valid=*/true, &n2kMsg)) {
+    if (converter.Sbp259And520And522ToPgn129029(/*is_valid=*/true, &n2kMsg) &&
+        setting_n2k_129029) {
       NMEA2000.SendMsg(n2kMsg);
     }
   }
@@ -153,9 +193,13 @@ void callback_sbp_tracking_state(u16 sender_id, u8 len, u8 msg[],
   UNUSED(sender_id);
   UNUSED(context);
 
+  if (!setting_sbp_tracking) {
+    return;
+  }
+
   tN2kMsg n2kMsg;
   if (converter.Sbp65ToPgn129540(reinterpret_cast<msg_tracking_state_t*>(msg),
-                                len, &n2kMsg)) {
+                                len, &n2kMsg) && setting_n2k_129540) {
     NMEA2000.SendMsg(n2kMsg);
   }
 }
@@ -165,6 +209,11 @@ void callback_sbp_heartbeat(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(len);
   UNUSED(msg);
   UNUSED(context);
+
+  if (!setting_sbp_heartbeat) {
+    return;
+  }
+
   d << __FUNCTION__ << "\n";
 
   // This checks for new CAN messages and sends out a heartbeat.

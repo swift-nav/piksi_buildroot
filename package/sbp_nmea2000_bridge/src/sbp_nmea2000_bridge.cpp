@@ -24,7 +24,7 @@
 
 extern "C" {
 #include <libpiksi/sbp_zmq_pubsub.h>
-#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/settings.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 #include <libsbp/navigation.h>
@@ -42,13 +42,6 @@ namespace {
     constexpr char cProgramName[] = "sbp_nmea2000_bridge";
 
     int loopback = false;
-    bool n2k_tracking = true;
-    bool n2k_utc = true;
-    bool n2k_heading = true;
-    bool n2k_llh = true;
-    bool n2k_vel_ned = true;
-    bool n2k_dops = true;
-    bool n2k_heartbeat = true;
 
     constexpr char cInterfaceNameCan0[] = "can0";
     constexpr char cInterfaceNameCan1[] = "can1";
@@ -75,6 +68,7 @@ namespace {
     constexpr char cEndpointPub[] = ">tcp://127.0.0.1:43091";
 
     // Product information.
+    constexpr char cSettingsCategoryName[] = "nmea2000";
     constexpr u16 cNmeaNetworkMessageDatabaseVersion = 2100;
     constexpr u16 cNmeaManufacturersProductCode = 0xFFFF;  // Assigned by NMEA.
     char manufacturers_model_id[32] = "";  // Piksi Multi or Piksi Duro or Piksi Nano.
@@ -106,13 +100,6 @@ namespace {
           OPT_ID_DEBUG = 0,
           OPT_ID_BITRATE,
           OPT_ID_LOOPBACK,
-          OPT_ID_NO_TRACKING,
-          OPT_ID_NO_UTC,
-          OPT_ID_NO_HEADING,
-          OPT_ID_NO_LLH,
-          OPT_ID_NO_VEL_NED,
-          OPT_ID_NO_DOPS,
-          OPT_ID_NO_HEARTBEAT,
           OPT_ID_ROVER,
           OPT_ID_BASE,
       };
@@ -121,13 +108,6 @@ namespace {
               {"debug",        no_argument,       nullptr, OPT_ID_DEBUG},
               {"bitrate",      required_argument, nullptr, OPT_ID_BITRATE},
               {"loopback",     no_argument,       nullptr, OPT_ID_LOOPBACK},
-              {"no-tracking",  no_argument,       nullptr, OPT_ID_NO_TRACKING},
-              {"no-utc",       no_argument,       nullptr, OPT_ID_NO_UTC},
-              {"no-heading",   no_argument,       nullptr, OPT_ID_NO_HEADING},
-              {"no-llh",       no_argument,       nullptr, OPT_ID_NO_LLH},
-              {"no-vel-ned",   no_argument,       nullptr, OPT_ID_NO_VEL_NED},
-              {"no-dops",      no_argument,       nullptr, OPT_ID_NO_DOPS},
-              {"no-heartbeat", no_argument,       nullptr, OPT_ID_NO_HEARTBEAT},
               {"rover",        no_argument,       nullptr, OPT_ID_ROVER},
               {"base",         no_argument,       nullptr, OPT_ID_BASE},
               {nullptr,        no_argument,       nullptr, 0}
@@ -145,34 +125,13 @@ namespace {
           case OPT_ID_LOOPBACK:
             loopback = true;
             break;
-          case OPT_ID_NO_TRACKING:
-            n2k_tracking = false;
-            break;
-          case OPT_ID_NO_UTC:
-            n2k_utc = false;
-            break;
-          case OPT_ID_NO_HEADING:
-            n2k_heading = false;
-            break;
-          case OPT_ID_NO_LLH:
-            n2k_llh = false;
-            break;
-          case OPT_ID_NO_VEL_NED:
-            n2k_vel_ned = false;
-            break;
-          case OPT_ID_NO_DOPS:
-            n2k_dops = false;
-            break;
-          case OPT_ID_NO_HEARTBEAT:
-            n2k_heartbeat = false;
-            break;
           case OPT_ID_ROVER:
             transmit_pgns = cTransmitPGNsRover;
-            n2k_tracking = n2k_utc = n2k_llh = n2k_vel_ned = n2k_dops = false;
+            setting_sbp_tracking = setting_sbp_utc = setting_sbp_llh = setting_sbp_vel_ned = setting_sbp_dops = false;
             break;
           case OPT_ID_BASE:
             transmit_pgns = cTransmitPGNsBase;
-            n2k_heading = false;
+            setting_sbp_heading = false;
             break;
           default:
             piksi_log(LOG_ERR, "Invalid option.");
@@ -329,50 +288,120 @@ int main(int argc, char *argv[]) {
   }
 
   // Register callbacks for SBP messages.
-  if (n2k_tracking) {
-    piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
-                                      callback_sbp_tracking_state,
-                                      sbp_zmq_pubsub_zloop_get(ctx)),
-                "Could not register callback. Message: %" PRIu16,
-                SBP_MSG_TRACKING_STATE);
-  }
-  if (n2k_utc) {
-    piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
-                                      sbp_zmq_pubsub_zloop_get(ctx)),
-                "Could not register callback. Message: %" PRIu16,
-                SBP_MSG_UTC_TIME);
-  }
-  if (n2k_heading) {
-    piksi_check(sbp_callback_register(SBP_MSG_BASELINE_HEADING,
-                                      callback_sbp_baseline_heading,
-                                      sbp_zmq_pubsub_zloop_get(ctx)),
-                "Could not register callback. Message: %" PRIu16,
-                SBP_MSG_BASELINE_HEADING);
-  }
-  if (n2k_llh) {
-    piksi_check(sbp_callback_register(SBP_MSG_POS_LLH, callback_sbp_pos_llh,
-                                      sbp_zmq_pubsub_zloop_get(ctx)),
-                "Could not register callback. Message: %" PRIu16,
-                SBP_MSG_POS_LLH);
-  }
-  if (n2k_vel_ned) {
-    piksi_check(sbp_callback_register(SBP_MSG_VEL_NED, callback_sbp_vel_ned,
-                                      sbp_zmq_pubsub_zloop_get(ctx)),
-                "Could not register callback. Message: %" PRIu16,
-                SBP_MSG_VEL_NED);
-  }
-  if (n2k_dops) {
-    piksi_check(sbp_callback_register(SBP_MSG_DOPS, callback_sbp_dops,
-                                      sbp_zmq_pubsub_zloop_get(ctx)),
-                "Could not register callback. Message: %" PRIu16,
-                SBP_MSG_DOPS);
-  }
-  if(n2k_heartbeat) {
-    piksi_check(sbp_callback_register(SBP_MSG_HEARTBEAT, callback_sbp_heartbeat,
-                                      sbp_zmq_pubsub_zloop_get(ctx)),
-                "Could not register callback. Message: %" PRIu16,
-                SBP_MSG_HEARTBEAT);
-  }
+  piksi_check(sbp_callback_register(SBP_MSG_TRACKING_STATE,
+                                    callback_sbp_tracking_state,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_TRACKING_STATE);
+  piksi_check(sbp_callback_register(SBP_MSG_UTC_TIME, callback_sbp_utc_time,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_UTC_TIME);
+  piksi_check(sbp_callback_register(SBP_MSG_BASELINE_HEADING,
+                                    callback_sbp_baseline_heading,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_BASELINE_HEADING);
+  piksi_check(sbp_callback_register(SBP_MSG_POS_LLH, callback_sbp_pos_llh,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_POS_LLH);
+  piksi_check(sbp_callback_register(SBP_MSG_VEL_NED, callback_sbp_vel_ned,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_VEL_NED);
+  piksi_check(sbp_callback_register(SBP_MSG_DOPS, callback_sbp_dops,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16, SBP_MSG_DOPS);
+  piksi_check(sbp_callback_register(SBP_MSG_HEARTBEAT, callback_sbp_heartbeat,
+                                    sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not register callback. Message: %" PRIu16,
+              SBP_MSG_HEARTBEAT);
+
+  // Register callbacks for settings.
+  auto callback_sbp_settings = [](void *arg) {
+      UNUSED(arg);
+      return 0;
+  };
+  settings_ctx_t *ctx_settings;
+  piksi_check((ctx_settings = settings_create()) == nullptr,
+              "Could not create the settings context.");
+  piksi_check(settings_reader_add(ctx_settings, sbp_zmq_pubsub_zloop_get(ctx)),
+              "Could not add a settings reader.");
+
+  // These are settings that control which SBP callbacks are processed.
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_sbp_tracking", &setting_sbp_tracking,
+                                sizeof(setting_sbp_tracking),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+              "Could not register setting_sbp_tracking setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_sbp_utc", &setting_sbp_utc,
+                                sizeof(setting_sbp_utc), SETTINGS_TYPE_BOOL,
+                                callback_sbp_settings, ctx),
+              "Could not register setting_sbp_utc setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_sbp_heading", &setting_sbp_heading,
+                                sizeof(setting_sbp_heading), SETTINGS_TYPE_BOOL,
+                                callback_sbp_settings, ctx),
+              "Could not register setting_sbp_heading setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_sbp_llh", &setting_sbp_llh,
+                                sizeof(setting_sbp_llh), SETTINGS_TYPE_BOOL,
+                                callback_sbp_settings, ctx),
+              "Could not register setting_sbp_llh setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_sbp_vel_ned", &setting_sbp_vel_ned,
+                                sizeof(setting_sbp_vel_ned), SETTINGS_TYPE_BOOL,
+                                callback_sbp_settings, ctx),
+              "Could not register setting_sbp_vel_ned setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_sbp_dops", &setting_sbp_dops,
+                                sizeof(setting_sbp_dops), SETTINGS_TYPE_BOOL,
+                                callback_sbp_settings, ctx),
+              "Could not register setting_sbp_dops setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_sbp_heartbeat", &setting_sbp_heartbeat,
+                                sizeof(setting_sbp_heartbeat),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+              "Could not register setting_sbp_heartbeat setting.");
+
+  // These are settings that control which NMEA2000 messages are sent.
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_n2k_126992", &setting_n2k_126992,
+                                sizeof(setting_n2k_126992),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+              "Could not register setting_n2k_126992 setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_n2k_127250", &setting_n2k_127250,
+                                sizeof(setting_n2k_127250),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+              "Could not register setting_n2k_127250 setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_n2k_129025", &setting_n2k_129025,
+                                sizeof(setting_n2k_129025),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+              "Could not register setting_n2k_129025 setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_n2k_129026", &setting_n2k_129026,
+                                sizeof(setting_n2k_129026),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+              "Could not register setting_n2k_129026 setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_n2k_129029", &setting_n2k_129029,
+                                sizeof(setting_n2k_129029),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+              "Could not register setting_n2k_129029 setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_n2k_129539", &setting_n2k_129539,
+                                sizeof(setting_n2k_129539),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+              "Could not register setting_n2k_129539 setting.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "setting_n2k_129540", &setting_n2k_129540,
+                                sizeof(setting_n2k_129540),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+              "Could not register setting_n2k_129540 setting.");
 
   // Set N2K info and options.
   get_manufacturers_model_id(sizeof(manufacturers_model_id),
