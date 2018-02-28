@@ -42,6 +42,7 @@ namespace {
     constexpr char cProgramName[] = "sbp_nmea2000_bridge";
 
     int loopback = false;
+    bool n2k_enable = true;
 
     constexpr char cInterfaceNameCan0[] = "can0";
     constexpr char cInterfaceNameCan1[] = "can1";
@@ -321,13 +322,17 @@ int main(int argc, char *argv[]) {
   // Register callbacks for settings.
   auto callback_sbp_settings = [](void *arg) {
       UNUSED(arg);
-      return 0;
+      return static_cast<int>(!n2k_enable);
   };
   settings_ctx_t *ctx_settings;
   piksi_check((ctx_settings = settings_create()) == nullptr,
               "Could not create the settings context.");
   piksi_check(settings_reader_add(ctx_settings, sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not add a settings reader.");
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "enable", &n2k_enable, sizeof(n2k_enable),
+                                SETTINGS_TYPE_BOOL, nullptr, ctx),
+              "Could not register setting_sbp_tracking setting.");
 
   // These are settings that control which SBP callbacks are processed.
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
