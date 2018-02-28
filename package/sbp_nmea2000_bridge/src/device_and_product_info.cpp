@@ -23,7 +23,7 @@ bool get_manufacturers_model_id(const size_t len,
   if (std::string(manufacturers_model_id, 4) == "DURO") {
     manufacturers_model_id[4] = '\0';
   } else {
-    std::string str = "MULTI";
+    std::string str = "PIKSI MULTI";
     str.copy(manufacturers_model_id, len);
   }
 
