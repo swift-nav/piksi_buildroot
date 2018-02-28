@@ -280,7 +280,13 @@ bool  SbpToNmea2kConverter::Sbp65ToPgn129540(const msg_tracking_state_t *msg,
   auto comparator_lower_than = [](const std::pair<u8, u8>& a,
                                   const std::pair<u8, u8>& b) {
       // First is the satellite ID, second is the CN0.
-      return (a.first < b.first) ? (true) : (a.second > b.second);
+      if(a.first < b.first) {
+        return true;
+      } else if (a.first == b.first) {
+        return a.second > b.second;
+      } else {
+        return false;
+      }
   };
   auto comparator_equal = [](const std::pair<u8, u8>& a,
                              const std::pair<u8, u8>& b) {
