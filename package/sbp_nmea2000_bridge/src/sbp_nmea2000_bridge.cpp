@@ -42,7 +42,7 @@ namespace {
     constexpr char cProgramName[] = "sbp_nmea2000_bridge";
 
     int loopback = false;
-    bool n2k_enable = true;
+    bool n2k_enable = false;
 
     constexpr char cInterfaceNameCan0[] = "can0";
     constexpr char cInterfaceNameCan1[] = "can1";
