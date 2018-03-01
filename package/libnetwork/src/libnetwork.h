@@ -40,9 +40,11 @@ typedef enum {
  * @brief   Error type
  */
 typedef enum {
-  NETWORK_STATUS_INVALID_SETTING = -1, /**< The setting is invalid for this type        */
-  NETWORK_STATUS_URL_TOO_LARGE   = -2, /**< The URL specified is too large              */
-  NETWORK_STATUS_SUCCESS         =  0, /**< The operation was successful                */
+  NETWORK_STATUS_INVALID_SETTING    = -1, /** < The setting is invalid for this type */
+  NETWORK_STATUS_URL_TOO_LARGE      = -2, /** < The URL specified is too large       */
+  NETWORK_STATUS_USERNAME_TOO_LARGE = -3, /** < The username specified is too large  */
+  NETWORK_STATUS_PASSWORD_TOO_LARGE = -4, /** < The password specified is too large  */
+  NETWORK_STATUS_SUCCESS            = 0,  /** < The operation was successful         */
 } network_status_t;
 
 /**
@@ -73,6 +75,26 @@ void libnetwork_destroy(network_context_t **ctx);
  * @retval <0                An error occurred. @see @c network_status_t
  */
 network_status_t libnetwork_set_fd(network_context_t* context, int fd);
+
+/**
+ * @brief Set the username for this context
+ *
+ * @return                   The operation result.
+ *
+ * @retval  0                The setting was registered successfully.
+ * @retval <0                An error occurred. @see @c network_status_t
+ */
+network_status_t libnetwork_set_username(network_context_t* context, const char* username);
+
+/**
+ * @brief Set the password for this context
+ *
+ * @return                   The operation result.
+ *
+ * @retval  0                The setting was registered successfully.
+ * @retval <0                An error occurred. @see @c network_status_t
+ */
+network_status_t libnetwork_set_password(network_context_t* context, const char* password);
 
 /**
  * @brief Set the url for this context
