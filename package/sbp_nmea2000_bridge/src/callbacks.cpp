@@ -34,6 +34,7 @@ bool setting_n2k_129026 = true;
 bool setting_n2k_129029 = true;
 bool setting_n2k_129539 = true;
 bool setting_n2k_129540 = true;
+bool setting_n2k_enable = false;
 
 int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
                        void *interface_name_void) {
@@ -66,7 +67,7 @@ void callback_sbp_utc_time(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(len);
   UNUSED(context);
 
-  if (!setting_sbp_utc) {
+  if (!setting_sbp_utc && !setting_n2k_enable) {
     return;
   }
 
@@ -101,7 +102,7 @@ void callback_sbp_baseline_heading(u16 sender_id, u8 len, u8 msg[],
   UNUSED(len);
   UNUSED(context);
 
-  if (!setting_sbp_heading) {
+  if (!setting_sbp_heading && !setting_n2k_enable) {
     return;
   }
 
@@ -118,7 +119,7 @@ void callback_sbp_pos_llh(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(len);
   UNUSED(context);
 
-  if (!setting_sbp_llh) {
+  if (!setting_sbp_llh && !setting_n2k_enable) {
     return;
   }
 
@@ -149,7 +150,7 @@ void callback_sbp_vel_ned(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(len);
   UNUSED(context);
 
-  if (!setting_sbp_vel_ned) {
+  if (!setting_sbp_vel_ned && !setting_n2k_enable) {
     return;
   }
 
@@ -166,7 +167,7 @@ void callback_sbp_dops(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(len);
   UNUSED(context);
 
-  if (!setting_sbp_dops) {
+  if (!setting_sbp_dops && !setting_n2k_enable) {
     return;
   }
 
@@ -196,7 +197,7 @@ void callback_sbp_tracking_state(u16 sender_id, u8 len, u8 msg[],
   UNUSED(sender_id);
   UNUSED(context);
 
-  if (!setting_sbp_tracking) {
+  if (!setting_sbp_tracking && !setting_n2k_enable) {
     return;
   }
 
@@ -213,7 +214,7 @@ void callback_sbp_heartbeat(u16 sender_id, u8 len, u8 msg[], void *context) {
   UNUSED(msg);
   UNUSED(context);
 
-  if (!setting_sbp_heartbeat) {
+  if (!setting_sbp_heartbeat && !setting_n2k_enable) {
     return;
   }
 
