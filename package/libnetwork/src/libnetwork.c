@@ -31,6 +31,14 @@
 
 #include "libnetwork.h"
 
+/** Maximum length of username string */
+#define LIBNETWORK_USERNAME_MAX_LENGTH (512L)
+/** Maximum length of password string */
+#define LIBNETWORK_PASSWORD_MAX_LENGTH (512L)
+/** Maximum length of url string */
+#define LIBNETWORK_URL_MAX_LENGTH (4096L)
+
+
 /** How large to configure the recv buffer to avoid excessive buffering. */
 const long RECV_BUFFER_SIZE = 4096L;
 /** Max number of callbacks from CURLOPT_XFERINFOFUNCTION before we attempt to
@@ -68,7 +76,9 @@ struct network_context_s {
 
   context_node_t* node;
 
-  char url[4096];
+  char username[LIBNETWORK_USERNAME_MAX_LENGTH];
+  char password[LIBNETWORK_PASSWORD_MAX_LENGTH];
+  char url[LIBNETWORK_URL_MAX_LENGTH];
 };
 
 struct context_node {
@@ -95,6 +105,8 @@ static network_context_t empty_context = {
   .response_code = 0,
   .response_code_check = NULL,
   .node = NULL,
+  .username = "",
+  .password = "",
   .url = "",
 };
 
@@ -146,6 +158,30 @@ void libnetwork_destroy(network_context_t **ctx)
 network_status_t libnetwork_set_fd(network_context_t* ctx, int fd)
 {
   ctx->fd = fd;
+  return NETWORK_STATUS_SUCCESS;
+}
+
+network_status_t libnetwork_set_username(network_context_t* context, const char* username)
+{
+  const size_t max_username = sizeof(((network_context_t*)NULL)->username);
+
+  if (strlen(username) + 1 > max_username)
+    return NETWORK_STATUS_URL_TOO_LARGE;
+
+  (void)strncpy(context->username, username, max_username-1);
+
+  return NETWORK_STATUS_SUCCESS;
+}
+
+network_status_t libnetwork_set_password(network_context_t* context, const char* password)
+{
+  const size_t max_password = sizeof(((network_context_t*)NULL)->password);
+
+  if (strlen(password) + 1 > max_password)
+    return NETWORK_STATUS_URL_TOO_LARGE;
+
+  (void)strncpy(context->password, password, max_password-1);
+
   return NETWORK_STATUS_SUCCESS;
 }
 
@@ -608,6 +644,18 @@ void ntrip_download(network_context_t *ctx)
     ctx->response_code_check = ntrip_response_code_check;
   }
 
+  if (strcmp(ctx->username, "") != 0) {
+    curl_easy_setopt(curl, CURLOPT_USERNAME,       ctx->username);
+    if (ctx->debug) {
+      piksi_log(LOG_DEBUG, "username: %s", ctx->username);
+    }
+  }
+  if (strcmp(ctx->password, "") != 0) {
+    curl_easy_setopt(curl, CURLOPT_PASSWORD,       ctx->password);
+    if (ctx->debug) {
+      piksi_log(LOG_DEBUG, "password: %s", ctx->password);
+    }
+  }
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA,        ctx);
