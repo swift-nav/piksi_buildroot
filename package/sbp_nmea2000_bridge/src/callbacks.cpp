@@ -43,7 +43,10 @@ int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
   canfd_frame frame;
   ssize_t bytes_read = recvfrom(item->fd, &frame,sizeof(frame),
           /*flags=*/0, /*src_addr=*/NULL, /*addrlen=*/NULL);
-  piksi_check(bytes_read < 0, "Could not read interface %s.", interface_name);
+  if(bytes_read < 0) {
+    d << "Could not read bytes from " << interface_name << "\n";
+    return 0;
+  }
 
   d << "Read " << bytes_read << " bytes from " << interface_name <<" ID: "
     << std::setfill('0') << std::setw(4) << std::hex << frame.can_id
