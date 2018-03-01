@@ -72,7 +72,7 @@ namespace {
     constexpr char cSettingsCategoryName[] = "nmea2000";
     constexpr u16 cNmeaNetworkMessageDatabaseVersion = 2100;
     constexpr u16 cNmeaManufacturersProductCode = 0xFFFF;  // Assigned by NMEA.
-    char manufacturers_model_id[32] = "";  // Piksi Multi or Piksi Duro or Piksi Nano.
+    char manufacturers_model_id[32] = "PIKSI MULTI";  // Default to Piksi Multi.
     char manufacturers_software_version_code[32] = "";
     constexpr char cManufacturersModelVersion[32] = "Rev. X";
     char manufacturers_model_serial_code[32] = "";
@@ -320,10 +320,6 @@ int main(int argc, char *argv[]) {
               SBP_MSG_HEARTBEAT);
 
   // Register callbacks for settings.
-  auto callback_sbp_settings = [](void *arg) {
-      UNUSED(arg);
-      return static_cast<int>(!n2k_enable);
-  };
   settings_ctx_t *ctx_settings;
   piksi_check((ctx_settings = settings_create()) == nullptr,
               "Could not create the settings context.");
@@ -333,42 +329,66 @@ int main(int argc, char *argv[]) {
                                 "enable", &n2k_enable, sizeof(n2k_enable),
                                 SETTINGS_TYPE_BOOL, nullptr, ctx),
               "Could not register setting_sbp_tracking setting.");
+  auto callback_model_it_setting = [](void *arg) {
+      UNUSED(arg);
+      // Update all the info in this callback.
+      NMEA2000.SetProductInformation(manufacturers_model_serial_code,
+                                     cNmeaManufacturersProductCode,
+                                     manufacturers_model_id,
+                                     manufacturers_software_version_code,
+                                     cManufacturersModelVersion, cLoadEquivalency,
+                                     cNmeaNetworkMessageDatabaseVersion,
+                                     cNMEA2000CertificationLevel);
+      return 0;
+  };
+  piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
+                                "Manufacturer's Model ID",
+                                manufacturers_model_id,
+                                sizeof(manufacturers_model_id),
+                                SETTINGS_TYPE_STRING, callback_model_it_setting,
+                                nullptr),
+              "Could not register manufacturers_model_id setting.");
 
   // These are settings that control which SBP callbacks are processed.
+  auto callback_sbp_settings = [](void *arg) {
+      UNUSED(arg);
+      return static_cast<int>(!n2k_enable);
+  };
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_tracking", &setting_sbp_tracking,
                                 sizeof(setting_sbp_tracking),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings, nullptr),
               "Could not register setting_sbp_tracking setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_utc", &setting_sbp_utc,
                                 sizeof(setting_sbp_utc), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, ctx),
+                                callback_sbp_settings, nullptr),
               "Could not register setting_sbp_utc setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_heading", &setting_sbp_heading,
                                 sizeof(setting_sbp_heading), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, ctx),
+                                callback_sbp_settings, nullptr),
               "Could not register setting_sbp_heading setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_llh", &setting_sbp_llh,
                                 sizeof(setting_sbp_llh), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, ctx),
+                                callback_sbp_settings, nullptr),
               "Could not register setting_sbp_llh setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_vel_ned", &setting_sbp_vel_ned,
                                 sizeof(setting_sbp_vel_ned), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, ctx),
+                                callback_sbp_settings, nullptr),
               "Could not register setting_sbp_vel_ned setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_dops", &setting_sbp_dops,
                                 sizeof(setting_sbp_dops), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, ctx),
+                                callback_sbp_settings, nullptr),
               "Could not register setting_sbp_dops setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_heartbeat", &setting_sbp_heartbeat,
                                 sizeof(setting_sbp_heartbeat),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+                                SETTINGS_TYPE_BOOL, callback_sbp_settings,
+                                nullptr),
               "Could not register setting_sbp_heartbeat setting.");
 
   // These are settings that control which NMEA2000 messages are sent.
