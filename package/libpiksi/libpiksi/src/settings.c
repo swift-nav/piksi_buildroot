@@ -831,7 +831,8 @@ int setting_parse_setting_text(const u8 *msg,
     *(result_holders[i]) = NULL;
     while (end < msg_n) {
       if (msg[end] == '\0') {
-        if (end == start) {
+        // don't allow empty strings before the third term
+        if (end == start && i < 2) {
           return -1;
         } else {
           *(result_holders[i]) = (const char *)msg + start;
