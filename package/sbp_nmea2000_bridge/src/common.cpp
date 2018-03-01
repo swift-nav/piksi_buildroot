@@ -13,10 +13,11 @@ void piksi_check(int err, const char* format, ...) {
     va_list ap;
     va_start(ap, format);
     piksi_log(LOG_ERR, format, ap);
-    va_end(ap);
     if(debug) {
-      printf(format, ap);
+      vprintf(format, ap);
+      printf("\n");
     }
+    va_end(ap);
     exit(EXIT_FAILURE);
   }
 }
