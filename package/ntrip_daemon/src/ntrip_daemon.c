@@ -21,6 +21,8 @@
 
 static bool debug = false;
 static const char *fifo_file_path = NULL;
+static const char *username = NULL;
+static const char *password = NULL;
 static const char *url = NULL;
 
 static double gga_xfer_secs = 0.0;
@@ -31,6 +33,8 @@ static void usage(char *command)
 
   puts("\nMain options");
   puts("\t--file <file>");
+  puts("\t--username <username>");
+  puts("\t--password <password>");
   puts("\t--url <url>");
 
   puts("\nMisc options");
@@ -44,10 +48,14 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_URL,
     OPT_ID_DEBUG,
     OPT_ID_INTERVAL,
+    OPT_ID_USERNAME,
+    OPT_ID_PASSWORD
   };
 
   const struct option long_opts[] = {
     {"file",      required_argument, 0, OPT_ID_FILE},
+    {"username",  required_argument, 0, OPT_ID_USERNAME},
+    {"password",  required_argument, 0, OPT_ID_PASSWORD},
     {"url  ",     required_argument, 0, OPT_ID_URL},
     {"interval",  required_argument, 0, OPT_ID_INTERVAL},
     {"debug",     no_argument,       0, OPT_ID_DEBUG},
@@ -63,6 +71,16 @@ static int parse_options(int argc, char *argv[])
     switch (opt) {
       case OPT_ID_FILE: {
         fifo_file_path = optarg;
+      }
+      break;
+
+      case OPT_ID_USERNAME: {
+        username = optarg;
+      }
+      break;
+
+      case OPT_ID_PASSWORD: {
+        password = optarg;
       }
       break;
 
@@ -110,7 +128,7 @@ static int parse_options(int argc, char *argv[])
 static void terminate_handler(int signum)
 {
   (void)signum;
-  libnetwork_shutdown();  
+  libnetwork_shutdown();
 }
 
 static void cycle_connection(int signum)
@@ -119,10 +137,18 @@ static void cycle_connection(int signum)
   libnetwork_cycle_connection();
 }
 
-static bool configure_libnetwork(network_context_t* ctx, int fd) 
+static bool configure_libnetwork(network_context_t* ctx, int fd)
 {
   network_status_t status = NETWORK_STATUS_SUCCESS;
 
+  if (username != NULL) {
+    if ((status = libnetwork_set_username(ctx, username)) != NETWORK_STATUS_SUCCESS)
+      goto exit_error;
+  }
+  if (password != NULL) {
+    if ((status = libnetwork_set_password(ctx, password)) != NETWORK_STATUS_SUCCESS)
+      goto exit_error;
+  }
   if ((status = libnetwork_set_url(ctx, url)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
   if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS)

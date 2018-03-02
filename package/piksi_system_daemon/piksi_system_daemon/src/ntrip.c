@@ -19,16 +19,18 @@
 
 static bool ntrip_enabled;
 static bool ntrip_debug;
+static char ntrip_username[256];
+static char ntrip_password[256];
 static char ntrip_url[256];
-static char ntrip_internval_s[16];
+static char ntrip_interval_s[16];
 
-static int ntrip_internval = 0;
+static int ntrip_interval = 0;
 
 static char *ntrip_argv_normal[] = {
   "ntrip_daemon",
   "--file", FIFO_FILE_PATH,
   "--url", ntrip_url,
-  "--interval", ntrip_internval_s,
+  "--interval", ntrip_interval_s,
   NULL,
 };
 
@@ -37,7 +39,28 @@ static char *ntrip_argv_debug[] = {
   "--debug",
   "--file", FIFO_FILE_PATH,
   "--url", ntrip_url,
-  "--interval", ntrip_internval_s,
+  "--interval", ntrip_interval_s,
+  NULL,
+};
+
+static char *ntrip_argv_username[] = {
+  "ntrip_daemon",
+  "--file", FIFO_FILE_PATH,
+  "--username", ntrip_username,
+  "--password", ntrip_password,
+  "--url", ntrip_url,
+  "--interval", ntrip_interval_s,
+  NULL,
+};
+
+static char *ntrip_argv_username_debug[] = {
+  "ntrip_daemon",
+  "--debug",
+  "--file", FIFO_FILE_PATH,
+  "--username", ntrip_username,
+  "--password", ntrip_password,
+  "--url", ntrip_url,
+  "--interval", ntrip_interval_s,
   NULL,
 };
 
@@ -76,7 +99,7 @@ static int ntrip_notify(void *context)
 {
   (void)context;
 
-  snprintf(ntrip_internval_s, sizeof(ntrip_internval_s), "%d", ntrip_internval);
+  snprintf(ntrip_interval_s, sizeof(ntrip_interval_s), "%d", ntrip_interval);
 
   for (int i=0; i<ntrip_processes_count; i++) {
     ntrip_process_t *process = &ntrip_processes[i];
@@ -103,7 +126,11 @@ static int ntrip_notify(void *context)
 
     system("echo 1 >/var/run/ntrip_enabled");
 
-    ntrip_argv = ntrip_debug ? ntrip_argv_debug : ntrip_argv_normal;
+    if (strcmp(ntrip_username, "") != 0 && strcmp(ntrip_password, "") != 0) {
+      ntrip_argv = ntrip_debug ? ntrip_argv_username_debug : ntrip_argv_username;
+    } else {
+      ntrip_argv = ntrip_debug ? ntrip_argv_debug : ntrip_argv_normal;
+    }
 
     process->pid = fork();
     if (process->pid == 0) {
@@ -130,13 +157,23 @@ void ntrip_init(settings_ctx_t *settings_ctx)
                     SETTINGS_TYPE_BOOL,
                     ntrip_notify, NULL);
 
+  settings_register(settings_ctx, "ntrip", "username",
+                    &ntrip_username, sizeof(ntrip_username),
+                    SETTINGS_TYPE_STRING,
+                    ntrip_notify, NULL);
+
+  settings_register(settings_ctx, "ntrip", "password",
+                    &ntrip_password, sizeof(ntrip_password),
+                    SETTINGS_TYPE_STRING,
+                    ntrip_notify, NULL);
+
   settings_register(settings_ctx, "ntrip", "url",
                     &ntrip_url, sizeof(ntrip_url),
                     SETTINGS_TYPE_STRING,
                     ntrip_notify, NULL);
 
   settings_register(settings_ctx, "ntrip", "interval",
-                    &ntrip_internval, sizeof(ntrip_internval),
+                    &ntrip_interval, sizeof(ntrip_interval),
                     SETTINGS_TYPE_INT,
                     ntrip_notify, NULL);
 }
