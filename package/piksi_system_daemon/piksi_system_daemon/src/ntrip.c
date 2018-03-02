@@ -135,7 +135,7 @@ void ntrip_init(settings_ctx_t *settings_ctx)
                     SETTINGS_TYPE_STRING,
                     ntrip_notify, NULL);
 
-  settings_register(settings_ctx, "ntrip", "interval",
+  settings_register(settings_ctx, "ntrip", "gga_out_interval",
                     &ntrip_internval, sizeof(ntrip_internval),
                     SETTINGS_TYPE_INT,
                     ntrip_notify, NULL);
