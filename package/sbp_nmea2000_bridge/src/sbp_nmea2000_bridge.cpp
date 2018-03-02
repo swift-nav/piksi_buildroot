@@ -327,7 +327,7 @@ int main(int argc, char *argv[]) {
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "enable", &setting_n2k_enable,
                                 sizeof(setting_n2k_enable), SETTINGS_TYPE_BOOL,
-                                nullptr, ctx),
+                      /*callback=*/nullptr, /*arg=*/nullptr),
               "Could not register setting_sbp_tracking setting.");
   auto callback_model_it_setting = [](void *arg) {
       UNUSED(arg);
@@ -350,82 +350,86 @@ int main(int argc, char *argv[]) {
               "Could not register manufacturers_model_id setting.");
 
   // These are settings that control which SBP callbacks are processed.
-  auto callback_sbp_settings = [](void *arg) {
-      UNUSED(arg);
-      return static_cast<int>(!setting_n2k_enable);
-  };
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_tracking", &setting_sbp_tracking,
                                 sizeof(setting_sbp_tracking),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, nullptr),
+                                SETTINGS_TYPE_BOOL, /*callback=*/nullptr,
+                      /*arg=*/nullptr),
               "Could not register setting_sbp_tracking setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_utc", &setting_sbp_utc,
                                 sizeof(setting_sbp_utc), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, nullptr),
+                      /*callback=*/nullptr, nullptr),
               "Could not register setting_sbp_utc setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_heading", &setting_sbp_heading,
                                 sizeof(setting_sbp_heading), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, nullptr),
+                      /*callback=*/nullptr, /*arg=*/nullptr),
               "Could not register setting_sbp_heading setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_llh", &setting_sbp_llh,
                                 sizeof(setting_sbp_llh), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, nullptr),
+                      /*callback=*/nullptr, /*arg=*/nullptr),
               "Could not register setting_sbp_llh setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_vel_ned", &setting_sbp_vel_ned,
                                 sizeof(setting_sbp_vel_ned), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, nullptr),
+                      /*callback=*/nullptr, /*arg=*/nullptr),
               "Could not register setting_sbp_vel_ned setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_dops", &setting_sbp_dops,
                                 sizeof(setting_sbp_dops), SETTINGS_TYPE_BOOL,
-                                callback_sbp_settings, nullptr),
+                      /*callback=*/nullptr, /*arg=*/nullptr),
               "Could not register setting_sbp_dops setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_heartbeat", &setting_sbp_heartbeat,
                                 sizeof(setting_sbp_heartbeat),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings,
-                                nullptr),
+                                SETTINGS_TYPE_BOOL, /*callback=*/nullptr,
+                      /*arg=*/nullptr),
               "Could not register setting_sbp_heartbeat setting.");
 
   // These are settings that control which NMEA2000 messages are sent.
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_n2k_126992", &setting_n2k_126992,
                                 sizeof(setting_n2k_126992),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+                                SETTINGS_TYPE_BOOL, /*callback=*/nullptr,
+                      /*arg=*/nullptr),
               "Could not register setting_n2k_126992 setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_n2k_127250", &setting_n2k_127250,
                                 sizeof(setting_n2k_127250),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+                                SETTINGS_TYPE_BOOL, /*callback=*/nullptr,
+                      /*arg=*/nullptr),
               "Could not register setting_n2k_127250 setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_n2k_129025", &setting_n2k_129025,
                                 sizeof(setting_n2k_129025),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+                                SETTINGS_TYPE_BOOL, /*callback=*/nullptr,
+                      /*arg=*/nullptr),
               "Could not register setting_n2k_129025 setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_n2k_129026", &setting_n2k_129026,
                                 sizeof(setting_n2k_129026),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+                                SETTINGS_TYPE_BOOL, /*callback=*/nullptr,
+                      /*arg=*/nullptr),
               "Could not register setting_n2k_129026 setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_n2k_129029", &setting_n2k_129029,
                                 sizeof(setting_n2k_129029),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+                                SETTINGS_TYPE_BOOL, /*callback=*/nullptr,
+                      /*arg=*/nullptr),
               "Could not register setting_n2k_129029 setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_n2k_129539", &setting_n2k_129539,
                                 sizeof(setting_n2k_129539),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+                                SETTINGS_TYPE_BOOL, /*callback=*/nullptr,
+                      /*arg=*/nullptr),
               "Could not register setting_n2k_129539 setting.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_n2k_129540", &setting_n2k_129540,
                                 sizeof(setting_n2k_129540),
-                                SETTINGS_TYPE_BOOL, callback_sbp_settings, ctx),
+                                SETTINGS_TYPE_BOOL, /*callback=*/nullptr,
+                      /*arg=*/nullptr),
               "Could not register setting_n2k_129540 setting.");
 
   // Set N2K info and options.
