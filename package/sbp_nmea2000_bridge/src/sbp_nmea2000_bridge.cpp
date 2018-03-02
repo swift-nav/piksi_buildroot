@@ -325,8 +325,9 @@ int main(int argc, char *argv[]) {
   piksi_check(settings_reader_add(ctx_settings, sbp_zmq_pubsub_zloop_get(ctx)),
               "Could not add a settings reader.");
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
-                                "enable", &n2k_enable, sizeof(n2k_enable),
-                                SETTINGS_TYPE_BOOL, nullptr, ctx),
+                                "enable", &setting_n2k_enable,
+                                sizeof(setting_n2k_enable), SETTINGS_TYPE_BOOL,
+                                nullptr, ctx),
               "Could not register setting_sbp_tracking setting.");
   auto callback_model_it_setting = [](void *arg) {
       UNUSED(arg);
@@ -351,7 +352,7 @@ int main(int argc, char *argv[]) {
   // These are settings that control which SBP callbacks are processed.
   auto callback_sbp_settings = [](void *arg) {
       UNUSED(arg);
-      return static_cast<int>(!n2k_enable);
+      return static_cast<int>(!setting_n2k_enable);
   };
   piksi_check(settings_register(ctx_settings, cSettingsCategoryName,
                                 "setting_sbp_tracking", &setting_sbp_tracking,
