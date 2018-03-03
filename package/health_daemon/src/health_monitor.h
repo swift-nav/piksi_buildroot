@@ -13,6 +13,7 @@
 #ifndef __HEALTH_THREAD_H
 #define __HEALTH_THREAD_H
 
+#include <libpiksi/settings.h>
 #include "health_context.h"
 
 typedef struct health_monitor_s health_monitor_t;
@@ -63,6 +64,18 @@ int health_monitor_register_message_handler(health_monitor_t *monitor,
  */
 int health_monitor_register_setting_handler(health_monitor_t *monitor,
                                             sbp_msg_callback_t callback);
+
+/*
+ * Register a callback to handle settings changes
+ */
+int health_monitor_add_setting_watch(health_monitor_t *monitor,
+                                     const char *section,
+                                     const char *name,
+                                     void *var,
+                                     size_t var_len,
+                                     settings_type_t type,
+                                     settings_notify_fn notify,
+                                     void *notify_context);
 
 /*
  * Allocate Monitor

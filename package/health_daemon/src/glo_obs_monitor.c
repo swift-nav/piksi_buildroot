@@ -35,10 +35,12 @@
 #include <libsbp/observation.h>
 
 #include "health_monitor.h"
-#include "utils.h"
 
 #include "glo_health_context.h"
 #include "glo_obs_monitor.h"
+
+#define SETTING_SECTION_ACQUISITION "acquisition"
+#define SETTING_GLONASS_ACQUISITION_ENABLED "glonass_acquisition_enabled"
 
 /* these are from fw private, consider moving to libpiski */
 #define MSG_FORWARD_SENDER_ID (0u)
@@ -72,44 +74,24 @@ static u8 max_timeout_count_before_reset =
  * \brief Private global data for glo obs callbacks
  */
 static struct glo_obs_ctx_s {
-  bool glo_setting_read_resp;
+  bool glonass_enabled;
   u8 timeout_counter;
-} glo_obs_ctx = { .glo_setting_read_resp = false, .timeout_counter = 0 };
+} glo_obs_ctx = { .glonass_enabled = false, .timeout_counter = 0 };
 
 /**
- * \brief sbp_msg_read_resp_callback - catch glo setting read response message
- *
- * The current settings api requires us to receive any setting read response
- * and inspect it manually. This callback handles that process while also
- * checking for a specific setting - glonass_acquisition_enabled. If found,
- * this handler sets a global context to allow multiple glo monitors to share
- * the state.
- * \param sender_id: message sender id
- * \param len: length of the message in bytes
- * \param msg_[]: pointer to message data
- * \param ctx: user context associated with the monitor
+ * \brief notify_glonass_enabled - notify from watch
+ * \param context: pointer to glonass_enabled
+ * \return
  */
-static void
-sbp_msg_read_resp_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
+static int notify_glonass_enabled(void *context)
 {
-  (void)sender_id;
-  (void)len;
-  health_monitor_t *monitor = (health_monitor_t *)ctx;
-
-  const char *section, *name, *value;
-  if (health_util_parse_setting_read_resp(msg_, len, &section, &name, &value)
-      == 0) {
-    bool glonass_enabled;
-    if (health_util_check_glonass_enabled(
-          section, name, value, &glonass_enabled)
-        == 0) {
-      if (glonass_enabled && !glo_context_is_glonass_enabled()) {
-        health_monitor_reset_timer(monitor);
-      }
-      glo_context_set_glonass_enabled(glonass_enabled);
-      glo_obs_ctx.glo_setting_read_resp = true;
-    }
+  bool glonass_enabled = *((bool *)context);
+  piksi_log(LOG_DEBUG, "GLONASS Health Monitor Setting Callback! glo en: %d", glonass_enabled);
+  if (glonass_enabled && !glo_context_is_glonass_enabled()) {
+    health_monitor_reset_timer(glo_obs_monitor);
   }
+  glo_context_set_glonass_enabled(glonass_enabled);
+  return 0;
 }
 
 /**
@@ -173,6 +155,7 @@ static int sbp_msg_glo_obs_callback(health_monitor_t *monitor,
  */
 static int glo_obs_timer_callback(health_monitor_t *monitor, void *context)
 {
+  (void)monitor;
   (void)context;
   if (glo_context_is_glonass_enabled() && glo_context_is_connected_to_base()) {
     sbp_log(
@@ -183,14 +166,6 @@ static int glo_obs_timer_callback(health_monitor_t *monitor, void *context)
   if (glo_context_is_connected_to_base()
       && glo_obs_ctx.timeout_counter > max_timeout_count_before_reset) {
     glo_context_reset_connected_to_base();
-  }
-  if (!glo_obs_ctx.glo_setting_read_resp) {
-    piksi_log(LOG_DEBUG,
-              "GLONASS Status Unknown - Sending GLONASS Setting Request");
-    health_monitor_send_setting_read_request(
-      monitor,
-      SETTING_SECTION_ACQUISITION,
-      SETTING_GLONASS_ACQUISITION_ENABLED);
   }
   glo_obs_ctx.timeout_counter++;
 
@@ -215,8 +190,14 @@ int glo_obs_timeout_health_monitor_init(health_ctx_t *health_ctx)
     return -1;
   }
 
-  if (health_monitor_register_setting_handler(glo_obs_monitor,
-                                              sbp_msg_read_resp_callback)
+  if (health_monitor_add_setting_watch(glo_obs_monitor,
+                                       SETTING_SECTION_ACQUISITION,
+                                       SETTING_GLONASS_ACQUISITION_ENABLED,
+                                       &glo_obs_ctx.glonass_enabled,
+                                       sizeof(glo_obs_ctx.glonass_enabled),
+                                       SETTINGS_TYPE_BOOL,
+                                       notify_glonass_enabled,
+                                       &glo_obs_ctx.glonass_enabled)
       != 0) {
     return -1;
   }

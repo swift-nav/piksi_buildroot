@@ -34,7 +34,6 @@
 #include <libsbp/observation.h>
 
 #include "health_monitor.h"
-#include "utils.h"
 
 #include "glo_health_context.h"
 #include "glo_bias_monitor.h"
