@@ -145,4 +145,4 @@ docker-cp:
 
 docker-export-build-output:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		bash -c 'tar -cvjf /tmp/build-output.tbz2 buildroot/output/build && cp /tmp/build-output.tbz2 .'
+		bash -c 'tar -cjf /tmp/build-output.tbz2 buildroot/output/build && cp /tmp/build-output.tbz2 .'
