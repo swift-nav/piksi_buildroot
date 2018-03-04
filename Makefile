@@ -142,3 +142,7 @@ docker-cp:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG)-copy -d $(DOCKER_TAG)
 	docker cp $(DOCKER_TAG)-copy:$(SRC) $(DST) || :
 	docker stop $(DOCKER_TAG)-copy
+
+docker-export-build-output:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		bash -c 'tar -cvjf /tmp/build-output.tbz2 buildroot/output/build && cp /tmp/build-output.tbz2 .'
