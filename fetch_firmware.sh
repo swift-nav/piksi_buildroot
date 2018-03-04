@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright (C) 2016 Swift Navigation Inc.
 # Contact: Fergus Noble <fergus@swiftnav.com>

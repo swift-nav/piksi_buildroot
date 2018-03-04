@@ -1,0 +1,15 @@
+diff -ru sudo-1.8.19p2-old/configure sudo-1.8.19p2/configure
+--- sudo-1.8.19p2-old/configure 2017-01-13 20:30:22.000000000 -0800
++++ sudo-1.8.19p2/configure     2018-03-03 02:50:44.797760805 -0800
+@@ -16748,7 +16748,7 @@
+ $as_echo "no" >&6; }
+ fi
+ 
+-
++MVPROG="/usr/bin/mv"
+ 
+     # Extract the first word of "mv", so it can be a program name with args.
+ set dummy mv; ac_word=$2
+Binary files sudo-1.8.19p2-old/.configure.swp and sudo-1.8.19p2/.configure.swp differ
+
+

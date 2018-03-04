@@ -1,4 +1,4 @@
-SHELL        := /bin/bash
+SHELL        := $(shell which bash)
 BR2_EXTERNAL := $(CURDIR)
 
 ifeq ($(HW_CONFIG),)
@@ -20,11 +20,11 @@ firmware:
 
 config:
 	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		make -C buildroot O=output piksiv3_defconfig
+		$(MAKE) -C buildroot O=output piksiv3_defconfig
 
 image: config
 	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
-		make -C buildroot O=output
+		$(MAKE) -C buildroot O=output
 
 clean:
 	find buildroot/output -mindepth 1 -maxdepth 1 \
@@ -48,19 +48,19 @@ flush-rootfs:
 # '  pkg-<pkg>-rebuild          - Restart the build from the build step'
 pkg-%: config
 	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
-		make -C buildroot $* O=output
+		$(MAKE) -C buildroot $* O=output
 
 host-pkg-%: host-config
 	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		make -C buildroot $* O=host_output
+		$(MAKE) -C buildroot $* O=host_output
 
 host-config:
 	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		make -C buildroot O=host_output host_defconfig
+		$(MAKE) -C buildroot O=host_output host_defconfig
 
 host-image: host-config
 	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		make -C buildroot O=host_output
+		$(MAKE) -C buildroot O=host_output
 
 host-clean:
 	rm -rf buildroot/host_output
@@ -70,13 +70,13 @@ rebuild-changed: _rebuild_changed
 
 _rebuild_changed:
 	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
-		make -C buildroot \
+		$(MAKE) -C buildroot \
 			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py) \
 			O=output
 
 _print_db:
 	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
-		make -C buildroot all O=output -np
+		$(MAKE) -C buildroot all O=output -np
 
 docker-build-image:
 	docker build --no-cache --force-rm \
@@ -95,7 +95,7 @@ docker-setup: docker-build-image docker-populate-volume
 docker-rebuild-changed:
 	docker run $(DOCKER_ARGS) -e BUILD_TEMP=/host/tmp -e SINCE=$(SINCE) \
 		$(DOCKER_TAG) \
-		make _rebuild_changed
+		$(MAKE) _rebuild_changed
 
 docker-make-image: docker-config
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
