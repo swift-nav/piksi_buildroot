@@ -47,7 +47,7 @@ let fhs = pkgs.buildFHSUserEnv {
     xz
     zlib
   ];
-  #multiPkgs = pkgs: with pkgs; [ ];
+  multiPkgs = pkgs: with pkgs; [ ];
   runScript = "bash";
 
   # We need to disable the gcc hardening that's enabled by default in the gcc
@@ -91,10 +91,13 @@ let fhs = pkgs.buildFHSUserEnv {
   '';
   
   extraBuildCommands = ''
-    ## This hack doesn't work because they aren't similar enough versions
-    #mkdir -p $out/lib
-    #ln -sf ${pkgs.ncurses.out}/lib/libncursesw.so.6.0 $out/lib/libtinfo.so.5.0
-    #ln -sf $out/lib/libtinfo.so.5.0 $out/lib/libtinfo.so.5
+    ## Attempting something similar to this: https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/science/logic/saw-tools/default.nix#L38
+    ## ... but this hack doesn't work because they aren't similar enough versions
+    #
+    # mkdir -p $out/lib
+    # ln -sf ${pkgs.ncurses.out}/lib/libncursesw.so.6.0 $out/lib/libtinfo.so.5.0
+    # ln -sf $out/lib/libtinfo.so.5.0 $out/lib/libtinfo.so.5
+    #
   '';
 };
 
