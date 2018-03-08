@@ -77,3 +77,7 @@ check process nmea_daemon with pidfile /var/run/nmea_daemon.pid
 check process health_daemon with pidfile /var/run/health_daemon.pid
     start program = "/etc/init.d/S86health_daemon start"
     stop program = "/etc/init.d/S86health_daemon stop"
+
+check process network_daemon with pidfile /var/run/network_daemon.pid
+    start program = "/etc/init.d/S86network_daemon start"
+    stop program = "/etc/init.d/S86network_daemon stop"
