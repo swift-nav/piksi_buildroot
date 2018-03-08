@@ -14,6 +14,7 @@
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
+#include <libpiksi/networking.h>
 #include <libsbp/piksi.h>
 #include <libsbp/logging.h>
 #include <unistd.h>
@@ -23,13 +24,8 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <termios.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <ifaddrs.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <linux/if_link.h>
 
 #include "protocols.h"
 #include "ports.h"
@@ -192,15 +188,6 @@ static int eth_ip_config_notify(void *context)
   return 0;
 }
 
-static int count_set_bits(const u8* data, size_t num_bytes)
-{
-  int count = 0;
-  for (int i = 0; i < num_bytes; i++) {
-    count += __builtin_popcount(data[i]);
-  }
-  return count;
-}
-
 static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = (sbp_zmq_pubsub_ctx_t *)context;
@@ -208,77 +195,15 @@ static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
   msg_network_state_resp_t interfaces[SBP_MAX_NETWORK_INTERFACES];
   memset(interfaces, 0, sizeof(interfaces));
 
-  struct ifaddrs *ifaddr, *ifa;
-  int family, s, n;
-  char host[NI_MAXHOST];
+  u8 total_interfaces = 0;
+  query_network_state(interfaces, SBP_MAX_NETWORK_INTERFACES, &total_interfaces);
 
-  if (getifaddrs(&ifaddr) == -1) {
-      perror("getifaddrs");
-      return;
-  }
-
-  /* Walk through linked list, maintaining head pointer so we
-    can free list later */
-
-  for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
-      if (ifa->ifa_addr == NULL)
-          continue;
-
-      if (strlen(ifa->ifa_name) >= sizeof(interfaces[0].interface_name)) {
-        perror("Interface name too long");
-        continue;
-      }
-
-      //check if this is the first entry with this interface name
-      int interface_idx;
-      for (interface_idx = 0; interface_idx < SBP_MAX_NETWORK_INTERFACES; interface_idx++)
-      {
-        //reached the end of the list so add a new entry
-        if (strlen(interfaces[interface_idx].interface_name) == 0) {
-          strcpy(interfaces[interface_idx].interface_name, ifa->ifa_name);
-          break;
-        }
-        //found the entry in the list so add new info to that entry
-        if (strcmp(interfaces[interface_idx].interface_name ,ifa->ifa_name) == 0) {
-          break;
-        }
-      }
-      if (interface_idx == SBP_MAX_NETWORK_INTERFACES) {
-        perror("Too many interfaces");
-        continue;
-      }
-
-      family = ifa->ifa_addr->sa_family;
-      if (family == AF_INET) {
-        const size_t IP4_SIZE = sizeof(interfaces[0].ipv4_address);
-        memcpy(interfaces[interface_idx].ipv4_address,
-               &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr.s_addr, IP4_SIZE);
-        u8* mask_bytes = (u8*)&((struct sockaddr_in*)ifa->ifa_netmask)->sin_addr.s_addr;
-        interfaces[interface_idx].ipv4_mask_size = count_set_bits(mask_bytes, IP4_SIZE);
-        interfaces[interface_idx].flags = ifa->ifa_flags;
-      } else if(family == AF_INET6) {
-        const size_t IP6_SIZE = sizeof(interfaces[0].ipv6_address);
-        memcpy(interfaces[interface_idx].ipv6_address,
-               &((struct sockaddr_in6*)ifa->ifa_addr)->sin6_addr.s6_addr, IP6_SIZE);
-        u8* mask_bytes = (u8*)&((struct sockaddr_in6*)ifa->ifa_netmask)->sin6_addr.s6_addr;
-        interfaces[interface_idx].ipv6_mask_size = count_set_bits(mask_bytes, IP6_SIZE);
-      } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
-          struct rtnl_link_stats *stats = ifa->ifa_data;
-          interfaces[interface_idx].rx_bytes = stats->rx_bytes;
-          interfaces[interface_idx].tx_bytes = stats->tx_bytes;
-      }
-  }
-  for (int interface_idx = 0; interface_idx < SBP_MAX_NETWORK_INTERFACES; interface_idx++)
+  for (int i = 0; i < total_interfaces; i++)
   {
-    if (strlen(interfaces[interface_idx].interface_name) == 0) {
-      break;
-    }
     sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
                     SBP_MSG_NETWORK_STATE_RESP, sizeof(msg_network_state_resp_t),
-                    (u8*)&interfaces[interface_idx]);
+                    (u8*)&interfaces[i]);
   }
-
-  freeifaddrs(ifaddr);
 }
 
 struct shell_cmd_ctx {
