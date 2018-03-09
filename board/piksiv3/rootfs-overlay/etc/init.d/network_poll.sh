@@ -1,8 +1,5 @@
 #!/bin/ash
 
-touch /var/run/skylark_enabled
-touch /var/run/ntrip_enabled
-
 skylark_enabled() {
   if [ x`cat /var/run/skylark_enabled` != "x0" ]; then
     return 0

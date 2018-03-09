@@ -10,6 +10,10 @@ NMEA_DAEMON_SITE = \
 NMEA_DAEMON_SITE_METHOD = local
 NMEA_DAEMON_DEPENDENCIES = czmq libpiksi
 
+define NMEA_DAEMON_USERS
+	nmea_daemon -1 nmea_daemon -1 * - - -
+endef
+
 define NMEA_DAEMON_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef

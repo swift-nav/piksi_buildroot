@@ -3,6 +3,20 @@
 name="nmea_daemon"
 cmd="nmea_daemon"
 dir="/"
-user=""
+user="nmea_daemon"
+
+_base_dir=/var/run/nmea
+_gga_file=/var/run/nmea/GGA
+
+setup_permissions() {
+
+    mkdir $_base_dir
+    chown nmea_daemon:nmea_daemon $_base_dir
+    chmod 755 $_base_dir
+
+    touch $_gga_file
+    chown nmea_daemon:nmea_daemon $_gga_file
+    chmod 644 $_gga_file
+}
 
 source /etc/init.d/template_process.inc.sh

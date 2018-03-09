@@ -25,9 +25,9 @@
 
 #define NMEA_PUB_ENDPOINT ">tcp://127.0.0.1:44030"  /* NMEA Pub */
 
-#define BASE_DIRECTORY    "/var/run"
+#define BASE_DIRECTORY    "/var/run/nmea"
 
-const char*const NMEA_GGA_OUTPUT_PATH = BASE_DIRECTORY "/nmea_GGA";
+const char*const NMEA_GGA_OUTPUT_PATH = BASE_DIRECTORY "/GGA";
 
 bool nmea_debug = false;
 
@@ -94,9 +94,10 @@ static int nmea_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   char tmp_file_name[] = BASE_DIRECTORY "/temp_nmea_gga.XXXXXX";
 
   int fd_temp = mkstemp(tmp_file_name);
+  fchmod(fd_temp, 0644);
 
   if (fd_temp < 0) {
-    sbp_log(LOG_ERR, "error creating temp file");
+    sbp_log(LOG_ERR, "error creating temp file: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
