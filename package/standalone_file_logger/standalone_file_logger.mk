@@ -9,11 +9,6 @@ STANDALONE_FILE_LOGGER_SITE = \
 	"${BR2_EXTERNAL_piksi_buildroot_PATH}/package/standalone_file_logger/standalone_file_logger"
 STANDALONE_FILE_LOGGER_SITE_METHOD = local
 STANDALONE_FILE_LOGGER_DEPENDENCIES = czmq libsbp libpiksi
-
-define STANDALONE_FILE_LOGGER_USERS
-	sbplogd -1 sbplogd -1 * - - - Standalone SBP logging daemon
-endef
-
 ifeq ($(BR2_BUILD_TESTS),y)
 	STANDALONE_FILE_LOGGER_DEPENDENCIES += gtest
 endif

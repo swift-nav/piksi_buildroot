@@ -9,12 +9,6 @@ ZMQ_ROUTER_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/zmq_router/src"
 ZMQ_ROUTER_SITE_METHOD = local
 ZMQ_ROUTER_DEPENDENCIES = czmq libyaml
 
-define ZMQ_ROUTER_USERS
-	router_nmea -1 router_nmea -1 * - - - Message router daemon for NMEA
-	router_sbp -1 router_sbp -1 * - - - Message router daemon for SBP
-	router_rtcm3 -1 router_rtcm -1 * - - - Message router daemon fo RTCM3
-endef
-
 define ZMQ_ROUTER_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef

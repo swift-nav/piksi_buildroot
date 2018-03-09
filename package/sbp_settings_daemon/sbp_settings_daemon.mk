@@ -10,10 +10,6 @@ SBP_SETTINGS_DAEMON_SITE = \
 SBP_SETTINGS_DAEMON_SITE_METHOD = local
 SBP_SETTINGS_DAEMON_DEPENDENCIES = czmq libsbp libpiksi
 
-define SBP_SETTINGS_DAEMON_USERS
-	settingsd -1 settingsd -1 * - - - Piksi settings daemon
-endef
-
 ifeq ($(BR2_BUILD_TESTS),y)
 	SBP_SETTINGS_DAEMON_DEPENDENCIES += gtest
 endif

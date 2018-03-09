@@ -10,11 +10,6 @@ ZMQ_ADAPTER_SITE = \
 ZMQ_ADAPTER_SITE_METHOD = local
 ZMQ_ADAPTER_DEPENDENCIES = czmq libsbp libpiksi
 
-define ZMQ_ADAPTER_USERS
-	adapt_gps -1 adapt_gps -1 * - - - message adapter for gps to ntpd
-	adapt_rpmsg -1 adapt_rpmsg -1 * - - - message adapter pulling SBP into Linux from firmware
-endef
-
 define ZMQ_ADAPTER_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef

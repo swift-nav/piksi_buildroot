@@ -38,8 +38,6 @@ start() {
   for dev in /sys/class/udc/*; do
     echo `basename "$dev"` > UDC
   done
-
-  chmod adapt_tty:tty /dev/ttyGS0
 }
 
 stop() {

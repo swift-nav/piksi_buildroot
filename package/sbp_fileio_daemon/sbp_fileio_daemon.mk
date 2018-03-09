@@ -10,11 +10,6 @@ SBP_FILEIO_DAEMON_SITE = \
 SBP_FILEIO_DAEMON_SITE_METHOD = local
 SBP_FILEIO_DAEMON_DEPENDENCIES = czmq libsbp libpiksi
 
-define SBP_FILEIO_DAEMON_USERS
-	fileio_ex -1 fileio_ex -1 * - - - File IO daemon external
-	fileio_fw -1 fileio_fw -1 * - - - File IO daemon firmware
-endef
-
 define SBP_FILEIO_DAEMON_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef

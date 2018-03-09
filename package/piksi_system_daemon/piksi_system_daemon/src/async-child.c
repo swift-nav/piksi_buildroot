@@ -140,9 +140,7 @@ static int async_cleanup_dead_child(zloop_t *loop, zmq_pollitem_t *item, void *a
   return 0;
 }
 
-int async_spawn(zloop_t *loop,
-                const char* daemon_user,
-                char **argv,
+int async_spawn(zloop_t *loop, char **argv,
                 void (*output_callback)(const char *buf, void *ctx),
                 void (*exit_callback)(int status, void *ctx),
                 void *external_context,
@@ -172,21 +170,7 @@ int async_spawn(zloop_t *loop,
     free(ctx);
     return -1;
   }
-#if 0
-  char* sudo_argv[32] = {0};
-  size_t offset = 0;
 
-  sudo_argv[offset++] = "sudo";
-  sudo_argv[offset++] = "-u";
-
-  if (daemon_user != NULL)
-    sudo_argv[offset++] = (char*)daemon_user;
-  else
-    sudo_argv[offset++] = "root";
-
-  for (int x=0; argv[x] != NULL; x++)
-    sudo_argv[x+offset] = argv[x];
-#endif
   sigset_t saved_mask;
   sigchld_mask(&saved_mask);
   ctx->pid = fork();
@@ -195,7 +179,6 @@ int async_spawn(zloop_t *loop,
     close(pipefd[0]);
     close(STDIN_FILENO);
     dup2(pipefd[1], STDOUT_FILENO);
-    /*execvp(sudo_argv[0], sudo_argv);*/
     execvp(argv[0], argv);
     perror("async_spawn exec");
     exit(1);

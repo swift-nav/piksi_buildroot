@@ -3,11 +3,6 @@
 name="piksi_leds"
 cmd="piksi_leds"
 dir="/"
-user="leds"
-
-setup_permissions() {
-    chown leds:leds /dev/i2c-0
-    chown leds:leds /dev/i2c-1
-}
+user=""
 
 source /etc/init.d/template_process.inc.sh

@@ -20,19 +20,12 @@ is_running() {
     [ -f "$pid_file" ] && [ -d "/proc/`get_pid`" ] > /dev/null 2>&1
 }
 
-_setup_permissions() {
-    if type setup_permissions | grep -q "shell function"; then
-        setup_permissions
-    fi
-}
-
 case "$1" in
     start)
     if is_running; then
         echo "Already started"
     else
         echo "Starting $name"
-        _setup_permissions
         cd "$dir"
         if [ -z "$user" ]; then
             sudo $cmd >> "$stdout_log" 2>> "$stderr_log" &
