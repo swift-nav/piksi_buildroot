@@ -3,7 +3,7 @@
 name="zmq_router_rtcm3"
 cmd="zmq_router -f /etc/zmq_router/rtcm3_router.yml"
 dir="/"
-user="router_rtcm3"
+#user="router_rtcm3"
 
 source /etc/init.d/template_process.inc.sh
 

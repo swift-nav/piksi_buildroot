@@ -39,7 +39,7 @@ start() {
     echo `basename "$dev"` > UDC
   done
 
-  chmod adapt_tty:tty /dev/ttyGS0
+  #chmod adapt_tty:tty /dev/ttyGS0
 }
 
 stop() {

@@ -3,6 +3,6 @@
 name="health_daemon"
 cmd="health_daemon"
 dir="/"
-user="healthd"
+#user="healthd"
 
 source /etc/init.d/template_process.inc.sh

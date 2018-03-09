@@ -3,7 +3,7 @@
 name="sbp_settings_daemon"
 cmd="sbp_settings_daemon"
 dir="/"
-user="settingsd"
+#user="settingsd"
 
 source /etc/init.d/template_process.inc.sh
 
