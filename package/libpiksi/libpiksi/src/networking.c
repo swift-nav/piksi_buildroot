@@ -21,7 +21,7 @@
 typedef s32 (*interface_map_fn_t)(struct ifaddrs *ifa, void *userdata);
 
 // refactored from original implementation in piksi_system_daemon by @axlan
-void map_network_interfaces(interface_map_fn_t map_fn, void *userdata)
+static void map_network_interfaces(interface_map_fn_t map_fn, void *userdata)
 {
   struct ifaddrs *ifaddr, *ifa;
 
