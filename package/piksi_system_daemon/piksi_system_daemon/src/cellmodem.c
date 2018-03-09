@@ -44,6 +44,8 @@ static int cellmodem_notify(void *context);
 #define SBP_PAYLOAD_SIZE_MAX (255u)
 enum { STORAGE_SIZE = SBP_PAYLOAD_SIZE_MAX-1 };
 
+#define DAEMON_USER "cellmond"
+
 static void pppd_output_callback(const char *buf, void *arg)
 {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = arg;
@@ -158,8 +160,12 @@ static int cellmodem_notify(void *context)
                   NULL};
 
   /* Create a new pppd process. */
-  async_spawn(sbp_zmq_pubsub_zloop_get(pubsub_ctx), args,
-              pppd_output_callback, pppd_exit_callback, pubsub_ctx,
+  async_spawn(sbp_zmq_pubsub_zloop_get(pubsub_ctx),
+              DAEMON_USER,
+              args,
+              pppd_output_callback,
+              pppd_exit_callback,
+              pubsub_ctx,
               &cellmodem_pppd_pid);
 
   return 0;

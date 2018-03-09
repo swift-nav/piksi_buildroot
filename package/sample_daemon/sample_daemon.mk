@@ -12,6 +12,10 @@ SAMPLE_DAEMON_SITE = \
 SAMPLE_DAEMON_SITE_METHOD = local
 SAMPLE_DAEMON_DEPENDENCIES = czmq libsbp libpiksi
 
+define SAMPLE_DAEMON_USERS
+	sampled -1 sampled -1 * - - - Piksi sample daemon
+endef
+
 define SAMPLE_DAEMON_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/src/sample_daemon $(TARGET_DIR)/usr/bin
 endef

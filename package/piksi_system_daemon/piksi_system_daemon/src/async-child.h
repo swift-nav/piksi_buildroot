@@ -19,7 +19,9 @@ void sigchld_setup(void);
 void sigchld_mask(sigset_t *saved_mask);
 void sigchld_restore(sigset_t *saved_mask);
 
-int async_spawn(zloop_t *loop, char **argv,
+int async_spawn(zloop_t *loop,
+                const char* username,
+                char **argv,
                 void (*output_callback)(const char *buf, void *ctx),
                 void (*exit_callback)(int status, void *ctx),
                 void *external_context,

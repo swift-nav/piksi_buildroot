@@ -10,6 +10,10 @@ SKYLARK_UPLOAD_DAEMON_SITE = \
 SKYLARK_UPLOAD_DAEMON_SITE_METHOD = local
 SKYLARK_UPLOAD_DAEMON_DEPENDENCIES = czmq libsbp libpiksi libcurl libnetwork
 
+define SKYLARK_UPLOAD_DAEMON_USERS
+	slarkul -1 slarkul -1 * - - - Skylark upload daemon
+endef
+
 define SKYLARK_UPLOAD_DAEMON_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef

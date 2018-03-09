@@ -3,6 +3,6 @@
 name="nmea_daemon"
 cmd="nmea_daemon"
 dir="/"
-user=""
+user="nmead"
 
 source /etc/init.d/template_process.inc.sh

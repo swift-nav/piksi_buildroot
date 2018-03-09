@@ -3,7 +3,7 @@
 name="sbp_fileio_daemon_external"
 cmd="sbp_fileio_daemon -p >tcp://localhost:43051 -s >tcp://localhost:43050"
 dir="/"
-user=""
+user="fileio_ex"
 
 source /etc/init.d/template_process.inc.sh
 

@@ -10,6 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#define _GNU_SOURCE
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "ports.h"
 #include "protocols.h"
 #include "async-child.h"
@@ -24,6 +28,14 @@
 #define MODE_NAME_DISABLED "Disabled"
 #define MODE_DISABLED 0
 #define PID_INVALID 0
+
+// This is the default for most serial devices, we need to drop and flush
+//   data when we get to this point to avoid sending partial SBP packets.
+//   See https://elixir.bootlin.com/linux/v4.6/source/include/linux/serial.h#L29
+#define SERIAL_XMIT_SIZE "4096"
+
+// See https://elixir.bootlin.com/linux/v4.6/source/drivers/usb/gadget/function/u_serial.c#L83
+#define USB_SERIAL_XMIT_SIZE "8192"
 
 typedef enum {
   PORT_TYPE_UART,
@@ -57,6 +69,20 @@ typedef union {
 typedef int (*opts_get_fn_t)(char *buf, size_t buf_size,
                              const opts_data_t *opts_data);
 
+typedef struct {
+  const char const name[256];
+  const char const daemon_user[256];
+  const char const opts[256];
+  const opts_get_fn_t opts_get;
+  opts_data_t opts_data;
+  const port_type_t type;
+  const char const mode_name_default[256];
+  u8 mode;
+  pid_t adapter_pid; /* May be cleared by SIGCHLD handler */
+  restart_type_t restart;
+} port_config_t;
+
+
 static int opts_get_tcp_server(char *buf, size_t buf_size,
                                const opts_data_t *opts_data)
 {
@@ -85,29 +111,10 @@ static int opts_get_udp_client(char *buf, size_t buf_size,
   return snprintf(buf, buf_size, "--udp-c %s", address);
 }
 
-typedef struct {
-  const char * const name;
-  const char * const opts;
-  const opts_get_fn_t opts_get;
-  opts_data_t opts_data;
-  const port_type_t type;
-  const char * const mode_name_default;
-  u8 mode;
-  pid_t adapter_pid; /* May be cleared by SIGCHLD handler */
-  restart_type_t restart;
-} port_config_t;
-
-// This is the default for most serial devices, we need to drop and flush
-//   data when we get to this point to avoid sending partial SBP packets.
-//   See https://elixir.bootlin.com/linux/v4.6/source/include/linux/serial.h#L29
-#define SERIAL_XMIT_SIZE "4096"
-
-// See https://elixir.bootlin.com/linux/v4.6/source/drivers/usb/gadget/function/u_serial.c#L83
-#define USB_SERIAL_XMIT_SIZE "8192"
-
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
+    .daemon_user = "adapt_uart0",
     .opts = "--name uart0 --file /dev/ttyPS0 --nonblock --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
@@ -118,6 +125,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "uart1",
+    .daemon_user = "adapt_uart1",
     .opts = "--name uart1 --file /dev/ttyPS1 --nonblock --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
@@ -128,6 +136,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "usb0",
+    .daemon_user = "adapt_usb0",
     .opts = "--name usb0 --file /dev/ttyGS0 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
@@ -138,6 +147,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "tcp_server0",
+    .daemon_user = "adapt_tcps0",
     .opts = "",
     .opts_data.tcp_server_data.port = 55555,
     .opts_get = opts_get_tcp_server,
@@ -149,6 +159,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "tcp_server1",
+    .daemon_user = "adapt_tcps1",
     .opts = "",
     .opts_data.tcp_server_data.port = 55556,
     .opts_get = opts_get_tcp_server,
@@ -160,6 +171,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "tcp_client0",
+    .daemon_user = "adapt_tcpc0",
     .opts = "",
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
@@ -171,6 +183,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "tcp_client1",
+    .daemon_user = "adapt_tcpc1",
     .opts = "",
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
@@ -182,6 +195,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "udp_server0",
+    .daemon_user = "adapt_udps0",
     .opts = "",
     .opts_data.udp_server_data.port = 55557,
     .opts_get = opts_get_udp_server,
@@ -193,6 +207,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "udp_server1",
+    .daemon_user = "adapt_udps1",
     .opts = "",
     .opts_data.udp_server_data.port = 55558,
     .opts_get = opts_get_udp_server,
@@ -204,6 +219,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "udp_client0",
+    .daemon_user = "adapt_udpc0",
     .opts = "",
     .opts_data.udp_client_data.address = "",
     .opts_get = opts_get_udp_client,
@@ -215,6 +231,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "udp_client1",
+    .daemon_user = "adapt_udpc1",
     .opts = "",
     .opts_data.udp_client_data.address = "",
     .opts_get = opts_get_udp_client,
@@ -253,7 +270,69 @@ static void adapter_kill(port_config_t *port_config)
   sigchld_restore(&saved_mask);
 }
 
+int privileged_write_fd = -1;
+int privileged_pid = -1;
+
+unsigned char priv_cmd_stop = 1;
+unsigned char priv_cmd_process = 2;
+
 static int port_configure(port_config_t *port_config)
+{
+  write(privileged_write_fd, &priv_cmd_process, sizeof(priv_cmd_process));
+  write(privileged_write_fd, port_config, sizeof(port_config_t));
+}
+
+static void stop_privileged()
+{
+  write(privileged_write_fd, &priv_cmd_stop, sizeof(priv_cmd_stop));
+}
+
+static int _port_configure(port_config_t *port_config);
+
+static int start_privileged()
+{
+  int pipes[2];
+
+  if(pipe2(pipes, O_DIRECT) < 0) {
+    fprintf(stdout, "start_privileged: pipe2: %s\n", strerror(errno));
+    return -1;
+  }
+
+  privileged_pid = fork();
+
+  if (privileged_pid < 0) {
+    fprintf(stdout, "start_privileged: fork: %s\n", strerror(errno));
+    return -1;
+  }
+
+  if (privileged_pid != 0) {
+
+    close(pipes[0]); /* close the read fd */
+    privileged_write_fd = pipes[1];
+
+    return 0;
+  }
+
+  close(pipes[1]); /* close the write fd */
+  char buffer[4096];
+
+  while (true) {
+    ssize_t count = read(pipes[0], buffer, sizeof(buffer));
+
+    if (buffer[0] == priv_cmd_stop) {
+      exit(0);
+    }
+
+    count = read(pipes[0], buffer, sizeof(buffer));
+
+    port_config_t port_config;
+    memcpy(&port_config, buffer, sizeof(port_config_t));
+
+    _port_configure(&port_config);
+  }
+}
+
+static int _port_configure(port_config_t *port_config)
 {
   /* kill adapter */
   adapter_kill(port_config);
@@ -287,8 +366,12 @@ static int port_configure(port_config_t *port_config)
 
   char cmd[512];
   snprintf(cmd, sizeof(cmd),
+           //"sudo -u %s zmq_adapter %s %s %s",
            "zmq_adapter %s %s %s",
-           port_config->opts, opts, mode_opts);
+           //port_config->daemon_user,
+           port_config->opts,
+           opts,
+           mode_opts);
 
   /* Split the command on each space for argv */
   char *args[32] = {0};

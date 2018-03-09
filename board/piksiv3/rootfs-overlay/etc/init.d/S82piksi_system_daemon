@@ -3,7 +3,7 @@
 name="piksi_system_daemon"
 cmd="piksi_system_daemon"
 dir="/"
-user=""
+#user="piksisysd"
 
 source /etc/init.d/template_process.inc.sh
 

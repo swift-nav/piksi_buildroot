@@ -9,6 +9,10 @@ PIKSI_LEDS_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_leds/src"
 PIKSI_LEDS_SITE_METHOD = local
 PIKSI_LEDS_DEPENDENCIES = czmq libsbp libpiksi
 
+define PIKSI_LEDS_USERS
+	leds -1 leds -1 * - - - Piksi LED daemon
+endef
+
 define PIKSI_LEDS_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef

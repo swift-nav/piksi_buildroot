@@ -36,7 +36,7 @@ check process sbp_fileio_daemon_external with pidfile /var/run/sbp_fileio_daemon
 check process piksi_system_daemon with pidfile /var/run/piksi_system_daemon.pid
     start program = "/etc/init.d/S82piksi_system_daemon start"
     stop program = "/etc/init.d/S82piksi_system_daemon stop"
-    if 1 restarts within 3 cycles then exec "/sbin/reboot -f"
+#    if 1 restarts within 3 cycles then exec "/sbin/reboot -f"
 
 check process sbp_rtcm3_bridge with pidfile /var/run/sbp_rtcm3_bridge.pid
     start program = "/etc/init.d/S82sbp_rtcm3_bridge start"

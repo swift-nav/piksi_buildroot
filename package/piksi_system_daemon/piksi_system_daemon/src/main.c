@@ -339,7 +339,12 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
   ctx->pubsub_ctx = pubsub_ctx;
   char *argv[] = {"upgrade_tool", "--debug", "upgrade.image_set.bin", NULL};
   async_spawn(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
-              argv, command_output_cb, command_exit_cb, ctx, NULL);
+              NULL, /* Run as root */
+              argv,
+              command_output_cb,
+              command_exit_cb,
+              ctx,
+              NULL);
 }
 
 static int file_read_string(const char *filename, char *str, size_t str_size)

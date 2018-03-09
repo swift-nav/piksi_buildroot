@@ -10,6 +10,10 @@ NTRIP_DAEMON_SITE = \
 NTRIP_DAEMON_SITE_METHOD = local
 NTRIP_DAEMON_DEPENDENCIES = czmq libsbp libpiksi libcurl libnetwork
 
+define NTRIP_DAEMON_USERS
+	ntripd -1 ntripd -1 * - - - NTRIP daemon
+endef
+
 define NTRIP_DAEMON_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef
