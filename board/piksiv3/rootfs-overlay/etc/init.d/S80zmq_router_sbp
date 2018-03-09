@@ -3,7 +3,7 @@
 name="zmq_router_sbp"
 cmd="zmq_router -f /etc/zmq_router/sbp_router.yml"
 dir="/"
-#user="router_sbp"
+user="router_sbp"
 
 source /etc/init.d/template_process.inc.sh
 

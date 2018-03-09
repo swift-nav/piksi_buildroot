@@ -5,8 +5,8 @@ name="rpmsg_piksi"
 start() {
   modprobe virtio_rpmsg_bus
   modprobe rpmsg_piksi
-  #chown adapt_rpmsg:adapt_rpmsg /dev/rpmsg_piksi100
-  #chown adapt_rpmsg:adapt_rpmsg /dev/rpmsg_piksi101
+  chown adapt_rpmsg:adapt_rpmsg /dev/rpmsg_piksi100
+  chown adapt_rpmsg:adapt_rpmsg /dev/rpmsg_piksi101
 }
 
 stop() {

@@ -3,6 +3,6 @@
 name="network_poll"
 cmd="/etc/init.d/network_poll.sh"
 dir="/"
-#user="daemon"
+user="daemon"
 
 source /etc/init.d/template_process.inc.sh

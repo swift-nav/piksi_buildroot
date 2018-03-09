@@ -3,7 +3,7 @@
 name="standalone_file_logger"
 cmd="standalone_file_logger -d /media/sda1/ -s >tcp://127.0.0.1:43030"
 dir="/"
-#user="sbplogd"
+user="sbplogd"
 
 source /etc/init.d/template_process.inc.sh
 
