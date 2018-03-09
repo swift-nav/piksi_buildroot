@@ -27,8 +27,10 @@
 static bool board_is_duro(void)
 {
   int fd = open(DURO_EEPROM_PATH, O_RDONLY);
-  if (fd < 0)
+  if (fd < 0) {
+    piksi_log(LOG_ERR, "failed to open eeprom path");
     return false;
+  }
   char buf[6];
   read(fd, buf, 6);
   close(fd);
