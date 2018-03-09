@@ -48,7 +48,7 @@ let fhs = pkgs.buildFHSUserEnv {
     zlib
   ];
   multiPkgs = pkgs: with pkgs; [ ];
-  runScript = "bash";
+  runScript = "$SHELL";
 
   # We need to disable the gcc hardening that's enabled by default in the gcc
   # wrapper for NixOS, otherwise it'll cause packages to fail to compile in the
@@ -105,6 +105,13 @@ in pkgs.stdenv.mkDerivation rec {
   name = "piksi-buildroot-env";
   nativeBuildInputs = [ fhs ];
   shellHook = ''
-    exec piksi-env
+    if [ -z "$PS1" ]; then
+      : # Non-interactive shell, no banner...
+    else
+      echo
+      echo "***************************************************"
+      echo "* Run 'piksi-env' to start the build environement *"
+      echo "***************************************************"
+    fi
   '';
 }
