@@ -106,12 +106,9 @@ in pkgs.stdenv.mkDerivation rec {
   nativeBuildInputs = [ fhs ];
   shellHook = ''
     if [ -z "$PS1" ]; then
-      : # Non-interactive shell, no banner...
+      :
     else
-      echo
-      echo "***************************************************"
-      echo "* Run 'piksi-env' to start the build environement *"
-      echo "***************************************************"
+      exec piksi-env
     fi
   '';
 }
