@@ -10,6 +10,10 @@ HEALTH_DAEMON_SITE = \
 HEALTH_DAEMON_SITE_METHOD = local
 HEALTH_DAEMON_DEPENDENCIES = czmq libsbp libpiksi
 
+define HEALTH_DAEMON_USERS
+	health_daemon -1 health_daemon -1 * - - -
+endef
+
 define HEALTH_DAEMON_BUILD_CMDS
 	$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef
