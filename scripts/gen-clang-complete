@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+IFS=$'\n\t'
+
+D=$( (cd "$(dirname "$0")" || exit 1 >/dev/null; pwd -P) )
+
+cat >$D/../.clang_complete <<EOF
+-Wno-unused-command-line-argument
+-D__ARM_PCS_VFP
+-I./buildroot/output/host/opt/ext-toolchain/lib/gcc/arm-linux-gnueabihf/6.2.1/include
+-I./buildroot/output/host/opt/ext-toolchain/include
+-I./buildroot/output/host/opt/ext-toolchain/arm-linux-gnueabihf/libc/usr/include
+-I./buildroot/output/host/opt/ext-toolchain/arm-linux-gnueabihf/include
+-I./buildroot/output/host/usr/include
+-I$D/../buildroot/output/host/opt/ext-toolchain/lib/gcc/arm-linux-gnueabihf/6.2.1/include-fixed
+-isystem$D/../buildroot/output/host/usr/arm-buildroot-linux-gnueabihf/sysroot/usr/include
+-isysroot$D/../buildroot/output/host/usr/arm-buildroot-linux-gnueabihf/sysroot
+-arch i386
+EOF
