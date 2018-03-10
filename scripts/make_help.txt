@@ -1,0 +1,63 @@
+## NORMAL TARGETS ##
+
+firmware          - Download the firmware artifacts for the RTOS and FPGA 
+                    (required to build a complete firmware image).
+config
+host-config       - Configure buildroot to build for Piksi Multi, or for
+                    the host (testing) target.
+image
+host-image        - Compile buildroot, and assemble and Piksi Multi update
+                    package (.bin image set) or build a host image for 
+                    running unit tests.
+clean           
+host-clean        - Clean all downloads, build materials and output
+                    artifacts.
+pkg-%
+host-pkg-%        - Run a target inside of buildroot (for the target
+                    system or for the host system), for example:
+                        make pkg-ntrip_daemon-rebuild
+                    Or:
+                        make pkg-ntrip_daemon-dirclean
+## UTILITY TARGETS ##
+
+flush-rootfs      - Force buildroot the restage all files in the target
+                    filesystem, useful to ensure the assembled filesystem
+                    image is consistent.
+rebuild-chagned   - Run the buildroot target `<package>-rebuild` for all
+                    external projects that have changed in the current
+                    source tree.
+
+## DOCKER TARGETS ##
+
+docker-setup      - Configure Docker for first run.  Use export
+                    DOCKER_SUFFIX to your environement in order to build
+                    multiple buildroot repositories that use docker.
+
+The following targets are analogs of the above, but run within docker:
+
+  docker-config
+  docker-make-firmware
+  docker-make-image
+  docker-make-host-image
+  docker-make-clean
+  docker-make-host-clean
+
+  docker-rebuild-changed
+  docker-make-flush-rootfs
+  docker-pkg-%
+
+Docker utility targets:
+
+docker-cp         - Copies files out of the docker container, uses the
+                    following syntax:
+                      make docker-cp SRC=<docker-path> DST=<local-path>
+docker-run        - Launches a shell inside the docker container for
+                    running commands and inspecting the contents of
+                    the container.
+docker-make-clean-volume
+                  - Wipes the docker volume (`<root>/buildroot` inside
+                    of the docker container) that's  used to build the
+                    image.
+docker-make-clean-all
+                  - Wipes the docker volume and cleans all build
+                    artifacts.
