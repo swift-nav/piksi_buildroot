@@ -18,7 +18,7 @@
 #include <time.h>
 #include <sys/mman.h>
 #include <libsbp/common.h>
-#include <libsbp/logging.h>
+#include <libpiksi/logging.h>
 
 #include "led_adp8866.h"
 #include "firmware_state.h"

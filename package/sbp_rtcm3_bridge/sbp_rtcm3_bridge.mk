@@ -10,6 +10,10 @@ SBP_RTCM3_BRIDGE_SITE = \
 SBP_RTCM3_BRIDGE_SITE_METHOD = local
 SBP_RTCM3_BRIDGE_DEPENDENCIES = czmq libsbp libpiksi gnss_convertors
 
+define SBP_RTCM3_BRIDGE_USERS
+	sbp_rtcm3_bridge -1 sbp_rtcm3_bridge -1 * - - -
+endef
+
 define SBP_RTCM3_BRIDGE_BUILD_CMDS_DEFAULT
 	$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef
