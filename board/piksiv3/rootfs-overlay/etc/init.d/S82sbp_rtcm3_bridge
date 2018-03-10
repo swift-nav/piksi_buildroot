@@ -3,7 +3,7 @@
 name="sbp_rtcm3_bridge"
 cmd="sbp_rtcm3_bridge"
 dir="/"
-user=""
+user="sbp_rtcm3_bridge"
 
 source /etc/init.d/template_process.inc.sh
 
