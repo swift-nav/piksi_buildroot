@@ -33,6 +33,7 @@ let fhs = pkgs.buildFHSUserEnv {
     patch
     patchelf
     perl
+    python3
     python27Full
     readline
     readline.dev
