@@ -88,6 +88,8 @@ let fhs = pkgs.buildFHSUserEnv {
     export GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
     export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
     export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+    export IN_PIKSI_SHELL=1
   '';
   
   extraBuildCommands = ''

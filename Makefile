@@ -1,4 +1,5 @@
-SHELL        := $(shell which bash)
+include scripts/set-shell.mk
+
 BR2_EXTERNAL := $(CURDIR)
 
 ifeq ($(HW_CONFIG),)
@@ -142,3 +143,13 @@ docker-cp:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG)-copy -d $(DOCKER_TAG)
 	docker cp $(DOCKER_TAG)-copy:$(SRC) $(DST) || :
 	docker stop $(DOCKER_TAG)-copy
+
+help:
+	@[[ -x $(shell which less) ]] && \
+		less $(CURDIR)/scripts/make_help.txt || \
+		cat $(CURDIR)/scripts/make_help.txt
+
+clang-complete:
+	@./scripts/gen-clang-complete
+
+.PHONY: help
