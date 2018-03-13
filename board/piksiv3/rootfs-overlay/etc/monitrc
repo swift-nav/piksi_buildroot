@@ -21,6 +21,10 @@ check process zmq_router_rtcm3 with pidfile /var/run/zmq_router_rtcm3.pid
     start program = "/etc/init.d/S80zmq_router_rtcm3 start"
     stop program = "/etc/init.d/S80zmq_router_rtcm3 stop"
 
+check process zmq_router_protobuf with pidfile /var/run/zmq_router_protobuf.pid
+    start program = "/etc/init.d/S80zmq_router_protobuf start"
+    stop program = "/etc/init.d/S80zmq_router_protobuf stop"
+
 check process sbp_settings_daemon with pidfile /var/run/sbp_settings_daemon.pid
     start program = "/etc/init.d/S81sbp_settings_daemon start"
     stop program = "/etc/init.d/S81sbp_settings_daemon stop"

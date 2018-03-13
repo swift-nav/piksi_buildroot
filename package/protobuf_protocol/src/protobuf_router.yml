@@ -1,0 +1,18 @@
+
+name: PROTOBUF_ROUTER
+ports:
+  - name: PROTOBUF_PORT_INTERNAL
+    pub_addr: "@tcp://127.0.0.1:46010"
+    sub_addr: "@tcp://127.0.0.1:46011"
+    forwarding_rules:
+      - dst_port: PROTOBUF_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT }
+
+  - name: PROTOBUF_PORT_EXTERNAL
+    pub_addr: "@tcp://127.0.0.1:46030"
+    sub_addr: "@tcp://127.0.0.1:46031"
+    forwarding_rules:
+      - dst_port: PROTOBUF_PORT_INTERNAL
+        filters:
+          - { action: ACCEPT }
