@@ -1,0 +1,25 @@
+# <file system>	  <mount pt>	<type>	  <options>	<dump>	<pass>
+
+proc		          /proc		    proc	    defaults                      0	0
+
+/dev/root         /           ext2	    ro,noauto                     0	1
+/dev/root         /stage1     ext2	    ro                            0	1
+/stage2.squashfs  /stage2     squashfs  loop                          0 0
+overlay           /chroot     overlay   ro,lowerdir=/stage1:/stage2   0 0
+
+devpts		        /dev/pts	  devpts	defaults,gid=5,mode=620         0	0
+tmpfs		          /dev/shm	  tmpfs	  mode=0777	0	0
+
+tmpfs		          /tmp		    tmpfs	  mode=1777	0	0
+tmpfs		          /run		    tmpfs	  mode=0755,nosuid,nodev	0	0
+
+sysfs	/sys sysfs	  defaults	0	0
+configfs /sys/kernel/config	configfs	defaults	0	0
+
+/proc /merged/proc none defaults,bind 0 0
+/dev/pts /merged/dev/pts none defaults,bind 0 0
+/dev/shm /merged/dev/shm none defaults,bind 0 0
+/tmp /merged/tmp none defaults,bind 0 0
+/run /merged/run none defaults,bind 0 0
+/sys /merged/sys none defaults,bind 0 0
+/sys/kernel/config /merged/sys/kernel/config none defaults,bind 0 0

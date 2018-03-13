@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
+set -x
 
 if [ -z "$HW_CONFIG" ]; then
   echo "ERROR: HW_CONFIG is not set"
@@ -11,6 +12,8 @@ echo "Installing firmware images for hardware configuration: $HW_CONFIG"
 ROOTFS=$1
 FIRMWARE_DIR_ROOTFS=$ROOTFS/lib/firmware
 FIRMWARE_DIR=$BASE_DIR/../../firmware
+
+rm -rf $ROOTFS/lib/debug/*
 
 # Create firmware directory in the rootfs
 mkdir -p $FIRMWARE_DIR_ROOTFS
@@ -28,3 +31,5 @@ else
   echo "*** NO FIRMWARE FILES FOUND, SKIPPING ***"
 fi
 
+mkdir -p $ROOTFS/lib/modules
+rsync -a $FIRMWARE_DIR/modules/ $ROOTFS/lib/modules/

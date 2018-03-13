@@ -19,13 +19,27 @@ include scripts/docker.mk
 firmware:
 	./fetch_firmware.sh
 
-config:
+config-stage1:
 	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		$(MAKE) -C buildroot O=output piksiv3_defconfig
+		$(MAKE) -C buildroot O=output piksiv3_stage1_defconfig
 
-image: config
+config-stage2:
+	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+		$(MAKE) -C buildroot O=output piksiv3_stage2_defconfig
+
+image-stage1: config-stage1
 	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
 		$(MAKE) -C buildroot O=output
+
+image-stage2: config-stage2
+	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
+		$(MAKE) -C buildroot O=output
+
+clean-stage2:
+	rm firmware/stage2.squashfs
+
+# Build image-stage1 again to package squashfs inside zImage (for now)
+image: image-stage1 image-stage2 image-stage1
 
 clean:
 	find buildroot/output -mindepth 1 -maxdepth 1 \
