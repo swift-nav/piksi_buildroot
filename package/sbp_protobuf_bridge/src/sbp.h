@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
- * be be distributed together with this source. All other rights reserved.
+ * be distributed together with this source. All other rights reserved.
  *
  * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
@@ -22,7 +22,5 @@
 int sbp_init(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx);
 void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id);
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);
-void sbp_simulator_enabled_set(bool enabled);
-void sbp_base_obs_invalid(double timediff);
 
 #endif /* SWIFTNAV_SBP_H */

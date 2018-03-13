@@ -1,5 +1,5 @@
-config BR2_PACKAGE_SBP_PROTO3_BRIDGE
-	bool "sbp_proto3_bridge"
+config BR2_PACKAGE_SBP_PROTOBUF_BRIDGE
+	bool "sbp_protobuf_bridge"
 	select BR2_PACKAGE_CZMQ
 	select BR2_PACKAGE_LIBSBP
 	select BR2_PACKAGE_LIBPIKSI
