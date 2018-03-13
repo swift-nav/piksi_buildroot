@@ -1,5 +1,8 @@
 #include <assert.h>
 #include <czmq.h>
+#include <pb_common.h>
+#include <pb_encode.h>
+#include <pb_decode.h>
 #include <getopt.h>
 #include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/sbp_zmq_rx.h>
@@ -22,42 +25,51 @@
 #define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
 
 
-// static int cleanup(settings_ctx_t **settings_ctx_loc,
-//                    sbp_zmq_pubsub_ctx_t **pubsub_ctx_loc,
-//                    int status) {
-//   sbp_zmq_pubsub_destroy(pubsub_ctx_loc);
-//   settings_destroy(settings_ctx_loc);
-//   logging_deinit();
-
-//   return status;
-// }
-
-
-static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) context;
-  (void) sender_id;
-  (void) len;
-  msg_utc_time_t *time = (msg_utc_time_t*)msg;
+  (void)sender_id;
+  (void)len;
+  (void)msg;
+  (void)context;
+  //msg_pos_llh_t *pos = (msg_pos_llh_t*)msg;
 
-  piksi_log(LOG_INFO, "utc time callback");
+  piksi_log(LOG_DEBUG, "LLH Callback!!");
+  //sbp_send_message(&udp_context.sbp_state, SBP_MSG_POS_LLH, sender_id, len, msg, udp_write_callback);
 }
+
+static int cleanup(sbp_zmq_pubsub_ctx_t **sbp_ctx_loc,
+                   sbp_zmq_pubsub_ctx_t **pb_ctx_loc,
+                   int status);
 
 int main(int argc, char *argv[])
 {
+  (void)argc;
+  (void)argv;
+  sbp_zmq_pubsub_ctx_t *sbp_ctx = NULL;
+  sbp_zmq_pubsub_ctx_t *pb_ctx = NULL;
+
   logging_init(PROGRAM_NAME);
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
-  ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
-  if (ctx == NULL) {
-    piksi_log(LOG_ERR, "settings_ctx error")
-    // return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+  sbp_ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  if (sbp_ctx == NULL) {
+    piksi_log(LOG_ERR, "sbp_ctx error");
+    return cleanup(&sbp_ctx, &pb_ctx, EXIT_FAILURE);
   }
 
-  if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
-    piksi_log(LOG_ERR, "error setting UTC TIME callback");
-    // return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+  if (sbp_callback_register(SBP_MSG_POS_LLH, pos_llh_callback, pb_ctx) != 0) {
+    piksi_log(LOG_ERR, "error setting POS_LLH callback");
+    return cleanup(&sbp_ctx, &pb_ctx, EXIT_FAILURE);
   }
+}
+
+static int cleanup(sbp_zmq_pubsub_ctx_t **sbp_ctx_loc,
+                   sbp_zmq_pubsub_ctx_t **pb_ctx_loc,
+                   int status) {
+  sbp_zmq_pubsub_destroy(sbp_ctx_loc);
+  sbp_zmq_pubsub_destroy(pb_ctx_loc);
+  logging_deinit();
+  return status;
 }
