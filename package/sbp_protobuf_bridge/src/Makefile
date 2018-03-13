@@ -1,5 +1,5 @@
 TARGET=sbp_protobuf_bridge
-SOURCES= main.c sbp.c navigation.pb.c observation.pb.c
+SOURCES= main.c sbp.c navigation.pb.c observation.pb.c gnss.pb.c
 LIBS=-lczmq -lprotobuf-nanopb -lsbp -lpiksi
 CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror -ggdb
 
