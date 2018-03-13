@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
- * be be distributed together with this source. All other rights reserved.
+ * be distributed together with this source. All other rights reserved.
  *
  * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
@@ -51,29 +51,4 @@ int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context)
   }
 
   return sbp_zmq_rx_callback_register(ctx.rx_ctx, msg_type, cb, context, NULL);
-}
-
-void sbp_simulator_enabled_set(bool enabled)
-{
-  ctx.simulator_enabled = enabled;
-}
-
-void sbp_base_obs_invalid(double timediff)
-{
-  if (ctx.simulator_enabled) {
-    return;
-  }
-
-  piksi_log(LOG_WARNING, "received indication that base obs. are invalid, time difference: %f", timediff);
-
-  static const char ntrip_sanity_failed[] = "<<BASE_OBS_SANITY_FAILED>>";
-  static const size_t command_len = sizeof(ntrip_sanity_failed) - sizeof(ntrip_sanity_failed[0]);
-
-  u8 msg_buf[sizeof(msg_command_req_t) + command_len];
-  int msg_len = sizeof(msg_buf);
-
-  msg_command_req_t* sbp_command = (msg_command_req_t*)msg_buf;
-  memcpy(sbp_command->command, ntrip_sanity_failed, command_len);
-
-  sbp_message_send(SBP_MSG_COMMAND_REQ, (u8)msg_len, (u8*)sbp_command, 0);
 }

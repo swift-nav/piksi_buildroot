@@ -14,10 +14,10 @@
 #include <string.h>
 #include "sbp.h"
 
+#define PROGRAM_NAME "sbp_protobuf_bridge"
 
-#define PROGRAM_NAME "sbp_proto3_bridge"
-
-#define RTCM3_SUB_ENDPOINT  ">tcp://127.0.0.1:45010"  /* RTCM3 Internal Out */
+#define PROTOBUF_SUB_ENDPOINT  ">tcp://127.0.0.1:46010"  /* PROTOBUF Internal Out */
+#define PROTOBUF_PUB_ENDPOINT  ">tcp://127.0.0.1:46011"  /* PROTOBUF Internal In */
 #define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
 #define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
 
@@ -46,7 +46,6 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 int main(int argc, char *argv[])
 {
   logging_init(PROGRAM_NAME);
-
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);

@@ -1,4 +1,4 @@
-TARGET=sbp_proto3_bridge
+TARGET=sbp_protobuf_bridge
 SOURCES= main.c sbp.c
 LIBS=-lczmq -lsbp -lpiksi
 CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror -ggdb
