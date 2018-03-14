@@ -36,6 +36,7 @@ configfs          /sys/kernel/config	configfs	defaults	0	0
 
 /tmp                /merged/tmp       none    defaults,bind 0 0
 /run                /merged/run       none    defaults,bind 0 0
+/media              /merged/media     none    defaults,bind 0 0
 
 /sys/kernel/config  /merged/sys/kernel/config none defaults,bind 0 0
 

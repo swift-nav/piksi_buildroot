@@ -22,6 +22,7 @@ mkdir -p /overlay/upperdir/sys
 mkdir -p /overlay/upperdir/sys/kernel/config
 mkdir -p /overlay/upperdir/tmp
 mkdir -p /overlay/upperdir/run
+mkdir -p /overlay/upperdir/media
 
 mkdir /overlay/upperdir
 mkdir /overlay/workdir
