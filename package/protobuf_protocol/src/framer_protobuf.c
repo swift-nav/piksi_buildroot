@@ -178,6 +178,7 @@ uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
     if (protobuf_framer_process_byte(framer_state, data[bytes_read++]) == PROTOBUF_FRAMER_STATE_FOUND) {
         *frame = framer_state->frame_buffer,
         *frame_length = framer_state->count;
+        framer_state->count = 0;
         return bytes_read;
     }
   }
