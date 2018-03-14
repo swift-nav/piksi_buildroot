@@ -56,8 +56,10 @@ static void p2s_llh(pb_istream_t *stream)
 static void protobuf2sbp_decode_frame(const uint8_t *frame, uint32_t frame_length)
 {
   uint16_t msg_id = (frame[1] << 8) | frame[0];
+  uint16_t sender_id = (frame[3] << 8) | frame[2];
+  piksi_log(LOG_DEBUG, "receieved proto frame msg_id: %d sender_id: %d", msg_id, sender_id);
   // piksi_log(LOG_DEBUG, "Proto Frame Callback!! %d  %d: %x %x %x %x %x %x %x %x", frame_length, msg_id, frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6], frame[7]);
-  pb_istream_t stream = pb_istream_from_buffer(frame, frame_length-2);
+  pb_istream_t stream = pb_istream_from_buffer(frame+4, frame_length-4);
   switch (msg_id) {
     case SBP_MSG_POS_LLH:
       p2s_llh(&stream);
