@@ -26,12 +26,19 @@
 #define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
 
 
-static void protobuf2sbp_decode_frame(const uint8_t *frame, uint32_t frame_length)
+static void protobuf2sbp_decode_frame(const uint8_t *frame, uint32_t frame_length, void *ctx)
 {
+  sbp_zmq_pubsub_ctx_t *sbp_ctx = (sbp_zmq_pubsub_ctx_t *)ctx;
   uint16_t byte = 1;
   uint16_t msg_size = ((frame[byte] & 0x03) << 8) | frame[byte + 1];
   piksi_log(LOG_DEBUG, "Proto Frame Callback!! frame: %d, msg_size: %d", frame_length, msg_size);
 
+
+  u16 msg_id = 0;
+  u8 len = 0;
+  u8 payload = 0;
+  u16 sender_id = 0;
+  sbp_zmq_tx_send_from(sbp_zmq_pubsub_tx_ctx_get(sbp_ctx), msg_id, len, &payload, sender_id);
 }
 
 static int protobuf_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
@@ -58,7 +65,7 @@ static int protobuf_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
     //rtcm2sbp_decode_frame(zframe_data(frame), zframe_size(frame), &state);
     piksi_log(LOG_DEBUG, "Proto Frame Callback!! Size: %d", zframe_size(frame));
-    protobuf2sbp_decode_frame(zframe_data(frame), zframe_size(frame));
+    protobuf2sbp_decode_frame(zframe_data(frame), zframe_size(frame), arg);
   }
 
   zmsg_destroy(&msg);
