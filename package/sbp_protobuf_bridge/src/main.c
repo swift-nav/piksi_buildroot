@@ -25,12 +25,47 @@
 #define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
 #define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
 
+static void p2s_llh(pb_istream_t *stream)
+{
+
+  piksi_log(LOG_DEBUG, "prot llh pos decoding");
+  swiftnav_sbp_navigation_MsgPosLlh pb_pos = swiftnav_sbp_navigation_MsgPosLlh_init_zero;
+  bool status = pb_decode(stream, swiftnav_sbp_navigation_MsgPosLlh_fields, &pb_pos);
+  if (!status) {
+    piksi_log(LOG_ERR, "Decoding failed: %s\n", PB_GET_ERROR(stream));
+  }
+  piksi_log(LOG_DEBUG, "pb pos tow %d", pb_pos.tow);
+
+
+  msg_pos_llh_t sbp_pos = {
+    .tow = pb_pos.tow,
+    .lat = pb_pos.lat,
+    .lon = pb_pos.lon,
+    .height = pb_pos.height,
+    .h_accuracy = pb_pos.h_accuracy,
+    .v_accuracy = pb_pos.v_accuracy,
+    .n_sats = pb_pos.n_sats,
+    .flags = pb_pos.flags
+  };
+
+  piksi_log(LOG_DEBUG, "sbb pos tow %d", sbp_pos.tow);
+
+}
+
 
 static void protobuf2sbp_decode_frame(const uint8_t *frame, uint32_t frame_length)
 {
-  uint16_t byte = 1;
-  uint16_t msg_size = ((frame[byte] & 0x03) << 8) | frame[byte + 1];
-  piksi_log(LOG_DEBUG, "Proto Frame Callback!! frame: %d, msg_size: %d", frame_length, msg_size);
+  uint16_t msg_id = (frame[1] << 8) | frame[0];
+  // piksi_log(LOG_DEBUG, "Proto Frame Callback!! %d  %d: %x %x %x %x %x %x %x %x", frame_length, msg_id, frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6], frame[7]);
+  pb_istream_t stream = pb_istream_from_buffer(frame, frame_length-2);
+  switch (msg_id) {
+    case SBP_MSG_POS_LLH:
+      p2s_llh(&stream);
+      break;
+    default:
+      piksi_log(LOG_ERR, "Unhandled proto msg %d", msg_id);
+      return;
+  }
 
 }
 
@@ -57,7 +92,7 @@ static int protobuf_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   zframe_t *frame;
   for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
     //rtcm2sbp_decode_frame(zframe_data(frame), zframe_size(frame), &state);
-    piksi_log(LOG_DEBUG, "Proto Frame Callback!! Size: %d", zframe_size(frame));
+    // piksi_log(LOG_DEBUG, "Proto Frame Callback!! Size: %d", zframe_size(frame));
     protobuf2sbp_decode_frame(zframe_data(frame), zframe_size(frame));
   }
 
