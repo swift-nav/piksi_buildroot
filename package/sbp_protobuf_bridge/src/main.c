@@ -65,7 +65,7 @@ static int protobuf_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   return 0;
 }
 
-static int protobuf_send_frame(u8 *data, u32 length, zsock_t *zsock)
+static int protobuf_send_frame(u8 *data, u16 length, u16 msg_id, zsock_t *zsock)
 {
   static const u8 preamble[2] = { 0xFC, 0xCC };
   zmsg_t *msg = zmsg_new();
@@ -74,6 +74,7 @@ static int protobuf_send_frame(u8 *data, u32 length, zsock_t *zsock)
     return -1;
   }
 
+  length += 2; // for the msg id header
   //HAAAAACKKKY FRAMING
   if (zmsg_addmem(msg, preamble, sizeof(preamble)) != 0) {
     piksi_log(LOG_ERR, "error in zmsg_addmem()");
@@ -81,6 +82,11 @@ static int protobuf_send_frame(u8 *data, u32 length, zsock_t *zsock)
     return -1;
   }
   if (zmsg_addmem(msg, (u8 *)&length, sizeof(length)) != 0) {
+    piksi_log(LOG_ERR, "error in zmsg_addmem()");
+    zmsg_destroy(&msg);
+    return -1;
+  }
+  if (zmsg_addmem(msg, (u8 *)&msg_id, sizeof(msg_id)) != 0) {
     piksi_log(LOG_ERR, "error in zmsg_addmem()");
     zmsg_destroy(&msg);
     return -1;
@@ -128,7 +134,7 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
     .v_accuracy = sbp_pos->v_accuracy,
     .n_sats = sbp_pos->n_sats,
     .flags = sbp_pos->flags
-  }; 
+  };
 
   uint8_t buffer[128];
   size_t message_length;
@@ -147,7 +153,7 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   message_length = stream.bytes_written;
 
   // piksi_log(LOG_DEBUG, "LLH Callback!!");
-  if (protobuf_send_frame(buffer, message_length, sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
+  if (protobuf_send_frame(buffer, message_length, SBP_MSG_POS_LLH, sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
     piksi_log(LOG_ERR, "Failed to send protobuf LLH");
   }
 }

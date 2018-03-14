@@ -147,7 +147,7 @@ uint8_t protobuf_framer_process_byte(framer_protobuf_state_t *framer_state, uint
   {
     uint8_t *length_bytes = (uint8_t *)&framer_state->msg_length;
     length_bytes[(framer_state->count)++] = byte;
-    if (framer_state->count == sizeof(uint32_t)) {
+    if (framer_state->count == sizeof(uint16_t)) {
       if (framer_state->msg_length > PROTOBUF_FRAMER_BUFFER_SIZE_MAX) {
         syslog(LOG_ERR, "Protobuf framing decoded length exceeds 'safe' limit");
         framer_state->state = PROTOBUF_FRAMER_STATE_ERROR;
