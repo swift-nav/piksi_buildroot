@@ -15,11 +15,11 @@
 /stage1				d	755	0	0	-	-	-	-	-
 /stage2				d	755	0	0	-	-	-	-	-
 /merged				d	755	0	0	-	-	-	-	-
-/work         d	755	0	0	-	-	-	-	-
-/stage1/work  d	755	0	0	-	-	-	-	-
 
 /root					d	700	0	0	-	-	-	-	-
 /etc/shadow				f	600	0	0	-	-	-	-	-
 /etc/passwd				f	644	0	0	-	-	-	-	-
 
-#/etc/inittab				f	644	0	0	-	-	-	-	-
+/etc/inittab				f	644	0	0	-	-	-	-	-
+
+/lib/mdev/automount.sh			f	755	0	0	-	-	-	-	-

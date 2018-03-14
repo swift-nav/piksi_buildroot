@@ -1,25 +1,42 @@
 # <file system>	  <mount pt>	<type>	  <options>	<dump>	<pass>
 
-proc		          /proc		    proc	    defaults                      0	0
+proc		          /proc		            proc	    defaults                      0	0
 
-/dev/root         /           ext2	    ro,noauto                     0	1
-/                 /stage1     none      defaults,bind                 0	0
-/stage2.squashfs  /stage2     squashfs  loop                          0 0
-overlay           /merged     overlay   rw,upperdir=/stage1,lowerdir=/stage2,workdir=/stage1/work   0 0
+/dev/root         /                   ext2	    ro,noauto                     0	1
+/                 /stage1             none      defaults,bind                 0	0
+/stage2.squashfs  /stage2             squashfs  loop                          0 0
+overlay           /merged             overlay   rw,upperdir=/overlay/upperdir,workdir=/overlay/workdir,lowerdir=/stage2:/stage1 0 0
 
-devpts		        /dev/pts	  devpts	defaults,gid=5,mode=620         0	0
-tmpfs		          /dev/shm	  tmpfs	  mode=0777	0	0
+devpts		        /dev/pts	          devpts	defaults,gid=5,mode=620         0	0
+tmpfs		          /dev/shm	          tmpfs	  mode=0777	0	0
 
-tmpfs		          /tmp		    tmpfs	  mode=1777	0	0
-tmpfs		          /run		    tmpfs	  mode=0755,nosuid,nodev	0	0
+tmpfs		          /tmp		            tmpfs	  mode=1777	0	0
+tmpfs		          /run		            tmpfs	  mode=0755,nosuid,nodev	0	0
 
-sysfs	/sys sysfs	  defaults	0	0
-configfs /sys/kernel/config	configfs	defaults	0	0
+sysfs	            /sys                sysfs	  defaults	0	0
+configfs          /sys/kernel/config	configfs	defaults	0	0
 
-/proc /merged/proc none defaults,bind 0 0
-/dev/pts /merged/dev/pts none defaults,bind 0 0
-/dev/shm /merged/dev/shm none defaults,bind 0 0
-/tmp /merged/tmp none defaults,bind 0 0
-/run /merged/run none defaults,bind 0 0
-/sys /merged/sys none defaults,bind 0 0
-/sys/kernel/config /merged/sys/kernel/config none defaults,bind 0 0
+#proc              /merged/proc proc defaults 0 0
+#
+#devtmpfs          /merged/dev devtmpfs defaults 0 0
+#devpts		        /merged/dev/pts	  devpts	defaults,gid=5,mode=620         0	0
+#tmpfs		          /merged/dev/shm	  tmpfs	  mode=0777	0	0
+#
+#sysfs             /merged/sys sysfs	  defaults	0	0
+#configfs          /merged/sys/kernel/config	configfs	defaults	0	0
+#
+#tmpfs		          /merged/tmp		    tmpfs	  mode=1777	0	0
+#tmpfs		          /merged/run		    tmpfs	  mode=0755,nosuid,nodev	0	0
+
+/proc               /merged/proc      none    defaults,bind 0 0
+/dev                /merged/dev       none    defaults,bind 0 0
+/dev/pts            /merged/dev/pts   none    defaults,bind 0 0
+/dev/shm            /merged/dev/shm   none    defaults,bind 0 0
+/sys                /merged/sys       none    defaults,bind 0 0
+
+/tmp                /merged/tmp       none    defaults,bind 0 0
+/run                /merged/run       none    defaults,bind 0 0
+
+/sys/kernel/config  /merged/sys/kernel/config none defaults,bind 0 0
+
+#mount -o bind,default /proc /merged/proc; mount -o bind,default /dev /merged/dev; mount -o bind,default /dev/pts /merged/dev/pts; mount -o bind,default /dev/shm /merged/dev/shm; mount -o bind,default /sys /merged/sys; mount -o bind,default /sys/kernel/config /merged/sys/kernel/config; mount -o bind,default /tmp /merged/tmp; mount -o bind,default /run /merged/run;

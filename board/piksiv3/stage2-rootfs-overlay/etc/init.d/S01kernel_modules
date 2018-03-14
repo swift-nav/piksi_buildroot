@@ -1,5 +1,7 @@
 #!/bin/ash
 
+#modprobe ci_hdrc
+#modprobe ci_hdrc_usb2
 modprobe usbcore
 modprobe usb_common
 modprobe usb_storage
@@ -10,10 +12,10 @@ modprobe libcomposite
 modprobe udc_core
 modprobe udc_xilinx
 modprobe usb_f_acm
-modprobe usb_f_ecm
+#modprobe usb_f_ecm
 modprobe u_serial
-modprobe usb_f_rndis
-modprobe u_ether
+#modprobe usb_f_rndis
+#modprobe u_ether
 modprobe input_leds
 modprobe pl330
 modprobe led_class

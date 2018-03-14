@@ -14,11 +14,16 @@
 # process   == program to run
 
 # Startup the system
+::sysinit:/etc/stage1-init.sh
 ::sysinit:/bin/mount -t proc proc /proc
 ::sysinit:/bin/mount -o remount,rw /
 ::sysinit:/bin/mkdir -p /dev/pts
 ::sysinit:/bin/mkdir -p /dev/shm
 ::sysinit:/bin/mount -a
+#::sysinit:/bin/touch /merged/dev/mdev.log
+::sysinit:/bin/mkdir -p /lib/firmware
+::sysinit:/bin/cp -v /stage2/lib/firmware/piksi_firmware.elf /lib/firmware
+::sysinit:/bin/sh -i
 ::sysinit:/usr/sbin/chroot /merged /etc/stage2-init.sh
 
 #::sysinit:/bin/hostname -F /etc/hostname
@@ -27,6 +32,7 @@
 
 # Put a getty on the serial port
 #ttyS0::respawn:/sbin/getty -L ttyS0 115200 vt100 # GENERIC_SERIAL
+#ttyGS1::respawn:/usr/sbin/chroot /merged /sbin/getty -L ttyGS1 0 vt100
 ttyGS1::respawn:/sbin/getty -L ttyGS1 0 vt100
 
 # Stuff to do for the 3-finger salute
@@ -36,3 +42,5 @@ ttyGS1::respawn:/sbin/getty -L ttyGS1 0 vt100
 ::shutdown:/etc/init.d/rcK
 ::shutdown:/sbin/swapoff -a
 ::shutdown:/bin/umount -a -r
+
+#rm -rf /stage1/upperdir/stage1 /stage1/upperdir/stage2 /stage1/upperdir/merged; rm -fr /stage1/upperdir/lib/modules; mount -t overlay -o upperdir=/stage1/upperdir,workdir=/stage1/workdir,lowerdir=/stage2 /merged; mount -a; exec chroot /merged /etc/stage2-init.sh

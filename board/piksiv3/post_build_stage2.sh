@@ -13,7 +13,7 @@ ROOTFS=$1
 FIRMWARE_DIR_ROOTFS=$ROOTFS/lib/firmware
 FIRMWARE_DIR=$BASE_DIR/../../firmware
 
-rm -rf $ROOTFS/lib/debug/*
+rm -rf $ROOTFS/lib/debug
 
 # Create firmware directory in the rootfs
 mkdir -p $FIRMWARE_DIR_ROOTFS

@@ -7,7 +7,8 @@ PRODUCT_ID="0x1001"
 MANUFACTURER="Swift Navigation"
 PRODUCT="Piksi Multi"
 SERIAL_NUMBER=`cat /factory/uuid`
-CONFIGURATION="CDC 2xACM+RNDIS+ECM"
+#CONFIGURATION="CDC 2xACM+RNDIS+ECM"
+CONFIGURATION="CDC 2xACM"
 
 start() {
   # Create gadget
@@ -47,14 +48,14 @@ stop() {
   done
   rm configs/c.1/acm.GS0
   rm configs/c.1/acm.GS1
-  rm configs/c.1/rndis.usb0
-  rm configs/c.1/ecm.usb0
+  #rm configs/c.1/rndis.usb0
+  #rm configs/c.1/ecm.usb0
   rmdir configs/c.1/strings/0x409
   rmdir configs/c.1
   rmdir functions/acm.GS0
   rmdir functions/acm.GS1
-  rmdir functions/rndis.usb0
-  rmdir functions/ecm.usb0
+  #rmdir functions/rndis.usb0
+  #rmdir functions/ecm.usb0
   rmdir strings/0x409
   cd ..
   rmdir g1

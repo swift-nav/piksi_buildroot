@@ -36,12 +36,13 @@ image-stage2: config-stage2
 		$(MAKE) -C buildroot O=output
 
 clean-stage2:
-	rm firmware/stage2.squashfs
+	rm -f firmware/stage2.squashfs
 
 # Build image-stage1 again to package squashfs inside zImage (for now)
 image:
 	$(MAKE) clean-stage2
 	$(MAKE) flush-rootfs
+	$(MAKE) pkg-linux-rebuild pkg-rpmsg_piksi-rebuild
 	$(MAKE) image-stage1
 	$(MAKE) flush-rootfs
 	$(MAKE) image-stage2
