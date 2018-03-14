@@ -18,10 +18,14 @@
 ::sysinit:/bin/mount -o remount,rw /
 ::sysinit:/bin/mkdir -p /dev/pts
 ::sysinit:/bin/mkdir -p /dev/shm
+::sysinit:/bin/ls
+::sysinit:/bin/ls /dev
 ::sysinit:/bin/mount -a
-::sysinit:/bin/hostname -F /etc/hostname
-# now run any rc scripts
-::sysinit:/etc/init.d/rcS
+::sysinit:exec /usr/sbin/chroot /merged /bin/sh -c "exec /init"
+
+#::sysinit:/bin/hostname -F /etc/hostname
+## now run any rc scripts
+#::sysinit:/etc/init.d/rcS
 
 # Put a getty on the serial port
 #ttyS0::respawn:/sbin/getty -L ttyS0 115200 vt100 # GENERIC_SERIAL

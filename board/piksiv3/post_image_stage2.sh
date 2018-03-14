@@ -22,6 +22,8 @@ if [[ ! -f $FIRMWARE_DIR/stage2.squashfs ]]; then
     exit 0
 fi
 
+exit 0
+
 CFG=piksiv3_$HW_CONFIG
 GIT_STRING=$(git -C $BR2_EXTERNAL_piksi_buildroot_PATH describe --tags        \
                  --dirty --always --match 'v[0-9]*\.[0-9]*\.[0-9]*')

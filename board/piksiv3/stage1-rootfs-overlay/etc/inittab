@@ -19,10 +19,11 @@
 ::sysinit:/bin/mkdir -p /dev/pts
 ::sysinit:/bin/mkdir -p /dev/shm
 ::sysinit:/bin/mount -a
-::sysinit:/usr/sbin/chroot /merged
-::sysinit:/bin/hostname -F /etc/hostname
-# now run any rc scripts
-::sysinit:/etc/init.d/rcS
+::sysinit:/usr/sbin/chroot /merged /etc/stage2-init.sh
+
+#::sysinit:/bin/hostname -F /etc/hostname
+## now run any rc scripts
+#::sysinit:/etc/init.d/rcS
 
 # Put a getty on the serial port
 #ttyS0::respawn:/sbin/getty -L ttyS0 115200 vt100 # GENERIC_SERIAL

@@ -39,7 +39,14 @@ clean-stage2:
 	rm firmware/stage2.squashfs
 
 # Build image-stage1 again to package squashfs inside zImage (for now)
-image: image-stage1 image-stage2 image-stage1
+image:
+	$(MAKE) clean-stage2
+	$(MAKE) flush-rootfs
+	$(MAKE) image-stage1
+	$(MAKE) flush-rootfs
+	$(MAKE) image-stage2
+	$(MAKE) flush-rootfs
+	$(MAKE) image-stage1
 
 clean:
 	find buildroot/output -mindepth 1 -maxdepth 1 \

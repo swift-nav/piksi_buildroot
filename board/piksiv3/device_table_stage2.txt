@@ -17,5 +17,5 @@
 /etc/ssh/ssh_host_rsa_key		f	600	0	0	-	-	-	-	-
 
 /etc/monitrc				f	600	0	0	-	-	-	-	-
-/etc/inittab				f	644	0	0	-	-	-	-	-
+#/etc/inittab				f	644	0	0	-	-	-	-	-
 /lib/mdev/automount.sh			f	755	0	0	-	-	-	-	-

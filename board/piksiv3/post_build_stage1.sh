@@ -25,6 +25,10 @@ rsync -a $ROOTFS/lib/modules $FIRMWARE_DIR/.
 rm -rf $ROOTFS/lib/modules/*
 rm -rf $ROOTFS/lib/debug/*
 
+# Purge piksi_firmware.
+rm -rf $ROOTFS/lib/firmware/piksi_firmware.elf
+rm -rf $ROOTFS/lib/firmware/piksi_fpga.bit
+
 #rm -rf $ROOTFS/*
 #
 #mkdir -p $ROOTFS/work
