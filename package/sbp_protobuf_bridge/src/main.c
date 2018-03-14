@@ -65,7 +65,7 @@ static int protobuf_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   return 0;
 }
 
-static int protobuf_send_frame(u8 *data, u16 length, u16 msg_id, zsock_t *zsock)
+static int protobuf_send_frame(u8 *data, u16 length, u16 msg_id, u16 sender_id, zsock_t *zsock)
 {
   static const u8 preamble[2] = { 0xFC, 0xCC };
   zmsg_t *msg = zmsg_new();
@@ -74,7 +74,8 @@ static int protobuf_send_frame(u8 *data, u16 length, u16 msg_id, zsock_t *zsock)
     return -1;
   }
 
-  length += 2; // for the msg id header
+  length += 2; // for the msg id in header
+  length += 2; // for the sender id in header
   //HAAAAACKKKY FRAMING
   if (zmsg_addmem(msg, preamble, sizeof(preamble)) != 0) {
     piksi_log(LOG_ERR, "error in zmsg_addmem()");
@@ -87,6 +88,11 @@ static int protobuf_send_frame(u8 *data, u16 length, u16 msg_id, zsock_t *zsock)
     return -1;
   }
   if (zmsg_addmem(msg, (u8 *)&msg_id, sizeof(msg_id)) != 0) {
+    piksi_log(LOG_ERR, "error in zmsg_addmem()");
+    zmsg_destroy(&msg);
+    return -1;
+  }
+  if (zmsg_addmem(msg, (u8 *)&sender_id, sizeof(sender_id)) != 0) {
     piksi_log(LOG_ERR, "error in zmsg_addmem()");
     zmsg_destroy(&msg);
     return -1;
@@ -118,7 +124,6 @@ static int protobuf_send_frame(u8 *data, u16 length, u16 msg_id, zsock_t *zsock)
 
 static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)sender_id;
   (void)len;
   (void)msg;
   sbp_zmq_pubsub_ctx_t *pb_ctx = (sbp_zmq_pubsub_ctx_t *)context;
@@ -153,7 +158,7 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   message_length = stream.bytes_written;
 
   // piksi_log(LOG_DEBUG, "LLH Callback!!");
-  if (protobuf_send_frame(buffer, message_length, SBP_MSG_POS_LLH, sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
+  if (protobuf_send_frame(buffer, message_length, SBP_MSG_POS_LLH, sender_id, sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
     piksi_log(LOG_ERR, "Failed to send protobuf LLH");
   }
 }
