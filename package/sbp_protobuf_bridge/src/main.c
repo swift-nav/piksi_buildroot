@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "navigation.pb.h"
+
 #define PROGRAM_NAME "sbp_protobuf_bridge"
 
 #define PROTOBUF_SUB_ENDPOINT  ">tcp://127.0.0.1:46010"  /* PROTOBUF Internal Out */
@@ -104,10 +106,38 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   (void)len;
   (void)msg;
   sbp_zmq_pubsub_ctx_t *pb_ctx = (sbp_zmq_pubsub_ctx_t *)context;
-  //msg_pos_llh_t *pos = (msg_pos_llh_t*)msg;
+
+  msg_pos_llh_t *sbp_pos = (msg_pos_llh_t*)msg;
+
+  swiftnav_sbp_navigation_MsgPosLlh pb_pos = {
+    .tow = sbp_pos->tow,
+    .lat = sbp_pos->lat,
+    .lon = sbp_pos->lon,
+    .height = sbp_pos->height,
+    .h_accuracy = sbp_pos->h_accuracy,
+    .v_accuracy = sbp_pos->v_accuracy,
+    .n_sats = sbp_pos->n_sats,
+    .flags = sbp_pos->flags
+  }; 
+
+  uint8_t buffer[128];
+  size_t message_length;
+  bool status;
+
+
+  /* Create a stream that will write to our buffer. */
+  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  status = pb_encode(&stream, swiftnav_sbp_navigation_MsgPosLlh_fields, &pb_pos);
+
+  if (!status)
+  {
+      piksi_log(LOG_ERR, "Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  }
+
+  message_length = stream.bytes_written;
 
   piksi_log(LOG_DEBUG, "LLH Callback!!");
-  if (protobuf_send_frame(msg, len, sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
+  if (protobuf_send_frame(buffer, message_length, sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
     piksi_log(LOG_ERR, "Failed to send protobuf LLH");
   }
 }
