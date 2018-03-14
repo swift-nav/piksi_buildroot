@@ -25,6 +25,15 @@
 #define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
 #define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
 
+
+static void protobuf2sbp_decode_frame(const uint8_t *frame, uint32_t frame_length)
+{
+  uint16_t byte = 1;
+  uint16_t msg_size = ((frame[byte] & 0x03) << 8) | frame[byte + 1];
+  piksi_log(LOG_DEBUG, "Proto Frame Callback!! frame: %d, msg_size: %d", frame_length, msg_size);
+
+}
+
 static int protobuf_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 {
   (void)zloop;
@@ -49,6 +58,7 @@ static int protobuf_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
     //rtcm2sbp_decode_frame(zframe_data(frame), zframe_size(frame), &state);
     piksi_log(LOG_DEBUG, "Proto Frame Callback!! Size: %d", zframe_size(frame));
+    protobuf2sbp_decode_frame(zframe_data(frame), zframe_size(frame));
   }
 
   zmsg_destroy(&msg);
@@ -136,7 +146,7 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 
   message_length = stream.bytes_written;
 
-  piksi_log(LOG_DEBUG, "LLH Callback!!");
+  // piksi_log(LOG_DEBUG, "LLH Callback!!");
   if (protobuf_send_frame(buffer, message_length, sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
     piksi_log(LOG_ERR, "Failed to send protobuf LLH");
   }
