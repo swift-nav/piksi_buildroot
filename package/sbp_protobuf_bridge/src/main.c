@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "navigation.pb.h"
+#include "obs_proto_converter.h"
 
 #define PROGRAM_NAME "sbp_protobuf_bridge"
 
@@ -28,7 +29,7 @@
 
 static void p2s_llh(pb_istream_t *stream, uint16_t sender_id, void *ctx)
 {
-  
+
   sbp_zmq_pubsub_ctx_t *sbp_ctx = (sbp_zmq_pubsub_ctx_t *)ctx;
   piksi_log(LOG_DEBUG, "prot llh pos decoding");
   swiftnav_sbp_navigation_MsgPosLlh pb_pos = swiftnav_sbp_navigation_MsgPosLlh_init_zero;
@@ -71,9 +72,6 @@ static void protobuf2sbp_decode_frame(const uint8_t *frame, uint32_t frame_lengt
       piksi_log(LOG_ERR, "Unhandled proto msg %d", msg_id);
       return;
   }
-
-
-  // sbp_zmq_tx_send_from(sbp_zmq_pubsub_tx_ctx_get(sbp_ctx), msg_id, len, &payload, sender_id);
 }
 
 static int protobuf_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
@@ -206,15 +204,23 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 
 static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
+  static protobuf_obs_converter_ctx_t *conv_ctx = NULL;
   (void)sender_id;
   (void)len;
   (void)msg;
   sbp_zmq_pubsub_ctx_t *pb_ctx = (sbp_zmq_pubsub_ctx_t *)context;
-  //msg_obs_t *obs = (msg_obs_t*)msg;
+  msg_obs_t *obs = (msg_obs_t*)msg;
 
+  collect_sbp_msg_obs(conv_ctx, obs);
   piksi_log(LOG_DEBUG, "OBS Callback!!");
-  if (protobuf_send_frame(msg, len, SBP_MSG_OBS, sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
-    piksi_log(LOG_ERR, "Failed to send protobuf OBS");
+  if (protobuf_obs_has_full_epoch(conv_ctx)) {
+    if (protobuf_send_frame((u8 *)protobuf_obs_protobuf(conv_ctx),
+                            protobuf_obs_protobuf_length(conv_ctx),
+                            SBP_MSG_OBS,
+                            sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
+      piksi_log(LOG_ERR, "Failed to send protobuf OBS");
+    }
+  protobuf_obs_destroy(&conv_ctx);
   }
 }
 
