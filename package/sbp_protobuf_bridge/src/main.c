@@ -10,6 +10,7 @@
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 #include <libsbp/navigation.h>
+#include <libsbp/observation.h>
 #include <libsbp/sbp.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -203,6 +204,20 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   }
 }
 
+static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)sender_id;
+  (void)len;
+  (void)msg;
+  sbp_zmq_pubsub_ctx_t *pb_ctx = (sbp_zmq_pubsub_ctx_t *)context;
+  //msg_obs_t *obs = (msg_obs_t*)msg;
+
+  piksi_log(LOG_DEBUG, "OBS Callback!!");
+  if (protobuf_send_frame(msg, len, SBP_MSG_OBS, sbp_zmq_pubsub_zsock_pub_get(pb_ctx)) != 0) {
+    piksi_log(LOG_ERR, "Failed to send protobuf OBS");
+  }
+}
+
 static int cleanup(sbp_zmq_pubsub_ctx_t **sbp_ctx_loc,
                    sbp_zmq_pubsub_ctx_t **pb_ctx_loc,
                    int status);
@@ -236,6 +251,14 @@ int main(int argc, char *argv[])
                                    pos_llh_callback,
                                    pb_ctx, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting POS_LLH callback");
+    return cleanup(&sbp_ctx, &pb_ctx, EXIT_FAILURE);
+  }
+
+  if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(sbp_ctx),
+                                   SBP_MSG_OBS,
+                                   obs_callback,
+                                   pb_ctx, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting OBS callback");
     return cleanup(&sbp_ctx, &pb_ctx, EXIT_FAILURE);
   }
 
