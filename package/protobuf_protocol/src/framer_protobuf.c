@@ -22,11 +22,11 @@
 
 #define PROTOBUF_FRAMER_PREAMBLE1 (0xFC)
 #define PROTOBUF_FRAMER_PREAMBLE2 (0xCC)
-#define PROTOBUF_FRAMER_EOP ('\n')
 
 enum PROTOBUF_FRAMER_STATE {
   PROTOBUF_FRAMER_STATE_IDLE = 0,
   PROTOBUF_FRAMER_STATE_PREAMBLE,
+  PROTOBUF_FRAMER_STATE_LENGTH,
   PROTOBUF_FRAMER_STATE_COLLECT,
   PROTOBUF_FRAMER_STATE_FOUND,
   PROTOBUF_FRAMER_STATE_ERROR,
@@ -37,6 +37,7 @@ typedef struct {
   uint8_t *frame_buffer;
   size_t frame_buffer_size;
   size_t count;
+  size_t msg_length;
 } framer_protobuf_state_t;
 
 #if 1
@@ -136,21 +137,39 @@ uint8_t protobuf_framer_process_byte(framer_protobuf_state_t *framer_state, uint
   case PROTOBUF_FRAMER_STATE_PREAMBLE:
   {
     if (byte == PROTOBUF_FRAMER_PREAMBLE2) {
-      framer_state->state = PROTOBUF_FRAMER_STATE_COLLECT;
+      framer_state->count = 0;
+      framer_state->state = PROTOBUF_FRAMER_STATE_LENGTH;
     } else {
       framer_state->state = PROTOBUF_FRAMER_STATE_IDLE;
     }
   } break;
+  case PROTOBUF_FRAMER_STATE_LENGTH:
+  {
+    uint8_t *length_bytes = (uint8_t *)&framer_state->msg_length;
+    length_bytes[(framer_state->count)++] = byte;
+    if (framer_state->count == sizeof(uint32_t)) {
+      if (framer_state->msg_length > PROTOBUF_FRAMER_BUFFER_SIZE_MAX) {
+        syslog(LOG_ERR, "Protobuf framing decoded length exceeds 'safe' limit");
+        framer_state->state = PROTOBUF_FRAMER_STATE_ERROR;
+      } else if (framer_state->msg_length == 0) {
+        framer_state->count = 0;
+        framer_state->state = PROTOBUF_FRAMER_STATE_IDLE;
+      } else {
+        framer_state->count = 0;
+        framer_state->state = PROTOBUF_FRAMER_STATE_COLLECT;
+      }
+    }
+  } break;
   case PROTOBUF_FRAMER_STATE_COLLECT:
   {
-    if (byte == PROTOBUF_FRAMER_EOP) {
+    framer_state->frame_buffer[(framer_state->count)++] = byte;
+    if (framer_state->count == framer_state->msg_length) {
       framer_state->state = PROTOBUF_FRAMER_STATE_FOUND;
-    } else {
-      framer_state->frame_buffer[(framer_state->count)++] = byte;
     }
   } break;
   case PROTOBUF_FRAMER_STATE_FOUND:
   {
+    framer_state->count = 0;
     if (byte == PROTOBUF_FRAMER_PREAMBLE1) {
       framer_state->state = PROTOBUF_FRAMER_STATE_PREAMBLE;
     }
@@ -178,7 +197,6 @@ uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
     if (protobuf_framer_process_byte(framer_state, data[bytes_read++]) == PROTOBUF_FRAMER_STATE_FOUND) {
         *frame = framer_state->frame_buffer;
         *frame_length = framer_state->count;
-        framer_state->count = 0;
         return bytes_read;
     }
   }

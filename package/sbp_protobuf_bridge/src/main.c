@@ -56,7 +56,6 @@ static int protobuf_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 static int protobuf_send_frame(u8 *data, u32 length, zsock_t *zsock)
 {
   static const u8 preamble[2] = { 0xFC, 0xCC };
-  static const u8 eop = '\n';
   zmsg_t *msg = zmsg_new();
   if (msg == NULL) {
     piksi_log(LOG_ERR, "error in zmsg_new()");
@@ -69,12 +68,12 @@ static int protobuf_send_frame(u8 *data, u32 length, zsock_t *zsock)
     zmsg_destroy(&msg);
     return -1;
   }
-  if (zmsg_addmem(msg, data, length) != 0) {
+  if (zmsg_addmem(msg, (u8 *)&length, sizeof(length)) != 0) {
     piksi_log(LOG_ERR, "error in zmsg_addmem()");
     zmsg_destroy(&msg);
     return -1;
   }
-  if (zmsg_addmem(msg, &eop, sizeof(eop)) != 0) {
+  if (zmsg_addmem(msg, data, length) != 0) {
     piksi_log(LOG_ERR, "error in zmsg_addmem()");
     zmsg_destroy(&msg);
     return -1;
