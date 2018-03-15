@@ -22,8 +22,9 @@
 ::sysinit:/bin/mount -a
 #::sysinit:/bin/touch /merged/dev/mdev.log
 ::sysinit:/bin/mkdir -p /lib/firmware
-::sysinit:/bin/cp -v /stage2/lib/firmware/piksi_firmware.elf /lib/firmware
-::sysinit:/bin/sh -i
+#::sysinit:/bin/cp -v /stage2/lib/firmware/piksi_firmware.elf /lib/firmware
+#::sysinit:/bin/sh -i
+::sysinit:/bin/mount -o bind /stage2/lib/firmware /lib/firmware
 ::sysinit:/usr/sbin/chroot /merged /etc/stage2-init.sh
 
 #::sysinit:/bin/hostname -F /etc/hostname

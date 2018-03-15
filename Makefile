@@ -46,8 +46,8 @@ image:
 	$(MAKE) image-stage1
 	$(MAKE) flush-rootfs
 	$(MAKE) image-stage2
-	$(MAKE) flush-rootfs
-	$(MAKE) image-stage1
+#$(MAKE) flush-rootfs
+#$(MAKE) image-stage1
 
 clean:
 	find buildroot/output -mindepth 1 -maxdepth 1 \

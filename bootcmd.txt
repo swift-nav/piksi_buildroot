@@ -1,0 +1,16 @@
+# Write squashfs to partition
+fatload usb 0 0x02000000 rootfs.squashfs
+sf erase 0x0b00000 0x1400000
+sf write 0x02000000 0x0b00000 0xd76000
+
+usb start; fatload usb 0 ${kernel_load_address} uImage.piksiv3_prod; bootm ${kernel_load_address}
+
+fatload usb 0 0x02000000 uImage.piksiv3_prod
+sf erase 0x0300000 0x800000
+sf write 0x02000000 0x0300000 0x800000
+
+sf probe
+sf read ${kernel_load_address} 0x0300000 0x800000
+bootm ${kernel_load_address}
+
+sf probe; sf read ${kernel_load_address} 0x0300000 0x800000; bootm ${kernel_load_address}

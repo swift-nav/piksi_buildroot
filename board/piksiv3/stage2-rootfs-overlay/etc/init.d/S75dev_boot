@@ -54,6 +54,9 @@ start() {
   dev_boot=`cat /proc/device-tree/chosen/bootargs |
             sed -n -e 's/^.*dev_boot=\([^ ]*\).*/\1/p'`
 
+  modprobe mmc_core
+  modprobe mmc_block
+
   # Delete any firmware files that were already present in the rootfs.
   # In the dev configuration we want to obtain the firmware from the SD card or
   # network and this ensures if these files are not available from the SD card

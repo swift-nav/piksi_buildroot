@@ -3,6 +3,9 @@
 name="watchdog_disable"
 
 start() {
+  modprobe of_xilinx_wdt
+  modprobe cadence_wdt
+
   printf "V" > /dev/watchdog
 }
 

@@ -12,6 +12,12 @@ pid_file="/var/run/$name.pid"
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
 
+_pre_start() {
+    if type pre_start | grep -q "shell function"; then
+        pre_start
+    fi
+}
+
 get_pid() {
     cat "$pid_file"
 }
@@ -25,6 +31,7 @@ case "$1" in
     if is_running; then
         echo "Already started"
     else
+        _pre_start
         echo "Starting $name"
         cd "$dir"
         if [ -z "$user" ]; then

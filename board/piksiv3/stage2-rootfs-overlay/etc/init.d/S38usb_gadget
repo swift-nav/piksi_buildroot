@@ -11,6 +11,22 @@ SERIAL_NUMBER=`cat /factory/uuid`
 CONFIGURATION="CDC 2xACM"
 
 start() {
+
+    modprobe udc_core
+    modprobe udc_xilinx
+    modprobe ci_hdrc
+    modprobe ci_hdrc_usb2
+    modprobe ehci_hcd
+    modprobe usbserial
+    modprobe cdc_acm
+    modprobe libcomposite
+    modprobe usb_f_acm
+    modprobe u_serial
+    #modprobe usb_f_ecm
+    #modprobe usb_f_rndis
+    #modprobe u_ether
+    #modprobe usbhid
+
   # Create gadget
   cd /sys/kernel/config/usb_gadget
   mkdir g1

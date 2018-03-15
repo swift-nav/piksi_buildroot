@@ -4,7 +4,7 @@ proc		          /proc		            proc	    defaults                      0	0
 
 /dev/root         /                   ext2	    ro,noauto                     0	1
 /                 /stage1             none      defaults,bind                 0	0
-/stage2.squashfs  /stage2             squashfs  loop                          0 0
+/dev/mtdblock6    /stage2             squashfs  ro,defaults                   0 0
 overlay           /merged             overlay   rw,upperdir=/overlay/upperdir,workdir=/overlay/workdir,lowerdir=/stage2:/stage1 0 0
 
 devpts		        /dev/pts	          devpts	defaults,gid=5,mode=620         0	0

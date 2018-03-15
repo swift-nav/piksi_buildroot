@@ -3,6 +3,9 @@
 export FIRMWARE="/media/sda*/PiksiMulti-*.bin"
 export LOGLEVEL="--warn"
 
+modprobe usb_common
+modprobe usb_storage
+
 _dir_wait () {
     [[ $# -lt 3 ]] && {
         echo "Usage: ${FUNCNAME} <num_timeout> <len_timeout_ms> <path>"; return 1

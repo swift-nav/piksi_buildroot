@@ -1,8 +1,19 @@
 #!/bin/sh
 
 name="piksi_leds"
-cmd="piksi_leds"
-dir="/"
-user=""
+pid=/var/run/${name}.pid
 
-source /etc/init.d/template_process.inc.sh
+start() {
+    modprobe input_leds
+    modprobe led_class
+    modprobe leds_gpio
+
+    piksi_leds &
+    echo $! >${pid}
+}
+
+stop() {
+    kill $(cat ${pid})
+}
+
+source /etc/init.d/template_command.inc.sh

@@ -5,5 +5,12 @@ cmd="piksi_system_daemon"
 dir="/"
 user=""
 
-source /etc/init.d/template_process.inc.sh
+pre_start() {
+    modprobe slhc
+    modprobe ppp_generic
+    modprobe bsd_comp
+    modprobe ppp_async
+    modprobe ppp_deflate
+}
 
+source /etc/init.d/template_process.inc.sh

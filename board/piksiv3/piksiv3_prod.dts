@@ -101,7 +101,11 @@
     };
     partition@qspi-img-std-a {
       label = "qspi-img-std-a";
-      reg = <0x300000 0x1c00000>;
+      reg = <0x300000 0x800000>;
+    };
+    partition@qspi-img-sqfs-a {
+      label = "qspi-img-sqfs-a";
+      reg = <0xb00000 0x1400000>;
     };
     partition@qspi-reserved-a {
       label = "qspi-reserved-a";
@@ -109,7 +113,11 @@
     };
     partition@qspi-img-std-b {
       label = "qspi-img-std-b";
-      reg = <0x2000000 0x1c00000>;
+      reg = <0x2000000 0x800000>;
+    };
+    partition@qspi-img-sqfs-b {
+      label = "qspi-img-sqfs-b";
+      reg = <0x2800000 0x1400000>;
     };
     partition@qspi-reserved-b {
       label = "qspi-reserved-b";

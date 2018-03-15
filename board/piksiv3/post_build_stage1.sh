@@ -46,7 +46,7 @@ rm -rf $ROOTFS/lib/firmware/piksi_fpga.bit
 #
 #popd
 
-# Stage the stage2 squashfs if it exists
-if [[ -f $FIRMWARE_DIR/stage2.squashfs ]]; then
-    cp $FIRMWARE_DIR/stage2.squashfs $ROOTFS/.
-fi
+## Stage the stage2 squashfs if it exists
+#if [[ -f $FIRMWARE_DIR/stage2.squashfs ]]; then
+#    cp $FIRMWARE_DIR/stage2.squashfs $ROOTFS/.
+#fi

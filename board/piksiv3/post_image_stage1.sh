@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-#set -x
+set -x
 
 if [ -z "$HW_CONFIG" ]; then
   echo "ERROR: HW_CONFIG is not set"
@@ -18,6 +18,7 @@ IMAGES_DIR=$1
 ROOTFS=$IMAGES_DIR/../target
 FIRMWARE_DIR=$BASE_DIR/../../firmware
 
+# Restore previous target dir
 #rm -rf $ROOTFS/*
 #
 #BACKUP_DIR=/tmp/$(echo $PWD | sed 's@/@_@g')
@@ -25,9 +26,9 @@ FIRMWARE_DIR=$BASE_DIR/../../firmware
 #mkdir -p $ROOTFS
 #rsync -a --delete $BACKUP_DIR/ $ROOTFS/
 
-if [[ ! -f $FIRMWARE_DIR/stage2.squashfs ]]; then
-    exit 0
-fi
+#if [[ ! -f $FIRMWARE_DIR/stage2.squashfs ]]; then
+#    exit 0
+#fi
 
 CFG=piksiv3_$HW_CONFIG
 GIT_STRING=$(git -C $BR2_EXTERNAL_piksi_buildroot_PATH describe --tags        \
@@ -43,7 +44,7 @@ UBOOT_MK_PATH="$BR2_EXTERNAL_piksi_buildroot_PATH/package/uboot_custom/uboot_cus
 UBOOT_VERSION_REGEX='UBOOT_CUSTOM_VERSION *= *'
 UBOOT_VERSION=$(grep "$UBOOT_VERSION_REGEX" $UBOOT_MK_PATH | sed "s/${UBOOT_VERSION_REGEX}\\(.*\\)/\\1/")
 
-UBOOT_BASE_DIR=`find $BUILD_DIR -maxdepth 1 -type d -name "uboot_custom-${UBOOT_VERSION}"`
+UBOOT_BASE_DIR=`find $BUILD_DIR -maxdepth 1 \( -type d -or -type l \) -name "uboot_custom-${UBOOT_VERSION}"`
 
 DEV_BIN_PATH=$OUTPUT_DIR/PiksiMulti-DEV-$FILE_GIT_STRING.bin
 FAILSAFE_BIN_PATH=$OUTPUT_DIR/PiksiMulti-FAILSAFE-$FILE_GIT_STRING.bin
