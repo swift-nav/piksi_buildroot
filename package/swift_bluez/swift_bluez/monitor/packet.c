@@ -39,7 +39,6 @@
 #include <sys/socket.h>
 
 #include "lib/bluetooth.h"
-#include "lib/uuid.h"
 #include "lib/hci.h"
 #include "lib/hci_lib.h"
 
@@ -50,6 +49,7 @@
 #include "ll.h"
 #include "hwdb.h"
 #include "keys.h"
+#include "uuid.h"
 #include "l2cap.h"
 #include "control.h"
 #include "vendor.h"
@@ -58,7 +58,6 @@
 #include "packet.h"
 
 #define COLOR_CHANNEL_LABEL		COLOR_WHITE
-#define COLOR_FRAME_LABEL		COLOR_WHITE
 #define COLOR_INDEX_LABEL		COLOR_WHITE
 #define COLOR_TIMESTAMP			COLOR_YELLOW
 
@@ -221,11 +220,6 @@ static uint8_t get_type(uint16_t handle)
 	return 0xff;
 }
 
-bool packet_has_filter(unsigned long filter)
-{
-	return filter_mask & filter;
-}
-
 void packet_set_filter(unsigned long filter)
 {
 	filter_mask = filter;
@@ -265,17 +259,6 @@ void packet_select_index(uint16_t index)
 
 #define print_space(x) printf("%*c", (x), ' ');
 
-#define MAX_INDEX 16
-
-struct index_data {
-	uint8_t  type;
-	uint8_t  bdaddr[6];
-	uint16_t manufacturer;
-	size_t	frame;
-};
-
-static struct index_data index_list[MAX_INDEX];
-
 static void print_packet(struct timeval *tv, struct ucred *cred, char ident,
 					uint16_t index, const char *channel,
 					const char *color, const char *label,
@@ -284,7 +267,6 @@ static void print_packet(struct timeval *tv, struct ucred *cred, char ident,
 	int col = num_columns();
 	char line[256], ts_str[96];
 	int n, ts_len = 0, ts_pos = 0, len = 0, pos = 0;
-	static size_t last_frame;
 
 	if (channel) {
 		if (use_color()) {
@@ -298,20 +280,6 @@ static void print_packet(struct timeval *tv, struct ucred *cred, char ident,
 			ts_pos += n;
 			ts_len += n;
 		}
-	} else if (index != HCI_DEV_NONE &&
-				index_list[index].frame != last_frame) {
-		if (use_color()) {
-			n = sprintf(ts_str + ts_pos, "%s", COLOR_FRAME_LABEL);
-			if (n > 0)
-				ts_pos += n;
-		}
-
-		n = sprintf(ts_str + ts_pos, " #%zu", index_list[index].frame);
-		if (n > 0) {
-			ts_pos += n;
-			ts_len += n;
-		}
-		last_frame = index_list[index].frame;
 	}
 
 	if ((filter_mask & PACKET_FILTER_SHOW_INDEX) &&
@@ -496,16 +464,12 @@ static const struct {
 	{ 0x39, "Connection Rejected due to No Suitable Channel Found"	},
 	{ 0x3a, "Controller Busy"					},
 	{ 0x3b, "Unacceptable Connection Parameters"			},
-	{ 0x3c, "Advertising Timeout"					},
+	{ 0x3c, "Directed Advertising Timeout"				},
 	{ 0x3d, "Connection Terminated due to MIC Failure"		},
 	{ 0x3e, "Connection Failed to be Established"			},
 	{ 0x3f, "MAC Connection Failed"					},
 	{ 0x40, "Coarse Clock Adjustment Rejected "
 		"but Will Try to Adjust Using Clock Dragging"		},
-	{ 0x41, "Type0 Submap Not Defined"				},
-	{ 0x42, "Unknown Advertising Identifier"			},
-	{ 0x43, "Limit Reached"						},
-	{ 0x44, "Operation Cancelled by Host"				},
 	{ }
 };
 
@@ -555,25 +519,6 @@ static void print_reason(uint8_t reason)
 void packet_print_error(const char *label, uint8_t error)
 {
 	print_error(label, error);
-}
-
-static void print_enable(const char *label, uint8_t enable)
-{
-	const char *str;
-
-	switch (enable) {
-	case 0x00:
-		str = "Disabled";
-		break;
-	case 0x01:
-		str = "Enabled";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("%s: %s (0x%2.2x)", label, str, enable);
 }
 
 static void print_addr_type(const char *label, uint8_t addr_type)
@@ -1081,10 +1026,90 @@ static void print_dev_class(const uint8_t *dev_class)
 				"  Unknown service class (0x%2.2x)", mask);
 }
 
+static const struct {
+	uint16_t val;
+	bool generic;
+	const char *str;
+} appearance_table[] = {
+	{    0, true,  "Unknown"		},
+	{   64, true,  "Phone"			},
+	{  128, true,  "Computer"		},
+	{  192, true,  "Watch"			},
+	{  193, false, "Sports Watch"		},
+	{  256, true,  "Clock"			},
+	{  320, true,  "Display"		},
+	{  384, true,  "Remote Control"		},
+	{  448, true,  "Eye-glasses"		},
+	{  512, true,  "Tag"			},
+	{  576, true,  "Keyring"		},
+	{  640, true,  "Media Player"		},
+	{  704, true,  "Barcode Scanner"	},
+	{  768, true,  "Thermometer"		},
+	{  769, false, "Thermometer: Ear"	},
+	{  832, true,  "Heart Rate Sensor"	},
+	{  833, false, "Heart Rate Belt"	},
+	{  896, true,  "Blood Pressure"		},
+	{  897, false, "Blood Pressure: Arm"	},
+	{  898, false, "Blood Pressure: Wrist"	},
+	{  960, true,  "Human Interface Device"	},
+	{  961, false, "Keyboard"		},
+	{  962, false, "Mouse"			},
+	{  963, false, "Joystick"		},
+	{  964, false, "Gamepad"		},
+	{  965, false, "Digitizer Tablet"	},
+	{  966, false, "Card Reader"		},
+	{  967, false, "Digital Pen"		},
+	{  968, false, "Barcode Scanner"	},
+	{ 1024, true,  "Glucose Meter"		},
+	{ 1088, true,  "Running Walking Sensor"			},
+	{ 1089, false, "Running Walking Sensor: In-Shoe"	},
+	{ 1090, false, "Running Walking Sensor: On-Shoe"	},
+	{ 1091, false, "Running Walking Sensor: On-Hip"		},
+	{ 1152, true,  "Cycling"				},
+	{ 1153, false, "Cycling: Cycling Computer"		},
+	{ 1154, false, "Cycling: Speed Sensor"			},
+	{ 1155, false, "Cycling: Cadence Sensor"		},
+	{ 1156, false, "Cycling: Power Sensor"			},
+	{ 1157, false, "Cycling: Speed and Cadence Sensor"	},
+	{ 1216, true,  "Undefined"				},
+
+	{ 3136, true,  "Pulse Oximeter"				},
+	{ 3137, false, "Pulse Oximeter: Fingertip"		},
+	{ 3138, false, "Pulse Oximeter: Wrist Worn"		},
+	{ 3200, true,  "Weight Scale"				},
+	{ 3264, true,  "Undefined"				},
+
+	{ 5184, true,  "Outdoor Sports Activity"		},
+	{ 5185, false, "Location Display Device"		},
+	{ 5186, false, "Location and Navigation Display Device"	},
+	{ 5187, false, "Location Pod"				},
+	{ 5188, false, "Location and Navigation Pod"		},
+	{ 5248, true,  "Undefined"				},
+	{ }
+};
+
 static void print_appearance(uint16_t appearance)
 {
-	print_field("Appearance: %s (0x%4.4x)", bt_appear_to_str(appearance),
-								appearance);
+	const char *str = NULL;
+	int i, type = 0;
+
+	for (i = 0; appearance_table[i].str; i++) {
+		if (appearance_table[i].generic) {
+			if (appearance < appearance_table[i].val)
+				break;
+			type = i;
+		}
+
+		if (appearance_table[i].val == appearance) {
+			str = appearance_table[i].str;
+			break;
+		}
+	}
+
+	if (!str)
+		str = appearance_table[type].str;
+
+	print_field("Appearance: %s (0x%4.4x)", str, appearance);
 }
 
 static void print_num_broadcast_retrans(uint8_t num_retrans)
@@ -1130,9 +1155,27 @@ static void print_power_type(uint8_t type)
 
 static void print_power_level(int8_t level, const char *type)
 {
-	print_field("TX power%s%s%s: %d dbm (0x%2.2x)",
-		type ? " (" : "", type ? type : "", type ? ")" : "",
-								level, level);
+	print_field("TX power%s%s%s: %d dBm",
+		type ? " (" : "", type ? type : "", type ? ")" : "", level);
+}
+
+static void print_sync_flow_control(uint8_t enable)
+{
+	const char *str;
+
+	switch (enable) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Flow control: %s (0x%2.2x)", str, enable);
 }
 
 static void print_host_flow_control(uint8_t enable)
@@ -1424,6 +1467,44 @@ static void print_pscan_type(uint8_t type)
 	print_field("Type: %s (0x%2.2x)", str, type);
 }
 
+static void print_afh_mode(uint8_t mode)
+{
+	const char *str;
+
+	switch (mode) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Mode: %s (0x%2.2x)", str, mode);
+}
+
+static void print_erroneous_reporting(uint8_t mode)
+{
+	const char *str;
+
+	switch (mode) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Mode: %s (0x%2.2x)", str, mode);
+}
+
 static void print_loopback_mode(uint8_t mode)
 {
 	const char *str;
@@ -1444,6 +1525,63 @@ static void print_loopback_mode(uint8_t mode)
 	}
 
 	print_field("Mode: %s (0x%2.2x)", str, mode);
+}
+
+static void print_simple_pairing_mode(uint8_t mode)
+{
+	const char *str;
+
+	switch (mode) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Mode: %s (0x%2.2x)", str, mode);
+}
+
+static void print_ssp_debug_mode(uint8_t mode)
+{
+	const char *str;
+
+	switch (mode) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Debug mode: %s (0x%2.2x)", str, mode);
+}
+
+static void print_secure_conn_support(uint8_t support)
+{
+	const char *str;
+
+	switch (support) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Support: %s (0x%2.2x)", str, support);
 }
 
 static void print_auth_payload_timeout(uint16_t timeout)
@@ -1612,6 +1750,25 @@ static void print_link_type(uint8_t link_type)
 	}
 
 	print_field("Link type: %s (0x%2.2x)", str, link_type);
+}
+
+static void print_encr_mode(uint8_t encr_mode)
+{
+	const char *str;
+
+	switch (encr_mode) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Encryption: %s (0x%2.2x)", str, encr_mode);
 }
 
 static void print_encr_mode_change(uint8_t encr_mode, uint16_t handle)
@@ -2052,6 +2209,25 @@ static void print_flow_spec(const char *label, const uint8_t *data)
 	print_field("  Flush timeout: 0x%8.8x", get_le32(data + 12));
 }
 
+static void print_short_range_mode(uint8_t mode)
+{
+	const char *str;
+
+	switch (mode) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Short range mode: %s (0x%2.2x)", str, mode);
+}
+
 static void print_amp_status(uint8_t amp_status)
 {
 	const char *str;
@@ -2096,7 +2272,7 @@ static void print_num_reports(uint8_t num_reports)
 	print_field("Num reports: %d", num_reports);
 }
 
-static void print_adv_event_type(const char *label, uint8_t type)
+static void print_adv_event_type(uint8_t type)
 {
 	const char *str;
 
@@ -2121,70 +2297,7 @@ static void print_adv_event_type(const char *label, uint8_t type)
 		break;
 	}
 
-	print_field("%s: %s (0x%2.2x)", label, str, type);
-}
-
-static void print_adv_channel_map(const char *label, uint8_t value)
-{
-	const char *str;
-
-	switch (value) {
-	case 0x01:
-		str = "37";
-		break;
-	case 0x02:
-		str = "38";
-		break;
-	case 0x03:
-		str = "37, 38";
-		break;
-	case 0x04:
-		str = "39";
-		break;
-	case 0x05:
-		str = "37, 39";
-		break;
-	case 0x06:
-		str = "38, 39";
-		break;
-	case 0x07:
-		str = "37, 38, 39";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("%s: %s (0x%2.2x)", label, str, value);
-}
-
-static void print_adv_filter_policy(const char *label, uint8_t value)
-{
-	const char *str;
-
-	switch (value) {
-	case 0x00:
-		str = "Allow Scan Request from Any, "
-			"Allow Connect Request from Any";
-		break;
-	case 0x01:
-		str = "Allow Scan Request from White List Only, "
-			"Allow Connect Request from Any";
-		break;
-	case 0x02:
-		str = "Allow Scan Request from Any, "
-			"Allow Connect Request from White List Only";
-		break;
-	case 0x03:
-		str = "Allow Scan Request from White List Only, "
-			"Allow Connect Request from White List Only";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("%s: %s (0x%2.2x)", label, str, value);
+	print_field("Event type: %s (0x%2.2x)", str, type);
 }
 
 static void print_rssi(int8_t rssi)
@@ -2220,12 +2333,6 @@ static void print_interval(uint16_t interval)
 static void print_window(uint16_t window)
 {
 	print_slot_625("Window", window);
-}
-
-static void print_conn_latency(const char *label, uint16_t value)
-{
-	print_field("%s: %u (0x%4.4x)", label, le16_to_cpu(value),
-							le16_to_cpu(value));
 }
 
 static void print_role(uint8_t role)
@@ -2359,9 +2466,6 @@ void packet_print_version(const char *label, uint8_t version,
 		break;
 	case 0x08:
 		str = "Bluetooth 4.2";
-		break;
-	case 0x09:
-		str = "Bluetooth 5.0";
 		break;
 	default:
 		str = "Reserved";
@@ -2602,7 +2706,6 @@ static const struct features_data features_page2[] = {
 	{  6, "Coarse Clock Adjustment"			},
 	{  8, "Secure Connections (Controller Support)"	},
 	{  9, "Ping"					},
-	{ 10, "Slot Availability Mask"			},
 	{ 11, "Train nudging"				},
 	{ }
 };
@@ -2616,15 +2719,6 @@ static const struct features_data features_le[] = {
 	{  5, "LE Data Packet Length Extension"		},
 	{  6, "LL Privacy"				},
 	{  7, "Extended Scanner Filter Policies"	},
-	{  8, "LE 2M PHY"				},
-	{  9, "Stable Modulation Index - Transmitter"	},
-	{ 10, "Stable Modulation Index - Receiver"	},
-	{ 11, "LE Coded PHY"				},
-	{ 12, "LE Extended Advertising"			},
-	{ 13, "LE Periodic Advertising"			},
-	{ 14, "Channel Selection Algorithm #2"		},
-	{ 15, "LE Power Class 1"			},
-	{ 16, "Minimum Number of Used Channels Procedure"},
 	{ }
 };
 
@@ -2984,7 +3078,6 @@ static const struct {
 	{ 21, "Connectionless Slave Broadcast Channel Map Change"	},
 	{ 22, "Inquiry Response Notification"				},
 	{ 23, "Authenticated Payload Timeout Expired"			},
-	{ 24, "SAM Status Change"					},
 	{ }
 };
 
@@ -3027,15 +3120,6 @@ static const struct {
 	{  8, "LE Generate DHKey Complete"		},
 	{  9, "LE Enhanced Connection Complete"		},
 	{ 10, "LE Direct Advertising Report"		},
-	{ 11, "LE PHY Update Complete"			},
-	{ 12, "LE Extended Advertising Report"		},
-	{ 13, "LE Periodic Advertising Sync Established"},
-	{ 14, "LE Periodic Advertising Report"		},
-	{ 15, "LE Periodic Advertising Sync Lost"	},
-	{ 16, "LE Extended Scan Timeout"		},
-	{ 17, "LE Extended Advertising Set Terminated"	},
-	{ 18, "LE Scan Request Received"		},
-	{ 19, "LE Channel Selection Algorithm"		},
 	{ }
 };
 
@@ -3110,19 +3194,6 @@ static void print_fec(uint8_t fec)
 #define BT_EIR_LE_ROLE			0x1c
 #define BT_EIR_SSP_HASH_P256		0x1d
 #define BT_EIR_SSP_RANDOMIZER_P256	0x1e
-#define BT_EIR_SERVICE_UUID32		0x1f
-#define BT_EIR_SERVICE_DATA32		0x20
-#define BT_EIR_SERVICE_DATA128		0x21
-#define BT_EIR_LE_SC_CONFIRM_VALUE	0x22
-#define BT_EIR_LE_SC_RANDOM_VALUE	0x23
-#define BT_EIR_URI			0x24
-#define BT_EIR_INDOOR_POSITIONING	0x25
-#define BT_EIR_TRANSPORT_DISCOVERY	0x26
-#define BT_EIR_LE_SUPPORTED_FEATURES	0x27
-#define BT_EIR_CHANNEL_MAP_UPDATE_IND	0x28
-#define BT_EIR_MESH_PROV		0x29
-#define BT_EIR_MESH_DATA		0x2a
-#define BT_EIR_MESH_BEACON		0x2b
 #define BT_EIR_3D_INFO_DATA		0x3d
 #define BT_EIR_MANUFACTURER_DATA	0xff
 
@@ -3299,7 +3370,7 @@ static void print_uuid16_list(const char *label, const void *data,
 
 	for (i = 0; i < count; i++) {
 		uint16_t uuid = get_le16(data + (i * 2));
-		print_field("  %s (0x%4.4x)", bt_uuid16_to_str(uuid), uuid);
+		print_field("  %s (0x%4.4x)", uuid16_to_str(uuid), uuid);
 	}
 }
 
@@ -3313,7 +3384,7 @@ static void print_uuid32_list(const char *label, const void *data,
 
 	for (i = 0; i < count; i++) {
 		uint32_t uuid = get_le32(data + (i * 4));
-		print_field("  %s (0x%8.8x)", bt_uuid32_to_str(uuid), uuid);
+		print_field("  %s (0x%8.8x)", uuid32_to_str(uuid), uuid);
 	}
 }
 
@@ -3333,7 +3404,7 @@ static void print_uuid128_list(const char *label, const void *data,
 				get_le32(&uuid[12]), get_le16(&uuid[10]),
 				get_le16(&uuid[8]), get_le16(&uuid[6]),
 				get_le32(&uuid[2]), get_le16(&uuid[0]));
-		print_field("  %s (%s)", bt_uuidstr_to_str(uuidstr), uuidstr);
+		print_field("  %s (%s)", uuidstr_to_str(uuidstr), uuidstr);
 	}
 }
 
@@ -3359,191 +3430,6 @@ static const struct {
 	{ 7, "Factory Test Mode"					},
 	{ }
 };
-
-static const struct {
-	uint8_t bit;
-	const char *str;
-} mesh_oob_table[] = {
-	{ 0, "Other"							},
-	{ 1, "Electronic / URI"						},
-	{ 2, "2D machine-readable code"					},
-	{ 3, "Bar code"							},
-	{ 4, "Near Field Communication (NFC)"				},
-	{ 5, "Number"							},
-	{ 6, "String"							},
-	{ 11, "On box"							},
-	{ 12, "Inside box"						},
-	{ 13, "On piece of paper"					},
-	{ 14, "Inside manual"						},
-	{ 15, "On device"						},
-	{ }
-};
-
-static void print_mesh_beacon(const uint8_t *data, uint8_t len)
-{
-	uint16_t oob;
-	int i;
-
-	print_hex_field("Mesh Beacon", data, len);
-
-	if (len < 1)
-		return;
-
-	switch (data[0]) {
-	case 0x00:
-		print_field("  Unprovisioned Device Beacon (0x00)");
-		if (len < 18) {
-			packet_hexdump(data + 1, len - 1);
-			break;
-		}
-
-		print_hex_field("  Device UUID", data + 1, 16);
-
-		oob = get_be16(data + 17);
-		print_field("  OOB Information: 0x%4.4x", oob);
-
-		for (i = 0; mesh_oob_table[i].str; i++) {
-			if (oob & (1 << mesh_oob_table[i].bit))
-				print_field("    %s", mesh_oob_table[i].str);
-		}
-
-		if (len < 23) {
-			packet_hexdump(data + 18, len - 18);
-			break;
-		}
-
-		print_field("  URI Hash: 0x%8.8x", get_be32(data + 19));
-		packet_hexdump(data + 23, len - 23);
-		break;
-	case 0x01:
-		print_field("  Secure Network Beacon (0x01)");
-		if (len < 22) {
-			packet_hexdump(data + 1, len - 1);
-			break;
-		}
-
-		print_field("  Flags: 0x%2.2x", data[0]);
-
-		if (data[1] & 0x01)
-			print_field("    Key Refresh");
-
-		if (data[1] & 0x02)
-			print_field("    IV Update");
-
-		print_hex_field("  Network Id", data + 2, 8);
-		print_field("  IV Index: 0x%08x", get_be32(data + 10));
-		print_hex_field("  Authentication Value", data + 14, 8);
-		packet_hexdump(data + 22, len - 22);
-		break;
-	default:
-		print_field("  Invalid Beacon (0x%02x)", data[0]);
-		packet_hexdump(data, len);
-		break;
-	}
-}
-
-static void print_mesh_prov(const uint8_t *data, uint8_t len)
-{
-	print_hex_field("Mesh Provisioning", data, len);
-
-	if (len < 6) {
-		packet_hexdump(data, len);
-		return;
-	}
-
-	print_field("  Link ID: 0x%08x", get_be32(data));
-	print_field("  Transaction Number: %u", data[4]);
-
-	data += 5;
-	len -= 5;
-
-	switch (data[0] & 0x03) {
-	case 0x00:
-		print_field("  Transaction Start (0x00)");
-		if (len < 5) {
-			packet_hexdump(data + 1, len - 1);
-			return;
-		}
-		print_field("  SeqN: %u", data[0] & 0xfc >> 2);
-		print_field("  TotalLength: %u", get_be16(data + 1));
-		print_field("  FCS: 0x%2.2x", data[3]);
-		print_hex_field("  Data", data + 4, len - 4);
-		packet_hexdump(data + 5, len - 5);
-		break;
-	case 0x01:
-		print_field("  Transaction Acknowledgment (0x01)");
-		packet_hexdump(data + 1, len - 1);
-		break;
-	case 0x02:
-		print_field("  Transaction Continuation (0x02)");
-		print_field("  SegmentIndex: %u", data[0] >> 2);
-		if (len < 2) {
-			packet_hexdump(data + 1, len - 1);
-			return;
-		}
-		print_hex_field("  Data", data + 1, len - 1);
-		packet_hexdump(data + 2, len - 2);
-		break;
-	case 0x03:
-		print_field("  Provisioning Bearer Control (0x03)");
-		switch (data[0] >> 2) {
-		case 0x00:
-			print_field("  Link Open (0x00)");
-			if (len < 17) {
-				packet_hexdump(data + 1, len - 1);
-				break;
-			}
-			print_hex_field("  Device UUID", data, 16);
-			break;
-		case 0x01:
-			print_field("  Link Ack (0x01)");
-			break;
-		case 0x02:
-			print_field("  Link Close (0x02)");
-			if (len < 2) {
-				packet_hexdump(data + 1, len - 1);
-				break;
-			}
-
-			switch (data[1]) {
-			case 0x00:
-				print_field("  Reason: Success (0x00)");
-				break;
-			case 0x01:
-				print_field("  Reason: Timeout (0x01)");
-				break;
-			case 0x02:
-				print_field("  Reason: Fail (0x02)");
-				break;
-			default:
-				print_field("  Reason: Unrecognized (0x%2.2x)",
-								data[1]);
-			}
-			packet_hexdump(data + 2, len - 2);
-			break;
-		default:
-			packet_hexdump(data + 1, len - 1);
-			break;
-		}
-		break;
-	default:
-		print_field("  Invalid Command (0x%02x)", data[0]);
-		packet_hexdump(data, len);
-		break;
-	}
-}
-
-static void print_mesh_data(const uint8_t *data, uint8_t len)
-{
-	print_hex_field("Mesh Data", data, len);
-
-	if (len < 1)
-		return;
-
-	print_field("  IVI: %u", data[0] >> 7);
-	print_field("  NID: 0x%2.2x", data[0] & 0x7f);
-	packet_hexdump(data + 1, len - 1);
-}
 
 static void print_eir(const uint8_t *eir, uint8_t eir_len, bool le)
 {
@@ -3769,18 +3655,6 @@ static void print_eir(const uint8_t *eir, uint8_t eir_len, bool le)
 			print_field("  Path Loss Threshold: %d", data[1]);
 			break;
 
-		case BT_EIR_MESH_DATA:
-			print_mesh_data(data, data_len);
-			break;
-
-		case BT_EIR_MESH_PROV:
-			print_mesh_prov(data, data_len);
-			break;
-
-		case BT_EIR_MESH_BEACON:
-			print_mesh_beacon(data, data_len);
-			break;
-
 		case BT_EIR_MANUFACTURER_DATA:
 			if (data_len < 2)
 				break;
@@ -3912,6 +3786,16 @@ static int addr2str(const uint8_t *addr, char *str)
 			addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
 }
 
+#define MAX_INDEX 16
+
+struct index_data {
+	uint8_t  type;
+	uint8_t  bdaddr[6];
+	uint16_t manufacturer;
+};
+
+static struct index_data index_list[MAX_INDEX];
+
 void packet_monitor(struct timeval *tv, struct ucred *cred,
 					uint16_t index, uint16_t opcode,
 					const void *data, uint16_t size)
@@ -3923,11 +3807,10 @@ void packet_monitor(struct timeval *tv, struct ucred *cred,
 	uint16_t manufacturer;
 	const char *ident;
 
-	if (index != HCI_DEV_NONE) {
-		if (index_filter && index_number != index)
-			return;
-		index_current = index;
-	}
+	if (index_filter && index_number != index)
+		return;
+
+	index_current = index;
 
 	if (tv && time_offset == ((time_t) -1))
 		time_offset = tv->tv_sec;
@@ -4214,7 +4097,7 @@ static void set_conn_encrypt_cmd(const void *data, uint8_t size)
 	const struct bt_hci_cmd_set_conn_encrypt *cmd = data;
 
 	print_handle(cmd->handle);
-	print_enable("Encryption", cmd->encr_mode);
+	print_encr_mode(cmd->encr_mode);
 }
 
 static void change_conn_link_key_cmd(const void *data, uint8_t size)
@@ -5161,14 +5044,14 @@ static void read_sync_flow_control_rsp(const void *data, uint8_t size)
 	const struct bt_hci_rsp_read_sync_flow_control *rsp = data;
 
 	print_status(rsp->status);
-	print_enable("Flow control", rsp->enable);
+	print_sync_flow_control(rsp->enable);
 }
 
 static void write_sync_flow_control_cmd(const void *data, uint8_t size)
 {
 	const struct bt_hci_cmd_write_sync_flow_control *cmd = data;
 
-	print_enable("Flow control", cmd->enable);
+	print_sync_flow_control(cmd->enable);
 }
 
 static void set_host_flow_control_cmd(const void *data, uint8_t size)
@@ -5352,14 +5235,14 @@ static void read_afh_assessment_mode_rsp(const void *data, uint8_t size)
 	const struct bt_hci_rsp_read_afh_assessment_mode *rsp = data;
 
 	print_status(rsp->status);
-	print_enable("Mode", rsp->mode);
+	print_afh_mode(rsp->mode);
 }
 
 static void write_afh_assessment_mode_cmd(const void *data, uint8_t size)
 {
 	const struct bt_hci_cmd_write_afh_assessment_mode *cmd = data;
 
-	print_enable("Mode", cmd->mode);
+	print_afh_mode(cmd->mode);
 }
 
 static void read_ext_inquiry_response_rsp(const void *data, uint8_t size)
@@ -5391,14 +5274,14 @@ static void read_simple_pairing_mode_rsp(const void *data, uint8_t size)
 	const struct bt_hci_rsp_read_simple_pairing_mode *rsp = data;
 
 	print_status(rsp->status);
-	print_enable("Mode", rsp->mode);
+	print_simple_pairing_mode(rsp->mode);
 }
 
 static void write_simple_pairing_mode_cmd(const void *data, uint8_t size)
 {
 	const struct bt_hci_cmd_write_simple_pairing_mode *cmd = data;
 
-	print_enable("Mode", cmd->mode);
+	print_simple_pairing_mode(cmd->mode);
 }
 
 static void read_local_oob_data_rsp(const void *data, uint8_t size)
@@ -5430,14 +5313,14 @@ static void read_erroneous_reporting_rsp(const void *data, uint8_t size)
 	const struct bt_hci_rsp_read_erroneous_reporting *rsp = data;
 
 	print_status(rsp->status);
-	print_enable("Mode", rsp->mode);
+	print_erroneous_reporting(rsp->mode);
 }
 
 static void write_erroneous_reporting_cmd(const void *data, uint8_t size)
 {
 	const struct bt_hci_cmd_write_erroneous_reporting *cmd = data;
 
-	print_enable("Mode", cmd->mode);
+	print_erroneous_reporting(cmd->mode);
 }
 
 static void enhanced_flush_cmd(const void *data, uint8_t size)
@@ -5565,7 +5448,7 @@ static void short_range_mode_cmd(const void *data, uint8_t size)
 	const struct bt_hci_cmd_short_range_mode *cmd = data;
 
 	print_phy_handle(cmd->phy_handle);
-	print_enable("Short range mode", cmd->mode);
+	print_short_range_mode(cmd->mode);
 }
 
 static void read_le_host_supported_rsp(const void *data, uint8_t size)
@@ -5675,14 +5558,14 @@ static void read_secure_conn_support_rsp(const void *data, uint8_t size)
 	const struct bt_hci_rsp_read_secure_conn_support *rsp = data;
 
 	print_status(rsp->status);
-	print_enable("Support", rsp->support);
+	print_secure_conn_support(rsp->support);
 }
 
 static void write_secure_conn_support_cmd(const void *data, uint8_t size)
 {
 	const struct bt_hci_cmd_write_secure_conn_support *cmd = data;
 
-	print_enable("Support", cmd->support);
+	print_secure_conn_support(cmd->support);
 }
 
 static void read_auth_payload_timeout_cmd(const void *data, uint8_t size)
@@ -5973,7 +5856,7 @@ static void read_afh_channel_map_rsp(const void *data, uint8_t size)
 
 	print_status(rsp->status);
 	print_handle(rsp->handle);
-	print_enable("Mode", rsp->mode);
+	print_afh_mode(rsp->mode);
 	print_channel_map(rsp->map);
 }
 
@@ -6145,9 +6028,24 @@ static void get_mws_transport_config_rsp(const void *data, uint8_t size)
 static void set_triggered_clock_capture_cmd(const void *data, uint8_t size)
 {
 	const struct bt_hci_cmd_set_triggered_clock_capture *cmd = data;
+	const char *str;
 
 	print_handle(cmd->handle);
-	print_enable("Capture", cmd->enable);
+
+	switch (cmd->enable) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Capture: %s (0x%2.2x)", str, cmd->enable);
+
 	print_clock_type(cmd->type);
 	print_lpo_allowed(cmd->lpo_allowed);
 	print_field("Clock captures to filter: %u", cmd->num_filter);
@@ -6172,7 +6070,7 @@ static void write_ssp_debug_mode_cmd(const void *data, uint8_t size)
 {
 	const struct bt_hci_cmd_write_ssp_debug_mode *cmd = data;
 
-	print_enable("Debug Mode", cmd->mode);
+	print_ssp_debug_mode(cmd->mode);
 }
 
 static void le_set_event_mask_cmd(const void *data, uint8_t size)
@@ -6240,8 +6138,59 @@ static void le_set_adv_parameters_cmd(const void *data, uint8_t size)
 	print_own_addr_type(cmd->own_addr_type);
 	print_addr_type("Direct address type", cmd->direct_addr_type);
 	print_addr("Direct address", cmd->direct_addr, cmd->direct_addr_type);
-	print_adv_channel_map("Channel map", cmd->channel_map);
-	print_adv_filter_policy("Filter policy", cmd->filter_policy);
+
+	switch (cmd->channel_map) {
+	case 0x01:
+		str = "37";
+		break;
+	case 0x02:
+		str = "38";
+		break;
+	case 0x03:
+		str = "37, 38";
+		break;
+	case 0x04:
+		str = "39";
+		break;
+	case 0x05:
+		str = "37, 39";
+		break;
+	case 0x06:
+		str = "38, 39";
+		break;
+	case 0x07:
+		str = "37, 38, 39";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Channel map: %s (0x%2.2x)", str, cmd->channel_map);
+
+	switch (cmd->filter_policy) {
+	case 0x00:
+		str = "Allow Scan Request from Any, "
+			"Allow Connect Request from Any";
+		break;
+	case 0x01:
+		str = "Allow Scan Request from White List Only, "
+			"Allow Connect Request from Any";
+		break;
+	case 0x02:
+		str = "Allow Scan Request from Any, "
+			"Allow Connect Request from White List Only";
+		break;
+	case 0x03:
+		str = "Allow Scan Request from White List Only, "
+			"Allow Connect Request from White List Only";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Filter policy: %s (0x%2.2x)", str, cmd->filter_policy);
 }
 
 static void le_read_adv_tx_power_rsp(const void *data, uint8_t size)
@@ -6271,15 +6220,29 @@ static void le_set_scan_rsp_data_cmd(const void *data, uint8_t size)
 static void le_set_adv_enable_cmd(const void *data, uint8_t size)
 {
 	const struct bt_hci_cmd_le_set_adv_enable *cmd = data;
-
-	print_enable("Advertising", cmd->enable);
-}
-
-static void print_scan_type(const char *label, uint8_t type)
-{
 	const char *str;
 
-	switch (type) {
+	switch (cmd->enable) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Advertising: %s (0x%2.2x)", str, cmd->enable);
+}
+
+static void le_set_scan_parameters_cmd(const void *data, uint8_t size)
+{
+	const struct bt_hci_cmd_le_set_scan_parameters *cmd = data;
+	const char *str;
+
+	switch (cmd->type) {
 	case 0x00:
 		str = "Passive";
 		break;
@@ -6291,51 +6254,59 @@ static void print_scan_type(const char *label, uint8_t type)
 		break;
 	}
 
-	print_field("%s: %s (0x%2.2x)", label, str, type);
-}
+	print_field("Type: %s (0x%2.2x)", str, cmd->type);
 
-static void print_scan_filter_policy(uint8_t policy)
-{
-	const char *str;
+	print_interval(cmd->interval);
+	print_window(cmd->window);
+	print_own_addr_type(cmd->own_addr_type);
 
-	switch (policy) {
+	switch (cmd->filter_policy) {
 	case 0x00:
 		str = "Accept all advertisement";
 		break;
 	case 0x01:
 		str = "Ignore not in white list";
 		break;
-	case 0x02:
-		str = "Accept all advertisement, inc. directed unresolved RPA";
+	default:
+		str = "Reserved";
 		break;
-	case 0x03:
-		str = "Ignore not in white list, exc. directed unresolved RPA";
+	}
+
+	print_field("Filter policy: %s (0x%2.2x)", str, cmd->filter_policy);
+}
+
+static void le_set_scan_enable_cmd(const void *data, uint8_t size)
+{
+	const struct bt_hci_cmd_le_set_scan_enable *cmd = data;
+	const char *str;
+
+	switch (cmd->enable) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
 		break;
 	default:
 		str = "Reserved";
 		break;
 	}
 
-	print_field("Filter policy: %s (0x%2.2x)", str, policy);
-}
+	print_field("Scanning: %s (0x%2.2x)", str, cmd->enable);
 
-static void le_set_scan_parameters_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_scan_parameters *cmd = data;
+	switch (cmd->filter_dup) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
 
-	print_scan_type("Type", cmd->type);
-	print_interval(cmd->interval);
-	print_window(cmd->window);
-	print_own_addr_type(cmd->own_addr_type);
-	print_scan_filter_policy(cmd->filter_policy);
-}
-
-static void le_set_scan_enable_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_scan_enable *cmd = data;
-
-	print_enable("Scanning", cmd->enable);
-	print_enable("Filter duplicates", cmd->filter_dup);
+	print_field("Filter duplicates: %s (0x%2.2x)", str, cmd->filter_dup);
 }
 
 static void le_create_conn_cmd(const void *data, uint8_t size)
@@ -6366,7 +6337,7 @@ static void le_create_conn_cmd(const void *data, uint8_t size)
 
 	print_slot_125("Min connection interval", cmd->min_interval);
 	print_slot_125("Max connection interval", cmd->max_interval);
-	print_conn_latency("Connection latency", cmd->latency);
+	print_field("Connection latency: 0x%4.4x", le16_to_cpu(cmd->latency));
 	print_field("Supervision timeout: %d msec (0x%4.4x)",
 					le16_to_cpu(cmd->supv_timeout) * 10,
 					le16_to_cpu(cmd->supv_timeout));
@@ -6405,7 +6376,7 @@ static void le_conn_update_cmd(const void *data, uint8_t size)
 	print_handle(cmd->handle);
 	print_slot_125("Min connection interval", cmd->min_interval);
 	print_slot_125("Max connection interval", cmd->max_interval);
-	print_conn_latency("Connection latency", cmd->latency);
+	print_field("Connection latency: 0x%4.4x", le16_to_cpu(cmd->latency));
 	print_field("Supervision timeout: %d msec (0x%4.4x)",
 					le16_to_cpu(cmd->supv_timeout) * 10,
 					le16_to_cpu(cmd->supv_timeout));
@@ -6549,7 +6520,7 @@ static void le_conn_param_req_reply_cmd(const void *data, uint8_t size)
 	print_handle(cmd->handle);
 	print_slot_125("Min connection interval", cmd->min_interval);
 	print_slot_125("Max connection interval", cmd->max_interval);
-	print_conn_latency("Connection latency", cmd->latency);
+	print_field("Connection latency: 0x%4.4x", le16_to_cpu(cmd->latency));
 	print_field("Supervision timeout: %d msec (0x%4.4x)",
 					le16_to_cpu(cmd->supv_timeout) * 10,
 					le16_to_cpu(cmd->supv_timeout));
@@ -6683,8 +6654,21 @@ static void le_read_local_resolv_addr_rsp(const void *data, uint8_t size)
 static void le_set_resolv_enable_cmd(const void *data, uint8_t size)
 {
 	const struct bt_hci_cmd_le_set_resolv_enable *cmd = data;
+	const char *str;
 
-	print_enable("Address resolution", cmd->enable);
+	switch (cmd->enable) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("Address resolution: %s (0x%2.2x)", str, cmd->enable);
 }
 
 static void le_set_resolv_timeout_cmd(const void *data, uint8_t size)
@@ -6703,807 +6687,6 @@ static void le_read_max_data_length_rsp(const void *data, uint8_t size)
 	print_field("Max TX time: %d", le16_to_cpu(rsp->max_tx_time));
 	print_field("Max RX octets: %d", le16_to_cpu(rsp->max_rx_len));
 	print_field("Max RX time: %d", le16_to_cpu(rsp->max_rx_time));
-}
-
-static void le_read_phy_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_read_phy *cmd = data;
-
-	print_handle(cmd->handle);
-}
-
-static void print_le_phy(const char *prefix, uint8_t phy)
-{
-	const char *str;
-
-	switch (phy) {
-	case 0x01:
-		str = "LE 1M";
-		break;
-	case 0x02:
-		str = "LE 2M";
-		break;
-	case 0x03:
-		str = "LE Coded";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("%s: %s (0x%2.2x)", prefix, str, phy);
-}
-
-static void le_read_phy_rsp(const void *data, uint8_t size)
-{
-	const struct bt_hci_rsp_le_read_phy *rsp = data;
-
-	print_status(rsp->status);
-	print_handle(rsp->handle);
-	print_le_phy("TX PHY", rsp->tx_phy);
-	print_le_phy("RX PHY", rsp->rx_phy);
-}
-
-static const struct {
-	uint8_t bit;
-	const char *str;
-} le_phys[] = {
-	{  0, "LE 1M"	},
-	{  1, "LE 2M"	},
-	{  2, "LE Coded"},
-	{ }
-};
-
-static const struct {
-	uint8_t bit;
-	const char *str;
-} le_phy_preference[] = {
-	{  0, "No TX PHY preference"	},
-	{  1, "No RX PHY preference"	},
-	{ }
-};
-
-static void print_le_phys_preference(uint8_t all_phys, uint8_t tx_phys,
-							uint8_t rx_phys)
-{
-	int i;
-	uint8_t mask = all_phys;
-
-	print_field("All PHYs preference: 0x%2.2x", all_phys);
-
-	for (i = 0; le_phy_preference[i].str; i++) {
-		if (all_phys & (((uint8_t) 1) << le_phy_preference[i].bit)) {
-			print_field("  %s", le_phy_preference[i].str);
-			mask &= ~(((uint64_t) 1) << le_phy_preference[i].bit);
-		}
-	}
-
-	if (mask)
-		print_text(COLOR_UNKNOWN_OPTIONS_BIT, "  Reserved"
-							" (0x%2.2x)", mask);
-
-	print_field("TX PHYs preference: 0x%2.2x", tx_phys);
-	mask = tx_phys;
-
-	for (i = 0; le_phys[i].str; i++) {
-		if (tx_phys & (((uint8_t) 1) << le_phys[i].bit)) {
-			print_field("  %s", le_phys[i].str);
-			mask &= ~(((uint64_t) 1) << le_phys[i].bit);
-		}
-	}
-
-	if (mask)
-		print_text(COLOR_UNKNOWN_OPTIONS_BIT, "  Reserved"
-							" (0x%2.2x)", mask);
-
-	print_field("RX PHYs preference: 0x%2.2x", rx_phys);
-	mask = rx_phys;
-
-	for (i = 0; le_phys[i].str; i++) {
-		if (rx_phys & (((uint8_t) 1) << le_phys[i].bit)) {
-			print_field("  %s", le_phys[i].str);
-			mask &= ~(((uint64_t) 1) << le_phys[i].bit);
-		}
-	}
-
-	if (mask)
-		print_text(COLOR_UNKNOWN_OPTIONS_BIT, "  Reserved"
-							" (0x%2.2x)", mask);
-}
-
-static void le_set_default_phy_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_default_phy *cmd = data;
-
-	print_le_phys_preference(cmd->all_phys, cmd->tx_phys, cmd->rx_phys);
-}
-
-static void le_set_phy_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_phy *cmd = data;
-	const char *str;
-
-	print_handle(cmd->handle);
-	print_le_phys_preference(cmd->all_phys, cmd->tx_phys, cmd->rx_phys);
-	switch (le16_to_cpu(cmd->phy_opts)) {
-	case 0x0001:
-		str = "S2 coding";
-		break;
-	case 0x0002:
-		str = "S8 coding";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("PHY options preference: %s (0x%4.4x)", str, cmd->phy_opts);
-}
-
-static void le_enhanced_receiver_test_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_enhanced_receiver_test *cmd = data;
-	const char *str;
-
-	print_field("RX channel frequency: %d MHz (0x%2.2x)",
-				(cmd->rx_channel * 2) + 2402, cmd->rx_channel);
-	print_le_phy("PHY", cmd->phy);
-
-	switch (cmd->modulation_index) {
-	case 0x00:
-		str = "Standard";
-		break;
-	case 0x01:
-		str = "Stable";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Modulation index: %s (0x%2.2x)", str,
-							cmd->modulation_index);
-}
-
-static void le_enhanced_transmitter_test_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_enhanced_transmitter_test *cmd = data;
-	const char *str;
-
-	print_field("TX channel frequency: %d MHz (0x%2.2x)",
-				(cmd->tx_channel * 2) + 2402, cmd->tx_channel);
-	print_field("Test data length: %d bytes", cmd->data_len);
-	print_field("Packet payload: 0x%2.2x", cmd->payload);
-
-	switch (cmd->phy) {
-	case 0x01:
-		str = "LE 1M";
-		break;
-	case 0x02:
-		str = "LE 2M";
-		break;
-	case 0x03:
-		str = "LE Coded with S=8";
-		break;
-	case 0x04:
-		str = "LE Coded with S=2";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("PHY: %s (0x%2.2x)", str, cmd->phy);
-}
-
-static void le_set_adv_set_rand_addr(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_adv_set_rand_addr *cmd = data;
-
-	print_field("Advertising handle: 0x%2.2x", cmd->handle);
-	print_addr("Advertising random address", cmd->bdaddr, 0x00);
-}
-
-static const struct {
-	uint8_t bit;
-	const char *str;
-} ext_adv_properties_table[] = {
-	{  0, "Connectable"		},
-	{  1, "Scannable"		},
-	{  2, "Directed"	},
-	{  3, "High Duty Cycle Directed Connectable"	},
-	{  4, "Use legacy advertising PDUs"	},
-	{  5, "Anonymous advertising"	},
-	{  6, "Include TxPower"		},
-	{ }
-};
-
-static const char *get_adv_pdu_desc(uint16_t flags)
-{
-	const char *str;
-
-	switch (flags) {
-	case 0x10:
-		str = "ADV_NONCONN_IND";
-		break;
-	case 0x12:
-		str = "ADV_SCAN_IND";
-		break;
-	case 0x13:
-		str = "ADV_IND";
-		break;
-	case 0x15:
-		str = "ADV_DIRECT_IND (low duty cycle)";
-		break;
-	case 0x1d:
-		str = "ADV_DIRECT_IND (high duty cycle)";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	return str;
-}
-
-static void print_ext_adv_properties(uint16_t flags)
-{
-	uint16_t mask = flags;
-	const char *property;
-	int i;
-
-	print_field("Properties: 0x%4.4x", flags);
-
-	for (i = 0; ext_adv_properties_table[i].str; i++) {
-		if (flags & (1 << ext_adv_properties_table[i].bit)) {
-			property = ext_adv_properties_table[i].str;
-
-			if (ext_adv_properties_table[i].bit == 4) {
-				print_field("  %s: %s", property,
-						get_adv_pdu_desc(flags));
-			} else {
-				print_field("  %s", property);
-			}
-			mask &= ~(1 << ext_adv_properties_table[i].bit);
-		}
-	}
-
-	if (mask)
-		print_text(COLOR_UNKNOWN_ADV_FLAG,
-				"  Unknown advertising properties (0x%4.4x)",
-									mask);
-}
-
-static void print_ext_slot_625(const char *label, const uint8_t value[3])
-{
-	uint32_t value_cpu = value[0];
-
-	value_cpu |= value[1] << 8;
-	value_cpu |= value[2] << 16;
-
-	print_field("%s: %.3f msec (0x%4.4x)", label,
-						value_cpu * 0.625, value_cpu);
-}
-
-static void le_set_ext_adv_params_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_ext_adv_params *cmd = data;
-	const char *str;
-
-	print_field("Handle: 0x%2.2x", cmd->handle);
-	print_ext_adv_properties(le16_to_cpu(cmd->evt_properties));
-
-	print_ext_slot_625("Min advertising interval", cmd->min_interval);
-	print_ext_slot_625("Max advertising interval", cmd->max_interval);
-	print_adv_channel_map("Channel map", cmd->channel_map);
-	print_own_addr_type(cmd->own_addr_type);
-	print_peer_addr_type("Peer address type", cmd->peer_addr_type);
-	print_addr("Peer address", cmd->peer_addr, cmd->peer_addr_type);
-	print_adv_filter_policy("Filter policy", cmd->filter_policy);
-	print_power_level(cmd->tx_power, NULL);
-
-	switch (cmd->primary_phy) {
-	case 0x01:
-		str = "LE 1M";
-		break;
-	case 0x03:
-		str = "LE Coded";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Primary PHY: %s (0x%2.2x)", str, cmd->primary_phy);
-	print_field("Secondary max skip: 0x%2.2x", cmd->secondary_max_skip);
-	print_le_phy("Secondary PHY", cmd->secondary_phy);
-	print_field("SID: 0x%2.2x", cmd->sid);
-	print_enable("Scan request notifications", cmd->notif_enable);
-}
-
-static void le_set_ext_adv_params_rsp(const void *data, uint8_t size)
-{
-	const struct bt_hci_rsp_le_set_ext_adv_params *rsp = data;
-
-	print_status(rsp->status);
-	print_power_level(rsp->tx_power, "selected");
-}
-
-static void le_set_ext_adv_data_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_ext_adv_data *cmd = data;
-	const char *str;
-
-	print_field("Handle: 0x%2.2x", cmd->handle);
-
-	switch (cmd->operation) {
-	case 0x00:
-		str = "Immediate fragment";
-		break;
-	case 0x01:
-		str = "First fragment";
-		break;
-	case 0x02:
-		str = "Last fragment";
-		break;
-	case 0x03:
-		str = "Complete extended advertising data";
-		break;
-	case 0x04:
-		str = "Unchanged data";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Operation: %s (0x%2.2x)", str, cmd->operation);
-
-	switch (cmd->fragment_preference) {
-	case 0x00:
-		str = "Fragment all";
-		break;
-	case 0x01:
-		str = "Minimize fragmentation";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Fragment preference: %s (0x%2.2x)", str,
-						cmd->fragment_preference);
-	print_field("Data length: 0x%2.2x", cmd->data_len);
-	packet_print_ad(cmd->data, size - sizeof(*cmd));
-}
-
-static void le_set_ext_scan_rsp_data_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_ext_scan_rsp_data *cmd = data;
-	const char *str;
-
-	print_field("Handle: 0x%2.2x", cmd->handle);
-
-	switch (cmd->operation) {
-	case 0x00:
-		str = "Immediate fragment";
-		break;
-	case 0x01:
-		str = "First fragment";
-		break;
-	case 0x02:
-		str = "Last fragment";
-		break;
-	case 0x03:
-		str = "Complete scan response data";
-		break;
-	case 0x04:
-		str = "Unchanged data";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Operation: %s (0x%2.2x)", str, cmd->operation);
-
-	switch (cmd->fragment_preference) {
-	case 0x00:
-		str = "Fragment all";
-		break;
-	case 0x01:
-		str = "Minimize fragmentation";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Fragment preference: %s (0x%2.2x)", str,
-						cmd->fragment_preference);
-	print_field("Data length: 0x%2.2x", cmd->data_len);
-	packet_print_ad(cmd->data, size - sizeof(*cmd));
-}
-
-static void le_set_ext_adv_enable_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_ext_adv_enable *cmd = data;
-	const struct bt_hci_cmd_ext_adv_set *adv_set;
-	int i;
-
-	print_enable("Extended advertising", cmd->enable);
-
-	if (cmd->num_of_sets == 0)
-		print_field("Number of sets: Disable all sets (0x%2.2x)",
-							cmd->num_of_sets);
-	else if (cmd->num_of_sets > 0x3f)
-		print_field("Number of sets: Reserved (0x%2.2x)",
-							cmd->num_of_sets);
-	else
-		print_field("Number of sets: %u (0x%2.2x)", cmd->num_of_sets,
-							cmd->num_of_sets);
-
-	for (i = 0; i < cmd->num_of_sets; ++i) {
-		adv_set = data + 2 + i * sizeof(struct bt_hci_cmd_ext_adv_set);
-		print_field("Entry %d", i);
-		print_field("  Handle: 0x%2.2x", adv_set->handle);
-		print_field("  Duration: %d ms (0x%2.2x)",
-				adv_set->duration * 10, adv_set->duration);
-		print_field("  Max ext adv events: %d", adv_set->max_events);
-	}
-}
-
-static void le_read_max_adv_data_len_rsp(const void *data, uint8_t size)
-{
-	const struct bt_hci_rsp_le_read_max_adv_data_len *rsp = data;
-
-	print_status(rsp->status);
-	print_field("Max length: %d", rsp->max_len);
-}
-
-static void le_read_num_supported_adv_sets_rsp(const void *data, uint8_t size)
-{
-	const struct bt_hci_rsp_le_read_num_supported_adv_sets *rsp = data;
-
-	print_status(rsp->status);
-	print_field("Num supported adv sets: %d", rsp->num_of_sets);
-}
-
-static void le_remove_adv_set_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_remove_adv_set *cmd = data;
-
-	print_handle(cmd->handle);
-}
-
-static const struct {
-	uint8_t bit;
-	const char *str;
-} periodic_adv_properties_table[] = {
-	{  6, "Include TxPower"		},
-	{ }
-};
-
-static void print_periodic_adv_properties(uint16_t flags)
-{
-	uint16_t mask = flags;
-	int i;
-
-	print_field("Properties: 0x%4.4x", flags);
-
-	for (i = 0; periodic_adv_properties_table[i].str; i++) {
-		if (flags & (1 << periodic_adv_properties_table[i].bit)) {
-			print_field("  %s",
-					periodic_adv_properties_table[i].str);
-			mask &= ~(1 << periodic_adv_properties_table[i].bit);
-		}
-	}
-
-	if (mask)
-		print_text(COLOR_UNKNOWN_ADV_FLAG,
-				"  Unknown advertising properties (0x%4.4x)",
-									mask);
-}
-
-static void le_set_periodic_adv_params_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_periodic_adv_params *cmd = data;
-
-	print_handle(cmd->handle);
-	print_slot_125("Min interval", cmd->min_interval);
-	print_slot_125("Max interval", cmd->max_interval);
-	print_periodic_adv_properties(cmd->properties);
-}
-
-static void le_set_periodic_adv_data_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_periodic_adv_data *cmd = data;
-	const char *str;
-
-	print_handle(cmd->handle);
-
-	switch (cmd->operation) {
-	case 0x00:
-		str = "Immediate fragment";
-		break;
-	case 0x01:
-		str = "First fragment";
-		break;
-	case 0x02:
-		str = "Last fragment";
-		break;
-	case 0x03:
-		str = "Complete ext advertising data";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Operation: %s (0x%2.2x)", str, cmd->operation);
-	print_field("Data length: 0x%2.2x", cmd->data_len);
-	print_eir(cmd->data, cmd->data_len, true);
-}
-
-static void le_set_periodic_adv_enable_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_periodic_adv_enable *cmd = data;
-
-	print_enable("Periodic advertising", cmd->enable);
-	print_handle(cmd->handle);
-}
-
-static const struct {
-	uint8_t bit;
-	const char *str;
-} ext_scan_phys_table[] = {
-	{  0, "LE 1M"		},
-	{  2, "LE Coded"		},
-	{ }
-};
-
-static void print_ext_scan_phys(const void *data, uint8_t flags)
-{
-	const struct bt_hci_le_scan_phy *scan_phy;
-	uint8_t mask = flags;
-	int bits_set = 0;
-	int i;
-
-	print_field("PHYs: 0x%2.2x", flags);
-
-	for (i = 0; ext_scan_phys_table[i].str; i++) {
-		if (flags & (1 << ext_scan_phys_table[i].bit)) {
-			scan_phy = data + bits_set * sizeof(*scan_phy);
-			mask &= ~(1 << ext_scan_phys_table[i].bit);
-
-			print_field("Entry %d: %s", bits_set,
-						ext_scan_phys_table[i].str);
-			print_scan_type("  Type", scan_phy->type);
-			print_slot_625("  Interval", scan_phy->interval);
-			print_slot_625("  Window", scan_phy->window);
-
-			++bits_set;
-		}
-	}
-
-	if (mask)
-		print_text(COLOR_UNKNOWN_ADV_FLAG, "  Unknown scanning PHYs"
-							" (0x%2.2x)", mask);
-}
-
-static void le_set_ext_scan_params_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_ext_scan_params *cmd = data;
-
-	print_own_addr_type(cmd->own_addr_type);
-	print_scan_filter_policy(cmd->filter_policy);
-	print_ext_scan_phys(cmd->data, cmd->num_phys);
-}
-
-static void le_set_ext_scan_enable_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_ext_scan_enable *cmd = data;
-
-	print_enable("Extended scan", cmd->enable);
-	print_enable("Filter duplicates", cmd->filter_dup);
-
-	print_field("Duration: %d msec (0x%4.4x)",
-						le16_to_cpu(cmd->duration) * 10,
-						le16_to_cpu(cmd->duration));
-	print_field("Period: %.2f sec (0x%4.4x)",
-						le16_to_cpu(cmd->period) * 1.28,
-						le16_to_cpu(cmd->period));
-}
-
-static const struct {
-	uint8_t bit;
-	const char *str;
-} ext_conn_phys_table[] = {
-	{  0, "LE 1M"		},
-	{  1, "LE 2M"		},
-	{  2, "LE Coded"		},
-	{ }
-};
-
-static void print_ext_conn_phys(const void *data, uint8_t flags)
-{
-	const struct bt_hci_le_ext_create_conn *entry;
-	uint8_t mask = flags;
-	int bits_set = 0;
-	int i;
-
-	print_field("Initiating PHYs: 0x%2.2x", flags);
-
-	for (i = 0; ext_conn_phys_table[i].str; i++) {
-		if (flags & (1 << ext_conn_phys_table[i].bit)) {
-			entry = data + bits_set * sizeof(*entry);
-			mask &= ~(1 << ext_conn_phys_table[i].bit);
-
-			print_field("Entry %d: %s", bits_set,
-						ext_conn_phys_table[i].str);
-			print_slot_625("  Scan interval", entry->scan_interval);
-			print_slot_625("  Scan window", entry->scan_window);
-			print_slot_125("  Min connection interval",
-							entry->min_interval);
-			print_slot_125("  Max connection interval",
-							entry->max_interval);
-			print_conn_latency("  Connection latency",
-								entry->latency);
-			print_field("  Supervision timeout: %d msec (0x%4.4x)",
-					le16_to_cpu(entry->supv_timeout) * 10,
-					le16_to_cpu(entry->supv_timeout));
-			print_slot_625("  Min connection length",
-							entry->min_length);
-			print_slot_625("  Max connection length",
-							entry->max_length);
-
-			++bits_set;
-		}
-	}
-
-	if (mask)
-		print_text(COLOR_UNKNOWN_ADV_FLAG, "  Unknown scanning PHYs"
-							" (0x%2.2x)", mask);
-}
-
-static void le_ext_create_conn_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_ext_create_conn *cmd = data;
-	const char *str;
-
-	switch (cmd->filter_policy) {
-	case 0x00:
-		str = "White list is not used";
-		break;
-	case 0x01:
-		str = "White list is used";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Filter policy: %s (0x%2.2x)", str, cmd->filter_policy);
-
-	print_own_addr_type(cmd->own_addr_type);
-	print_peer_addr_type("Peer address type", cmd->peer_addr_type);
-	print_addr("Peer address", cmd->peer_addr, cmd->peer_addr_type);
-	print_ext_conn_phys(cmd->data, cmd->phys);
-}
-
-static void le_periodic_adv_create_sync_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_periodic_adv_create_sync *cmd = data;
-	const char *str;
-
-	switch (cmd->filter_policy) {
-	case 0x00:
-		str = "Use specified advertising parameters";
-		break;
-	case 0x01:
-		str = "Use Periodic Advertiser List";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Filter policy: %s (0x%2.2x)", str, cmd->filter_policy);
-	print_field("SID: 0x%2.2x", cmd->sid);
-	print_addr_type("Adv address type", cmd->addr_type);
-	print_addr("Adv address", cmd->addr, cmd->addr_type);
-	print_field("Skip: 0x%4.4x", cmd->skip);
-	print_field("Sync timeout: %d msec (0x%4.4x)",
-					le16_to_cpu(cmd->sync_timeout) * 10,
-					le16_to_cpu(cmd->sync_timeout));
-	print_field("Unused: 0x%2.2x", cmd->unused);
-}
-
-static void le_periodic_adv_term_sync_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_periodic_adv_term_sync *cmd = data;
-
-	print_field("Sync handle: 0x%4.4x", cmd->sync_handle);
-}
-
-static void le_add_dev_periodic_adv_list_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_add_dev_periodic_adv_list *cmd = data;
-
-	print_addr_type("Adv address type", cmd->addr_type);
-	print_addr("Adv address", cmd->addr, cmd->addr_type);
-	print_field("SID: 0x%2.2x", cmd->sid);
-}
-
-static void le_remove_dev_periodic_adv_list_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_remove_dev_periodic_adv_list *cmd = data;
-
-	print_addr_type("Adv address type", cmd->addr_type);
-	print_addr("Adv address", cmd->addr, cmd->addr_type);
-	print_field("SID: 0x%2.2x", cmd->sid);
-}
-
-static void le_read_periodic_adv_list_size_rsp(const void *data, uint8_t size)
-{
-	const struct bt_hci_rsp_le_read_dev_periodic_adv_list_size *rsp = data;
-
-	print_status(rsp->status);
-	print_field("List size: 0x%2.2x", rsp->list_size);
-}
-
-static void le_read_tx_power_rsp(const void *data, uint8_t size)
-{
-	const struct bt_hci_rsp_le_read_tx_power *rsp = data;
-
-	print_status(rsp->status);
-	print_field("Min Tx power: %d dBm", rsp->min_tx_power);
-	print_field("Max Tx power: %d dBm", rsp->max_tx_power);
-}
-
-static void le_read_rf_path_comp_rsp(const void *data, uint8_t size)
-{
-	const struct bt_hci_rsp_le_read_rf_path_comp *rsp = data;
-
-	print_status(rsp->status);
-	print_field("RF Tx Path Compensation Value: 0x%4.4x",
-							rsp->rf_tx_path_comp);
-	print_field("RF Rx Path Compensation Value: 0x%4.4x",
-							rsp->rf_rx_path_comp);
-}
-
-static void le_write_rf_path_comp_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_write_rf_path_comp *cmd = data;
-
-	print_field("RF Tx Path Compensation Value: 0x%4.4x",
-							cmd->rf_tx_path_comp);
-	print_field("RF Rx Path Compensation Value: 0x%4.4x",
-							cmd->rf_rx_path_comp);
-}
-
-static void le_set_priv_mode_cmd(const void *data, uint8_t size)
-{
-	const struct bt_hci_cmd_le_set_priv_mode *cmd = data;
-	const char *str;
-
-	print_addr_type("Peer Identity address type", cmd->peer_id_addr_type);
-	print_addr("Peer Identity address", cmd->peer_id_addr,
-							cmd->peer_id_addr_type);
-
-	switch (cmd->priv_mode) {
-	case 0x00:
-		str = "Use Network Privacy";
-		break;
-	case 0x01:
-		str = "Use Device Privacy";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Privacy Mode: %s (0x%2.2x)", str, cmd->priv_mode);
 }
 
 struct opcode_data {
@@ -8201,98 +7384,6 @@ static const struct opcode_data opcode_table[] = {
 	{ 0x202f, 283, "LE Read Maximum Data Length",
 				null_cmd, 0, true,
 				le_read_max_data_length_rsp, 9, true },
-	{ 0x2030, 284, "LE Read PHY",
-				le_read_phy_cmd, 2, true,
-				le_read_phy_rsp, 5, true},
-	{ 0x2031, 285, "LE Set Default PHY",
-				le_set_default_phy_cmd, 3, true,
-				status_rsp, 1, true },
-	{ 0x2032, 286, "LE Set PHY",
-				le_set_phy_cmd, 7, true},
-	{ 0x2033, 287, "LE Enhanced Receiver Test",
-				le_enhanced_receiver_test_cmd, 3, true,
-				status_rsp, 1, true },
-	{ 0x2034, 288, "LE Enhanced Transmitter Test",
-				le_enhanced_transmitter_test_cmd, 4, true,
-				status_rsp, 1, true },
-	{ 0x2035, 289, "LE Set Advertising Set Random Address",
-				le_set_adv_set_rand_addr, 7, true,
-				status_rsp, 1, true },
-	{ 0x2036, 290, "LE Set Extended Advertising Parameters",
-				le_set_ext_adv_params_cmd, 25, true,
-				le_set_ext_adv_params_rsp, 2, true },
-	{ 0x2037, 291, "LE Set Extended Advertising Data",
-				le_set_ext_adv_data_cmd, 4, false,
-				status_rsp, 1, true },
-	{ 0x2038, 292, "LE Set Extended Scan Response Data",
-				le_set_ext_scan_rsp_data_cmd, 4, false,
-				status_rsp, 1, true },
-	{ 0x2039, 293, "LE Set Extended Advertising Enable",
-				le_set_ext_adv_enable_cmd, 2, false,
-				status_rsp, 1, true },
-	{ 0x203a, 294, "LE Read Maximum Advertising Data Length",
-				null_cmd, 0, true,
-				le_read_max_adv_data_len_rsp, 3, true },
-	{ 0x203b, 295, "LE Read Number of Supported Advertising Sets",
-				null_cmd, 0, true,
-				le_read_num_supported_adv_sets_rsp, 2, true },
-	{ 0x203c, 296, "LE Remove Advertising Set",
-				le_remove_adv_set_cmd, 1, true,
-				status_rsp, 1, true },
-	{ 0x203d, 297, "LE Clear Advertising Sets",
-				null_cmd, 0, true,
-				status_rsp, 1, true },
-	{ 0x203e, 298, "LE Set Periodic Advertising Parameters",
-				le_set_periodic_adv_params_cmd, 7, true,
-				status_rsp, 1, true },
-	{ 0x203f, 299, "LE Set Periodic Advertising Data",
-				le_set_periodic_adv_data_cmd, 3, false,
-				status_rsp, 1, true },
-	{ 0x2040, 300, "LE Set Periodic Advertising Enable",
-				le_set_periodic_adv_enable_cmd, 2, true,
-				status_rsp, 1, true },
-	{ 0x2041, 301, "LE Set Extended Scan Parameters",
-				le_set_ext_scan_params_cmd, 3, false,
-				status_rsp, 1, true },
-	{ 0x2042, 302, "LE Set Extended Scan Enable",
-				le_set_ext_scan_enable_cmd, 6, true,
-				status_rsp, 1, true },
-	{ 0x2043, 303, "LE Extended Create Connection",
-				le_ext_create_conn_cmd, 10, false,
-				status_rsp, 1, true },
-	{ 0x2044, 304, "LE Periodic Advertising Create Sync",
-				le_periodic_adv_create_sync_cmd, 14, true,
-				status_rsp, 1, true },
-	{ 0x2045, 305, "LE Periodic Advertising Create Sync Cancel",
-				null_cmd, 0, true,
-				status_rsp, 1, true },
-	{ 0x2046, 306, "LE Periodic Advertising Terminate Sync",
-				le_periodic_adv_term_sync_cmd, 2, true,
-				status_rsp, 1, true },
-	{ 0x2047, 307, "LE Add Device To Periodic Advertiser List",
-				le_add_dev_periodic_adv_list_cmd, 8, true,
-				status_rsp, 1, true },
-	{ 0x2048, 308, "LE Remove Device From Periodic Advertiser List",
-				le_remove_dev_periodic_adv_list_cmd, 8, true,
-				status_rsp, 1, true },
-	{ 0x2049, 309, "LE Clear Periodic Advertiser List",
-				null_cmd, 0, true,
-				status_rsp, 1, true },
-	{ 0x204a, 310, "LE Read Periodic Advertiser List Size",
-				null_cmd, 0, true,
-				le_read_periodic_adv_list_size_rsp, 2, true },
-	{ 0x204b, 311, "LE Read Transmit Power",
-				null_cmd, 0, true,
-				le_read_tx_power_rsp, 3, true },
-	{ 0x204c, 312, "LE Read RF Path Compensation",
-				null_cmd, 0, true,
-				le_read_rf_path_comp_rsp, 5, true },
-	{ 0x204d, 313, "LE Write RF Path Compensation",
-				le_write_rf_path_comp_cmd, 4, true,
-				status_rsp, 1, true },
-	{ 0x204e, 314, "LE Set Privacy Mode",
-				le_set_priv_mode_cmd, 8, true,
-				status_rsp, 1, true },
 	{ }
 };
 
@@ -8396,7 +7487,7 @@ static void conn_complete_evt(const void *data, uint8_t size)
 	print_handle(evt->handle);
 	print_bdaddr(evt->bdaddr);
 	print_link_type(evt->link_type);
-	print_enable("Encryption", evt->encr_mode);
+	print_encr_mode(evt->encr_mode);
 
 	if (evt->status == 0x00)
 		assign_handle(le16_to_cpu(evt->handle), 0x00);
@@ -9121,7 +8212,7 @@ static void short_range_mode_change_evt(const void *data, uint8_t size)
 
 	print_status(evt->status);
 	print_phy_handle(evt->phy_handle);
-	print_enable("Short range mode", evt->mode);
+	print_short_range_mode(evt->mode);
 }
 
 static void amp_status_change_evt(const void *data, uint8_t size)
@@ -9238,7 +8329,7 @@ static void le_conn_complete_evt(const void *data, uint8_t size)
 	print_peer_addr_type("Peer address type", evt->peer_addr_type);
 	print_addr("Peer address", evt->peer_addr, evt->peer_addr_type);
 	print_slot_125("Connection interval", evt->interval);
-	print_conn_latency("Connection latency", evt->latency);
+	print_slot_125("Connection latency", evt->latency);
 	print_field("Supervision timeout: %d msec (0x%4.4x)",
 					le16_to_cpu(evt->supv_timeout) * 10,
 					le16_to_cpu(evt->supv_timeout));
@@ -9257,7 +8348,7 @@ static void le_adv_report_evt(const void *data, uint8_t size)
 	print_num_reports(evt->num_reports);
 
 report:
-	print_adv_event_type("Event type", evt->event_type);
+	print_adv_event_type(evt->event_type);
 	print_peer_addr_type("Address type", evt->addr_type);
 	print_addr("Address", evt->addr, evt->addr_type);
 	print_field("Data length: %d", evt->data_len);
@@ -9283,7 +8374,7 @@ static void le_conn_update_complete_evt(const void *data, uint8_t size)
 	print_status(evt->status);
 	print_handle(evt->handle);
 	print_slot_125("Connection interval", evt->interval);
-	print_conn_latency("Connection latency", evt->latency);
+	print_slot_125("Connection latency", evt->latency);
 	print_field("Supervision timeout: %d msec (0x%4.4x)",
 					le16_to_cpu(evt->supv_timeout) * 10,
 					le16_to_cpu(evt->supv_timeout));
@@ -9314,7 +8405,7 @@ static void le_conn_param_request_evt(const void *data, uint8_t size)
 	print_handle(evt->handle);
 	print_slot_125("Min connection interval", evt->min_interval);
 	print_slot_125("Max connection interval", evt->max_interval);
-	print_conn_latency("Connection latency", evt->latency);
+	print_field("Connection latency: 0x%4.4x", le16_to_cpu(evt->latency));
 	print_field("Supervision timeout: %d msec (0x%4.4x)",
 					le16_to_cpu(evt->supv_timeout) * 10,
 					le16_to_cpu(evt->supv_timeout));
@@ -9359,7 +8450,7 @@ static void le_enhanced_conn_complete_evt(const void *data, uint8_t size)
 	print_addr("Local resolvable private address", evt->local_rpa, 0x01);
 	print_addr("Peer resolvable private address", evt->peer_rpa, 0x01);
 	print_slot_125("Connection interval", evt->interval);
-	print_conn_latency("Connection latency", evt->latency);
+	print_slot_125("Connection latency", evt->latency);
 	print_field("Supervision timeout: %d msec (0x%4.4x)",
 					le16_to_cpu(evt->supv_timeout) * 10,
 					le16_to_cpu(evt->supv_timeout));
@@ -9375,7 +8466,7 @@ static void le_direct_adv_report_evt(const void *data, uint8_t size)
 
 	print_num_reports(evt->num_reports);
 
-	print_adv_event_type("Event type", evt->event_type);
+	print_adv_event_type(evt->event_type);
 	print_peer_addr_type("Address type", evt->addr_type);
 	print_addr("Address", evt->addr, evt->addr_type);
 	print_addr_type("Direct address type", evt->direct_addr_type);
@@ -9384,236 +8475,6 @@ static void le_direct_adv_report_evt(const void *data, uint8_t size)
 
 	if (size > sizeof(*evt))
 		packet_hexdump(data + sizeof(*evt), size - sizeof(*evt));
-}
-
-static void le_phy_update_complete_evt(const void *data, uint8_t size)
-{
-	const struct bt_hci_evt_le_phy_update_complete *evt = data;
-
-	print_status(evt->status);
-	print_handle(evt->handle);
-	print_le_phy("TX PHY", evt->tx_phy);
-	print_le_phy("RX PHY", evt->rx_phy);
-}
-
-static const struct {
-	uint8_t bit;
-	const char *str;
-} ext_adv_report_evt_type[] = {
-	{  0, "Connectable"		},
-	{  1, "Scannable"		},
-	{  2, "Directed"	},
-	{  3, "Scan response"	},
-	{  4, "Use legacy advertising PDUs"	},
-	{ }
-};
-
-static void print_ext_adv_report_evt_type(const char *indent, uint16_t flags)
-{
-	uint16_t mask = flags;
-	uint16_t props = flags;
-	uint8_t data_status;
-	const char *str;
-	int i;
-
-	print_field("%sEvent type: 0x%4.4x", indent, flags);
-
-	props &= 0x1f;
-	print_field("%s  Props: 0x%4.4x", indent, props);
-	for (i = 0; ext_adv_report_evt_type[i].str; i++) {
-		if (flags & (1 << ext_adv_report_evt_type[i].bit)) {
-			print_field("%s    %s", indent,
-						ext_adv_report_evt_type[i].str);
-			mask &= ~(1 << ext_adv_report_evt_type[i].bit);
-		}
-	}
-
-	data_status = (flags >> 5) & 3;
-	mask &= ~(data_status << 5);
-
-	switch (data_status) {
-	case 0x00:
-		str = "Complete";
-		break;
-	case 0x01:
-		str = "Incomplete, more data to come";
-		break;
-	case 0x02:
-		str = "Incomplete, data truncated, no more to come";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("%s  Data status: %s", indent, str);
-
-	if (mask)
-		print_text(COLOR_UNKNOWN_ADV_FLAG,
-				"%s  Reserved (0x%4.4x)", indent, mask);
-}
-
-static void print_legacy_adv_report_pdu(uint16_t flags)
-{
-	const char *str;
-
-	if (!(flags & (1 << 4)))
-		return;
-
-	switch (flags) {
-	case 0x10:
-		str = "ADV_NONCONN_IND";
-		break;
-	case 0x12:
-		str = "ADV_SCAN_IND";
-		break;
-	case 0x13:
-		str = "ADV_IND";
-		break;
-	case 0x15:
-		str = "ADV_DIRECT_IND";
-		break;
-	case 0x1a:
-		str = "SCAN_RSP to an ADV_IND";
-		break;
-	case 0x1b:
-		str = "SCAN_RSP to an ADV_SCAN_IND";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("  Legacy PDU Type: %s (0x%4.4x)", str, flags);
-}
-
-static void le_ext_adv_report_evt(const void *data, uint8_t size)
-{
-	const struct bt_hci_evt_le_ext_adv_report *evt = data;
-	const struct bt_hci_le_ext_adv_report *report;
-	const char *str;
-	int i;
-
-	print_num_reports(evt->num_reports);
-
-	data += sizeof(evt->num_reports);
-
-	for (i = 0; i < evt->num_reports; ++i) {
-		report = data;
-		print_field("Entry %d", i);
-		print_ext_adv_report_evt_type("  ", report->event_type);
-		print_legacy_adv_report_pdu(report->event_type);
-		print_peer_addr_type("  Address type", report->addr_type);
-		print_addr("  Address", report->addr, report->addr_type);
-
-		switch (report->primary_phy) {
-		case 0x01:
-			str = "LE 1M";
-			break;
-		case 0x03:
-			str = "LE Coded";
-			break;
-		default:
-			str = "Reserved";
-			break;
-		}
-
-		print_field("  Primary PHY: %s", str);
-
-		switch (report->secondary_phy) {
-		case 0x00:
-			str = "No packets";
-			break;
-		case 0x01:
-			str = "LE 1M";
-			break;
-		case 0x02:
-			str = "LE 2M";
-			break;
-		case 0x03:
-			str = "LE Coded";
-			break;
-		default:
-			str = "Reserved";
-			break;
-		}
-
-		print_field("  Secondary PHY: %s", str);
-
-		if (report->sid == 0xff)
-			print_field("  SID: no ADI field (0x%2.2x)",
-								report->sid);
-		else if (report->sid > 0x0f)
-			print_field("  SID: Reserved (0x%2.2x)", report->sid);
-		else
-			print_field("  SID: 0x%2.2x", report->sid);
-
-		print_field("  TX power: %d dBm", report->tx_power);
-
-		if (report->rssi == 127)
-			print_field("  RSSI: not available (0x%2.2x)",
-							(uint8_t) report->rssi);
-		else if (report->rssi >= -127 && report->rssi <= 20)
-			print_field("  RSSI: %d dBm (0x%2.2x)",
-					report->rssi, (uint8_t) report->rssi);
-		else
-			print_field("  RSSI: reserved (0x%2.2x)",
-							(uint8_t) report->rssi);
-
-		print_slot_125("  Periodic advertising invteral",
-							report->interval);
-		print_peer_addr_type("  Direct address type",
-						report->direct_addr_type);
-		print_addr("  Direct address", report->direct_addr,
-						report->direct_addr_type);
-		print_field("  Data length: 0x%2.2x", report->data_len);
-		data += sizeof(struct bt_hci_le_ext_adv_report);
-		packet_hexdump(data, report->data_len);
-		data += report->data_len;
-	}
-}
-
-static void le_adv_set_term_evt(const void *data, uint8_t size)
-{
-	const struct bt_hci_evt_le_adv_set_term *evt = data;
-
-	print_status(evt->status);
-	print_field("Handle: %d", evt->handle);
-	print_field("Connection handle: %d", evt->conn_handle);
-	print_field("Number of completed extended advertising events: %d",
-			evt->num_evts);
-}
-
-static void le_scan_req_received_evt(const void *data, uint8_t size)
-{
-	const struct bt_hci_evt_le_scan_req_received *evt = data;
-
-	print_field("Handle: %d", evt->handle);
-	print_peer_addr_type("Scanner address type", evt->scanner_addr_type);
-	print_addr("Scanner address", evt->scanner_addr,
-							evt->scanner_addr_type);
-}
-
-static void le_chan_select_alg_evt(const void *data, uint8_t size)
-{
-	const struct bt_hci_evt_le_chan_select_alg *evt = data;
-	const char *str;
-
-	print_handle(evt->handle);
-
-	switch (evt->algorithm) {
-	case 0x00:
-		str = "#1";
-		break;
-	case 0x01:
-		str = "#2";
-		break;
-	default:
-		str = "Reserved";
-		break;
-	}
-
-	print_field("Algorithm: %s (0x%2.2x)", str, evt->algorithm);
 }
 
 struct subevent_data {
@@ -9682,20 +8543,6 @@ static const struct subevent_data le_meta_event_table[] = {
 				le_enhanced_conn_complete_evt, 30, true },
 	{ 0x0b, "LE Direct Advertising Report",
 				le_direct_adv_report_evt, 1, false },
-	{ 0x0c, "LE PHY Update Complete",
-				le_phy_update_complete_evt, 5, true},
-	{ 0x0d, "LE Extended Advertising Report",
-				le_ext_adv_report_evt, 1, false},
-	{ 0x0e, "LE Periodic Advertising Sync Established" },
-	{ 0x0f, "LE Periodic Advertising Report" },
-	{ 0x10, "LE Periodic Advertising Sync Lost" },
-	{ 0x11, "LE Scan Timeout" },
-	{ 0x12, "LE Advertising Set Terminated",
-				le_adv_set_term_evt, 5, true},
-	{ 0x13, "LE Scan Request Received",
-				le_scan_req_received_evt, 8, true},
-	{ 0x14, "LE Channel Selection Algorithm",
-				le_chan_select_alg_evt, 3, true},
 	{ }
 };
 
@@ -9914,7 +8761,6 @@ static const struct event_data event_table[] = {
 				inquiry_response_notify_evt, 4, true },
 	{ 0x57, "Authenticated Payload Timeout Expired",
 				auth_payload_timeout_expired_evt, 2, true },
-	{ 0x58, "SAM Status Change" },
 	{ 0xfe, "Testing" },
 	{ 0xff, "Vendor", vendor_evt, 0, false },
 	{ }
@@ -10062,8 +8908,6 @@ void packet_hci_command(struct timeval *tv, struct ucred *cred, uint16_t index,
 	char extra_str[25], vendor_str[150];
 	int i;
 
-	index_list[index].frame++;
-
 	if (size < HCI_COMMAND_HDR_SIZE) {
 		sprintf(extra_str, "(len %d)", size);
 		print_packet(tv, cred, '*', index, NULL, COLOR_ERROR,
@@ -10165,8 +9009,6 @@ void packet_hci_event(struct timeval *tv, struct ucred *cred, uint16_t index,
 	char extra_str[25];
 	int i;
 
-	index_list[index].frame++;
-
 	if (size < HCI_EVENT_HDR_SIZE) {
 		sprintf(extra_str, "(len %d)", size);
 		print_packet(tv, cred, '*', index, NULL, COLOR_ERROR,
@@ -10239,8 +9081,6 @@ void packet_hci_acldata(struct timeval *tv, struct ucred *cred, uint16_t index,
 	uint8_t flags = acl_flags(handle);
 	char handle_str[16], extra_str[32];
 
-	index_list[index].frame++;
-
 	if (size < HCI_ACL_HDR_SIZE) {
 		if (in)
 			print_packet(tv, cred, '*', index, NULL, COLOR_ERROR,
@@ -10282,8 +9122,6 @@ void packet_hci_scodata(struct timeval *tv, struct ucred *cred, uint16_t index,
 	uint16_t handle = le16_to_cpu(hdr->handle);
 	uint8_t flags = acl_flags(handle);
 	char handle_str[16], extra_str[32];
-
-	index_list[index].frame++;
 
 	if (size < HCI_SCO_HDR_SIZE) {
 		if (in)
@@ -10649,6 +9487,25 @@ static void mgmt_print_uuid(const void *data)
 				get_le32(&uuid[2]), get_le16(&uuid[0]));
 }
 
+static void mgmt_print_enable(const char *label, uint8_t enable)
+{
+	const char *str;
+
+	switch (enable) {
+	case 0x00:
+		str = "Disabled";
+		break;
+	case 0x01:
+		str = "Enabled";
+		break;
+	default:
+		str = "Reserved";
+		break;
+	}
+
+	print_field("%s: %s (0x%2.2x)", label, str, enable);
+}
+
 static void mgmt_print_io_capability(uint8_t capability)
 {
 	const char *str;
@@ -10791,7 +9648,7 @@ static void mgmt_print_connection_parameter(const void *data)
 	mgmt_print_address(data, address_type);
 	print_field("Min connection interval: %u", min_conn_interval);
 	print_field("Max connection interval: %u", max_conn_interval);
-	print_conn_latency("Connection latency", conn_latency);
+	print_field("Connection latency: %u", conn_latency);
 	print_field("Supervision timeout: %u", supv_timeout);
 }
 
@@ -10967,7 +9824,7 @@ static void mgmt_set_powered_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("Powered", enable);
+	mgmt_print_enable("Powered", enable);
 }
 
 static void mgmt_set_discoverable_cmd(const void *data, uint16_t size)
@@ -10999,49 +9856,49 @@ static void mgmt_set_connectable_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("Connectable", enable);
+	mgmt_print_enable("Connectable", enable);
 }
 
 static void mgmt_set_fast_connectable_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("Fast Connectable", enable);
+	mgmt_print_enable("Fast Connectable", enable);
 }
 
 static void mgmt_set_bondable_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("Bondable", enable);
+	mgmt_print_enable("Bondable", enable);
 }
 
 static void mgmt_set_link_security_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("Link Security", enable);
+	mgmt_print_enable("Link Security", enable);
 }
 
 static void mgmt_set_secure_simple_pairing_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("Secure Simple Pairing", enable);
+	mgmt_print_enable("Secure Simple Pairing", enable);
 }
 
 static void mgmt_set_high_speed_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("High Speed", enable);
+	mgmt_print_enable("High Speed", enable);
 }
 
 static void mgmt_set_low_energy_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("Low Energy", enable);
+	mgmt_print_enable("Low Energy", enable);
 }
 
 static void mgmt_new_settings_rsp(const void *data, uint16_t size)
@@ -11104,7 +9961,7 @@ static void mgmt_load_link_keys_cmd(const void *data, uint16_t size)
 	uint16_t num_keys = get_le16(data + 1);
 	int i;
 
-	print_enable("Debug keys", debug_keys);
+	mgmt_print_enable("Debug keys", debug_keys);
 	print_field("Keys: %u", num_keys);
 
 	if (size - 3 != num_keys * 25) {
@@ -11239,7 +10096,7 @@ static void mgmt_unpair_device_cmd(const void *data, uint16_t size)
 	uint8_t disconnect = get_u8(data + 7);
 
 	mgmt_print_address(data, address_type);
-	print_enable("Disconnect", disconnect);
+	mgmt_print_enable("Disconnect", disconnect);
 }
 
 static void mgmt_unpair_device_rsp(const void *data, uint16_t size)
@@ -11459,7 +10316,7 @@ static void mgmt_set_bredr_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("BR/EDR", enable);
+	mgmt_print_enable("BR/EDR", enable);
 }
 
 static void mgmt_set_static_address_cmd(const void *data, uint16_t size)
@@ -11682,7 +10539,7 @@ static void mgmt_set_external_configuration_cmd(const void *data, uint16_t size)
 {
 	uint8_t enable = get_u8(data);
 
-	print_enable("Configuration", enable);
+	mgmt_print_enable("Configuration", enable);
 }
 
 static void mgmt_set_public_address_cmd(const void *data, uint16_t size)
@@ -12365,7 +11222,7 @@ static void mgmt_discovering_evt(const void *data, uint16_t size)
 	uint8_t enable = get_u8(data + 1);
 
 	mgmt_print_address_type(type);
-	print_enable("Discovery", enable);
+	mgmt_print_enable("Discovery", enable);
 }
 
 static void mgmt_device_blocked_evt(const void *data, uint16_t size)

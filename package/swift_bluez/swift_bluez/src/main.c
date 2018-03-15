@@ -69,7 +69,6 @@
 
 struct main_opts main_opts;
 static GKeyFile *main_conf;
-static char *main_conf_file_path;
 
 static enum {
 	MPS_OFF,
@@ -77,45 +76,21 @@ static enum {
 	MPS_MULTIPLE,
 } mps = MPS_OFF;
 
-static const char *supported_options[] = {
+static const char * const supported_options[] = {
 	"Name",
 	"Class",
 	"DiscoverableTimeout",
+	"AlwaysPairable",
 	"PairableTimeout",
+	"AutoConnectTimeout",
 	"DeviceID",
 	"ReverseServiceDiscovery",
 	"NameResolving",
 	"DebugKeys",
 	"ControllerMode",
 	"MultiProfile",
-	"FastConnectable",
 	"Privacy",
-	NULL
 };
-
-static const char *policy_options[] = {
-	"ReconnectUUIDs",
-	"ReconnectAttempts",
-	"ReconnectIntervals",
-	"AutoEnable",
-	NULL
-};
-
-static const char *gatt_options[] = {
-	"Cache",
-	NULL
-};
-
-static const struct group_table {
-	const char *name;
-	const char **options;
-} valid_groups[] = {
-	{ "General",	supported_options },
-	{ "Policy",	policy_options },
-	{ "GATT",	gatt_options },
-	{ }
-};
-
 
 GKeyFile *btd_get_main_conf(void)
 {
@@ -174,53 +149,11 @@ done:
 	main_opts.did_version = version;
 }
 
-static bt_gatt_cache_t parse_gatt_cache(const char *cache)
-{
-	if (!strcmp(cache, "always")) {
-		return BT_GATT_CACHE_ALWAYS;
-	} else if (!strcmp(cache, "yes")) {
-		return BT_GATT_CACHE_YES;
-	} else if (!strcmp(cache, "no")) {
-		return BT_GATT_CACHE_NO;
-	} else {
-		DBG("Invalid value for KeepCache=%s", cache);
-		return BT_GATT_CACHE_ALWAYS;
-	}
-}
-
-static void check_options(GKeyFile *config, const char *group,
-						const char **options)
-{
-	char **keys;
-	int i;
-
-	keys = g_key_file_get_keys(config, group, NULL, NULL);
-
-	for (i = 0; keys != NULL && keys[i] != NULL; i++) {
-		bool found;
-		unsigned int j;
-
-		found = false;
-		for (j = 0; options != NULL && options[j] != NULL; j++) {
-			if (g_str_equal(keys[i], options[j])) {
-				found = true;
-				break;
-			}
-		}
-
-		if (!found)
-			warn("Unknown key %s for group %s in %s",
-					keys[i], group, main_conf_file_path);
-	}
-
-	g_strfreev(keys);
-}
-
 static void check_config(GKeyFile *config)
 {
+	const char *valid_groups[] = { "General", "Policy", NULL };
 	char **keys;
 	int i;
-	const struct group_table *group;
 
 	if (!config)
 		return;
@@ -228,24 +161,41 @@ static void check_config(GKeyFile *config)
 	keys = g_key_file_get_groups(config, NULL);
 
 	for (i = 0; keys != NULL && keys[i] != NULL; i++) {
+		const char **group;
 		bool match = false;
 
-		for (group = valid_groups; group && group->name ; group++) {
-			if (g_str_equal(keys[i], group->name)) {
+		for (group = valid_groups; *group; group++) {
+			if (g_str_equal(keys[i], *group)) {
 				match = true;
 				break;
 			}
 		}
 
 		if (!match)
-			warn("Unknown group %s in %s", keys[i],
-						main_conf_file_path);
+			warn("Unknown group %s in main.conf", keys[i]);
 	}
 
 	g_strfreev(keys);
 
-	for (group = valid_groups; group && group->name; group++)
-		check_options(config, group->name, group->options);
+	keys = g_key_file_get_keys(config, "General", NULL, NULL);
+
+	for (i = 0; keys != NULL && keys[i] != NULL; i++) {
+		bool found;
+		unsigned int j;
+
+		found = false;
+		for (j = 0; j < G_N_ELEMENTS(supported_options); j++) {
+			if (g_str_equal(keys[i], supported_options[j])) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found)
+			warn("Unknown key %s in main.conf", keys[i]);
+	}
+
+	g_strfreev(keys);
 }
 
 static int get_mode(const char *str)
@@ -274,7 +224,7 @@ static void parse_config(GKeyFile *config)
 
 	check_config(config);
 
-	DBG("parsing %s", main_conf_file_path);
+	DBG("parsing main.conf");
 
 	val = g_key_file_get_integer(config, "General",
 						"DiscoverableTimeout", &err);
@@ -294,6 +244,16 @@ static void parse_config(GKeyFile *config)
 	} else {
 		DBG("pairto=%d", val);
 		main_opts.pairto = val;
+	}
+
+	val = g_key_file_get_integer(config, "General", "AutoConnectTimeout",
+									&err);
+	if (err) {
+		DBG("%s", err->message);
+		g_clear_error(&err);
+	} else {
+		DBG("auto_to=%d", val);
+		main_opts.autoto = val;
 	}
 
 	str = g_key_file_get_string(config, "General", "Privacy", &err);
@@ -397,17 +357,6 @@ static void parse_config(GKeyFile *config)
 		g_clear_error(&err);
 	else
 		main_opts.fast_conn = boolean;
-
-	str = g_key_file_get_string(config, "GATT", "Cache", &err);
-	if (err) {
-		g_clear_error(&err);
-		main_opts.gatt_cache = BT_GATT_CACHE_ALWAYS;
-		return;
-	}
-
-	main_opts.gatt_cache = parse_gatt_cache(str);
-
-	g_free(str);
 }
 
 static void init_defaults(void)
@@ -541,7 +490,6 @@ static guint setup_signalfd(void)
 static char *option_debug = NULL;
 static char *option_plugin = NULL;
 static char *option_noplugin = NULL;
-static char *option_configfile = NULL;
 static gboolean option_compat = FALSE;
 static gboolean option_detach = TRUE;
 static gboolean option_version = FALSE;
@@ -557,9 +505,6 @@ static void free_options(void)
 
 	g_free(option_noplugin);
 	option_noplugin = NULL;
-
-	g_free(option_configfile);
-	option_configfile = NULL;
 }
 
 static void disconnect_dbus(void)
@@ -632,8 +577,6 @@ static GOptionEntry options[] = {
 				"Specify plugins to load", "NAME,..," },
 	{ "noplugin", 'P', 0, G_OPTION_ARG_STRING, &option_noplugin,
 				"Specify plugins not to load", "NAME,..." },
-	{ "configfile", 'f', 0, G_OPTION_ARG_STRING, &option_configfile,
-			"Specify an explicit path to the config file", "FILE"},
 	{ "compat", 'C', 0, G_OPTION_ARG_NONE, &option_compat,
 				"Provide deprecated command line interfaces" },
 	{ "experimental", 'E', 0, G_OPTION_ARG_NONE, &option_experimental,
@@ -693,12 +636,7 @@ int main(int argc, char *argv[])
 
 	sd_notify(0, "STATUS=Starting up");
 
-	if (option_configfile)
-		main_conf_file_path = option_configfile;
-	else
-		main_conf_file_path = CONFIGDIR "/main.conf";
-
-	main_conf = load_config(main_conf_file_path);
+	main_conf = load_config(CONFIGDIR "/main.conf");
 
 	parse_config(main_conf);
 

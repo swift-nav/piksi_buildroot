@@ -86,7 +86,6 @@ static unsigned int seids;
 #define AVDTP_MSG_TYPE_REJECT			0x03
 
 #define REQ_TIMEOUT 6
-#define SUSPEND_TIMEOUT 10
 #define ABORT_TIMEOUT 2
 #define DISCONNECT_TIMEOUT 1
 #define START_TIMEOUT 1
@@ -1002,7 +1001,6 @@ static void avdtp_sep_set_state(struct avdtp *session,
 			handle_unanswered_req(session, stream);
 		/* Remove pending commands for this stream from the queue */
 		cleanup_queue(session, stream);
-		session->streams = g_slist_remove(session->streams, stream);
 		break;
 	default:
 		break;
@@ -1015,8 +1013,11 @@ static void avdtp_sep_set_state(struct avdtp *session,
 		cb->cb(stream, old_state, state, err_ptr, cb->user_data);
 	}
 
-	if (state == AVDTP_STATE_IDLE)
+	if (state == AVDTP_STATE_IDLE &&
+				g_slist_find(session->streams, stream)) {
+		session->streams = g_slist_remove(session->streams, stream);
 		stream_free(stream);
+	}
 }
 
 static void finalize_discovery(struct avdtp *session, int err)
@@ -1152,12 +1153,9 @@ static void set_disconnect_timer(struct avdtp *session)
 	if (session->dc_timer)
 		remove_disconnect_timer(session);
 
-	if (!session->stream_setup && !session->streams)
-		session->dc_timer = g_idle_add(disconnect_timeout, session);
-	else
-		session->dc_timer = g_timeout_add_seconds(DISCONNECT_TIMEOUT,
-							disconnect_timeout,
-							session);
+	session->dc_timer = g_timeout_add_seconds(DISCONNECT_TIMEOUT,
+						disconnect_timeout,
+						session);
 }
 
 void avdtp_unref(struct avdtp *session)
@@ -2444,9 +2442,10 @@ static int cancel_request(struct avdtp *session, int err)
 	else
 		stream = NULL;
 
-	if (stream)
+	if (stream) {
+		stream->abort_int = TRUE;
 		lsep = stream->lsep;
-	else
+	} else
 		lsep = NULL;
 
 	switch (req->signal_id) {
@@ -2491,7 +2490,7 @@ static int cancel_request(struct avdtp *session, int err)
 		if (lsep && lsep->cfm && lsep->cfm->set_configuration)
 			lsep->cfm->set_configuration(session, lsep, stream,
 							&averr, lsep->user_data);
-		break;
+		goto failed;
 	case AVDTP_DISCOVER:
 		error("Discover: %s (%d)", strerror(err), err);
 		goto failed;
@@ -2516,8 +2515,6 @@ static int cancel_request(struct avdtp *session, int err)
 		goto failed;
 	}
 
-	stream->abort_int = TRUE;
-
 	goto done;
 
 failed:
@@ -2540,7 +2537,7 @@ static int send_req(struct avdtp *session, gboolean priority,
 			struct pending_req *req)
 {
 	static int transaction = 0;
-	int err, timeout;
+	int err;
 
 	if (session->state == AVDTP_SESSION_STATE_DISCONNECTED) {
 		session->io = l2cap_connect(session);
@@ -2570,18 +2567,10 @@ static int send_req(struct avdtp *session, gboolean priority,
 
 	session->req = req;
 
-	switch (req->signal_id) {
-	case AVDTP_ABORT:
-		timeout = ABORT_TIMEOUT;
-		break;
-	case AVDTP_SUSPEND:
-		timeout = SUSPEND_TIMEOUT;
-		break;
-	default:
-		timeout = REQ_TIMEOUT;
-	}
-
-	req->timeout = g_timeout_add_seconds(timeout, request_timeout, session);
+	req->timeout = g_timeout_add_seconds(req->signal_id == AVDTP_ABORT ?
+					ABORT_TIMEOUT : REQ_TIMEOUT,
+					request_timeout,
+					session);
 	return 0;
 
 failed:
@@ -2837,7 +2826,6 @@ static gboolean avdtp_parse_resp(struct avdtp *session,
 		return avdtp_discover_resp(session, buf, size);
 	case AVDTP_GET_ALL_CAPABILITIES:
 		get_all = "ALL_";
-		/* fall through */
 	case AVDTP_GET_CAPABILITIES:
 		DBG("GET_%sCAPABILITIES request succeeded", get_all);
 		if (!avdtp_get_capabilities_resp(session, buf, size))

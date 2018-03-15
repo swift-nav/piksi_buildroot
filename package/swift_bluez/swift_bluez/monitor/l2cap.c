@@ -32,13 +32,13 @@
 #include <inttypes.h>
 
 #include "lib/bluetooth.h"
-#include "lib/uuid.h"
 
 #include "src/shared/util.h"
 #include "bt.h"
 #include "packet.h"
 #include "display.h"
 #include "l2cap.h"
+#include "uuid.h"
 #include "keys.h"
 #include "sdp.h"
 #include "avctp.h"
@@ -573,11 +573,8 @@ static void print_le_conn_result(uint16_t result)
 	case 0x0009:
 		str = "Connection refused - Invalid Source CID";
 		break;
-	case 0x000a:
+	case 0x0010:
 		str = "Connection refused - Source CID already allocated";
-		break;
-	case 0x000b:
-		str = "Connection refused - unacceptable parameters";
 		break;
 	default:
 		str = "Reserved";
@@ -2006,11 +2003,11 @@ static void print_uuid(const char *label, const void *data, uint16_t size)
 
 	switch (size) {
 	case 2:
-		str = bt_uuid16_to_str(get_le16(data));
+		str = uuid16_to_str(get_le16(data));
 		print_field("%s: %s (0x%4.4x)", label, str, get_le16(data));
 		break;
 	case 4:
-		str = bt_uuid32_to_str(get_le32(data));
+		str = uuid32_to_str(get_le32(data));
 		print_field("%s: %s (0x%8.8x)", label, str, get_le32(data));
 		break;
 	case 16:
@@ -2018,7 +2015,7 @@ static void print_uuid(const char *label, const void *data, uint16_t size)
 				get_le32(data + 12), get_le16(data + 10),
 				get_le16(data + 8), get_le16(data + 6),
 				get_le32(data + 2), get_le16(data + 0));
-		str = bt_uuidstr_to_str(uuidstr);
+		str = uuidstr_to_str(uuidstr);
 		print_field("%s: %s (%s)", label, str, uuidstr);
 		break;
 	default:
@@ -2058,7 +2055,7 @@ static void print_data_list(const char *label, uint8_t length,
 
 static void print_attribute_info(uint16_t type, const void *data, uint16_t len)
 {
-	const char *str = bt_uuid16_to_str(type);
+	const char *str = uuid16_to_str(type);
 
 	print_field("%s: %s (0x%4.4x)", "Attribute type", str, type);
 
@@ -2674,7 +2671,7 @@ static void print_smp_oob_data(uint8_t oob_data)
 
 static void print_smp_auth_req(uint8_t auth_req)
 {
-	const char *bond, *mitm, *sc, *kp, *ct2;
+	const char *bond, *mitm, *sc, *kp;
 
 	switch (auth_req & 0x03) {
 	case 0x00:
@@ -2688,28 +2685,23 @@ static void print_smp_auth_req(uint8_t auth_req)
 		break;
 	}
 
-	if (auth_req & 0x04)
+	if ((auth_req & 0x04))
 		mitm = "MITM";
 	else
 		mitm = "No MITM";
 
-	if (auth_req & 0x08)
+	if ((auth_req & 0x08))
 		sc = "SC";
 	else
 		sc = "Legacy";
 
-	if (auth_req & 0x10)
+	if ((auth_req & 0x10))
 		kp = "Keypresses";
 	else
 		kp = "No Keypresses";
 
-	if (auth_req & 0x20)
-		ct2 = ", CT2";
-	else
-		ct2 = "";
-
-	print_field("Authentication requirement: %s, %s, %s, %s%s (0x%2.2x)",
-					bond, mitm, sc, kp, ct2, auth_req);
+	print_field("Authentication requirement: %s, %s, %s, %s (0x%2.2x)",
+						bond, mitm, sc, kp, auth_req);
 }
 
 static void print_smp_key_dist(const char *label, uint8_t dist)

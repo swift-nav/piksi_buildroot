@@ -102,13 +102,11 @@ struct media_item *media_player_create_item(struct media_player *mp,
 						player_item_type_t type,
 						uint64_t uid);
 
-void media_player_play_item_complete(struct media_player *mp, int err);
 void media_item_set_playable(struct media_item *item, bool value);
 void media_player_list_complete(struct media_player *mp, GSList *items,
 								int err);
 void media_player_change_folder_complete(struct media_player *player,
-						const char *path, uint64_t uid,
-						int ret);
+						const char *path, int ret);
 void media_player_search_complete(struct media_player *mp, int ret);
 void media_player_total_items_complete(struct media_player *mp,
 						uint32_t num_of_items);

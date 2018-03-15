@@ -803,7 +803,8 @@ static void write_cb(uint8_t opcode, const void *pdu,
 							write_complete_cb, op))
 		return;
 
-	async_write_op_destroy(op);
+	if (op)
+		async_write_op_destroy(op);
 
 	ecode = BT_ATT_ERROR_UNLIKELY;
 
@@ -1501,14 +1502,6 @@ struct bt_gatt_server *bt_gatt_server_new(struct gatt_db *db,
 	}
 
 	return bt_gatt_server_ref(server);
-}
-
-uint16_t bt_gatt_server_get_mtu(struct bt_gatt_server *server)
-{
-	if (!server || !server->att)
-		return 0;
-
-	return bt_att_get_mtu(server->att);
 }
 
 struct bt_gatt_server *bt_gatt_server_ref(struct bt_gatt_server *server)

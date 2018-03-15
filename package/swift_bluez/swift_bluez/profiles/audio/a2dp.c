@@ -104,7 +104,6 @@ struct a2dp_setup {
 	gboolean reconfigure;
 	gboolean start;
 	GSList *cb;
-	GIOChannel *io;
 	int ref;
 };
 
@@ -158,11 +157,6 @@ static struct a2dp_setup *setup_new(struct avdtp *session)
 static void setup_free(struct a2dp_setup *s)
 {
 	DBG("%p", s);
-
-	if (s->io) {
-		g_io_channel_shutdown(s->io, TRUE, NULL);
-		g_io_channel_unref(s->io);
-	}
 
 	setups = g_slist_remove(setups, s);
 	if (s->session)
@@ -496,7 +490,6 @@ static void endpoint_setconf_cb(struct a2dp_setup *setup, gboolean ret)
 	}
 
 	auto_config(setup);
-	setup_unref(setup);
 }
 
 static gboolean endpoint_match_codec_ind(struct avdtp *session,
@@ -586,13 +579,12 @@ static gboolean endpoint_setconf_ind(struct avdtp *session,
 		ret = a2dp_sep->endpoint->set_configuration(a2dp_sep,
 						codec->data,
 						cap->length - sizeof(*codec),
-						setup_ref(setup),
+						setup,
 						endpoint_setconf_cb,
 						a2dp_sep->user_data);
 		if (ret == 0)
 			return TRUE;
 
-		setup_unref(setup);
 		setup->err = g_new(struct avdtp_error, 1);
 		avdtp_error_init(setup->err, AVDTP_MEDIA_CODEC,
 					AVDTP_UNSUPPORTED_CONFIGURATION);
@@ -658,18 +650,16 @@ static void endpoint_open_cb(struct a2dp_setup *setup, gboolean ret)
 	if (ret == FALSE) {
 		setup->stream = NULL;
 		finalize_setup_errno(setup, -EPERM, finalize_config, NULL);
-		goto done;
+		return;
 	}
 
 	err = avdtp_open(setup->session, setup->stream);
 	if (err == 0)
-		goto done;
+		return;
 
 	error("Error on avdtp_open %s (%d)", strerror(-err), -err);
 	setup->stream = NULL;
 	finalize_setup_errno(setup, err, finalize_config, NULL);
-done:
-	setup_unref(setup);
 }
 
 static void setconf_cfm(struct avdtp *session, struct avdtp_local_sep *sep,
@@ -729,7 +719,7 @@ static void setconf_cfm(struct avdtp *session, struct avdtp_local_sep *sep,
 		err = a2dp_sep->endpoint->set_configuration(a2dp_sep,
 						codec->data, service->length -
 						sizeof(*codec),
-						setup_ref(setup),
+						setup,
 						endpoint_open_cb,
 						a2dp_sep->user_data);
 		if (err == 0)
@@ -737,7 +727,6 @@ static void setconf_cfm(struct avdtp *session, struct avdtp_local_sep *sep,
 
 		setup->stream = NULL;
 		finalize_setup_errno(setup, -EPERM, finalize_config, NULL);
-		setup_unref(setup);
 		return;
 	}
 
@@ -1399,7 +1388,6 @@ struct avdtp *a2dp_avdtp_get(struct btd_device *device)
 {
 	struct a2dp_server *server;
 	struct a2dp_channel *chan;
-	const struct queue_entry *entry;
 
 	server = find_server(servers, device_get_adapter(device));
 	if (server == NULL)
@@ -1415,20 +1403,6 @@ struct avdtp *a2dp_avdtp_get(struct btd_device *device)
 	if (chan->session)
 		return avdtp_ref(chan->session);
 
-	/* Check if there is any SEP available */
-	for (entry = queue_get_entries(server->seps); entry;
-					entry = entry->next) {
-		struct avdtp_local_sep *sep = entry->data;
-
-		if (avdtp_sep_get_state(sep) == AVDTP_STATE_IDLE)
-			goto found;
-	}
-
-	DBG("Unable to find any available SEP");
-
-	return NULL;
-
-found:
 	chan->session = avdtp_new(NULL, device, server->seps);
 	if (!chan->session) {
 		channel_remove(chan);
@@ -1514,9 +1488,6 @@ static void transport_cb(GIOChannel *io, GError *err, gpointer user_data)
 
 	g_io_channel_set_close_on_unref(io, FALSE);
 
-	g_io_channel_unref(setup->io);
-	setup->io = NULL;
-
 	setup_unref(setup);
 
 	return;
@@ -1561,23 +1532,11 @@ static void confirm_cb(GIOChannel *io, gpointer data)
 		if (!setup || !setup->stream)
 			goto drop;
 
-		if (setup->io) {
-			error("transport channel already exists");
-			goto drop;
-		}
-
 		if (!bt_io_accept(io, transport_cb, setup, NULL, &err)) {
 			error("bt_io_accept: %s", err->message);
 			g_error_free(err);
 			goto drop;
 		}
-
-		/*
-		 * Reference the channel so it can be shutdown properly
-		 * stopping bt_io_accept from calling the callback with invalid
-		 * setup pointer.
-		 */
-		setup->io = g_io_channel_ref(io);
 
 		return;
 	}
@@ -1832,7 +1791,6 @@ static void select_cb(struct a2dp_setup *setup, void *ret, int size)
 
 done:
 	finalize_select(setup);
-	setup_unref(setup);
 }
 
 static struct a2dp_sep *a2dp_find_sep(struct avdtp *session, GSList *list,
@@ -1957,12 +1915,10 @@ unsigned int a2dp_select_capabilities(struct avdtp *session,
 
 	err = sep->endpoint->select_configuration(sep, codec->data,
 					service->length - sizeof(*codec),
-					setup_ref(setup),
+					setup,
 					select_cb, sep->user_data);
 	if (err == 0)
 		return cb_data->id;
-
-	setup_unref(setup);
 
 fail:
 	setup_cb_free(cb_data);

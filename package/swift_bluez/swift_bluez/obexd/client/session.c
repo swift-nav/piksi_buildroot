@@ -40,6 +40,7 @@
 #include "gobex/gobex.h"
 
 #include "obexd/src/log.h"
+#include "dbus.h"
 #include "transfer.h"
 #include "session.h"
 #include "driver.h"

@@ -144,15 +144,12 @@ static DBusMessage *profile_new_connection(DBusConnection *conn,
 	if (fcntl(fd, F_GETFD) < 0) {
 		error("bluetooth: fcntl(%d, F_GETFD): %s (%d)", fd,
 						strerror(errno), errno);
-		close(fd);
 		return invalid_args(msg);
 	}
 
 	io = g_io_channel_unix_new(fd);
-	if (io == NULL) {
-		close(fd);
+	if (io == NULL)
 		return invalid_args(msg);
-	}
 
 	DBG("device %s", device);
 
@@ -231,6 +228,40 @@ static void profile_free(void *data)
 	g_free(profile);
 }
 
+static void append_variant(DBusMessageIter *iter, int type, void *val)
+{
+	DBusMessageIter value;
+	char sig[2] = { type, '\0' };
+
+	dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, sig, &value);
+
+	dbus_message_iter_append_basic(&value, type, val);
+
+	dbus_message_iter_close_container(iter, &value);
+}
+
+
+static void dict_append_entry(DBusMessageIter *dict,
+			const char *key, int type, void *val)
+{
+	DBusMessageIter entry;
+
+	if (type == DBUS_TYPE_STRING) {
+		const char *str = *((const char **) val);
+		if (str == NULL)
+			return;
+	}
+
+	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY,
+							NULL, &entry);
+
+	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+
+	append_variant(&entry, type, val);
+
+	dbus_message_iter_close_container(dict, &entry);
+}
+
 static int register_profile(struct bluetooth_profile *profile)
 {
 	DBusMessage *msg;
@@ -269,7 +300,7 @@ static int register_profile(struct bluetooth_profile *profile)
 					DBUS_TYPE_VARIANT_AS_STRING
 					DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
 					&opt);
-	g_dbus_dict_append_entry(&opt, "AutoConnect", DBUS_TYPE_BOOLEAN,
+	dict_append_entry(&opt, "AutoConnect", DBUS_TYPE_BOOLEAN,
 								&auto_connect);
 	if (profile->driver->record) {
 		if (profile->driver->port != 0)
@@ -281,8 +312,8 @@ static int register_profile(struct bluetooth_profile *profile)
 			xml = g_markup_printf_escaped(profile->driver->record,
 						profile->driver->channel,
 						profile->driver->name);
-		g_dbus_dict_append_entry(&opt, "ServiceRecord",
-						DBUS_TYPE_STRING, &xml);
+		dict_append_entry(&opt, "ServiceRecord", DBUS_TYPE_STRING,
+								&xml);
 		g_free(xml);
 	}
 	dbus_message_iter_close_container(&iter, &opt);

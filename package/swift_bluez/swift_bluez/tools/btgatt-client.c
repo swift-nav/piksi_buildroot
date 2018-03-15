@@ -235,7 +235,7 @@ static struct client *client_create(int fd, uint16_t mtu)
 									NULL);
 	}
 
-	bt_gatt_client_ready_register(cli->gatt, ready_cb, cli, NULL);
+	bt_gatt_client_set_ready_handler(cli->gatt, ready_cb, cli, NULL);
 	bt_gatt_client_set_service_changed(cli->gatt, service_changed_cb, cli,
 									NULL);
 
@@ -1114,7 +1114,7 @@ static void register_notify_cb(uint16_t att_ecode, void *user_data)
 		return;
 	}
 
-	PRLOG("Registered notify handler!\n");
+	PRLOG("Registered notify handler!");
 }
 
 static void cmd_register_notify(struct client *cli, char *cmd_str)
@@ -1149,7 +1149,7 @@ static void cmd_register_notify(struct client *cli, char *cmd_str)
 		return;
 	}
 
-	printf("Registering notify handler with id: %u\n", id);
+	PRLOG("Registering notify handler with id: %u\n", id);
 }
 
 static void unregister_notify_usage(void)
@@ -1190,15 +1190,16 @@ static void cmd_unregister_notify(struct client *cli, char *cmd_str)
 
 static void set_security_usage(void)
 {
-	printf("Usage: set-security <level>\n"
+	printf("Usage: set_security <level>\n"
 		"level: 1-3\n"
 		"e.g.:\n"
-		"\tset-security 2\n");
+		"\tset-sec-level 2\n");
 }
 
 static void cmd_set_security(struct client *cli, char *cmd_str)
 {
-	char *argv[2];
+	char *argvbuf[1];
+	char **argv = argvbuf;
 	int argc = 0;
 	char *endptr = NULL;
 	int level;

@@ -75,8 +75,6 @@
 #define AVRCP_STATUS_PARAM_NOT_FOUND		0x02
 #define AVRCP_STATUS_INTERNAL_ERROR		0x03
 #define AVRCP_STATUS_SUCCESS			0x04
-#define AVRCP_STATUS_UID_CHANGED		0x05
-#define AVRCP_STATUS_DOES_NOT_EXIST		0x09
 #define AVRCP_STATUS_OUT_OF_BOUNDS		0x0b
 #define AVRCP_STATUS_INVALID_PLAYER_ID		0x11
 #define AVRCP_STATUS_PLAYER_NOT_BROWSABLE	0x12
@@ -245,7 +243,6 @@ struct avrcp_player {
 
 	struct pending_list_items *p;
 	char *change_path;
-	uint64_t change_uid;
 
 	struct avrcp_player_cb *cb;
 	void *user_data;
@@ -2527,8 +2524,11 @@ static gboolean avrcp_list_items_rsp(struct avctp *conn, uint8_t *operands,
 		else
 			item = parse_media_folder(session, &operands[i], len);
 
-		if (item)
+		if (item) {
+			if (g_slist_find(p->items, item))
+				goto done;
 			p->items = g_slist_append(p->items, item);
+		}
 
 		i += len;
 	}
@@ -2618,10 +2618,7 @@ done:
 		player->change_path = NULL;
 	}
 
-	media_player_change_folder_complete(mp, player->path,
-						player->change_uid, ret);
-
-	player->change_uid = 0;
+	media_player_change_folder_complete(mp, player->path, ret);
 
 	return FALSE;
 }
@@ -3030,7 +3027,6 @@ static int ct_change_folder(struct media_player *mp, const char *path,
 	session = player->sessions->data;
 	set_ct_player(session, player);
 	player->change_path = g_strdup(path);
-	player->change_uid = uid;
 
 	direction = g_str_has_prefix(path, player->path) ? 0x01 : 0x00;
 
@@ -3102,41 +3098,6 @@ static int ct_search(struct media_player *mp, const char *string,
 	return 0;
 }
 
-static gboolean avrcp_play_item_rsp(struct avctp *conn, uint8_t code,
-					uint8_t subunit, uint8_t transaction,
-					uint8_t *operands, size_t operand_count,
-					void *user_data)
-{
-	struct avrcp_header *pdu = (void *) operands;
-	struct avrcp *session = (void *) user_data;
-	struct avrcp_player *player = session->controller->player;
-	struct media_player *mp = player->user_data;
-	int ret = 0;
-
-	if (pdu == NULL) {
-		ret = -ETIMEDOUT;
-		goto done;
-	}
-
-	if (pdu->params[0] != AVRCP_STATUS_SUCCESS) {
-		switch (pdu->params[0]) {
-		case AVRCP_STATUS_UID_CHANGED:
-		case AVRCP_STATUS_DOES_NOT_EXIST:
-			ret = -ENOENT;
-			break;
-		default:
-			ret = -EINVAL;
-			break;
-		}
-		goto done;
-	}
-
-done:
-	media_player_play_item_complete(mp, ret);
-
-	return FALSE;
-}
-
 static void avrcp_play_item(struct avrcp *session, uint64_t uid)
 {
 	uint8_t buf[AVRCP_HEADER_LENGTH + 11];
@@ -3159,7 +3120,7 @@ static void avrcp_play_item(struct avrcp *session, uint64_t uid)
 
 	avctp_send_vendordep_req(session->conn, AVC_CTYPE_CONTROL,
 					AVC_SUBUNIT_PANEL, buf, length,
-					avrcp_play_item_rsp, session);
+					NULL, session);
 }
 
 static int ct_play_item(struct media_player *mp, const char *name,
@@ -3803,7 +3764,6 @@ static gboolean avrcp_get_capabilities_resp(struct avctp *conn, uint8_t code,
 			if (!session->controller ||
 						!session->controller->player)
 				break;
-			/* fall through */
 		case AVRCP_EVENT_VOLUME_CHANGED:
 			avrcp_register_notification(session, event);
 			break;

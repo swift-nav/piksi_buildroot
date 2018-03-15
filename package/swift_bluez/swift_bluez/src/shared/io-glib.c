@@ -179,7 +179,6 @@ static struct io_watch *watch_new(struct io *io, GIOCondition cond,
 				io_destroy_func_t destroy)
 {
 	struct io_watch *watch;
-	int prio;
 
 	watch = g_try_new0(struct io_watch, 1);
 	if (!watch)
@@ -190,9 +189,7 @@ static struct io_watch *watch_new(struct io *io, GIOCondition cond,
 	watch->destroy = destroy;
 	watch->user_data = user_data;
 
-	prio = cond == G_IO_HUP ? G_PRIORITY_DEFAULT_IDLE : G_PRIORITY_DEFAULT;
-
-	watch->id = g_io_add_watch_full(io->channel, prio,
+	watch->id = g_io_add_watch_full(io->channel, G_PRIORITY_DEFAULT,
 						cond | G_IO_ERR | G_IO_NVAL,
 						watch_callback, watch,
 						watch_destroy);

@@ -22,8 +22,6 @@
  *
  */
 
-#include <unistd.h>
-
 #define OBJECT_SIZE_UNKNOWN -1
 #define OBJECT_SIZE_DELETE -2
 

@@ -212,7 +212,7 @@ static gboolean policy_connect_sink(gpointer user_data)
 	struct policy_data *data = user_data;
 	struct btd_service *service;
 
-	data->sink_timer = 0;
+	data->source_timer = 0;
 	data->sink_retries++;
 
 	service = btd_device_get_service(data->dev, A2DP_SINK_UUID);
@@ -649,7 +649,7 @@ static void service_cb(struct btd_service *service,
 	 */
 	reconnect = reconnect_add(service);
 
-	reconnect->active = false;
+	reconnect_reset(reconnect);
 
 	/*
 	 * Should this device be reconnected? A matching UUID might not
@@ -778,7 +778,7 @@ static int policy_init(void)
 		reconnect_intervals_len = sizeof(default_intervals) /
 						sizeof(*reconnect_intervals);
 		reconnect_intervals = g_memdup(default_intervals,
-						sizeof(default_intervals));
+						reconnect_intervals_len);
 		goto done;
 	}
 
@@ -806,10 +806,9 @@ static int policy_init(void)
 					&gerr);
 	if (gerr) {
 		g_clear_error(&gerr);
-		reconnect_intervals_len = sizeof(default_intervals) /
-						sizeof(*reconnect_intervals);
+		reconnect_intervals_len = sizeof(default_intervals);
 		reconnect_intervals = g_memdup(default_intervals,
-						sizeof(default_intervals));
+						reconnect_intervals_len);
 	}
 
 	auto_enable = g_key_file_get_boolean(conf, "Policy", "AutoEnable",

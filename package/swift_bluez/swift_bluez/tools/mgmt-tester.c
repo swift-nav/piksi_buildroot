@@ -28,8 +28,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <sys/ioctl.h>
-#include <errno.h>
-#include <unistd.h>
 
 #include <glib.h>
 
@@ -37,7 +35,6 @@
 #include "lib/hci.h"
 #include "lib/hci_lib.h"
 #include "lib/mgmt.h"
-#include "lib/l2cap.h"
 
 #include "monitor/bt.h"
 #include "emulator/bthost.h"
@@ -67,7 +64,6 @@ struct test_data {
 	enum hciemu_type hciemu_type;
 	int unmet_conditions;
 	int unmet_setup_conditions;
-	int sk;
 };
 
 static void mgmt_debug(const char *str, void *user_data)
@@ -215,9 +211,208 @@ static void index_removed_callback(uint16_t index, uint16_t length,
 	tester_post_teardown_complete();
 }
 
+static void read_index_list_callback(uint8_t status, uint16_t length,
+					const void *param, void *user_data)
+{
+	struct test_data *data = tester_get_data();
+
+	tester_print("Read Index List callback");
+	tester_print("  Status: %s (0x%02x)", mgmt_errstr(status), status);
+
+	if (status || !param) {
+		tester_pre_setup_failed();
+		return;
+	}
+
+	mgmt_register(data->mgmt, MGMT_EV_INDEX_ADDED, MGMT_INDEX_NONE,
+					index_added_callback, NULL, NULL);
+
+	mgmt_register(data->mgmt, MGMT_EV_INDEX_REMOVED, MGMT_INDEX_NONE,
+					index_removed_callback, NULL, NULL);
+
+	data->hciemu = hciemu_new(data->hciemu_type);
+	if (!data->hciemu) {
+		tester_warn("Failed to setup HCI emulation");
+		tester_pre_setup_failed();
+	}
+}
+
+static void test_pre_setup(const void *test_data)
+{
+	struct test_data *data = tester_get_data();
+
+	data->mgmt = mgmt_new_default();
+	if (!data->mgmt) {
+		tester_warn("Failed to setup management interface");
+		tester_pre_setup_failed();
+		return;
+	}
+
+	data->mgmt_alt = mgmt_new_default();
+	if (!data->mgmt_alt) {
+		tester_warn("Failed to setup alternate management interface");
+		tester_pre_setup_failed();
+
+		mgmt_unref(data->mgmt);
+		data->mgmt = NULL;
+		return;
+	}
+
+	if (tester_use_debug()) {
+		mgmt_set_debug(data->mgmt, mgmt_debug, "mgmt: ", NULL);
+		mgmt_set_debug(data->mgmt_alt, mgmt_debug, "mgmt-alt: ", NULL);
+	}
+
+	mgmt_send(data->mgmt, MGMT_OP_READ_VERSION, MGMT_INDEX_NONE, 0, NULL,
+					read_version_callback, NULL, NULL);
+
+	mgmt_send(data->mgmt, MGMT_OP_READ_COMMANDS, MGMT_INDEX_NONE, 0, NULL,
+					read_commands_callback, NULL, NULL);
+
+	mgmt_send(data->mgmt, MGMT_OP_READ_INDEX_LIST, MGMT_INDEX_NONE, 0, NULL,
+					read_index_list_callback, NULL, NULL);
+}
+
+static void test_post_teardown(const void *test_data)
+{
+	struct test_data *data = tester_get_data();
+
+	hciemu_unref(data->hciemu);
+	data->hciemu = NULL;
+}
+
+static void test_add_condition(struct test_data *data)
+{
+	data->unmet_conditions++;
+
+	tester_print("Test condition added, total %d", data->unmet_conditions);
+}
+
+static void test_add_setup_condition(struct test_data *data)
+{
+	data->unmet_setup_conditions++;
+
+	tester_print("Test setup condition added, total %d",
+		     data->unmet_setup_conditions);
+}
+
+static void test_setup_condition_complete(struct test_data *data)
+{
+	data->unmet_setup_conditions--;
+
+	tester_print("Test setup condition complete, %d left",
+		     data->unmet_setup_conditions);
+
+	if (data->unmet_setup_conditions > 0)
+		return;
+
+	tester_setup_complete();
+}
+
+static void test_condition_complete(struct test_data *data)
+{
+	data->unmet_conditions--;
+
+	tester_print("Test condition complete, %d left",
+						data->unmet_conditions);
+
+	if (data->unmet_conditions > 0)
+		return;
+
+	tester_test_passed();
+}
+
+#define test_bredrle_full(name, data, setup, func, timeout) \
+	do { \
+		struct test_data *user; \
+		user = malloc(sizeof(struct test_data)); \
+		if (!user) \
+			break; \
+		user->hciemu_type = HCIEMU_TYPE_BREDRLE; \
+		user->test_setup = setup; \
+		user->test_data = data; \
+		user->expected_version = 0x08; \
+		user->expected_manufacturer = 0x003f; \
+		user->expected_supported_settings = 0x0000bfff; \
+		user->initial_settings = 0x00000080; \
+		user->unmet_conditions = 0; \
+		tester_add_full(name, data, \
+				test_pre_setup, test_setup, func, NULL, \
+				test_post_teardown, timeout, user, free); \
+	} while (0)
+
+#define test_bredrle(name, data, setup, func) \
+	test_bredrle_full(name, data, setup, func, 2)
+
+#define test_bredr20(name, data, setup, func) \
+	do { \
+		struct test_data *user; \
+		user = malloc(sizeof(struct test_data)); \
+		if (!user) \
+			break; \
+		user->hciemu_type = HCIEMU_TYPE_LEGACY; \
+		user->test_setup = setup; \
+		user->test_data = data; \
+		user->expected_version = 0x03; \
+		user->expected_manufacturer = 0x003f; \
+		user->expected_supported_settings = 0x000010bf; \
+		user->initial_settings = 0x00000080; \
+		user->unmet_conditions = 0; \
+		tester_add_full(name, data, \
+				test_pre_setup, test_setup, func, NULL, \
+				test_post_teardown, 2, user, free); \
+	} while (0)
+
+#define test_bredr(name, data, setup, func) \
+	do { \
+		struct test_data *user; \
+		user = malloc(sizeof(struct test_data)); \
+		if (!user) \
+			break; \
+		user->hciemu_type = HCIEMU_TYPE_BREDR; \
+		user->test_setup = setup; \
+		user->test_data = data; \
+		user->expected_version = 0x05; \
+		user->expected_manufacturer = 0x003f; \
+		user->expected_supported_settings = 0x000011ff; \
+		user->initial_settings = 0x00000080; \
+		user->unmet_conditions = 0; \
+		tester_add_full(name, data, \
+				test_pre_setup, test_setup, func, NULL, \
+				test_post_teardown, 2, user, free); \
+	} while (0)
+
+#define test_le(name, data, setup, func) \
+	do { \
+		struct test_data *user; \
+		user = malloc(sizeof(struct test_data)); \
+		if (!user) \
+			break; \
+		user->hciemu_type = HCIEMU_TYPE_LE; \
+		user->test_setup = setup; \
+		user->test_data = data; \
+		user->expected_version = 0x08; \
+		user->expected_manufacturer = 0x003f; \
+		user->expected_supported_settings = 0x0000be1b; \
+		user->initial_settings = 0x00000200; \
+		user->unmet_conditions = 0; \
+		tester_add_full(name, data, \
+				test_pre_setup, test_setup, func, NULL, \
+				test_post_teardown, 2, user, free); \
+	} while (0)
+
+static void controller_setup(const void *test_data)
+{
+	tester_test_passed();
+}
+
+struct setup_mgmt_cmd {
+	uint8_t send_opcode;
+	const void *send_param;
+	uint16_t send_len;
+};
+
 struct generic_data {
-	bool setup_le_states;
-	const uint8_t *le_states;
 	const uint16_t *setup_settings;
 	bool setup_nobredr;
 	bool setup_limited_discov;
@@ -270,207 +465,6 @@ struct generic_data {
 	bool set_adv;
 	const uint8_t *adv_data;
 	uint8_t adv_data_len;
-};
-
-static void read_index_list_callback(uint8_t status, uint16_t length,
-					const void *param, void *user_data)
-{
-	struct test_data *data = tester_get_data();
-	const struct generic_data *test = data->test_data;
-
-	tester_print("Read Index List callback");
-	tester_print("  Status: %s (0x%02x)", mgmt_errstr(status), status);
-
-	if (status || !param) {
-		tester_pre_setup_failed();
-		return;
-	}
-
-	mgmt_register(data->mgmt, MGMT_EV_INDEX_ADDED, MGMT_INDEX_NONE,
-					index_added_callback, NULL, NULL);
-
-	mgmt_register(data->mgmt, MGMT_EV_INDEX_REMOVED, MGMT_INDEX_NONE,
-					index_removed_callback, NULL, NULL);
-
-	data->hciemu = hciemu_new(data->hciemu_type);
-	if (!data->hciemu) {
-		tester_warn("Failed to setup HCI emulation");
-		tester_pre_setup_failed();
-	}
-
-	if (test && test->setup_le_states)
-		hciemu_set_master_le_states(data->hciemu, test->le_states);
-}
-
-static void test_pre_setup(const void *test_data)
-{
-	struct test_data *data = tester_get_data();
-
-	data->mgmt = mgmt_new_default();
-	if (!data->mgmt) {
-		tester_warn("Failed to setup management interface");
-		tester_pre_setup_failed();
-		return;
-	}
-
-	data->mgmt_alt = mgmt_new_default();
-	if (!data->mgmt_alt) {
-		tester_warn("Failed to setup alternate management interface");
-		tester_pre_setup_failed();
-
-		mgmt_unref(data->mgmt);
-		data->mgmt = NULL;
-		return;
-	}
-
-	if (tester_use_debug()) {
-		mgmt_set_debug(data->mgmt, mgmt_debug, "mgmt: ", NULL);
-		mgmt_set_debug(data->mgmt_alt, mgmt_debug, "mgmt-alt: ", NULL);
-	}
-
-	mgmt_send(data->mgmt, MGMT_OP_READ_VERSION, MGMT_INDEX_NONE, 0, NULL,
-					read_version_callback, NULL, NULL);
-
-	mgmt_send(data->mgmt, MGMT_OP_READ_COMMANDS, MGMT_INDEX_NONE, 0, NULL,
-					read_commands_callback, NULL, NULL);
-
-	mgmt_send(data->mgmt, MGMT_OP_READ_INDEX_LIST, MGMT_INDEX_NONE, 0, NULL,
-					read_index_list_callback, NULL, NULL);
-
-	data->sk = -1;
-}
-
-static void test_post_teardown(const void *test_data)
-{
-	struct test_data *data = tester_get_data();
-
-	if (data->sk >= 0)
-		close(data->sk);
-
-	hciemu_unref(data->hciemu);
-	data->hciemu = NULL;
-}
-
-static void test_add_condition(struct test_data *data)
-{
-	data->unmet_conditions++;
-
-	tester_print("Test condition added, total %d", data->unmet_conditions);
-}
-
-static void test_add_setup_condition(struct test_data *data)
-{
-	data->unmet_setup_conditions++;
-
-	tester_print("Test setup condition added, total %d",
-		     data->unmet_setup_conditions);
-}
-
-static void test_setup_condition_complete(struct test_data *data)
-{
-	data->unmet_setup_conditions--;
-
-	tester_print("Test setup condition complete, %d left",
-		     data->unmet_setup_conditions);
-
-	if (data->unmet_setup_conditions > 0)
-		return;
-
-	tester_setup_complete();
-}
-
-static void test_condition_complete(struct test_data *data)
-{
-	data->unmet_conditions--;
-
-	tester_print("Test condition complete, %d left",
-						data->unmet_conditions);
-
-	if (data->unmet_conditions > 0)
-		return;
-
-	tester_test_passed();
-}
-
-#define test_bredrle_full(name, data, setup, func, timeout) \
-	do { \
-		struct test_data *user; \
-		user = new0(struct test_data, 1); \
-		user->hciemu_type = HCIEMU_TYPE_BREDRLE; \
-		user->test_setup = setup; \
-		user->test_data = data; \
-		user->expected_version = 0x09; \
-		user->expected_manufacturer = 0x003f; \
-		user->expected_supported_settings = 0x0000bfff; \
-		user->initial_settings = 0x00000080; \
-		tester_add_full(name, data, \
-				test_pre_setup, test_setup, func, NULL, \
-				test_post_teardown, timeout, user, free); \
-	} while (0)
-
-#define test_bredrle(name, data, setup, func) \
-	test_bredrle_full(name, data, setup, func, 2)
-
-#define test_bredr20(name, data, setup, func) \
-	do { \
-		struct test_data *user; \
-		user = new0(struct test_data, 1); \
-		user->hciemu_type = HCIEMU_TYPE_LEGACY; \
-		user->test_setup = setup; \
-		user->test_data = data; \
-		user->expected_version = 0x03; \
-		user->expected_manufacturer = 0x003f; \
-		user->expected_supported_settings = 0x000010bf; \
-		user->initial_settings = 0x00000080; \
-		tester_add_full(name, data, \
-				test_pre_setup, test_setup, func, NULL, \
-				test_post_teardown, 2, user, free); \
-	} while (0)
-
-#define test_bredr(name, data, setup, func) \
-	do { \
-		struct test_data *user; \
-		user = new0(struct test_data, 1); \
-		user->hciemu_type = HCIEMU_TYPE_BREDR; \
-		user->test_setup = setup; \
-		user->test_data = data; \
-		user->expected_version = 0x05; \
-		user->expected_manufacturer = 0x003f; \
-		user->expected_supported_settings = 0x000011ff; \
-		user->initial_settings = 0x00000080; \
-		tester_add_full(name, data, \
-				test_pre_setup, test_setup, func, NULL, \
-				test_post_teardown, 2, user, free); \
-	} while (0)
-
-#define test_le_full(name, data, setup, func, timeout) \
-	do { \
-		struct test_data *user; \
-		user = new0(struct test_data, 1); \
-		user->hciemu_type = HCIEMU_TYPE_LE; \
-		user->test_setup = setup; \
-		user->test_data = data; \
-		user->expected_version = 0x09; \
-		user->expected_manufacturer = 0x003f; \
-		user->expected_supported_settings = 0x0000be1b; \
-		user->initial_settings = 0x00000200; \
-		tester_add_full(name, data, \
-				test_pre_setup, test_setup, func, NULL, \
-				test_post_teardown, timeout, user, free); \
-	} while (0)
-
-#define test_le(name, data, setup, func) \
-	test_le_full(name, data, setup, func, 2)
-
-static void controller_setup(const void *test_data)
-{
-	tester_test_passed();
-}
-
-struct setup_mgmt_cmd {
-	uint8_t send_opcode;
-	const void *send_param;
-	uint16_t send_len;
 };
 
 static const char dummy_data[] = { 0x00 };
@@ -5017,48 +5011,9 @@ static const struct generic_data read_local_oob_success_sc_test = {
 	.expect_hci_command = BT_HCI_CMD_READ_LOCAL_OOB_EXT_DATA,
 };
 
-static const uint8_t le_states_conn_slave_adv_connectable[] = {
-			0x00, 0x00, 0x20, 0x00, 0x40, 0x00, 0x00, 0x00};
-static const uint8_t le_states_conn_slave_adv_non_connectable[] = {
-			0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00};
-static const uint8_t le_states_conn_master_adv_connectable[] = {
-			0x00, 0x00, 0x08, 0x00, 0x08, 0x00, 0x00, 0x00};
-static const uint8_t le_states_conn_master_adv_non_connectable[] = {
-			0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-static const struct generic_data conn_slave_adv_conneactable_test = {
-	.setup_le_states = true,
-	.le_states = le_states_conn_slave_adv_connectable,
-	.setup_settings = settings_powered_le,
-	.client_enable_le = true
-};
-
-static const struct generic_data conn_slave_adv_non_conneactable_test = {
-	.setup_le_states = true,
-	.le_states = le_states_conn_slave_adv_non_connectable,
-	.setup_settings = settings_powered_le,
-	.client_enable_le = true
-};
-
-static const struct generic_data conn_master_adv_conneactable_test = {
-	.setup_le_states = true,
-	.le_states = le_states_conn_master_adv_connectable,
-	.setup_settings = settings_powered_le,
-	.client_enable_le = true,
-	.client_enable_adv = 1
-};
-
-static const struct generic_data conn_master_adv_non_conneactable_test = {
-	.setup_le_states = true,
-	.le_states = le_states_conn_master_adv_non_connectable,
-	.setup_settings = settings_powered_le,
-	.client_enable_le = true,
-	.client_enable_adv = 1
-};
-
 static const char ext_ctrl_info1[] = {
 	0x00, 0x00, 0x00, 0x01, 0xaa, 0x00, /* btaddr */
-	0x09, /* version */
+	0x08, /* version */
 	0x3f, 0x00, /* manufacturer */
 	0xff, 0xbf, 0x00, 0x00, /* supported settings */
 	0x80, 0x00, 0x00, 0x00, /* current settings */
@@ -5103,7 +5058,7 @@ static const struct setup_mgmt_cmd set_dev_class_cmd_arr1[] = {
 
 static const char ext_ctrl_info2[] = {
 	0x00, 0x00, 0x00, 0x01, 0xaa, 0x00, /* btaddr */
-	0x09, /* version */
+	0x08, /* version */
 	0x3f, 0x00, /* manufacturer */
 	0xff, 0xbf, 0x00, 0x00, /* supported settings */
 	0x81, 0x02, 0x00, 0x00, /* current settings */
@@ -5134,7 +5089,7 @@ static const struct generic_data read_ext_ctrl_info2 = {
 
 static const char ext_ctrl_info3[] = {
 	0x00, 0x00, 0x00, 0x01, 0xaa, 0x00, /* btaddr */
-	0x09, /* version */
+	0x08, /* version */
 	0x3f, 0x00, /* manufacturer */
 	0xff, 0xbf, 0x00, 0x00, /* supported settings */
 	0x80, 0x02, 0x00, 0x00, /* current settings */
@@ -5169,7 +5124,7 @@ static const struct generic_data read_ext_ctrl_info3 = {
 
 static const char ext_ctrl_info4[] = {
 	0x00, 0x00, 0x00, 0x01, 0xaa, 0x00, /* btaddr */
-	0x09, /* version */
+	0x08, /* version */
 	0x3f, 0x00, /* manufacturer */
 	0xff, 0xbf, 0x00, 0x00, /* supported settings */
 	0x80, 0x02, 0x00, 0x00, /* current settings */
@@ -5228,7 +5183,7 @@ static const struct setup_mgmt_cmd set_dev_class_cmd_arr2[] = {
 
 static const char ext_ctrl_info5[] = {
 	0x00, 0x00, 0x00, 0x01, 0xaa, 0x00, /* btaddr */
-	0x09, /* version */
+	0x08, /* version */
 	0x3f, 0x00, /* manufacturer */
 	0xff, 0xbf, 0x00, 0x00, /* supported settings */
 	0x81, 0x02, 0x00, 0x00, /* current settings */
@@ -5723,78 +5678,6 @@ static void setup_add_advertising_connectable(const void *test_data)
 						sizeof(adv_param), adv_param,
 						setup_add_advertising_callback,
 						NULL, NULL);
-}
-
-static int create_le_att_sock(struct test_data *data)
-{
-	struct sockaddr_l2 addr;
-	int sk, err;
-
-	sk = socket(PF_BLUETOOTH, SOCK_SEQPACKET | SOCK_NONBLOCK,
-							BTPROTO_L2CAP);
-	if (sk < 0) {
-		err = -errno;
-		tester_warn("Can't create socket: %s (%d)", strerror(errno),
-									errno);
-		return err;
-	}
-
-	memset(&addr, 0, sizeof(addr));
-	addr.l2_family = AF_BLUETOOTH;
-	addr.l2_psm = 0;
-	addr.l2_cid = htobs(0x0004);
-	addr.l2_bdaddr_type = BDADDR_LE_PUBLIC;
-
-	if (bind(sk, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-		err = -errno;
-		tester_warn("Can't bind socket: %s (%d)", strerror(errno),
-									errno);
-		close(sk);
-		return err;
-	}
-
-	if (listen(sk, 1) < 0) {
-		err = -errno;
-		tester_warn("Can't bind socket: %s (%d)", strerror(errno),
-									errno);
-		close(sk);
-		return err;
-	}
-
-	data->sk = sk;
-
-	return sk;
-}
-
-static void setup_advertise_while_connected(const void *test_data)
-{
-	struct test_data *data = tester_get_data();
-	struct mgmt_cp_add_advertising *cp;
-	uint8_t adv_param[sizeof(*cp) + TESTER_ADD_ADV_DATA_LEN];
-
-	tester_print("Adding advertising instances");
-
-	cp = (struct mgmt_cp_add_advertising *) adv_param;
-	setup_add_adv_param(cp, 1);
-
-	cp->flags |= MGMT_ADV_FLAG_CONNECTABLE;
-	mgmt_send(data->mgmt, MGMT_OP_ADD_ADVERTISING, data->mgmt_index,
-						sizeof(adv_param), adv_param,
-						NULL, NULL, NULL);
-
-	cp->flags &= ~MGMT_ADV_FLAG_CONNECTABLE;
-	cp->instance = 2;
-
-	mgmt_send(data->mgmt, MGMT_OP_ADD_ADVERTISING, data->mgmt_index,
-						sizeof(adv_param), adv_param,
-						setup_add_advertising_callback,
-						NULL, NULL);
-
-	/* Listen on the socket so Kernel does not drop connection just after
-	 * connect. Socket is closed in test_post_teardown
-	 */
-	if (create_le_att_sock(data) < 0)
-		tester_test_failed();
 }
 
 static void setup_add_advertising_timeout(const void *test_data)
@@ -6963,7 +6846,7 @@ static void test_remove_device(const void *test_data)
 	test_add_condition(data);
 }
 
-static void trigger_device_found(void *user_data)
+static void test_device_found(const void *test_data)
 {
 	struct test_data *data = tester_get_data();
 	const struct generic_data *test = data->test_data;
@@ -6983,18 +6866,7 @@ static void trigger_device_found(void *user_data)
 	if (data->hciemu_type != HCIEMU_TYPE_LE)
 		bthost_write_scan_enable(bthost, 0x03);
 
-	test_condition_complete(data);
-}
-
-static void test_device_found(const void *test_data)
-{
-	struct test_data *data = tester_get_data();
-
 	test_command_generic(test_data);
-
-	/* Make sure discovery is enabled before enabling advertising. */
-	tester_wait(1, trigger_device_found, NULL);
-	test_add_condition(data);
 }
 
 static void pairing_new_conn(uint16_t handle, void *user_data)
@@ -7106,118 +6978,6 @@ static void test_command_generic_connect(const void *test_data)
 
 	bthost = hciemu_client_get_host(data->hciemu);
 	bthost_hci_connect(bthost, master_bdaddr, addr_type);
-}
-
-static bool test_adv_enable_hook(const void *data, uint16_t len,
-								void *user_data)
-{
-	struct test_data *test_data = user_data;
-	const uint8_t *status = data;
-
-	if (*status == 0) {
-		tester_print("Advertising enabled");
-		test_condition_complete(test_data);
-	} else {
-		tester_print("Advertising enabled error 0x%02x", *status);
-	}
-
-	return true;
-}
-
-static void disconnected_event(uint16_t index, uint16_t length,
-					const void *param, void *user_data)
-{
-	tester_test_failed();
-}
-
-static void le_connected_event(uint16_t index, uint16_t length,
-					const void *param, void *user_data)
-{
-	struct test_data *data = tester_get_data();
-
-	tester_print("Device connected");
-
-	test_add_condition(data);
-	hciemu_add_hook(data->hciemu, HCIEMU_HOOK_POST_CMD,
-						BT_HCI_CMD_LE_SET_ADV_ENABLE,
-						test_adv_enable_hook, data);
-
-	/* Make sure we get not disconnected during the testaces */
-	mgmt_register(data->mgmt_alt, MGMT_EV_DEVICE_DISCONNECTED,
-				data->mgmt_index, disconnected_event,
-
-				NULL, NULL);
-
-	test_condition_complete(data);
-}
-
-static void add_device_callback(uint8_t status, uint16_t len, const void *param,
-							void *user_data)
-{
-	struct test_data *data = user_data;
-	const struct generic_data *test = data->test_data;
-	struct bthost *bthost;
-	const uint8_t *master_bdaddr;
-
-	if (status != 0) {
-		tester_test_failed();
-		return;
-	}
-
-	tester_print("Device added");
-
-	/* If advertising is enabled on client that means we can stop here and
-	 * just wait for connection
-	 */
-	if (test->client_enable_adv)
-		return;
-
-	master_bdaddr = hciemu_get_master_bdaddr(data->hciemu);
-	if (!master_bdaddr) {
-		tester_warn("No master bdaddr");
-		tester_test_failed();
-		return;
-	}
-
-	bthost = hciemu_client_get_host(data->hciemu);
-	bthost_hci_connect(bthost, master_bdaddr, BDADDR_LE_PUBLIC);
-}
-
-static void test_connected_and_advertising(const void *test_data)
-{
-	struct test_data *data = tester_get_data();
-	const struct generic_data *test = data->test_data;
-	const uint8_t *client_bdaddr;
-	struct mgmt_cp_add_device cp;
-
-	tester_print("Registering %s notification",
-					mgmt_evstr(MGMT_EV_DEVICE_CONNECTED));
-
-	test_add_condition(data);
-	mgmt_register(data->mgmt_alt, MGMT_EV_DEVICE_CONNECTED,
-				data->mgmt_index, le_connected_event,
-				NULL, NULL);
-
-	client_bdaddr = hciemu_get_client_bdaddr(data->hciemu);
-	if (!client_bdaddr) {
-		tester_warn("No client bdaddr");
-		tester_test_failed();
-		return;
-	}
-
-	memset(&cp, 0, sizeof(cp));
-	memcpy(&cp.addr.bdaddr, client_bdaddr, 6);
-	cp.addr.type = BDADDR_LE_PUBLIC;
-
-	if (test->client_enable_adv)
-		cp.action = 0x02; /* Auto connect */
-	else
-		cp.action = 0x01; /* Allow incoming connection */
-
-	mgmt_send(data->mgmt_alt, MGMT_OP_ADD_DEVICE, data->mgmt_index,
-						sizeof(cp), &cp,
-						add_device_callback,
-						data, NULL);
 }
 
 int main(int argc, char *argv[])
@@ -8241,26 +8001,6 @@ int main(int argc, char *argv[])
 					 &add_advertising_name_data_appear,
 					 setup_command_generic,
 					 test_command_generic);
-
-	test_le_full("Adv. connectable & connected (slave) - Success",
-					&conn_slave_adv_conneactable_test,
-					setup_advertise_while_connected,
-					test_connected_and_advertising, 10);
-
-	test_le_full("Adv. non-connectable & connected (slave) - Success",
-					&conn_slave_adv_non_conneactable_test,
-					setup_advertise_while_connected,
-					test_connected_and_advertising, 10);
-
-	test_le_full("Adv. connectable & connected (master) - Success",
-					&conn_master_adv_conneactable_test,
-					setup_advertise_while_connected,
-					test_connected_and_advertising, 10);
-
-	test_le_full("Adv. non-connectable & connected (master) - Success",
-					&conn_master_adv_non_conneactable_test,
-					setup_advertise_while_connected,
-					test_connected_and_advertising, 10);
 
 	test_bredrle("Remove Advertising - Invalid Params 1",
 					&remove_advertising_fail_1,

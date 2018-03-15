@@ -105,130 +105,17 @@ For a working system, certain configuration options need to be enabled:
 		support systemd. In that case all integration with the
 		init system is up to the package.
 
-	--disable-a2dp
-
-		Disable A2DP profile
-
-		By default bluetoothd supports A2DP profile using a built-in
-		plugin, this option disables it.
-
-		This option is provided for distributions that do not have any
-		audio capabilities.
-
-	--disable-avrcp
-
-		Disable AVRCP profile
-
-		By default bluetoothd supports AVRCP profile using a built-in
-		plugin, this option disables it.
-
-		This option is provided for distributions that do not have any
-		audio capabilities.
-
-	--disable-network
-
-		Disable PANU, NAP, GN profiles
-
-		By default bluetoothd supports PANU, NAP and GN profile using a
-		built-in plugin, this option disables it.
-
-		This option is provided for distributions that do not have any
-		network capabilities.
-
-	--disable-hid
-
-		Disable HID profile
-
-		By default bluetoothd supports HID profile using a built-in
-		plugin, this option disables it.
-
-		This option is provided for distributions that do not have any
-		input capabilities.
-
-	--disable-hog
-
-		Disable HoG profile
-
-		By default bluetoothd supports HoG profile using a built-in
-		plugin, this option disables it.
-
-		This option is provided for distributions that do not have any
-		input capabilities.
-
-	--enable-testing
-
-		Enable testing tools
-
-		By default tools used only for testing emulation are disabled.
-		This option can be used to enable them.
-
-		It is not recommended to enable this option for production
-		systems. These tools may contain tests that depend on specific
-		environment or kernel features in development.
-
 	--enable-experimental
 
-		Enable experimental tools
+		Enable experimental plugins
 
-		By default all tools that are still in development
+		By default all plugins that are still in development
 		are disabled. This option can be used to enable them.
 
 		It is not recommended to enable this option for production
-		systems. The behavior of the experimental tools is unstable
-		and might still change.
+		systems. The APIs or behavior of the experimental plugins
+		is unstable and might still change.
 
-	--enable-deprecated
-
-		Enable deprecated tools
-
-		By defauld all tools that are no longer maintained are
-		disabled. This option can be used to enable them.
-
-		It is not recommended to enable this option for production
-		systems. The behavior of the deprecated tools may be unstable
-		or simply don't work anymore.
-
-	--enable-nfc
-
-		This option enable NFC pairing support.
-
-		By default the integration with neard is disabled, this gives
-		the option to enable it in system where neard is supported.
-
-		The plugin is built into bluetoothd therefore it does not need
-		to be package separately.
-
-	--enable-sap
-
-		This option enable SAP profile using sap plugin.
-
-		By default sap plugin is disabled since it requires tight
-		integration with systems and is very rarely required.
-
-		The plugin is built into bluetoothd therefore it does not need
-		to be package separately.
-
-	--enable-health
-
-		This option enable health profiles.
-
-		By default health plugin is disabled since its profiles are
-		target for the health industry.
-
-		The plugin is built into bluetoothd therefore it does not need
-		to be package separately.
-
-	--enable-midi
-
-		This option enable MIDI support via ALSA Sequencer.
-
-		By default midi plugin is disabled since it still considered
-		experimental. When bluetoothd will create a new ALSA Sequencer
-		client and port for each device connected that supports the
-		MIDI GATT primary service.
-
-		The plugin is built into bluetoothd therefore it does not need
-		to be package separately.
 
 Information
 ===========

@@ -33,13 +33,13 @@
 #include <inttypes.h>
 
 #include "lib/bluetooth.h"
-#include "lib/uuid.h"
 
 #include "src/shared/util.h"
 #include "bt.h"
 #include "packet.h"
 #include "display.h"
 #include "l2cap.h"
+#include "uuid.h"
 #include "keys.h"
 #include "sdp.h"
 #include "avctp.h"
@@ -1965,7 +1965,7 @@ static bool avrcp_folder_item(struct avctp_frame *avctp_frame,
 	print_field("%*cNameLength: 0x%04x (%u)", indent, ' ',
 					namelen, namelen);
 
-	printf("%*cName: ", indent+8, ' ');
+	print_field("%*cName: ", indent, ' ');
 	for (; namelen > 0; namelen--) {
 		uint8_t c;
 		if (!l2cap_frame_get_u8(frame, &c))
@@ -1973,7 +1973,6 @@ static bool avrcp_folder_item(struct avctp_frame *avctp_frame,
 
 		printf("%1c", isprint(c) ? c : '.');
 	}
-	printf("\n");
 
 	return true;
 }
@@ -1985,7 +1984,8 @@ static bool avrcp_attribute_entry_list(struct avctp_frame *avctp_frame,
 
 	for (; count > 0; count--) {
 		uint32_t attr;
-		uint16_t charset, len;
+		uint16_t charset;
+		uint8_t len;
 
 		if (!l2cap_frame_get_be32(frame, &attr))
 			return false;
@@ -1999,13 +1999,13 @@ static bool avrcp_attribute_entry_list(struct avctp_frame *avctp_frame,
 		print_field("%*cCharsetID: 0x%04x (%s)", indent, ' ',
 						charset, charset2str(charset));
 
-		if (!l2cap_frame_get_be16(frame, &len))
+		if (!l2cap_frame_get_u8(frame, &len))
 			return false;
 
-		print_field("%*cAttributeLength: 0x%04x (%u)", indent, ' ',
+		print_field("%*cAttributeLength: 0x%02x (%u)", indent, ' ',
 						len, len);
 
-		printf("%*cAttributeValue: ", indent+8, ' ');
+		print_field("%*cAttributeValue: ", indent, ' ');
 		for (; len > 0; len--) {
 			uint8_t c;
 
@@ -2014,7 +2014,6 @@ static bool avrcp_attribute_entry_list(struct avctp_frame *avctp_frame,
 
 			printf("%1c", isprint(c) ? c : '.');
 		}
-		printf("\n");
 	}
 
 	return true;
@@ -2052,7 +2051,7 @@ static bool avrcp_media_element_item(struct avctp_frame *avctp_frame,
 	print_field("%*cNameLength: 0x%04x (%u)", indent, ' ',
 					namelen, namelen);
 
-	printf("%*cName: ", indent+8, ' ');
+	print_field("%*cName: ", indent, ' ');
 	for (; namelen > 0; namelen--) {
 		uint8_t c;
 		if (!l2cap_frame_get_u8(frame, &c))
@@ -2060,7 +2059,6 @@ static bool avrcp_media_element_item(struct avctp_frame *avctp_frame,
 
 		printf("%1c", isprint(c) ? c : '.');
 	}
-	printf("\n");
 
 	if (!l2cap_frame_get_u8(frame, &count))
 		return false;

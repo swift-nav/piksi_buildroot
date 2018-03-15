@@ -354,7 +354,9 @@ static gboolean bnep_setup(GIOChannel *chan,
 	case 16:
 		if (memcmp(&req->service[4], bt_base, sizeof(bt_base)) != 0)
 			break;
-		/* fall through */
+
+		/* Intentional no-brake */
+
 	case 4:
 		val = get_be32(req->service);
 		if (val > 0xffff)

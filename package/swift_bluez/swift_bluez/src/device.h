@@ -62,9 +62,6 @@ struct device_addr_type {
 int device_addr_type_cmp(gconstpointer a, gconstpointer b);
 GSList *btd_device_get_uuids(struct btd_device *device);
 void device_probe_profiles(struct btd_device *device, GSList *profiles);
-
-void btd_device_set_record(struct btd_device *device, const char *uuid,
-							const char *record);
 const sdp_record_t *btd_device_get_record(struct btd_device *device,
 						const char *uuid);
 struct gatt_primary *btd_device_get_primary(struct btd_device *device,
@@ -79,17 +76,14 @@ void btd_device_gatt_set_service_changed(struct btd_device *device,
 bool device_attach_att(struct btd_device *dev, GIOChannel *io);
 void btd_device_add_uuid(struct btd_device *device, const char *uuid);
 void device_add_eir_uuids(struct btd_device *dev, GSList *uuids);
-void device_set_manufacturer_data(struct btd_device *dev, GSList *list,
-							bool duplicate);
-void device_set_service_data(struct btd_device *dev, GSList *list,
-							bool duplicate);
+void device_set_manufacturer_data(struct btd_device *dev, GSList *list);
+void device_set_service_data(struct btd_device *dev, GSList *list);
 void device_probe_profile(gpointer a, gpointer b);
 void device_remove_profile(gpointer a, gpointer b);
 struct btd_adapter *device_get_adapter(struct btd_device *device);
 const bdaddr_t *device_get_address(struct btd_device *device);
 const char *device_get_path(const struct btd_device *device);
 gboolean device_is_temporary(struct btd_device *device);
-bool device_is_connectable(struct btd_device *device);
 bool device_is_paired(struct btd_device *device, uint8_t bdaddr_type);
 bool device_is_bonded(struct btd_device *device, uint8_t bdaddr_type);
 gboolean device_is_trusted(struct btd_device *device);

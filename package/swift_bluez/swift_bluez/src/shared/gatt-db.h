@@ -78,25 +78,6 @@ gatt_db_service_insert_characteristic(struct gatt_db_attribute *attrib,
 					void *user_data);
 
 struct gatt_db_attribute *
-gatt_db_insert_characteristic(struct gatt_db *db,
-					uint16_t handle,
-					const bt_uuid_t *uuid,
-					uint32_t permissions,
-					uint8_t properties,
-					gatt_db_read_t read_func,
-					gatt_db_write_t write_func,
-					void *user_data);
-
-struct gatt_db_attribute *
-gatt_db_insert_descriptor(struct gatt_db *db,
-					uint16_t handle,
-					const bt_uuid_t *uuid,
-					uint32_t permissions,
-					gatt_db_read_t read_func,
-					gatt_db_write_t write_func,
-					void *user_data);
-
-struct gatt_db_attribute *
 gatt_db_service_add_descriptor(struct gatt_db_attribute *attrib,
 					const bt_uuid_t *uuid,
 					uint32_t permissions,
@@ -113,16 +94,8 @@ gatt_db_service_insert_descriptor(struct gatt_db_attribute *attrib,
 					void *user_data);
 
 struct gatt_db_attribute *
-gatt_db_insert_included(struct gatt_db *db, uint16_t handle,
-			struct gatt_db_attribute *include);
-
-struct gatt_db_attribute *
 gatt_db_service_add_included(struct gatt_db_attribute *attrib,
 					struct gatt_db_attribute *include);
-struct gatt_db_attribute *
-gatt_db_service_insert_included(struct gatt_db_attribute *attrib,
-				uint16_t handle,
-				struct gatt_db_attribute *include);
 
 bool gatt_db_service_set_active(struct gatt_db_attribute *attrib, bool active);
 bool gatt_db_service_get_active(struct gatt_db_attribute *attrib);
@@ -197,9 +170,6 @@ unsigned int gatt_db_register(struct gatt_db *db,
 					gatt_db_destroy_func_t destroy);
 bool gatt_db_unregister(struct gatt_db *db, unsigned int id);
 
-struct gatt_db_attribute *gatt_db_get_service(struct gatt_db *db,
-							uint16_t handle);
-
 struct gatt_db_attribute *gatt_db_get_attribute(struct gatt_db *db,
 							uint16_t handle);
 
@@ -265,5 +235,3 @@ bool gatt_db_attribute_write_result(struct gatt_db_attribute *attrib,
 						unsigned int id, int err);
 
 bool gatt_db_attribute_reset(struct gatt_db_attribute *attrib);
-
-void *gatt_db_attribute_get_user_data(struct gatt_db_attribute *attrib);

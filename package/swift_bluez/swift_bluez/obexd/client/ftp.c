@@ -31,6 +31,7 @@
 #include "gdbus/gdbus.h"
 
 #include "obexd/src/log.h"
+#include "dbus.h"
 #include "transfer.h"
 #include "session.h"
 #include "driver.h"
@@ -114,7 +115,7 @@ static void xml_element(GMarkupParseContext *ctxt,
 			DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_VARIANT_AS_STRING
 			DBUS_DICT_ENTRY_END_CHAR_AS_STRING, &dict);
 
-	g_dbus_dict_append_entry(&dict, "Type", DBUS_TYPE_STRING, &element);
+	obex_dbus_dict_append(&dict, "Type", DBUS_TYPE_STRING, &element);
 
 	/* FIXME: User, Group, Other permission must be reviewed */
 
@@ -124,10 +125,10 @@ static void xml_element(GMarkupParseContext *ctxt,
 		if (g_str_equal("Size", key) == TRUE) {
 			guint64 size;
 			size = g_ascii_strtoll(values[i], NULL, 10);
-			g_dbus_dict_append_entry(&dict, key, DBUS_TYPE_UINT64,
+			obex_dbus_dict_append(&dict, key, DBUS_TYPE_UINT64,
 								&size);
 		} else
-			g_dbus_dict_append_entry(&dict, key, DBUS_TYPE_STRING,
+			obex_dbus_dict_append(&dict, key, DBUS_TYPE_STRING,
 								&values[i]);
 	}
 

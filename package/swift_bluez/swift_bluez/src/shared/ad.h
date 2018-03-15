@@ -88,11 +88,3 @@ void bt_ad_foreach_service_data(struct bt_ad *ad, bt_ad_func_t func,
 bool bt_ad_remove_service_data(struct bt_ad *ad, bt_uuid_t *uuid);
 
 void bt_ad_clear_service_data(struct bt_ad *ad);
-
-bool bt_ad_add_name(struct bt_ad *ad, const char *name);
-
-void bt_ad_clear_name(struct bt_ad *ad);
-
-bool bt_ad_add_appearance(struct bt_ad *ad, uint16_t appearance);
-
-void bt_ad_clear_appearance(struct bt_ad *ad);

@@ -148,9 +148,6 @@ static enum att_op_type get_op_type(uint8_t opcode)
 			return att_opcode_type_table[i].type;
 	}
 
-	if (opcode & ATT_OP_CMD_MASK)
-		return ATT_OP_TYPE_CMD;
-
 	return ATT_OP_TYPE_UNKNOWN;
 }
 
@@ -485,7 +482,8 @@ static bool can_write_data(struct io *io, void *user_data)
 	case ATT_OP_TYPE_RSP:
 		/* Set in_req to false to indicate that no request is pending */
 		att->in_req = false;
-		/* fall through */
+
+		/* Fall through to the next case */
 	case ATT_OP_TYPE_CMD:
 	case ATT_OP_TYPE_NOT:
 	case ATT_OP_TYPE_CONF:
@@ -641,12 +639,6 @@ static bool handle_error_rsp(struct bt_att *att, uint8_t *pdu,
 	/* Attempt to change security */
 	if (!change_security(att, rsp->ecode))
 		return false;
-
-	/* Remove timeout_id if outstanding */
-	if (op->timeout_id) {
-		timeout_remove(op->timeout_id);
-		op->timeout_id = 0;
-	}
 
 	util_debug(att->debug_callback, att->debug_data,
 						"Retrying operation %p", op);
@@ -846,10 +838,10 @@ static void handle_notify(struct bt_att *att, uint8_t opcode, uint8_t *pdu,
 	}
 
 	/*
-	 * If this was not a command and no handler was registered for it,
-	 * respond with "Not Supported"
+	 * If this was a request and no handler was registered for it, respond
+	 * with "Not Supported"
 	 */
-	if (!found && get_op_type(opcode) != ATT_OP_TYPE_CMD)
+	if (!found && get_op_type(opcode) == ATT_OP_TYPE_REQ)
 		respond_not_supported(att, opcode);
 
 	bt_att_unref(att);
@@ -906,12 +898,12 @@ static bool can_read_data(struct io *io, void *user_data)
 		}
 
 		att->in_req = true;
-		/* fall through */
+
+		/* Fall through to the next case */
 	case ATT_OP_TYPE_CMD:
 	case ATT_OP_TYPE_NOT:
 	case ATT_OP_TYPE_UNKNOWN:
 	case ATT_OP_TYPE_IND:
-		/* fall through */
 	default:
 		/* For all other opcodes notify the upper layer of the PDU and
 		 * let them act on it.
@@ -1208,17 +1200,6 @@ bool bt_att_unregister_disconnect(struct bt_att *att, unsigned int id)
 
 	if (!att || !id)
 		return false;
-
-	/* Check if disconnect is running */
-	if (!att->io) {
-		disconn = queue_find(att->disconn_list, match_disconn_id,
-							UINT_TO_PTR(id));
-		if (!disconn)
-			return false;
-
-		disconn->removed = true;
-		return true;
-	}
 
 	disconn = queue_remove_if(att->disconn_list, match_disconn_id,
 							UINT_TO_PTR(id));

@@ -570,17 +570,6 @@ static void set_le_features(struct btdev *btdev)
 	btdev->le_features[0] |= 0x08;	/* Slave-initiated Features Exchange */
 }
 
-static void set_le_states(struct btdev *btdev)
-{
-	/* Set all 41 bits as per Bluetooth 5.0 specification */
-	btdev->le_states[0] = 0xff;
-	btdev->le_states[1] = 0xff;
-	btdev->le_states[2] = 0xff;
-	btdev->le_states[3] = 0xff;
-	btdev->le_states[4] = 0xff;
-	btdev->le_states[5] = 0x03;
-}
-
 static void set_amp_features(struct btdev *btdev)
 {
 }
@@ -611,10 +600,9 @@ struct btdev *btdev_create(enum btdev_type type, uint16_t id)
 
 	switch (btdev->type) {
 	case BTDEV_TYPE_BREDRLE:
-		btdev->version = 0x09;
+		btdev->version = 0x08;
 		set_bredrle_features(btdev);
 		set_bredrle_commands(btdev);
-		set_le_states(btdev);
 		break;
 	case BTDEV_TYPE_BREDR:
 		btdev->version = 0x05;
@@ -622,10 +610,9 @@ struct btdev *btdev_create(enum btdev_type type, uint16_t id)
 		set_bredr_commands(btdev);
 		break;
 	case BTDEV_TYPE_LE:
-		btdev->version = 0x09;
+		btdev->version = 0x08;
 		set_le_features(btdev);
 		set_le_commands(btdev);
-		set_le_states(btdev);
 		break;
 	case BTDEV_TYPE_AMP:
 		btdev->version = 0x01;
@@ -696,11 +683,6 @@ uint8_t btdev_get_scan_enable(struct btdev *btdev)
 uint8_t btdev_get_le_scan_enable(struct btdev *btdev)
 {
 	return btdev->le_scan_enable;
-}
-
-void btdev_set_le_states(struct btdev *btdev, const uint8_t *le_states)
-{
-	memcpy(btdev->le_states, le_states, sizeof(btdev->le_states));
 }
 
 static bool use_ssp(struct btdev *btdev1, struct btdev *btdev2)

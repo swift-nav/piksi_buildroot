@@ -32,7 +32,6 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 #include <sys/socket.h>
 

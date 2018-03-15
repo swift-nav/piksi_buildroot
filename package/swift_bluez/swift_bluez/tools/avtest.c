@@ -799,7 +799,7 @@ int main(int argc, char *argv[])
 
 		case 'f':
 			invalid = 1;
-			/* fall through */
+			/* Intentionally missing break */
 
 		case 's':
 			mode = MODE_SEND;

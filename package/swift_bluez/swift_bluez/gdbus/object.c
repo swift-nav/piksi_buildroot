@@ -1421,10 +1421,6 @@ DBusMessage *g_dbus_create_error_valist(DBusMessage *message, const char *name,
 {
 	char str[1024];
 
-	/* Check if the message can be replied */
-	if (dbus_message_get_no_reply(message))
-		return NULL;
-
 	if (format)
 		vsnprintf(str, sizeof(str), format, args);
 	else
@@ -1452,10 +1448,6 @@ DBusMessage *g_dbus_create_reply_valist(DBusMessage *message,
 						int type, va_list args)
 {
 	DBusMessage *reply;
-
-	/* Check if the message can be replied */
-	if (dbus_message_get_no_reply(message))
-		return NULL;
 
 	reply = dbus_message_new_method_return(message);
 	if (reply == NULL)
@@ -1501,9 +1493,6 @@ static void g_dbus_flush(DBusConnection *connection)
 gboolean g_dbus_send_message(DBusConnection *connection, DBusMessage *message)
 {
 	dbus_bool_t result = FALSE;
-
-	if (!message)
-		return FALSE;
 
 	if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_METHOD_CALL)
 		dbus_message_set_no_reply(message, TRUE);
@@ -1582,9 +1571,14 @@ gboolean g_dbus_send_reply_valist(DBusConnection *connection,
 {
 	DBusMessage *reply;
 
-	reply = g_dbus_create_reply_valist(message, type, args);
-	if (!reply)
+	reply = dbus_message_new_method_return(message);
+	if (reply == NULL)
 		return FALSE;
+
+	if (dbus_message_append_args_valist(reply, type, args) == FALSE) {
+		dbus_message_unref(reply);
+		return FALSE;
+	}
 
 	return g_dbus_send_message(connection, reply);
 }
@@ -1665,6 +1659,8 @@ static void process_properties_from_interface(struct generic_data *data,
 	DBusMessageIter iter, dict, array;
 	GSList *invalidated;
 
+	data->pending_prop = FALSE;
+
 	if (iface->pending_prop == NULL)
 		return;
 
@@ -1725,8 +1721,6 @@ static void process_properties_from_interface(struct generic_data *data,
 static void process_property_changes(struct generic_data *data)
 {
 	GSList *l;
-
-	data->pending_prop = FALSE;
 
 	for (l = data->interfaces; l != NULL; l = l->next) {
 		struct interface_data *iface = l->data;

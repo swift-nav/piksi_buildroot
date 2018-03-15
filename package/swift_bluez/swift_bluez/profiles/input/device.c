@@ -1163,27 +1163,23 @@ static gboolean input_device_auto_reconnect(gpointer user_data)
 	 */
 	if (device_is_temporary(idev->device) ||
 					btd_device_is_connected(idev->device))
-		goto bail;
+		return FALSE;
 
 	/* Only attempt an auto-reconnect for at most 3 minutes (6 * 30s). */
 	if (idev->reconnect_attempt >= 6)
-		goto bail;
+		return FALSE;
 
 	/* Check if the profile is already connected. */
 	if (idev->ctrl_io)
-		goto bail;
+		return FALSE;
 
 	if (is_connected(idev))
-		goto bail;
+		return FALSE;
 
 	idev->reconnect_attempt++;
 	dev_connect(idev);
 
 	return TRUE;
-
-bail:
-	idev->reconnect_timer = 0;
-	return FALSE;
 }
 
 static const char * const _reconnect_mode_str[] = {

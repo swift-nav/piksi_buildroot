@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-SWIFT_BLUEZ_VERSION = 5.49
+SWIFT_BLUEZ_VERSION = 5.43
 SWIFT_BLUEZ_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/swift_bluez/swift_bluez"
 SWIFT_BLUEZ_SITE_METHOD = local
 SWIFT_BLUEZ_INSTALL_STAGING = YES
@@ -34,11 +34,11 @@ SWIFT_BLUEZ_CONF_OPTS += --disable-client
 endif
 
 # experimental plugins
-# ifeq ($(BR2_PACKAGE_SWIFT_BLUEZ_EXPERIMENTAL),y)
+ifeq ($(BR2_PACKAGE_SWIFT_BLUEZ_EXPERIMENTAL),y)
 SWIFT_BLUEZ_CONF_OPTS += --enable-experimental
-# else
-# SWIFT_BLUEZ_CONF_OPTS += --disable-experimental
-# endif
+else
+SWIFT_BLUEZ_CONF_OPTS += --disable-experimental
+endif
 
 # enable health plugin
 ifeq ($(BR2_PACKAGE_BLUEZ5_PLUGINS_HEALTH),y)

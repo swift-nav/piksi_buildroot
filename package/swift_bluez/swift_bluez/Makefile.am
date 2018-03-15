@@ -80,7 +80,7 @@ include_HEADERS += $(lib_headers)
 lib_LTLIBRARIES += lib/libbluetooth.la
 
 lib_libbluetooth_la_SOURCES = $(lib_headers) $(lib_sources)
-lib_libbluetooth_la_LDFLAGS = $(AM_LDFLAGS) -version-info 21:16:18
+lib_libbluetooth_la_LDFLAGS = $(AM_LDFLAGS) -version-info 21:14:18
 lib_libbluetooth_la_DEPENDENCIES = $(local_headers)
 endif
 
@@ -119,12 +119,11 @@ shared_sources = src/shared/io.h src/shared/timeout.h \
 			src/shared/gatt-server.h src/shared/gatt-server.c \
 			src/shared/gatt-db.h src/shared/gatt-db.c \
 			src/shared/gap.h src/shared/gap.c \
-			src/shared/tty.h src/shared/shell.c src/shared/shell.h
+			src/shared/tty.h
 
 src_libshared_glib_la_SOURCES = $(shared_sources) \
 				src/shared/io-glib.c \
-				src/shared/timeout-glib.c \
-				src/shared/mainloop-glib.c
+				src/shared/timeout-glib.c
 
 src_libshared_mainloop_la_SOURCES = $(shared_sources) \
 				src/shared/io-mainloop.c \
@@ -148,7 +147,6 @@ gobex_sources = gobex/gobex.h gobex/gobex.c \
 builtin_modules =
 builtin_sources =
 builtin_nodist =
-builtin_ldadd =
 
 include Makefile.plugins
 
@@ -193,8 +191,7 @@ src_bluetoothd_SOURCES = $(builtin_sources) \
 src_bluetoothd_LDADD = lib/libbluetooth-internal.la \
 			gdbus/libgdbus-internal.la \
 			src/libshared-glib.la \
-			@BACKTRACE_LIBS@ @GLIB_LIBS@ @DBUS_LIBS@ -ldl -lrt \
-			$(builtin_ldadd)
+			@BACKTRACE_LIBS@ @GLIB_LIBS@ @DBUS_LIBS@ -ldl -lrt
 src_bluetoothd_LDFLAGS = $(AM_LDFLAGS) -Wl,--export-dynamic \
 				-Wl,--version-script=$(srcdir)/src/bluetooth.ver
 
@@ -217,7 +214,7 @@ man_MANS = src/bluetoothd.8
 
 EXTRA_DIST += src/genbuiltin src/bluetooth.conf \
 			src/main.conf profiles/network/network.conf \
-			profiles/input/input.conf
+			profiles/input/input.conf profiles/proximity/proximity.conf
 
 test_scripts =
 unit_tests =
@@ -255,7 +252,10 @@ EXTRA_DIST += doc/mgmt-api.txt \
 		doc/health-api.txt doc/sap-api.txt \
 		doc/input-api.txt
 
-EXTRA_DIST += doc/gatt-api.txt doc/advertising-api.txt
+EXTRA_DIST += doc/alert-api.txt \
+		doc/proximity-api.txt doc/heartrate-api.txt \
+		doc/thermometer-api.txt doc/cyclingspeed-api.txt \
+		doc/gatt-api.txt doc/advertising-api.txt
 
 EXTRA_DIST += doc/obex-api.txt doc/obex-agent-api.txt
 
@@ -421,16 +421,6 @@ unit_test_gattrib_LDADD = lib/libbluetooth-internal.la \
 			src/libshared-glib.la \
 			@GLIB_LIBS@ @DBUS_LIBS@ -ldl -lrt
 
-if MIDI
-unit_tests += unit/test-midi
-unit_test_midi_CFLAGS = $(AM_CFLAGS) @ALSA_CFLAGS@ -DMIDI_TEST
-unit_test_midi_SOURCES = unit/test-midi.c \
-			profiles/midi/libmidi.h \
-			profiles/midi/libmidi.c
-unit_test_midi_LDADD = src/libshared-glib.la \
-			@GLIB_LIBS@ @ALSA_LIBS@
-endif
-
 if MAINTAINER_MODE
 noinst_PROGRAMS += $(unit_tests)
 endif
@@ -463,13 +453,8 @@ endif
 EXTRA_DIST += $(manual_pages:.1=.txt)
 
 DISTCHECK_CONFIGURE_FLAGS = --disable-datafiles --enable-library \
-						--enable-health \
-						--enable-mesh \
-						--enable-midi \
-						--enable-manpages \
-						--enable-android \
-						--disable-systemd \
-						--disable-udev
+					--enable-manpages --enable-android \
+					--disable-systemd --disable-udev
 
 DISTCLEANFILES = $(pkgconfig_DATA) $(unit_tests) $(manual_pages)
 
@@ -497,7 +482,7 @@ $(lib_libbluetooth_la_OBJECTS): $(local_headers)
 
 lib/bluetooth/%.h: lib/%.h
 	$(AM_V_at)$(MKDIR_P) lib/bluetooth
-	$(AM_V_GEN)$(LN_S) -f $(abspath $<) $@
+	$(AM_V_GEN)$(LN_S) -f "$(abs_top_builddir)"/$< $@
 
 if COVERAGE
 clean-coverage:

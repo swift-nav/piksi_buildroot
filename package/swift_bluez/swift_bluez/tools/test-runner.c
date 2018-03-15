@@ -419,10 +419,6 @@ static void create_dbus_system_conf(void)
 
 	fclose(fp);
 
-	if (symlink("/etc/dbus-1/system.conf",
-				"/usr/share/dbus-1/system.conf") < 0)
-		perror("Failed to create system.conf symlink");
-
 	mkdir("/run/dbus", 0755);
 }
 
