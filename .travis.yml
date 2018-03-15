@@ -66,10 +66,11 @@ matrix:
         - tail -n 500 host_build.out
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh host_build.out
 
-    # Normal build + SDK sample app
+    # Normal build + SDK sample app + piksi_ins_ref
     - env:
         - TRAVIS_TARGET=docker-make-image
         - BR2_BUILD_SAMPLE_DAEMON=y
+        - BR2_BUILD_PIKSI_INS_REF=y
       script:
         - make docker-setup
         - make docker-make-firmware
