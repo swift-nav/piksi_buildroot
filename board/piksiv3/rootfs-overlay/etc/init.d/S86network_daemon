@@ -1,7 +1,6 @@
 #!/bin/sh
 
 name="network_daemon"
-#cmd="network_daemon --interface eth0"
 cmd="network_daemon"
 dir="/"
 user=""
