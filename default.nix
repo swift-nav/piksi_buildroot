@@ -3,6 +3,7 @@
 let fhs = pkgs.buildFHSUserEnv {
   name = "piksi-env";
   targetPkgs = pkgs: with pkgs; [
+    awscli
     bash
     bc
     bison

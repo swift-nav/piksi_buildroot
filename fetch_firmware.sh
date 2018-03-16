@@ -15,6 +15,11 @@
 
 set -xe
 
+if [[ $(uname -a) == *NixOS* ]]; then
+  # Remove buildroot from LD_LIBRARY_PATH
+  export LD_LIBRARY_PATH=/lib:/usr/lib
+fi
+
 FW_VERSION=${1:-v1.3.0-develop-2018030818}
 NAP_VERSION=${2:-v1.3.0-develop-2018030818}
 
