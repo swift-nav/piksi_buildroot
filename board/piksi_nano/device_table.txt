@@ -1,0 +1,1 @@
+../piksiv3/device_table.txt

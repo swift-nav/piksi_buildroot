@@ -15,7 +15,7 @@ $(info LTO_PLUGIN: $(LTO_PLUGIN))
 endif
 
 # Don't use LTO for Linux or uboot
-NO_FLTO := linux-xilinx,uboot_custom
+NO_FLTO := linux-xilinx,uboot_custom,uboot,linux
 
 # The LTO wrapper analyzes the current directory and makes
 #   a decision to exclude the -flto parameter.
@@ -109,6 +109,9 @@ LINUX_POST_INSTALL_HOOKS += reenable-lto-post
 
 UBOOT_CUSTOM_PRE_CONFIGURE_HOOKS += disable-lto-pre
 UBOOT_CUSTOM_POST_INSTALL_HOOKS += reenable-lto-post
+
+UBOOT_PRE_CONFIGURE_HOOKS += disable-lto-pre
+UBOOT_POST_INSTALL_HOOKS += reenable-lto-post
 
 force-install-toolchain-wrappers:
 	$(toolchain-external-post)
