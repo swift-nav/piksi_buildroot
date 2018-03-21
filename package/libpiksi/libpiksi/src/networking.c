@@ -17,6 +17,7 @@
 
 #include <libpiksi/util.h>
 #include <libpiksi/networking.h>
+#include <libpiksi/logging.h>
 
 typedef s32 (*interface_map_fn_t)(struct ifaddrs *ifa, void *userdata);
 
@@ -70,9 +71,16 @@ static s32 fill_network_state_struct(struct ifaddrs *ifa, void *userdata)
   }
 
   // guard conditions to skip
-  if (ifa->ifa_addr == NULL
-      || ifa->ifa_name == NULL
-      || strlen(ifa->ifa_name) >= sizeof(interfaces[0].interface_name)) {
+  if (ifa->ifa_addr == NULL) {
+    piksi_log(LOG_WARNING, "Network State: skipping NULL ifa_addr");
+    return 0;
+  }
+  if (ifa->ifa_name == NULL) {
+    piksi_log(LOG_WARNING, "Network State: skipping NULL ifa_name");
+    return 0;
+  }
+  if(strlen(ifa->ifa_name) >= sizeof(interfaces[0].interface_name)) {
+    piksi_log(LOG_WARNING, "Network State: skipping ifa_name that is too long - %s", ifa->ifa_name);
     return 0;
   }
 
