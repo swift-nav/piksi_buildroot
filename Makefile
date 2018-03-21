@@ -52,15 +52,15 @@ pkg-%: config
 		$(MAKE) -C buildroot $* O=output
 
 host-pkg-%: host-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+	BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DISABLE_LTO=y \
 		$(MAKE) -C buildroot $* O=host_output
 
 host-config:
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+	BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DISABLE_LTO=y \
 		$(MAKE) -C buildroot O=host_output host_defconfig
 
 host-image: host-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+	BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DISABLE_LTO=y \
 		$(MAKE) -C buildroot O=host_output
 
 host-clean:

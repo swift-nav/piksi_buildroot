@@ -21,35 +21,35 @@ M4_INC := $(BASE_DIR)/../../scripts
 
 define make-toolchain-wrapper
 	$(Q)[ -f $(TOOLCHAIN_EXTERNAL_BIN)/$1.real ] || (     \
-		set -e;                                             \
-		cd $(TOOLCHAIN_EXTERNAL_BIN);                       \
-		cp $1 $1.real;                                      \
+	  set -e;                                             \
+	  cd $(TOOLCHAIN_EXTERNAL_BIN);                       \
+	  cp $1 $1.real;                                      \
 	)
 	$(Q)[ -f $(TOOLCHAIN_EXTERNAL_BIN)/$1.wrap ] || (     \
-		set -e;                                             \
-		cd $(TOOLCHAIN_EXTERNAL_BIN);                       \
-		wrapper_temp=$$(mktemp);                             \
-		m4 -DM4_TOOL_NAME=$1                                \
-		   -DM4_NO_FLTO="$(NO_FLTO)"                        \
-		   -DM4_TOOLCHAIN_DIR="$(TOOLCHAIN_EXTERNAL_BIN)"   \
-			 $(FLTO_WRAPPER)                                  \
+	  set -e;                                             \
+	  cd $(TOOLCHAIN_EXTERNAL_BIN);                       \
+	  wrapper_temp=$$(mktemp);                            \
+	  m4 -DM4_TOOL_NAME=$1                                \
+	     -DM4_NO_FLTO="$(NO_FLTO)"                        \
+	     -DM4_TOOLCHAIN_DIR="$(TOOLCHAIN_EXTERNAL_BIN)"   \
+	     $(FLTO_WRAPPER)                                  \
 	  | m4 -I $(M4_INC) - >$$wrapper_temp;                \
 	  echo "Wrapper temp: $$wrapper_temp";                \
 	  $(HOSTCC) -xc - -o $1.wrap <$$wrapper_temp;         \
-		chmod +x $1.wrap                                    \
+	  chmod +x $1.wrap                                    \
 	)
 endef
 
 define toolchain-external-post
-  $(info *******************************)
-  $(info *** Installing LTO wrappers ***)
-  $(info *******************************)
+	$(info *******************************)
+	$(info *** Installing LTO wrappers ***)
+	$(info *******************************)
 	$(Q)ln -sf $(TOOLCHAIN_EXTERNAL_CROSS)gcc-ar \
-		$(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-ar
+	  $(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-ar
 	$(Q)ln -sf $(TOOLCHAIN_EXTERNAL_CROSS)gcc-nm \
-		$(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-nm
+	  $(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-nm
 	$(Q)ln -sf $(TOOLCHAIN_EXTERNAL_CROSS)gcc-ranlib \
-		$(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-ranlib
+	  $(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-ranlib
 	$(call make-toolchain-wrapper,$(TOOLCHAIN_EXTERNAL_PREFIX)-gcc)
 	$(call make-toolchain-wrapper,$(TOOLCHAIN_EXTERNAL_PREFIX)-ld)
 endef
