@@ -89,16 +89,6 @@ static int parse_options(int argc, char *argv[])
 }
 
 /**
- * @brief send_network_usage_update
- *
- * This will query the underlying network interface APIs
- * and generate a usage message based on the interfaces found.
- * If the 'interface' option was specified in the command line,
- * a message will only be emitted if the specified interface is
- * matched during query of the network interfaces.
- * @param pubsub_ctx: sbp zmq pubsub context used to send sbp message
- */
-/**
  * @brief send_cell_modem_status
  *
  * Sends relevant AT commands to cell modem and records the
@@ -115,22 +105,20 @@ static void send_cell_modem_status(struct cell_modem_ctx_s *cell_modem_ctx)
     // failed to parse command
     return;
   }
-  //piksi_log(LOG_DEBUG, "cell modem signal quality: %d, %f\n", signal_strength, error_rate);
-#if 0
-  if (total_interfaces > 0) {
-    msg_network_bandwidth_usage_t *bandwidth_msg = (msg_network_bandwidth_usage_t *)usage_entries;
-    size_t message_length = sizeof(network_usage_t) * total_interfaces;
-    if (message_length > SBP_FRAMING_MAX_PAYLOAD_SIZE ) {
-      piksi_log(LOG_ERR, "Network usage structs surpassing SBP frame size");
-      return;
-    } else {
-      sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
-                      SBP_MSG_NETWORK_BANDWIDTH_USAGE,
-                      (u8)(0xFF & message_length),
-                      (u8*)bandwidth_msg);
-    }
+  msg_cell_modem_status_t cell_status_msg = {
+    .signal_strength = signal_strength,
+    .signal_error_rate = error_rate
+  };
+  size_t message_length = sizeof(msg_cell_modem_status_t);
+  if (message_length > SBP_FRAMING_MAX_PAYLOAD_SIZE ) {
+    piksi_log(LOG_ERR, "Cell Modem Status surpassing SBP frame size");
+    return;
+  } else {
+    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(cell_modem_ctx->sbp_ctx),
+        SBP_MSG_CELL_MODEM_STATUS,
+        (u8)(0xFF & message_length),
+        (u8*)&cell_status_msg);
   }
-#endif
 }
 
 /**
