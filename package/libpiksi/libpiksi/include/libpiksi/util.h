@@ -33,6 +33,12 @@
 u16 sbp_sender_id_get(void);
 
 /**
+ * @brief   Get system uptime
+ * @return  Uptime in milliseconds
+ */
+u64 system_uptime_ms_get(void);
+
+/**
  * @brief   Get the Device UUID for the system.
  * @details Returns the board-specific UUID.
  *
