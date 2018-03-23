@@ -12,6 +12,7 @@
 
 #include <libsbp/sbp.h>
 #include <libsbp/logging.h>
+#include <libpiksi/util.h>
 #include <czmq.h>
 #include <getopt.h>
 #include <unistd.h>
@@ -26,7 +27,7 @@ static u8 buf_len;
 static u32 sbp_write(u8 *b, u32 n, void *context)
 {
   (void)context;
-  n = MIN(n, sizeof(buf));
+  n = SWFT_MIN(n, sizeof(buf));
   memcpy(&buf[buf_len], b, n);
   buf_len += n;
   return n;

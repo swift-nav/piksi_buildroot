@@ -9,7 +9,7 @@ skylark_enabled() {
 }
 
 ntrip_enabled() {
-  if [ x`cat /var/run/ntrip_enabled` != "x0" ]; then
+  if [ x`cat /var/run/ntrip/enabled` != "x0" ]; then
     return 0
   else
     return 1

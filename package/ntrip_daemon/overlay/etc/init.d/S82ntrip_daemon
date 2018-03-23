@@ -1,0 +1,23 @@
+#!/bin/sh
+
+name="ntrip_daemon"
+cmd="ntrip_daemon --settings"
+dir="/"
+user="ntrip_daemon"
+
+setup_permissions() {
+
+  mkdir -p /var/run/ntrip/control
+  chown -R ntrip_daemon:ntrip_daemon /var/run/ntrip
+
+  # Sticky bit is set so that ntrip_daemon can create it's
+  #   control socket but (and allow others to write to it)
+  #   but not delete the control socket.
+  chmod 1775 /var/run/ntrip/control
+
+  touch /var/run/ntrip/enabled
+  chown ntrip_daemon:ntrip_daemon /var/run/ntrip/enabled
+  chmod 0644 /var/run/ntrip/enabled
+}
+
+source /etc/init.d/template_process.inc.sh

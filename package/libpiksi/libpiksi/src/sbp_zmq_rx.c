@@ -26,7 +26,7 @@ struct sbp_zmq_rx_ctx_s {
 static u32 receive_buffer_read(u8 *buff, u32 n, void *context)
 {
   sbp_zmq_rx_ctx_t *ctx = (sbp_zmq_rx_ctx_t *)context;
-  u32 len = MIN(n, ctx->receive_buffer_length);
+  u32 len = SWFT_MIN(n, ctx->receive_buffer_length);
   memcpy(buff, ctx->receive_buffer, len);
   ctx->receive_buffer += len;
   ctx->receive_buffer_length -= len;
@@ -72,6 +72,9 @@ static int message_receive(sbp_zmq_rx_ctx_t *ctx)
 
 static int zloop_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 {
+  (void)zloop;
+  (void)zsock;
+
   sbp_zmq_rx_ctx_t *ctx = (sbp_zmq_rx_ctx_t *)arg;
 
   ctx->reader_interrupt = false;
