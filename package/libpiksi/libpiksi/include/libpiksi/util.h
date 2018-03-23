@@ -33,6 +33,12 @@
 u16 sbp_sender_id_get(void);
 
 /**
+ * @brief   Get system uptime
+ * @return  Uptime in milliseconds
+ */
+u64 system_uptime_ms_get(void);
+
+/**
  * @brief   Get the Device UUID for the system.
  * @details Returns the board-specific UUID.
  *
@@ -78,6 +84,8 @@ int zmq_simple_loop_timeout(zloop_t *zloop, u32 timeout_ms);
   ({ typeof (a) _a = (a); \
   typeof (b) _b = (b); \
   _a < _b ? _a : _b; })
+
+#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
 #endif /* LIBPIKSI_UTIL_H */
 
