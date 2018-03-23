@@ -10,7 +10,7 @@ NTRIP_DAEMON_SITE = \
 NTRIP_DAEMON_SITE_METHOD = local
 NTRIP_DAEMON_DEPENDENCIES = czmq libsbp libpiksi libcurl libnetwork
 
-define NMEA_DAEMON_USERS
+define NTRIP_DAEMON_USERS
 	ntrip_daemon -1 ntrip_daemon -1 * - - -
 endef
 

@@ -7,8 +7,6 @@ SOURCES= \
 	main.c \
 	protocols.c \
 	ports.c \
-	ntrip.c \
-	skylark.c \
 	whitelists.c
 
 LIBS=-lczmq -lsbp -lpiksi -ldl
