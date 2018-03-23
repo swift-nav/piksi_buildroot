@@ -35,6 +35,8 @@
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE (255u)
 #define CELL_STATUS_UPDATE_INTERVAL (1000u)
 
+bool cell_modem_enable_watch = false;
+
 u8 *port_name = NULL;
 u8 *command_string = NULL;
 
@@ -110,14 +112,14 @@ static void send_cell_modem_status(struct cell_modem_ctx_s *cell_modem_ctx)
     .signal_error_rate = error_rate
   };
   size_t message_length = sizeof(msg_cell_modem_status_t);
-  if (message_length > SBP_FRAMING_MAX_PAYLOAD_SIZE ) {
+  if (message_length > SBP_FRAMING_MAX_PAYLOAD_SIZE) {
     piksi_log(LOG_ERR, "Cell Modem Status surpassing SBP frame size");
     return;
   } else {
     sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(cell_modem_ctx->sbp_ctx),
-        SBP_MSG_CELL_MODEM_STATUS,
-        (u8)(0xFF & message_length),
-        (u8*)&cell_status_msg);
+                    SBP_MSG_CELL_MODEM_STATUS,
+                    (u8)(0xFF & message_length),
+                    (u8 *)&cell_status_msg);
   }
 }
 
@@ -130,42 +132,42 @@ static int cell_status_timer_callback(zloop_t *loop, int timer_id, void *arg)
   (void)timer_id;
   struct cell_modem_ctx_s *cell_modem_ctx = (struct cell_modem_ctx_s *)arg;
 
-  send_cell_modem_status(cell_modem_ctx);
+  if (cell_modem_enable_watch) {
+    send_cell_modem_status(cell_modem_ctx);
+  }
 
   return 0;
 }
 
-static int cleanup(sbp_zmq_pubsub_ctx_t **pubsub_ctx_loc,
+static int cleanup(settings_ctx_t **settings_ctx_loc,
+                   sbp_zmq_pubsub_ctx_t **pubsub_ctx_loc,
                    at_serial_port_t **port_loc,
                    int status);
 
 int main(int argc, char *argv[])
 {
+  settings_ctx_t *settings_ctx = NULL;
   sbp_zmq_pubsub_ctx_t *ctx = NULL;
   at_serial_port_t *port = NULL;
-  struct cell_modem_ctx_s cell_modem_ctx = {
-    .sbp_ctx = NULL,
-    .port = NULL
-  };
+  struct cell_modem_ctx_s cell_modem_ctx = { .sbp_ctx = NULL, .port = NULL };
 
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
     usage(argv[0]);
-    return cleanup(&ctx, &port, EXIT_FAILURE);
+    return cleanup(&settings_ctx, &ctx, &port, EXIT_FAILURE);
   }
 
   port = at_serial_port_create((char *)port_name);
   if (port == NULL) {
-    return cleanup(&ctx, &port, EXIT_FAILURE);
+    return cleanup(&settings_ctx, &ctx, &port, EXIT_FAILURE);
   }
   cell_modem_ctx.port = port;
 
   if (command_string != NULL) {
     at_serial_port_command_t *at_command = at_serial_port_command_create((char *)command_string);
-    if (at_command != NULL)
-    {
+    if (at_command != NULL) {
       at_serial_port_execute_command(port, at_command);
       printf("%s\n", at_serial_port_command_result(at_command));
       at_serial_port_command_destroy(&at_command);
@@ -176,31 +178,60 @@ int main(int argc, char *argv[])
 
     ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
     if (ctx == NULL) {
-      return cleanup(&ctx, &port, EXIT_FAILURE);
+      return cleanup(&settings_ctx, &ctx, &port, EXIT_FAILURE);
     }
     cell_modem_ctx.sbp_ctx = ctx;
 
     zloop_t *loop = sbp_zmq_pubsub_zloop_get(ctx);
     if (loop == NULL) {
-      return cleanup(&ctx, &port, EXIT_FAILURE);
+      return cleanup(&settings_ctx, &ctx, &port, EXIT_FAILURE);
     }
-    if (zloop_timer(loop, CELL_STATUS_UPDATE_INTERVAL, 0, cell_status_timer_callback, &cell_modem_ctx) == -1) {
-      return cleanup(&ctx, &port, EXIT_FAILURE);
+
+    if (zloop_timer(loop,
+                    CELL_STATUS_UPDATE_INTERVAL,
+                    0,
+                    cell_status_timer_callback,
+                    &cell_modem_ctx)
+        == -1) {
+      return cleanup(&settings_ctx, &ctx, &port, EXIT_FAILURE);
     }
+
+    settings_ctx = settings_create();
+
+    if (settings_ctx == NULL) {
+      sbp_log(LOG_ERR, "Error registering for settings!");
+      return cleanup(&settings_ctx, &ctx, &port, EXIT_FAILURE);
+    }
+
+    if (settings_reader_add(settings_ctx, loop) != 0) {
+      sbp_log(LOG_ERR, "Error registering for settings read!");
+      return cleanup(&settings_ctx, &ctx, &port, EXIT_FAILURE);
+    }
+
+    settings_add_watch(settings_ctx,
+                       "cell_modem",
+                       "enable",
+                       &cell_modem_enable_watch,
+                       sizeof(cell_modem_enable_watch),
+                       SETTINGS_TYPE_BOOL,
+                       NULL,
+                       NULL);
 
     zmq_simple_loop(loop);
   }
 
-  return cleanup(&ctx, &port, EXIT_SUCCESS);
+  return cleanup(&settings_ctx, &ctx, &port, EXIT_SUCCESS);
 }
 
-static int cleanup(sbp_zmq_pubsub_ctx_t **pubsub_ctx_loc,
+static int cleanup(settings_ctx_t **settings_ctx_loc,
+                   sbp_zmq_pubsub_ctx_t **pubsub_ctx_loc,
                    at_serial_port_t **port_loc,
                    int status)
 {
   if (*pubsub_ctx_loc != NULL) {
     sbp_zmq_pubsub_destroy(pubsub_ctx_loc);
   }
+  settings_destroy(settings_ctx_loc);
   at_serial_port_destroy(port_loc);
   logging_deinit();
 
