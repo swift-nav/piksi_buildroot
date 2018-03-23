@@ -13,9 +13,6 @@ setup_permissions() {
     touch /var/run/skylark_enabled
     chmod 0644 /var/run/skylark_enabled
 
-    touch /var/run/ntrip_enabled
-    chmod 0644 /var/run/ntrip_enabled
-
     touch /var/run/network_available
     chown network_poll:network_poll /var/run/network_available
     chmod 0644 /var/run/network_available

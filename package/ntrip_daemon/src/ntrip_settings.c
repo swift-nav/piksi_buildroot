@@ -13,9 +13,9 @@
 #include <unistd.h>
 #include <libpiksi/logging.h>
 
-#include "ntrip.h"
+#include "ntrip_settings.h"
 
-#define FIFO_FILE_PATH "/var/run/ntrip"
+#define FIFO_FILE_PATH "/var/run/ntrip/fifo"
 
 static bool ntrip_enabled;
 static bool ntrip_debug;
@@ -119,12 +119,14 @@ static int ntrip_notify(void *context)
       process->pid = 0;
     }
 
+    // TODO: Remove the need for these by reading from control socket
+
     if (!ntrip_enabled || strcmp(ntrip_url, "") == 0) {
-      system("echo 0 >/var/run/ntrip_enabled");
+      system("echo 0 >/var/run/ntrip/enabled");
       continue;
     }
 
-    system("echo 1 >/var/run/ntrip_enabled");
+    system("echo 1 >/var/run/ntrip/enabled");
 
     if (strcmp(ntrip_username, "") != 0 && strcmp(ntrip_password, "") != 0) {
       ntrip_argv = ntrip_debug ? ntrip_argv_username_debug : ntrip_argv_username;
@@ -178,7 +180,7 @@ void ntrip_init(settings_ctx_t *settings_ctx)
                     ntrip_notify, NULL);
 }
 
-void ntrip_reconnect() {
+bool ntrip_reconnect(void) {
 
   for (int i=0; i<ntrip_processes_count; i++) {
 
@@ -188,7 +190,7 @@ void ntrip_reconnect() {
 
       if (process->pid == 0) {
         piksi_log(LOG_ERR, "Asked to tell ntrip_daemon to reconnect, but it isn't running");
-        return;
+        return false;
       }
 
       int ret = kill(process->pid, SIGUSR1);
@@ -196,7 +198,11 @@ void ntrip_reconnect() {
       if (ret != 0) {
         piksi_log(LOG_ERR, "ntrip_reconnect: kill pid %d error (%d) \"%s\"",
                   process->pid, errno, strerror(errno));
+
+        return false;
       }
     }
   }
+
+  return true;
 }

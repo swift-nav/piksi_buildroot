@@ -16,6 +16,6 @@
 #include <libpiksi/settings.h>
 
 void ntrip_init(settings_ctx_t *settings_ctx);
-void ntrip_reconnect();
+bool ntrip_reconnect(void);
 
 #endif

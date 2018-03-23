@@ -37,11 +37,11 @@ static void members_destroy(sbp_zmq_pubsub_ctx_t *ctx)
   }
 
   if (ctx->zsock_sub != NULL) {
-    zsock_destroy(&ctx->zsock_pub);
+    zsock_destroy(&ctx->zsock_sub);
   }
 
    if (ctx->zsock_pub != NULL) {
-    zsock_destroy(&ctx->zsock_sub);
+    zsock_destroy(&ctx->zsock_pub);
   }
 }
 
