@@ -234,13 +234,6 @@ static void command_exit_cb(int status, void *arg)
   free(ctx);
 }
 
-static void ntrip_reconnect()
-{
-  // TODO/NOSHIP: Fill this in
-
-  assert( false );
-}
-
 static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   (void) sender_id;
@@ -249,8 +242,8 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 
   msg_[len] = 0;
   msg_command_req_t *msg = (msg_command_req_t *)msg_;
-  if (strcmp(msg->command, "<<BASE_OBS_SANITY_FAILED>>") == 0) {
-    ntrip_reconnect();
+  if (strcmp(msg->command, "ntrip_daemon --reconnect") == 0) {
+    system("ntrip_daemon --reconnect");
     return;
   }
   /* TODO As more commands are added in the future the command field will need

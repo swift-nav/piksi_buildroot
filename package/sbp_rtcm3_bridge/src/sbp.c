@@ -66,7 +66,7 @@ void sbp_base_obs_invalid(double timediff)
 
   piksi_log(LOG_WARNING, "received indication that base obs. are invalid, time difference: %f", timediff);
 
-  static const char ntrip_sanity_failed[] = "<<BASE_OBS_SANITY_FAILED>>";
+  static const char ntrip_sanity_failed[] = "ntrip_daemon --reconnect";
   static const size_t command_len = sizeof(ntrip_sanity_failed) - sizeof(ntrip_sanity_failed[0]);
 
   u8 msg_buf[sizeof(msg_command_req_t) + command_len];

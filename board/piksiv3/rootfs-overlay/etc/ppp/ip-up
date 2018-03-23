@@ -20,11 +20,7 @@ if [ "$USEPEERDNS" = "1" ]; then
   echo "nameserver $DNS2"   >>/etc/resolv.conf
 fi
 
-ntrip_daemon_pid=`pgrep ntrip_daemon`
-
-if [ -n "$ntrip_daemon_pid" ]; then
-  kill -SIGUSR1 "$ntrip_daemon_pid"
-fi
+ntrip_daemon --reconnect
 
 skylark_download_daemon_pid=`pgrep skylark_download_daemon`
 

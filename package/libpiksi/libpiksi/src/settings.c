@@ -85,6 +85,10 @@
 
 #define SBP_PAYLOAD_SIZE_MAX 255
 
+// In processes Socket used to quit the settings daemon if a SIGTERM/SIGINT is
+//   received so we can cleanly remove our control socket.
+static zsock_t* loop_quit = NULL;
+
 typedef int (*to_string_fn)(const void *priv, char *str, int slen,
                             const void *blob, int blen);
 typedef bool (*from_string_fn)(const void *priv, void *blob, int blen,
@@ -1400,4 +1404,191 @@ int settings_reader_remove(settings_ctx_t *ctx, zloop_t *zloop)
 
   return sbp_zmq_rx_reader_remove(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
                                   zloop);
+}
+
+static void cleanup_signal_handlers (void)
+{
+  zsock_destroy(&loop_quit);
+}
+
+static void signal_handler (int signal_value)
+{
+  piksi_log(LOG_DEBUG, "Caught signal: %d", signal_value);
+
+  if (loop_quit != NULL)
+    zsock_send(loop_quit, "1", 1);
+  else
+    piksi_log(LOG_DEBUG, "Loop quit socket was null...");
+}
+
+static void setup_signal_handlers ()
+{
+  loop_quit = zsock_new_pair("@inproc://loop_quit");
+
+  if (loop_quit == NULL) {
+    piksi_log(LOG_ERR, "Error creating loop quit socket: %s",
+              zmq_strerror(zmq_errno()));
+    return;
+  }
+
+  struct sigaction action;
+
+  action.sa_handler = signal_handler;
+  action.sa_flags = 0;
+
+  sigemptyset (&action.sa_mask);
+
+  sigaction (SIGINT, &action, NULL);
+  sigaction (SIGTERM, &action, NULL);
+}
+
+static int loop_quit_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
+{
+  (void) zloop;
+  (void) arg;
+
+  u8 request = 0;
+  zsock_recv(zsock, "1", &request);
+
+  assert( request == 1 );
+
+  piksi_log(LOG_INFO, "Shutting down...");
+  return -1;
+}
+
+typedef struct {
+  const char* command;
+  control_handler_fn handler;
+} control_command_t;
+
+static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
+{
+  (void)zloop;
+
+  control_command_t* cmd_info = (control_command_t*)arg;
+
+  char *data;
+
+  piksi_log(LOG_DEBUG, "waiting to receive data...");
+
+  int rc = zsock_recv(zsock, "s", &data);
+  if ( rc != 0 ) {
+    piksi_log(LOG_WARNING, "zsock_recv error: %s", zmq_strerror(zmq_errno()));
+    return 0;
+  }
+
+  u32 length = strlen(data);
+
+  if (length == 0 || length > 1) {
+    piksi_log(LOG_WARNING, "command had invalid length: %u", length);
+    return control_handler_cleanup(data, 0);
+  }
+
+  if (data == NULL) {
+    piksi_log(LOG_WARNING, "received data was null");
+    return control_handler_cleanup(data, 0);
+  }
+
+  if (*data != cmd_info->command[0]) {
+    piksi_log(LOG_WARNING, "command had invalid value: %c", *data);
+    return control_handler_cleanup(data, 0);
+  }
+
+  piksi_log(LOG_INFO, "got request to refresh connection...");
+  u8 result = cmd_info->handler() ? 1 : 0;
+
+  zsock_send(zsock, "1", result);
+
+  return control_handler_cleanup(data, 0);
+}
+
+int settings_loop(settings_register_fn settings_reg_fn,
+                  const char* control_socket,
+                  const char* control_socket_file,
+                  const char* control_command,
+                  control_handler_fn ctrl_handler)
+{
+  piksi_log(LOG_INFO, "Starting daemon mode for NTRIP settings...");
+
+  zsys_handler_set(NULL);
+  setup_signal_handlers();
+
+  /* Set up SBP ZMQ */
+  sbp_zmq_pubsub_ctx_t *pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT,
+                                                           SUB_ENDPOINT);
+  if (pubsub_ctx == NULL) {
+    return -1;
+  }
+
+  /* Set up settings */
+  settings_ctx_t *settings_ctx = settings_create();
+  if (settings_ctx == NULL) {
+    return -1;
+  }
+
+  if (settings_reader_add(settings_ctx,
+                          sbp_zmq_pubsub_zloop_get(pubsub_ctx)) != 0) {
+    return -1;
+  }
+
+  settings_reg_fn(settings_ctx);
+  zloop_t* loop = sbp_zmq_pubsub_zloop_get(pubsub_ctx);
+  zsock_t* rep_socket = NULL;
+
+  if (control_socket != NULL && reader_fn != NULL) {
+
+    rep_socket = zsock_new_rep(control_socket);
+
+    int rc = chmod(control_socket_file, 0777);
+    if (rc != 0) {
+      piksi_log(LOG_ERR, "Error configuring IPC pipe permissions: %s",
+                strerror(errno));
+      return -1;
+    }
+
+    if (rep_socket == NULL) {
+      const char* err_msg = zmq_strerror(zmq_errno());
+      piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s",
+                control_socket, err_msg);
+      return -1;
+    }
+
+    control_command_t cmd = {
+      .command = control_command,
+      .handler = ctrl_handler
+    };
+
+    if (zloop_reader(loop, rep_socket, control_command, &cmd) < 0) {
+      const char* err_msg = zmq_strerror(zmq_errno());
+      piksi_log(LOG_ERR, "Error registering reader: %s", err_msg);
+      return -1;
+    }
+  }
+
+  zsock_t* loop_quit_reader = zsock_new_pair(">inproc://loop_quit");
+
+  if (loop_quit == NULL) {
+    piksi_log(LOG_ERR, "Error creating loop quit socket: %s",
+              zmq_strerror(zmq_errno()));
+    return -1;
+  }
+
+  if (zloop_reader(loop, loop_quit_reader, loop_quit_handler, NULL) < 0) {
+    const char* err_msg = zmq_strerror(zmq_errno());
+    piksi_log(LOG_ERR, "Error registering reader: %s", err_msg);
+    return -1;
+  }
+
+  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(pubsub_ctx));
+
+  if (rep_socket != NULL)
+    zsock_destroy(&rep_socket);
+
+  zsock_destroy(&loop_quit_reader);
+  cleanup_signal_handlers();
+
+  sbp_zmq_pubsub_destroy(&pubsub_ctx);
+  settings_destroy(&settings_ctx);
+
+  return 0;
 }

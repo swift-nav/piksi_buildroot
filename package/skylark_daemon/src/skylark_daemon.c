@@ -17,19 +17,41 @@
 #include <libpiksi/logging.h>
 #include <libnetwork.h>
 
-#define PROGRAM_NAME "skylark_download_daemon"
+#include "skylark_settings.h"
+
+#define PROGRAM_NAME "skylark_daemon"
+
+#define SKYLARK_CONTROL_FILE "/var/run/skylark/control/socket"
+#define SKYLARK_CONTROL_SOCK "ipc://" NTRIP_CONTROL_FILE
+
+#define SKYLARK_CONTROL_COMMAND_RECONNECT "r"
 
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
 
+typedef enum {
+  OP_MODE_NONE,
+  OP_MODE_DOWNLOAD,
+  OP_MODE_UPLOAD,
+  OP_MODE_SETTINGS,
+} operating_mode;
+
+static operating_mode op_mode = OP_MODE_NONE;
+
 static void usage(char *command)
 {
   printf("Usage: %s\n", command);
 
-  puts("\nMain options");
-  puts("\t--file <file>");
-  puts("\t--url <url>");
+  puts("\nMode selection options");
+  puts("\t--upload         Launch in skylark upload mode");
+  puts("\t--download       Launch in skylark download mode");
+  puts("\t--settings       Launch in settings daemon mode");
+  puts("\t--reconnect-dl   Ask the download daemon to reconnect");
+
+  puts("\nUpload/download mode options");
+  puts("\t--file           <file>");
+  puts("\t--url            <url>");
 
   puts("\nMisc options");
   puts("\t--debug");
@@ -41,20 +63,42 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILE = 1,
     OPT_ID_URL,
     OPT_ID_DEBUG,
+    OPT_ID_UPLOAD,
+    OPT_ID_DOWNLOAD,
+    OPT_ID_SETTINGS,
   };
 
   const struct option long_opts[] = {
-    {"file",  required_argument, 0, OPT_ID_FILE},
-    {"url  ", required_argument, 0, OPT_ID_URL},
-    {"debug", no_argument,       0, OPT_ID_DEBUG},
+    {"upload",   required_argument, 0, OPT_ID_UPLOAD},
+    {"download", required_argument, 0, OPT_ID_DOWNLOAD},
+    {"settings", required_argument, 0, OPT_ID_SETTINGS},
+    {"file",     required_argument, 0, OPT_ID_FILE},
+    {"url  ",    required_argument, 0, OPT_ID_URL},
+    {"debug",    no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
 
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
+
       case OPT_ID_FILE: {
         fifo_file_path = optarg;
+      }
+      break;
+
+      case OPT_ID_UPLOAD: {
+        op_mode = OP_MODE_UPLOAD;
+      }
+      break;
+
+      case OPT_ID_DOWNLOAD: {
+        op_mode = OP_MODE_UPLOAD;
+      }
+      break;
+
+      case OPT_ID_SETTINGS: {
+        op_mode = OP_MODE_UPLOAD;
       }
       break;
 
@@ -76,12 +120,12 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
-  if (fifo_file_path == NULL) {
+  if (op_mode == OP_MODE_DOWNLOAD && fifo_file_path == NULL) {
     puts("Missing file");
     return -1;
   }
 
-  if (url == NULL) {
+  if (op_mode == OP_MODE_DOWNLOAD && url == NULL) {
     puts("Missing url");
     return -1;
   }
@@ -113,15 +157,28 @@ exit_error:
   return false;
 }
 
-int main(int argc, char *argv[])
+int skylark_upload_mode()
 {
-  logging_init(PROGRAM_NAME);
-
-  if (parse_options(argc, argv) != 0) {
-    usage(argv[0]);
+  int fd = open(fifo_file_path, O_RDONLY);
+  if (fd < 0) {
+    piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
     exit(EXIT_FAILURE);
   }
 
+  network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_UPLOAD);
+
+  if(!configure_libnetwork(network_context, fd)) {
+    exit(EXIT_FAILURE);
+  }
+
+  skylark_upload(network_context);
+
+  close(fd);
+  libnetwork_destroy(&network_context);
+}
+
+static void skylark_download_mode()
+{
   int fd = open(fifo_file_path, O_WRONLY);
   if (fd < 0) {
     piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
@@ -133,8 +190,7 @@ int main(int argc, char *argv[])
   sigemptyset(&cycle_conn_sa.sa_mask);
   cycle_conn_sa.sa_flags = 0;
 
-  if ((sigaction(SIGUSR1, &cycle_conn_sa, NULL) != 0))
-  {
+  if ((sigaction(SIGUSR1, &cycle_conn_sa, NULL) != 0)) {
     piksi_log(LOG_ERR, "error setting up SIGUSR1 handler");
     exit(EXIT_FAILURE);
   }
@@ -149,7 +205,42 @@ int main(int argc, char *argv[])
 
   close(fd);
   libnetwork_destroy(&network_context);
-  logging_deinit();
+}
 
+static void skylark_settings_loop(void)
+{
+  settings_loop(skylark_init,
+                SKYLARK_CONTROL_SOCK,
+                SKYLARK_CONTROL_FILE,
+                SKYLARK_CONTROL_COMMAND_RECONNECT,
+                skylark_reconnect_dl());
+}
+
+int main(int argc, char *argv[])
+{
+  logging_init(PROGRAM_NAME);
+
+  if (parse_options(argc, argv) != 0) {
+    usage(argv[0]);
+    exit(EXIT_FAILURE);
+  }
+
+  switch(op_mode) {
+  case OP_MODE_DOWNLOAD:
+    skylark_download_mode();
+    break;
+  case OP_MODE_SETTINGS:
+    skylark_settings_loop();
+    break;
+  case OP_MODE_UPLOAD:
+    skylark_upload_mode();
+    break;
+  case OP_MODE_NONE:
+  default:
+    piksi_log(LOG_ERR, "unknown operating mode");
+    exit(EXIT_FAILURE);
+  }
+
+  logging_deinit();
   exit(EXIT_SUCCESS);
 }
