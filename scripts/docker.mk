@@ -39,9 +39,7 @@ ifeq ($(PIKSI_NON_INTERACTIVE_BUILD),)
 INTERACTIVE_ARGS := $(shell tty &>/dev/null && echo "--tty --interactive")
 endif
 
-DOCKER_SETUP_ARGS :=                                                          \
-  $(INTERACTIVE_ARGS)                                                         \
-  --rm                                                                        \
+DOCKER_ENV_ARGS :=                                                            \
   -e USER=$(USER)                                                             \
   -e GID=$(GID)                                                               \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
@@ -50,8 +48,13 @@ DOCKER_SETUP_ARGS :=                                                          \
   -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
   $(AWS_VARIABLES)                                                            \
-  --hostname piksi-builder$(_DOCKER_SUFFIX)                                   \
   --user $(USER)                                                              \
+
+DOCKER_SETUP_ARGS :=                                                          \
+  $(INTERACTIVE_ARGS)                                                         \
+  $(DOCKER_ENV_ARGS)                                                          \
+  --rm                                                                        \
+  --hostname piksi-builder$(_DOCKER_SUFFIX)                                   \
   -v $(HOME):/host/home:ro                                                    \
   -v /tmp:/host/tmp:rw                                                        \
   -v $(CURDIR):/piksi_buildroot                                               \
