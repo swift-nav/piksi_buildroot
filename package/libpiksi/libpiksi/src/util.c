@@ -17,6 +17,9 @@
 #define SBP_SENDER_ID_FILE_PATH "/cfg/sbp_sender_id"
 #define DEVICE_UUID_FILE_PATH   "/cfg/device_uuid"
 
+#define PROC_UPTIME_FILE_PATH   "/proc/uptime"
+#define UPTIME_READ_MAX_LENGTH (64u)
+
 static int file_read_string(const char *filename, char *str, size_t str_size)
 {
   FILE *fp = fopen(filename, "r");
@@ -57,6 +60,17 @@ u16 sbp_sender_id_get(void)
   }
 
   return sbp_sender_id;
+}
+
+u64 system_uptime_ms_get(void)
+{
+  char uptime_string[UPTIME_READ_MAX_LENGTH];
+  u64 uptime_ms = 0;
+  if (file_read_string(PROC_UPTIME_FILE_PATH, uptime_string,
+                       sizeof(uptime_string)) == 0) {
+    uptime_ms = (u64)(1e3 * strtod(uptime_string, NULL));
+  }
+  return uptime_ms;
 }
 
 int device_uuid_get(char *str, size_t str_size)
