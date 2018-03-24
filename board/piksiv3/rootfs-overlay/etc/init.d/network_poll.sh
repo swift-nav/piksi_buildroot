@@ -1,7 +1,7 @@
 #!/bin/ash
 
 skylark_enabled() {
-  if [ x`cat /var/run/skylark_enabled` != "x0" ]; then
+  if [ x`cat /var/run/skylark/enabled` != "x0" ]; then
     return 0
   else
     return 1

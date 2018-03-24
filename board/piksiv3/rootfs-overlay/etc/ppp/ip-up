@@ -21,11 +21,6 @@ if [ "$USEPEERDNS" = "1" ]; then
 fi
 
 ntrip_daemon --reconnect
-
-skylark_download_daemon_pid=`pgrep skylark_download_daemon`
-
-if [ -n "$skylark_download_daemon_pid" ]; then
-  kill -SIGUSR1 "$skylark_download_daemon_pid"
-fi
+skylark_daemon --reconnect-dl
 
 # vim: ft=sh:

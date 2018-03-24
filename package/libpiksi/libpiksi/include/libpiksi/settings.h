@@ -279,6 +279,11 @@ bool settings_loop(const char* control_socket,
                    register_settings_fn do_register_settings,
                    handle_command_fn do_handle_command);
 
+int settings_loop_send_command(const char* target_description,
+                               const char* command,
+                               const char* command_description,
+                               const char* control_socket);
+
 #endif /* LIBPIKSI_SETTINGS_H */
 
 /** @} */

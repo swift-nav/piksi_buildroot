@@ -35,6 +35,7 @@ typedef enum {
   OP_MODE_DOWNLOAD,
   OP_MODE_UPLOAD,
   OP_MODE_SETTINGS,
+  OP_MODE_RECONNECT_DL,
 } operating_mode;
 
 static operating_mode op_mode = OP_MODE_NONE;
@@ -66,15 +67,17 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_UPLOAD,
     OPT_ID_DOWNLOAD,
     OPT_ID_SETTINGS,
+    OPT_ID_RECONNECT_DL,
   };
 
   const struct option long_opts[] = {
-    {"upload",   required_argument, 0, OPT_ID_UPLOAD},
-    {"download", required_argument, 0, OPT_ID_DOWNLOAD},
-    {"settings", required_argument, 0, OPT_ID_SETTINGS},
-    {"file",     required_argument, 0, OPT_ID_FILE},
-    {"url  ",    required_argument, 0, OPT_ID_URL},
-    {"debug",    no_argument,       0, OPT_ID_DEBUG},
+    {"upload",       no_argument,       0, OPT_ID_UPLOAD},
+    {"download",     no_argument,       0, OPT_ID_DOWNLOAD},
+    {"settings",     no_argument,       0, OPT_ID_SETTINGS},
+    {"reconnect-dl", no_argument,       0, OPT_ID_RECONNECT_DL},
+    {"file",         required_argument, 0, OPT_ID_FILE},
+    {"url  ",        required_argument, 0, OPT_ID_URL},
+    {"debug",        no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
 
@@ -82,23 +85,28 @@ static int parse_options(int argc, char *argv[])
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
 
-      case OPT_ID_FILE: {
-        fifo_file_path = optarg;
-      }
-      break;
-
       case OPT_ID_UPLOAD: {
         op_mode = OP_MODE_UPLOAD;
       }
       break;
 
       case OPT_ID_DOWNLOAD: {
-        op_mode = OP_MODE_UPLOAD;
+        op_mode = OP_MODE_DOWNLOAD;
       }
       break;
 
       case OPT_ID_SETTINGS: {
-        op_mode = OP_MODE_UPLOAD;
+        op_mode = OP_MODE_SETTINGS;
+      }
+      break;
+
+      case OPT_ID_RECONNECT_DL: {
+        op_mode = OP_MODE_RECONNECT_DL;
+      }
+      break;
+
+      case OPT_ID_FILE: {
+        fifo_file_path = optarg;
       }
       break;
 
@@ -120,22 +128,29 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
-  if (op_mode == OP_MODE_DOWNLOAD && fifo_file_path == NULL) {
-    puts("Missing file");
-    return -1;
-  }
-
-  if (op_mode == OP_MODE_DOWNLOAD && url == NULL) {
-    puts("Missing url");
-    return -1;
+  if (op_mode == OP_MODE_DOWNLOAD || op_mode == OP_MODE_UPLOAD) {
+    if (fifo_file_path == NULL) {
+      puts("Missing file");
+      return -1;
+    }
+    if (url == NULL) {
+      puts("Missing url");
+      return -1;
+    }
   }
 
   return 0;
 }
 
+static void terminate_handler(int signum)
+{
+  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d", signum);
+  libnetwork_shutdown();
+}
+
 static void cycle_connection(int signum)
 {
-  (void)signum;
+  piksi_log(LOG_DEBUG, "cycle_connection: received signal: %d", signum);
   libnetwork_cycle_connection();
 }
 
@@ -157,6 +172,23 @@ exit_error:
   return false;
 }
 
+static void setup_terminate_handler()
+{
+  /* Set up handler for signals which should terminate the program */
+  struct sigaction terminate_sa;
+  terminate_sa.sa_handler = terminate_handler;
+  sigemptyset(&terminate_sa.sa_mask);
+  terminate_sa.sa_flags = 0;
+
+  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
+      (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
+      (sigaction(SIGQUIT, &terminate_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up terminate handler");
+    exit(-1);
+  }
+}
+
 static void skylark_upload_mode()
 {
   int fd = open(fifo_file_path, O_RDONLY);
@@ -171,6 +203,7 @@ static void skylark_upload_mode()
     exit(EXIT_FAILURE);
   }
 
+  setup_terminate_handler();
   skylark_upload(network_context);
 
   close(fd);
@@ -185,6 +218,12 @@ static void skylark_download_mode()
     exit(EXIT_FAILURE);
   }
 
+  network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_DOWNLOAD);
+
+  if(!configure_libnetwork(network_context, fd)) {
+    exit(EXIT_FAILURE);
+  }
+
   struct sigaction cycle_conn_sa;
   cycle_conn_sa.sa_handler = cycle_connection;
   sigemptyset(&cycle_conn_sa.sa_mask);
@@ -195,12 +234,7 @@ static void skylark_download_mode()
     exit(EXIT_FAILURE);
   }
 
-  network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_DOWNLOAD);
-
-  if(!configure_libnetwork(network_context, fd)) {
-    exit(EXIT_FAILURE);
-  }
-
+  setup_terminate_handler();
   skylark_download(network_context);
 
   close(fd);
@@ -235,10 +269,21 @@ int main(int argc, char *argv[])
   case OP_MODE_UPLOAD:
     skylark_upload_mode();
     break;
+  case OP_MODE_RECONNECT_DL:
+    settings_loop_send_command("Skylark upload client",
+                               SKYLARK_CONTROL_COMMAND_RECONNECT,
+                               "reconnect",
+                               SKYLARK_CONTROL_SOCK);
+    break;
   case OP_MODE_NONE:
   default:
-    piksi_log(LOG_ERR, "unknown operating mode");
-    exit(EXIT_FAILURE);
+    {
+      const char* error_msg = "No operating mode selected";
+      piksi_log(LOG_ERR, error_msg);
+      fprintf(stderr, "%s\n", error_msg);
+      usage(argv[0]);
+      exit(EXIT_FAILURE);
+    }
   }
 
   logging_deinit();
