@@ -270,19 +270,13 @@ static int ntrip_client_loop(void)
   return 0;
 }
 
-static int control_handler_cleanup(char* data, int rc)
-{
-  free(data);
-  return rc;
-}
-
 static int ntrip_settings_loop(void)
 {
-  return settings_loop(ntrip_init,
-                       NTRIP_CONTROL_SOCK,
+  return settings_loop(NTRIP_CONTROL_SOCK,
                        NTRIP_CONTROL_FILE,
                        NTRIP_CONTROL_COMMAND_RECONNECT,
-                       ntrip_reconnect);
+                       ntrip_init,
+                       ntrip_reconnect) ? 0 : -1;
 }
 
 static int request_reconnect(void)

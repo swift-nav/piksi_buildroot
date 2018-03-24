@@ -16,6 +16,6 @@
 #include <libpiksi/settings.h>
 
 void skylark_init(settings_ctx_t *settings_ctx);
-void skylark_reconnect_dl(void);
+bool skylark_reconnect_dl(void);
 
 #endif
