@@ -269,15 +269,15 @@ int settings_reader_add(settings_ctx_t *ctx, zloop_t *zloop);
  */
 int settings_reader_remove(settings_ctx_t *ctx, zloop_t *zloop);
 
-typedef void (*settings_register_fn)(settings_ctx_t *ctx);
+typedef void (*register_settings_fn)(settings_ctx_t *ctx);
 
-typedef bool (*control_handler_fn)();
+typedef bool (*handle_command_fn)();
 
-int settings_loop(settings_register_fn settings_reg_fn,
-                  const char* control_socket,
-                  const char* control_socket_file,
-                  const char* control_command,
-                  control_handler_fn control_handler);
+bool settings_loop(const char* control_socket,
+                   const char* control_socket_file,
+                   const char* control_command,
+                   register_settings_fn do_register_settings,
+                   handle_command_fn do_handle_command);
 
 #endif /* LIBPIKSI_SETTINGS_H */
 

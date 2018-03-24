@@ -499,7 +499,6 @@ int main(void)
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
   ports_init(settings_ctx);
-  skylark_init(settings_ctx);
   whitelists_init(settings_ctx);
   cellmodem_init(pubsub_ctx, settings_ctx);
 

@@ -22,7 +22,7 @@
 #define PROGRAM_NAME "skylark_daemon"
 
 #define SKYLARK_CONTROL_FILE "/var/run/skylark/control/socket"
-#define SKYLARK_CONTROL_SOCK "ipc://" NTRIP_CONTROL_FILE
+#define SKYLARK_CONTROL_SOCK "ipc://" SKYLARK_CONTROL_FILE
 
 #define SKYLARK_CONTROL_COMMAND_RECONNECT "r"
 
@@ -157,7 +157,7 @@ exit_error:
   return false;
 }
 
-int skylark_upload_mode()
+static void skylark_upload_mode()
 {
   int fd = open(fifo_file_path, O_RDONLY);
   if (fd < 0) {
@@ -209,11 +209,11 @@ static void skylark_download_mode()
 
 static void skylark_settings_loop(void)
 {
-  settings_loop(skylark_init,
-                SKYLARK_CONTROL_SOCK,
+  settings_loop(SKYLARK_CONTROL_SOCK,
                 SKYLARK_CONTROL_FILE,
                 SKYLARK_CONTROL_COMMAND_RECONNECT,
-                skylark_reconnect_dl());
+                skylark_init,
+                skylark_reconnect_dl);
 }
 
 int main(int argc, char *argv[])
