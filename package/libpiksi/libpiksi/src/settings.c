@@ -1421,7 +1421,7 @@ static void signal_handler (int signal_value)
   piksi_log(LOG_DEBUG, "Caught signal: %d", signal_value);
 
   if (loop_quit != NULL)
-    zsock_send(loop_quit, "1", 1);
+    zsock_bsend(loop_quit, "1", 1);
   else
     piksi_log(LOG_DEBUG, "Loop quit socket was null...");
 }
@@ -1453,7 +1453,7 @@ static int loop_quit_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   (void) arg;
 
   u8 request = 0;
-  zsock_recv(zsock, "1", &request);
+  zsock_brecv(zsock, "1", &request);
 
   assert( request == 1 );
 
@@ -1477,12 +1477,9 @@ static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   (void)zloop;
 
   control_command_t* cmd_info = (control_command_t*)arg;
+  char *data = NULL;
 
-  char *data;
-
-  piksi_log(LOG_DEBUG, "waiting to receive data...");
-
-  int rc = zsock_recv(zsock, "s", &data);
+  int rc = zsock_brecv(zsock, "s", &data);
   if ( rc != 0 ) {
     piksi_log(LOG_WARNING, "zsock_recv error: %s", zmq_strerror(zmq_errno()));
     return 0;
@@ -1508,7 +1505,7 @@ static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   piksi_log(LOG_INFO, "got request to refresh connection...");
   u8 result = cmd_info->handler() ? 1 : 0;
 
-  zsock_send(zsock, "1", result);
+  zsock_bsend(zsock, "1", result);
 
   return control_handler_cleanup(&data, 0);
 }
@@ -1654,3 +1651,45 @@ settings_loop_cleanup:
 
   return ret;
 }
+
+int settings_loop_send_command(const char* target_description,
+                               const char* command,
+                               const char* command_description,
+                               const char* control_socket)
+{
+# define CHECK_ZMQ_ERR(COND, FUNC) \
+  if (COND) { \
+    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s", \
+              __FUNCTION__, __STRING(FUNC), __FILE__, __LINE__, \
+              zmq_strerror(zmq_errno())); \
+    return -1; \
+  }
+
+  const char* msg = "Sending '%s' command to %s...";
+
+  piksi_log(LOG_INFO, msg, command_description, target_description);
+  printf("%s\n", msg, command_description, target_description);
+
+  zsock_t* req_socket = zsock_new_req(control_socket);
+  CHECK_ZMQ_ERR(req_socket == NULL, zsock_new_req);
+
+  int ret = zsock_bsend(req_socket, "s", command);
+  CHECK_ZMQ_ERR(ret != 0, zsock_send);
+
+  u8 result = 0;
+  ret = zsock_brecv(req_socket, "1", &result);
+  CHECK_ZMQ_ERR(ret != 0, zsock_recv);
+
+# define CMD_RESULT_MSG "Result of '%s' command: %hhu"
+
+  piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, result);
+  printf(CMD_RESULT_MSG "\n", command_description, result);
+
+  zsock_destroy(&req_socket);
+
+  return 0;
+
+# undef CMD_RESULT_MSG
+# undef CHECK_ZMQ_ERR
+}
+

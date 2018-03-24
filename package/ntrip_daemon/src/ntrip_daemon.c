@@ -177,13 +177,13 @@ static int parse_options(int argc, char *argv[])
 
 static void terminate_handler(int signum)
 {
-  (void)signum;
+  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d", signum);
   libnetwork_shutdown();
 }
 
 static void cycle_connection(int signum)
 {
-  (void)signum;
+  piksi_log(LOG_DEBUG, "cycle_connection: received signal: %d", signum);
   libnetwork_cycle_connection();
 }
 
@@ -279,39 +279,6 @@ static int ntrip_settings_loop(void)
                        ntrip_reconnect) ? 0 : -1;
 }
 
-static int request_reconnect(void)
-{
-  const char* msg = "Requesting refresh of NTRIP client connection...";
-
-  piksi_log(LOG_INFO, msg);
-  printf("%s\n", msg);
-
-  zsock_t* req_socket = zsock_new_req(NTRIP_CONTROL_SOCK);
-  if (req_socket == NULL) {
-    piksi_log(LOG_ERR, "request_reconnect: error in zsock_new_pub");
-    return -1;
-  }
-
-  int ret = zsock_send(req_socket, "s", NTRIP_CONTROL_COMMAND_RECONNECT);
-
-  if (ret != 0) {
-    piksi_log(LOG_WARNING, "request_reconnect: error sending message");
-    return ret;
-  }
-
-  u8 result = 0;
-  zsock_recv(req_socket, "1", result);
-
-# define NTRIP_REFRESH_RESULT "Result of NTRIP connection refresh: %hhu"
-
-  piksi_log(LOG_INFO, NTRIP_REFRESH_RESULT, result);
-  printf(NTRIP_REFRESH_RESULT "\n", result);
-
-  zsock_destroy(&req_socket);
-
-  return 0;
-}
-
 int main(int argc, char *argv[])
 {
   logging_init(PROGRAM_NAME);
@@ -331,7 +298,10 @@ int main(int argc, char *argv[])
     ret = ntrip_settings_loop();
     break;
   case OP_MODE_REQ_RECONNECT:
-    ret = request_reconnect();
+    ret = settings_loop_send_command("NTRIP client",
+                                     NTRIP_CONTROL_COMMAND_RECONNECT,
+                                     "reconnect",
+                                     NTRIP_CONTROL_SOCK);
     break;
   default:
     assert(false);
