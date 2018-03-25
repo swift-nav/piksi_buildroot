@@ -22,13 +22,13 @@
 #define PUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43031"
 #define SUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43030"
 
-#define DURO_EEPROM_PATH "/sys/devices/soc0/amba/e0005000.i2c/i2c-1/1-0050/eeprom"
+#define DURO_EEPROM_PATH "/cfg/duro_eeprom"
 
 static bool board_is_duro(void)
 {
   int fd = open(DURO_EEPROM_PATH, O_RDONLY);
   if (fd < 0) {
-    piksi_log(LOG_ERR, "failed to open eeprom path");
+    piksi_log(LOG_WARNING, "failed to open DURO eeprom path");
     return false;
   }
   char buf[6];
