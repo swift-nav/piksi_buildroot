@@ -29,7 +29,6 @@
 
 #include "protocols.h"
 #include "ports.h"
-#include "skylark.h"
 #include "whitelists.h"
 #include "async-child.h"
 #include "cellmodem.h"
