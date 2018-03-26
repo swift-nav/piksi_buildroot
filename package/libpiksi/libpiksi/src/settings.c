@@ -1455,21 +1455,13 @@ static int loop_quit_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   u8 request = 0;
   zsock_brecv(zsock, "1", &request);
 
-  assert( request == 1 );
+  if (request != 1) {
+    piksi_log(LOG_WARNING, "Loop quit handler received unexpected message: %d...", request);
+    return -1;
+  }
 
   piksi_log(LOG_INFO, "Shutting down...");
   return -1;
-}
-
-static int control_handler_cleanup(char** data, int rc)
-{
-  if (*data == NULL)
-    return rc;
-
-  free(*data);
-  *data = NULL;
-
-  return rc;
 }
 
 static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
@@ -1481,7 +1473,7 @@ static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 
   int rc = zsock_brecv(zsock, "s", &data);
   if ( rc != 0 ) {
-    piksi_log(LOG_WARNING, "zsock_recv error: %s", zmq_strerror(zmq_errno()));
+    piksi_log(LOG_WARNING, "zsock_brecv error: %s", zmq_strerror(zmq_errno()));
     return 0;
   }
 
@@ -1489,17 +1481,17 @@ static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 
   if (length == 0 || length > 1) {
     piksi_log(LOG_WARNING, "command had invalid length: %u", length);
-    return control_handler_cleanup(&data, 0);
+    return 0;
   }
 
   if (data == NULL) {
     piksi_log(LOG_WARNING, "received data was null");
-    return control_handler_cleanup(&data, 0);
+    return 0;
   }
 
   if (*data != cmd_info->command[0]) {
     piksi_log(LOG_WARNING, "command had invalid value: %c", *data);
-    return control_handler_cleanup(&data, 0);
+    return 0;
   }
 
   piksi_log(LOG_INFO, "got request to refresh connection...");
@@ -1507,7 +1499,7 @@ static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 
   zsock_bsend(zsock, "1", result);
 
-  return control_handler_cleanup(&data, 0);
+  return 0;
 }
 
 static bool configure_control_socket(zloop_t* loop,
@@ -1665,10 +1657,10 @@ int settings_loop_send_command(const char* target_description,
     return -1; \
   }
 
-  const char* msg = "Sending '%s' command to %s...";
+#define CMD_INFO_MSG "Sending '%s' command to %s..."
 
-  piksi_log(LOG_INFO, msg, command_description, target_description);
-  printf("%s\n", msg, command_description, target_description);
+  piksi_log(LOG_INFO, CMD_INFO_MSG, command_description, target_description);
+  printf(CMD_INFO_MSG "\n", command_description, target_description);
 
   zsock_t* req_socket = zsock_new_req(control_socket);
   CHECK_ZMQ_ERR(req_socket == NULL, zsock_new_req);
@@ -1691,5 +1683,6 @@ int settings_loop_send_command(const char* target_description,
 
 # undef CMD_RESULT_MSG
 # undef CHECK_ZMQ_ERR
+# undef CMD_INFO_MSG
 }
 
