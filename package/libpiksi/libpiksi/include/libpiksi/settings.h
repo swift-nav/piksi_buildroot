@@ -269,16 +269,63 @@ int settings_reader_add(settings_ctx_t *ctx, zloop_t *zloop);
  */
 int settings_reader_remove(settings_ctx_t *ctx, zloop_t *zloop);
 
+/**
+ * @brief   Registers settings with the given context.
+ *
+ * @details Intended to be used with @c settings_loop to register the settings
+ *          that the loop will be responsible for.
+ */
 typedef void (*register_settings_fn)(settings_ctx_t *ctx);
 
+/**
+ * @brief   Handles a control message for a @c settings_loop
+ *
+ * @details Intended to be used with @c settings_loop, this function is called
+ *          when the control command for the loop is received.
+ */
 typedef bool (*handle_command_fn)();
 
+/**
+ * @brief   Start a settings loop with a control sock.
+ * @details Starts a settings loop with a control socket, this is the main
+ *          entry point for a daemon that handles settings and has a simple
+ *          (one command) control socket.
+ *
+ * @param[in] control_socket       The control socket URL (in ZMQ format),
+ *                                 such as ipc://path/socket.unix
+ * @param[in] control_socket_file  The path of the control socket on the file
+ *                                 system, usually a substring of
+ *                                 @c control_socket
+ * @param[in] control_command      Single character string that will trigger
+ *                                 @c do_handle_command when written to the
+ *                                 @c control_socket.
+ * @param[in] do_register_settings Function that will register the settings
+ *                                 for this loop
+ * @param[in] do_handle_command    Function that handles the control command
+ *
+ * @return                  Settings loop exit status
+ * @retval 0                Successful exit
+ * @retval -1               An error occurred
+ */
 bool settings_loop(const char* control_socket,
                    const char* control_socket_file,
                    const char* control_command,
                    register_settings_fn do_register_settings,
                    handle_command_fn do_handle_command);
-
+/**
+ * @brief   Send a control command to a running settings daemon
+ * @details Sends a control command to a daemon running with
+ *          a control socket setup by @c settings_loop
+ *
+ * @param[in] target_description   Description of the target for logging
+ * @param[in] command              The command to send
+ * @param[in] command_description  Description of the command for logging
+ * @param[in] control_socket       The ZMQ URL of the control socket to write
+ *                                 the command to.
+ *
+ * @return                  Result of the command, value depends on
+ *                          the command invoked.
+ */
 int settings_loop_send_command(const char* target_description,
                                const char* command,
                                const char* command_description,
