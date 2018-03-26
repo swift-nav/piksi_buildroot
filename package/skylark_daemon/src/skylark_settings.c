@@ -134,7 +134,7 @@ bool skylark_reconnect_dl(void)
     if (process->execfn == skylark_download_daemon_execfn) {
 
       if (process->pid == 0) {
-        piksi_log(LOG_ERR, "Asked to tell skylark_download_daemon to reconnect, but it isn't running");
+        piksi_log(LOG_ERR, "Asked to tell skylark_daemon to reconnect (in download mode), but it isn't running");
         return false;
       }
 
