@@ -10,7 +10,7 @@ SBP_FILEIO_DAEMON_SITE = \
 SBP_FILEIO_DAEMON_SITE_METHOD = local
 SBP_FILEIO_DAEMON_DEPENDENCIES = czmq libsbp libpiksi
 
-define NTRIP_DAEMON_USERS
+define SBP_FILEIO_DAEMON_USERS
 	fio_fw -1 fio_fw -1 * - - -
 	fio_ex -1 fio_ex -1 * - - -
 endef
