@@ -79,6 +79,7 @@ let
 
     # Make sure buildroot Python loads dynamic modules from the right place
     export LD_LIBRARY_PATH=$PWD/buildroot/output/host/usr/lib:/lib:/usr/lib
+    export PATH=$PWD/buildroot/output/host/bin:$PATH
 
     # See note about hardeningDisable above
     export hardeningDisable=all
