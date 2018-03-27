@@ -1,9 +1,17 @@
 #!/bin/sh
 
+FILEIO_DIR=/file_io/
+
 name="sbp_fileio_daemon_external"
-cmd="sbp_fileio_daemon -p >tcp://localhost:43051 -s >tcp://localhost:43050"
+cmd="sbp_fileio_daemon -p >tcp://localhost:43051 -s >tcp://localhost:43050 --basedir $FILEIO_DIR"
 dir="/"
-user=""
+user="fio_ex"
+
+setup_permissions() {
+
+    mkdir -p $FILEIO_DIR
+    chown -R $user:$user $FILEIO_DIR
+}
 
 source /etc/init.d/template_process.inc.sh
 

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2014 Swift Navigation Inc.
- * Contact: Gareth McMullin <gareth@swiftnav.com>
+ * Copyright (C) 2014-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <alloca.h>
+#include <libgen.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -24,6 +26,9 @@
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
+static const char* basedir_path = NULL;
+static bool allow_factory_mtd = false;
+
 static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context);
@@ -32,8 +37,14 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
-void sbp_fileio_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
+void sbp_fileio_setup(const char *basedir,
+                      bool allow_factory_mtd_,
+                      sbp_zmq_rx_ctx_t *rx_ctx,
+                      sbp_zmq_tx_ctx_t *tx_ctx)
 {
+  basedir_path = basedir;
+  allow_factory_mtd = allow_factory_mtd_;
+
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ,
                                read_cb, tx_ctx, NULL);
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ,
@@ -42,6 +53,36 @@ void sbp_fileio_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
                                remove_cb, tx_ctx, NULL);
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ,
                                write_cb, tx_ctx, NULL);
+}
+
+static bool validate_path(const char* path)
+{
+  static char realpath_buf[PATH_MAX] = {0};
+  static struct stat s;
+
+  // TODO/DAEMON-USERS: Replace this with an SBP message (give firmware a handle
+  //    to read here instead of allowing the read).
+  if (allow_factory_mtd && strcmp(path, "/factory/mtd") == 0)
+    return true;
+
+  // Always null terminate so we know if realpath filled in the buffer
+  realpath_buf[0] = '\0';
+
+  char* resolved = realpath(path, realpath_buf);
+  int error = errno;
+
+  if (resolved != NULL)
+    return strstr(resolved, basedir_path) == resolved;
+
+  if (error == ENOENT && strstr(realpath_buf, basedir_path) == realpath_buf) {
+
+    // If the errno was "file not found", the prefix matches, and the parent
+    //   directory exists, then we allow this path.
+    char* parent_dir = dirname(realpath_buf);
+    return stat(parent_dir, &s) == 0;
+  }
+
+  return false;
 }
 
 /** File read callback.
@@ -69,12 +110,17 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   int readlen = SWFT_MIN(msg->chunk_size, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply));
   reply = alloca(sizeof(msg_fileio_read_resp_t) + readlen);
   reply->sequence = msg->sequence;
-  int f = open(msg->filename, O_RDONLY);
-  lseek(f, msg->offset, SEEK_SET);
-  readlen = read(f, &reply->contents, readlen);
-  if (readlen < 0)
+  if (!validate_path(msg->filename)) {
+    piksi_log(LOG_WARNING, "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...", msg->filename, basedir_path);
     readlen = 0;
-  close(f);
+  } else {
+    int f = open(msg->filename, O_RDONLY);
+    lseek(f, msg->offset, SEEK_SET);
+    readlen = read(f, &reply->contents, readlen);
+    if (readlen < 0)
+      readlen = 0;
+    close(f);
+  }
 
   sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP,
                   sizeof(*reply) + readlen, (u8*)reply);
@@ -107,20 +153,28 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   u32 offset = msg->offset;
   msg_fileio_read_dir_resp_t *reply = alloca(SBP_FRAMING_MAX_PAYLOAD_SIZE);
   reply->sequence = msg->sequence;
-  DIR *dir = opendir(msg->dirname);
-  while (offset && (dirent = readdir(dir)))
-    offset--;
 
-  len = 0;
-  size_t max_len = SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply);
-  while ((dirent = readdir(dir))) {
-    if (strlen(dirent->d_name) > (max_len - len - 1))
-      break;
-    strcpy((char*)reply->contents + len, dirent->d_name);
-    len += strlen(dirent->d_name) + 1;
+  if (!validate_path(msg->dirname)) {
+    piksi_log(LOG_WARNING, "Received FILEIO_READ_DIR request for path (%s) outside base directory (%s), ignoring...", msg->dirname, basedir_path);
+    len = 0;
+
+  } else {
+
+    DIR *dir = opendir(msg->dirname);
+    while (offset && (dirent = readdir(dir)))
+      offset--;
+
+    len = 0;
+    size_t max_len = SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply);
+    while ((dirent = readdir(dir))) {
+      if (strlen(dirent->d_name) > (max_len - len - 1))
+        break;
+      strcpy((char*)reply->contents + len, dirent->d_name);
+      len += strlen(dirent->d_name) + 1;
+    }
+
+    closedir(dir);
   }
-
-  closedir(dir);
 
   sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_DIR_RESP,
                   sizeof(*reply) + len, (u8*)reply);
@@ -142,7 +196,12 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
   /* Add a null termination to filename */
   msg[len] = 0;
 
-  unlink((char*)msg);
+  if (!validate_path((char*)msg)) {
+    piksi_log(LOG_WARNING, "Received FILEIO_REMOVE request for path (%s) outside base directory (%s), ignoring...", (char*)msg, basedir_path);
+    return;
+  }
+
+  unlink(msg);
 }
 
 /* Write to file callback.
@@ -165,11 +224,15 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
 
-  u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
-  int f = open(msg->filename, O_WRONLY | O_CREAT, 0666);
-  lseek(f, msg->offset, SEEK_SET);
-  write(f, msg_ + headerlen, len - headerlen);
-  close(f);
+  if (!validate_path(msg->filename)) {
+    piksi_log(LOG_WARNING, "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...", msg->filename, basedir_path);
+  } else {
+    u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
+    int f = open(msg->filename, O_WRONLY | O_CREAT, 0666);
+    lseek(f, msg->offset, SEEK_SET);
+    write(f, msg_ + headerlen, len - headerlen);
+    close(f);
+  }
 
   msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
   sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
