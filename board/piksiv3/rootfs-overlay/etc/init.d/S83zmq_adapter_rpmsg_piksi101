@@ -3,7 +3,15 @@
 name="zmq_adapter_rpmsg_piksi101"
 cmd="zmq_adapter --file /dev/rpmsg_piksi101 -p >tcp://127.0.0.1:44011 -s >tcp://127.0.0.1:44010"
 dir="/"
-user=""
+user="ad_r101"
+
+setup_permissions() {
+
+    addgroup -S $user
+    adduser -S -D -H -G $user $user
+
+    chown $user:$user /dev/rpmsg_piksi101
+}
 
 source /etc/init.d/template_process.inc.sh
 
