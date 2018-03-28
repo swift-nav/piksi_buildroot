@@ -3,7 +3,11 @@
 name="zmq_router_sbp"
 cmd="zmq_router -f /etc/zmq_router/sbp_router.yml"
 dir="/"
-user=""
+user="rt_sbp"
+
+setup_permissions() {
+    addgroup -S $user
+    adduser -S -D -H -G $user $user
+}
 
 source /etc/init.d/template_process.inc.sh
-
