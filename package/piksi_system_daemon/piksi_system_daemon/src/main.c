@@ -262,7 +262,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
   struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
   ctx->sequence = msg->sequence;
   ctx->pubsub_ctx = pubsub_ctx;
-  char *argv[] = {"upgrade_tool", "--debug", "upgrade.image_set.bin", NULL};
+  char *argv[] = {"upgrade_tool", "--debug", "/data/upgrade.image_set.bin", NULL};
   async_spawn(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
               argv, command_output_cb, command_exit_cb, ctx, NULL);
 }

@@ -16,6 +16,7 @@
 #include <libgen.h>
 #include <stdbool.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <libpiksi/logging.h>
@@ -28,6 +29,19 @@
 
 static const char* basedir_path = NULL;
 static bool allow_factory_mtd = false;
+static bool allow_imageset_bin = false;
+
+#define IMAGESET_BIN_NAME "upgrade.image_set.bin"
+
+enum {
+  DENY_MTD_READ = 0,
+  NO_MTD_READ,
+  ALLOW_MTD_READ,
+};
+
+static bool validate_path(const char* path);
+static int allow_mtd_read(const char* path);
+static const char* filter_imageset_bin(const char* filename);
 
 static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
@@ -39,11 +53,14 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context);
  */
 void sbp_fileio_setup(const char *basedir,
                       bool allow_factory_mtd_,
+                      bool allow_imageset_bin_,
                       sbp_zmq_rx_ctx_t *rx_ctx,
                       sbp_zmq_tx_ctx_t *tx_ctx)
 {
   basedir_path = basedir;
+
   allow_factory_mtd = allow_factory_mtd_;
+  allow_imageset_bin = allow_imageset_bin_;
 
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ,
                                read_cb, tx_ctx, NULL);
@@ -55,15 +72,40 @@ void sbp_fileio_setup(const char *basedir,
                                write_cb, tx_ctx, NULL);
 }
 
+static int allow_mtd_read(const char* path)
+{
+  // TODO/DAEMON-USERS: Replace this with an SBP message (give firmware a handle
+  //    to read here instead of allowing the read).
+
+  if (strcmp(path, "/factory/mtd") != 0)
+    return NO_MTD_READ;
+
+  return allow_factory_mtd ? ALLOW_MTD_READ : DENY_MTD_READ;
+}
+
+static const char* filter_imageset_bin(const char* filename)
+{
+  if (!allow_imageset_bin)
+    return filename;
+
+  if (strcmp(filename, IMAGESET_BIN_NAME) != 0)
+    return filename;
+
+  static char path_buf[PATH_MAX];
+
+  size_t printed = snprintf(path_buf,
+                            sizeof(path_buf),
+                            "%s/%s",
+                            basedir_path,
+                            IMAGESET_BIN_NAME);
+  assert( printed < sizeof(path_buf) );
+  return path_buf;
+}
+
 static bool validate_path(const char* path)
 {
   static char realpath_buf[PATH_MAX] = {0};
   static struct stat s;
-
-  // TODO/DAEMON-USERS: Replace this with an SBP message (give firmware a handle
-  //    to read here instead of allowing the read).
-  if (allow_factory_mtd && strcmp(path, "/factory/mtd") == 0)
-    return true;
 
   // Always null terminate so we know if realpath filled in the buffer
   realpath_buf[0] = '\0';
@@ -110,7 +152,10 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   int readlen = SWFT_MIN(msg->chunk_size, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply));
   reply = alloca(sizeof(msg_fileio_read_resp_t) + readlen);
   reply->sequence = msg->sequence;
-  if (!validate_path(msg->filename)) {
+
+  int st = allow_mtd_read(msg->filename);
+
+  if (st == DENY_MTD_READ || (st == NO_MTD_READ && !validate_path(msg->filename))) {
     piksi_log(LOG_WARNING, "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...", msg->filename, basedir_path);
     readlen = 0;
   } else {
@@ -196,12 +241,14 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
   /* Add a null termination to filename */
   msg[len] = 0;
 
-  if (!validate_path((char*)msg)) {
-    piksi_log(LOG_WARNING, "Received FILEIO_REMOVE request for path (%s) outside base directory (%s), ignoring...", (char*)msg, basedir_path);
+  const char* filename = filter_imageset_bin((char*)msg);
+
+  if (!validate_path(filename)) {
+    piksi_log(LOG_WARNING, "Received FILEIO_REMOVE request for path (%s) outside base directory (%s), ignoring...", filename, basedir_path);
     return;
   }
 
-  unlink(msg);
+  unlink(filename);
 }
 
 /* Write to file callback.
@@ -224,11 +271,13 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
 
-  if (!validate_path(msg->filename)) {
-    piksi_log(LOG_WARNING, "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...", msg->filename, basedir_path);
+  const char* filename = filter_imageset_bin(msg->filename);
+
+  if (!validate_path(filename)) {
+    piksi_log(LOG_WARNING, "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...", filename, basedir_path);
   } else {
     u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
-    int f = open(msg->filename, O_WRONLY | O_CREAT, 0666);
+    int f = open(filename, O_WRONLY | O_CREAT, 0666);
     lseek(f, msg->offset, SEEK_SET);
     write(f, msg_ + headerlen, len - headerlen);
     close(f);
