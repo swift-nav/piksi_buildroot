@@ -43,7 +43,6 @@ static void usage(char *command)
   printf("Usage: %s\n", command);
 
   puts("\nMain options");
-  puts("\t--interface <interface to track>");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -81,9 +80,6 @@ static int parse_options(int argc, char *argv[])
  *
  * This will query the underlying network interface APIs
  * and generate a usage message based on the interfaces found.
- * If the 'interface' option was specified in the command line,
- * a message will only be emitted if the specified interface is
- * matched during query of the network interfaces.
  * @param pubsub_ctx: sbp zmq pubsub context used to send sbp message
  */
 static void send_network_usage_update(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
@@ -92,15 +88,7 @@ static void send_network_usage_update(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
   memset(usage_entries, 0, sizeof(usage_entries));
 
   u8 total_interfaces = 0;
-  if (interface != NULL) {
-    bool success = false;
-    query_network_usage_by_interface(usage_entries, interface, &success);
-    if (success) {
-      total_interfaces = 1;
-    }
-  } else {
-    query_network_usage(usage_entries, SBP_MAX_NETWORK_INTERFACES, &total_interfaces);
-  }
+  query_network_usage(usage_entries, SBP_MAX_NETWORK_INTERFACES, &total_interfaces);
 
   if (total_interfaces > 0) {
     msg_network_bandwidth_usage_t *bandwidth_msg = (msg_network_bandwidth_usage_t *)usage_entries;
