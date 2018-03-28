@@ -3,6 +3,6 @@
 name="network_daemon"
 cmd="network_daemon"
 dir="/"
-user=""
+user="networkd"
 
 source /etc/init.d/template_process.inc.sh
