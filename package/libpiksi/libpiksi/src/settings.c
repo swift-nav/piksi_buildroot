@@ -1420,10 +1420,11 @@ static void signal_handler (int signal_value)
 {
   piksi_log(LOG_DEBUG, "Caught signal: %d", signal_value);
 
-  if (loop_quit != NULL)
+  if (loop_quit != NULL) {
     zsock_bsend(loop_quit, "1", 1);
-  else
+  } else {
     piksi_log(LOG_DEBUG, "Loop quit socket was null...");
+  }
 }
 
 static void setup_signal_handlers ()
@@ -1477,15 +1478,15 @@ static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
     return 0;
   }
 
+  if (data == NULL) {
+    piksi_log(LOG_WARNING, "received data was null");
+    return 0;
+  }
+
   u32 length = strlen(data);
 
   if (length == 0 || length > 1) {
     piksi_log(LOG_WARNING, "command had invalid length: %u", length);
-    return 0;
-  }
-
-  if (data == NULL) {
-    piksi_log(LOG_WARNING, "received data was null");
     return 0;
   }
 
@@ -1494,7 +1495,6 @@ static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
     return 0;
   }
 
-  piksi_log(LOG_INFO, "got request to refresh connection...");
   u8 result = cmd_info->handler() ? 1 : 0;
 
   zsock_bsend(zsock, "1", result);
@@ -1521,12 +1521,12 @@ static bool configure_control_socket(zloop_t* loop,
   CHECK_PRECONDITION(control_command != NULL);
   CHECK_PRECONDITION(control_handler != NULL);
   CHECK_PRECONDITION(do_handle_command != NULL);
-  CHECK_PRECONDITION(rep_socket != NULL);
   CHECK_PRECONDITION(ctrl_command_info != NULL);
 
-  #undef CHECK_PRECONDITION
-
+  CHECK_PRECONDITION(rep_socket != NULL);
   *rep_socket = zsock_new_rep(control_socket);
+
+#undef CHECK_PRECONDITION
 
   int rc = chmod(control_socket_file, 0777);
   if (rc != 0) {
@@ -1566,47 +1566,60 @@ bool settings_loop(const char* control_socket,
 {
   piksi_log(LOG_INFO, "Starting daemon mode for NTRIP settings...");
 
+  // Block ZMQ signal handlers
   zsys_handler_set(NULL);
+  // Install our own signal handlers
   setup_signal_handlers();
+
+  zsock_t* rep_socket = NULL;
+  control_command_t* cmd_info = NULL;
+
+  zsock_t* loop_quit_reader = NULL;
 
   /* Set up SBP ZMQ */
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT,
                                                            SUB_ENDPOINT);
   if (pubsub_ctx == NULL) {
+    piksi_log(LOG_ERR, "Error creating pub-sub");
     return false;
   }
+
+  bool ret = true;
 
   /* Set up settings */
   settings_ctx_t *settings_ctx = settings_create();
   if (settings_ctx == NULL) {
-    return false;
+    ret = false;
+    goto settings_loop_cleanup;
   }
 
   if (settings_reader_add(settings_ctx,
                           sbp_zmq_pubsub_zloop_get(pubsub_ctx)) != 0) {
-    return false;
+    ret = false;
+    goto settings_loop_cleanup;
   }
 
   do_settings_register(settings_ctx);
 
   zloop_t* loop = sbp_zmq_pubsub_zloop_get(pubsub_ctx);
 
-  zsock_t* rep_socket = NULL;
-  control_command_t* cmd_info = NULL;
+  bool control_sock_configured =
+    configure_control_socket(loop,
+                             control_socket,
+                             control_socket_file,
+                             control_command,
+                             do_handle_command,
+                             &rep_socket,
+                             &cmd_info);
 
-  configure_control_socket(loop,
-                           control_socket,
-                           control_socket_file,
-                           control_command,
-                           do_handle_command,
-                           &rep_socket,
-                           &cmd_info);
+  if (!control_sock_configured) {
+    ret = false;
+    goto settings_loop_cleanup;
+  }
 
-  zsock_t* loop_quit_reader = zsock_new_pair(">inproc://loop_quit");
+  loop_quit_reader = zsock_new_pair(">inproc://loop_quit");
 
-  bool ret = true;
-
-  if (loop_quit == NULL) {
+  if (loop_quit_reader == NULL) {
 
     piksi_log(LOG_ERR, "Error creating loop quit socket: %s",
               zmq_strerror(zmq_errno()));
