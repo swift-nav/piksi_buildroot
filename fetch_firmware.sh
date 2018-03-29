@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Copyright (C) 2016 Swift Navigation Inc.
-# Contact: Fergus Noble <fergus@swiftnav.com>
+# Copyright (C) 2016-2018 Swift Navigation Inc.
+# Contact: Swift Navigation <dev@swiftnav.com>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
 # be be distributed together with this source. All other rights reserved.
@@ -24,7 +24,10 @@
 ###### __FILE_AUTOMATICALLY_GENERATED_UPDATE_M4_FILE_TOO__ #######
 ###### __FILE_AUTOMATICALLY_GENERATED_UPDATE_M4_FILE_TOO__ #######
 
-set -xe
+D=$( (cd "$(dirname "$0")" || exit 1 >/dev/null; pwd -P) )
+
+[[ -z "$DEBUG" ]] || set -x
+set -e
 
 if [[ $(uname -a) == *NixOS* ]]; then
   # Remove buildroot from LD_LIBRARY_PATH
@@ -63,4 +66,11 @@ download_fw() {
 
 }
 
-download_fw "prod" || echo "ERROR: failed to download FPGA and RTOS artifacts"
+if [[ -z "$GENERATE_REQUIREMENTS" ]]; then
+  download_fw "prod" || echo "ERROR: failed to download FPGA and RTOS artifacts"
+else
+  REQUIREMENTS_M4="$D/requirements.yaml.m4"
+  REQUIREMENTS_OUT="${REQUIREMENTS_M4%.m4}"
+  [[ -f "$REQUIREMENTS_M4" ]] || { echo "ERROR: could not find $REQUIREMENTS_M4"; exit 1; }
+  m4 -DFW_VERSION=$FW_VERSION -DNAP_VERSION=$NAP_VERSION $REQUIREMENTS_M4 >$REQUIREMENTS_OUT
+fi
