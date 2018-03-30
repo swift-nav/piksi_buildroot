@@ -20,6 +20,9 @@
 #include <libpiksi/settings.h>
 
 int ports_init(settings_ctx_t *settings_ctx);
+#if 0
+// TODO: remove
 void ports_sigchld_waitpid_handler(pid_t pid, int status);
+#endif
 
 #endif /* SWIFTNAV_PORTS_H */

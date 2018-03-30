@@ -12,7 +12,6 @@
 
 #include "ports.h"
 #include "protocols.h"
-#include "async-child.h"
 #include <libpiksi/logging.h>
 #include <string.h>
 #include <stdio.h>
@@ -56,6 +55,12 @@ typedef union {
 
 typedef int (*opts_get_fn_t)(char *buf, size_t buf_size,
                              const opts_data_t *opts_data);
+
+#define RUNIT_SERVICE_DIR "/var/run/ports_daemon/sv"
+
+static int start_runit_service(const char* service_name, const char* command_line, bool restart);
+
+static int stop_runit_service(const char* service_name);
 
 static int opts_get_tcp_server(char *buf, size_t buf_size,
                                const opts_data_t *opts_data)
@@ -236,27 +241,10 @@ static u8 protocol_index_to_mode(int protocol_index)
   return protocol_index + 1;
 }
 
-static void adapter_kill(port_config_t *port_config)
-{
-  /* Mask SIGCHLD while accessing adapter_pid */
-  sigset_t saved_mask;
-  sigchld_mask(&saved_mask);
-  {
-    if (port_config->adapter_pid > 0) {
-      int ret = kill(port_config->adapter_pid, SIGTERM);
-      piksi_log(LOG_DEBUG,
-                "Killing zmq_adapter with PID: %d (kill returned %d, errno %d)",
-                port_config->adapter_pid, ret, errno);
-    }
-    port_config->adapter_pid = 0;
-  }
-  sigchld_restore(&saved_mask);
-}
-
 static int port_configure(port_config_t *port_config)
 {
   /* kill adapter */
-  adapter_kill(port_config);
+  stop_runit_service(port_config->name);
 
   /* In case of USB adapters, sometimes we find that instances are still around.
    * Kill them here
@@ -290,28 +278,127 @@ static int port_configure(port_config_t *port_config)
            "zmq_adapter %s %s %s",
            port_config->opts, opts, mode_opts);
 
-  /* Split the command on each space for argv */
-  char *args[32] = {0};
-  args[0] = strtok(cmd, " ");
-  for (u8 i=1; (args[i] = strtok(NULL, " ")) && i < 32; i++);
-
   piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
+  return start_runit_service(port_config->name, cmd, port_config->restart);
+}
 
-  /* Mask SIGCHLD while accessing adapter_pid */
-  sigset_t saved_mask;
-  sigchld_mask(&saved_mask);
-  {
-    /* Create a new zmq_adapter. */
-    if (!(port_config->adapter_pid = fork())) {
-      execvp(args[0], args);
-      piksi_log(LOG_ERR, "execvp error");
-      exit(EXIT_FAILURE);
-    }
+static int stop_runit_service(const char* service_name)
+{
+  int count = 0;
 
-    piksi_log(LOG_DEBUG, "zmq_adapter started with PID: %d",
-              port_config->adapter_pid);
+  char service_dir[PATH_MAX];
+  char path_buf[PATH_MAX];
+
+  count = snprintf(service_dir, sizeof(service_dir), "%s/%s", RUNIT_SERVICE_DIR, service_name);
+  assert((size_t)count < sizeof(service_dir));
+
+  count = snprintf(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir);
+  assert((size_t)count < sizeof(service_dir));
+
+  FILE* control_fp = fopen(path_buf, "w");
+  if (control_fp == NULL) {
+    piksi_log(LOG_ERR, "stop_runit_service: fopen: %s (error: %s)", path_buf, strerror(errno));
+    return -1;
   }
-  sigchld_restore(&saved_mask);
+
+  fprintf(control_fp, "d");
+
+  if (fclose(control_fp) != 0) {
+    piksi_log(LOG_ERR, "stop_runit_service: fclose: %s (error: %s)", path_buf, strerror(errno));
+    return -1;
+  }
+
+  return 0;
+}
+
+static int start_runit_service(const char* service_name, const char* command_line, bool restart)
+{
+  int count = 0;
+
+  int control_pipe_retries = 5;
+  static const int control_sleep_us = 100e3;
+
+  char service_dir[PATH_MAX];
+  char path_buf[PATH_MAX];
+  char command_buf[1024];
+
+  count = snprintf(service_dir, sizeof(service_dir), "%s/%s", RUNIT_SERVICE_DIR, service_name);
+  assert((size_t)count < sizeof(service_dir));
+
+  count = snprintf(command_buf, sizeof(command_buf), "rm -rf %s", service_dir);
+  assert((size_t)count < sizeof(command_buf));
+
+  int rc = system(command_buf);
+  if(rc != 0) {
+    piksi_log(LOG_ERR, "start_runit_service: system: %s (error: %d)", command_buf, rc);
+    return -1;
+  }
+
+  if (mkdir(service_dir, 0755) != 0) {
+    piksi_log(LOG_ERR, "start_runit_service: mkdir: %s (error: %s)", service_dir, strerror(errno));
+    return -1;
+  }
+
+  count = snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "down");
+  assert((size_t)count < sizeof(service_dir));
+
+  FILE* fp = fopen(path_buf, "w");
+
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "start_runit_service: fopen: %s (error: %s)", path_buf, strerror(errno));
+    return -1;
+  }
+
+  if(fclose(fp) != 0) {
+    piksi_log(LOG_ERR, "start_runit_service: fclose: %s (error: %s)", path_buf, strerror(errno));
+    return -1;
+  }
+
+  count = snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "run");
+  assert((size_t)count < sizeof(service_dir));
+
+  FILE* run_fp = fopen(path_buf, "w");
+  if (run_fp == NULL) {
+    piksi_log(LOG_ERR, "start_runit_service: fopen: %s (error: %s)", path_buf, strerror(errno));
+    return -1;
+  }
+
+  fprintf(run_fp, "#!/bin/sh\n");
+  fprintf(run_fp, "exec %s\n", command_line);
+
+  if (fclose(run_fp) != 0) {
+    piksi_log(LOG_ERR, "start_runit_service: fclose: %s (error: %s)", path_buf, strerror(errno));
+    return -1;
+  }
+
+  if (chmod(path_buf, 0755) != 0) {
+    piksi_log(LOG_ERR, "start_runit_service: chmod: %s (error: %s)", path_buf, strerror(errno));
+    return -1;
+  }
+
+  count = snprintf(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir);
+  assert((size_t)count < sizeof(service_dir));
+
+  struct stat s;
+  while (stat(path_buf, &s) != 0 && control_pipe_retries-- > 0) {
+    assert( usleep(control_sleep_us) == 0 );
+  }
+
+  FILE* control_fp = fopen(path_buf, "w");
+  if (control_fp == NULL) {
+    piksi_log(LOG_ERR, "start_runit_service: fopen: %s (error: %s)", path_buf, strerror(errno));
+    return -1;
+  }
+
+  if (restart)
+    fprintf(control_fp, "u");
+  else
+    fprintf(control_fp, "o");
+
+  if (fclose(control_fp) != 0) {
+    piksi_log(LOG_ERR, "start_runit_service: fclose: %s (error: %s)", path_buf, strerror(errno));
+    return -1;
+  }
 
   return 0;
 }
@@ -444,7 +531,7 @@ static int mode_lookup(const char *mode_name, u8 *mode)
 
 int ports_init(settings_ctx_t *settings_ctx)
 {
-  int i;
+  size_t i;
 
   /* Initialize default mode */
   u8 mode_default = MODE_DISABLED;
@@ -495,20 +582,4 @@ int ports_init(settings_ctx_t *settings_ctx)
   }
 
   return 0;
-}
-
-void ports_sigchld_waitpid_handler(pid_t pid, int status)
-{
-  int i;
-  for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
-    port_config_t *port_config = &port_configs[i];
-
-    if (port_config->adapter_pid == pid) {
-      port_config->adapter_pid = 0;
-      fprintf(stdout, "Adapter %s died\n", port_config->name);
-      if (port_config->restart == RESTART) {
-        port_configure(port_config);
-      }
-    }
-  }
 }

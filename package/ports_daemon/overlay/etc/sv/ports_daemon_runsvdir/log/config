@@ -1,0 +1,4 @@
+# Rotate log at 1mb
+s1048576
+# Only keep 2 old logs
+n2

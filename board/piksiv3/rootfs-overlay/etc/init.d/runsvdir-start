@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Enable job control
+set -m
+
+mkdir -p /var/service
+
+ls -1 /etc/sv | while read -r svc; do
+   ln -sf /etc/sv/$svc /var/service/$svc
+done
+
+mkdir -p /var/log/runit
+
+max_log_bytes=$((1*1024*1024))
+max_n_logs=2
+
+# Rotate after $max_log_bytes exceeded
+echo "s${max_log_bytes}" >>/var/log/runit/config
+# Only keep ${max_n_logs} of old logs
+echo "n${max_n_logs}" >>/var/log/runit/config
+
+trap 'kill -HUP -$pid' STOP TERM HUP
+
+(runsvdir /var/service 2>&1 | svlogd -tt /var/log/runit) &
+pid=$!

@@ -27,14 +27,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "protocols.h"
-#include "ports.h"
-#include "whitelists.h"
 #include "async-child.h"
 #include "cellmodem.h"
 
 #define PROGRAM_NAME "piksi_system_daemon"
-#define PROTOCOL_LIBRARY_PATH "/usr/lib/zmq_protocols"
 
 #define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
 #define SUB_ENDPOINT ">tcp://127.0.0.1:43010"
@@ -416,11 +412,6 @@ int main(void)
 {
   logging_init(PROGRAM_NAME);
 
-  if (protocols_import(PROTOCOL_LIBRARY_PATH) != 0) {
-    piksi_log(LOG_ERR, "error importing protocols");
-    exit(EXIT_FAILURE);
-  }
-
   /* Set up SIGCHLD handler */
   sigchld_setup();
 
@@ -497,8 +488,6 @@ int main(void)
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
-  ports_init(settings_ctx);
-  whitelists_init(settings_ctx);
   cellmodem_init(pubsub_ctx, settings_ctx);
 
   img_tbl_settings_setup(settings_ctx);

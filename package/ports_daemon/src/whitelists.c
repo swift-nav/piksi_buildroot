@@ -390,9 +390,9 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   }
 };
 
-int whitelist_notify(void *context)
+static int whitelist_notify(void *context)
 {
-  port_whitelist_config_t *port_whitelist_config =
+  port_whitelist_config_t *port_whitelist_config_ =
       (port_whitelist_config_t *)context;
 
   char *c = port_whitelist_config->wl;
@@ -421,6 +421,8 @@ int whitelist_notify(void *context)
         state = PARSE_AFTER_DIV;
         whitelist[entries-1].div = tmp;
         break;
+      case PARSE_AFTER_DIV:
+      case PARSE_AFTER_ID:
       default:
         return -1;
       }
@@ -459,7 +461,7 @@ int whitelist_notify(void *context)
 
   /* Parsed successfully, write config file and accept setting */
   char fn[256];
-  sprintf(fn, "/etc/%s_filter_out_config", port_whitelist_config->name);
+  sprintf(fn, "/etc/%s_filter_out_config", port_whitelist_config_->name);
   FILE *cfg = fopen(fn, "w");
   for (int i = 0; i < entries; i++) {
     fprintf(cfg, "%x %x\n", whitelist[i].id, whitelist[i].div);
@@ -472,8 +474,13 @@ int whitelist_notify(void *context)
 int whitelists_init(settings_ctx_t *settings_ctx)
 {
   for (int i = 0; i < PORT_MAX; i++) {
-    settings_register(settings_ctx, port_whitelist_config[i].name, "enabled_sbp_messages",
-                      port_whitelist_config[i].wl, sizeof(port_whitelist_config[i].wl),
-                      SETTINGS_TYPE_STRING, whitelist_notify, &port_whitelist_config[i]);
+    int rc = settings_register(settings_ctx, port_whitelist_config[i].name, "enabled_sbp_messages",
+                               port_whitelist_config[i].wl, sizeof(port_whitelist_config[i].wl),
+                               SETTINGS_TYPE_STRING, whitelist_notify, &port_whitelist_config[i]);
+    if (rc != 0) {
+      return rc;
+    }
   }
+
+  return 0;
 }

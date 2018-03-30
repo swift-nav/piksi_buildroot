@@ -4,10 +4,7 @@ SOURCES= \
 	cellmodem.c \
 	cellmodem_inotify.c \
 	cellmodem_probe.c \
-	main.c \
-	protocols.c \
-	ports.c \
-	whitelists.c
+	main.c
 
 LIBS=-lczmq -lsbp -lpiksi -ldl
 

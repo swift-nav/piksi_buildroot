@@ -1,0 +1,16 @@
+#!/bin/sh
+
+name="ports_daemon"
+cmd="ports_daemon"
+dir="/"
+user="portsd"
+
+setup_permissions() {
+  mkdir -p /var/run/ports_daemon/sv
+  chown -R portsd:portsd /var/run/ports_daemon
+  chown portsd:portsd /dev/ttyPS0
+  chown portsd:portsd /dev/ttyPS1
+  chown portsd:portsd /dev/ttyGS0
+}
+
+source /etc/init.d/template_process.inc.sh

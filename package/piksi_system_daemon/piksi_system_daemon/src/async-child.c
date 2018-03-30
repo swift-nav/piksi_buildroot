@@ -15,7 +15,7 @@
 #include <libpiksi/logging.h>
 
 #include "async-child.h"
-#include "ports.h"
+//#include "ports.h" // TODO: remove
 
 struct async_child_ctx {
   zloop_t *loop;
@@ -46,7 +46,10 @@ static void sigchld_handler(int signum)
   pid_t pid;
   int status;
   while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+#if 0
+    // TODO: replace with runit
     ports_sigchld_waitpid_handler(pid, status);
+#endif
     async_child_waitpid_handler(pid, status);
   }
   errno = saved_errno;
