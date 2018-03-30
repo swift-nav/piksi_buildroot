@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright (C) 2016 Swift Navigation Inc.
 # Contact: Fergus Noble <fergus@swiftnav.com>
@@ -13,7 +13,23 @@
 # Script for downloading firmware and NAP binaries from S3 to be incorporated
 # into the Linux image.
 
+`######' M4_EDIT_WARNING `#######'
+`######' M4_EDIT_WARNING `#######'
+`######' M4_EDIT_WARNING `#######'
+`######' M4_EDIT_WARNING `#######'
+`######' M4_EDIT_WARNING `#######'
+`######' M4_EDIT_WARNING `#######'
+`######' M4_EDIT_WARNING `#######'
+`######' M4_EDIT_WARNING `#######'
+`######' M4_EDIT_WARNING `#######'
+`######' M4_EDIT_WARNING `#######'
+
 set -xe
+
+if [[ $(uname -a) == *NixOS* ]]; then
+  # Remove buildroot from LD_LIBRARY_PATH
+  export LD_LIBRARY_PATH=/lib:/usr/lib
+fi
 
 FW_VERSION=${1:-M4_FW_VERSION}
 NAP_VERSION=${2:-M4_NAP_VERSION}
@@ -47,5 +63,4 @@ download_fw() {
 
 }
 
-download_fw "prod"
-
+download_fw "prod" || echo "ERROR: failed to download FPGA and RTOS artifacts"
