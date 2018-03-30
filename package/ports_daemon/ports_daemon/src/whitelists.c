@@ -18,6 +18,9 @@
 
 #include "whitelists.h"
 
+// Not declared static so tests can access
+int whitelist_notify(void *context);
+
 /* Whitelist settings are kept as formatted strings of message ids and
  * rate dividers.  Strings are parsed in whilelist_notify()
  *
@@ -390,12 +393,12 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   }
 };
 
-static int whitelist_notify(void *context)
+int whitelist_notify(void *context)
 {
   port_whitelist_config_t *port_whitelist_config_ =
       (port_whitelist_config_t *)context;
 
-  char *c = port_whitelist_config->wl;
+  char *c = port_whitelist_config_->wl;
   unsigned tmp;
   enum {PARSE_ID, PARSE_AFTER_ID, PARSE_DIV, PARSE_AFTER_DIV} state = PARSE_ID;
   struct {

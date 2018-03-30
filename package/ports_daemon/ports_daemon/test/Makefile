@@ -1,10 +1,10 @@
-TARGET=run_piksi_system_daemon_test
+TARGET=run_ports_daemon_test
 
 SOURCES= \
-	run_piksi_system_daemon_test.cc
+	run_ports_daemon_test.cc
 
 LIBS= \
-	-lczmq -lsbp -lpiksi -ldl -lpthread -lgtest \
+	-lczmq -lsbp -lpiksi -ldl -lpthread -lgtest -lstdc++ \
 	../src/whitelists.o
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src

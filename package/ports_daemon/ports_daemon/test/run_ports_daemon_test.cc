@@ -16,7 +16,9 @@
 
 #include <gtest/gtest.h>
 
+extern "C" {
 #include "whitelists.h"
+}
 
 extern "C" int whitelist_notify(void *context);
 
@@ -39,9 +41,9 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
 };
 
 // The fixture for testing class RotatingLogger.
-class PiksiSystemDaemonTests : public ::testing::Test { };
+class PortsDaemonTests : public ::testing::Test { };
 
-TEST_F(PiksiSystemDaemonTests, Whitelist_whitespace) {
+TEST_F(PortsDaemonTests, Whitelist_whitespace) {
 
   system("rm -f /etc/whitespace_filter_out_config");
 
@@ -53,7 +55,7 @@ TEST_F(PiksiSystemDaemonTests, Whitelist_whitespace) {
   ASSERT_STREQ("", str.c_str());
 }
 
-TEST_F(PiksiSystemDaemonTests, Whitelist_valid) {
+TEST_F(PortsDaemonTests, Whitelist_valid) {
 
   system("rm -f /etc/valid_filter_out_config");
 
@@ -65,7 +67,7 @@ TEST_F(PiksiSystemDaemonTests, Whitelist_valid) {
   ASSERT_STREQ("48 1\n4a 1\n", str.c_str());
 }
 
-TEST_F(PiksiSystemDaemonTests, Whitelist_empty) {
+TEST_F(PortsDaemonTests, Whitelist_empty) {
 
   system("rm -f /etc/valid_filter_out_config");
   system("rm -f /etc/empty_filter_out_config");
