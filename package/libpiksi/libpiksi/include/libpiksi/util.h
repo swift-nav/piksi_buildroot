@@ -49,6 +49,14 @@ u64 system_uptime_ms_get(void);
 int device_uuid_get(char *str, size_t str_size);
 
 /**
+ * @brief   Determine if the current system is Duro
+ * @details Returns the true or false
+ *
+ * @return  True if the current system is a Duro
+ */
+bool device_is_duro(void);
+
+/**
  * @brief   Run a ZMQ loop ignoring signals.
  * @details Run a ZMQ loop ignoring signals until an error occurs or a handler
  *          returns -1.
