@@ -16,6 +16,7 @@
 #include <linux/if_link.h>
 
 #include <libpiksi/util.h>
+#include <libpiksi/interface.h>
 #include <libpiksi/networking.h>
 #include <libpiksi/logging.h>
 
@@ -72,11 +73,9 @@ static s32 fill_network_state_struct(struct ifaddrs *ifa, void *userdata)
 
   // guard conditions to skip
   if (ifa->ifa_addr == NULL) {
-    piksi_log(LOG_WARNING, "Network State: skipping NULL ifa_addr");
     return 0;
   }
   if (ifa->ifa_name == NULL) {
-    piksi_log(LOG_WARNING, "Network State: skipping NULL ifa_name");
     return 0;
   }
   if(strlen(ifa->ifa_name) >= sizeof(interfaces[0].interface_name)) {
@@ -167,16 +166,25 @@ static s32 fill_network_usage_struct(struct ifaddrs *ifa, void *userdata)
   u8 *usage_entries_count = fill_usage->usage_entries_count;
   u64 duration = fill_usage->duration;
 
-  if (usage_entries == NULL
-      || usage_entries_count == NULL
-      || *usage_entries_count >= usage_entries_size) {
+  if (usage_entries == NULL) {
+    return -1;
+  }
+  if (usage_entries_count == NULL) {
+    return -1;
+  }
+  if (*usage_entries_count >= usage_entries_size) {
     return -1;
   }
 
   // guard conditions to skip
-  if (ifa->ifa_addr == NULL
-      || ifa->ifa_name == NULL
-      || strlen(ifa->ifa_name) >= sizeof(usage_entries[0].interface_name)) {
+  if (ifa->ifa_addr == NULL) {
+    return 0;
+  }
+  if (ifa->ifa_name == NULL) {
+    return 0;
+  }
+  if (strlen(ifa->ifa_name) >= sizeof(usage_entries[0].interface_name)) {
+    piksi_log(LOG_WARNING, "Network Usage: skipping ifa_name that is too long - %s", ifa->ifa_name);
     return 0;
   }
 
@@ -197,60 +205,31 @@ static s32 fill_network_usage_struct(struct ifaddrs *ifa, void *userdata)
 void query_network_usage(network_usage_t *usage_entries, u8 usage_entries_n, u8 *interface_count)
 {
   u64 uptime_ms = system_uptime_ms_get();
-  struct fill_usage_struct_s fill_data = {
-    .usage_entries = usage_entries,
-    .usage_entries_size = usage_entries_n,
-    .usage_entries_count = interface_count,
-    .duration = uptime_ms
-  };
-  *interface_count = 0;
-  map_network_interfaces(fill_network_usage_struct, (void *)&fill_data);
-}
+  const interface_t *ifa = NULL;
+  interface_list_t *ifa_list = NULL;
 
-struct fill_single_usage_struct_s {
-  network_usage_t *usage_entry;
-  u64 duration;
-  bool* success;
-};
-
-static s32 fill_network_single_usage_struct(struct ifaddrs *ifa, void *userdata)
-{
-  struct fill_single_usage_struct_s *fill_usage = (struct fill_single_usage_struct_s *)userdata;
-  network_usage_t *usage_entry = fill_usage->usage_entry;
-  u64 duration = fill_usage->duration;
-  bool *success = fill_usage->success;
-
-  if (usage_entry == NULL) {
-    return -1;
+  ifa_list = interface_list_create();
+  if (ifa_list == NULL) {
+    return;
+  }
+  if(interface_list_read_interfaces(ifa_list) != 0) {
+    piksi_log(LOG_WARNING,
+        "Error occured during interface read, some or all interfaces may not have been read");
   }
 
-  // guard conditions to skip
-  if (ifa->ifa_addr == NULL
-      || ifa->ifa_name == NULL
-      || strcmp(ifa->ifa_name, usage_entry->interface_name) != 0
-      || ifa->ifa_addr->sa_family != AF_PACKET
-      || ifa->ifa_data == NULL) {
-    return 0;
+  for (ifa = interface_list_head(ifa_list); ifa; ifa = interface_next(ifa)) {
+    const char *ifa_name = interface_name(ifa);
+    const struct user_net_device_stats *stats = interface_stats(ifa);
+    network_usage_t *cur_iface = &usage_entries[*interface_count];
+    strcpy(cur_iface->interface_name, ifa_name);
+    cur_iface->duration = uptime_ms;
+    cur_iface->rx_bytes = stats->rx_bytes;
+    cur_iface->tx_bytes = stats->tx_bytes;
+    cur_iface->total_bytes = cur_iface->rx_bytes + cur_iface->tx_bytes;
+    if ((*interface_count)++ >= usage_entries_n) {
+      break;
+    }
   }
-
-  struct rtnl_link_stats *stats = ifa->ifa_data;
-  usage_entry->duration = duration;
-  usage_entry->rx_bytes = stats->rx_bytes;
-  usage_entry->tx_bytes = stats->tx_bytes;
-  usage_entry->total_bytes = usage_entry->rx_bytes + usage_entry->tx_bytes;
-  (*success) = true;
-  return -1;
+  interface_list_destroy(&ifa_list);
 }
 
-void query_network_usage_by_interface(network_usage_t *usage_entry, u8* interface_name, bool *found)
-{
-  u64 uptime_ms = system_uptime_ms_get();
-  strncpy(usage_entry->interface_name, interface_name, sizeof(usage_entry->interface_name));
-  struct fill_single_usage_struct_s fill_data = {
-    .usage_entry = usage_entry,
-    .duration = uptime_ms,
-    .success = found
-  };
-  *found = false;
-  map_network_interfaces(fill_network_single_usage_struct, (void *)&fill_data);
-}
