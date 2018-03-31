@@ -13,16 +13,9 @@
 # Script for downloading firmware and NAP binaries from S3 to be incorporated
 # into the Linux image.
 
-`######' M4_EDIT_WARNING `#######'
-`######' M4_EDIT_WARNING `#######'
-`######' M4_EDIT_WARNING `#######'
-`######' M4_EDIT_WARNING `#######'
-`######' M4_EDIT_WARNING `#######'
-`######' M4_EDIT_WARNING `#######'
-`######' M4_EDIT_WARNING `#######'
-`######' M4_EDIT_WARNING `#######'
-`######' M4_EDIT_WARNING `#######'
-`######' M4_EDIT_WARNING `#######'
+###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
+###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
+###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
 
 set -xe
 
