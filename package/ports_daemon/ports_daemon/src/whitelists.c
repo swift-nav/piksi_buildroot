@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <libpiksi/logging.h>
+
 #include "whitelists.h"
 
 // Not declared static so tests can access
@@ -464,8 +466,12 @@ int whitelist_notify(void *context)
 
   /* Parsed successfully, write config file and accept setting */
   char fn[256];
-  sprintf(fn, "/etc/%s_filter_out_config", port_whitelist_config_->name);
+  sprintf(fn, "/etc/filter_out_config/%s", port_whitelist_config_->name);
   FILE *cfg = fopen(fn, "w");
+  if (cfg == NULL) {
+    piksi_log(LOG_ERR, "Error opening file: %s (error: %s)", fn, strerror(errno));
+    return -1;
+  }
   for (int i = 0; i < entries; i++) {
     fprintf(cfg, "%x %x\n", whitelist[i].id, whitelist[i].div);
   }

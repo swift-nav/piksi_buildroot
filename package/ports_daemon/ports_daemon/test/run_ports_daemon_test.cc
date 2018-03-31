@@ -45,7 +45,7 @@ class PortsDaemonTests : public ::testing::Test { };
 
 TEST_F(PortsDaemonTests, Whitelist_whitespace) {
 
-  system("rm -f /etc/whitespace_filter_out_config");
+  system("rm -f /etc/filter_out_config/whitespace");
 
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_WHITESPACE]));
 
@@ -57,11 +57,11 @@ TEST_F(PortsDaemonTests, Whitelist_whitespace) {
 
 TEST_F(PortsDaemonTests, Whitelist_valid) {
 
-  system("rm -f /etc/valid_filter_out_config");
+  system("rm -f /etc/filter_out_config/valid");
 
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_VALID]));
 
-  std::ifstream t("/etc/valid_filter_out_config");
+  std::ifstream t("/etc/filter_out_config/valid");
   std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
 
   ASSERT_STREQ("48 1\n4a 1\n", str.c_str());
@@ -69,12 +69,12 @@ TEST_F(PortsDaemonTests, Whitelist_valid) {
 
 TEST_F(PortsDaemonTests, Whitelist_empty) {
 
-  system("rm -f /etc/valid_filter_out_config");
-  system("rm -f /etc/empty_filter_out_config");
+  system("rm -f /etc/filter_out_config/valid");
+  system("rm -f /etc/filter_out_config/empty");
 
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_VALID]));
   ASSERT_EQ(0, whitelist_notify(&port_whitelist_config[PORT_EMPTY]));
-  
+
   std::ifstream t("/etc/empty_filter_out_config");
   std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
 
@@ -82,6 +82,7 @@ TEST_F(PortsDaemonTests, Whitelist_empty) {
 }
 
 int main(int argc, char** argv) {
+  system("mkdir -p /etc/filter_out_config");
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

@@ -6,6 +6,8 @@ dir="/"
 user="portsd"
 
 setup_permissions() {
+  mkdir -p /etc/filter_out_config
+  chown -R portsd:portsd /etc/filter_out_config
   mkdir -p /var/run/ports_daemon/sv
   chown -R portsd:portsd /var/run/ports_daemon
   chown portsd:portsd /dev/ttyPS0

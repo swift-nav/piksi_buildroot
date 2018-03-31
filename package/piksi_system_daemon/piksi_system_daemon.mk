@@ -6,7 +6,7 @@
 
 PIKSI_SYSTEM_DAEMON_VERSION = 0.1
 PIKSI_SYSTEM_DAEMON_SITE = \
-  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_system_daemon/piksi_system_daemon/src"
+  "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_system_daemon/src"
 PIKSI_SYSTEM_DAEMON_SITE_METHOD = local
 PIKSI_SYSTEM_DAEMON_DEPENDENCIES = czmq libsbp libpiksi
 

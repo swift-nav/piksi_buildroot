@@ -21,7 +21,7 @@ endef
 define PORTS_DAEMON_INSTALL_TESTS
 	$(INSTALL) -D -m 0755 $(@D)/ports_daemon/test/run_ports_daemon_test $(TARGET_DIR)/usr/bin
 endef
-PORTS_DAEMON_DAEMON_DEPENDENCIES += gtest
+PORTS_DAEMON_DEPENDENCIES += gtest
 endif
 ifeq ($(BR2_RUN_TESTS),y)
 define PORTS_DAEMON_RUN_TESTS

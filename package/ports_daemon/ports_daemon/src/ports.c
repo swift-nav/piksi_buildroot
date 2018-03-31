@@ -316,8 +316,11 @@ static int start_runit_service(const char* service_name, const char* command_lin
 {
   int count = 0;
 
-  int control_pipe_retries = 5;
   static const int control_sleep_us = 100e3;
+  static const int max_wait_us = 5e6;
+
+  int control_pipe_retries = max_wait_us / control_sleep_us;
+  assert( control_pipe_retries > 0 && control_pipe_retries <= 1000 );
 
   char service_dir[PATH_MAX];
   char path_buf[PATH_MAX];
