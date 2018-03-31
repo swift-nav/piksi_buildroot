@@ -282,40 +282,68 @@ static int port_configure(port_config_t *port_config)
   return start_runit_service(port_config->name, cmd, port_config->restart);
 }
 
+#define CHECK_FS_CALL(TheCheck, TheCall, ThePath) if (!(TheCheck)) { \
+    piksi_log(LOG_ERR, "%s: %s: %s (error: %s)", __FUNCTION__, TheCall, ThePath, strerror(errno)); \
+    return -1; }
+
+#define CHECK_SPRINTF(TheSnprintf) { \
+    int count = TheSnprintf; \
+    assert((size_t)count < sizeof(service_dir)); }
+
+#define RUN_SYSTEM_CMD(TheCommand) { \
+  int rc = system(TheCommand); \
+  if(rc != 0) { \
+    piksi_log(LOG_ERR, "%s: system: %s (error: %d)", __FUNCTION__, TheCommand, rc);  \
+    return -1; } }
+
 static int stop_runit_service(const char* service_name)
 {
-  int count = 0;
-
   char service_dir[PATH_MAX];
   char path_buf[PATH_MAX];
 
-  count = snprintf(service_dir, sizeof(service_dir), "%s/%s", RUNIT_SERVICE_DIR, service_name);
-  assert((size_t)count < sizeof(service_dir));
+  CHECK_SPRINTF(snprintf(service_dir, sizeof(service_dir), "%s/%s", RUNIT_SERVICE_DIR, service_name));
+  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/supervise/stat", service_dir));
 
-  count = snprintf(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir);
-  assert((size_t)count < sizeof(service_dir));
+  struct stat s;
+  if (stat(path_buf, &s) != 0 && errno == ENOENT) {
+    // Service already down
+    return 0;
+  }
+
+  FILE* stat_fp = fopen(path_buf, "w");
+  CHECK_FS_CALL(stat_fp != NULL, "fopen", path_buf);
+
+  char stat_buf[64] = {0};
+  (void) fread(stat_buf, sizeof(stat_buf), 1, stat_fp);
+
+  if (strcmp(stat_buf, "down")) {
+    CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
+    // Service already down...
+    return 0;
+  }
+
+  CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
+
+  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir));
 
   FILE* control_fp = fopen(path_buf, "w");
-  if (control_fp == NULL) {
-    piksi_log(LOG_ERR, "stop_runit_service: fopen: %s (error: %s)", path_buf, strerror(errno));
-    return -1;
-  }
+  CHECK_FS_CALL(control_fp != NULL, "fopen", path_buf);
 
   // Stop the service
   fprintf(control_fp, "d");
 
-  if (fclose(control_fp) != 0) {
-    piksi_log(LOG_ERR, "stop_runit_service: fclose: %s (error: %s)", path_buf, strerror(errno));
-    return -1;
-  }
+  CHECK_FS_CALL(fclose(control_fp) == 0, "fclose", path_buf);
+
+  char command_buf[1024];
+  CHECK_SPRINTF(snprintf(command_buf, sizeof(command_buf), "rm -rf %s", service_dir));
+
+  RUN_SYSTEM_CMD(command_buf);
 
   return 0;
 }
 
 static int start_runit_service(const char* service_name, const char* command_line, bool restart)
 {
-  int count = 0;
-
   static const int control_sleep_us = 100e3;
   static const int max_wait_us = 5e6;
 
@@ -326,62 +354,31 @@ static int start_runit_service(const char* service_name, const char* command_lin
   char path_buf[PATH_MAX];
   char command_buf[1024];
 
-  count = snprintf(service_dir, sizeof(service_dir), "%s/%s", RUNIT_SERVICE_DIR, service_name);
-  assert((size_t)count < sizeof(service_dir));
+  CHECK_SPRINTF(snprintf(service_dir, sizeof(service_dir), "%s/%s", RUNIT_SERVICE_DIR, service_name));
+  CHECK_SPRINTF(snprintf(command_buf, sizeof(command_buf), "rm -rf %s", service_dir));
 
-  count = snprintf(command_buf, sizeof(command_buf), "rm -rf %s", service_dir);
-  assert((size_t)count < sizeof(command_buf));
+  RUN_SYSTEM_CMD(command_buf);
 
-  int rc = system(command_buf);
-  if(rc != 0) {
-    piksi_log(LOG_ERR, "start_runit_service: system: %s (error: %d)", command_buf, rc);
-    return -1;
-  }
+  CHECK_FS_CALL(mkdir(service_dir, 0755) == 0, "mkdir", service_dir);
 
-  if (mkdir(service_dir, 0755) != 0) {
-    piksi_log(LOG_ERR, "start_runit_service: mkdir: %s (error: %s)", service_dir, strerror(errno));
-    return -1;
-  }
-
-  count = snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "down");
-  assert((size_t)count < sizeof(service_dir));
+  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "down"));
 
   FILE* fp = fopen(path_buf, "w");
+  CHECK_FS_CALL(fp != NULL, "fopen", path_buf);
+  CHECK_FS_CALL(fclose(fp) == 0, "fclose", path_buf);
 
-  if (fp == NULL) {
-    piksi_log(LOG_ERR, "start_runit_service: fopen: %s (error: %s)", path_buf, strerror(errno));
-    return -1;
-  }
-
-  if(fclose(fp) != 0) {
-    piksi_log(LOG_ERR, "start_runit_service: fclose: %s (error: %s)", path_buf, strerror(errno));
-    return -1;
-  }
-
-  count = snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "run");
-  assert((size_t)count < sizeof(service_dir));
+  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "run"));
 
   FILE* run_fp = fopen(path_buf, "w");
-  if (run_fp == NULL) {
-    piksi_log(LOG_ERR, "start_runit_service: fopen: %s (error: %s)", path_buf, strerror(errno));
-    return -1;
-  }
+  CHECK_FS_CALL(run_fp != NULL, "fopen", path_buf);
 
   fprintf(run_fp, "#!/bin/sh\n");
   fprintf(run_fp, "exec %s\n", command_line);
 
-  if (fclose(run_fp) != 0) {
-    piksi_log(LOG_ERR, "start_runit_service: fclose: %s (error: %s)", path_buf, strerror(errno));
-    return -1;
-  }
+  CHECK_FS_CALL(fclose(run_fp) == 0, "fclose", path_buf);
+  CHECK_FS_CALL(chmod(path_buf, 0755) == 0, "chmod", path_buf);
 
-  if (chmod(path_buf, 0755) != 0) {
-    piksi_log(LOG_ERR, "start_runit_service: chmod: %s (error: %s)", path_buf, strerror(errno));
-    return -1;
-  }
-
-  count = snprintf(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir);
-  assert((size_t)count < sizeof(service_dir));
+  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir));
 
   struct stat s;
   while (stat(path_buf, &s) != 0 && control_pipe_retries-- > 0) {
@@ -389,23 +386,21 @@ static int start_runit_service(const char* service_name, const char* command_lin
   }
 
   FILE* control_fp = fopen(path_buf, "w");
-  if (control_fp == NULL) {
-    piksi_log(LOG_ERR, "start_runit_service: fopen: %s (error: %s)", path_buf, strerror(errno));
-    return -1;
-  }
+  CHECK_FS_CALL(control_fp != NULL, "fopen", path_buf);
 
   if (restart)
     fprintf(control_fp, "u");
   else
     fprintf(control_fp, "o");
 
-  if (fclose(control_fp) != 0) {
-    piksi_log(LOG_ERR, "start_runit_service: fclose: %s (error: %s)", path_buf, strerror(errno));
-    return -1;
-  }
+  CHECK_FS_CALL(fclose(control_fp) == 0, "fclose", path_buf);
 
   return 0;
 }
+
+#undef CHECK_FS_CALL
+#undef CHECK_SPRINTF
+#undef RUN_SYSTEM_CMD
 
 static int setting_mode_notify(void *context)
 {
