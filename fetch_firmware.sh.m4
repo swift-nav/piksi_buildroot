@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Copyright (C) 2016 Swift Navigation Inc.
-# Contact: Fergus Noble <fergus@swiftnav.com>
+# Copyright (C) 2016-2018 Swift Navigation Inc.
+# Contact: Swift Navigation <dev@swiftnav.com>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
 # be be distributed together with this source. All other rights reserved.
@@ -13,7 +13,14 @@
 # Script for downloading firmware and NAP binaries from S3 to be incorporated
 # into the Linux image.
 
-set -xe
+###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
+###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
+###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
+
+D=$( (cd "$(dirname "$0")" || exit 1 >/dev/null; pwd -P) )
+
+[[ -z "$DEBUG" ]] || set -x
+set -e
 
 FW_VERSION=${1:-M4_FW_VERSION}
 NAP_VERSION=${2:-M4_NAP_VERSION}
@@ -47,5 +54,11 @@ download_fw() {
 
 }
 
-download_fw "prod"
-
+if [[ -z "$GENERATE_REQUIREMENTS" ]]; then
+  download_fw "prod" || echo "ERROR: failed to download FPGA and RTOS artifacts"
+else
+  REQUIREMENTS_M4="$D/requirements.yaml.m4"
+  REQUIREMENTS_OUT="${REQUIREMENTS_M4%.m4}"
+  [[ -f "$REQUIREMENTS_M4" ]] || { echo "ERROR: could not find $REQUIREMENTS_M4"; exit 1; }
+  m4 -DFW_VERSION=$FW_VERSION -DNAP_VERSION=$NAP_VERSION $REQUIREMENTS_M4 >$REQUIREMENTS_OUT
+fi
