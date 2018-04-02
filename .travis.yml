@@ -47,7 +47,9 @@ matrix:
         - set -o pipefail && make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
       after_success:
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
-        - SLACK_CHANNEL=github ./comment.sh
+        - ./scripts/travis_pr_describe.sh
+        - ./scripts/hitl_smoke_test.sh
+        - SLACK_CHANNEL=github ./scripts/comment.sh
       after_failure:
         - tail -n 500 build.out
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out
@@ -99,3 +101,7 @@ env:
     - secure: "g0KII9TK5MhOS3j9h68jzQZk1bn6mVIaSMPrtB9aA7jrEMALm6biP+pYL2CgWyzGtFbsFVIG81fuyMpYjMR3ImFI/sGh+w0650HMaD97TEWYVc/gVtqjZsDbzGYtmG9tmxahJxl/LjAsO2xmddVYKlpyVzCGtAECe0IWX7LxYODIr01NQgmh6X+DClb1S6P1S6jgO4tjsnatstYo3us4jGHLqSDz9n9pH70YzZn8EB2cDQkLA5visc/w3mAMqmA3a3RWoBMNd3M63zEdlHWtiEaPY9JYDGASP1gp4rXAwKk5RTnNw6BBhVqqInfs1gFpXVve5zNus/YUZ342NuCyy2+pSSmJyWmA26pKE+PtHOoMuUwCqCrC/OdoLX7p7PTO++4XIr2vYV7KPlFELfzvlnCjXqlq8+AaiSb6z4FGijuHXRWNVvnasTcP3MDJn5OtjtBBNTiYm9fYj+z6PNVf9DwZbukiHN3GKNFEBGA1ACMvkD12BjDfrHsgLqHPUd9oRhU1qNGQVZozmVeKRczsP2lhwQp1GdrLhaz1ABeT0IjYqm+87LuE5eR0oQ/5ETOCDHdlfd4Vf6oz68lvkBbb2Yof55eJrSPUIzmLqCucEC1TI9WZui7isyRkhH9K5XCMQS0FKx6AvATOP4aG6zy8N5jAUYupR+NsCbDJUsQRc54="
     # DOCKER_PASS
     - secure: "KzpNCyL/gUCXlenrsusVFIhDw9dGMUlE2dwwqDQktbvYEZzW8FOSRsGJr96iLf31HcI5rv/g2ki/9Y2tVI5sJ+hGci5ZaJq/hxkHV/ZqT6bmSDecW1716b2PYwlcpPTFQreCoFPhE2fqbjLXAZepO3R6J6ddEFyNOfg/toM+n6+eWbpBzx8Zle9Xo9u81sxnOPtH13xuq338HKR5rjDMrwy5sM/PaJG/qorUqhxeAlpy/rxji+IZnvLkntQi1QZo/YPlZjAF5GrEU7fstFkzUu9DRQGri4iJX3MF6mz+rFIKawG9j0AEr4JVSZoeoSt8EOConCjm6KNvq3/tM4n4ThgRFtcpSuALRylO/r3GypsChOL4iQYV054L/P9yFSvz+vwJeoi/CFKHY/YbL2j/MlEkuzvwiyP7Wyo3YVM/cT/ulL/wlS6L2vEyOyRmjHg3HPPrLv5JIZxGQoaiTcKZl01nHi1u0LKYr0t9pOu0IMmUe7iVya+sJrFkUtmt7UZbwUhvaQ5a+C6OYZ016gJGg9FyJpT3kb2Giad497/Eu87+FUeMUbEQ4HMuT2MfFLkWTB0LV226HNo9+w4eq4R0ErsDPlosPlI6kE9VCL2CA1/MQV0QI3+nF9UlcIZf4MM68uziBjtsJUeqfPzaOYL06txo/cmf489uBUEF3hX6yXM="
+    # HITL_API_GITHUB_TOKEN
+    - secure: "MGsHo2hh8eWExKKVQdUeI5XzxseZMzgxFeLZQ1Cy/rAc0MirfU6NsXIEVXP+lUkjlpESmmPQlXStLM9ShfgPEspbf0DZNp1OEr+RLsg73+ToW8vf6vBvreXamYl3IkYMz8AKBiIJaFQxEZhIy274QZg/5fIpghxRUH15Wsj1krQd6mt+v7HJ8HUHx6dJk4vCr6SS1ZqCH2R2EJSq66EexDqMAE6SLsl5IlG1fxZxZqOXlTqSUv3uEWMxFFCGYtl7ev4YraIXRS4HddFH+lrC5dlf3qafgJ87lSsyt9Ni8MWI9cjroAehPYmJGuFV1BYQfqWWFJGzUgpw4CTtqsEiDzqyFWLK6RRd2yA/p0wzH50cwPd3FlwD1Kp5WPqUpxvXC9jc093fRuydfnUcCjBalFVYXLIYHZDKzVepG1gRSZzSQgRcQEDy1ZRT6jdLPEeC6+r/2VN3Xq6HEmSWAKEiCF27CG+hqjE2Vl1+CUqJbRA9vIm1MbL2fT1F+YN9z5zrTIVVxN62/fQ8hVLcc+Iw1sW6V1ENVBWXp7ZayRTBC0gjWm7N5h2s6zw2LzUYO60PhquB34/0sRY9cr1UpGszkbo1p6ygo+Xrj7ohJjj2FRLLY12XwCj0h0NNvuNA+xWdH/Ms395cJchQQnuBRpZeffZdnCyKA6Y6LZ2VwZQMfBg="
+    # GITHUB_COMMENT_TOKEN
+    - secure: "s8xau44uBGqRyyWQLCvNvJKpR0O+D86+xdt2sgK5sCtLhnpwXf0nv2YEpvHK022gM9M3O/RNRSmKPlDCm8kEDhOZbTIrI52vUY1nQKJdHY71Zc6D6M6xur4uPlTlEM+/qsMl2Q9NwYXANZHzG8S6RoBhLXjMhKB6dmFJIkyEPW6czFy1FRyk1+ffeaOQ+GXffwEcL2jhXMRNNgYsieZgJnEKSfTqBw3uBgdfTh10N1A9KyMYz1xvV+0538pnDS/E/xsY8vVDZoOZXDIwQiE1NtUl+OpUigkLeKgqcU5uQFAyioGsnuTN4ITB/VldMEEXjLbUpQ7xdVFZMFfa18AmGGiNOfHj/nx22PcClkxC4Na/dgPaRXDP8pkzSOLaLo85yfd16Y8KzcmriOSkCkLpn8SkwYH2n//LhsI9VP6/E55OlJZR7GT/i0Xt5FL2ayzx5bdyL4fhCkUv+z/WWB+nVp2vkNd4EbQ+6TrBJqgLyIV3fbFGZgTMLK2n7QkUI211Uhvsjxahe8yG6TaycdhIrhIUY5kLFIvv7Kve4tB7aLMl3naHhaFiYszEgivHsYW2npsiFupf02GgVqkulb5ZZ2kYXdlqNVwCrWcP6TK5xc/qlZfps1P9ad65PEfpXaYaFgZRlYDbJmQ+xfD7T+XFRGCGPLZcwMrmwe8dvOae0+0="
