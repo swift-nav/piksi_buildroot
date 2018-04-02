@@ -22,6 +22,8 @@
 
 /* These really belong in libsbp */
 #define SBP_ECEF_FLAGS_MODE_MASK 0x7
+#define SBP_ECEF_FLAGS_INS_MODE_MASK 0x18
+#define SBP_ECEF_FLAGS_INS_MODE_GET(x) ((SBP_ECEF_FLAGS_INS_MODE_MASK & x) >> 3)
 #define SBP_HEARTBEAT_FLAGS_ANTENNA_MASK (1 << 31)
 #define SBP_HEARTBEAT_FLAGS_ANTENNA_SHORT_MASK (1 << 30)
 
@@ -49,6 +51,7 @@ static void sbp_msg_pos_ecef_callback(u16 sender_id, u8 len, u8 msg_[], void *ct
 {
   msg_pos_ecef_t *msg = (void*)msg_;
   soln_state.spp.mode = msg->flags & SBP_ECEF_FLAGS_MODE_MASK;
+  soln_state.spp.ins_mode = SBP_ECEF_FLAGS_INS_MODE_GET(msg->flags);
   clock_gettime(CLOCK_MONOTONIC, &soln_state.spp.systime);
 }
 
