@@ -26,6 +26,7 @@ define SBP_PROTOCOL_INSTALL_TARGET_CMDS
                           $(TARGET_DIR)/usr/lib/zmq_protocols
     $(INSTALL) -d -m 0755 $(TARGET_DIR)/etc/zmq_router
     $(INSTALL) -D -m 0755 $(@D)/sbp_router.yml $(TARGET_DIR)/etc/zmq_router
+    $(INSTALL) -D -m 0755 $(@D)/sbp_router_smoothpose.yml $(TARGET_DIR)/etc/zmq_router
 endef
 
 $(eval $(generic-package))
