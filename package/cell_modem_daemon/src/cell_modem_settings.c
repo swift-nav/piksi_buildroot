@@ -24,6 +24,7 @@
 #include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/runit.h>
 #include <libpiksi/util.h>
 #include <libsbp/logging.h>
 
@@ -36,12 +37,16 @@ static char *cell_modem_dev;
 static char cell_modem_apn[32] = "hologram";
 static bool cell_modem_enabled;
 static bool cell_modem_debug;
-static int cell_modem_pppd_pid;
 
 static int cell_modem_notify(void *context);
 
+#define RUNIT_SERVICE_DIR "/var/run/cell_modem_daemon/sv"
+#define RUNIT_SERVICE_NAME "pppd_daemon"
+
 #define SBP_PAYLOAD_SIZE_MAX (255u)
+
 enum { STORAGE_SIZE = SBP_PAYLOAD_SIZE_MAX-1 };
+
 #if 0 // TODO: remove me
 static void pppd_output_callback(const char *buf, void *arg)
 {
@@ -63,6 +68,7 @@ static void pppd_output_callback(const char *buf, void *arg)
 
   remaining -= copy_len;
 
+  // TODO: How to enable this inside runit?
   // Hacky workaround for things that are sent one character at a time...
   if (len == 1 && (strcmp(storage, "NO CARRIER") != 0 &&
                    strcmp(storage, "OK") != 0 &&
@@ -89,10 +95,14 @@ static void pppd_output_callback(const char *buf, void *arg)
   memset(buffer, 0, remaining);
 }
 #endif
+
 void cell_modem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type)
 {
   cell_modem_dev = dev;
   modem_type = type;
+
+  // TODO: replace with runit status check
+  static int cell_modem_pppd_pid = 0;
 
   if(cell_modem_enabled &&
      (cell_modem_dev != NULL) &&
@@ -110,30 +120,12 @@ int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
 
   return 0;
 }
-#if 0 // TODO: remove me
-static void pppd_exit_callback(int status, void *arg)
-{
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx = arg;
-  cell_modem_pppd_pid = 0;
-  if (!cell_modem_enabled)
-    return;
 
-  /* Respawn dead pppd */
-  zloop_timer(sbp_zmq_pubsub_zloop_get(pubsub_ctx), 500, 1, pppd_respawn, pubsub_ctx);
-}
-#endif
 static int cell_modem_notify(void *context)
 {
   (void)context;
 
-  /* Kill the old pppd, if it exists. */
-  if (cell_modem_pppd_pid) {
-    int ret = kill(cell_modem_pppd_pid, SIGTERM);
-    piksi_log(LOG_DEBUG,
-              "Killing pppd with PID: %d (kill returned %d, errno %d)",
-              cell_modem_pppd_pid, ret, errno);
-    cell_modem_pppd_pid = 0;
-  }
+  stop_runit_service(RUNIT_SERVICE_DIR, RUNIT_SERVICE_NAME);
 
   if ((!cell_modem_enabled) ||
       (cell_modem_dev == NULL) ||
@@ -155,21 +147,15 @@ static int cell_modem_notify(void *context)
     break;
   }
 
-  // TODO/FIXME: replace with runit service
-#if 0
-  /* Build pppd command line */
-  char *args[] = {"/usr/sbin/pppd",
-                  cell_modem_dev,
-                  "connect",
-                  chatcmd,
-                  NULL};
+  const char* debug_log = cell_modem_debug ? "| sbp_log --debug" : "";
 
-  /* Create a new pppd process. */
-  async_spawn(sbp_zmq_pubsub_zloop_get(pubsub_ctx), args,
-              pppd_output_callback, pppd_exit_callback, pubsub_ctx,
-              &cell_modem_pppd_pid);
-#endif
-  return 0;
+  char command_line[1024];
+  int count = snprintf(command_line, sizeof(command_line),
+                       "/usr/sbin/pppd %s connect %s %s", cell_modem_dev, chatcmd, debug_log);
+
+  assert( (size_t)count < sizeof(command_line));
+
+  return start_runit_service(RUNIT_SERVICE_DIR, RUNIT_SERVICE_NAME, command_line, true);
 }
 
 int cell_modem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx)
