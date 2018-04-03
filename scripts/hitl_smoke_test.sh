@@ -38,7 +38,8 @@ HITL_API_URL="https://hitlapi.swiftnav.com"
 # the commit instead.
 TESTER_EMAIL="$(git log --format='%ae' HEAD | head -n 1)"
 
-BUILD_TYPE="buildroot_pull_request"
+HITL_API_BUILD_TYPE="buildroot_pull_request"
+HITL_VIEWER_BUILD_TYPE="buildroot_pr"
 BUILD_VERSION=${BUILD_VERSION:-$(git describe --tags --dirty --always)}
 
 REPO="${PWD##*/}"
@@ -66,7 +67,7 @@ echo >metrics.yaml
 # is part of `after_success`.
 set +e
 for index in ${!SCENARIOS[@]}; do
-    URL="$HITL_API_URL/jobs?&build_type=$BUILD_TYPE&build=$BUILD_VERSION&tester_email=$TESTER_EMAIL&runs=${RUNS[$index]}&scenario_name=${SCENARIOS[$index]}&priority=1"
+    URL="$HITL_API_URL/jobs?&build_type=$HITL_API_BUILD_TYPE&build=$BUILD_VERSION&tester_email=$TESTER_EMAIL&runs=${RUNS[$index]}&scenario_name=${SCENARIOS[$index]}&priority=1"
     echo "Posting to HITL API URL: \"$URL\""
     capture_ids+=($(curl -u $HITL_API_GITHUB_USER:$HITL_API_GITHUB_TOKEN -X POST $URL | python -c "import sys, json; print json.load(sys.stdin)['id']"))
     if [ ! $? -eq 0 ]; then
@@ -97,11 +98,11 @@ hitl_links(){
     echo -n "\nAt least one run must complete for these links to have data."
     echo -n "\n#### passfail"
     for index in ${!SCENARIOS[@]}; do
-      echo -n "\n+ "[${SCENARIOS[$index]}]"(""https://gnss-analysis.swiftnav.com/summary_type=q50&metrics_preset=pass_fail&scenario=${SCENARIOS[$index]}&build_type=pr&firmware_versions=$BUILD_VERSION&groupby_key=firmware&display_type=table)" 
+      echo -n "\n+ "[${SCENARIOS[$index]}]"(""https://gnss-analysis.swiftnav.com/summary_type=q50&metrics_preset=pass_fail&scenario=${SCENARIOS[$index]}&build_type=$HITL_VIEWER_BUILD_TYPE&firmware_versions=$BUILD_VERSION&groupby_key=firmware&display_type=table)" 
     done
     echo -n "\n#### detailed"
     for index in ${!SCENARIOS[@]}; do
-      echo -n "\n+ "[${SCENARIOS[$index]}]"(""https://gnss-analysis.swiftnav.com/summary_type=q50&metrics_preset=detailed&scenario=${SCENARIOS[$index]}&build_type=pr&firmware_versions=$BUILD_VERSION&groupby_key=firmware&display_type=table)" 
+      echo -n "\n+ "[${SCENARIOS[$index]}]"(""https://gnss-analysis.swiftnav.com/summary_type=q50&metrics_preset=detailed&scenario=${SCENARIOS[$index]}&build_type=$HITL_VIEWER_BUILD_TYPE&firmware_versions=$BUILD_VERSION&groupby_key=firmware&display_type=table)" 
     done
 }
 COMMENT="$(hitl_links)"
