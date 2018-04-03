@@ -32,9 +32,9 @@ SCENARIO="live-roof-650-townsend-post"
 STATUS_HITL_CONTEXT="hitl/pass-fail"
 
 if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-    HITL_BUILD_SOURCE="master"
+    HITL_BUILD_SOURCE="buildroot_master"
 else
-    HITL_BUILD_SOURCE="pr"
+    HITL_BUILD_SOURCE="buildroot_pr"
 fi
 
 hitl_viewer_link() {
