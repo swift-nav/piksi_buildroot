@@ -10,8 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef __CELLMODEM_H
-#define __CELLMODEM_H
+#ifndef __CELL_MODEM_SETTINGS_H
+#define __CELL_MODEM_SETTINGS_H
 
 #include <libpiksi/settings.h>
 
@@ -21,8 +21,8 @@ enum modem_type {
   MODEM_TYPE_CDMA,
 };
 
-int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx);
-void cellmodem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type);
+int cell_modem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx);
+void cell_modem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type);
 int pppd_respawn(zloop_t *loop, int timer_id, void *arg);
 
 #endif

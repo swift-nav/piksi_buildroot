@@ -21,8 +21,8 @@
 #include <libpiksi/logging.h>
 #include <libsbp/logging.h>
 
-#include "cellmodem.h"
-#include "cellmodem_probe.h"
+#include "cell_modem_settings.h"
+#include "cell_modem_probe.h"
 
 enum {
   RESPONSE_OK,
@@ -42,7 +42,7 @@ static const char *const response_strs[] = {
  */
 static int modem_read(int fd, char *buf, size_t len, const char *const *responses)
 {
-  int n = 0;
+  size_t n = 0;
   fd_set fds;
   struct timeval timeout = {.tv_sec = 0, .tv_usec = 100000};
   do {
@@ -57,10 +57,10 @@ static int modem_read(int fd, char *buf, size_t len, const char *const *response
     if (r < 0) {
         return -3;
     }
-    n += r;
+    n += (size_t)r;
     buf[n] = 0;
     for(int i = 0; responses[i]; i++) {
-      int rlen = strlen(responses[i]);
+      size_t rlen = strlen(responses[i]);
       if ((n >= rlen) && (strcmp(buf + n - rlen, responses[i]) == 0)) {
         buf[n - rlen] = 0;
         return i;
@@ -75,7 +75,7 @@ static int modem_read(int fd, char *buf, size_t len, const char *const *response
  * pattern is matched, the response is returned in `response` and the return
  * value is zero; returns negative otherwise.
  */
-static int cellmodem_command(int fd, const char *cmd, char *response, size_t len)
+static int cell_modem_command(int fd, const char *cmd, char *response, size_t len)
 {
   /* Send command */
   write(fd, cmd, strlen(cmd));
@@ -93,7 +93,7 @@ static int cellmodem_command(int fd, const char *cmd, char *response, size_t len
   /* Pull out response */
   if (response) {
     /* Strip \r\n junk */
-    int i;
+    size_t i;
     for (i = strlen(buf) - 1; (buf[i] == '\r') || (buf[i] == '\n'); i--)
       buf[i] = 0;
     for (i = strlen(cmd); (buf[i] == '\r') || (buf[i] == '\n'); i++)
@@ -115,11 +115,14 @@ static void log_info(sbp_zmq_pubsub_ctx_t *pubsub_ctx, const char *fmt, ...)
   vsnprintf(msg->text, 255, fmt, ap);
   va_end(ap);
 
+  u8 msg_size = (u8)(sizeof(*msg) + strlen(msg->text));
+  assert(sizeof(*msg) + strlen(msg->text) <= UCHAR_MAX);
+
   sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
-                 SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
+                  SBP_MSG_LOG, msg_size, (void*)msg);
 }
 
-enum modem_type cellmodem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ctx)
+enum modem_type cell_modem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ctx)
 {
   if ((strncmp(dev, "ttyUSB", 6) != 0) && (strncmp(dev, "ttyACM", 6) != 0))
     return MODEM_TYPE_INVALID;
@@ -162,7 +165,7 @@ enum modem_type cellmodem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ct
   };
   for (struct command *c = commands; c->cmd; c++) {
     char r[20];
-    if (cellmodem_command(fd, c->cmd, r, sizeof(r)) < 0) {
+    if (cell_modem_command(fd, c->cmd, r, sizeof(r)) < 0) {
       close(fd);
       return MODEM_TYPE_INVALID;
     }
@@ -172,7 +175,7 @@ enum modem_type cellmodem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ct
 
   /* Check for GSM/CDMA: Try GSM 'AT+CGDCONT?', ignore the response,
    * but check for OK */
-  if (cellmodem_command(fd, "AT+CGDCONT?", NULL, 0) == 0) {
+  if (cell_modem_command(fd, "AT+CGDCONT?", NULL, 0) == 0) {
     close(fd);
     return MODEM_TYPE_GSM;
   }

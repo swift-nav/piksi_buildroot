@@ -26,6 +26,7 @@
 #include <libsbp/system.h>
 
 #include "at_command_utils.h"
+#include "cell_modem_settings.h"
 
 #define PROGRAM_NAME "cell_modem_daemon"
 
@@ -197,6 +198,8 @@ int main(int argc, char *argv[])
     }
 
     settings_ctx = settings_create();
+
+    cell_modem_init(ctx, settings_ctx);
 
     if (settings_ctx == NULL) {
       sbp_log(LOG_ERR, "Error registering for settings!");

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Gareth McMullin <gareth@swiftnav.com>
+ * Copyright (C) 2016-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -28,7 +28,6 @@
 #include <stdlib.h>
 
 #include "async-child.h"
-#include "cellmodem.h"
 
 #define PROGRAM_NAME "piksi_system_daemon"
 
@@ -487,8 +486,6 @@ int main(void)
                                SBP_MSG_RESET, reset_callback, NULL, NULL);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
-
-  cellmodem_init(pubsub_ctx, settings_ctx);
 
   img_tbl_settings_setup(settings_ctx);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),

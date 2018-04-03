@@ -25,9 +25,9 @@
 #include <libpiksi/logging.h>
 #include <libsbp/logging.h>
 
-#include "cellmodem.h"
-#include "cellmodem_inotify.h"
-#include "cellmodem_probe.h"
+#include "cell_modem_settings.h"
+#include "cell_modem_inotify.h"
+#include "cell_modem_probe.h"
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
@@ -37,11 +37,11 @@ typedef struct {
   zmq_pollitem_t pollitem;
   int inotify_fd;
   int watch_descriptor;
-  char *cellmodem_dev;
+  char *cell_modem_dev;
   enum modem_type modem_type;
 } inotify_ctx_t;
 
-bool cellmodem_tty_exists(const char* path) {
+bool cell_modem_tty_exists(const char* path) {
 
   char full_path[PATH_MAX];
   snprintf(full_path, sizeof(full_path), "/dev/%s", path);
@@ -54,9 +54,12 @@ bool cellmodem_tty_exists(const char* path) {
 
 static int inotify_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 {
+  (void) loop;
+  (void) item;
+
   inotify_ctx_t *ctx = (inotify_ctx_t*) arg;
 
-  char buf[BUF_LEN] __attribute__ ((aligned(8)));
+  char buf[BUF_LEN] __attribute__ ((aligned(__alignof__(struct inotify_event))));
   ssize_t count = read(ctx->inotify_fd, buf, BUF_LEN);
 
   if (count == 0) {
@@ -69,28 +72,31 @@ static int inotify_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
     return 0;
   }
 
-  for (char *p = buf; p < buf + count; ) {
+  for (char* p = buf; p < buf + count; ) {
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
     struct inotify_event *event = (struct inotify_event *) p;
+#pragma GCC diagnostic pop
 
     if (event->mask & IN_CREATE) {
       piksi_log(LOG_DEBUG, "got notification that '%s' was created", event->name);
-      if ((ctx->modem_type == MODEM_TYPE_INVALID) && cellmodem_tty_exists(event->name)) {
+      if ((ctx->modem_type == MODEM_TYPE_INVALID) && cell_modem_tty_exists(event->name)) {
         usleep(100000);
-        ctx->modem_type = cellmodem_probe(event->name, ctx->pubsub_ctx);
+        ctx->modem_type = cell_modem_probe(event->name, ctx->pubsub_ctx);
         if (ctx->modem_type != MODEM_TYPE_INVALID) {
-          ctx->cellmodem_dev = strdup(event->name);
-          cellmodem_set_dev(ctx->pubsub_ctx, ctx->cellmodem_dev, ctx->modem_type);
+          ctx->cell_modem_dev = strdup(event->name);
+          cell_modem_set_dev(ctx->pubsub_ctx, ctx->cell_modem_dev, ctx->modem_type);
         }
       }
     } else if (event->mask & IN_DELETE) {
       piksi_log(LOG_DEBUG, "got notification that '%s' was deleted", event->name);
-      if ((ctx->cellmodem_dev != NULL) &&
-          (strcmp(ctx->cellmodem_dev, event->name) == 0)) {
+      if ((ctx->cell_modem_dev != NULL) &&
+          (strcmp(ctx->cell_modem_dev, event->name) == 0)) {
         ctx->modem_type = MODEM_TYPE_INVALID;
-        free(ctx->cellmodem_dev);
-        ctx->cellmodem_dev = NULL;
-        cellmodem_set_dev(ctx->pubsub_ctx, NULL, MODEM_TYPE_INVALID);
+        free(ctx->cell_modem_dev);
+        ctx->cell_modem_dev = NULL;
+        cell_modem_set_dev(ctx->pubsub_ctx, NULL, MODEM_TYPE_INVALID);
       }
     } else {
       piksi_log(LOG_WARNING, "unhandled inotify event");
@@ -130,13 +136,12 @@ void async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
 
   /* Try what's already here.  Inotify will only tell us about new devs */
   DIR *dir = opendir("/dev");
-  struct dirent *ent = readdir(dir);
   for (struct dirent *ent = readdir(dir); ent; ent = readdir(dir)) {
     if (ent->d_type == DT_CHR) {
-      ctx->modem_type = cellmodem_probe(ent->d_name, pubsub_ctx);
+      ctx->modem_type = cell_modem_probe(ent->d_name, pubsub_ctx);
       if (ctx->modem_type != MODEM_TYPE_INVALID) {
-        ctx->cellmodem_dev = strdup(ent->d_name);
-        cellmodem_set_dev(ctx->pubsub_ctx, ctx->cellmodem_dev, ctx->modem_type);
+        ctx->cell_modem_dev = strdup(ent->d_name);
+        cell_modem_set_dev(ctx->pubsub_ctx, ctx->cell_modem_dev, ctx->modem_type);
         break;
       }
     }
