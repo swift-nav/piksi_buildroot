@@ -100,6 +100,7 @@ typedef struct {
   u8 mode;
   pid_t adapter_pid; /* May be cleared by SIGCHLD handler */
   restart_type_t restart;
+  bool first_start;
 } port_config_t;
 
 // This is the default for most serial devices, we need to drop and flush
@@ -119,7 +120,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   },
   {
     .name = "uart1",
@@ -129,7 +131,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   },
   {
     .name = "usb0",
@@ -139,7 +142,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = RESTART
+    .restart = RESTART,
+    .first_start = true,
   },
   {
     .name = "tcp_server0",
@@ -150,7 +154,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   },
   {
     .name = "tcp_server1",
@@ -161,7 +166,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   },
   {
     .name = "tcp_client0",
@@ -172,7 +178,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   },
   {
     .name = "tcp_client1",
@@ -183,7 +190,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   },
   {
     .name = "udp_server0",
@@ -194,7 +202,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   },
   {
     .name = "udp_server1",
@@ -205,7 +214,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   },
   {
     .name = "udp_client0",
@@ -216,7 +226,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   },
   {
     .name = "udp_client1",
@@ -227,7 +238,8 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
   }
 };
 
@@ -241,7 +253,7 @@ static u8 protocol_index_to_mode(int protocol_index)
   return protocol_index + 1;
 }
 
-static int port_configure(port_config_t *port_config)
+static int port_configure(port_config_t *port_config, bool updating_mode)
 {
   char cmd[512];
 
@@ -253,13 +265,14 @@ static int port_configure(port_config_t *port_config)
     .restart      = port_config->restart,
   };
 
-  // TODO: There is a "storm" of config updates during start-up, need to
-  //       figure out how to not launch service until the config settles.
-
-  /* kill adapter */
-  runit_stat_t status = stat_runit_service(&cfg);
-  if (status == RUNIT_STARTING)
+  if (!updating_mode && port_config->first_start) {
+    // Wait for mode settings to be updated before launching the port, the
+    //   'mode' setting should be sent last because it's registered last.
     return 0;
+  }
+
+  port_config->first_start = false;
+  stop_runit_service(&cfg);
 
   /* In case of USB adapters, sometimes we find that instances are still around.
    * Kill them here
@@ -300,31 +313,31 @@ static int port_configure(port_config_t *port_config)
 static int setting_mode_notify(void *context)
 {
   port_config_t *port_config = (port_config_t *)context;
-  return port_configure(port_config);
+  return port_configure(port_config, true);
 }
 
 static int setting_tcp_server_port_notify(void *context)
 {
   port_config_t *port_config = (port_config_t *)context;
-  return port_configure(port_config);
+  return port_configure(port_config, false);
 }
 
 static int setting_tcp_client_address_notify(void *context)
 {
   port_config_t *port_config = (port_config_t *)context;
-  return port_configure(port_config);
+  return port_configure(port_config, false);
 }
 
 static int setting_udp_server_port_notify(void *context)
 {
   port_config_t *port_config = (port_config_t *)context;
-  return port_configure(port_config);
+  return port_configure(port_config, false);
 }
 
 static int setting_udp_client_address_notify(void *context)
 {
   port_config_t *port_config = (port_config_t *)context;
-  return port_configure(port_config);
+  return port_configure(port_config, false);
 }
 
 static int setting_mode_register(settings_ctx_t *settings_ctx,
@@ -456,8 +469,6 @@ int ports_init(settings_ctx_t *settings_ctx)
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
     port_config_t *port_config = &port_configs[i];
 
-    setting_mode_register(settings_ctx, settings_type_mode, port_config);
-
     if (port_config->type == PORT_TYPE_TCP_SERVER) {
       setting_tcp_server_port_register(settings_ctx, port_config);
     }
@@ -473,6 +484,8 @@ int ports_init(settings_ctx_t *settings_ctx)
     if (port_config->type == PORT_TYPE_UDP_CLIENT) {
       setting_udp_client_address_register(settings_ctx, port_config);
     }
+
+    setting_mode_register(settings_ctx, settings_type_mode, port_config);
   }
 
   return 0;
