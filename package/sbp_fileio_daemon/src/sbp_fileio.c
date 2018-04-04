@@ -166,11 +166,28 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
   int f = open(msg->filename, O_WRONLY | O_CREAT, 0666);
-  lseek(f, msg->offset, SEEK_SET);
-  write(f, msg_ + headerlen, len - headerlen);
-  close(f);
+  if (f < 0) {
+    piksi_log(LOG_ERR, "Error opening %s for write", msg->filename);
+    return;
+  }
+  if (lseek(f, msg->offset, SEEK_SET) != msg->offset) {
+    piksi_log(LOG_ERR,
+              "Error seeking to offset %d in %s for write",
+              msg->offset,
+              msg->filename);
+    goto cleanup;
+  }
+  int write_count = len - headerlen;
+  if (write(f, msg_ + headerlen, write_count) != write_count) {
+    piksi_log(
+      LOG_ERR, "Error writing %d bytes to %s", write_count, msg->filename);
+    goto cleanup;
+  }
 
   msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
   sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
                   sizeof(reply), (u8*)&reply);
+
+cleanup:
+  close(f);
 }
