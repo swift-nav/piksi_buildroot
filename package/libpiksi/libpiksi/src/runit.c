@@ -143,11 +143,6 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
     return RUNIT_STARTING;
   }
 
-  if (stat(path_buf, &s) != 0 && errno == ENOENT) {
-    return RUNIT_NO_STAT;
-  }
-
-
   CHECK_SPRINTF(snprintf(path_buf,
                          sizeof(path_buf), "%s/supervise/stat", service_dir));
 
@@ -155,25 +150,31 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
     return RUNIT_NO_STAT;
   }
 
-  FILE* stat_fp = fopen(path_buf, "w");
+  FILE* stat_fp = fopen(path_buf, "r");
   CHECK_FS_CALL(stat_fp != NULL, "fopen", path_buf);
 
   char stat_buf[64] = {0};
   size_t read_count = fread(stat_buf, 1, sizeof(stat_buf), stat_fp);
 
 #ifdef DEBUG_RUNIT
-  piksi_log(LOG_DEBUG, "%s: service status: %s (read_count: %llu)", __FUNCTION__, stat_buf, read_count);
+  piksi_log(LOG_DEBUG, "%s: service status: '%s' (read_count: %llu)", __FUNCTION__, stat_buf, read_count);
 #else
   (void)read_count;
 #endif
 
   if (strcmp(stat_buf, RUNIT_STAT_DOWN) == 0) {
     CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
+#ifdef DEBUG_RUNIT
+    piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
+#endif
     return RUNIT_DOWN;
   }
 
-  if (strcmp(stat_buf, RUNIT_STAT_RUNNING) == 0 || strcmp(stat_buf, RUNIT_STAT_RUNNING_WANT_DOWN)) {
+  if (strcmp(stat_buf, RUNIT_STAT_RUNNING) == 0 || strcmp(stat_buf, RUNIT_STAT_RUNNING_WANT_DOWN) == 0) {
     CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
+#ifdef DEBUG_RUNIT
+    piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
+#endif
     return RUNIT_RUNNING;
   }
 
@@ -186,32 +187,51 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
                            service_dir));
 
     struct stat s_pid;
-    if (stat(path_buf, &s_pid) != 0 && errno == ENOENT) {
+    if (stat(pid_path_buf, &s_pid) != 0) {
+      CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
+#ifdef DEBUG_RUNIT
+      piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
+#endif
       return RUNIT_NO_PID;
     }
 
-    FILE* pid_fp = fopen(path_buf, "w");
+    FILE* pid_fp = fopen(pid_path_buf, "r");
     CHECK_FS_CALL(pid_fp != NULL, "fopen", pid_path_buf);
 
     char pid_buf[64] = {0};
-    (void) fread(pid_buf, 1, sizeof(pid_buf), pid_fp);
+    read_count = fread(pid_buf, 1, sizeof(pid_buf), pid_fp);
+
+#ifdef DEBUG_RUNIT
+    piksi_log(LOG_DEBUG, "%s: service status, pid: '%s' (read_count: %llu)", __FUNCTION__, pid_buf, read_count);
+#else
+    (void)read_count;
+#endif
 
     CHECK_FS_CALL(fclose(pid_fp) == 0, "fclose", pid_path_buf);
 
     if (strcmp(pid_buf, RUNIT_STAT_EMPTY) != 0) {
       CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
+#ifdef DEBUG_RUNIT
+      piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
+#endif
       return RUNIT_RUNNING;
     }
   }
 
   if (strstr(stat_buf, RUNIT_STAT_RUNNING) == stat_buf) {
     CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
+#ifdef DEBUG_RUNIT
+    piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
+#endif
     return RUNIT_RUNNING_OTHER;
   }
 
   CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
   piksi_log(LOG_DEBUG, "%s: returning status unknown even though stat file existed: %s", __FUNCTION__, stat_buf);
 
+#ifdef DEBUG_RUNIT
+  piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
+#endif
   return RUNIT_UNKNOWN;
 }
 
@@ -242,9 +262,13 @@ int stop_runit_service(runit_config_t *cfg)
   runit_stat_t stat = stat_runit_service(cfg);
 
   if (stat != RUNIT_RUNNING) {
-    piksi_log(LOG_DEBUG, "service %s reported status other than running: %s", cfg->service_name, runit_status_str(stat));
+    piksi_log(LOG_WARNING, "service %s reported status other than running: %s", cfg->service_name, runit_status_str(stat));
     return -1;
   }
+
+#ifdef DEBUG_RUNIT
+  piksi_log(LOG_DEBUG, "service %s reported status: %s", cfg->service_name, runit_status_str(stat));
+#endif
 
   char service_dir[PATH_MAX];
   CHECK_SPRINTF(snprintf(service_dir,
