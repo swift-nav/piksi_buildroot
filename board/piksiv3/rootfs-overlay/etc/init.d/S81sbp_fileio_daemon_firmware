@@ -16,5 +16,6 @@ setup_permissions() {
     chown -R $user:$user $NDB_DIR
 }
 
-source /etc/init.d/template_process.inc.sh
+mkdir -p /persistent/ndb
 
+source /etc/init.d/template_process.inc.sh

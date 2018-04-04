@@ -7,6 +7,7 @@ SOURCES=\
   util.c \
   logging.c \
   networking.c \
+	interface.c \
   runit.c
 CFLAGS=-std=gnu11 -fPIC -I../include
 ARFLAGS=rcs
