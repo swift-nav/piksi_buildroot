@@ -17,8 +17,8 @@ mkfifo /var/run/runit.stderr
 rm -f /var/run/runit.stdout
 mkfifo /var/run/runit.stdout
 
-logger -t runit -p info </var/run/runit.stdout &
-logger -t runit -p info </var/run/runit.stderr &
+logger -t runit -p daemon.info </var/run/runit.stdout &
+logger -t runit -p daemon.err </var/run/runit.stderr &
 
 runsvdir /var/service 1>/var/run/runit.stdout 2>/var/run/runit.stderr &
 

@@ -4,22 +4,22 @@ name=ports_daemon
 service=${name}_runsvdir
 user=portsd
 
+stderr=/var/run/${service}.stderr
+stdout=/var/run/${service}.stdout
+
 # enable job control
 set -m
 
 # kill -$pid will kill the whole process group
 trap 'kill -HUP -$pid && kill -TERM -$pid' HUP TERM
 
-rm -f /var/run/${service}.stderr
-mkfifo /var/run/${service}.stderr
+rm -f $stderr $stdout
+mkfifo $stderr $stdout
 
-rm -f /var/run/${service}.stdout
-mkfifo /var/run/${service}.stdout
+logger -t ${service} -p daemon.info <$stdout &
+logger -t ${service} -p daemon.err <$stderr &
 
-logger -t ${service} -p info </var/run/${service}.stdout &
-logger -t ${service} -p info </var/run/${service}.stderr &
-
-chpst -u ${user} runsvdir /var/run/${name}/sv &
+chpst -u ${user} runsvdir /var/run/${name}/sv 1>$stdout 2>$stderr &
 
 pid=$!
 wait $pid
