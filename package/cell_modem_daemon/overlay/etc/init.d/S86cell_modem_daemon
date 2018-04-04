@@ -1,5 +1,6 @@
 #!/bin/sh
 
+MODEM_BASE="/dev/ttyACM"
 AUX_MODEM_PORT="/dev/ttyACM3"
 name="cell_modem_daemon"
 cmd="cell_modem_daemon --serial-port $AUX_MODEM_PORT"
@@ -7,7 +8,12 @@ dir="/"
 user="celld"
 
 setup_permissions() {
-    chown $user:$user $AUX_MODEM_PORT
+    # Force device ownership
+    chown $user:$user ${MODEM_BASE}*
+
+    # Setup runit dir dynamic services
+    mkdir -p /var/run/${name}/sv
+    chown -R ${user}:${user} /var/run/${name}
 }
 
 source /etc/init.d/template_process.inc.sh

@@ -1,9 +1,6 @@
 TARGET=piksi_system_daemon
 SOURCES= \
 	async-child.c \
-	cellmodem.c \
-	cellmodem_inotify.c \
-	cellmodem_probe.c \
 	main.c
 
 LIBS=-lczmq -lsbp -lpiksi -ldl
