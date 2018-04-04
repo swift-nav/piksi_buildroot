@@ -243,14 +243,29 @@ static u8 protocol_index_to_mode(int protocol_index)
 
 static int port_configure(port_config_t *port_config)
 {
+  char cmd[512];
+
+  runit_config_t cfg = (runit_config_t){
+    .service_dir  = RUNIT_SERVICE_DIR,
+    .service_name = port_config->name,
+    .command_line = cmd,
+    .custom_down  = NULL,
+    .restart      = port_config->restart,
+  };
+
+  // TODO: There is a "storm" of config updates during start-up, need to
+  //       figure out how to not launch service until the config settles.
+
   /* kill adapter */
-  stop_runit_service(RUNIT_SERVICE_DIR, port_config->name);
+  runit_stat_t status = stat_runit_service(&cfg);
+  if (status == RUNIT_STARTING)
+    return 0;
 
   /* In case of USB adapters, sometimes we find that instances are still around.
    * Kill them here
    */
   if (port_config->type == PORT_TYPE_USB) {
-    system("kill -9 `ps | grep GS0  | grep zmq_adapter | awk -F' ' '{print $1}'`");
+    (void)system("kill -9 `ps | grep GS0  | grep zmq_adapter | awk -F' ' '{print $1}'`");
   }
 
   if (port_config->mode == MODE_DISABLED) {
@@ -273,13 +288,13 @@ static int port_configure(port_config_t *port_config)
     port_config->opts_get(opts, sizeof(opts), &port_config->opts_data);
   }
 
-  char cmd[512];
   snprintf(cmd, sizeof(cmd),
            "zmq_adapter %s %s %s",
            port_config->opts, opts, mode_opts);
 
   piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
-  return start_runit_service(RUNIT_SERVICE_DIR, port_config->name, cmd, port_config->restart);
+
+  return start_runit_service(&cfg);
 }
 
 static int setting_mode_notify(void *context)
