@@ -1,6 +1,5 @@
 TARGET=piksi_system_daemon
 SOURCES= \
-	async-child.c \
 	main.c
 
 LIBS=-lczmq -lsbp -lpiksi -ldl

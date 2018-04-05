@@ -22,6 +22,7 @@
 #include "ports.h"
 #include "protocols.h"
 #include "whitelists.h"
+#include "serial.h"
 
 #define PROGRAM_NAME "ports_daemon"
 
@@ -75,6 +76,9 @@ static void settings_init(settings_ctx_t* s)
     exit(EXIT_FAILURE);
 
   if (ports_init(s) != 0)
+    exit(EXIT_FAILURE);
+
+  if (serial_init(s) != 0)
     exit(EXIT_FAILURE);
 }
 

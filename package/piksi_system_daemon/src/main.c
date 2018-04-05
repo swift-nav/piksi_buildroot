@@ -14,6 +14,7 @@
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
+#include <libpiksi/runit.h>
 #include <libpiksi/networking.h>
 #include <libsbp/piksi.h>
 #include <libsbp/logging.h>
@@ -27,8 +28,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "async-child.h"
-
 #define PROGRAM_NAME "piksi_system_daemon"
 
 #define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
@@ -37,104 +36,7 @@
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define SBP_MAX_NETWORK_INTERFACES 10
 
-static const char * const baudrate_enum_names[] = {
-  "1200", "2400", "4800", "9600",
-  "19200", "38400", "57600", "115200",
-  "230400", NULL
-};
-enum {
-  BAUDRATE_1200, BAUDRATE_2400, BAUDRATE_4800, BAUDRATE_9600,
-  BAUDRATE_19200, BAUDRATE_38400, BAUDRATE_57600, BAUDRATE_115200,
-  BAUDRATE_230400
-};
-static const u32 baudrate_val_table[] = {
-  B1200, B2400, B4800, B9600,
-  B19200, B38400, B57600, B115200,
-  B230400
-};
-
-static const char * const flow_control_enum_names[] = {"None", "RTS/CTS", NULL};
-enum {FLOW_CONTROL_NONE, FLOW_CONTROL_RTS_CTS};
-
-typedef struct {
-  const char *tty_path;
-  u8 baudrate;
-  u8 flow_control;
-} uart_t;
-
-static uart_t uart0 = {
-  .tty_path = "/dev/ttyPS0",
-  .baudrate = BAUDRATE_115200,
-  .flow_control = FLOW_CONTROL_NONE
-};
-
-static uart_t uart1 = {
-  .tty_path = "/dev/ttyPS1",
-  .baudrate = BAUDRATE_115200,
-  .flow_control = FLOW_CONTROL_NONE
-};
-
-static uart_t usb0 = {
-  .tty_path = "/dev/ttyGS0",
-  .baudrate = BAUDRATE_9600,
-  .flow_control = FLOW_CONTROL_NONE
-};
-
-static int uart_configure(const uart_t *uart)
-{
-  int fd = open(uart->tty_path, O_RDONLY | O_NONBLOCK);
-  if (fd < 0) {
-    piksi_log(LOG_ERR, "error opening tty device");
-    return -1;
-  }
-
-  struct termios tio;
-  if (tcgetattr(fd, &tio) != 0) {
-    piksi_log(LOG_ERR, "error in tcgetattr()");
-    close(fd);
-    return -1;
-  }
-
-  cfmakeraw(&tio);
-  tio.c_lflag &= ~ECHO;
-  tio.c_oflag &= ~ONLCR;
-  tio.c_cflag = ((tio.c_cflag & ~CRTSCTS) |
-                 (uart->flow_control == FLOW_CONTROL_RTS_CTS ? CRTSCTS : 0));
-  cfsetispeed(&tio, baudrate_val_table[uart->baudrate]);
-  cfsetospeed(&tio, baudrate_val_table[uart->baudrate]);
-  tcsetattr(fd, TCSANOW, &tio);
-
-  /* Check results */
-  if (tcgetattr(fd, &tio) != 0) {
-    piksi_log(LOG_ERR, "error in tcgetattr()");
-    close(fd);
-    return -1;
-  }
-
-  close(fd);
-
-  if ((cfgetispeed(&tio) != baudrate_val_table[uart->baudrate]) ||
-      (cfgetospeed(&tio) != baudrate_val_table[uart->baudrate]) ||
-      ((tio.c_cflag & CRTSCTS) ? (uart->flow_control != FLOW_CONTROL_RTS_CTS) :
-                                 (uart->flow_control != FLOW_CONTROL_NONE))) {
-    piksi_log(LOG_ERR, "error configuring tty");
-    return -1;
-  }
-
-  return 0;
-}
-
-static int baudrate_notify(void *context)
-{
-  const uart_t *uart = (uart_t *)context;
-  return uart_configure(uart);
-}
-
-static int flow_control_notify(void *context)
-{
-  const uart_t *uart = (uart_t *)context;
-  return uart_configure(uart);
-}
+#define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
 
 static const char const * ip_mode_enum_names[] = {"Static", "DHCP", NULL};
 enum {IP_CFG_STATIC, IP_CFG_DHCP};
@@ -145,21 +47,16 @@ static char eth_gateway[16] = "192.168.0.1";
 
 static void eth_update_config(void)
 {
-  system("/etc/init.d/S83ifplugd stop");
-  system("ifdown -f eth0");
-
-  FILE *interfaces = fopen("/etc/network/interfaces", "w");
   if (eth_ip_mode == IP_CFG_DHCP) {
-    fprintf(interfaces, "iface eth0 inet dhcp\n");
+    system("sudo /etc/init.d/update_eth0_config dhcp");
   } else {
-    fprintf(interfaces, "iface eth0 inet static\n");
-    fprintf(interfaces, "\taddress %s\n", eth_ip_addr);
-    fprintf(interfaces, "\tnetmask %s\n", eth_netmask);
-    fprintf(interfaces, "\tgateway %s\n", eth_gateway);
+    char command[1024] = {0};
+    size_t count = snprintf(command, sizeof(command),
+                            "sudo /etc/init.d/update_eth0_config static %s %s %s",
+                            eth_ip_addr, eth_netmask, eth_gateway);
+    assert( count < sizeof(command) );
+    system(command);
   }
-  fclose(interfaces);
-
-  system("/etc/init.d/S83ifplugd start");
 }
 
 static int eth_ip_mode_notify(void *context)
@@ -199,24 +96,10 @@ static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
   }
 }
 
-struct shell_cmd_ctx {
-  u32 sequence;
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx;
-};
-
-static void command_output_cb(const char *buf, void *arg)
-{
-  struct shell_cmd_ctx *ctx = arg;
-  msg_log_t *msg = alloca(256);
-  msg->level = 6;
-  strncpy(msg->text, buf, 255);
-
-  sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                  SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
-}
-
 static void command_exit_cb(int status, void *arg)
 {
+  // TODO: replace with sbp_cli
+#if 0
   struct shell_cmd_ctx *ctx = arg;
   /* clean up and send exit code */
   msg_command_resp_t resp = {
@@ -226,6 +109,7 @@ static void command_exit_cb(int status, void *arg)
   sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
                   SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
   free(ctx);
+#endif
 }
 
 static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
@@ -254,12 +138,16 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
                     SBP_MSG_COMMAND_RESP, sizeof(resp), (u8*)&resp);
     return;
   }
-  struct shell_cmd_ctx *ctx = calloc(1, sizeof(*ctx));
-  ctx->sequence = msg->sequence;
-  ctx->pubsub_ctx = pubsub_ctx;
-  char *argv[] = {"upgrade_tool", "--debug", "/data/upgrade.image_set.bin", NULL};
-  async_spawn(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
-              argv, command_output_cb, command_exit_cb, ctx, NULL);
+
+  runit_config_t cfg = (runit_config_t) {
+    .service_dir  = RUNIT_SERVICE_DIR,
+    .service_name = "upgrade_tool",
+    .command_line = "exec sh -c 'sudo upgrade_tool --debug /data/upgrade.image_set.bin | sbp_log --info'",
+    .custom_down  = NULL,
+    .restart      = false,
+  };
+
+  start_runit_service(&cfg);
 }
 
 static int file_read_string(const char *filename, char *str, size_t str_size)
@@ -380,6 +268,8 @@ static u8 system_time_src;
 
 static int system_time_src_notify(void *context)
 {
+  return 0;
+#if 0 // TODO: re-enable
   static u8 oldsrc;
   const char *ntpconf = NULL;
 
@@ -405,14 +295,12 @@ static int system_time_src_notify(void *context)
   symlink(ntpconf, "/etc/ntp.conf");
   system("monit restart ntpd");
   return 0;
+#endif
 }
 
 int main(void)
 {
   logging_init(PROGRAM_NAME);
-
-  /* Set up SIGCHLD handler */
-  sigchld_setup();
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
@@ -434,30 +322,6 @@ int main(void)
                           sbp_zmq_pubsub_zloop_get(pubsub_ctx)) != 0) {
     exit(EXIT_FAILURE);
   }
-
-  /* Configure USB0 */
-  uart_configure(&usb0);
-
-  /* Register settings */
-  settings_type_t settings_type_baudrate;
-  settings_type_register_enum(settings_ctx, baudrate_enum_names,
-                              &settings_type_baudrate);
-  settings_register(settings_ctx, "uart0", "baudrate", &uart0.baudrate,
-                    sizeof(uart0.baudrate), settings_type_baudrate,
-                    baudrate_notify, &uart0);
-  settings_register(settings_ctx, "uart1", "baudrate", &uart1.baudrate,
-                    sizeof(uart1.baudrate), settings_type_baudrate,
-                    baudrate_notify, &uart1);
-
-  settings_type_t settings_type_flow_control;
-  settings_type_register_enum(settings_ctx, flow_control_enum_names,
-                              &settings_type_flow_control);
-  settings_register(settings_ctx, "uart0", "flow_control", &uart0.flow_control,
-                    sizeof(uart0.flow_control), settings_type_flow_control,
-                    flow_control_notify, &uart0);
-  settings_register(settings_ctx, "uart1", "flow_control", &uart1.flow_control,
-                    sizeof(uart1.flow_control), settings_type_flow_control,
-                    flow_control_notify, &uart1);
 
   settings_type_t settings_type_ip_mode;
   settings_type_register_enum(settings_ctx, ip_mode_enum_names,
