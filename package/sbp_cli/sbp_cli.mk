@@ -1,19 +1,19 @@
 ################################################################################
 #
-# sbp_log
+# sbp_cli
 #
 ################################################################################
 
-SBP_LOG_VERSION = 0.1
-SBP_LOG_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_log/src"
-SBP_LOG_SITE_METHOD = local
-SBP_LOG_DEPENDENCIES = czmq libsbp
+SBP_CLI_VERSION = 0.1
+SBP_CLI_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_cli/src"
+SBP_CLI_SITE_METHOD = local
+SBP_CLI_DEPENDENCIES = czmq libsbp
 
-define SBP_LOG_BUILD_CMDS
+define SBP_CLI_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef
 
-define SBP_LOG_INSTALL_TARGET_CMDS
+define SBP_CLI_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/sbp_log $(TARGET_DIR)/usr/bin
 endef
 
