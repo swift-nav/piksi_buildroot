@@ -246,18 +246,23 @@ static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id; (void)context;
 
+  const char* reset_settings = "";
+
   /* Reset settings to defaults if requested */
   if (len == sizeof(msg_reset_t)) {
     const msg_reset_t *msg = (const void*)msg_;
     if (msg->flags & 1) {
-      /* Remove settings file */
-      unlink("/persistent/config.ini");
+      reset_settings = "clear_settings";
     }
   }
 
-  /* We use -f to force immediate reboot.  Orderly shutdown sometimes fails
-   * when unloading remoteproc drivers. */
-  system("reboot -f");
+  char command[1024] = {0};
+  size_t count = snprintf(command, sizeof(command),
+                          "sudo /etc/init.d/do_sbp_msg_reset %s",
+                          reset_settings);
+  assert( count < sizeof(command) );
+
+  system(command);
 }
 
 static const char * const system_time_sources[] = {
@@ -268,8 +273,6 @@ static u8 system_time_src;
 
 static int system_time_src_notify(void *context)
 {
-  return 0;
-#if 0 // TODO: re-enable
   static u8 oldsrc;
   const char *ntpconf = NULL;
 
@@ -291,11 +294,14 @@ static int system_time_src_notify(void *context)
   default:
     return -1;
   }
-  unlink("/etc/ntp.conf");
-  symlink(ntpconf, "/etc/ntp.conf");
-  system("monit restart ntpd");
-  return 0;
-#endif
+
+  char command[1024] = {0};
+  size_t count = snprintf(command, sizeof(command),
+                          "sudo /etc/init.d/update_ntp_config %s",
+                          ntpconf);
+  assert( count < sizeof(command) );
+
+  return system(command);
 }
 
 int main(void)

@@ -1,0 +1,11 @@
+#!/bin/sh
+
+reset_settings=$1; shift
+
+if [[ "$reset_settings" == "clear_settings" ]]; then
+  rm -f /persistent/config.ini
+fi
+
+# We use -f to force immediate reboot.  Orderly shutdown sometimes fails
+# when unloading remoteproc drivers.
+reboot -f
