@@ -16,7 +16,7 @@
 #include <libpiksi/runit.h>
 #include <libpiksi/logging.h>
 
-#define DEBUG_RUNIT
+//#define DEBUG_RUNIT
 
 // Runit status strings
 #define RUNIT_STAT_DOWN              "down\n"
@@ -32,13 +32,6 @@
 #define CHECK_SPRINTF(TheSnprintf) { \
     int count = (TheSnprintf); \
     assert((size_t)count < sizeof(service_dir)); }
-
-#define RUN_SYSTEM_CMD(TheCommand) { \
-  int rc = system(TheCommand); \
-  if(rc != 0) { \
-    piksi_log(LOG_ERR, "%s: system: %s (error: %d)", __FUNCTION__, \
-              TheCommand, rc);  \
-    return -1; } }
 
 int start_runit_service(runit_config_t *cfg)
 {
@@ -187,17 +180,11 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
 
   if (strcmp(stat_buf, RUNIT_STAT_DOWN) == 0) {
     CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
-#ifdef DEBUG_RUNIT
-    piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
-#endif
     return RUNIT_DOWN;
   }
 
   if (strcmp(stat_buf, RUNIT_STAT_RUNNING) == 0 || strcmp(stat_buf, RUNIT_STAT_RUNNING_WANT_DOWN) == 0) {
     CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
-#ifdef DEBUG_RUNIT
-    piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
-#endif
     return RUNIT_RUNNING;
   }
 
@@ -212,9 +199,6 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
     struct stat s_pid;
     if (stat(pid_path_buf, &s_pid) != 0) {
       CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
-#ifdef DEBUG_RUNIT
-      piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
-#endif
       return RUNIT_NO_PID;
     }
 
@@ -234,27 +218,18 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
 
     if (strcmp(pid_buf, RUNIT_STAT_EMPTY) != 0) {
       CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
-#ifdef DEBUG_RUNIT
-      piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
-#endif
       return RUNIT_RUNNING;
     }
   }
 
   if (strstr(stat_buf, RUNIT_STAT_RUNNING) == stat_buf) {
     CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
-#ifdef DEBUG_RUNIT
-    piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
-#endif
     return RUNIT_RUNNING_OTHER;
   }
 
   CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
   piksi_log(LOG_DEBUG, "%s: returning status unknown even though stat file existed: %s", __FUNCTION__, stat_buf);
 
-#ifdef DEBUG_RUNIT
-  piksi_log(LOG_DEBUG, "%s: %d", __FUNCTION__, __LINE__);
-#endif
   return RUNIT_UNKNOWN;
 }
 
@@ -314,4 +289,3 @@ int stop_runit_service(runit_config_t *cfg)
 
 #undef CHECK_FS_CALL
 #undef CHECK_SPRINTF
-#undef RUN_SYSTEM_CMD
