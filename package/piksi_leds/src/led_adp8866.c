@@ -301,12 +301,15 @@ static u32 modified_states_get(const led_adp8866_led_state_t *input_states,
 /** Initialize the LED driver.
  */
 void led_adp8866_init(bool is_duro) {
-  led_i2c = open(is_duro ? "/dev/i2c-0" : "/dev/i2c-1", O_RDWR);
+  char *i2c_path = is_duro ? "/dev/i2c-0" : "/dev/i2c-1";
+  led_i2c = open(i2c_path, O_RDWR);
   if (led_i2c < 0) {
+    piksi_log(LOG_ERR, "failed open I2C device: path: %s, error: %s", i2c_path, strerror(errno));
     exit(1);
   }
   int timeout = LED_I2C_TIMEOUT;
   if (ioctl(led_i2c, I2C_TIMEOUT, timeout) < 0) {
+    piksi_log(LOG_ERR, "I2C ioctl failed: path: %s, error: %s", i2c_path, strerror(errno));
     exit(1);
   }
 

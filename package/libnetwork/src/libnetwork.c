@@ -110,7 +110,7 @@ static network_context_t empty_context = {
   .url = "",
 };
 
-#define NMEA_GGA_FILE "/var/run/nmea_GGA"
+#define NMEA_GGA_FILE "/var/run/nmea/GGA"
 
 #define HTTP_RESPONSE_CODE_OK (200L)
 #define NTRIP_DROPPED_CONNECTION_WARNING "Connection dropped with no data. This may be because this NTRIP caster expects an NMEA GGA string to be sent from the receiver. You can enable this through the ntrip.gga_period setting."

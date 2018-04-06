@@ -18,6 +18,7 @@
 #include <time.h>
 #include <sys/mman.h>
 #include <libsbp/common.h>
+#include <libpiksi/logging.h>
 
 #include "led_adp8866.h"
 #include "firmware_state.h"
@@ -308,7 +309,12 @@ void sigbus_handler(int signum) {
 }
 
 void manage_led_setup(bool is_duro) {
-  network_available_fd = open("/var/run/network_available", O_CREAT | O_RDWR, 0644);
+  const char* network_available_path = "/var/run/network_available";
+  network_available_fd = open(network_available_path, O_CREAT | O_RDONLY, 0644);
+  if (network_available_fd < 0) {
+    piksi_log(LOG_ERR, "failed to open file: %s", network_available_path);
+    exit(1);
+  }
   network_available = mmap(NULL, 4, PROT_READ, MAP_SHARED, network_available_fd, 0);
   signal(SIGBUS, sigbus_handler);
   pthread_t thread;

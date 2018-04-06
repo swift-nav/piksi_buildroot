@@ -10,12 +10,12 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef __NTRIP_H
-#define __NTRIP_H
+#ifndef __SKYLARK_H
+#define __SKYLARK_H
 
 #include <libpiksi/settings.h>
 
-void ntrip_init(settings_ctx_t *settings_ctx);
-void ntrip_reconnect();
+void skylark_init(settings_ctx_t *settings_ctx);
+bool skylark_reconnect_dl(void);
 
 #endif

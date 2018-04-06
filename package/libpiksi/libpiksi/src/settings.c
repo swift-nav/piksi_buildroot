@@ -85,6 +85,15 @@
 
 #define SBP_PAYLOAD_SIZE_MAX 255
 
+// In processes Socket used to quit the settings daemon if a SIGTERM/SIGINT is
+//   received so we can cleanly remove our control socket.
+static zsock_t* loop_quit = NULL;
+
+typedef struct {
+  const char* command;
+  handle_command_fn handler;
+} control_command_t;
+
 typedef int (*to_string_fn)(const void *priv, char *str, int slen,
                             const void *blob, int blen);
 typedef bool (*from_string_fn)(const void *priv, void *blob, int blen,
@@ -1401,3 +1410,292 @@ int settings_reader_remove(settings_ctx_t *ctx, zloop_t *zloop)
   return sbp_zmq_rx_reader_remove(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
                                   zloop);
 }
+
+static void cleanup_signal_handlers (void)
+{
+  zsock_destroy(&loop_quit);
+}
+
+static void signal_handler (int signal_value)
+{
+  piksi_log(LOG_DEBUG, "Caught signal: %d", signal_value);
+
+  if (loop_quit != NULL) {
+    zsock_bsend(loop_quit, "1", 1);
+  } else {
+    piksi_log(LOG_DEBUG, "Loop quit socket was null...");
+  }
+}
+
+static void setup_signal_handlers ()
+{
+  loop_quit = zsock_new_pair("@inproc://loop_quit");
+
+  if (loop_quit == NULL) {
+    piksi_log(LOG_ERR, "Error creating loop quit socket: %s",
+              zmq_strerror(zmq_errno()));
+    return;
+  }
+
+  struct sigaction action;
+
+  action.sa_handler = signal_handler;
+  action.sa_flags = 0;
+
+  sigemptyset (&action.sa_mask);
+
+  sigaction (SIGINT, &action, NULL);
+  sigaction (SIGTERM, &action, NULL);
+}
+
+static int loop_quit_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
+{
+  (void) zloop;
+  (void) arg;
+
+  u8 request = 0;
+  zsock_brecv(zsock, "1", &request);
+
+  if (request != 1) {
+    piksi_log(LOG_WARNING, "Loop quit handler received unexpected message: %d...", request);
+    return -1;
+  }
+
+  piksi_log(LOG_INFO, "Shutting down...");
+  return -1;
+}
+
+static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
+{
+  (void)zloop;
+
+  control_command_t* cmd_info = (control_command_t*)arg;
+  char *data = NULL;
+
+  int rc = zsock_brecv(zsock, "s", &data);
+  if ( rc != 0 ) {
+    piksi_log(LOG_WARNING, "zsock_brecv error: %s", zmq_strerror(zmq_errno()));
+    return 0;
+  }
+
+  if (data == NULL) {
+    piksi_log(LOG_WARNING, "received data was null");
+    return 0;
+  }
+
+  u32 length = strlen(data);
+
+  if (length == 0 || length > 1) {
+    piksi_log(LOG_WARNING, "command had invalid length: %u", length);
+    return 0;
+  }
+
+  if (*data != cmd_info->command[0]) {
+    piksi_log(LOG_WARNING, "command had invalid value: %c", *data);
+    return 0;
+  }
+
+  u8 result = cmd_info->handler() ? 1 : 0;
+
+  zsock_bsend(zsock, "1", result);
+
+  return 0;
+}
+
+static bool configure_control_socket(zloop_t* loop,
+                                     const char* control_socket,
+                                     const char* control_socket_file,
+                                     const char* control_command,
+                                     handle_command_fn do_handle_command,
+                                     zsock_t** rep_socket,
+                                     control_command_t** ctrl_command_info)
+{
+  #define CHECK_PRECONDITION(X) if (!(X)) { \
+    piksi_log(LOG_ERR, "Precondition check failed: %s (%s:%d)", \
+              __STRING(X), __FILE__, __LINE__);                 \
+    return false; }
+
+  CHECK_PRECONDITION(loop != NULL);
+  CHECK_PRECONDITION(control_socket != NULL);
+  CHECK_PRECONDITION(control_socket_file != NULL);
+  CHECK_PRECONDITION(control_command != NULL);
+  CHECK_PRECONDITION(control_handler != NULL);
+  CHECK_PRECONDITION(do_handle_command != NULL);
+  CHECK_PRECONDITION(ctrl_command_info != NULL);
+
+  CHECK_PRECONDITION(rep_socket != NULL);
+  *rep_socket = zsock_new_rep(control_socket);
+
+#undef CHECK_PRECONDITION
+
+  int rc = chmod(control_socket_file, 0777);
+  if (rc != 0) {
+    piksi_log(LOG_ERR, "Error configuring IPC pipe permissions: %s",
+              strerror(errno));
+    return false;
+  }
+
+  if (*rep_socket == NULL) {
+    const char* err_msg = zmq_strerror(zmq_errno());
+    piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s",
+              control_socket, err_msg);
+    return false;
+  }
+
+  *ctrl_command_info = malloc(sizeof(control_command_t));
+
+  **ctrl_command_info = (control_command_t){
+    .command = control_command,
+    .handler = do_handle_command
+  };
+
+  if (zloop_reader(loop, *rep_socket, control_handler, *ctrl_command_info) < 0) {
+    const char* err_msg = zmq_strerror(zmq_errno());
+    piksi_log(LOG_ERR, "Error registering reader: %s", err_msg);
+    return false;
+  }
+
+  return true;
+}
+
+bool settings_loop(const char* control_socket,
+                   const char* control_socket_file,
+                   const char* control_command,
+                   register_settings_fn do_settings_register,
+                   handle_command_fn do_handle_command)
+{
+  piksi_log(LOG_INFO, "Starting daemon mode for NTRIP settings...");
+
+  // Block ZMQ signal handlers
+  zsys_handler_set(NULL);
+  // Install our own signal handlers
+  setup_signal_handlers();
+
+  zsock_t* rep_socket = NULL;
+  control_command_t* cmd_info = NULL;
+
+  zsock_t* loop_quit_reader = NULL;
+
+  /* Set up SBP ZMQ */
+  sbp_zmq_pubsub_ctx_t *pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT,
+                                                           SUB_ENDPOINT);
+  if (pubsub_ctx == NULL) {
+    piksi_log(LOG_ERR, "Error creating pub-sub");
+    return false;
+  }
+
+  bool ret = true;
+
+  /* Set up settings */
+  settings_ctx_t *settings_ctx = settings_create();
+  if (settings_ctx == NULL) {
+    ret = false;
+    goto settings_loop_cleanup;
+  }
+
+  if (settings_reader_add(settings_ctx,
+                          sbp_zmq_pubsub_zloop_get(pubsub_ctx)) != 0) {
+    ret = false;
+    goto settings_loop_cleanup;
+  }
+
+  do_settings_register(settings_ctx);
+
+  zloop_t* loop = sbp_zmq_pubsub_zloop_get(pubsub_ctx);
+
+  bool control_sock_configured =
+    configure_control_socket(loop,
+                             control_socket,
+                             control_socket_file,
+                             control_command,
+                             do_handle_command,
+                             &rep_socket,
+                             &cmd_info);
+
+  if (!control_sock_configured) {
+    ret = false;
+    goto settings_loop_cleanup;
+  }
+
+  loop_quit_reader = zsock_new_pair(">inproc://loop_quit");
+
+  if (loop_quit_reader == NULL) {
+
+    piksi_log(LOG_ERR, "Error creating loop quit socket: %s",
+              zmq_strerror(zmq_errno()));
+
+    ret = false;
+    goto settings_loop_cleanup;
+  }
+
+  if (zloop_reader(loop, loop_quit_reader, loop_quit_handler, NULL) < 0) {
+
+    const char* err_msg = zmq_strerror(zmq_errno());
+    piksi_log(LOG_ERR, "Error registering reader: %s", err_msg);
+
+    ret = false;
+    goto settings_loop_cleanup;
+  }
+
+  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(pubsub_ctx));
+
+settings_loop_cleanup:
+  if (rep_socket != NULL)
+    zsock_destroy(&rep_socket);
+
+  if (cmd_info != NULL)
+    free(cmd_info);
+
+  if (loop_quit_reader != NULL)
+    zsock_destroy(&loop_quit_reader);
+
+  cleanup_signal_handlers();
+
+  sbp_zmq_pubsub_destroy(&pubsub_ctx);
+  settings_destroy(&settings_ctx);
+
+  return ret;
+}
+
+int settings_loop_send_command(const char* target_description,
+                               const char* command,
+                               const char* command_description,
+                               const char* control_socket)
+{
+# define CHECK_ZMQ_ERR(COND, FUNC) \
+  if (COND) { \
+    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s", \
+              __FUNCTION__, __STRING(FUNC), __FILE__, __LINE__, \
+              zmq_strerror(zmq_errno())); \
+    return -1; \
+  }
+
+#define CMD_INFO_MSG "Sending '%s' command to %s..."
+
+  piksi_log(LOG_INFO, CMD_INFO_MSG, command_description, target_description);
+  printf(CMD_INFO_MSG "\n", command_description, target_description);
+
+  zsock_t* req_socket = zsock_new_req(control_socket);
+  CHECK_ZMQ_ERR(req_socket == NULL, zsock_new_req);
+
+  int ret = zsock_bsend(req_socket, "s", command);
+  CHECK_ZMQ_ERR(ret != 0, zsock_send);
+
+  u8 result = 0;
+  ret = zsock_brecv(req_socket, "1", &result);
+  CHECK_ZMQ_ERR(ret != 0, zsock_recv);
+
+# define CMD_RESULT_MSG "Result of '%s' command: %hhu"
+
+  piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, result);
+  printf(CMD_RESULT_MSG "\n", command_description, result);
+
+  zsock_destroy(&req_socket);
+
+  return 0;
+
+# undef CMD_RESULT_MSG
+# undef CHECK_ZMQ_ERR
+# undef CMD_INFO_MSG
+}
+

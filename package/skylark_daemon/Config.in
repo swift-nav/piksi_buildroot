@@ -1,5 +1,5 @@
-config BR2_PACKAGE_SKYLARK_UPLOAD_DAEMON
-  bool "skylark_upload_daemon"
+config BR2_PACKAGE_SKYLARK_DAEMON
+  bool "skylark_daemon"
   select BR2_PACKAGE_CZMQ
   select BR2_PACKAGE_LIBSBP
   select BR2_PACKAGE_LIBPIKSI

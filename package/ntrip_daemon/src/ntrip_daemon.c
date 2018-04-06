@@ -14,8 +14,23 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include <libpiksi/logging.h>
+#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/settings.h>
+#include <libpiksi/util.h>
 #include <libnetwork.h>
+
+#include "ntrip_settings.h"
+
+#define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
+#define SUB_ENDPOINT ">tcp://127.0.0.1:43010"
+
+#define NTRIP_CONTROL_FILE "/var/run/ntrip/control/socket"
+#define NTRIP_CONTROL_SOCK "ipc://" NTRIP_CONTROL_FILE
+
+#define NTRIP_CONTROL_COMMAND_RECONNECT "r"
 
 #define PROGRAM_NAME "ntrip_daemon"
 
@@ -27,15 +42,28 @@ static const char *url = NULL;
 
 static double gga_xfer_secs = 0.0;
 
+typedef enum {
+  OP_MODE_NTRIP_CLIENT,
+  OP_MODE_SETTINGS_DAEMON,
+  OP_MODE_REQ_RECONNECT,
+} operating_mode;
+
+static operating_mode op_mode = OP_MODE_NTRIP_CLIENT;
+
 static void usage(char *command)
 {
   printf("Usage: %s\n", command);
 
-  puts("\nMain options");
-  puts("\t--file <file>");
-  puts("\t--username <username>");
-  puts("\t--password <password>");
-  puts("\t--url <url>");
+  puts("\nMode selection options");
+  puts("\t--ntrip      launch in ntrip client mode");
+  puts("\t--settings   launch in settings monitor mode");
+  puts("\t--reconnect  request that the NTRIP client reconnect");
+
+  puts("\nNTRIP mode options");
+  puts("\t--file       <file>");
+  puts("\t--username   <username>");
+  puts("\t--password   <password>");
+  puts("\t--url        <url>");
 
   puts("\nMisc options");
   puts("\t--debug");
@@ -49,10 +77,16 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_DEBUG,
     OPT_ID_INTERVAL,
     OPT_ID_USERNAME,
-    OPT_ID_PASSWORD
+    OPT_ID_PASSWORD,
+    OPT_ID_MODE_NTRIP,
+    OPT_ID_MODE_SETTINGS,
+    OPT_ID_MODE_RECONNECT,
   };
 
   const struct option long_opts[] = {
+    {"ntrip",     no_argument,       0, OPT_ID_MODE_NTRIP},
+    {"settings",  no_argument,       0, OPT_ID_MODE_SETTINGS},
+    {"reconnect", no_argument,       0, OPT_ID_MODE_RECONNECT},
     {"file",      required_argument, 0, OPT_ID_FILE},
     {"username",  required_argument, 0, OPT_ID_USERNAME},
     {"password",  required_argument, 0, OPT_ID_PASSWORD},
@@ -69,6 +103,22 @@ static int parse_options(int argc, char *argv[])
 
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
+
+      case OPT_ID_MODE_NTRIP: {
+        op_mode = OP_MODE_NTRIP_CLIENT;
+      }
+      break;
+
+      case OPT_ID_MODE_SETTINGS: {
+        op_mode = OP_MODE_SETTINGS_DAEMON;
+      }
+      break;
+
+      case OPT_ID_MODE_RECONNECT: {
+        op_mode = OP_MODE_REQ_RECONNECT;
+      }
+      break;
+
       case OPT_ID_FILE: {
         fifo_file_path = optarg;
       }
@@ -112,12 +162,12 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
-  if (fifo_file_path == NULL) {
+  if (op_mode == OP_MODE_NTRIP_CLIENT && fifo_file_path == NULL) {
     puts("Missing file");
     return -1;
   }
 
-  if (url == NULL) {
+  if (op_mode == OP_MODE_NTRIP_CLIENT && url == NULL) {
     puts("Missing url");
     return -1;
   }
@@ -127,13 +177,13 @@ static int parse_options(int argc, char *argv[])
 
 static void terminate_handler(int signum)
 {
-  (void)signum;
+  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d", signum);
   libnetwork_shutdown();
 }
 
 static void cycle_connection(int signum)
 {
-  (void)signum;
+  piksi_log(LOG_DEBUG, "cycle_connection: received signal: %d", signum);
   libnetwork_cycle_connection();
 }
 
@@ -166,16 +216,9 @@ exit_error:
   return false;
 }
 
-int main(int argc, char *argv[])
+static int ntrip_client_loop(void)
 {
-  logging_init(PROGRAM_NAME);
-
-  piksi_log(LOG_INFO, "Starting...");
-
-  if (parse_options(argc, argv) != 0) {
-    usage(argv[0]);
-    exit(EXIT_FAILURE);
-  }
+  piksi_log(LOG_INFO, "Starting NTRIP client connection...");
 
   int print_gga_xfer_secs = (int) gga_xfer_secs;
   piksi_log(LOG_INFO, "GGA upload interval: %d seconds", print_gga_xfer_secs);
@@ -183,13 +226,13 @@ int main(int argc, char *argv[])
   int fd = open(fifo_file_path, O_WRONLY);
   if (fd < 0) {
     piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
-    exit(EXIT_FAILURE);
+    return -1;
   }
 
   network_context_t* network_context = libnetwork_create(NETWORK_TYPE_NTRIP_DOWNLOAD);
 
   if(!configure_libnetwork(network_context, fd)) {
-    exit(EXIT_FAILURE);
+    return -1;
   }
 
   /* Set up handler for signals which should terminate the program */
@@ -203,7 +246,7 @@ int main(int argc, char *argv[])
       (sigaction(SIGQUIT, &terminate_sa, NULL) != 0))
   {
     piksi_log(LOG_ERR, "error setting up terminate handler");
-    exit(EXIT_FAILURE);
+    return -1;
   }
 
   struct sigaction cycle_conn_sa;
@@ -214,7 +257,7 @@ int main(int argc, char *argv[])
   if ((sigaction(SIGUSR1, &cycle_conn_sa, NULL) != 0))
   {
     piksi_log(LOG_ERR, "error setting up SIGUSR1 handler");
-    exit(EXIT_FAILURE);
+    return -1;
   }
 
   ntrip_download(network_context);
@@ -222,8 +265,52 @@ int main(int argc, char *argv[])
   piksi_log(LOG_INFO, "Shutting down");
 
   close(fd);
-  logging_deinit();
   libnetwork_destroy(&network_context);
+
+  return 0;
+}
+
+static int ntrip_settings_loop(void)
+{
+  return settings_loop(NTRIP_CONTROL_SOCK,
+                       NTRIP_CONTROL_FILE,
+                       NTRIP_CONTROL_COMMAND_RECONNECT,
+                       ntrip_init,
+                       ntrip_reconnect) ? 0 : -1;
+}
+
+int main(int argc, char *argv[])
+{
+  logging_init(PROGRAM_NAME);
+
+  if (parse_options(argc, argv) != 0) {
+    usage(argv[0]);
+    exit(EXIT_FAILURE);
+  }
+
+  int ret = 0;
+
+  switch(op_mode) {
+  case OP_MODE_NTRIP_CLIENT:
+    ret = ntrip_client_loop();
+    break;
+  case OP_MODE_SETTINGS_DAEMON:
+    ret = ntrip_settings_loop();
+    break;
+  case OP_MODE_REQ_RECONNECT:
+    ret = settings_loop_send_command("NTRIP client",
+                                     NTRIP_CONTROL_COMMAND_RECONNECT,
+                                     "reconnect",
+                                     NTRIP_CONTROL_SOCK);
+    break;
+  default:
+    assert(false);
+  }
+
+  logging_deinit();
+
+  if (ret != 0)
+    exit(EXIT_FAILURE);
 
   exit(EXIT_SUCCESS);
 }

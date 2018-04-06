@@ -3,6 +3,16 @@
 name="network_poll"
 cmd="/etc/init.d/network_poll.sh"
 dir="/"
-user=""
+user="network_poll"
+
+setup_permissions() {
+
+    addgroup -S network_poll
+    adduser -S -D -H -G network_poll network_poll
+
+    touch /var/run/network_available
+    chown network_poll:network_poll /var/run/network_available
+    chmod 0644 /var/run/network_available
+}
 
 source /etc/init.d/template_process.inc.sh

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Gareth McMullin <gareth@swiftnav.com>
+ * Copyright (C) 2017-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -12,10 +12,10 @@
 
 #include <libpiksi/logging.h>
 
-#include "skylark.h"
+#include "skylark_settings.h"
 
-#define UPLOAD_FIFO_FILE_PATH   "/var/run/skylark_upload"
-#define DOWNLOAD_FIFO_FILE_PATH "/var/run/skylark_download"
+#define UPLOAD_FIFO_FILE_PATH   "/var/run/skylark/upload"
+#define DOWNLOAD_FIFO_FILE_PATH "/var/run/skylark/download"
 #define SKYLARK_URL             "https://broker.skylark2.swiftnav.com"
 
 static bool skylark_enabled;
@@ -33,7 +33,8 @@ static char *get_skylark_url(void) {
 static int skylark_upload_daemon_execfn(void) {
   char *url = get_skylark_url();
   char *argv[] = {
-    "skylark_upload_daemon",
+    "skylark_daemon",
+    "--upload",
     "--file", UPLOAD_FIFO_FILE_PATH,
     "--url", url,
     NULL,
@@ -58,7 +59,8 @@ static int skylark_upload_adapter_execfn(void) {
 static int skylark_download_daemon_execfn(void) {
   char *url = get_skylark_url();
   char *argv[] = {
-    "skylark_download_daemon",
+    "skylark_daemon",
+    "--download",
     "--file", DOWNLOAD_FIFO_FILE_PATH,
     "--url", url,
     NULL,
@@ -106,11 +108,11 @@ static int skylark_notify(void *context)
     }
 
     if (!skylark_enabled) {
-      system("echo 0 >/var/run/skylark_enabled");
+      system("echo 0 >/var/run/skylark/enabled");
       continue;
     }
 
-    system("echo 1 >/var/run/skylark_enabled");
+    system("echo 1 >/var/run/skylark/enabled");
 
     process->pid = fork();
     if (process->pid == 0) {
@@ -121,6 +123,33 @@ static int skylark_notify(void *context)
   }
 
   return 0;
+}
+
+bool skylark_reconnect_dl(void)
+{
+  for (int i=0; i<skylark_processes_count; i++) {
+
+    skylark_process_t *process = &skylark_processes[i];
+
+    if (process->execfn == skylark_download_daemon_execfn) {
+
+      if (process->pid == 0) {
+        piksi_log(LOG_ERR, "Asked to tell skylark_daemon to reconnect (in download mode), but it isn't running");
+        return false;
+      }
+
+      int ret = kill(process->pid, SIGUSR1);
+
+      if (ret != 0) {
+        piksi_log(LOG_ERR, "skylark_reconnect_dl: kill (SIGUSR1) pid %d error (%d) \"%s\"",
+                  process->pid, errno, strerror(errno));
+
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 void skylark_init(settings_ctx_t *settings_ctx)

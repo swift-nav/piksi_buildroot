@@ -96,7 +96,7 @@ docker-setup: docker-build-image docker-populate-volume
 docker-rebuild-changed:
 	docker run $(DOCKER_ARGS) -e BUILD_TEMP=/host/tmp -e SINCE=$(SINCE) \
 		$(DOCKER_TAG) \
-		$(MAKE) _rebuild_changed
+		make _rebuild_changed
 
 docker-make-image: docker-config
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \

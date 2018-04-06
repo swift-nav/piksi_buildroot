@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 #include <libsbp/file_io.h>
 
 #include "sbp_fileio.h"
@@ -65,7 +66,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   msg_[len] = 0;
 
   msg_fileio_read_resp_t *reply;
-  int readlen = MIN(msg->chunk_size, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply));
+  int readlen = SWFT_MIN(msg->chunk_size, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply));
   reply = alloca(sizeof(msg_fileio_read_resp_t) + readlen);
   reply->sequence = msg->sequence;
   int f = open(msg->filename, O_RDONLY);

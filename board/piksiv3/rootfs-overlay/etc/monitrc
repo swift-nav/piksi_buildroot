@@ -67,8 +67,8 @@ check process standalone_file_logger with pidfile /var/run/standalone_file_logge
     stop program = "/etc/init.d/S83standalone_file_logger stop"
 
 check process piksi_leds with pidfile /var/run/piksi_leds.pid
-    start program = "/etc/init.d/S85piksi_leds start"
-    stop program = "/etc/init.d/S85piksi_leds stop"
+    start program = "/etc/init.d/S86piksi_leds start"
+    stop program = "/etc/init.d/S86piksi_leds stop"
 
 check process nmea_daemon with pidfile /var/run/nmea_daemon.pid
     start program = "/etc/init.d/S85nmea_daemon start"

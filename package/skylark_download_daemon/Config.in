@@ -1,7 +1,0 @@
-config BR2_PACKAGE_SKYLARK_DOWNLOAD_DAEMON
-  bool "skylark_download_daemon"
-  select BR2_PACKAGE_CZMQ
-  select BR2_PACKAGE_LIBSBP
-  select BR2_PACKAGE_LIBPIKSI
-  select BR2_PACKAGE_LIBCURL
-  select BR2_PACKAGE_LIBNETWORK

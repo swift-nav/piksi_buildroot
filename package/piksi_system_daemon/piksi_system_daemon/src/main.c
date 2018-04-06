@@ -29,8 +29,6 @@
 
 #include "protocols.h"
 #include "ports.h"
-#include "ntrip.h"
-#include "skylark.h"
 #include "whitelists.h"
 #include "async-child.h"
 #include "cellmodem.h"
@@ -219,7 +217,7 @@ static void command_output_cb(const char *buf, void *arg)
   strncpy(msg->text, buf, 255);
 
   sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                 SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
+                  SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
 }
 
 static void command_exit_cb(int status, void *arg)
@@ -237,12 +235,14 @@ static void command_exit_cb(int status, void *arg)
 
 static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
+  (void) sender_id;
+
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = (sbp_zmq_pubsub_ctx_t *)context;
 
   msg_[len] = 0;
   msg_command_req_t *msg = (msg_command_req_t *)msg_;
-  if (strcmp(msg->command, "<<BASE_OBS_SANITY_FAILED>>") == 0) {
-    ntrip_reconnect();
+  if (strcmp(msg->command, "ntrip_daemon --reconnect") == 0) {
+    system("ntrip_daemon --reconnect");
     return;
   }
   /* TODO As more commands are added in the future the command field will need
@@ -498,8 +498,6 @@ int main(void)
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
   ports_init(settings_ctx);
-  ntrip_init(settings_ctx);
-  skylark_init(settings_ctx);
   whitelists_init(settings_ctx);
   cellmodem_init(pubsub_ctx, settings_ctx);
 

@@ -57,7 +57,7 @@ static void pppd_output_callback(const char *buf, void *arg)
   static char* buffer = storage;
   static size_t remaining = STORAGE_SIZE;
 
-  size_t copy_len = MIN(remaining, len);
+  size_t copy_len = SWFT_MIN(remaining, (size_t)len);
 
   memcpy(buffer, buf, copy_len);
   buffer = &buffer[copy_len];
