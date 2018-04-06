@@ -87,7 +87,7 @@ int start_runit_service(runit_config_t *cfg)
   CHECK_FS_CALL(fclose(run_fp) == 0, "fclose", path_buf);
   CHECK_FS_CALL(chmod(path_buf, 0755) == 0, "chmod", path_buf);
 
-  if (cfg->custom_down) {
+  if (cfg->custom_down != NULL) {
 
     CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "control/d"));
 
@@ -98,6 +98,20 @@ int start_runit_service(runit_config_t *cfg)
     fprintf(custom_down_fp, "exec %s\n", cfg->custom_down);
 
     CHECK_FS_CALL(fclose(custom_down_fp) == 0, "fclose", path_buf);
+    CHECK_FS_CALL(chmod(path_buf, 0755) == 0, "chmod", path_buf);
+  }
+
+  if (cfg->finish_command != NULL) {
+
+    CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "finish"));
+
+    FILE* finish_fp = fopen(path_buf, "w");
+    CHECK_FS_CALL(finish_fp != NULL, "fopen", path_buf);
+
+    fprintf(finish_fp, "#!/bin/sh\n");
+    fprintf(finish_fp, "exec %s\n", cfg->finish_command);
+
+    CHECK_FS_CALL(fclose(finish_fp) == 0, "fclose", path_buf);
     CHECK_FS_CALL(chmod(path_buf, 0755) == 0, "chmod", path_buf);
   }
 

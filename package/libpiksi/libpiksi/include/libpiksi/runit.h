@@ -31,8 +31,10 @@ typedef struct {
   const char* service_name;
   /** The command line to run for the service */
   const char* command_line;
-  /** A custom "down" command, if any */
+  /** A custom "down" command, if any, this is run when the service receives a request to stop. */
   const char* custom_down;
+  /** A custom "finish" command, if any, this is run after the service stops. */
+  const char* finish_command;
   /** True if this service should be relaunched if it stops. */
   bool restart;
 } runit_config_t;

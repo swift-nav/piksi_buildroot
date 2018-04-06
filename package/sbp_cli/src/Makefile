@@ -1,17 +1,25 @@
-TARGET=sbp_log
-SOURCES= \
-	main.c \
+SBP_LOG_TARGET=sbp_log
+SBP_LOG_SOURCES=sbp_log.c
 
-LIBS=-lczmq -lsbp
+SBP_CMD_RESP_TARGET=sbp_cmd_resp
+SBP_CMD_RESP_SOURCES=sbp_cmd_resp.c
+
+TARGETS=$(SBP_LOG_TARGET) $(SBP_CMD_RESP_TARGET)
+
+LIBS=-lczmq -lsbp -lpiksi
 CFLAGS=-std=gnu11
 
 CROSS=
 
 CC=$(CROSS)gcc
 
-all:	$(TARGET)
-$(TARGET): $(SOURCES)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES) $(LIBS)
+all: $(TARGETS)
+
+$(SBP_LOG_TARGET): $(SBP_LOG_SOURCES)
+	$(CC) $(CFLAGS) -o $(SBP_LOG_TARGET) $(SBP_LOG_SOURCES) $(LIBS)
+
+$(SBP_CMD_RESP_TARGET): $(SBP_CMD_RESP_SOURCES)
+	$(CC) $(CFLAGS) -o $(SBP_CMD_RESP_TARGET) $(SBP_CMD_RESP_SOURCES) $(LIBS)
 
 clean:
-	rm -rf $(TARGET)
+	rm -rf $(TARGETS)

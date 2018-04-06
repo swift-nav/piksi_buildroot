@@ -96,39 +96,26 @@ static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
   }
 }
 
-static void command_exit_cb(int status, void *arg)
-{
-  // TODO: replace with sbp_cli
-#if 0
-  struct shell_cmd_ctx *ctx = arg;
-  /* clean up and send exit code */
-  msg_command_resp_t resp = {
-    .sequence = ctx->sequence,
-    .code = status,
-  };
-  sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                  SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
-  free(ctx);
-#endif
-}
-
 static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   (void) sender_id;
 
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = (sbp_zmq_pubsub_ctx_t *)context;
 
+  /* TODO As more commands are added in the future the command field will need
+   * to be parsed into a command and arguments, and restrictions imposed
+   * on what commands and arguments are legal.  For now we only accept two 
+   * canned command.
+   */
+
   msg_[len] = 0;
   msg_command_req_t *msg = (msg_command_req_t *)msg_;
+
   if (strcmp(msg->command, "ntrip_daemon --reconnect") == 0) {
     system("ntrip_daemon --reconnect");
     return;
   }
-  /* TODO As more commands are added in the future the command field will need
-   * to be parsed into a command and arguments, and restrictions imposed
-   * on what commands and arguments are legal.  For now we only accept one
-   * canned command.
-   */
+
   if (strcmp(msg->command, "upgrade_tool upgrade.image_set.bin") != 0) {
     msg_command_resp_t resp = {
       .sequence = msg->sequence,
@@ -139,15 +126,38 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
     return;
   }
 
+  const char* upgrade_cmd =
+    "sh -c 'set -o pipefail;                                      "
+    "       sudo upgrade_tool --debug /data/upgrade.image_set.bin "
+    "         | sbp_log --info'                                   ";
+
+  char finish_cmd[1024];
+  size_t count = snprintf(finish_cmd, sizeof(finish_cmd),
+                          "sbp_cmd_resp --sequence %u --status $1",
+                          msg->sequence);
+  assert( count < sizeof(finish_cmd) );
+
+  piksi_log(LOG_DEBUG, "%s: update_tool command sequence: %u, command string: %s",
+            __FUNCTION__, msg->sequence, finish_cmd);
+
   runit_config_t cfg = (runit_config_t) {
-    .service_dir  = RUNIT_SERVICE_DIR,
-    .service_name = "upgrade_tool",
-    .command_line = "exec sh -c 'sudo upgrade_tool --debug /data/upgrade.image_set.bin | sbp_log --info'",
-    .custom_down  = NULL,
-    .restart      = false,
+    .service_dir    = RUNIT_SERVICE_DIR,
+    .service_name   = "upgrade_tool",
+    .command_line   = upgrade_cmd,
+    .finish_command = finish_cmd,
+    .restart        = false,
   };
 
   start_runit_service(&cfg);
+#if 0
+  msg_command_resp_t resp = {
+    .sequence = msg->sequence,
+    .code = 1,
+  };
+
+  sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
+                  SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
+#endif
 }
 
 static int file_read_string(const char *filename, char *str, size_t str_size)

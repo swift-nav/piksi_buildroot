@@ -15,6 +15,7 @@ endef
 
 define SBP_CLI_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/sbp_log $(TARGET_DIR)/usr/bin
+    $(INSTALL) -D -m 0755 $(@D)/sbp_cmd_resp $(TARGET_DIR)/usr/bin
 endef
 
 $(eval $(generic-package))
