@@ -45,23 +45,33 @@ int start_runit_service(runit_config_t *cfg)
   static const int control_sleep_us = 100e3;
   static const int max_wait_us = 5e6;
 
+  struct stat s;
+
   int control_pipe_retries = max_wait_us / control_sleep_us;
   assert( control_pipe_retries > 0 && control_pipe_retries <= 1000 );
 
   char service_dir[PATH_MAX];
   char path_buf[PATH_MAX];
-  char command_buf[1024];
 
   CHECK_SPRINTF(snprintf(service_dir, sizeof(service_dir), "%s/%s", cfg->service_dir, cfg->service_name));
-  CHECK_SPRINTF(snprintf(command_buf, sizeof(command_buf), "rm -rf %s", service_dir));
 
-  RUN_SYSTEM_CMD(command_buf);
-
-  CHECK_FS_CALL(mkdir(service_dir, 0755) == 0, "mkdir", service_dir);
+  if (stat(service_dir, &s) == 0) {
+#ifdef DEBUG_RUNIT
+    piksi_log(LOG_DEBUG, "%s: service dir (%s) already exists", __FUNCTION__, service_dir);
+#endif
+  } else {
+    CHECK_FS_CALL(mkdir(service_dir, 0755) == 0, "mkdir", service_dir);
+  }
 
   if (cfg->custom_down != NULL) {
     CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "control"));
-    CHECK_FS_CALL(mkdir(path_buf, 0755) == 0, "mkdir", service_dir);
+    if (stat(path_buf, &s) == 0) {
+#ifdef DEBUG_RUNIT
+      piksi_log(LOG_DEBUG, "%s: control dir (%s) already exists", __FUNCTION__, path_buf);
+#endif
+    } else {
+      CHECK_FS_CALL(mkdir(path_buf, 0755) == 0, "mkdir", service_dir);
+    }
   }
 
   // Write the <service>/down file so the service doesn't start automatically
@@ -71,7 +81,7 @@ int start_runit_service(runit_config_t *cfg)
   CHECK_FS_CALL(fclose(fp) == 0, "fclose", path_buf);
 
   // Write the <service>/starting so we know the service is starting...
-  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "starting"));
+  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/starting", service_dir));
   FILE* fp_start = fopen(path_buf, "w");
   CHECK_FS_CALL(fp_start != NULL, "fopen", path_buf);
   CHECK_FS_CALL(fclose(fp_start) == 0, "fclose", path_buf);
@@ -118,7 +128,6 @@ int start_runit_service(runit_config_t *cfg)
   CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir));
 
   // Wait for the control socket to materialize...
-  struct stat s;
   while (stat(path_buf, &s) != 0 && control_pipe_retries-- > 0) {
     assert( usleep(control_sleep_us) == 0 );
   }
@@ -134,7 +143,7 @@ int start_runit_service(runit_config_t *cfg)
   CHECK_FS_CALL(fclose(control_fp) == 0, "fclose", path_buf);
 
   // Remove the <service>/starting file so we know that the service started...
-  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/starting", service_dir, "starting"));
+  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/starting", service_dir));
   CHECK_FS_CALL(unlink(path_buf) == 0, "unlink", path_buf);
 
   return 0;
