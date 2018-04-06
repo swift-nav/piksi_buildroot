@@ -38,6 +38,8 @@
 
 #define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
 
+//#define DEBUG_PIKSI_SYSTEM_DAEMON
+
 static const char const * ip_mode_enum_names[] = {"Static", "DHCP", NULL};
 enum {IP_CFG_STATIC, IP_CFG_DHCP};
 static u8 eth_ip_mode = IP_CFG_STATIC;
@@ -137,8 +139,10 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
                           msg->sequence);
   assert( count < sizeof(finish_cmd) );
 
+#ifdef DEBUG_PIKSI_SYSTEM_DAEMON
   piksi_log(LOG_DEBUG, "%s: update_tool command sequence: %u, command string: %s",
             __FUNCTION__, msg->sequence, finish_cmd);
+#endif
 
   runit_config_t cfg = (runit_config_t) {
     .service_dir    = RUNIT_SERVICE_DIR,
@@ -149,15 +153,6 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
   };
 
   start_runit_service(&cfg);
-#if 0
-  msg_command_resp_t resp = {
-    .sequence = msg->sequence,
-    .code = 1,
-  };
-
-  sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
-                  SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
-#endif
 }
 
 static int file_read_string(const char *filename, char *str, size_t str_size)
