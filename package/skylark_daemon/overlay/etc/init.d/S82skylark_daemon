@@ -10,6 +10,8 @@ setup_permissions() {
   mkdir -p /var/run/skylark/control
   chown -R $user:$user /var/run/skylark
 
+  chown $user:$user /etc/skylark_upload_filter_out_config
+
   # Sticky bit is set so that skylark_daemon can create it's
   #   control socket but (and allow others to write to it)
   #   but not delete the control socket.
