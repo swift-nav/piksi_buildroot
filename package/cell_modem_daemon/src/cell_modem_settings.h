@@ -24,5 +24,6 @@ enum modem_type {
 int cell_modem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx);
 void cell_modem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type);
 int pppd_respawn(zloop_t *loop, int timer_id, void *arg);
+bool cell_modem_enabled(void);
 
 #endif

@@ -35,7 +35,7 @@ static enum modem_type modem_type = MODEM_TYPE_GSM;
 static char *cell_modem_dev;
 /* External settings */
 static char cell_modem_apn[32] = "hologram";
-static bool cell_modem_enabled;
+static bool cell_modem_enabled_;
 static bool cell_modem_debug;
 
 static int cell_modem_notify(void *context);
@@ -60,7 +60,7 @@ void cell_modem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_
   runit_stat_t stat = stat_runit_service(&cfg_stat);
   piksi_log(LOG_DEBUG, "%s: runit service status: %s", __FUNCTION__, runit_status_str(stat));
 
-  if(cell_modem_enabled &&
+  if(cell_modem_enabled_ &&
      (cell_modem_dev != NULL) &&
      (modem_type != MODEM_TYPE_INVALID) &&
      (stat != RUNIT_RUNNING))
@@ -77,6 +77,11 @@ int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
   return 0;
 }
 
+bool cell_modem_enabled(void)
+{
+  return cell_modem_enabled_;
+}
+
 static int cell_modem_notify(void *context)
 {
   (void)context;
@@ -88,7 +93,7 @@ static int cell_modem_notify(void *context)
 
   stop_runit_service(&cfg_stop);
 
-  if ((!cell_modem_enabled) ||
+  if ((!cell_modem_enabled_) ||
       (cell_modem_dev == NULL) ||
       (modem_type == MODEM_TYPE_INVALID)) {
     return 0;
@@ -132,8 +137,8 @@ int cell_modem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_c
   settings_register(settings_ctx, "cell_modem", "APN", &cell_modem_apn,
                     sizeof(cell_modem_apn), SETTINGS_TYPE_STRING,
                     cell_modem_notify, pubsub_ctx);
-  settings_register(settings_ctx, "cell_modem", "enable", &cell_modem_enabled,
-                    sizeof(cell_modem_enabled), SETTINGS_TYPE_BOOL,
+  settings_register(settings_ctx, "cell_modem", "enable", &cell_modem_enabled_,
+                    sizeof(cell_modem_enabled_), SETTINGS_TYPE_BOOL,
                     cell_modem_notify, pubsub_ctx);
   settings_register(settings_ctx, "cell_modem", "debug", &cell_modem_debug,
                     sizeof(cell_modem_debug), SETTINGS_TYPE_BOOL,
