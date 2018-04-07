@@ -133,6 +133,11 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
     "       sudo upgrade_tool --debug /data/upgrade.image_set.bin "
     "         | sbp_log --info'                                   ";
 
+  // TODO/DAEMONUSERS: Determine if we need to do anything to this code
+  //   in order to incorporate the fix from here:
+  //
+  //       https://github.com/swift-nav/piksi_buildroot/commit/52b99371e7a43d62da3baa3b82a3b8b56b787ace
+
   char finish_cmd[1024];
   size_t count = snprintf(finish_cmd, sizeof(finish_cmd),
                           "sbp_cmd_resp --sequence %u --status $1",

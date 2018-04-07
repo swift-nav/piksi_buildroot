@@ -272,18 +272,35 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   }
 
   const char* filename = filter_imageset_bin(msg->filename);
-
   if (!validate_path(filename)) {
     piksi_log(LOG_WARNING, "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...", filename, basedir_path);
-  } else {
-    u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
-    int f = open(filename, O_WRONLY | O_CREAT, 0666);
-    lseek(f, msg->offset, SEEK_SET);
-    write(f, msg_ + headerlen, len - headerlen);
-    close(f);
+    return;
+  }
+
+  u8 headerlen = sizeof(*msg) + strlen(filename) + 1;
+  int f = open(filename, O_WRONLY | O_CREAT, 0666);
+  if (f < 0) {
+    piksi_log(LOG_ERR, "Error opening %s for write", filename);
+    return;
+  }
+  if (lseek(f, msg->offset, SEEK_SET) != msg->offset) {
+    piksi_log(LOG_ERR,
+              "Error seeking to offset %d in %s for write",
+              msg->offset,
+              filename);
+    goto cleanup;
+  }
+  int write_count = len - headerlen;
+  if (write(f, msg_ + headerlen, write_count) != write_count) {
+    piksi_log(
+      LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
+    goto cleanup;
   }
 
   msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
   sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
                   sizeof(reply), (u8*)&reply);
+
+cleanup:
+  close(f);
 }

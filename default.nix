@@ -25,9 +25,11 @@ let
     glibc
     glibc.dev
     gnugrep
+    gnum4
     gnumake
     gnused
     gnutar
+    gdb
     mercurial
     ncurses5
     ncurses5.dev

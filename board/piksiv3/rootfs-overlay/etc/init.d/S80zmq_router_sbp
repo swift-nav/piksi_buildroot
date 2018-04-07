@@ -1,7 +1,6 @@
 #!/bin/sh
 
 name="zmq_router_sbp"
-cmd="zmq_router -f /etc/zmq_router/sbp_router.yml"
 dir="/"
 user="rt_sbp"
 
@@ -9,5 +8,13 @@ setup_permissions() {
     addgroup -S $user
     adduser -S -D -H -G $user $user
 }
+
+if grep -q "smoothpose_enable=True" /persistent/config.ini; then
+  router_config="/etc/zmq_router/sbp_router_smoothpose.yml"
+else
+  router_config="/etc/zmq_router/sbp_router.yml"
+fi
+
+cmd="zmq_router -f $router_config"
 
 source /etc/init.d/template_process.inc.sh
