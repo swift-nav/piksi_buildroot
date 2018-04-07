@@ -22,9 +22,11 @@ let fhs = pkgs.buildFHSUserEnv {
     glibc
     glibc.dev
     gnugrep
+    gnum4
     gnumake
     gnused
     gnutar
+    gdb
     mercurial
     ncurses
     ncurses.dev

@@ -25,7 +25,7 @@ config:
 
 image: config
 	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
-		$(MAKE) -C buildroot O=output
+		$(MAKE) -C buildroot O=output V=$(V)
 
 clean:
 	find buildroot/output -mindepth 1 -maxdepth 1 \
@@ -52,15 +52,15 @@ pkg-%: config
 		$(MAKE) -C buildroot $* O=output
 
 host-pkg-%: host-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+	BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DISABLE_LTO=y \
 		$(MAKE) -C buildroot $* O=host_output
 
 host-config:
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+	BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DISABLE_LTO=y \
 		$(MAKE) -C buildroot O=host_output host_defconfig
 
 host-image: host-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+	BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DISABLE_LTO=y \
 		$(MAKE) -C buildroot O=host_output
 
 host-clean:

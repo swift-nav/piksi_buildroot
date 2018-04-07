@@ -50,9 +50,9 @@ check process zmq_adapter_rpmsg_piksi101 with pidfile /var/run/zmq_adapter_rpmsg
     start program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi101 start"
     stop program = "/etc/init.d/S83zmq_adapter_rpmsg_piksi101 stop"
 
-check process sshd with pidfile /var/run/sshd.pid
-    start program = "/etc/init.d/S50sshd start"
-    stop program = "/etc/init.d/S50sshd stop"
+check process sshd with pidfile /var/run/dropbear.pid
+    start program = "/etc/init.d/S50dropbear start"
+    stop program = "/etc/init.d/S50dropbear stop"
 
 check process syslogd with pidfile /var/run/syslogd.pid
     start program = "/etc/init.d/S01logging start"
