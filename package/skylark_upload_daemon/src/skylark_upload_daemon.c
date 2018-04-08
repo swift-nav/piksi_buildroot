@@ -109,7 +109,7 @@ static bool configure_libnetwork(network_context_t* ctx, int fd)
     goto exit_error;
 
   if (no_error_reporting)
-    libnetwork_report_errors(false);
+    libnetwork_report_errors(ctx, false);
 
   return true;
 
