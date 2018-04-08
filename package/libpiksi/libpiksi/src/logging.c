@@ -35,7 +35,7 @@ void piksi_log(int priority, const char *format, ...)
 {
   va_list ap;
   va_start(ap, format);
-  vsyslog(priority, format, ap);
+  piksi_vlog(priority, format, ap);
   va_end(ap);
 }
 

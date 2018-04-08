@@ -79,7 +79,8 @@ struct network_context_s {
 
   context_node_t* node;
 
-  time_t last_curl_error_time; /**< Time at which we last issued a curl require error/warning message */
+  bool report_errors;          /**< Should this instance of libnetwork report errors? */
+  time_t last_curl_error_time; /**< Time at which we last issued a cURL error/warning message */
 
   char username[LIBNETWORK_USERNAME_MAX_LENGTH];
   char password[LIBNETWORK_PASSWORD_MAX_LENGTH];
@@ -110,6 +111,7 @@ static network_context_t empty_context = {
   .response_code = 0,
   .response_code_check = NULL,
   .node = NULL,
+  .report_errors = true,
   .last_curl_error_time = 0,
   .username = "",
   .password = "",
@@ -135,6 +137,11 @@ void libnetwork_cycle_connection()
   LIST_FOREACH(node, &context_nodes_head, entries) {
     node->context.cycle_connection_signaled = true;
   }
+}
+
+void libnetwork_report_errors(network_context_t *ctx, bool yesno)
+{
+  ctx->report_errors = yesno;
 }
 
 network_context_t* libnetwork_create(network_type_t type)
@@ -573,10 +580,12 @@ static void network_request(network_context_t* ctx, CURL *curl)
     if (code != CURLE_OK) {
       time_t current_time = time(NULL);
       time_t last_error_delta = current_time - ctx->last_curl_error_time;
-      if (last_error_delta >= ERROR_REPORTING_INTERVAL) {
-        piksi_log(LOG_SBP|LOG_WARNING, "curl request (error: %d) \"%s\"", code, error_buf);
+      int facpri = LOG_WARNING;
+      if (last_error_delta >= ERROR_REPORTING_INTERVAL && ctx->report_errors) {
+        facpri =  LOG_SBP|LOG_WARNING;
         ctx->last_curl_error_time = current_time;
       }
+      piksi_log(facpri, "curl request (error: %d) \"%s\"", code, error_buf);
     } else {
       long response = 0;
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
