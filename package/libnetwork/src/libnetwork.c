@@ -80,7 +80,7 @@ struct network_context_s {
   context_node_t* node;
 
   bool report_errors;          /**< Should this instance of libnetwork report errors? */
-  time_t last_curl_error_time; /**< Time at which we last issued a cURL error/warning message */
+  time_t last_curl_error_time; /**< Time at which we last issued a cURL error message */
 
   char username[LIBNETWORK_USERNAME_MAX_LENGTH];
   char password[LIBNETWORK_PASSWORD_MAX_LENGTH];
