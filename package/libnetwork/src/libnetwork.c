@@ -50,6 +50,9 @@ const double PIPE_WARN_THRESHOLD = 0.90;
 /** Min amount time between "pipe full" warning messages. */
 const double PIPE_WARN_SECS = 5;
 
+/** How often CURL errors should be reported */
+const time_t ERROR_REPORTING_INTERVAL = 10;
+
 typedef struct context_node context_node_t;
 
 struct network_context_s {
@@ -60,7 +63,7 @@ struct network_context_s {
   bool debug;                  /**< Set if we are emitted debug information */
   double gga_xfer_secs;        /**< The number of seconds between GGA upload times */
 
-  time_t last_xfer_time;       /**< The last type GGA was uploaded (for NTRIP only) */
+  time_t last_xfer_time;       /**< Time of the last GGA sentence uploaded (for NTRIP only) */
   curl_socket_t socket_fd;     /**< The socket we're read/writing from/to */
 
   CURL *curl;                  /**< The current cURL handle */
@@ -75,6 +78,9 @@ struct network_context_s {
   volatile bool cycle_connection_signaled;
 
   context_node_t* node;
+
+  bool report_errors;          /**< Should this instance of libnetwork report errors? */
+  time_t last_curl_error_time; /**< Time at which we last issued a cURL error message */
 
   char username[LIBNETWORK_USERNAME_MAX_LENGTH];
   char password[LIBNETWORK_PASSWORD_MAX_LENGTH];
@@ -105,6 +111,8 @@ static network_context_t empty_context = {
   .response_code = 0,
   .response_code_check = NULL,
   .node = NULL,
+  .report_errors = true,
+  .last_curl_error_time = 0,
   .username = "",
   .password = "",
   .url = "",
@@ -129,6 +137,11 @@ void libnetwork_cycle_connection()
   LIST_FOREACH(node, &context_nodes_head, entries) {
     node->context.cycle_connection_signaled = true;
   }
+}
+
+void libnetwork_report_errors(network_context_t *ctx, bool yesno)
+{
+  ctx->report_errors = yesno;
 }
 
 network_context_t* libnetwork_create(network_type_t type)
@@ -565,20 +578,25 @@ static void network_request(network_context_t* ctx, CURL *curl)
       continue;
 
     if (code != CURLE_OK) {
-      sbp_log(LOG_WARNING, "Network Request Error - \"%s\"", error_buf);
-      piksi_log(LOG_WARNING, "curl request (error: %d) \"%s\"", code, error_buf);
+      time_t current_time = time(NULL);
+      time_t last_error_delta = current_time - ctx->last_curl_error_time;
+      int facpri = LOG_WARNING;
+      if (last_error_delta >= ERROR_REPORTING_INTERVAL && ctx->report_errors) {
+        facpri =  LOG_SBP|LOG_WARNING;
+        ctx->last_curl_error_time = current_time;
+      }
+      piksi_log(facpri, "curl request (error: %d) \"%s\"", code, error_buf);
     } else {
       long response = 0;
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
       if (response != 0) {
-        sbp_log(LOG_INFO, "Network Request Response Code - (%d)", response);
-        piksi_log(LOG_INFO, "curl request code %d", response);
+        piksi_log(LOG_SBP|LOG_INFO, "curl request code %d", response);
         ctx->response_code = response;
         network_response_code_check(ctx);
       }
     }
 
-    usleep(1000000);
+    sleep(1);
   }
 }
 

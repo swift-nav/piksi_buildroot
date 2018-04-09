@@ -165,4 +165,9 @@ void libnetwork_shutdown(void);
  */
 void libnetwork_cycle_connection(void);
 
+/**
+ * @brief Configures whether libnetwork should report errors (defaults to true).
+ */
+void libnetwork_report_errors(network_context_t *ctx, bool yesno);
+
 #endif /* SWIFTNAV_LIBNETWORK_H */
