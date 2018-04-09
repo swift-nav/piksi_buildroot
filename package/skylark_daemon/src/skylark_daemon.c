@@ -29,6 +29,7 @@
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
+static bool no_error_reporting = false;
 
 typedef enum {
   OP_MODE_NONE,
@@ -68,16 +69,18 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_DOWNLOAD,
     OPT_ID_SETTINGS,
     OPT_ID_RECONNECT_DL,
+    OPT_ID_NO_ERROR_REPORTING,
   };
 
   const struct option long_opts[] = {
-    {"upload",       no_argument,       0, OPT_ID_UPLOAD},
-    {"download",     no_argument,       0, OPT_ID_DOWNLOAD},
-    {"settings",     no_argument,       0, OPT_ID_SETTINGS},
-    {"reconnect-dl", no_argument,       0, OPT_ID_RECONNECT_DL},
-    {"file",         required_argument, 0, OPT_ID_FILE},
-    {"url  ",        required_argument, 0, OPT_ID_URL},
-    {"debug",        no_argument,       0, OPT_ID_DEBUG},
+    {"upload",             no_argument,       0, OPT_ID_UPLOAD},
+    {"download",           no_argument,       0, OPT_ID_DOWNLOAD},
+    {"settings",           no_argument,       0, OPT_ID_SETTINGS},
+    {"reconnect-dl",       no_argument,       0, OPT_ID_RECONNECT_DL},
+    {"no-error-reporting", no_argument,       0, OPT_ID_NO_ERROR_REPORTING},
+    {"file",               required_argument, 0, OPT_ID_FILE},
+    {"url  ",              required_argument, 0, OPT_ID_URL},
+    {"debug",              no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
 
@@ -117,6 +120,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_DEBUG: {
         debug = true;
+      }
+      break;
+
+      case OPT_ID_NO_ERROR_REPORTING: {
+        no_error_reporting = true;
       }
       break;
 
@@ -164,6 +172,10 @@ static bool configure_libnetwork(network_context_t* ctx, int fd)
     goto exit_error;
   if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
+
+  if (no_error_reporting) {
+    libnetwork_report_errors(ctx, false);
+  }
 
   return true;
 
