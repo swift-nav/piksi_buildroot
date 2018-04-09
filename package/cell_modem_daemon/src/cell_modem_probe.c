@@ -40,9 +40,11 @@ static const char *const response_strs[] = {
  * the matched response.  A negative response indicates the expected string
  * was not read, otherwise an index into `responses` is returned.
  */
-static int modem_read(int fd, char *buf, size_t len, const char *const *responses)
+static ssize_t modem_read(int fd, char *buf, size_t len, const char *const *responses)
 {
-  size_t n = 0;
+  ssize_t n = 0;
+  assert( len < SSIZET_MAX );
+  ssize_t slen = (ssize_t)len;
   fd_set fds;
   struct timeval timeout = {.tv_sec = 0, .tv_usec = 100000};
   do {
@@ -53,20 +55,20 @@ static int modem_read(int fd, char *buf, size_t len, const char *const *response
     if (!FD_ISSET(fd, &fds)) {
       return -1;
     }
-    int r = read(fd, buf + n, len - n - 1);
+    ssize_t r = read(fd, buf + n, (size_t)(slen - n - 1));
     if (r < 0) {
         return -3;
     }
-    n += (size_t)r;
+    n += r;
     buf[n] = 0;
-    for(int i = 0; responses[i]; i++) {
-      size_t rlen = strlen(responses[i]);
+    for(ssize_t i = 0; responses[i]; i++) {
+      ssize_t rlen = (ssize_t)strlen(responses[i]);
       if ((n >= rlen) && (strcmp(buf + n - rlen, responses[i]) == 0)) {
         buf[n - rlen] = 0;
         return i;
       }
     }
-  } while (n < len - 1);
+  } while (n < slen - 1);
   return -4;
 }
 
