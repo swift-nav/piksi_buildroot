@@ -17,6 +17,10 @@
 #define SBP_SENDER_ID_FILE_PATH "/cfg/sbp_sender_id"
 #define DEVICE_UUID_FILE_PATH   "/cfg/device_uuid"
 
+#define DEVICE_DURO_EEPROM_PATH "/cfg/duro_eeprom"
+#define DEVICE_DURO_MAX_CONTENTS_SIZE (128u)
+#define DEVICE_DURO_ID_STRING "DUROV0"
+
 #define PROC_UPTIME_FILE_PATH   "/proc/uptime"
 #define UPTIME_READ_MAX_LENGTH (64u)
 
@@ -76,6 +80,23 @@ u64 system_uptime_ms_get(void)
 int device_uuid_get(char *str, size_t str_size)
 {
   return file_read_string(DEVICE_UUID_FILE_PATH, str, str_size);
+}
+
+bool device_is_duro(void)
+{
+  char duro_eeprom_sig[sizeof(DEVICE_DURO_ID_STRING)];
+
+  int fd = open(DEVICE_DURO_EEPROM_PATH, O_RDONLY);
+  if (fd < 0) {
+    piksi_log(LOG_WARNING, "Failed to open DURO eeprom path");
+    return false;
+  }
+  read(fd, duro_eeprom_sig, sizeof(DEVICE_DURO_ID_STRING));
+  close(fd);
+
+  return (memcmp(duro_eeprom_sig,
+                 DEVICE_DURO_ID_STRING,
+                 strlen(DEVICE_DURO_ID_STRING)) == 0);
 }
 
 int zmq_simple_loop(zloop_t *zloop)

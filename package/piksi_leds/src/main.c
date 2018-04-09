@@ -22,21 +22,6 @@
 #define PUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43031"
 #define SUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43030"
 
-#define DURO_EEPROM_PATH "/cfg/duro_eeprom"
-
-static bool board_is_duro(void)
-{
-  int fd = open(DURO_EEPROM_PATH, O_RDONLY);
-  if (fd < 0) {
-    piksi_log(LOG_WARNING, "failed to open DURO eeprom path");
-    return false;
-  }
-  char buf[6];
-  read(fd, buf, 6);
-  close(fd);
-  return memcmp(buf, "DUROV0", 6) == 0;
-}
-
 int main(void)
 {
   logging_init(PROGRAM_NAME);
@@ -51,7 +36,7 @@ int main(void)
   }
 
   firmware_state_init(sbp_zmq_pubsub_rx_ctx_get(ctx));
-  manage_led_setup(board_is_duro());
+  manage_led_setup(device_is_duro());
 
   zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
 

@@ -359,6 +359,25 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
   }
 }
 
+static void hardware_variant_settings_setup(settings_ctx_t *settings_ctx)
+{
+  static char *hardware_variant = "";
+  if (device_is_duro()) {
+    hardware_variant = "Duro";
+  } else {
+    hardware_variant = "Multi";
+  }
+  if (settings_register_readonly(settings_ctx,
+                                 "system_info",
+                                 "hw_variant",
+                                 hardware_variant,
+                                 strlen(hardware_variant) + 1,
+                                 SETTINGS_TYPE_STRING)
+      != 0) {
+    piksi_log(LOG_WARNING, "Failed to register hardware_variant in system_info");
+  }
+}
+
 static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id; (void)context;
@@ -502,6 +521,7 @@ int main(void)
   cellmodem_init(pubsub_ctx, settings_ctx);
 
   img_tbl_settings_setup(settings_ctx);
+  hardware_variant_settings_setup(settings_ctx);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_COMMAND_REQ, sbp_command, pubsub_ctx, NULL);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
