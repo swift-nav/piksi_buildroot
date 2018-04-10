@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-HOST_LLVM_OBFUSCATOR_VERSION = v13
+HOST_LLVM_OBFUSCATOR_VERSION = v14
 HOST_LLVM_OBFUSCATOR_SOURCE = $(HOST_LLVM_OBFUSCATOR_VERSION)/llvm-obfuscator-arm-x86.txz
 HOST_LLVM_OBFUSCATOR_SITE = https://github.com/swift-nav/llvm-obfuscator-arm/releases/download/
 HOST_LLVM_OBFUSCATOR_ACTUAL_SOURCE_TARBALL = llvm-obfuscator-$(HOST_LLVM_OBFUSCATOR_VERSION).tar.xz
