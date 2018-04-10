@@ -48,7 +48,7 @@ flush-rootfs:
 # '  pkg-<pkg>-reconfigure      - Restart the build from the configure step'
 # '  pkg-<pkg>-rebuild          - Restart the build from the build step'
 pkg-%: config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
+	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF) \
 		$(MAKE) -C buildroot $* O=output
 
 host-pkg-%: host-config
