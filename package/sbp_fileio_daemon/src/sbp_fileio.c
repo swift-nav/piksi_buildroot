@@ -23,6 +23,8 @@
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
+#define IMAGESET_BIN_NAME "upgrade.image_set.bin"
+
 static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context);
@@ -41,6 +43,22 @@ void sbp_fileio_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
                                remove_cb, tx_ctx, NULL);
   sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ,
                                write_cb, tx_ctx, NULL);
+}
+
+static const char* filter_imageset_bin(const char* filename)
+{
+  if (strcmp(filename, IMAGESET_BIN_NAME) != 0)
+    return filename;
+
+  static char path_buf[PATH_MAX];
+
+  size_t printed = snprintf(path_buf,
+                            sizeof(path_buf),
+                            "%s/%s",
+                            "/data/",
+                            IMAGESET_BIN_NAME);
+  assert( printed < sizeof(path_buf) );
+  return path_buf;
 }
 
 /** File read callback.
@@ -164,23 +182,25 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
 
+  const char* filename = filter_imageset_bin(msg->filename);
+
   u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
-  int f = open(msg->filename, O_WRONLY | O_CREAT, 0666);
+  int f = open(filename, O_WRONLY | O_CREAT, 0666);
   if (f < 0) {
-    piksi_log(LOG_ERR, "Error opening %s for write", msg->filename);
+    piksi_log(LOG_ERR, "Error opening %s for write", filename);
     return;
   }
   if (lseek(f, msg->offset, SEEK_SET) != msg->offset) {
     piksi_log(LOG_ERR,
               "Error seeking to offset %d in %s for write",
               msg->offset,
-              msg->filename);
+              filename);
     goto cleanup;
   }
   int write_count = len - headerlen;
   if (write(f, msg_ + headerlen, write_count) != write_count) {
     piksi_log(
-      LOG_ERR, "Error writing %d bytes to %s", write_count, msg->filename);
+      LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
     goto cleanup;
   }
 
