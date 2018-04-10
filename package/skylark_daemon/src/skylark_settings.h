@@ -15,6 +15,9 @@
 
 #include <libpiksi/settings.h>
 
+#define REQ_FIFO_NAME "/var/run/skylark/download/request"
+#define REP_FIFO_NAME "/var/run/skylark/download/response"
+
 void skylark_init(settings_ctx_t *settings_ctx);
 bool skylark_reconnect_dl(void);
 

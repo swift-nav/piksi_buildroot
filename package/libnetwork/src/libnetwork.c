@@ -82,6 +82,9 @@ struct network_context_s {
   bool report_errors;          /**< Should this instance of libnetwork report errors? */
   time_t last_curl_error_time; /**< Time at which we last issued a cURL error message */
 
+  int req_fd;                  /**< Control FIFO request FD. */
+  int rep_fd;                  /**< Control FIFO response FD. */
+
   char username[LIBNETWORK_USERNAME_MAX_LENGTH];
   char password[LIBNETWORK_PASSWORD_MAX_LENGTH];
   char url[LIBNETWORK_URL_MAX_LENGTH];
@@ -113,6 +116,8 @@ static network_context_t empty_context = {
   .node = NULL,
   .report_errors = true,
   .last_curl_error_time = 0,
+  .req_fd = -1,
+  .rep_fd = -1,
   .username = "",
   .password = "",
   .url = "",
@@ -142,6 +147,17 @@ void libnetwork_cycle_connection()
 void libnetwork_report_errors(network_context_t *ctx, bool yesno)
 {
   ctx->report_errors = yesno;
+}
+
+network_status_t libnetwork_set_control_fifos(network_context_t *ctx, int req_fd, int rep_fd)
+{
+  int flags = fcntl(req_fd, F_GETFL, 0);
+  fcntl(req_fd, F_SETFL, flags | O_NONBLOCK);
+
+  ctx->req_fd = req_fd;
+  ctx->rep_fd = rep_fd;
+
+  return NETWORK_STATUS_SUCCESS;
 }
 
 network_context_t* libnetwork_create(network_type_t type)
@@ -389,11 +405,34 @@ static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
   return obj_count*size;
 }
 
+static void service_control_fifo(network_context_t *ctx)
+{
+  if (ctx->req_fd < 0)
+    return;
+
+  char cmd[1] = { 0 };
+
+  if (read(ctx->req_fd, cmd, sizeof(cmd)) < 0)
+    return;
+
+  char status_buf[4] = " -1";
+
+  if (cmd[0] == CONTROL_COMMAND_STATUS[0]) {
+    size_t c = snprintf(status_buf, sizeof(status_buf), "%03ld", ctx->response_code);
+    if (c >= sizeof(status_buf)) {
+      piksi_log(LOG_WARNING, "%s: HTTP response code too large: %d", __FUNCTION__, ctx->response_code);
+    }
+    write(ctx->rep_fd, status_buf, sizeof(status_buf) - 1);
+  }
+}
+
 /**
  * Abort the connection if we make no progress for the last 30 intervals
  */
 static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
 {
+  service_control_fifo(ctx);
+
   if (ctx->shutdown_signaled) {
     ctx->stall_count = 0;
     return -1;

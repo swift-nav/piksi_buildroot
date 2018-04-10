@@ -24,6 +24,8 @@
 
 #include <stdbool.h>
 
+#define CONTROL_COMMAND_STATUS "s"
+
 typedef struct network_context_s network_context_t;
 
 /**
@@ -169,5 +171,10 @@ void libnetwork_cycle_connection(void);
  * @brief Configures whether libnetwork should report errors (defaults to true).
  */
 void libnetwork_report_errors(network_context_t *ctx, bool yesno);
+
+/**
+ * @brief Configures the request and response control FIFOs
+ */
+network_status_t libnetwork_set_control_fifos(network_context_t *ctx, int req_fd, int rep_fd);
 
 #endif /* SWIFTNAV_LIBNETWORK_H */

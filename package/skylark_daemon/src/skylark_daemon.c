@@ -25,6 +25,7 @@
 #define SKYLARK_CONTROL_SOCK "ipc://" SKYLARK_CONTROL_FILE
 
 #define SKYLARK_CONTROL_COMMAND_RECONNECT "r"
+#define SKYLARK_CONTROL_COMMAND_STATUS "s"
 
 static bool debug = false;
 static const char *fifo_file_path = NULL;
@@ -37,6 +38,7 @@ typedef enum {
   OP_MODE_UPLOAD,
   OP_MODE_SETTINGS,
   OP_MODE_RECONNECT_DL,
+  OP_MODE_GET_HEALTH,
 } operating_mode;
 
 static operating_mode op_mode = OP_MODE_NONE;
@@ -50,6 +52,7 @@ static void usage(char *command)
   puts("\t--download       Launch in skylark download mode");
   puts("\t--settings       Launch in settings daemon mode");
   puts("\t--reconnect-dl   Ask the download daemon to reconnect");
+  puts("\t--get-health     Ask the download daemon for its health (HTTP response code)");
 
   puts("\nUpload/download mode options");
   puts("\t--file           <file>");
@@ -70,6 +73,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_SETTINGS,
     OPT_ID_RECONNECT_DL,
     OPT_ID_NO_ERROR_REPORTING,
+    OPT_ID_GET_HEALTH,
   };
 
   const struct option long_opts[] = {
@@ -78,6 +82,7 @@ static int parse_options(int argc, char *argv[])
     {"settings",           no_argument,       0, OPT_ID_SETTINGS},
     {"reconnect-dl",       no_argument,       0, OPT_ID_RECONNECT_DL},
     {"no-error-reporting", no_argument,       0, OPT_ID_NO_ERROR_REPORTING},
+    {"get-health",         no_argument,       0, OPT_ID_GET_HEALTH},
     {"file",               required_argument, 0, OPT_ID_FILE},
     {"url  ",              required_argument, 0, OPT_ID_URL},
     {"debug",              no_argument,       0, OPT_ID_DEBUG},
@@ -128,6 +133,11 @@ static int parse_options(int argc, char *argv[])
       }
       break;
 
+      case OPT_ID_GET_HEALTH: {
+        op_mode = OP_MODE_GET_HEALTH;
+      }
+      break;
+
       default: {
         puts("Invalid option");
         return -1;
@@ -162,7 +172,7 @@ static void cycle_connection(int signum)
   libnetwork_cycle_connection();
 }
 
-static bool configure_libnetwork(network_context_t* ctx, int fd) 
+static bool configure_libnetwork(network_context_t* ctx, int fd, int req_fd, int rep_fd)
 {
   network_status_t status = NETWORK_STATUS_SUCCESS;
 
@@ -171,6 +181,8 @@ static bool configure_libnetwork(network_context_t* ctx, int fd)
   if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
   if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_set_control_fifos(ctx, req_fd, rep_fd)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
 
   if (no_error_reporting) {
@@ -210,8 +222,7 @@ static void skylark_upload_mode()
   }
 
   network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_UPLOAD);
-
-  if(!configure_libnetwork(network_context, fd)) {
+  if(!configure_libnetwork(network_context, fd, -1, -1)) {
     exit(EXIT_FAILURE);
   }
 
@@ -222,6 +233,32 @@ static void skylark_upload_mode()
   libnetwork_destroy(&network_context);
 }
 
+static void skylark_health()
+{
+  int req_fd = open(REQ_FIFO_NAME, O_WRONLY);
+  if (req_fd < 0) {
+    piksi_log(LOG_ERR, "request fifo error (%d) \"%s\"", errno, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  int rep_fd = open(REP_FIFO_NAME, O_RDONLY);
+  if (rep_fd < 0) {
+    piksi_log(LOG_ERR, "response fifo error (%d) \"%s\"", errno, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  write(req_fd, CONTROL_COMMAND_STATUS, 1);
+  char response_buf[4] = { 0 };
+  read(rep_fd, response_buf, sizeof(response_buf) - 1);
+
+  long response = strtol(response_buf, NULL, 10);
+  if (response < 0) {
+    piksi_log(LOG_WARNING, "%s: error requesting skylark HTTP response code: %d", __FUNCTION__, response);
+  }
+
+  printf("%03ld", response);
+}
+
 static void skylark_download_mode()
 {
   int fd = open(fifo_file_path, O_WRONLY);
@@ -230,9 +267,21 @@ static void skylark_download_mode()
     exit(EXIT_FAILURE);
   }
 
+  int req_fd = open(REQ_FIFO_NAME, O_RDONLY);
+  if (req_fd < 0) {
+    piksi_log(LOG_ERR, "request fifo error (%d) \"%s\"", errno, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  int rep_fd = open(REP_FIFO_NAME, O_WRONLY);
+  if (rep_fd < 0) {
+    piksi_log(LOG_ERR, "response fifo error (%d) \"%s\"", errno, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
   network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_DOWNLOAD);
 
-  if(!configure_libnetwork(network_context, fd)) {
+  if(!configure_libnetwork(network_context, fd, req_fd, rep_fd)) {
     exit(EXIT_FAILURE);
   }
 
@@ -286,6 +335,9 @@ int main(int argc, char *argv[])
                                SKYLARK_CONTROL_COMMAND_RECONNECT,
                                "reconnect",
                                SKYLARK_CONTROL_SOCK);
+    break;
+  case OP_MODE_GET_HEALTH:
+    skylark_health();
     break;
   case OP_MODE_NONE:
   default:
