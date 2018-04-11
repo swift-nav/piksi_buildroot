@@ -24,8 +24,8 @@
 
 #include <stdbool.h>
 
-#define SKYLARK_REQ_FIFO_NAME "/var/run/skylark/control/dl.req"
-#define SKYLARK_REP_FIFO_NAME "/var/run/skylark/control/dl.resp"
+#define SKYLARK_REQ_FIFO_NAME "/var/run/skylark_dl.req"
+#define SKYLARK_REP_FIFO_NAME "/var/run/skylark_dl.resp"
 
 typedef struct {
   const char* req_fifo_name;

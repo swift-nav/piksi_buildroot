@@ -10,21 +10,6 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/**
- * \file skylark_health_monitor.c
- * \brief GLONASS Observations Health Monitor
- *
- * When glonass acquisition is enabled, it is expected that glonass obs
- * measurements will be received periodically. This monitor will track
- * base obs messages and inspect them for glonass observations, and
- * subsequently alert after a specified time period if none are
- * received. Will not alert when not connected to a base station (no base
- * obs messages being received).
- * \author Ben Altieri
- * \version v1.4.0
- * \date 2018-01-30
- */
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -49,7 +34,7 @@ static bool no_fix = true;
 
 static bool skylark_enabled() {
 
-  FILE* fp = fopen("/var/run/skylark/enabled", "r");
+  FILE* fp = fopen("/var/run/skylark_enabled", "r");
   char buf[1] = {0};
 
   (void) fread(buf, sizeof(buf), 1, fp);
@@ -123,7 +108,7 @@ int skylark_monitor_init(health_ctx_t *health_ctx)
 {
   skylark_monitor = health_monitor_create();
   if (skylark_monitor == NULL) {
-    piksi_log(LOG_WARING, "%s: failed to create health monitor context", __FUNCTION__);
+    piksi_log(LOG_WARNING, "%s: failed to create health monitor context", __FUNCTION__);
     return -1;
   }
 
