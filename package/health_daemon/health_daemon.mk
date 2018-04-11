@@ -8,7 +8,7 @@ HEALTH_DAEMON_VERSION = 0.1
 HEALTH_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/health_daemon/src"
 HEALTH_DAEMON_SITE_METHOD = local
-HEALTH_DAEMON_DEPENDENCIES = czmq libsbp libpiksi
+HEALTH_DAEMON_DEPENDENCIES = czmq libsbp libpiksi libnetwork libcurl
 
 define HEALTH_DAEMON_USERS
 	health_daemon -1 health_daemon -1 * - - -
