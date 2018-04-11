@@ -24,7 +24,7 @@
 #include "health_monitor.h"
 #include "skylark_monitor.h"
 
-#define SKYLARK_ALERT_RATE_LIMIT (5000u) /*ms*/
+#define SKYLARK_ALERT_RATE_LIMIT (10000u) /*ms*/
 #define NO_FIX (0)
 
 static health_monitor_t* skylark_monitor;
