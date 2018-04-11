@@ -25,7 +25,6 @@
 #define SKYLARK_CONTROL_SOCK "ipc://" SKYLARK_CONTROL_FILE
 
 #define SKYLARK_CONTROL_COMMAND_RECONNECT "r"
-#define SKYLARK_CONTROL_COMMAND_STATUS "s"
 
 #define MSG_GET_HEALTH_ERROR "Error requesting skylark connection HTTP response code: %d"
 #define MSG_GET_HEALTH_ERROR_LF (MSG_GET_HEALTH_ERROR "\n")
@@ -238,7 +237,7 @@ static void skylark_upload_mode()
 
 static void skylark_request_health()
 {
-  s32 response_code = -1;
+  int response_code = -1;
   network_status_t status = libnetwork_request_health(SKYLARK_CONTROL_PAIR, &response_code);
 
   if (status != NETWORK_STATUS_SUCCESS) {
