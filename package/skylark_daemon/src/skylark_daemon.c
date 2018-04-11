@@ -235,7 +235,7 @@ static void skylark_upload_mode()
   libnetwork_destroy(&network_context);
 }
 
-static void skylark_request_health()
+static int skylark_request_health()
 {
   int response_code = -1;
   network_status_t status = libnetwork_request_health(SKYLARK_CONTROL_PAIR, &response_code);
@@ -243,10 +243,11 @@ static void skylark_request_health()
   if (status != NETWORK_STATUS_SUCCESS) {
     piksi_log(LOG_ERR, MSG_GET_HEALTH_ERROR, response_code);
     fprintf(stderr, MSG_GET_HEALTH_ERROR_LF, response_code);
-    return;
+    return EXIT_FAILURE;
   }
 
   fprintf(stdout, "%03d\n", response_code);
+  return EXIT_SUCCESS;
 }
 
 static void skylark_download_mode()
@@ -298,6 +299,8 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
+  int exit_status = EXIT_SUCCESS;
+
   switch(op_mode) {
   case OP_MODE_DOWNLOAD:
     skylark_download_mode();
@@ -309,7 +312,7 @@ int main(int argc, char *argv[])
     skylark_upload_mode();
     break;
   case OP_MODE_GET_HEALTH:
-    skylark_request_health();
+    exit_status = skylark_request_health();
     break;
   case OP_MODE_RECONNECT_DL:
     settings_loop_send_command("Skylark upload client",
@@ -329,5 +332,5 @@ int main(int argc, char *argv[])
   }
 
   logging_deinit();
-  exit(EXIT_SUCCESS);
+  exit(exit_status);
 }
