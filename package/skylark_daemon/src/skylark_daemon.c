@@ -27,6 +27,9 @@
 #define SKYLARK_CONTROL_COMMAND_RECONNECT "r"
 #define SKYLARK_CONTROL_COMMAND_STATUS "s"
 
+#define MSG_GET_HEALTH_ERROR "Error requesting skylark connection HTTP response code: %d"
+#define MSG_GET_HEALTH_ERROR_LF (MSG_GET_HEALTH_ERROR "\n")
+
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
@@ -52,7 +55,7 @@ static void usage(char *command)
   puts("\t--download       Launch in skylark download mode");
   puts("\t--settings       Launch in settings daemon mode");
   puts("\t--reconnect-dl   Ask the download daemon to reconnect");
-  puts("\t--get-health     Ask the download daemon for its health (HTTP response code)");
+  puts("\t--get-health     Ask the download daemon for it's last HTTP response code");
 
   puts("\nUpload/download mode options");
   puts("\t--file           <file>");
@@ -172,7 +175,7 @@ static void cycle_connection(int signum)
   libnetwork_cycle_connection();
 }
 
-static bool configure_libnetwork(network_context_t* ctx, int fd, int req_fd, int rep_fd)
+static bool configure_libnetwork(network_context_t* ctx, int fd, operating_mode mode)
 {
   network_status_t status = NETWORK_STATUS_SUCCESS;
 
@@ -182,7 +185,7 @@ static bool configure_libnetwork(network_context_t* ctx, int fd, int req_fd, int
     goto exit_error;
   if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
-  if ((status = libnetwork_set_control_fifos(ctx, req_fd, rep_fd)) != NETWORK_STATUS_SUCCESS)
+  if (mode == OP_MODE_DOWNLOAD && (status = libnetwork_configure_control(ctx, SKYLARK_CONTROL_PAIR)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
 
   if (no_error_reporting) {
@@ -222,7 +225,7 @@ static void skylark_upload_mode()
   }
 
   network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_UPLOAD);
-  if(!configure_libnetwork(network_context, fd, -1, -1)) {
+  if(!configure_libnetwork(network_context, fd, OP_MODE_UPLOAD)) {
     exit(EXIT_FAILURE);
   }
 
@@ -233,30 +236,18 @@ static void skylark_upload_mode()
   libnetwork_destroy(&network_context);
 }
 
-static void skylark_health()
+static void skylark_request_health()
 {
-  int req_fd = open(REQ_FIFO_NAME, O_WRONLY);
-  if (req_fd < 0) {
-    piksi_log(LOG_ERR, "request fifo error (%d) \"%s\"", errno, strerror(errno));
-    exit(EXIT_FAILURE);
+  s32 response_code = -1;
+  network_status_t status = libnetwork_request_health(SKYLARK_CONTROL_PAIR, &response_code);
+
+  if (status != NETWORK_STATUS_SUCCESS) {
+    piksi_log(LOG_ERR|LOG_SBP , MSG_GET_HEALTH_ERROR, response_code);
+    fprintf(stderr, MSG_GET_HEALTH_ERROR_LF, response_code);
+    return;
   }
 
-  int rep_fd = open(REP_FIFO_NAME, O_RDONLY);
-  if (rep_fd < 0) {
-    piksi_log(LOG_ERR, "response fifo error (%d) \"%s\"", errno, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  write(req_fd, CONTROL_COMMAND_STATUS, 1);
-  char response_buf[4] = { 0 };
-  read(rep_fd, response_buf, sizeof(response_buf) - 1);
-
-  long response = strtol(response_buf, NULL, 10);
-  if (response < 0) {
-    piksi_log(LOG_WARNING, "%s: error requesting skylark HTTP response code: %d", __FUNCTION__, response);
-  }
-
-  printf("%03ld", response);
+  fprintf(stdout, "%03d\n", response_code);
 }
 
 static void skylark_download_mode()
@@ -267,21 +258,9 @@ static void skylark_download_mode()
     exit(EXIT_FAILURE);
   }
 
-  int req_fd = open(REQ_FIFO_NAME, O_RDONLY);
-  if (req_fd < 0) {
-    piksi_log(LOG_ERR, "request fifo error (%d) \"%s\"", errno, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  int rep_fd = open(REP_FIFO_NAME, O_WRONLY);
-  if (rep_fd < 0) {
-    piksi_log(LOG_ERR, "response fifo error (%d) \"%s\"", errno, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
   network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_DOWNLOAD);
 
-  if(!configure_libnetwork(network_context, fd, req_fd, rep_fd)) {
+  if(!configure_libnetwork(network_context, fd, OP_MODE_DOWNLOAD)) {
     exit(EXIT_FAILURE);
   }
 
@@ -330,14 +309,14 @@ int main(int argc, char *argv[])
   case OP_MODE_UPLOAD:
     skylark_upload_mode();
     break;
+  case OP_MODE_GET_HEALTH:
+    skylark_request_health();
+    break;
   case OP_MODE_RECONNECT_DL:
     settings_loop_send_command("Skylark upload client",
                                SKYLARK_CONTROL_COMMAND_RECONNECT,
                                "reconnect",
                                SKYLARK_CONTROL_SOCK);
-    break;
-  case OP_MODE_GET_HEALTH:
-    skylark_health();
     break;
   case OP_MODE_NONE:
   default:

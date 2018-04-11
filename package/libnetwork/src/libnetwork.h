@@ -24,6 +24,16 @@
 
 #include <stdbool.h>
 
+#define SKYLARK_REQ_FIFO_NAME "/var/run/skylark/control/dl.req"
+#define SKYLARK_REP_FIFO_NAME "/var/run/skylark/control/dl.resp"
+
+typedef struct {
+  const char* req_fifo_name;
+  const char* rep_fifo_name;
+} control_pair_t;
+
+#define SKYLARK_CONTROL_PAIR (control_pair_t){ SKYLARK_REQ_FIFO_NAME, SKYLARK_REP_FIFO_NAME }
+
 #define CONTROL_COMMAND_STATUS "s"
 
 typedef struct network_context_s network_context_t;
@@ -42,11 +52,14 @@ typedef enum {
  * @brief   Error type
  */
 typedef enum {
-  NETWORK_STATUS_INVALID_SETTING    = -1, /** < The setting is invalid for this type */
-  NETWORK_STATUS_URL_TOO_LARGE      = -2, /** < The URL specified is too large       */
-  NETWORK_STATUS_USERNAME_TOO_LARGE = -3, /** < The username specified is too large  */
-  NETWORK_STATUS_PASSWORD_TOO_LARGE = -4, /** < The password specified is too large  */
-  NETWORK_STATUS_SUCCESS            = 0,  /** < The operation was successful         */
+  NETWORK_STATUS_INVALID_SETTING    = -1, /** < The setting is invalid for this type   */
+  NETWORK_STATUS_URL_TOO_LARGE      = -2, /** < The URL specified is too large         */
+  NETWORK_STATUS_USERNAME_TOO_LARGE = -3, /** < The username specified is too large    */
+  NETWORK_STATUS_PASSWORD_TOO_LARGE = -4, /** < The password specified is too large    */
+  NETWORK_STATUS_FIFO_ERROR         = -5, /** < There was an error creating a FIFO     */
+  NETWORK_STATUS_WRITE_ERROR        = -6, /** < There was an error writing to a FIFO   */
+  NETWORK_STATUS_READ_ERROR         = -7, /** < There was an error reading from a FIFO */
+  NETWORK_STATUS_SUCCESS            =  0,  /** < The operation was successful          */
 } network_status_t;
 
 /**
@@ -175,6 +188,11 @@ void libnetwork_report_errors(network_context_t *ctx, bool yesno);
 /**
  * @brief Configures the request and response control FIFOs
  */
-network_status_t libnetwork_set_control_fifos(network_context_t *ctx, int req_fd, int rep_fd);
+network_status_t libnetwork_configure_control(network_context_t *ctx, control_pair_t control_pair);
+
+/**
+ * @brief Configures the request and response control FIFOs
+ */
+network_status_t libnetwork_request_health(control_pair_t control_pair, int *status);
 
 #endif /* SWIFTNAV_LIBNETWORK_H */

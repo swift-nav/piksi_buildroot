@@ -159,18 +159,6 @@ void skylark_init(settings_ctx_t *settings_ctx)
 
   mkfifo(DOWNLOAD_FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-  int req_fd = mkfifo(REQ_FIFO_NAME, 0600);
-  if (req_fd < 0) {
-    piksi_log(LOG_ERR, "error opening request fifo (%d) \"%s\"", errno, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  int rep_fd = mkfifo(REP_FIFO_NAME, 0600);
-  if (rep_fd < 0) {
-    piksi_log(LOG_ERR, "error opening response fifo (%d) \"%s\"", errno, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
   settings_register(settings_ctx, "skylark", "enable",
                     &skylark_enabled, sizeof(skylark_enabled),
                     SETTINGS_TYPE_BOOL,
