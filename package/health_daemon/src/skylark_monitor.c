@@ -28,6 +28,11 @@
 #define NO_FIX (0)
 
 //#define DEBUG_SKYLARK_MONITOR
+#ifdef DEBUG_SKYLARK_MONITOR
+#define DEBUG_LOG(...)
+#else
+#define DEBUG_LOG(...) piksi_log(LOG_DEBUG, __VA_ARGS__)
+#endif
 
 static health_monitor_t* skylark_monitor;
 static bool no_fix = true;
@@ -76,9 +81,7 @@ static int skylark_timer_callback(health_monitor_t *monitor, void *context)
   }
 
   if (!skylark_enabled()) {
-#ifdef DEBUG_SKYLARK_MONITOR
-    piksi_log(LOG_DEBUG, "%s: skylark is not enabled", __FUNCTION__);
-#endif
+    DEBUG_LOG("%s: skylark is not enabled", __FUNCTION__);
     return 0;
   }
 
@@ -90,9 +93,7 @@ static int skylark_timer_callback(health_monitor_t *monitor, void *context)
     return 0;
   }
 
-#ifdef DEBUG_SKYLARK_MONITOR
-  piksi_log(LOG_DEBUG, "%s: skylark health status code: %d", __FUNCTION__, status);
-#endif
+  DEBUG_LOG("%s: skylark health status code: %d", __FUNCTION__, status);
 
   if (status != 404 && status != 504)
     return 0;
@@ -131,3 +132,5 @@ void skylark_monitor_deinit(void)
     health_monitor_destroy(&skylark_monitor);
   }
 }
+
+#undef DEBUG_LOG

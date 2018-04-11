@@ -31,8 +31,6 @@
 
 #include "libnetwork.h"
 
-#define DEBUG_LIBNETWORK
-
 /** Maximum length of username string */
 #define LIBNETWORK_USERNAME_MAX_LENGTH (512L)
 /** Maximum length of password string */
@@ -551,9 +549,8 @@ static void service_control_fifo(network_context_t *ctx)
     return;
   }
 
-#ifdef DEBUG_LIBNETWORK
-  piksi_log(LOG_DEBUG, "%s: got command '%c'", __FUNCTION__, cmd[0]);
-#endif
+  if (ctx->debug)
+    piksi_log(LOG_DEBUG, "%s: got command '%c'", __FUNCTION__, cmd[0]);
 
   char status_buf[4] = " -1";
 
@@ -570,9 +567,9 @@ static void service_control_fifo(network_context_t *ctx)
   }
 
   size_t c = snprintf(status_buf, sizeof(status_buf), "%03ld", response_code);
-#ifdef DEBUG_LIBNETWORK
-  piksi_log(LOG_DEBUG, "%s: HTTP response code: %d", __FUNCTION__, response_code);
-#endif
+  if (ctx->debug)
+    piksi_log(LOG_DEBUG, "%s: HTTP response code: %d", __FUNCTION__, response_code);
+
   if (c >= sizeof(status_buf)) {
     piksi_log(LOG_WARNING, "%s: HTTP response code too large: %d", __FUNCTION__, response_code);
   }
@@ -770,9 +767,8 @@ static void network_request(network_context_t* ctx, CURL *curl)
       return;
 
     if (code == CURLE_ABORTED_BY_CALLBACK) {
-#ifdef LIBNETWORK_DEBUG
-      piksi_log(LOG_DEBUG, "cURL aborted by callback");
-#endif
+      if (ctx->debug)
+        piksi_log(LOG_DEBUG, "cURL aborted by callback");
       continue;
     }
 
