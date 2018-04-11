@@ -31,7 +31,7 @@
 
 #include "libnetwork.h"
 
-#define DEBUG_LIBNETWORK
+//#define DEBUG_LIBNETWORK
 
 /** Maximum length of username string */
 #define LIBNETWORK_USERNAME_MAX_LENGTH (512L)

@@ -39,8 +39,10 @@
 #include "health_monitor.h"
 #include "skylark_monitor.h"
 
-#define SKYLARK_ALERT_RATE_LIMIT (5000u) /*ms*/
+#define SKYLARK_ALERT_RATE_LIMIT (10000u) /*ms*/
 #define NO_FIX (0)
+
+//#define DEBUG_SKYLARK_MONITOR
 
 static health_monitor_t* skylark_monitor;
 static bool no_fix = true;
@@ -89,7 +91,9 @@ static int skylark_timer_callback(health_monitor_t *monitor, void *context)
   }
 
   if (!skylark_enabled()) {
+#ifdef DEBUG_SKYLARK_MONITOR
     piksi_log(LOG_DEBUG, "%s: skylark is not enabled", __FUNCTION__);
+#endif
     return 0;
   }
 
@@ -97,11 +101,15 @@ static int skylark_timer_callback(health_monitor_t *monitor, void *context)
   network_status_t req_status = libnetwork_request_health(SKYLARK_CONTROL_PAIR, &status);
 
   if(NETWORK_STATUS_SUCCESS != req_status) {
+#ifdef DEBUG_SKYLARK_MONITOR
     piksi_log(LOG_WARNING, "%s: error requesting skylark health status: %d", __FUNCTION__, status);
+#endif
     return 0;
   }
 
+#ifdef DEBUG_SKYLARK_MONITOR
   piksi_log(LOG_DEBUG, "%s: skylark health status code: %d", __FUNCTION__, status);
+#endif
 
   if (status != 404 && status != 504)
     return 0;
@@ -115,7 +123,7 @@ int skylark_monitor_init(health_ctx_t *health_ctx)
 {
   skylark_monitor = health_monitor_create();
   if (skylark_monitor == NULL) {
-    piksi_log(LOG_DEBUG, "%s: failed to create health monitor context", __FUNCTION__);
+    piksi_log(LOG_WARING, "%s: failed to create health monitor context", __FUNCTION__);
     return -1;
   }
 
@@ -127,7 +135,7 @@ int skylark_monitor_init(health_ctx_t *health_ctx)
                           skylark_timer_callback,
                           NULL)
       != 0) {
-    piksi_log(LOG_DEBUG, "%s: failed to initialize health monitor", __FUNCTION__);
+    piksi_log(LOG_WARNING, "%s: failed to initialize health monitor", __FUNCTION__);
     return -1;
   }
 
