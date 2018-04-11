@@ -241,7 +241,7 @@ static void skylark_request_health()
   network_status_t status = libnetwork_request_health(SKYLARK_CONTROL_PAIR, &response_code);
 
   if (status != NETWORK_STATUS_SUCCESS) {
-    piksi_log(LOG_ERR|LOG_SBP , MSG_GET_HEALTH_ERROR, response_code);
+    piksi_log(LOG_ERR, MSG_GET_HEALTH_ERROR, response_code);
     fprintf(stderr, MSG_GET_HEALTH_ERROR_LF, response_code);
     return;
   }
