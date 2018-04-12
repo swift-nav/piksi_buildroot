@@ -26,6 +26,9 @@
 
 #define SKYLARK_CONTROL_COMMAND_RECONNECT "r"
 
+#define MSG_GET_HEALTH_ERROR "Error requesting skylark connection HTTP response code: %d"
+#define MSG_GET_HEALTH_ERROR_LF (MSG_GET_HEALTH_ERROR "\n")
+
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
@@ -37,6 +40,7 @@ typedef enum {
   OP_MODE_UPLOAD,
   OP_MODE_SETTINGS,
   OP_MODE_RECONNECT_DL,
+  OP_MODE_GET_HEALTH,
 } operating_mode;
 
 static operating_mode op_mode = OP_MODE_NONE;
@@ -50,6 +54,7 @@ static void usage(char *command)
   puts("\t--download       Launch in skylark download mode");
   puts("\t--settings       Launch in settings daemon mode");
   puts("\t--reconnect-dl   Ask the download daemon to reconnect");
+  puts("\t--get-health     Ask the download daemon for it's last HTTP response code");
 
   puts("\nUpload/download mode options");
   puts("\t--file           <file>");
@@ -70,6 +75,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_SETTINGS,
     OPT_ID_RECONNECT_DL,
     OPT_ID_NO_ERROR_REPORTING,
+    OPT_ID_GET_HEALTH,
   };
 
   const struct option long_opts[] = {
@@ -78,6 +84,7 @@ static int parse_options(int argc, char *argv[])
     {"settings",           no_argument,       0, OPT_ID_SETTINGS},
     {"reconnect-dl",       no_argument,       0, OPT_ID_RECONNECT_DL},
     {"no-error-reporting", no_argument,       0, OPT_ID_NO_ERROR_REPORTING},
+    {"get-health",         no_argument,       0, OPT_ID_GET_HEALTH},
     {"file",               required_argument, 0, OPT_ID_FILE},
     {"url  ",              required_argument, 0, OPT_ID_URL},
     {"debug",              no_argument,       0, OPT_ID_DEBUG},
@@ -128,6 +135,11 @@ static int parse_options(int argc, char *argv[])
       }
       break;
 
+      case OPT_ID_GET_HEALTH: {
+        op_mode = OP_MODE_GET_HEALTH;
+      }
+      break;
+
       default: {
         puts("Invalid option");
         return -1;
@@ -162,7 +174,7 @@ static void cycle_connection(int signum)
   libnetwork_cycle_connection();
 }
 
-static bool configure_libnetwork(network_context_t* ctx, int fd) 
+static bool configure_libnetwork(network_context_t* ctx, int fd, operating_mode mode)
 {
   network_status_t status = NETWORK_STATUS_SUCCESS;
 
@@ -171,6 +183,8 @@ static bool configure_libnetwork(network_context_t* ctx, int fd)
   if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
   if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if (mode == OP_MODE_DOWNLOAD && (status = libnetwork_configure_control(ctx, SKYLARK_CONTROL_PAIR)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
 
   if (no_error_reporting) {
@@ -210,8 +224,7 @@ static void skylark_upload_mode()
   }
 
   network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_UPLOAD);
-
-  if(!configure_libnetwork(network_context, fd)) {
+  if(!configure_libnetwork(network_context, fd, OP_MODE_UPLOAD)) {
     exit(EXIT_FAILURE);
   }
 
@@ -220,6 +233,21 @@ static void skylark_upload_mode()
 
   close(fd);
   libnetwork_destroy(&network_context);
+}
+
+static int skylark_request_health()
+{
+  int response_code = -1;
+  network_status_t status = libnetwork_request_health(SKYLARK_CONTROL_PAIR, &response_code);
+
+  if (status != NETWORK_STATUS_SUCCESS) {
+    piksi_log(LOG_ERR, MSG_GET_HEALTH_ERROR, response_code);
+    fprintf(stderr, MSG_GET_HEALTH_ERROR_LF, response_code);
+    return EXIT_FAILURE;
+  }
+
+  fprintf(stdout, "%03d\n", response_code);
+  return EXIT_SUCCESS;
 }
 
 static void skylark_download_mode()
@@ -232,7 +260,7 @@ static void skylark_download_mode()
 
   network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_DOWNLOAD);
 
-  if(!configure_libnetwork(network_context, fd)) {
+  if(!configure_libnetwork(network_context, fd, OP_MODE_DOWNLOAD)) {
     exit(EXIT_FAILURE);
   }
 
@@ -271,6 +299,8 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
+  int exit_status = EXIT_SUCCESS;
+
   switch(op_mode) {
   case OP_MODE_DOWNLOAD:
     skylark_download_mode();
@@ -280,6 +310,9 @@ int main(int argc, char *argv[])
     break;
   case OP_MODE_UPLOAD:
     skylark_upload_mode();
+    break;
+  case OP_MODE_GET_HEALTH:
+    exit_status = skylark_request_health();
     break;
   case OP_MODE_RECONNECT_DL:
     settings_loop_send_command("Skylark upload client",
@@ -299,5 +332,5 @@ int main(int argc, char *argv[])
   }
 
   logging_deinit();
-  exit(EXIT_SUCCESS);
+  exit(exit_status);
 }
