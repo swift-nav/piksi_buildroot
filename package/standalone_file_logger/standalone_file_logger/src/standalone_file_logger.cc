@@ -18,11 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern "C"
-{
-  #include <libpiksi/settings.h>
-  #include <libpiksi/logging.h>
-}
+#include <libpiksi/settings.h>
+#include <libpiksi/logging.h>
 
 #include "rotating_logger.h"
 
@@ -31,6 +28,17 @@ extern "C"
 #define SLICE_DURATION_DEFAULT_m 10
 #define POLL_PERIOD_DEFAULT_s 30
 #define FILL_THRESHOLD_DEFAULT_p 95
+
+static const char* const logging_filesystem_names[] = {
+  "FAT", "F2FS", NULL
+};
+
+typedef enum {
+  LOGGING_FILESYSTEM_FAT,
+  LOGGING_FILESYSTEM_F2FS,
+} logging_fs_t;
+
+static logging_fs_t logging_fs_type;
 
 static int poll_period_s = POLL_PERIOD_DEFAULT_s;
 
@@ -135,8 +143,7 @@ static void sigchld_handler(int signum) {
 
 static void process_log_callback(int priority, const char *msg_text)
 {
-  piksi_log(priority, msg_text);
-  sbp_log(priority, msg_text);
+  piksi_log(priority|LOG_SBP, msg_text);
 }
 
 static void stop_logging()
@@ -146,6 +153,21 @@ static void stop_logging()
     delete logger;
     logger = nullptr;
   }
+}
+
+static int logging_filesystem_notify(void* context)
+{
+  (void) context;
+
+  if (logging_fs_type != LOGGING_FILESYSTEM_F2FS)
+    return 0;
+
+  piksi_log(LOG_WARNING, "Logging file-system: Detected that the logging file-system was changed to F2FS...");
+  piksi_log(LOG_WARNING, "Logging file-system: ... this will ERASE any removable media attached to system!");
+  piksi_log(LOG_WARNING, "Logging file-system: The file-system will be reformatted on the next reboot...");
+  piksi_log(LOG_WARNING, "Logging file-system: ...settings must be persisted for this to take effect.");
+
+  return 0;
 }
 
 static int setting_usb_logging_notify(void *context)
@@ -251,6 +273,15 @@ int main(int argc, char *argv[]) {
                     sizeof(setting_usb_logging_slice_duration), SETTINGS_TYPE_INT,
                     &setting_usb_logging_notify, nullptr);
   settings_pollitem_init(settings_ctx, &items[1]);
+
+  settings_type_t settings_type_logging_filesystem;
+  settings_type_register_enum(settings_ctx,
+                              logging_filesystem_names,
+                              &settings_type_logging_filesystem);
+
+  settings_register(settings_ctx, "standalone_logging", "logging_file_system",
+                    &logging_fs_type, sizeof(logging_fs_type), settings_type_logging_filesystem,
+                    logging_filesystem_notify, NULL);
 
   process_log_callback(LOG_INFO, "Starting");
 

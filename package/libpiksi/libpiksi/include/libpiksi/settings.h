@@ -24,6 +24,10 @@
 
 #include <libpiksi/common.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief   Settings type.
  */
@@ -330,6 +334,10 @@ int settings_loop_send_command(const char* target_description,
                                const char* command,
                                const char* command_description,
                                const char* control_socket);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LIBPIKSI_SETTINGS_H */
 
