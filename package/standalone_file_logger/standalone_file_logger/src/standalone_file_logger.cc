@@ -20,6 +20,7 @@
 
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include "rotating_logger.h"
 
@@ -34,11 +35,12 @@ static const char* const logging_filesystem_names[] = {
 };
 
 typedef enum {
-  LOGGING_FILESYSTEM_FAT,
+  LOGGING_FILESYSTEM_FAT = 1,
   LOGGING_FILESYSTEM_F2FS,
 } logging_fs_t;
 
-static logging_fs_t logging_fs_type;
+static int logging_fs_type_prev = -1;
+static int logging_fs_type = -1;
 
 static int poll_period_s = POLL_PERIOD_DEFAULT_s;
 
@@ -162,10 +164,28 @@ static int logging_filesystem_notify(void* context)
   if (logging_fs_type != LOGGING_FILESYSTEM_F2FS)
     return 0;
 
-  piksi_log(LOG_WARNING, "Logging file-system: Detected that the logging file-system was changed to F2FS...");
-  piksi_log(LOG_WARNING, "Logging file-system: ... this will ERASE any removable media attached to system!");
-  piksi_log(LOG_WARNING, "Logging file-system: The file-system will be reformatted on the next reboot...");
-  piksi_log(LOG_WARNING, "Logging file-system: ...settings must be persisted for this to take effect.");
+  if (logging_fs_type_prev != LOGGING_FILESYSTEM_FAT)
+    return 0;
+
+  logging_fs_type_prev = logging_fs_type;
+
+  const int str_count = 6;
+  const int str_max = 128;
+
+  const char warning_strs[str_count][str_max] = {
+    "Logging file-system: ************************************************************",
+    "Logging file-system: Detected that the logging file-system was changed to F2FS...",
+    "Logging file-system: ... this will ERASE any removable media attached to system!",
+    "Logging file-system: The file-system will be reformatted on the next reboot...",
+    "Logging file-system: ...settings must be persisted for this to take effect.",
+    "Logging file-system: ************************************************************"
+  };
+
+  for (size_t x = str_count; x > 0; --x)
+    sbp_log(LOG_WARNING, warning_strs[x-1]);
+
+  for (size_t x = 0; x < str_count; ++x)
+    piksi_log(LOG_WARNING, warning_strs[x]);
 
   return 0;
 }
@@ -281,7 +301,7 @@ int main(int argc, char *argv[]) {
 
   settings_register(settings_ctx, "standalone_logging", "logging_file_system",
                     &logging_fs_type, sizeof(logging_fs_type), settings_type_logging_filesystem,
-                    logging_filesystem_notify, NULL);
+                    logging_filesystem_notify, nullptr);
 
   process_log_callback(LOG_INFO, "Starting");
 
