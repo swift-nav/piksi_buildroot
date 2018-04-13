@@ -48,7 +48,7 @@ static int parse_options(int argc, char *argv[])
   const struct option long_opts[] = {
     {"file",               required_argument, 0, OPT_ID_FILE},
     {"url",                required_argument, 0, OPT_ID_URL},
-    {"no-error-reporting", required_argument, 0, OPT_ID_NO_ERROR_REPORTING},
+    {"no-error-reporting", no_argument,       0, OPT_ID_NO_ERROR_REPORTING},
     {"debug",              no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
