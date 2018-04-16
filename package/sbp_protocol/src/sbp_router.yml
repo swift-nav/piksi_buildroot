@@ -1,4 +1,3 @@
-
 name: SBP_ROUTER
 ports:
   - name: SBP_PORT_FIRMWARE
@@ -37,6 +36,14 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # Publish: SBP MSG_POS_LLH
           - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # Publish: SBP MSG_HEARTBEAT
+          - { action: REJECT }
+      - dst_port: SBP_PORT_NAV_DAEMON # This list sends only what Smoothpose needs at present.
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x00, 0x09] } # MSG_IMU_RAW  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x01, 0x09] } # MSG_IMU_AUX  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0x09] } # MSG_ODOMETRY **Smoothpose Change**
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
@@ -139,4 +146,25 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x88, 0x00] } # SBP_MSG_EPHEMERIS_GLO
           - { action: ACCEPT, prefix: [0x55, 0x84, 0x00] } # SBP_MSG_EPHEMERIS_SBAS
           - { action: ACCEPT, prefix: [0x55, 0x75, 0x00] } # SBP_MSG_GLO_BIASES
+          - { action: REJECT }
+
+  - name: SBP_PORT_NAV_DAEMON  # Entire Section Smoothpose Change**
+    pub_addr: "@tcp://127.0.0.1:43090"
+    sub_addr: "@tcp://127.0.0.1:43091"
+    forwarding_rules:
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x09, 0x02] } # MSG_POS_ECEF      **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH       **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x0D, 0x02] } # MSG_VEL_ECEF      **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED       **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x11, 0x02] } # MSG_POS_LLH_COV   **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x12, 0x02] } # MSG_VEL_NED_COV   **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x14, 0x02] } # MSG_POS_ECEF_COV  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x15, 0x02] } # MSG_VEL_ECEF_COV  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x13, 0x02] } # MSG_VEL_BODY      **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x20, 0x02] } # MSG_ORIENT_QUAT   **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x21, 0x02] } # MSG_ORIENT_EULER  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x22, 0x02] } # MSG_ANGULAR_RATE  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x01, 0x04] } # MSG_LOG           **Smoothpose Change**
           - { action: REJECT }

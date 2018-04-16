@@ -4,7 +4,7 @@ name="zmq_router_sbp"
 dir="/"
 user=""
 
-if grep -q "smoothpose_enable=True" /persistent/config.ini; then
+if grep -q "smoothpose_mode=INS Only" /persistent/config.ini; then
   router_config="/etc/zmq_router/sbp_router_smoothpose.yml"
 else
   router_config="/etc/zmq_router/sbp_router.yml"
