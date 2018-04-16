@@ -46,6 +46,9 @@ static void sigchld_handler(int signum)
   pid_t pid;
   int status;
   while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    if (WIFEXITED(status)) {
+      status = WEXITSTATUS(status);
+    }
     ports_sigchld_waitpid_handler(pid, status);
     async_child_waitpid_handler(pid, status);
   }

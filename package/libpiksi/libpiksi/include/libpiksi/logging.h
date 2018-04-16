@@ -26,6 +26,18 @@
 #include <syslog.h>
 
 /**
+ * Add to piksi_log to send the log message to SBP as well as
+ *   the system log (syslog).
+ *
+ *  E.g. `piksi_log(LOG_SBP|LOG_ERROR, "Some message");`
+ */
+#define LOG_SBP LOG_LOCAL1
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
  * @brief   Initialize logging.
  * @details Initialize the global logging state for the process.
  * @note    This function should be called before using other API functions
@@ -67,6 +79,19 @@ void piksi_vlog(int priority, const char *format, va_list ap);
  * @param[in] msg_text      The log message text to send.
  */
 void sbp_log(int priority, const char *msg_text, ...);
+
+/**
+  * @brief   Send a log message over SBP
+  *
+  * @param[in] priority      Priority level as defined in <syslog.h>.
+  * @param[in] msg_text      The log message text to send.
+  * @param[in] ap            variable argument list for printf().
+  */
+void sbp_vlog(int priority, const char *msg_text, va_list ap);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* LIBPIKSI_LOGGING_H */
 

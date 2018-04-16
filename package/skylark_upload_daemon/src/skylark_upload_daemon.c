@@ -22,6 +22,7 @@
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
+static bool no_error_reporting = false;
 
 static void usage(char *command)
 {
@@ -40,13 +41,15 @@ static int parse_options(int argc, char *argv[])
   enum {
     OPT_ID_FILE = 1,
     OPT_ID_URL,
+    OPT_ID_NO_ERROR_REPORTING,
     OPT_ID_DEBUG,
   };
 
   const struct option long_opts[] = {
-    {"file",  required_argument, 0, OPT_ID_FILE},
-    {"url  ", required_argument, 0, OPT_ID_URL},
-    {"debug", no_argument,       0, OPT_ID_DEBUG},
+    {"file",               required_argument, 0, OPT_ID_FILE},
+    {"url",                required_argument, 0, OPT_ID_URL},
+    {"no-error-reporting", no_argument,       0, OPT_ID_NO_ERROR_REPORTING},
+    {"debug",              no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
 
@@ -60,6 +63,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_URL: {
         url = optarg;
+      }
+      break;
+
+      case OPT_ID_NO_ERROR_REPORTING: {
+        no_error_reporting = true;
       }
       break;
 
@@ -99,6 +107,9 @@ static bool configure_libnetwork(network_context_t* ctx, int fd)
     goto exit_error;
   if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
+
+  if (no_error_reporting)
+    libnetwork_report_errors(ctx, false);
 
   return true;
 

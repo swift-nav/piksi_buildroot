@@ -15,11 +15,11 @@
 
 set -xe
 
-FW_VERSION=${1:-v1.3.0-develop-2018031620}
-NAP_VERSION=${2:-v1.3.0-develop-2018031620}
+FW_VERSION=${1:-v1.5.5}
+NAP_VERSION=${2:-v1.5.5}
 
-FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
-NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
+FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
+NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
 export AWS_DEFAULT_REGION="us-west-2"
 
 fetch() {
