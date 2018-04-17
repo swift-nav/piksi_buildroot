@@ -35,12 +35,14 @@ static const char* const logging_filesystem_names[] = {
 };
 
 typedef enum {
-  LOGGING_FILESYSTEM_FAT = 1,
+  LOGGING_FILESYSTEM_FAT,
   LOGGING_FILESYSTEM_F2FS,
 } logging_fs_t;
 
-static int logging_fs_type_prev = -1;
-static int logging_fs_type = -1;
+static struct { bool is_set; logging_fs_t value; } logging_fs_type_prev = { false, LOGGING_FILESYSTEM_FAT };
+static logging_fs_t logging_fs_type = LOGGING_FILESYSTEM_FAT;
+
+static bool copy_system_logs_enable = false;
 
 static int poll_period_s = POLL_PERIOD_DEFAULT_s;
 
@@ -157,17 +159,29 @@ static void stop_logging()
   }
 }
 
+static void save_prev_logging_fs_type_value()
+{
+  logging_fs_type_prev.value = logging_fs_type;
+  logging_fs_type_prev.is_set = true;
+}
+
 static int logging_filesystem_notify(void* context)
 {
   (void) context;
 
-  if (logging_fs_type != LOGGING_FILESYSTEM_F2FS)
-    return 0;
+  piksi_log(LOG_DEBUG, "%s: curr=%d, prev=%d (set=%hhu)\n", __FUNCTION__, logging_fs_type, logging_fs_type_prev.value, logging_fs_type_prev.is_set);
 
-  if (logging_fs_type_prev != LOGGING_FILESYSTEM_FAT)
+  if (logging_fs_type != LOGGING_FILESYSTEM_F2FS) {
+    save_prev_logging_fs_type_value();
     return 0;
+  }
 
-  logging_fs_type_prev = logging_fs_type;
+  if (!logging_fs_type_prev.is_set || logging_fs_type_prev.value != LOGGING_FILESYSTEM_FAT) {
+    save_prev_logging_fs_type_value();
+    return 0;
+  }
+
+  save_prev_logging_fs_type_value();
 
   const int str_count = 6;
   const int str_max = 128;
@@ -186,6 +200,17 @@ static int logging_filesystem_notify(void* context)
 
   for (size_t x = 0; x < str_count; ++x)
     piksi_log(LOG_WARNING, warning_strs[x]);
+
+  return 0;
+}
+
+static int copy_system_logs_notify(void* context)
+{
+  if (copy_system_logs_enable) {
+    system("COPY_SYS_LOGS=y /etc/init.d/S98copy_sys_logs start");
+  } else {
+    system("COPY_SYS_LOGS= /etc/init.d/S98copy_sys_logs stop");
+  }
 
   return 0;
 }
@@ -302,6 +327,9 @@ int main(int argc, char *argv[]) {
   settings_register(settings_ctx, "standalone_logging", "logging_file_system",
                     &logging_fs_type, sizeof(logging_fs_type), settings_type_logging_filesystem,
                     logging_filesystem_notify, nullptr);
+  settings_register(settings_ctx, "standalone_logging", "copy_system_logs", &copy_system_logs_enable,
+                    sizeof(copy_system_logs_enable), SETTINGS_TYPE_BOOL,
+                    &copy_system_logs_notify, nullptr);
 
   process_log_callback(LOG_INFO, "Starting");
 

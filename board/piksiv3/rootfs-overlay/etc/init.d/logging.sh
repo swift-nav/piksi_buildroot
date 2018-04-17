@@ -7,10 +7,12 @@ loge() { logger -t $log_tag -p ${log_fac}.err   $*; }
 
 setup_loggers()
 {
-  logger_stdout=$(mktemp -u)
+  logger_stdout=/var/run/$log_tag.stdout
+  rm -f $logger_stdout
   mkfifo $logger_stdout
 
-  logger_stderr=$(mktemp -u)
+  logger_stderr=/var/run/$log_tag.stderr
+  rm -f $logger_stderr
   mkfifo $logger_stderr
 
   logger -t $log_tag -p ${log_fac}.warn <$logger_stderr &
@@ -25,8 +27,8 @@ setup_loggers()
 
 cleanup_loggers()
 {
-    kill ${logger_stderr_pid} ${logger_stdout_pid}
-    rm ${logger_stdout} ${logger_stderr}
+  kill ${logger_stderr_pid} ${logger_stdout_pid}
+  rm ${logger_stdout} ${logger_stderr}
 }
 
 setup_loggers
