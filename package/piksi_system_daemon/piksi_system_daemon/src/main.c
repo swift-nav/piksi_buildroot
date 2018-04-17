@@ -129,6 +129,16 @@ static int uart_configure(const uart_t *uart)
   return 0;
 }
 
+static int logging_filesystem_notify(void* context)
+{
+  (void) context;
+
+  piksi_log(LOG_WARNING, "Logging file-system: will be changed on next reboot ");
+  piksi_log(LOG_WARNING, "Logging file-system: persist settings to ensure setting is effected");
+
+  return 0;
+}
+
 static int baudrate_notify(void *context)
 {
   const uart_t *uart = (uart_t *)context;

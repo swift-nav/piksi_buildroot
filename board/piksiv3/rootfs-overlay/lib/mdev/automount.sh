@@ -1,34 +1,58 @@
 #!/bin/sh
 
 destdir=/media
+log_tag=automount
 
 do_umount()
 {
-  if grep -qs "^/dev/$1 " /proc/mounts ; then
-    umount -f "${destdir}/$1";
+  local devname=$1; shift
+
+  local mountpoint="${destdir}/${devname}"
+  local dev="/dev/${devname}"
+
+  if grep -qs "^${dev} " /proc/mounts; then
+    logi "Unmounting '${dev}' from '${mountpoint}'"
+    umount -f "${mountpoint}";
   fi
 
-  [ -d "${destdir}/$1" ] && rmdir "${destdir}/$1"
+  [[ -d "${mountpoint}" ]] && rmdir "${mountpoint}"
 }
 
 do_mount()
 {
-  mkdir -p "${destdir}/$1" || exit 1
+  local devname=$1; shift
 
-  if ! mount -t auto "/dev/$1" "${destdir}/$1"; then
-    # failed to mount, clean up mountpoint
-    rmdir "${destdir}/$1"
+  local mountpoint="${destdir}/${devname}"
+  local dev="/dev/${devname}"
+
+  logi "Mounting '${dev}' to '${mountpoint}'"
+
+  mkdir -p $mountpoint || exit 1
+
+  if ! mount -t auto $dev $mountpoint 1>$logger_stdout 2>$logger_stderr; then
+    loge "Mount failed, cleaning up mount point..."
+    rmdir $mountpoint
     exit 1
   fi
 }
 
+source /etc/init.d/logging.sh
+
+if [[ -f /var/run/automount_disabled ]]; then
+  logd "Disabled..."
+  exit 0
+fi
+
+logd "Invoked..."
+
 case "${ACTION}" in
 add|"")
+  logd "Card added..."
   do_umount ${MDEV}
   do_mount ${MDEV}
   ;;
 remove)
+  logd "Card removed..."
   do_umount ${MDEV}
   ;;
 esac
-
