@@ -4,8 +4,8 @@ SOURCES= \
 	standalone_file_logger.cc
 
 LIBS=-lczmq -lzmq -lsbp -lpiksi
-CFLAGS=-std=gnu++11
-ARFLAGS=rcs
+CFLAGS=-std=gnu++11 -g
+ARFLAGS=rcs $(LTO_PLUGIN)
 
 CROSS=
 
