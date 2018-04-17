@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="migrate_sdcard"
+cmd="/etc/init.d/migrate_sdcard.sh"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh
