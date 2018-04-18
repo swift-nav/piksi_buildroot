@@ -18,11 +18,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern "C"
-{
-  #include <libpiksi/settings.h>
-  #include <libpiksi/logging.h>
-}
+#include <libpiksi/settings.h>
+#include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include "rotating_logger.h"
 
@@ -31,6 +29,20 @@ extern "C"
 #define SLICE_DURATION_DEFAULT_m 10
 #define POLL_PERIOD_DEFAULT_s 30
 #define FILL_THRESHOLD_DEFAULT_p 95
+
+static const char* const logging_filesystem_names[] = {
+  "FAT", "F2FS", NULL
+};
+
+typedef enum {
+  LOGGING_FILESYSTEM_FAT,
+  LOGGING_FILESYSTEM_F2FS,
+} logging_fs_t;
+
+static struct { bool is_set; logging_fs_t value; } logging_fs_type_prev = { false, LOGGING_FILESYSTEM_FAT };
+static logging_fs_t logging_fs_type = LOGGING_FILESYSTEM_FAT;
+
+static bool copy_system_logs_enable = false;
 
 static int poll_period_s = POLL_PERIOD_DEFAULT_s;
 
@@ -135,8 +147,7 @@ static void sigchld_handler(int signum) {
 
 static void process_log_callback(int priority, const char *msg_text)
 {
-  piksi_log(priority, msg_text);
-  sbp_log(priority, msg_text);
+  piksi_log(priority|LOG_SBP, msg_text);
 }
 
 static void stop_logging()
@@ -146,6 +157,62 @@ static void stop_logging()
     delete logger;
     logger = nullptr;
   }
+}
+
+static void save_prev_logging_fs_type_value()
+{
+  logging_fs_type_prev.value = logging_fs_type;
+  logging_fs_type_prev.is_set = true;
+}
+
+static int logging_filesystem_notify(void* context)
+{
+  (void) context;
+
+  piksi_log(LOG_DEBUG, "%s: curr=%d, prev=%d (set=%hhu)\n", __FUNCTION__, logging_fs_type, logging_fs_type_prev.value, logging_fs_type_prev.is_set);
+
+  if (logging_fs_type != LOGGING_FILESYSTEM_F2FS) {
+    save_prev_logging_fs_type_value();
+    return 0;
+  }
+
+  if (!logging_fs_type_prev.is_set || logging_fs_type_prev.value != LOGGING_FILESYSTEM_FAT) {
+    save_prev_logging_fs_type_value();
+    return 0;
+  }
+
+  save_prev_logging_fs_type_value();
+
+  const int str_count = 6;
+  const int str_max = 128;
+
+  const char warning_strs[str_count][str_max] = {
+    "Logging file-system: ************************************************************",
+    "Logging file-system: Detected that the logging file-system was changed to F2FS...",
+    "Logging file-system: ... this will ERASE any removable media attached to system!",
+    "Logging file-system: The file-system will be reformatted on the next reboot...",
+    "Logging file-system: ...settings must be persisted for this to take effect.",
+    "Logging file-system: ************************************************************"
+  };
+
+  for (size_t x = str_count; x > 0; --x)
+    sbp_log(LOG_WARNING, warning_strs[x-1]);
+
+  for (size_t x = 0; x < str_count; ++x)
+    piksi_log(LOG_WARNING, warning_strs[x]);
+
+  return 0;
+}
+
+static int copy_system_logs_notify(void* context)
+{
+  if (copy_system_logs_enable) {
+    system("COPY_SYS_LOGS=y /etc/init.d/S98copy_sys_logs start");
+  } else {
+    system("COPY_SYS_LOGS= /etc/init.d/S98copy_sys_logs stop");
+  }
+
+  return 0;
 }
 
 static int setting_usb_logging_notify(void *context)
@@ -251,6 +318,18 @@ int main(int argc, char *argv[]) {
                     sizeof(setting_usb_logging_slice_duration), SETTINGS_TYPE_INT,
                     &setting_usb_logging_notify, nullptr);
   settings_pollitem_init(settings_ctx, &items[1]);
+
+  settings_type_t settings_type_logging_filesystem;
+  settings_type_register_enum(settings_ctx,
+                              logging_filesystem_names,
+                              &settings_type_logging_filesystem);
+
+  settings_register(settings_ctx, "standalone_logging", "logging_file_system",
+                    &logging_fs_type, sizeof(logging_fs_type), settings_type_logging_filesystem,
+                    logging_filesystem_notify, nullptr);
+  settings_register(settings_ctx, "standalone_logging", "copy_system_logs", &copy_system_logs_enable,
+                    sizeof(copy_system_logs_enable), SETTINGS_TYPE_BOOL,
+                    &copy_system_logs_notify, nullptr);
 
   process_log_callback(LOG_INFO, "Starting");
 

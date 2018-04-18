@@ -24,6 +24,10 @@
 
 #include <libpiksi/common.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief   Get the SBP sender ID for the system.
  * @details Returns the board-specific SBP sender ID.
@@ -94,6 +98,10 @@ int zmq_simple_loop_timeout(zloop_t *zloop, u32 timeout_ms);
   _a < _b ? _a : _b; })
 
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LIBPIKSI_UTIL_H */
 
