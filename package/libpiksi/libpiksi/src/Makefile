@@ -10,7 +10,7 @@ SOURCES=\
   interface.c \
   runit.c
 CFLAGS=-std=gnu11 -fPIC -I../include
-ARFLAGS=rcs
+ARFLAGS=rcs $(LTO_PLUGIN)
 LDFLAGS=-shared
 
 CROSS=
@@ -29,7 +29,7 @@ $(TARGET).a: $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
 $(TARGET).so: $(OBJS)
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $(LDFLAGS) $(LTO_PLUGIN) $^ -o $@
 
 clean:
 	rm -rf $(TARGET).a $(TARGET).so $(OBJS)

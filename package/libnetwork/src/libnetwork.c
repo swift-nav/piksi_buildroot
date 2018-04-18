@@ -38,7 +38,6 @@
 /** Maximum length of url string */
 #define LIBNETWORK_URL_MAX_LENGTH (4096L)
 
-
 /** How large to configure the recv buffer to avoid excessive buffering. */
 const long RECV_BUFFER_SIZE = 4096L;
 /** Max number of callbacks from CURLOPT_XFERINFOFUNCTION before we attempt to
@@ -50,7 +49,25 @@ const double PIPE_WARN_THRESHOLD = 0.90;
 /** Min amount time between "pipe full" warning messages. */
 const double PIPE_WARN_SECS = 5;
 
+/** How often CURL errors should be reported */
+const time_t ERROR_REPORTING_INTERVAL = 10;
+
 typedef struct context_node context_node_t;
+
+typedef struct {
+
+  bool configured;
+
+  int req_fd;
+  int rep_fd;
+
+  int req_read_fd;
+  int rep_write_fd;
+
+  char req_path[PATH_MAX];
+  char rep_path[PATH_MAX];
+
+} fifo_info_t;
 
 struct network_context_s {
 
@@ -60,7 +77,7 @@ struct network_context_s {
   bool debug;                  /**< Set if we are emitted debug information */
   double gga_xfer_secs;        /**< The number of seconds between GGA upload times */
 
-  time_t last_xfer_time;       /**< The last type GGA was uploaded (for NTRIP only) */
+  time_t last_xfer_time;       /**< Time of the last GGA sentence uploaded (for NTRIP only) */
   curl_socket_t socket_fd;     /**< The socket we're read/writing from/to */
 
   CURL *curl;                  /**< The current cURL handle */
@@ -76,9 +93,14 @@ struct network_context_s {
 
   context_node_t* node;
 
+  bool report_errors;           /**< Should this instance of libnetwork report errors? */
+  time_t last_curl_error_time;  /**< Time at which we last issued a cURL error message */
+
   char username[LIBNETWORK_USERNAME_MAX_LENGTH];
   char password[LIBNETWORK_PASSWORD_MAX_LENGTH];
   char url[LIBNETWORK_URL_MAX_LENGTH];
+
+  fifo_info_t control_fifo_info;
 };
 
 struct context_node {
@@ -105,9 +127,20 @@ static network_context_t empty_context = {
   .response_code = 0,
   .response_code_check = NULL,
   .node = NULL,
+  .report_errors = true,
+  .last_curl_error_time = 0,
   .username = "",
   .password = "",
   .url = "",
+  .control_fifo_info = {
+    .configured = false,
+    .req_fd = -1,
+    .rep_fd = -1,
+    .req_read_fd = -1,
+    .rep_write_fd = -1,
+    .req_path = "",
+    .rep_path = "",
+  },
 };
 
 #define NMEA_GGA_FILE "/var/run/nmea/GGA"
@@ -131,6 +164,99 @@ void libnetwork_cycle_connection()
   }
 }
 
+void libnetwork_report_errors(network_context_t *ctx, bool yesno)
+{
+  ctx->report_errors = yesno;
+}
+
+network_status_t libnetwork_configure_control(network_context_t *ctx, control_pair_t control_pair)
+{
+  unlink(control_pair.req_fifo_name);
+  unlink(control_pair.rep_fifo_name);
+
+  mode_t umask_previous = umask(0);
+  int req_fd = mkfifo(control_pair.req_fifo_name, 0777);
+  if (req_fd < 0) {
+    piksi_log(LOG_ERR, "error opening request FIFO (%s) (error: %d) \"%s\"", control_pair.req_fifo_name, errno, strerror(errno));
+    umask(umask_previous);
+    return NETWORK_STATUS_FIFO_ERROR;
+  }
+
+  int rep_fd = mkfifo(control_pair.rep_fifo_name, 0777);
+  if (rep_fd < 0) {
+    piksi_log(LOG_ERR, "error opening response FIFO (%s) (error: %d) \"%s\"", control_pair.rep_fifo_name, errno, strerror(errno));
+    close(req_fd);
+    umask(umask_previous);
+    return NETWORK_STATUS_FIFO_ERROR;
+  }
+
+  umask(umask_previous);
+
+  ctx->control_fifo_info.configured = true;
+
+  ctx->control_fifo_info.req_fd = req_fd;
+  ctx->control_fifo_info.rep_fd = rep_fd;
+
+  strncpy(ctx->control_fifo_info.req_path, control_pair.req_fifo_name, sizeof(ctx->control_fifo_info.req_path));
+  strncpy(ctx->control_fifo_info.rep_path, control_pair.rep_fifo_name, sizeof(ctx->control_fifo_info.rep_path));
+
+  return NETWORK_STATUS_SUCCESS;
+}
+
+network_status_t libnetwork_request_health(control_pair_t control_pair, int *status)
+{
+  int req_fd = -1;
+  int rep_fd = -1;
+
+  network_status_t return_status = NETWORK_STATUS_SUCCESS;
+
+  req_fd = open(control_pair.req_fifo_name, O_WRONLY);
+  if (req_fd < 0) {
+    piksi_log(LOG_ERR, "request fifo error (%d) \"%s\"", errno, strerror(errno));
+    return_status = NETWORK_STATUS_FIFO_ERROR;
+    goto libnetwork_request_health_exit;
+  }
+
+  int wc = write(req_fd, CONTROL_COMMAND_STATUS, 1);
+  if (wc <= 0) {
+    return_status = NETWORK_STATUS_WRITE_ERROR;
+    goto libnetwork_request_health_exit;
+  }
+
+  close(req_fd);
+
+  rep_fd = open(control_pair.rep_fifo_name, O_RDONLY);
+  if (rep_fd < 0) {
+    piksi_log(LOG_ERR, "response fifo error (%d) \"%s\"", errno, strerror(errno));
+    return_status = NETWORK_STATUS_FIFO_ERROR;
+    goto libnetwork_request_health_exit;
+  }
+
+  char response_buf[4] = { 0 };
+  int rc = read(rep_fd, response_buf, sizeof(response_buf) - 1);
+  if (rc <= 0) {
+    return_status = NETWORK_STATUS_READ_ERROR;
+    goto libnetwork_request_health_exit;
+  }
+
+  close(rep_fd);
+
+  long response = strtol(response_buf, NULL, 10);
+  if (response < 0) {
+    piksi_log(LOG_WARNING, "%s: error requesting skylark HTTP response code: %d", __FUNCTION__, response);
+  }
+
+  if (status != NULL) {
+    *status = (int) response;
+  }
+
+ libnetwork_request_health_exit:
+  close(rep_fd);
+  close(req_fd);
+
+  return return_status;
+}
+
 network_context_t* libnetwork_create(network_type_t type)
 {
   context_node_t* node = malloc(sizeof(context_node_t));
@@ -150,8 +276,22 @@ network_context_t* libnetwork_create(network_type_t type)
 void libnetwork_destroy(network_context_t **ctx)
 {
   LIST_REMOVE((*ctx)->node, entries);
-  free(*ctx);
 
+  int* fd_list[] = {
+    &(*ctx)->control_fifo_info.req_fd,
+    &(*ctx)->control_fifo_info.req_read_fd,
+    &(*ctx)->control_fifo_info.rep_fd,
+    &(*ctx)->control_fifo_info.rep_write_fd,
+  };
+
+  for (size_t x = 0; x < COUNT_OF(fd_list); x++) {
+    if (*fd_list[x] < 0)
+      continue;
+    close(*fd_list[x]);
+    *fd_list[x] = -1;
+  }
+
+  free(*ctx);
   *ctx = NULL;
 }
 
@@ -376,11 +516,76 @@ static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
   return obj_count*size;
 }
 
+static void service_control_fifo(network_context_t *ctx)
+{
+  if (!ctx->control_fifo_info.configured) {
+    return;
+  }
+
+  long response_code = 0;
+  curl_easy_getinfo(ctx->curl, CURLINFO_RESPONSE_CODE, &response_code);
+
+  if (response_code == 0) {
+    if (ctx->response_code != 0) {
+      // Return the most recent response code
+      response_code = ctx->response_code;
+    }
+  }
+
+  if (ctx->control_fifo_info.req_read_fd < 0) {
+    ctx->control_fifo_info.req_read_fd = open(ctx->control_fifo_info.req_path, O_RDONLY|O_NONBLOCK);
+    if (ctx->control_fifo_info.req_read_fd < 0) {
+      piksi_log(LOG_WARNING, "%s: error opening request FIFO: %s (%d)", __FUNCTION__, strerror(errno), errno);
+      return;
+    }
+  }
+
+  char cmd[1] = { 0 };
+  ssize_t rc = read(ctx->control_fifo_info.req_read_fd, cmd, sizeof(cmd));
+  if (rc <= 0) {
+    if (rc < 0 && errno != EAGAIN) {
+      piksi_log(LOG_WARNING, "%s: error reading from FIFO: %s (%d)", __FUNCTION__, strerror(errno), errno);
+    }
+    return;
+  }
+
+  if (ctx->debug)
+    piksi_log(LOG_DEBUG, "%s: got command '%c'", __FUNCTION__, cmd[0]);
+
+  char status_buf[4] = " -1";
+
+  if (cmd[0] != CONTROL_COMMAND_STATUS[0]) {
+    piksi_log(LOG_WARNING, "%s: received invalid command '%c'", __FUNCTION__, cmd[0]);
+  }
+
+  if (ctx->control_fifo_info.rep_write_fd < 0) {
+    ctx->control_fifo_info.rep_write_fd = open(ctx->control_fifo_info.rep_path, O_WRONLY);
+    if (ctx->control_fifo_info.rep_write_fd < 0) {
+      piksi_log(LOG_WARNING, "%s: error opening response FIFO: %s (%d)", __FUNCTION__, strerror(errno), errno);
+      return;
+    }
+  }
+
+  size_t c = snprintf(status_buf, sizeof(status_buf), "%03ld", response_code);
+  if (ctx->debug)
+    piksi_log(LOG_DEBUG, "%s: HTTP response code: %d", __FUNCTION__, response_code);
+
+  if (c >= sizeof(status_buf)) {
+    piksi_log(LOG_WARNING, "%s: HTTP response code too large: %d", __FUNCTION__, response_code);
+  }
+  ssize_t wc = write(ctx->control_fifo_info.rep_write_fd, status_buf, sizeof(status_buf) - 1);
+  if (wc < 0) {
+    piksi_log(LOG_WARNING, "%s: error writing to FIFO: %d", __FUNCTION__, strerror(errno));
+  }
+}
+
 /**
  * Abort the connection if we make no progress for the last 30 intervals
  */
 static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
 {
+  service_control_fifo(ctx);
+
   if (ctx->shutdown_signaled) {
     ctx->stall_count = 0;
     return -1;
@@ -561,24 +766,33 @@ static void network_request(network_context_t* ctx, CURL *curl)
     if (ctx->shutdown_signaled)
       return;
 
-    if (code == CURLE_ABORTED_BY_CALLBACK)
+    if (code == CURLE_ABORTED_BY_CALLBACK) {
+      if (ctx->debug)
+        piksi_log(LOG_DEBUG, "cURL aborted by callback");
       continue;
+    }
+
+    long response = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
+    ctx->response_code = response;
 
     if (code != CURLE_OK) {
-      sbp_log(LOG_WARNING, "Network Request Error - \"%s\"", error_buf);
-      piksi_log(LOG_WARNING, "curl request (error: %d) \"%s\"", code, error_buf);
+      time_t current_time = time(NULL);
+      time_t last_error_delta = current_time - ctx->last_curl_error_time;
+      int facpri = LOG_WARNING;
+      if (last_error_delta >= ERROR_REPORTING_INTERVAL && ctx->report_errors) {
+        facpri =  LOG_SBP|LOG_WARNING;
+        ctx->last_curl_error_time = current_time;
+      }
+      piksi_log(facpri, "curl request (error: %d) \"%s\"", code, error_buf);
     } else {
-      long response = 0;
-      curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
       if (response != 0) {
-        sbp_log(LOG_INFO, "Network Request Response Code - (%d)", response);
-        piksi_log(LOG_INFO, "curl request code %d", response);
-        ctx->response_code = response;
+        piksi_log(LOG_SBP|LOG_INFO, "curl request code %d", response);
         network_response_code_check(ctx);
       }
     }
 
-    usleep(1000000);
+    sleep(1);
   }
 }
 

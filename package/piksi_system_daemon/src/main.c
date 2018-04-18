@@ -36,8 +36,11 @@
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define SBP_MAX_NETWORK_INTERFACES 10
 
-#define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
+static double network_polling_frequency = 0.1;
+static double network_polling_retry_frequency = 1;
+static bool log_ping_activity = false;
 
+#define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
 //#define DEBUG_PIKSI_SYSTEM_DAEMON
 
 static const char const * ip_mode_enum_names[] = {"Static", "DHCP", NULL};
@@ -252,6 +255,25 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
   }
 }
 
+static void hardware_variant_settings_setup(settings_ctx_t *settings_ctx)
+{
+  static char *hardware_variant = "";
+  if (device_is_duro()) {
+    hardware_variant = "Duro";
+  } else {
+    hardware_variant = "Multi";
+  }
+  if (settings_register_readonly(settings_ctx,
+                                 "system_info",
+                                 "hw_variant",
+                                 hardware_variant,
+                                 strlen(hardware_variant) + 1,
+                                 SETTINGS_TYPE_STRING)
+      != 0) {
+    piksi_log(LOG_WARNING, "Failed to register hardware_variant in system_info");
+  }
+}
+
 static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id; (void)context;
@@ -314,6 +336,54 @@ static int system_time_src_notify(void *context)
   return system(command);
 }
 
+#define POLLING_SYS_COMMAND_ERROR "network_polling_notify: system command failed: '%s', status: %d"
+
+static int network_polling_notify(void *context)
+{
+  (void) context;
+
+  int rc;
+  size_t count;
+
+  char sys_command[128];
+  count = snprintf(sys_command, sizeof(sys_command),
+                   "echo %.02f >/var/run/network_polling_period",
+                   (1.0 / network_polling_frequency));
+  assert(count < sizeof(sys_command));
+
+  rc = system(sys_command);
+  if (rc != 0) {
+    piksi_log(LOG_WARNING, POLLING_SYS_COMMAND_ERROR, sys_command, rc);
+  }
+
+  count = snprintf(sys_command, sizeof(sys_command),
+                   "echo %.02f >/var/run/network_polling_retry_period",
+                   (1.0 / network_polling_retry_frequency));
+  assert(count < sizeof(sys_command));
+
+  rc = system(sys_command);
+  if (rc != 0) {
+    piksi_log(LOG_WARNING, POLLING_SYS_COMMAND_ERROR, sys_command, rc);
+  }
+
+  if (log_ping_activity) {
+    count = snprintf(sys_command, sizeof(sys_command),
+                     "echo y >/var/run/enable_ping_logging");
+    assert(count < sizeof(sys_command));
+  } else {
+    count = snprintf(sys_command, sizeof(sys_command),
+                     "echo >/var/run/enable_ping_logging");
+    assert(count < sizeof(sys_command));
+  }
+
+  rc = system(sys_command);
+  if (rc != 0) {
+    piksi_log(LOG_WARNING, POLLING_SYS_COMMAND_ERROR, sys_command, rc);
+  }
+
+  return 0;
+}
+
 int main(void)
 {
   logging_init(PROGRAM_NAME);
@@ -362,12 +432,23 @@ int main(void)
                     sizeof(system_time_src), settings_type_time_source,
                     system_time_src_notify, &system_time_src);
 
+  settings_register(settings_ctx, "system", "connectivity_check_frequency",
+                    &network_polling_frequency, sizeof(network_polling_frequency),
+                    SETTINGS_TYPE_FLOAT, network_polling_notify, NULL);
+  settings_register(settings_ctx, "system", "connectivity_retry_frequency",
+                    &network_polling_retry_frequency, sizeof(network_polling_retry_frequency),
+                    SETTINGS_TYPE_FLOAT, network_polling_notify, NULL);
+  settings_register(settings_ctx, "system", "log_ping_activity",
+                    &log_ping_activity, sizeof(log_ping_activity),
+                    SETTINGS_TYPE_BOOL, network_polling_notify, NULL);
+
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET, reset_callback, NULL, NULL);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
   img_tbl_settings_setup(settings_ctx);
+  hardware_variant_settings_setup(settings_ctx);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_COMMAND_REQ, sbp_command, pubsub_ctx, NULL);
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),

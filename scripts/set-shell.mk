@@ -16,7 +16,16 @@ else
 	FOUND_NO_PIKSI_SHELL := y
 endif
 
-ifeq (ynn,$(FOUND_NIX)$(FOUND_NO_NIX_SHELL)$(FOUND_NO_PIKSI_SHELL))
+ifneq ($(DISABLE_NIXOS_SUPPORT),)
+	FOUND_DISABLE_NIX := y
+else
+	FOUND_DISABLE_NIX := n
+endif
+
+PREREQUISITES := \
+	$(FOUND_NIX)$(FOUND_NO_NIX_SHELL)$(FOUND_NO_PIKSI_SHELL)$(FOUND_DISABLE_NIX)
+
+ifeq (ynnn,$(PREREQUISITES))
 SHELL        := $(CURDIR)/scripts/nixwrap.bash
 else
 SHELL        := $(shell which bash)

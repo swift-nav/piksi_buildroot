@@ -35,6 +35,7 @@ static int skylark_upload_daemon_execfn(void) {
   char *argv[] = {
     "skylark_daemon",
     "--upload",
+    "--no-error-reporting",
     "--file", UPLOAD_FIFO_FILE_PATH,
     "--url", url,
     NULL,
