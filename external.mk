@@ -11,6 +11,9 @@ else
 TARGET_CFLAGS       := $(TARGET_CFLAGS) -flto
 TARGET_LDFLAGS      := $(TARGET_LDFLAGS) -flto
 
+LTO_PLUGIN=--plugin $(shell find $(TOOLCHAIN_EXTERNAL_BIN)/.. -name "liblto_plugin.so" | head -1)
+$(info LTO_PLUGIN: $(LTO_PLUGIN))
+
 # Don't use LTO for Linux or uboot
 NO_FLTO := linux-xilinx,uboot_custom
 

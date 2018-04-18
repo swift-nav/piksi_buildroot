@@ -58,6 +58,10 @@ static const u32 baudrate_val_table[] = {
   B230400
 };
 
+static double network_polling_frequency = 0.1;
+static double network_polling_retry_frequency = 1;
+static bool log_ping_activity = false;
+
 static const char * const flow_control_enum_names[] = {"None", "RTS/CTS", NULL};
 enum {FLOW_CONTROL_NONE, FLOW_CONTROL_RTS_CTS};
 
@@ -431,6 +435,54 @@ static int system_time_src_notify(void *context)
   return 0;
 }
 
+#define POLLING_SYS_COMMAND_ERROR "network_polling_notify: system command failed: '%s', status: %d"
+
+static int network_polling_notify(void *context)
+{
+  (void) context;
+
+  int rc;
+  size_t count;
+
+  char sys_command[128];
+  count = snprintf(sys_command, sizeof(sys_command),
+                   "echo %.02f >/var/run/network_polling_period",
+                   (1.0 / network_polling_frequency));
+  assert(count < sizeof(sys_command));
+
+  rc = system(sys_command);
+  if (rc != 0) {
+    piksi_log(LOG_WARNING, POLLING_SYS_COMMAND_ERROR, sys_command, rc);
+  }
+
+  count = snprintf(sys_command, sizeof(sys_command),
+                   "echo %.02f >/var/run/network_polling_retry_period",
+                   (1.0 / network_polling_retry_frequency));
+  assert(count < sizeof(sys_command));
+
+  rc = system(sys_command);
+  if (rc != 0) {
+    piksi_log(LOG_WARNING, POLLING_SYS_COMMAND_ERROR, sys_command, rc);
+  }
+
+  if (log_ping_activity) {
+    count = snprintf(sys_command, sizeof(sys_command),
+                     "echo y >/var/run/enable_ping_logging");
+    assert(count < sizeof(sys_command));
+  } else {
+    count = snprintf(sys_command, sizeof(sys_command),
+                     "echo >/var/run/enable_ping_logging");
+    assert(count < sizeof(sys_command));
+  }
+
+  rc = system(sys_command);
+  if (rc != 0) {
+    piksi_log(LOG_WARNING, POLLING_SYS_COMMAND_ERROR, sys_command, rc);
+  }
+
+  return 0;
+}
+
 int main(void)
 {
   logging_init(PROGRAM_NAME);
@@ -510,6 +562,16 @@ int main(void)
   settings_register(settings_ctx, "system", "system_time", &system_time_src,
                     sizeof(system_time_src), settings_type_time_source,
                     system_time_src_notify, &system_time_src);
+
+  settings_register(settings_ctx, "system", "connectivity_check_frequency",
+                    &network_polling_frequency, sizeof(network_polling_frequency),
+                    SETTINGS_TYPE_FLOAT, network_polling_notify, NULL);
+  settings_register(settings_ctx, "system", "connectivity_retry_frequency",
+                    &network_polling_retry_frequency, sizeof(network_polling_retry_frequency),
+                    SETTINGS_TYPE_FLOAT, network_polling_notify, NULL);
+  settings_register(settings_ctx, "system", "log_ping_activity",
+                    &log_ping_activity, sizeof(log_ping_activity),
+                    SETTINGS_TYPE_BOOL, network_polling_notify, NULL);
 
   sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET, reset_callback, NULL, NULL);
