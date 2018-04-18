@@ -1,6 +1,8 @@
 { pkgs ? import <nixpkgs> {} }:
  
-let fhs = pkgs.buildFHSUserEnv {
+let 
+  ncurses5 = pkgs.ncurses.override { abiVersion = "5"; };
+  fhs = pkgs.buildFHSUserEnv {
   name = "piksi-env";
   targetPkgs = pkgs: with pkgs; [
     awscli
@@ -18,6 +20,7 @@ let fhs = pkgs.buildFHSUserEnv {
     file
     flex
     gcc6
+    gcc-arm-embedded
     git
     glibc
     glibc.dev
@@ -26,8 +29,8 @@ let fhs = pkgs.buildFHSUserEnv {
     gnused
     gnutar
     mercurial
-    ncurses
-    ncurses.dev
+    ncurses5
+    ncurses5.dev
     nettools
     openssl
     openssl.dev
