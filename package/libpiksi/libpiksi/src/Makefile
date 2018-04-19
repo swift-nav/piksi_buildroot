@@ -9,9 +9,9 @@ SOURCES=\
   networking.c \
   interface.c \
   runit.c
-CFLAGS=-std=gnu11 -fPIC -I../include
+CFLAGS+=-std=gnu11 -fPIC -I../include
 ARFLAGS=rcs $(LTO_PLUGIN)
-LDFLAGS=-shared
+LDFLAGS+=-shared
 
 CROSS=
 
@@ -29,7 +29,7 @@ $(TARGET).a: $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
 $(TARGET).so: $(OBJS)
-	$(CC) $(LDFLAGS) $(LTO_PLUGIN) $^ -o $@
+	$(CC) $(LDFLAGS) $^ -o $@
 
 clean:
 	rm -rf $(TARGET).a $(TARGET).so $(OBJS)
