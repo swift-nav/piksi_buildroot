@@ -1,4 +1,4 @@
-From e3bb89c7fed1076855c0084851bd0b39be018949 Mon Sep 17 00:00:00 2001
+From 029ae153dca8a05fc5451ee1dee7211bf38a0bfd Mon Sep 17 00:00:00 2001
 From: Jason Mobarak <jason@swiftnav.com>
 Date: Wed, 18 Apr 2018 22:36:52 -0700
 Subject: [PATCH] Use inotify instead of hardcoding wait time
@@ -9,7 +9,7 @@ Subject: [PATCH] Use inotify instead of hardcoding wait time
  2 files changed, 145 insertions(+), 10 deletions(-)
 
 diff --git a/runit/runsv.c b/runit/runsv.c
-index e0e31508a..a72f07fee 100644
+index e0e31508a..c022b9a7a 100644
 --- a/runit/runsv.c
 +++ b/runit/runsv.c
 @@ -343,7 +343,7 @@ static void startservice(struct svdir *s)
@@ -78,7 +78,7 @@ index e0e31508a..a72f07fee 100644
  					update_status(&svd[1]);
 -					if (LESS(svd[1].start.tv_sec, deadline))
 -						sleep(1);
-+					if (tscmp(&svd[1].start, &deadline))
++					if (tscmp(&svd[1].start, &deadline) < 0)
 +						usleep(100e3); // sleep(1);
  				}
  			}
