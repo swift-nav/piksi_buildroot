@@ -51,7 +51,7 @@ trap 'cleanup_loggers; cleanup_rsync; exit 0' EXIT TERM INT
 mkdir "$log_dir/$N"
 
 while true; do
-  rsync -r /var/log/ "$log_dir/$N/" &
+  rsync --exclude=tmp.* -r /var/log/ "$log_dir/$N/" &
   rsync_pid=$!
   wait "$rsync_pid"
   sleep 1

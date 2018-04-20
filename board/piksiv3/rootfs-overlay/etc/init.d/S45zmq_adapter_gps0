@@ -6,16 +6,19 @@ dir="/"
 
 cmd="/etc/init.d/gps_adapter.sh"
 
+dyn_pty_name=tmp.gps0
+dyn_pty_path=/tmp/$dyn_pty_name
+
 # Enable job control
 set -m
 
 pre_launch() {
-    rm -fv /tmp/gps0
+    rm -fv $dyn_pty_path
 }
 
 post_launch() {
     wait_create_gps0
-    ln -sf $(readlink -f /tmp/gps0) /dev/gps0
+    ln -sf $(readlink -f $dyn_pty_path) /dev/gps0
 }
 
 post_shutdown() {
@@ -27,8 +30,8 @@ has_user() {
 }
 
 wait_create_gps0() {
-    while ! inotifywait -e create /tmp -q | grep -q "CREATE gps0"; do
-        continue;
+    while [[ ! -e "$dyn_pty_path" ]] && ! inotifywait -t 1 -e create /tmp -q | grep -q "CREATE $dyn_pty_name"; do
+      continue;
     done
 }
 
