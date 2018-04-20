@@ -30,7 +30,8 @@ endef
 endif
 
 define PORTS_DAEMON_BUILD_CMDS
-	$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D)/ports_daemon src
+  CFLAGS="$(TARGET_CFLAGS)" LDFLAGS="$(TARGET_LDFLAGS)" LTO_PLUGIN="$(LTO_PLUGIN)" \
+	  $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D)/ports_daemon src
 	$(PORTS_DAEMON_BUILD_TESTS)
 endef
 

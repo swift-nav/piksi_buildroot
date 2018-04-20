@@ -9,8 +9,8 @@ SOURCES=\
   networking.c \
   interface.c \
   runit.c
-CFLAGS+=-std=gnu11 -fPIC -I../include
 ARFLAGS=rcs $(LTO_PLUGIN)
+CFLAGS+=-std=gnu11 -fPIC -I../include
 LDFLAGS+=-shared
 
 CROSS=
