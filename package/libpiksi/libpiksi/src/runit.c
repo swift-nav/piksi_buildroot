@@ -16,7 +16,15 @@
 #include <libpiksi/runit.h>
 #include <libpiksi/logging.h>
 
-//#define DEBUG_RUNIT
+#define DEBUG_RUNIT
+#ifdef DEBUG_RUNIT
+#define RUNIT_DEBUG_LOG(ThePattern, ...) \
+  piksi_log(LOG_DEBUG, ("%s: " ThePattern), __FUNCTION__, ## __VA_ARGS__)
+#define NDEBUG_UNUSED(X)
+#else
+#define RUNIT_DEBUG_LOG(...)
+#define NDEBUG_UNUSED(X) (void)(X)
+#endif
 
 // Runit status strings
 #define RUNIT_STAT_DOWN              "down\n"
@@ -29,9 +37,9 @@
               ThePath, strerror(errno)); \
     return -1; }
 
-#define CHECK_SPRINTF(TheSnprintf) { \
-    int count = (TheSnprintf); \
-    assert((size_t)count < sizeof(service_dir)); }
+#define CHECKED_SPRINTF(TheDest, TheSize, ThePattern, ...) {  \
+    int count = snprintf(TheDest, TheSize, ThePattern, ## __VA_ARGS__); \
+    assert((size_t)count < TheSize); }
 
 int start_runit_service(runit_config_t *cfg)
 {
@@ -43,43 +51,40 @@ int start_runit_service(runit_config_t *cfg)
   int control_pipe_retries = max_wait_us / control_sleep_us;
   assert( control_pipe_retries > 0 && control_pipe_retries <= 1000 );
 
-  char service_dir[PATH_MAX];
-  char path_buf[PATH_MAX];
+  char tmp_service_dir[PATH_MAX];
+  strncpy(tmp_service_dir, "/tmp/tmp.runit.XXXXXX", sizeof(tmp_service_dir));
 
-  CHECK_SPRINTF(snprintf(service_dir, sizeof(service_dir), "%s/%s", cfg->service_dir, cfg->service_name));
+  char service_dir_final[PATH_MAX];
+  CHECKED_SPRINTF(service_dir_final, sizeof(service_dir_final), "%s/%s", cfg->service_dir, cfg->service_name);
 
-  if (stat(service_dir, &s) == 0) {
-#ifdef DEBUG_RUNIT
-    piksi_log(LOG_DEBUG, "%s: service dir (%s) already exists", __FUNCTION__, service_dir);
-#endif
+  char* service_dir = NULL;
+
+  if (stat(service_dir_final, &s) == 0) {
+    service_dir = service_dir_final;
+    RUNIT_DEBUG_LOG("service dir (%s) already exists", service_dir);
   } else {
-    CHECK_FS_CALL(mkdir(service_dir, 0755) == 0, "mkdir", service_dir);
+    service_dir = mkdtemp(tmp_service_dir);
+    CHECK_FS_CALL(service_dir != NULL, "mkdtemp", tmp_service_dir);
   }
 
+  char path_buf[PATH_MAX];
+
   if (cfg->custom_down != NULL) {
-    CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "control"));
+    CHECKED_SPRINTF(path_buf, sizeof(path_buf), "%s/%s", service_dir, "control");
     if (stat(path_buf, &s) == 0) {
-#ifdef DEBUG_RUNIT
-      piksi_log(LOG_DEBUG, "%s: control dir (%s) already exists", __FUNCTION__, path_buf);
-#endif
+      RUNIT_DEBUG_LOG("control dir (%s) already exists", path_buf);
     } else {
       CHECK_FS_CALL(mkdir(path_buf, 0755) == 0, "mkdir", service_dir);
     }
   }
 
   // Write the <service>/down file so the service doesn't start automatically
-  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "down"));
+  CHECKED_SPRINTF(path_buf, sizeof(path_buf), "%s/%s", service_dir, "down");
   FILE* fp = fopen(path_buf, "w");
   CHECK_FS_CALL(fp != NULL, "fopen", path_buf);
   CHECK_FS_CALL(fclose(fp) == 0, "fclose", path_buf);
 
-  // Write the <service>/starting so we know the service is starting...
-  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/starting", service_dir));
-  FILE* fp_start = fopen(path_buf, "w");
-  CHECK_FS_CALL(fp_start != NULL, "fopen", path_buf);
-  CHECK_FS_CALL(fclose(fp_start) == 0, "fclose", path_buf);
-
-  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "run"));
+  CHECKED_SPRINTF(path_buf, sizeof(path_buf), "%s/%s", service_dir, "run");
 
   FILE* run_fp = fopen(path_buf, "w");
   CHECK_FS_CALL(run_fp != NULL, "fopen", path_buf);
@@ -92,7 +97,7 @@ int start_runit_service(runit_config_t *cfg)
 
   if (cfg->custom_down != NULL) {
 
-    CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "control/d"));
+    CHECKED_SPRINTF(path_buf, sizeof(path_buf), "%s/%s", service_dir, "control/d");
 
     FILE* custom_down_fp = fopen(path_buf, "w");
     CHECK_FS_CALL(custom_down_fp != NULL, "fopen", path_buf);
@@ -106,7 +111,7 @@ int start_runit_service(runit_config_t *cfg)
 
   if (cfg->finish_command != NULL) {
 
-    CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/%s", service_dir, "finish"));
+    CHECKED_SPRINTF(path_buf, sizeof(path_buf), "%s/%s", service_dir, "finish");
 
     FILE* finish_fp = fopen(path_buf, "w");
     CHECK_FS_CALL(finish_fp != NULL, "fopen", path_buf);
@@ -118,12 +123,20 @@ int start_runit_service(runit_config_t *cfg)
     CHECK_FS_CALL(chmod(path_buf, 0755) == 0, "chmod", path_buf);
   }
 
-  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir));
+  if (service_dir_final != service_dir) {
+    char rename_command[1024];
+    CHECKED_SPRINTF(rename_command, sizeof(rename_command), "/bin/mv %s %s", service_dir, service_dir_final);
+    RUNIT_DEBUG_LOG("Moving service dir into place: %s", rename_command);
+    CHECK_FS_CALL(system(rename_command) == 0, "system", rename_command);
+  }
 
-  // Wait for the control socket to materialize...
+  CHECKED_SPRINTF(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir_final);
+
+  RUNIT_DEBUG_LOG("Waiting for control socket (%s) ...", path_buf);
   while (stat(path_buf, &s) != 0 && control_pipe_retries-- > 0) {
     assert( usleep(control_sleep_us) == 0 );
   }
+  RUNIT_DEBUG_LOG("Found control socket (%s) ...", path_buf);
 
   FILE* control_fp = fopen(path_buf, "w");
   CHECK_FS_CALL(control_fp != NULL, "fopen", path_buf);
@@ -135,10 +148,6 @@ int start_runit_service(runit_config_t *cfg)
 
   CHECK_FS_CALL(fclose(control_fp) == 0, "fclose", path_buf);
 
-  // Remove the <service>/starting file so we know that the service started...
-  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/starting", service_dir));
-  CHECK_FS_CALL(unlink(path_buf) == 0, "unlink", path_buf);
-
   return 0;
 }
 
@@ -147,20 +156,16 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
   char service_dir[PATH_MAX];
   char path_buf[PATH_MAX];
 
+  size_t read_count;
+  NDEBUG_UNUSED(read_count);
+
   struct stat s;
 
-  CHECK_SPRINTF(snprintf(service_dir,
-                         sizeof(service_dir), "%s/%s", cfg->service_dir, cfg->service_name));
+  CHECKED_SPRINTF(service_dir, sizeof(service_dir),
+                  "%s/%s", cfg->service_dir, cfg->service_name);
 
-  CHECK_SPRINTF(snprintf(path_buf,
-                         sizeof(path_buf), "%s/%s", service_dir, "starting"));
-
-  if (stat(path_buf, &s) == 0) {
-    return RUNIT_STARTING;
-  }
-
-  CHECK_SPRINTF(snprintf(path_buf,
-                         sizeof(path_buf), "%s/supervise/stat", service_dir));
+  CHECKED_SPRINTF(path_buf, sizeof(path_buf),
+                  "%s/supervise/stat", service_dir);
 
   if (stat(path_buf, &s) != 0 && errno == ENOENT) {
     return RUNIT_NO_STAT;
@@ -170,13 +175,10 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
   CHECK_FS_CALL(stat_fp != NULL, "fopen", path_buf);
 
   char stat_buf[64] = {0};
-  size_t read_count = fread(stat_buf, 1, sizeof(stat_buf), stat_fp);
+  read_count = fread(stat_buf, 1, sizeof(stat_buf), stat_fp);
 
-#ifdef DEBUG_RUNIT
-  piksi_log(LOG_DEBUG, "%s: service status: '%s' (read_count: %llu)", __FUNCTION__, stat_buf, read_count);
-#else
-  (void)read_count;
-#endif
+  RUNIT_DEBUG_LOG("service status: '%s' (read_count: %llu)", stat_buf, read_count);
+
 
   if (strcmp(stat_buf, RUNIT_STAT_DOWN) == 0) {
     CHECK_FS_CALL(fclose(stat_fp) == 0, "fclose", path_buf);
@@ -191,10 +193,8 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
   if (strcmp(stat_buf, RUNIT_STAT_EMPTY) == 0) {
 
     char pid_path_buf[PATH_MAX];
-    CHECK_SPRINTF(snprintf(pid_path_buf,
-                           sizeof(pid_path_buf),
-                           "%s/supervise/pid",
-                           service_dir));
+    CHECKED_SPRINTF(pid_path_buf, sizeof(pid_path_buf),
+                    "%s/supervise/pid", service_dir);
 
     struct stat s_pid;
     if (stat(pid_path_buf, &s_pid) != 0) {
@@ -208,11 +208,7 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
     char pid_buf[64] = {0};
     read_count = fread(pid_buf, 1, sizeof(pid_buf), pid_fp);
 
-#ifdef DEBUG_RUNIT
-    piksi_log(LOG_DEBUG, "%s: service status, pid: '%s' (read_count: %llu)", __FUNCTION__, pid_buf, read_count);
-#else
-    (void)read_count;
-#endif
+    RUNIT_DEBUG_LOG("service status, pid: '%s' (read_count: %llu)", pid_buf, read_count);
 
     CHECK_FS_CALL(fclose(pid_fp) == 0, "fclose", pid_path_buf);
 
@@ -248,8 +244,6 @@ const char* runit_status_str(runit_stat_t status)
     return "no stat";
   case RUNIT_NO_PID:
     return "no pid file";
-  case RUNIT_STARTING:
-    return "starting";
   }
 
   return "?";
@@ -264,16 +258,15 @@ int stop_runit_service(runit_config_t *cfg)
     return -1;
   }
 
-#ifdef DEBUG_RUNIT
-  piksi_log(LOG_DEBUG, "service %s reported status: %s", cfg->service_name, runit_status_str(stat));
-#endif
+  RUNIT_DEBUG_LOG("service %s reported status: %s", cfg->service_name, runit_status_str(stat));
 
   char service_dir[PATH_MAX];
-  CHECK_SPRINTF(snprintf(service_dir,
-                         sizeof(service_dir), "%s/%s", cfg->service_dir, cfg->service_name));
+  CHECKED_SPRINTF(service_dir, sizeof(service_dir),
+                  "%s/%s", cfg->service_dir, cfg->service_name);
 
   char path_buf[PATH_MAX];
-  CHECK_SPRINTF(snprintf(path_buf, sizeof(path_buf), "%s/supervise/control", service_dir));
+  CHECKED_SPRINTF(path_buf, sizeof(path_buf),
+                  "%s/supervise/control", service_dir);
 
   FILE* control_fp = fopen(path_buf, "w");
   CHECK_FS_CALL(control_fp != NULL, "fopen", path_buf);
@@ -289,3 +282,5 @@ int stop_runit_service(runit_config_t *cfg)
 
 #undef CHECK_FS_CALL
 #undef CHECK_SPRINTF
+#undef RUNIT_DEBUG_LOG
+#undef NDEBUG_UNUSED

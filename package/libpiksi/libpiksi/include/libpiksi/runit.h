@@ -61,8 +61,6 @@ typedef enum {
   RUNIT_NO_PID,
   /** The service is running */
   RUNIT_RUNNING,
-  /** The service is starting */
-  RUNIT_STARTING,
   /** The service is running, but also has some other status */
   RUNIT_RUNNING_OTHER,
   /** The service is down */
