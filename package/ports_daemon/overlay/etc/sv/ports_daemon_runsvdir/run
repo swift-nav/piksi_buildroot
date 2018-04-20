@@ -19,6 +19,10 @@ mkfifo $stderr $stdout
 logger -t ${service} -p daemon.info <$stdout &
 logger -t ${service} -p daemon.err <$stderr &
 
+# Setup runit dir dynamic services
+mkdir -p /var/run/${name}/sv
+chown -R ${user}:${user} /var/run/${name}
+
 chpst -u ${user} runsvdir /var/run/${name}/sv 1>$stdout 2>$stderr &
 
 pid=$!

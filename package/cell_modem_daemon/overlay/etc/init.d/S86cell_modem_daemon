@@ -10,10 +10,6 @@ user="celld"
 setup_permissions() {
     # Force device ownership
     chown $user:$user ${MODEM_BASE}*
-
-    # Setup runit dir dynamic services
-    mkdir -p /var/run/${name}/sv
-    chown -R ${user}:${user} /var/run/${name}
 }
 
 source /etc/init.d/template_process.inc.sh

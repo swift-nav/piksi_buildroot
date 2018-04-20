@@ -44,7 +44,7 @@
 int start_runit_service(runit_config_t *cfg)
 {
   static const int control_sleep_us = 100e3;
-  static const int max_wait_us = 5e6;
+  static const int max_wait_us = 6e6;
 
   struct stat s;
 
