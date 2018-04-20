@@ -2,11 +2,21 @@
 
 name="piksi_firmware"
 
+uart0_svc=/var/run/ports_daemon/sv/uart0/supervise/stat
+uart1_svc=/var/run/ports_daemon/sv/uart1/supervise/stat
+
+services_up() {
+  grep -q run $uart0_svc && grep -q run $uart1_svc
+}
+
 start() {
+  while ! services_up; do
+      sleep 0.1;
+  done
   if [ -f "/lib/firmware/piksi_firmware.elf" ]; then
-    modprobe zynq_remoteproc
+      modprobe zynq_remoteproc
   else
-    echo "ERROR: firmware not found"
+      echo "ERROR: firmware not found"
   fi
 }
 
@@ -15,4 +25,3 @@ stop() {
 }
 
 source /etc/init.d/template_command.inc.sh
-
