@@ -4,9 +4,14 @@ name="piksi_firmware"
 
 uart0_svc=/var/run/ports_daemon/sv/uart0/supervise/stat
 uart1_svc=/var/run/ports_daemon/sv/uart1/supervise/stat
+tcp0_svc=/var/run/ports_daemon/sv/tcp_server0/supervise/stat
+tcp1_svc=/var/run/ports_daemon/sv/tcp_server1/supervise/stat
 
 services_up() {
-  grep -q run $uart0_svc && grep -q run $uart1_svc
+  grep -q run $uart0_svc \
+    && grep -q run $uart1_svc \
+    && grep -q run $tcp0_svc \
+    && grep -q run $tcp1_svc
 }
 
 start() {
