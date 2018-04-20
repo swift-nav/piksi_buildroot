@@ -1,0 +1,10 @@
+#!/bin/sh
+
+pppd_pid=$(cat /var/run/cell_modem_daemon/sv/pppd_daemon/supervise/pid)
+
+if [[ -z "$pppd_pid" ]]; then
+  echo "ERROR: pppd pid file not found"
+  exit 1
+fi
+
+kill -TERM $pppd_pid

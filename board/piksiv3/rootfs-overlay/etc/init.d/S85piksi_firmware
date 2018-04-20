@@ -2,7 +2,26 @@
 
 name="piksi_firmware"
 
-start() {
+uart0_svc=/var/run/ports_daemon/sv/uart0/supervise/stat
+uart1_svc=/var/run/ports_daemon/sv/uart1/supervise/stat
+
+services_up()
+{
+  grep -q run $uart0_svc \
+    && grep -q run $uart1_svc
+}
+
+wait_services()
+{
+  while ! services_up; do
+    sleep 0.1;
+  done
+}
+
+start()
+{
+  wait_services
+
   if [ -f "/lib/firmware/piksi_firmware.elf" ]; then
     modprobe zynq_remoteproc
   else
@@ -10,9 +29,9 @@ start() {
   fi
 }
 
-stop() {
+stop()
+{
   rmmod zynq_remoteproc
 }
 
 source /etc/init.d/template_command.inc.sh
-

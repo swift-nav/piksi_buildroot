@@ -3,12 +3,14 @@
 name="skylark_daemon"
 cmd="skylark_daemon --settings"
 dir="/"
-user="skylark_daemon"
+user="skylarkd"
 
 setup_permissions() {
 
   mkdir -p /var/run/skylark/control
-  chown -R skylark_daemon:skylark_daemon /var/run/skylark
+  chown -R $user:$user /var/run/skylark
+
+  chown $user:$user /etc/skylark_upload_filter_out_config
 
   # Sticky bit is set so that skylark_daemon can create it's
   #   control socket but (and allow others to write to it)
@@ -16,7 +18,7 @@ setup_permissions() {
   chmod 1775 /var/run/skylark/control
 
   touch /var/run/skylark/enabled
-  chown skylark_daemon:skylark_daemon /var/run/skylark/enabled
+  chown $user:$user /var/run/skylark/enabled
   chmod 0644 /var/run/skylark/enabled
 }
 

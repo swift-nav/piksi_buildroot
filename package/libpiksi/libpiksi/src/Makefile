@@ -1,8 +1,17 @@
 TARGET=libpiksi
-SOURCES=sbp_zmq_tx.c sbp_zmq_rx.c sbp_zmq_pubsub.c settings.c util.c logging.c networking.c interface.c
-CFLAGS=-std=gnu11 -fPIC -I../include
+SOURCES=\
+  sbp_zmq_tx.c \
+  sbp_zmq_rx.c \
+  sbp_zmq_pubsub.c \
+  settings.c \
+  util.c \
+  logging.c \
+  networking.c \
+  interface.c \
+  runit.c
 ARFLAGS=rcs $(LTO_PLUGIN)
-LDFLAGS=-shared
+CFLAGS+=-std=gnu11 -fPIC -I../include
+LDFLAGS+=-shared
 
 CROSS=
 
@@ -20,7 +29,7 @@ $(TARGET).a: $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
 $(TARGET).so: $(OBJS)
-	$(CC) $(LDFLAGS) $(LTO_PLUGIN) $^ -o $@
+	$(CC) $(LDFLAGS) $^ -o $@
 
 clean:
 	rm -rf $(TARGET).a $(TARGET).so $(OBJS)

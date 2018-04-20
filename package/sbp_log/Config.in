@@ -1,4 +1,0 @@
-config BR2_PACKAGE_SBP_LOG
-	bool "sbp_log"
-	select BR2_PACKAGE_CZMQ
-	select BR2_PACKAGE_LIBSBP
