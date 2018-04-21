@@ -1564,7 +1564,7 @@ bool settings_loop(const char* control_socket,
                    register_settings_fn do_settings_register,
                    handle_command_fn do_handle_command)
 {
-  piksi_log(LOG_INFO, "Starting daemon mode for NTRIP settings...");
+  piksi_log(LOG_INFO, "Starting daemon mode for settings...");
 
   // Block ZMQ signal handlers
   zsys_handler_set(NULL);
@@ -1603,18 +1603,19 @@ bool settings_loop(const char* control_socket,
 
   zloop_t* loop = sbp_zmq_pubsub_zloop_get(pubsub_ctx);
 
-  bool control_sock_configured =
-    configure_control_socket(loop,
-                             control_socket,
-                             control_socket_file,
-                             control_command,
-                             do_handle_command,
-                             &rep_socket,
-                             &cmd_info);
-
-  if (!control_sock_configured) {
-    ret = false;
-    goto settings_loop_cleanup;
+  if (control_socket != NULL) {
+    bool control_sock_configured =
+      configure_control_socket(loop,
+                               control_socket,
+                               control_socket_file,
+                               control_command,
+                               do_handle_command,
+                               &rep_socket,
+                               &cmd_info);
+    if (!control_sock_configured) {
+      ret = false;
+      goto settings_loop_cleanup;
+    }
   }
 
   loop_quit_reader = zsock_new_pair(">inproc://loop_quit");
@@ -1655,6 +1656,11 @@ settings_loop_cleanup:
   settings_destroy(&settings_ctx);
 
   return ret;
+}
+
+bool settings_loop_simple(register_settings_fn do_settings_register)
+{
+  return settings_loop(NULL, NULL, NULL, do_settings_register, NULL);
 }
 
 int settings_loop_send_command(const char* target_description,

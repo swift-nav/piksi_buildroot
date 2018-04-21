@@ -316,6 +316,9 @@ bool settings_loop(const char* control_socket,
                    const char* control_command,
                    register_settings_fn do_register_settings,
                    handle_command_fn do_handle_command);
+
+bool settings_loop_simple(register_settings_fn do_register_settings);
+
 /**
  * @brief   Send a control command to a running settings daemon
  * @details Sends a control command to a daemon running with
