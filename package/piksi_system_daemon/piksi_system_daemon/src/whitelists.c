@@ -129,7 +129,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgBasePosECEF                72
         MsgObs                        74
         MsgSpecan                     81
-		MsgMeasurementState           97
+        MsgMeasurementState           97
         MsgGloBiases                 117
         MsgEphemerisGPS              134
         MsgEphemerisGlo              136
@@ -175,7 +175,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgBasePosECEF                72
         MsgObs                        74
         MsgSpecan                     81
-		MsgMeasurementState           97
+        MsgMeasurementState           97
         MsgGloBiases                 117
         MsgEphemerisGPS              134
         MsgEphemerisGlo              136
