@@ -1,0 +1,29 @@
+#!/bin/sh
+
+name=ports_daemon
+service=${name}_runsvdir
+user=portsd
+
+stderr=/var/run/${service}.stderr
+stdout=/var/run/${service}.stdout
+
+# enable job control
+set -m
+
+# kill -$pid will kill the whole process group
+trap 'kill -HUP -$pid && kill -TERM -$pid' HUP TERM
+
+rm -f $stderr $stdout
+mkfifo $stderr $stdout
+
+logger -t ${service} -p daemon.info <$stdout &
+logger -t ${service} -p daemon.err <$stderr &
+
+# Setup runit dir dynamic services
+mkdir -p /var/run/${name}/sv
+chown -R ${user}:${user} /var/run/${name}
+
+chpst -u ${user} runsvdir /var/run/${name}/sv 1>$stdout 2>$stderr &
+
+pid=$!
+wait $pid

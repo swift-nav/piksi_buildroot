@@ -3,7 +3,11 @@
 name="zmq_router_rtcm3"
 cmd="zmq_router -f /etc/zmq_router/rtcm3_router.yml"
 dir="/"
-user=""
+user="rt_rtcm3"
+
+setup_permissions() {
+    addgroup -S $user
+    adduser -S -D -H -G $user $user
+}
 
 source /etc/init.d/template_process.inc.sh
-

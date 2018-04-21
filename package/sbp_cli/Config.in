@@ -1,0 +1,4 @@
+config BR2_PACKAGE_SBP_CLI
+	bool "sbp_cli"
+	select BR2_PACKAGE_CZMQ
+	select BR2_PACKAGE_LIBSBP

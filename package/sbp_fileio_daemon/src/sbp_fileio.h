@@ -16,7 +16,11 @@
 #include <libpiksi/sbp_zmq_rx.h>
 #include <libpiksi/sbp_zmq_tx.h>
 
-void sbp_fileio_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx);
+void sbp_fileio_setup(const char *basedir,
+                      bool allow_factory_mtd,
+                      bool allow_imageset_bin,
+                      sbp_zmq_rx_ctx_t *rx_ctx,
+                      sbp_zmq_tx_ctx_t *tx_ctx);
 
 #endif
 

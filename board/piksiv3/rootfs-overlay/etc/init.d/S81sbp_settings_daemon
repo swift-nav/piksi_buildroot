@@ -3,14 +3,14 @@
 name="sbp_settings_daemon"
 cmd="sbp_settings_daemon"
 dir="/"
-user="sbp_settings_daemon"
+user="configd"
 
 SETTINGS_FILE="/persistent/config.ini"
 
 setup_permissions() {
 
     touch $SETTINGS_FILE
-    chown sbp_settings_daemon:sbp_settings_daemon $SETTINGS_FILE
+    chown $user:$user $SETTINGS_FILE
 }
 
 source /etc/init.d/template_process.inc.sh
