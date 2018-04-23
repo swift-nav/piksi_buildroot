@@ -3,15 +3,15 @@
 name="network_poll"
 cmd="/etc/init.d/network_poll.sh"
 dir="/"
-user="network_poll"
+user="netpoll"
 
 setup_permissions() {
 
-    addgroup -S network_poll
-    adduser -S -D -H -G network_poll network_poll
+    addgroup -S $user
+    adduser -S -D -H -G $user $user
 
     touch /var/run/network_available
-    chown network_poll:network_poll /var/run/network_available
+    chown $user:$user /var/run/network_available
     chmod 0644 /var/run/network_available
 }
 

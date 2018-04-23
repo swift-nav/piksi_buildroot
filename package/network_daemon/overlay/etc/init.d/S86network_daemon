@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="network_daemon"
+cmd="network_daemon"
+dir="/"
+user="networkd"
+
+source /etc/init.d/template_process.inc.sh

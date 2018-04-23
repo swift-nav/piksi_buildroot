@@ -3,7 +3,7 @@
 name="piksi_leds"
 cmd="piksi_leds"
 dir="/"
-user="piksi_leds"
+user="ledd"
 
 DURO_EEPROM_PATH="/sys/devices/soc0/amba/e0005000.i2c/i2c-1/1-0050/eeprom"
 DURO_EEPROM_CFG_PATH="/cfg/duro_eeprom"
@@ -40,8 +40,8 @@ copy_duro_eeprom()
 
 setup_permissions() {
 
-    chown piksi_leds:piksi_leds /dev/i2c-0
-    chown piksi_leds:piksi_leds /dev/i2c-1
+    chown $user:$user /dev/i2c-0
+    chown $user:$user /dev/i2c-1
 
     copy_duro_eeprom
 }

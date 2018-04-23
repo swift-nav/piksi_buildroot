@@ -1,0 +1,5 @@
+config BR2_PACKAGE_PORTS_DAEMON
+  bool "ports_daemon"
+  select BR2_PACKAGE_CZMQ
+  select BR2_PACKAGE_LIBSBP
+  select BR2_PACKAGE_LIBPIKSI

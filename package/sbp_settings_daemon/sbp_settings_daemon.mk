@@ -11,7 +11,7 @@ SBP_SETTINGS_DAEMON_SITE_METHOD = local
 SBP_SETTINGS_DAEMON_DEPENDENCIES = czmq libsbp libpiksi
 
 define SBP_SETTINGS_DAEMON_USERS
-	sbp_settings_daemon -1 sbp_settings_daemon -1 * - - -
+	configd -1 configd -1 * - - -
 endef
 
 ifeq ($(BR2_BUILD_TESTS),y)

@@ -1,0 +1,19 @@
+#!/bin/sh
+
+case "$1" in
+  start)
+      start-stop-daemon -p /var/run/runit.pid -m -b -a /bin/ash -S -- -c "exec /etc/init.d/runsvdir-start"
+	;;
+  stop)
+      start-stop-daemon -p /var/run/runit.pid -K
+	;;
+  restart|reload)
+      stop
+      start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

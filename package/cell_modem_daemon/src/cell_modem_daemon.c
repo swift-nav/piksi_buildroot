@@ -26,6 +26,7 @@
 #include <libsbp/system.h>
 
 #include "at_command_utils.h"
+#include "cell_modem_settings.h"
 
 #define PROGRAM_NAME "cell_modem_daemon"
 
@@ -34,8 +35,6 @@
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE (255u)
 #define CELL_STATUS_UPDATE_INTERVAL (1000u)
-
-bool cell_modem_enable_watch = false;
 
 u8 *port_name = NULL;
 u8 *command_string = NULL;
@@ -132,7 +131,7 @@ static int cell_status_timer_callback(zloop_t *loop, int timer_id, void *arg)
   (void)timer_id;
   struct cell_modem_ctx_s *cell_modem_ctx = (struct cell_modem_ctx_s *)arg;
 
-  if (cell_modem_enable_watch) {
+  if (cell_modem_enabled()) {
     send_cell_modem_status(cell_modem_ctx);
   }
 
@@ -198,6 +197,8 @@ int main(int argc, char *argv[])
 
     settings_ctx = settings_create();
 
+    cell_modem_init(ctx, settings_ctx);
+
     if (settings_ctx == NULL) {
       sbp_log(LOG_ERR, "Error registering for settings!");
       return cleanup(&settings_ctx, &ctx, &port, EXIT_FAILURE);
@@ -207,15 +208,6 @@ int main(int argc, char *argv[])
       sbp_log(LOG_ERR, "Error registering for settings read!");
       return cleanup(&settings_ctx, &ctx, &port, EXIT_FAILURE);
     }
-
-    settings_add_watch(settings_ctx,
-                       "cell_modem",
-                       "enable",
-                       &cell_modem_enable_watch,
-                       sizeof(cell_modem_enable_watch),
-                       SETTINGS_TYPE_BOOL,
-                       NULL,
-                       NULL);
 
     zmq_simple_loop(loop);
   }
