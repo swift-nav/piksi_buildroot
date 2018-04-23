@@ -3,16 +3,15 @@
 name="network_poll"
 cmd="/etc/init.d/network_poll.sh"
 dir="/"
-user="netpoll"
+user="piksi_sys"
 
-setup_permissions() {
-
-    addgroup -S $user
-    adduser -S -D -H -G $user $user
-
-    touch /var/run/network_available
-    chown $user:$user /var/run/network_available
-    chmod 0644 /var/run/network_available
+setup_permissions()
+{
+  configure_file_resource $user /var/run/network_available 0644
+  configure_file_resource $user /var/run/network_polling_period 0644
+  configure_file_resource $user /var/run/network_polling_retry_period 0644
+  configure_file_resource $user /var/run/enable_ping_logging 0644
+  configure_file_resource $user /var/log/ping.log 0644
 }
 
 source /etc/init.d/template_process.inc.sh
