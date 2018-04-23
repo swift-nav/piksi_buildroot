@@ -1,0 +1,31 @@
+#!/bin/sh
+
+mode="$1"; shift
+
+if [[ "$mode" == "static" ]]; then
+
+  ip_addr="$1"; shift
+  netmask="$1"; shift
+  gateway="$1"; shift
+
+fi
+
+/etc/init.d/S83ifplugd stop
+ifdown -f eth0
+
+interfaces=/etc/network/interfaces
+
+if [[ "$mode" == "dhcp" ]]; then
+  echo "iface eth0 inet dhcp" >$interfaces
+elif [[ "$mode" == "static" ]]; then
+  cat >$interfaces <<EOF
+iface eth0 inet static
+	address $ip_addr
+	netmask $netmask
+	gateway $gateway
+EOF
+else
+  echo "$0: ERROR: Unknown mode" >&2
+fi
+
+/etc/init.d/S83ifplugd start

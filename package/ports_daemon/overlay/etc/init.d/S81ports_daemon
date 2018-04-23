@@ -1,0 +1,22 @@
+#!/bin/sh
+
+name="ports_daemon"
+cmd="ports_daemon"
+dir="/"
+user="portsd"
+
+setup_permissions() {
+
+  mkdir -p /etc/filter_out_config
+  chown -R portsd:portsd /etc/filter_out_config
+
+  chown portsd:portsd /dev/ttyPS0
+  chown portsd:portsd /dev/ttyPS1
+  chown portsd:portsd /dev/ttyGS0
+
+  # Setup runit dir dynamic services
+  mkdir -p /var/run/${name}/sv
+  chown -R ${user}:${user} /var/run/${name}
+}
+
+source /etc/init.d/template_process.inc.sh

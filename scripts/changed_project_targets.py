@@ -110,6 +110,8 @@ deps = scrape_deps()
 
 for dep in reversed(topological(deps)):
     if dep in packages:
+        target = (dep + b'-dirclean').decode('utf8')
+        print(target)
         target = (dep + b'-rebuild').decode('utf8')
         print(target)
 

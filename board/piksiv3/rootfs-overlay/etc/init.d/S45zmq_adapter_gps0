@@ -1,8 +1,44 @@
 #!/bin/sh
 
+user="ad_gps0"
 name="zmq_adapter_gps0"
-cmd="zmq_adapter --stdio -s '>tcp://127.0.0.1:44030' | socat pty,raw,link=/dev/gps0 fd:0"
 dir="/"
+
+cmd="/etc/init.d/gps_adapter.sh"
+
+dyn_pty_name=tmp.gps0
+dyn_pty_path=/tmp/$dyn_pty_name
+
+# Enable job control
+set -m
+
+pre_launch() {
+    rm -fv $dyn_pty_path
+}
+
+post_launch() {
+    wait_create_gps0
+    ln -sf $(readlink -f $dyn_pty_path) /dev/gps0
+}
+
+post_shutdown() {
+    rm -fv /dev/gps0
+}
+
+has_user() {
+    id -u $1 &>/dev/null
+}
+
+wait_create_gps0() {
+    while [[ ! -e "$dyn_pty_path" ]] && ! inotifywait -t 1 -e create /tmp -q | grep -q "CREATE $dyn_pty_name"; do
+      continue;
+    done
+}
+
+setup_permissions() {
+    has_user $user || addgroup -S $user
+    has_user $user || adduser -S -D -H -G $user $user
+}
 
 ulimit -c unlimited
 
@@ -20,13 +56,16 @@ is_running() {
 
 case "$1" in
     start)
+    setup_permissions
     if is_running; then
         echo "Already started"
     else
         echo "Starting $name"
         cd "$dir"
-        sh -c "$cmd" >> "$stdout_log" 2>> "$stderr_log" &
+        pre_launch
+        chpst -u $user $cmd >> "$stdout_log" 2>> "$stderr_log" &
         echo $! > "$pid_file"
+        post_launch
         if ! is_running; then
             echo "Unable to start, see $stdout_log and $stderr_log"
             exit 1
@@ -36,7 +75,8 @@ case "$1" in
     stop)
     if is_running; then
         echo -n "Stopping $name.."
-        kill `get_pid`
+        # Kill the whole process group with -PID
+        kill -SIGTERM -$(get_pid)
         for i in {1..10}
         do
             if ! is_running; then
@@ -47,7 +87,6 @@ case "$1" in
             sleep 1
         done
         echo
-
         if is_running; then
             echo "Not stopped; may still be shutting down or shutdown may have failed"
             exit 1
@@ -57,6 +96,7 @@ case "$1" in
                 rm "$pid_file"
             fi
         fi
+        post_shutdown
     else
         echo "Not running"
     fi

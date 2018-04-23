@@ -11,7 +11,7 @@ NMEA_DAEMON_SITE_METHOD = local
 NMEA_DAEMON_DEPENDENCIES = czmq libpiksi
 
 define NMEA_DAEMON_USERS
-	nmea_daemon -1 nmea_daemon -1 * - - -
+	nmead -1 nmead -1 * - - -
 endef
 
 define NMEA_DAEMON_BUILD_CMDS

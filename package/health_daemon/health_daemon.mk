@@ -11,7 +11,7 @@ HEALTH_DAEMON_SITE_METHOD = local
 HEALTH_DAEMON_DEPENDENCIES = czmq libsbp libpiksi libnetwork libcurl
 
 define HEALTH_DAEMON_USERS
-	health_daemon -1 health_daemon -1 * - - -
+	healthd -1 healthd -1 * - - -
 endef
 
 define HEALTH_DAEMON_BUILD_CMDS

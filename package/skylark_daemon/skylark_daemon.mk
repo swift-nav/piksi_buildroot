@@ -11,7 +11,7 @@ SKYLARK_DAEMON_SITE_METHOD = local
 SKYLARK_DAEMON_DEPENDENCIES = czmq libsbp libpiksi libcurl libnetwork
 
 define SKYLARK_DAEMON_USERS
-	skylark_daemon -1 skylark_daemon -1 * - - -
+	skylarkd -1 skylarkd -1 * - - -
 endef
 
 define SKYLARK_DAEMON_BUILD_CMDS

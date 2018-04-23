@@ -2,7 +2,12 @@
 
 name="zmq_router_sbp"
 dir="/"
-user=""
+user="rt_sbp"
+
+setup_permissions() {
+    addgroup -S $user
+    adduser -S -D -H -G $user $user
+}
 
 if grep -q "smoothpose_mode=INS Only" /persistent/config.ini; then
   router_config="/etc/zmq_router/sbp_router_smoothpose.yml"
