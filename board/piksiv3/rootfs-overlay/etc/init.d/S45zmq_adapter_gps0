@@ -28,6 +28,8 @@ has_user()      { id -u $1 &>/dev/null; }
 
 wait_create_gps0()
 {
+  echo "Waiting for gps0 pty to be created..."
+
   while [[ ! -e "$dyn_pty_path" ]] && ! inotifywait -t 1 -e create /tmp -q | grep -q "CREATE $dyn_pty_name"; do
     continue;
   done
@@ -37,6 +39,9 @@ setup_permissions()
 {
   has_user $user || addgroup -S $user
   has_user $user || adduser -S -D -H -G $user $user
+
+  mkdir -p /var/run/gps_ntp
+  chown $user:$user /var/run/gps_ntp
 }
 
 get_pid() { cat "$pid_file"; }

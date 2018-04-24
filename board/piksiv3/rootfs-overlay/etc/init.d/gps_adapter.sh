@@ -1,6 +1,6 @@
 #!/bin/ash
 
-fifo=/var/run/ntp_gps_adapter
+fifo=/var/run/gps_ntp/adapter
 
 rm -f $fifo
 mkfifo $fifo

@@ -12,23 +12,34 @@ stderr_log="/var/log/$name.err"
 tag=tmpl_runsv
 fac=daemon
 
-_setup_permissions() {
-    if type setup_permissions | grep -q "shell function"; then
-        setup_permissions
-    fi
+has_user()      { id -u $1 &>/dev/null; }
+
+add_service_user()
+{
+  local user=$1; shift
+
+  has_user $user || addgroup -S $user
+  has_user $user || adduser -S -D -H -G $user $user
+}
+
+_setup_permissions()
+{
+  if type setup_permissions | grep -q "shell function"; then
+    setup_permissions
+  fi
 }
 
 pid_file="/var/service/${name}/supervise/pid"
 
-_setup_svdir() {
-
+_setup_svdir()
+{
   mkdir -p /etc/sv/${name}/control
 
   echo "#!/bin/ash"                                   > /etc/sv/${name}/run
-  echo "set -m"                                      >> /etc/sv/${name}/run
+  echo "cd ${dir}"                                   >> /etc/sv/${name}/run
   echo "echo Starting ${name}... \\"                 >> /etc/sv/${name}/run
   echo "  | logger -t ${tag} -p ${fac}.info"         >> /etc/sv/${name}/run
-  echo "exec chpst -u $user:$user sh -c \"$cmd\" \\" >> /etc/sv/${name}/run
+  echo "exec chpst -u $user:$user $cmd \\"           >> /etc/sv/${name}/run
   echo "  1>>${stdout_log} \\"                       >> /etc/sv/${name}/run
   echo "  2>>${stderr_log}"                          >> /etc/sv/${name}/run
 
@@ -39,13 +50,6 @@ _setup_svdir() {
   echo "  | logger -t ${tag} -p ${fac}.info"         >> /etc/sv/${name}/finish
 
   chmod +x /etc/sv/${name}/finish
-
-  echo "#!/bin/ash"                                   > /etc/sv/${name}/control/d
-  echo "echo Stopping ${name}... \\"                 >> /etc/sv/${name}/control/d
-  echo "  | logger -t ${tag} -p ${fac}.info"         >> /etc/sv/${name}/control/d
-  echo "kill -TERM -\$(cat $pid_file)"               >> /etc/sv/${name}/control/d
-
-  chmod +x /etc/sv/${name}/control/d
 
   ln -sf /etc/sv/${name} /var/service/${name}
 }

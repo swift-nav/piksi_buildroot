@@ -29,9 +29,9 @@
 
 //#define DEBUG_SKYLARK_MONITOR
 #ifdef DEBUG_SKYLARK_MONITOR
-#define DEBUG_LOG(...)
-#else
 #define DEBUG_LOG(...) piksi_log(LOG_DEBUG, __VA_ARGS__)
+#else
+#define DEBUG_LOG(...)
 #endif
 
 static health_monitor_t* skylark_monitor;

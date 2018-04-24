@@ -5,9 +5,9 @@ cmd="zmq_router -f /etc/zmq_router/nmea_router.yml"
 dir="/"
 user="rt_nmea"
 
-setup_permissions() {
-    addgroup -S $user
-    adduser -S -D -H -G $user $user
+setup_permissions()
+{
+  add_service_user $user
 }
 
 source /etc/init.d/template_runsv.inc.sh
