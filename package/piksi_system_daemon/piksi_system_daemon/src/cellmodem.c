@@ -31,12 +31,16 @@
 #include "cellmodem_inotify.h"
 #include "async-child.h"
 
+#define CELLMODEM_DEV_OVERRIDE_DEFAULT "ttyACM0"
+
 static enum modem_type modem_type = MODEM_TYPE_GSM;
 static char *cellmodem_dev;
+
 /* External settings */
 static char cellmodem_apn[32] = "hologram";
 static bool cellmodem_enabled;
 static bool cellmodem_debug;
+static char cellmodem_dev_override[PATH_MAX] = CELLMODEM_DEV_OVERRIDE_DEFAULT;
 static int cellmodem_pppd_pid;
 
 static int cellmodem_notify(void *context);
@@ -109,6 +113,11 @@ int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
   return 0;
 }
 
+char * cellmodem_get_dev_override(void)
+{
+  return strlen(cellmodem_dev_override) == 0 ? NULL : cellmodem_dev_override;
+}
+
 static void pppd_exit_callback(int status, void *arg)
 {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = arg;
@@ -175,6 +184,9 @@ int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ct
                     cellmodem_notify, pubsub_ctx);
   settings_register(settings_ctx, "cell_modem", "debug", &cellmodem_debug,
                     sizeof(cellmodem_debug), SETTINGS_TYPE_BOOL,
+                    NULL, NULL);
+  settings_register(settings_ctx, "cell_modem", "device_override", &cellmodem_dev_override,
+                    sizeof(cellmodem_dev_override), SETTINGS_TYPE_STRING,
                     NULL, NULL);
   async_wait_for_tty(pubsub_ctx);
   return 0;
