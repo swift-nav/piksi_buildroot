@@ -10,13 +10,8 @@ _gga_file=/var/run/nmea/GGA
 
 setup_permissions() {
 
-    mkdir $_base_dir
-    chown $user:$user $_base_dir
-    chmod 755 $_base_dir
-
-    touch $_gga_file
-    chown $user:$user $_gga_file
-    chmod 644 $_gga_file
+  configure_dir_resource $user $_base_dir 755
+  configure_file_resource $user $_gga_file 644
 }
 
 source /etc/init.d/template_process.inc.sh

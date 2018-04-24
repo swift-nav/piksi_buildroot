@@ -13,7 +13,7 @@ polling_retry_file=/var/run/network_polling_retry_period
 
 network_available_file=/var/run/network_available
 
-ping_log_enabled=/var/run/enable_ping_logging
+ping_log_enabled_file=/var/run/enable_ping_logging
 ping_log_file=/var/log/ping.log
 
 ## Functions:
@@ -36,9 +36,22 @@ ntrip_enabled()
   fi
 }
 
+ping_logging_enabled()
+{
+  if ! [[ -f $ping_log_enabled_file ]]; then
+    return 1
+  fi
+
+  if [[ -z "$(cat $ping_log_enabled_file)" ]]; then
+    return 1;
+  fi
+
+  return 0
+}
+
 ping_log()
 {
-  if [[ -n "$(cat $ping_log_enabled)" ]]; then
+  if ping_logging_enabled; then
     echo $ping_log_file
   else
     echo /dev/null

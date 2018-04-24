@@ -12,15 +12,40 @@ pid_file="/var/run/$name.pid"
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
 
-get_pid() {
+get_pid()
+{
     cat "$pid_file"
 }
 
-is_running() {
+is_running()
+{
     [ -f "$pid_file" ] && [ -d "/proc/`get_pid`" ] > /dev/null 2>&1
 }
 
-_setup_permissions() {
+configure_dir_resource()
+{
+  local user=$1; shift
+  local path=$1; shift
+  local perm=$1; shift
+
+  mkdir -p $path
+  chown $user:$user $path
+  chmod $perm $path
+}
+
+configure_file_resource()
+{
+  local user=$1; shift
+  local path=$1; shift
+  local perm=$1; shift
+
+  touch $path
+  chown $user:$user $path
+  chmod $perm $path
+}
+
+_setup_permissions()
+{
     if type setup_permissions | grep -q "shell function"; then
         setup_permissions
     fi
