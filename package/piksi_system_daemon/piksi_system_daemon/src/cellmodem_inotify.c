@@ -31,7 +31,7 @@
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
-typedef struct {
+typedef struct inotify_ctx_s {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx;
   zloop_t *loop;
   zmq_pollitem_t pollitem;
@@ -77,6 +77,19 @@ static int update_dev_from_probe(inotify_ctx_t *ctx, char *dev)
     return 0;
   }
   return 1;
+}
+
+void cellmodem_set_dev_to_invalid(inotify_ctx_t *ctx)
+{
+  if (ctx == NULL) {
+    return;
+  }
+  ctx->modem_type = MODEM_TYPE_INVALID;
+  if (ctx->cellmodem_dev != NULL) {
+    free(ctx->cellmodem_dev);
+    ctx->cellmodem_dev = NULL;
+  }
+  cellmodem_set_dev(ctx->pubsub_ctx, NULL, MODEM_TYPE_INVALID);
 }
 
 void cellmodem_scan_for_modem(inotify_ctx_t *ctx)
@@ -130,10 +143,7 @@ static int inotify_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
       piksi_log(LOG_DEBUG, "got notification that '%s' was deleted", event->name);
       if ((ctx->cellmodem_dev != NULL) &&
           (strcmp(ctx->cellmodem_dev, event->name) == 0)) {
-        ctx->modem_type = MODEM_TYPE_INVALID;
-        free(ctx->cellmodem_dev);
-        ctx->cellmodem_dev = NULL;
-        cellmodem_set_dev(ctx->pubsub_ctx, NULL, MODEM_TYPE_INVALID);
+        cellmodem_set_dev_to_invalid(ctx);
       }
     } else {
       piksi_log(LOG_WARNING, "unhandled inotify event");
@@ -145,7 +155,7 @@ static int inotify_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
   return 0;
 }
 
-void async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
+inotify_ctx_t * async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
 {
   int inotify_fd = inotify_init1(IN_NONBLOCK);
 
@@ -173,9 +183,10 @@ void async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
 
   cellmodem_scan_for_modem(ctx);
 
-  return;
+  return ctx;
 
 fail:
   piksi_log(LOG_DEBUG, "modem detection error, waiting to retry");
   zloop_timer(sbp_zmq_pubsub_zloop_get(pubsub_ctx), 5000, 1, pppd_respawn, pubsub_ctx);
+  return NULL;
 }

@@ -43,6 +43,9 @@ static bool cellmodem_debug;
 static char cellmodem_dev_override[PATH_MAX] = CELLMODEM_DEV_OVERRIDE_DEFAULT;
 static int cellmodem_pppd_pid;
 
+/* context for rescan on override notify */
+inotify_ctx_t * inotify_ctx = NULL;
+
 static int cellmodem_notify(void *context);
 
 #define SBP_PAYLOAD_SIZE_MAX (255u)
@@ -118,6 +121,33 @@ char * cellmodem_get_dev_override(void)
   return strlen(cellmodem_dev_override) == 0 ? NULL : cellmodem_dev_override;
 }
 
+static int cellmodem_notify_dev_override(void *context)
+{
+  sbp_zmq_pubsub_ctx_t *pubsub_ctx = context;
+  if (inotify_ctx == NULL) {
+    return 0;
+  }
+  // Don't allow changes if cell modem is enabled
+  if (cellmodem_enabled) {
+      sbp_log(LOG_WARNING, "Modem must be disabled to modify device override");
+    return 1;
+  }
+
+
+  // override updated
+  if (cellmodem_get_dev_override() != NULL) {
+    if (!cellmodem_tty_exists(cellmodem_dev_override)) {
+      sbp_log(LOG_WARNING,
+              "Modem device override tty does not exist: '%s'",
+              cellmodem_dev_override);
+    }
+  }
+  cellmodem_set_dev_to_invalid(inotify_ctx);
+  cellmodem_notify(pubsub_ctx);
+  cellmodem_scan_for_modem(inotify_ctx);
+  return 0;
+}
+
 static void pppd_exit_callback(int status, void *arg)
 {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = arg;
@@ -187,7 +217,7 @@ int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ct
                     NULL, NULL);
   settings_register(settings_ctx, "cell_modem", "device_override", &cellmodem_dev_override,
                     sizeof(cellmodem_dev_override), SETTINGS_TYPE_STRING,
-                    NULL, NULL);
-  async_wait_for_tty(pubsub_ctx);
+                    cellmodem_notify_dev_override, pubsub_ctx);
+  inotify_ctx = async_wait_for_tty(pubsub_ctx);
   return 0;
 }
