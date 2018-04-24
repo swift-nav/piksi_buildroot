@@ -46,4 +46,4 @@ setup_permissions() {
     copy_duro_eeprom
 }
 
-source /etc/init.d/template_process.inc.sh
+source /etc/init.d/template_runsv.inc.sh

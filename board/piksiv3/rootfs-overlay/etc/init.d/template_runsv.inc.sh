@@ -35,6 +35,11 @@ _setup_svdir()
 {
   mkdir -p /etc/sv/${name}/control
 
+  if [[ -z "$user" ]]; then
+    echo "Error: the 'user' variable must not be empty"
+    exit 1
+  fi
+
   echo "#!/bin/ash"                                   > /etc/sv/${name}/run
   echo "cd ${dir}"                                   >> /etc/sv/${name}/run
   echo "echo Starting ${name}... \\"                 >> /etc/sv/${name}/run
@@ -48,6 +53,7 @@ _setup_svdir()
   echo "#!/bin/ash"                                   > /etc/sv/${name}/finish
   echo "echo Service ${name} exited... \\"           >> /etc/sv/${name}/finish
   echo "  | logger -t ${tag} -p ${fac}.info"         >> /etc/sv/${name}/finish
+  echo "sleep 1"                                     >> /etc/sv/${name}/finish
 
   chmod +x /etc/sv/${name}/finish
 
