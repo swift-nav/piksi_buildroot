@@ -41,14 +41,6 @@ void query_network_state(msg_network_state_resp_t *interfaces, u8 interfaces_n, 
  */
 void query_network_usage(network_usage_t *usage_entries, u8 usage_entries_n, u8 *interface_count);
 
-/**
- * @brief Query Usage on a Specific Interface
- * @param usage_entry: a usage struct to fill with results
- * @param interface_name: the name of the interface to filter on
- * @param found: status of the query, false if a match was not found
- */
-void query_network_usage_by_interface(network_usage_t *usage_entry, u8* interface_name, bool *found);
-
 #endif /* LIBPIKSI_NETWORKING_H */
 
 /** @} */

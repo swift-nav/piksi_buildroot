@@ -594,6 +594,24 @@ void debug_flush(void)
   fflush(stdout);
 }
 
+#define UPGRADE_SUCCESS 0
+
+typedef enum {
+  UPGRADE_ERROR_UNKNOWN = 1,
+  UPGRADE_ERROR_OPTIONS = 2,
+  UPGRADE_ERROR_IN_PROGRESS = 3,
+  UPGRADE_ERROR_PART_INFO_POP = 4,
+  UPGRADE_ERROR_PART_INFO_VERIFY = 5,
+  UPGRADE_ERROR_TARGET_PARAMS_GET = 6,
+  UPGRADE_ERROR_DATA_LOAD = 7,
+  UPGRADE_ERROR_DATA_VERIFY = 8,
+  UPGRADE_ERROR_FACTORY_DATA = 9,
+  UPGRADE_ERROR_INVALID_HARDWARE = 10,
+  UPGRADE_ERROR_IMAGE_TABLE = 11,
+  UPGRADE_ERROR_IMAGE_POPULATE = 12,
+  UPGRADE_ERROR_UPGRADE_INSTALL = 13
+} upgrade_error_t;
+
 int main(int argc, char *argv[])
 {
   /*  1. read MTD partition info from /proc/mtd
@@ -611,27 +629,27 @@ int main(int argc, char *argv[])
   /* parse options */
   if (parse_options(argc, argv) != 0) {
     usage(basename(argv[0]));
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_OPTIONS;
   }
 
   /* ensure no other instances of this program are running */
   if (singleton_setup() != 0) {
     printf("error: upgrade already in progress\n");
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_IN_PROGRESS;
   }
 
   /* get info for MTD partitions */
   if (partition_info_table_populate(partition_info_table,
                                     partition_config_table,
                                     PARTITION_INDEX__COUNT) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_PART_INFO_POP;
   }
 
   /* verify partition info */
   if (partition_info_table_verify(partition_info_table,
                                   partition_config_table,
                                   PARTITION_INDEX__COUNT) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_PART_INFO_VERIFY;
   }
 
   /* get target params */
@@ -640,7 +658,7 @@ int main(int argc, char *argv[])
   uint32_t target_seq_num;
   if (target_params_get(&target_image_table_index, &target_std_partition_index,
                         &target_seq_num) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_TARGET_PARAMS_GET;
   }
 
   /* load upgrade data to RAM */
@@ -648,12 +666,12 @@ int main(int argc, char *argv[])
   uint32_t upgrade_data_length;
   if (upgrade_data_load(upgrade_filename, &upgrade_data,
                         &upgrade_data_length) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_DATA_LOAD;
   }
 
   /* verify upgrade data integrity */
   if (upgrade_data_verify(upgrade_data, upgrade_data_length) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_DATA_VERIFY;
   }
 
   /* get upgrade image set */
@@ -662,41 +680,41 @@ int main(int argc, char *argv[])
   /* get factory params */
   uint32_t factory_hardware;
   if (factory_params_read(&factory_hardware) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_FACTORY_DATA;
   }
 
   /* verify factory params */
   if (factory_hardware != image_set_hardware_get(upgrade_image_set)) {
     printf("error: invalid hardware type\n");
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_INVALID_HARDWARE;
   }
 
   /* populate image map table */
   if (image_map_table_populate(upgrade_image_set, target_image_table_index,
                                target_std_partition_index) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_IMAGE_TABLE;
   }
 
   /* verify image map table */
   if (image_map_table_verify(target_image_table_index,
                              target_std_partition_index) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_IMAGE_TABLE;
   }
 
   /* populate target image set */
   if (target_image_set_populate(upgrade_image_set, target_seq_num) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_IMAGE_POPULATE;
   }
 
   /* perform upgrade */
   if (upgrade_install(upgrade_data, target_image_table_index,
                       target_std_partition_index) != 0) {
-    exit(EXIT_FAILURE);
+    return UPGRADE_ERROR_UPGRADE_INSTALL;
   }
 
   /* release upgrade data */
   upgrade_data_release(upgrade_data);
 
   debug_printf("upgrade completed successfully\n");
-  exit(EXIT_SUCCESS);
+  return UPGRADE_SUCCESS;
 }

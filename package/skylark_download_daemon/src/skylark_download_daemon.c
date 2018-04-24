@@ -19,9 +19,14 @@
 
 #define PROGRAM_NAME "skylark_download_daemon"
 
+#define MSG_GET_HEALTH_ERROR "Error requesting skylark connection HTTP response code: %d"
+#define MSG_GET_HEALTH_ERROR_LF (MSG_GET_HEALTH_ERROR "\n")
+
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
+
+static int skylark_request_health(void);
 
 static void usage(char *command)
 {
@@ -41,12 +46,14 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILE = 1,
     OPT_ID_URL,
     OPT_ID_DEBUG,
+    OPT_ID_GET_HEALTH,
   };
 
   const struct option long_opts[] = {
-    {"file",  required_argument, 0, OPT_ID_FILE},
-    {"url  ", required_argument, 0, OPT_ID_URL},
-    {"debug", no_argument,       0, OPT_ID_DEBUG},
+    {"file",       required_argument, 0, OPT_ID_FILE},
+    {"url",        required_argument, 0, OPT_ID_URL},
+    {"get-health", no_argument,       0, OPT_ID_GET_HEALTH},
+    {"debug",      no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
 
@@ -67,6 +74,13 @@ static int parse_options(int argc, char *argv[])
         debug = true;
       }
       break;
+
+      case OPT_ID_GET_HEALTH: {
+        int ret = skylark_request_health();
+        exit(ret);
+      }
+      break;
+
 
       default: {
         puts("Invalid option");
@@ -95,6 +109,24 @@ static void cycle_connection(int signum)
   libnetwork_cycle_connection();
 }
 
+static int skylark_request_health(void)
+{
+  int response_code = -1;
+
+  network_status_t status = libnetwork_request_health(SKYLARK_CONTROL_PAIR, &response_code);
+  if (status != NETWORK_STATUS_SUCCESS) {
+
+    piksi_log(LOG_ERR, MSG_GET_HEALTH_ERROR, response_code);
+    fprintf(stderr, MSG_GET_HEALTH_ERROR_LF, response_code);
+
+    return EXIT_FAILURE;
+  }
+
+  fprintf(stdout, "%03d\n", response_code);
+
+  return EXIT_SUCCESS;
+}
+
 static bool configure_libnetwork(network_context_t* ctx, int fd) 
 {
   network_status_t status = NETWORK_STATUS_SUCCESS;
@@ -104,6 +136,8 @@ static bool configure_libnetwork(network_context_t* ctx, int fd)
   if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
   if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_configure_control(ctx, SKYLARK_CONTROL_PAIR)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
 
   return true;

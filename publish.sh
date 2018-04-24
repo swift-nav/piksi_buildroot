@@ -15,6 +15,7 @@
 set -e
 
 if [ "$TRAVIS_OS_NAME" != "linux" ]; then
+    echo "Invalid value for TRAVIS_OS_NAME..."
     exit
 fi
 
@@ -39,12 +40,18 @@ echo "Publish PULL_REQUEST ($TRAVIS_PULL_REQUEST)"
 echo "Publish BRANCH ($TRAVIS_BRANCH)"
 echo "Publish TAG ($TRAVIS_TAG)"
 
+if [[ -z "$@" ]]; then
+    echo "No files specified for publishing..."
+fi
+
 for file in "$@"; do
     KEY="$BUILD_PATH/$(basename $file)"
     if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-        if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_TAG" == v* || "$TRAVIS_BRANCH" == v*-release ]]; then
+        if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_TAG" == v* || "$TRAVIS_BRANCH" == v*-release || "$TRAVIS_BRANCH" == v*-CRL ]]; then
             OBJECT="s3://$BUCKET/$KEY"
             aws s3 cp "$file" "$OBJECT"
+        else
+            echo "Not publishing to S3..."
         fi
     else
         OBJECT="s3://$PRS_BUCKET/$KEY"

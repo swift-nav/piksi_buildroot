@@ -1,0 +1,30 @@
+UBOOT_TOOLS_SITE = https://github.com/u-boot/u-boot/archive/
+UBOOT_TOOLS_SOURCE = v$(UBOOT_TOOLS_VERSION).tar.gz
+
+UBOOT_TOOLS_SOURCE_ACTUAL = u-boot-$(UBOOT_TOOLS_VERSION).tar.gz
+
+UBOOT_TARBALL_SRC = $(DL_DIR)/$(shell basename $(UBOOT_TOOLS_SOURCE))
+UBOOT_TARBALL_DST = $(DL_DIR)/$(UBOOT_TOOLS_SOURCE_ACTUAL)
+
+BR_NO_CHECK_HASH_FOR += $(UBOOT_TOOLS_SOURCE)
+
+HOST_UBOOT_OVERRIDE_PKG_DIR = \
+	$(BR2_EXTERNAL_piksi_buildroot_PATH)/package/host_uboot_override
+
+HOST_UBOOT_OVERRIDE_HASHES = \
+	$(HOST_UBOOT_OVERRIDE_PKG_DIR)/host_uboot_override.hash
+
+define UBOOT_TOOLS_PRE_EXTRACT_FIXUP
+	if ! [ -e "$(UBOOT_TARBALL_SRC)" ] || \
+		[ $(UBOOT_TARBALL_SRC) -nt $(UBOOT_TARBALL_DST) ]; \
+	then \
+		mv -v $(UBOOT_TARBALL_SRC) $(UBOOT_TARBALL_DST); \
+	fi
+	$(eval UBOOT_TOOLS_SOURCE=$(UBOOT_TOOLS_SOURCE_ACTUAL))
+	cd $(DL_DIR) && sha256sum -c $(HOST_UBOOT_OVERRIDE_HASHES) --status || \
+		{ echo "ERROR: hash of uboot-tools override failed" >&2; \
+			exit 1; }
+endef
+
+UBOOT_TOOLS_PRE_EXTRACT_HOOKS += UBOOT_TOOLS_PRE_EXTRACT_FIXUP
+HOST_UBOOT_TOOLS_PRE_EXTRACT_HOOKS += UBOOT_TOOLS_PRE_EXTRACT_FIXUP

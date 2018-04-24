@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="copy_sys_logs"
+cmd="/etc/init.d/copy_sys_logs.sh"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh

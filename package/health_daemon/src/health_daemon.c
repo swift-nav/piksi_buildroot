@@ -38,6 +38,7 @@
 #include "baseline_monitor.h"
 #include "glo_obs_monitor.h"
 #include "glo_bias_monitor.h"
+#include "skylark_monitor.h"
 
 #define PROGRAM_NAME "health_daemon"
 
@@ -73,7 +74,9 @@ static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
   { glo_obs_timeout_health_monitor_init,
     glo_obs_timeout_health_monitor_deinit },
   { glo_bias_timeout_health_monitor_init,
-    glo_bias_timeout_health_monitor_deinit }
+    glo_bias_timeout_health_monitor_deinit },
+  { skylark_monitor_init,
+    skylark_monitor_deinit },
 };
 static size_t health_monitor_init_pairs_n =
   (sizeof(health_monitor_init_pairs) / sizeof(health_monitor_init_fn_pair_t));
