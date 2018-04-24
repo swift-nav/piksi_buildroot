@@ -1,26 +1,39 @@
 #!/bin/sh
 
-# Enable job control
-set -m
+name=runit
 
-mkdir -p /var/service
+svc_dir=/etc/sv
+run_dir=/var/service
 
-ls -1 /etc/sv | while read -r svc; do
-   ln -sf /etc/sv/$svc /var/service/$svc
+stdout=/var/run/$name.stdout
+stderr=/var/run/$name.stderr
+
+mkdir -p $run_dir
+
+ls -1 $svc_dir | while read -r svc; do
+   ln -sf $svc_dir/$svc $run_dir/$svc
 done
 
-trap 'kill -HUP -$pid && kill -TERM -$pid' HUP TERM
+cleanup()
+{
+  kill -HUP $pid $stderr_pid $stdout_pid && \
+    kill -TERM $pid $stderr_pid $stdout_pid
 
-rm -f /var/run/runit.stderr
-mkfifo /var/run/runit.stderr
+  exit 0
+}
 
-rm -f /var/run/runit.stdout
-mkfifo /var/run/runit.stdout
+trap 'cleanup' HUP TERM
 
-logger -t runit -p daemon.info </var/run/runit.stdout &
-logger -t runit -p daemon.err </var/run/runit.stderr &
+rm -f $stdout $stderr
+mkfifo $stdout $stderr
 
-runsvdir /var/service 1>/var/run/runit.stdout 2>/var/run/runit.stderr &
+logger -t $name -p daemon.info <$stdout &
+stdout_pid=$!
+
+logger -t $name -p daemon.err  <$stderr &
+stderr_pid=$!
+
+runsvdir $run_dir 1>$stdout 2>$stderr &
 
 pid=$!
 wait $pid

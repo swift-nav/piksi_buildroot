@@ -10,4 +10,4 @@ setup_permissions() {
     adduser -S -D -H -G $user $user
 }
 
-source /etc/init.d/template_process.inc.sh
+source /etc/init.d/template_runsv.inc.sh

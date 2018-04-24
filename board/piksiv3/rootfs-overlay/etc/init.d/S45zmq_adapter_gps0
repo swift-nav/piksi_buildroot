@@ -9,120 +9,139 @@ cmd="/etc/init.d/gps_adapter.sh"
 dyn_pty_name=tmp.gps0
 dyn_pty_path=/tmp/$dyn_pty_name
 
-# Enable job control
-set -m
-
-pre_launch() {
-    rm -fv $dyn_pty_path
-}
-
-post_launch() {
-    wait_create_gps0
-    ln -sf $(readlink -f $dyn_pty_path) /dev/gps0
-}
-
-post_shutdown() {
-    rm -fv /dev/gps0
-}
-
-has_user() {
-    id -u $1 &>/dev/null
-}
-
-wait_create_gps0() {
-    while [[ ! -e "$dyn_pty_path" ]] && ! inotifywait -t 1 -e create /tmp -q | grep -q "CREATE $dyn_pty_name"; do
-      continue;
-    done
-}
-
-setup_permissions() {
-    has_user $user || addgroup -S $user
-    has_user $user || adduser -S -D -H -G $user $user
-}
-
-ulimit -c unlimited
-
 pid_file="/var/run/$name.pid"
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
 
-get_pid() {
-    cat "$pid_file"
+ulimit -c unlimited
+
+pre_launch() { rm -fv $dyn_pty_path; }
+
+post_launch()
+{
+  wait_create_gps0
+  ln -sf $(readlink -f $dyn_pty_path) /dev/gps0
 }
 
-is_running() {
-    [ -f "$pid_file" ] && [ -d "/proc/`get_pid`" ] > /dev/null 2>&1
+post_shutdown() { rm -fv /dev/gps0; }
+has_user()      { id -u $1 &>/dev/null; }
+
+wait_create_gps0()
+{
+  while [[ ! -e "$dyn_pty_path" ]] && ! inotifywait -t 1 -e create /tmp -q | grep -q "CREATE $dyn_pty_name"; do
+    continue;
+  done
+}
+
+setup_permissions()
+{
+  has_user $user || addgroup -S $user
+  has_user $user || adduser -S -D -H -G $user $user
+}
+
+get_pid() { cat "$pid_file"; }
+
+is_running()
+{
+  [ -f "$pid_file" ] && [ -d "/proc/`get_pid`" ] > /dev/null 2>&1
+}
+
+do_start()
+{
+  setup_permissions
+
+  if is_running; then
+    echo "Already started"
+  else
+
+    echo "Starting $name"
+    cd "$dir"
+
+    pre_launch
+
+    chpst -u $user $cmd >> "$stdout_log" 2>> "$stderr_log" &
+    echo $! > "$pid_file"
+
+    post_launch
+
+    if ! is_running; then
+      echo "Unable to start, see $stdout_log and $stderr_log"
+      exit 1
+    fi
+  fi
+}
+
+do_stop()
+{
+  if is_running; then
+
+    echo -n "Stopping $name.."
+    kill -SIGTERM $(get_pid)
+
+    for i in {1..10}
+    do
+      if ! is_running; then
+        break
+      fi
+
+      echo -n "."
+      sleep 1
+    done
+    echo
+
+    if is_running; then
+      echo "Not stopped; may still be shutting down or shutdown may have failed"
+      exit 1
+    else
+      echo "Stopped"
+      if [ -f "$pid_file" ]; then
+        rm "$pid_file"
+      fi
+    fi
+
+    post_shutdown
+  else
+    echo "Not running"
+  fi
+}
+
+do_restart()
+{
+  $0 stop
+  if is_running; then
+    echo "Unable to stop, will not attempt to start"
+    exit 1
+  fi
+  $0 start
+}
+
+do_status()
+{
+  if is_running; then
+    echo "Running"
+  else
+    echo "Stopped"
+    exit 1
+  fi
 }
 
 case "$1" in
-    start)
-    setup_permissions
-    if is_running; then
-        echo "Already started"
-    else
-        echo "Starting $name"
-        cd "$dir"
-        pre_launch
-        chpst -u $user $cmd >> "$stdout_log" 2>> "$stderr_log" &
-        echo $! > "$pid_file"
-        post_launch
-        if ! is_running; then
-            echo "Unable to start, see $stdout_log and $stderr_log"
-            exit 1
-        fi
-    fi
+  start)
+    do_start
     ;;
-    stop)
-    if is_running; then
-        echo -n "Stopping $name.."
-        # Kill the whole process group with -PID
-        kill -SIGTERM -$(get_pid)
-        for i in {1..10}
-        do
-            if ! is_running; then
-                break
-            fi
-
-            echo -n "."
-            sleep 1
-        done
-        echo
-        if is_running; then
-            echo "Not stopped; may still be shutting down or shutdown may have failed"
-            exit 1
-        else
-            echo "Stopped"
-            if [ -f "$pid_file" ]; then
-                rm "$pid_file"
-            fi
-        fi
-        post_shutdown
-    else
-        echo "Not running"
-    fi
+  stop)
+    do_stop
     ;;
-    restart)
-    $0 stop
-    if is_running; then
-        echo "Unable to stop, will not attempt to start"
-        exit 1
-    fi
-    $0 start
+  restart)
+    do_restart
     ;;
-    status)
-    if is_running; then
-        echo "Running"
-    else
-        echo "Stopped"
-        exit 1
-    fi
+  status)
+    do_status
     ;;
-    *)
+  *)
     echo "Usage: $0 {start|stop|restart|status}"
     exit 1
-    ;;
+  ;;
 esac
 
 exit 0
-
-

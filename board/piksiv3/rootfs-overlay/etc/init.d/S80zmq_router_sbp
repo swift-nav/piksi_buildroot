@@ -17,4 +17,4 @@ fi
 
 cmd="zmq_router -f $router_config"
 
-source /etc/init.d/template_process.inc.sh
+source /etc/init.d/template_runsv.inc.sh
