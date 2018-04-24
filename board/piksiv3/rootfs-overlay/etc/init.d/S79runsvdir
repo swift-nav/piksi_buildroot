@@ -1,30 +1,19 @@
 #!/bin/sh
 
-do_start()
-{
-  start-stop-daemon -p /var/run/runit.pid -m -b -a /bin/ash -S -- \
-    -c "exec /etc/init.d/runsvdir-start"
-}
-
-do_stop()
-{
-  start-stop-daemon -p /var/run/runit.pid -K
-}
-
 case "$1" in
   start)
-    do_start
-    ;;
+      start-stop-daemon -p /var/run/runit.pid -m -b -a /bin/ash -S -- -c "exec /etc/init.d/runsvdir-start"
+	;;
   stop)
-    do_stop
-    ;;
+      start-stop-daemon -p /var/run/runit.pid -K
+	;;
   restart|reload)
-    do_stop
-    do_start
-    ;;
+      stop
+      start
+	;;
   *)
-    echo "Usage: $0 {start|stop|restart}"
-    exit 1
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
 esac
 
 exit $?
