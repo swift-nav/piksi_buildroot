@@ -33,6 +33,8 @@
 
 #define CELLMODEM_DEV_OVERRIDE_DEFAULT "ttyACM0"
 
+const int pppd_shutdown_deadline_usec = 500e3; // 0.5 seconds
+
 static enum modem_type modem_type = MODEM_TYPE_GSM;
 static char *cellmodem_dev;
 
@@ -159,6 +161,15 @@ static void pppd_exit_callback(int status, void *arg)
   zloop_timer(sbp_zmq_pubsub_zloop_get(pubsub_ctx), 500, 1, pppd_respawn, pubsub_ctx);
 }
 
+static bool is_running(int pid)
+{
+  struct stat s;
+  char proc_path[64];
+  int count = sprintf(proc_path, "/proc/%d", pid);
+  assert(count < sizeof(proc_path) );
+  return stat(proc_path, &s) == 0 && (s.st_mode & S_IFMT) == S_IFDIR;
+}
+
 static int cellmodem_notify(void *context)
 {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = context;
@@ -169,6 +180,15 @@ static int cellmodem_notify(void *context)
     piksi_log(LOG_DEBUG,
               "Killing pppd with PID: %d (kill returned %d, errno %d)",
               cellmodem_pppd_pid, ret, errno);
+    usleep(pppd_shutdown_deadline_usec);
+    if (is_running(cellmodem_pppd_pid)) {
+      piksi_log(LOG_DEBUG, "pppd still running, sending SIGKILL...");
+      ret = kill(cellmodem_pppd_pid, SIGKILL);
+      if (ret != 0) {
+        piksi_log(LOG_DEBUG,
+                  "kill(pppd, SIGKILL) failed: %d, %s", errno, strerror(errno));
+      }
+    }
     cellmodem_pppd_pid = 0;
   }
 
