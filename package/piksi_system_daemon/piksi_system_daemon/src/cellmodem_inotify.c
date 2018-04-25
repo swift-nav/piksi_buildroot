@@ -70,7 +70,7 @@ static int update_dev_from_probe(inotify_ctx_t *ctx, char *dev)
   if (dev_override != NULL && strcmp(dev_override, dev) != 0) {
     return 1;
   }
-  ctx->modem_type = cellmodem_probe(dev, ctx->pubsub_ctx);
+  ctx->modem_type = cellmodem_probe(dev);
   if (ctx->modem_type != MODEM_TYPE_INVALID) {
     ctx->cellmodem_dev = strdup(dev);
     cellmodem_set_dev(ctx->pubsub_ctx, ctx->cellmodem_dev , ctx->modem_type );

@@ -13,6 +13,7 @@
 #ifndef __CELLMODEM_H
 #define __CELLMODEM_H
 
+#include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/settings.h>
 
 enum modem_type {

@@ -17,7 +17,6 @@
 #include <unistd.h>
 #include <stdarg.h>
 
-#include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/logging.h>
 #include <libsbp/logging.h>
 
@@ -105,21 +104,7 @@ static int cellmodem_command(int fd, const char *cmd, char *response, size_t len
   return 0;
 }
 
-static void log_info(sbp_zmq_pubsub_ctx_t *pubsub_ctx, const char *fmt, ...)
-{
-  msg_log_t *msg = alloca(256);
-  msg->level = 6;
-
-  va_list ap;
-  va_start(ap, fmt);
-  vsnprintf(msg->text, 255, fmt, ap);
-  va_end(ap);
-
-  sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
-                 SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
-}
-
-enum modem_type cellmodem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ctx)
+enum modem_type cellmodem_probe(const char *dev)
 {
   if ((strncmp(dev, "ttyUSB", 6) != 0) && (strncmp(dev, "ttyACM", 6) != 0))
     return MODEM_TYPE_INVALID;
@@ -149,6 +134,21 @@ enum modem_type cellmodem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ct
     return MODEM_TYPE_INVALID;
   }
 
+  /* Probe modem for a single AT response with retries */
+  int retries = 5;
+  while (1)
+  {
+    char r[20];
+    if (cellmodem_command(fd, "AT", r, sizeof(r)) == 0) {
+      piksi_log(LOG_INFO, "Got valid modem AT response on %s", dev);
+      break;
+    }
+    if (retries-- < 0) {
+      close(fd);
+      return MODEM_TYPE_INVALID;
+    }
+  }
+
   /* Probe modem for standard parameters */
   struct command {
     char *cmd;
@@ -167,7 +167,7 @@ enum modem_type cellmodem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ct
       return MODEM_TYPE_INVALID;
     }
     piksi_log(LOG_INFO, "Modem %s: %s", c->display, r);
-    log_info(pubsub_ctx, "Modem %s: %s", c->display, r);
+    sbp_log(LOG_INFO, "Modem %s: %s", c->display, r);
   }
 
   /* Check for GSM/CDMA: Try GSM 'AT+CGDCONT?', ignore the response,
