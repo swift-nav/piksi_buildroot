@@ -45,23 +45,46 @@ _setup_svdir()
   ln -sf /etc/sv/${name} /var/service/${name}
 }
 
+sv_is_running()
+{
+  local name=$1; shift
+  local svc_dir=/var/service/${name}
+
+  sv status $svc_dir | grep -q "^run"
+}
+
+do_start()
+{
+  _setup_permissions
+  _setup_svdir
+
+  for i in `seq 1 10`; do
+    if sv_is_running $name; then
+      break
+    fi
+    sleep 0.1;
+  done
+
+  if ! sv_is_running $name; then
+    echo "Error: service '${name}' failed to start after 1 second..."
+  fi
+}
+
 case "$1" in
-    start)
-    _setup_permissions
-    _setup_svdir
-    sv up /var/service/${name}
+  start)
+    do_start
     ;;
-    stop)
+  stop)
     sv down /var/service/${name}
     ;;
-    restart)
-    sv down /var/service/${name}
-    sv up /var/service/${name}
+  restart)
+    $0 stop
+    $0 start
     ;;
-    status)
+  status)
     sv status /var/service/${name}
     ;;
-    *)
+  *)
     echo "Usage: $0 {start|stop|restart|status}"
     exit 1
     ;;
