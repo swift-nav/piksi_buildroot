@@ -166,8 +166,7 @@ enum modem_type cellmodem_probe(const char *dev)
       close(fd);
       return MODEM_TYPE_INVALID;
     }
-    piksi_log(LOG_INFO, "Modem %s: %s", c->display, r);
-    sbp_log(LOG_INFO, "Modem %s: %s", c->display, r);
+    piksi_log(LOG_INFO|LOG_SBP, "Modem %s: %s", c->display, r);
   }
 
   /* Check for GSM/CDMA: Try GSM 'AT+CGDCONT?', ignore the response,
