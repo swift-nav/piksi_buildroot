@@ -4,8 +4,8 @@ SOURCES= \
 
 LIBS=-lczmq -lsbp -lpiksi -ldl
 
-CFLAGS=-std=gnu11
-ARFLAGS=rcs
+CFLAGS+=-std=gnu11
+ARFLAGS=rcs $(LTO_PLUGIN)
 
 CROSS=
 
