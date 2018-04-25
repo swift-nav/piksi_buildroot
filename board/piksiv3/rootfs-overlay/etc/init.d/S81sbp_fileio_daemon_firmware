@@ -9,11 +9,11 @@ user="fio_fw"
 
 setup_permissions()
 {
-    chmod 0640 /factory/mtd
-    chown fio_fw:fio_fw /factory/mtd
+  chmod 0640 /factory/mtd
+  chown fio_fw:fio_fw /factory/mtd
 
-    mkdir -p $NDB_DIR
-    chown -R $user:$user $NDB_DIR
+  mkdir -p $NDB_DIR
+  chown -R $user:$user $NDB_DIR
 }
 
 source /etc/init.d/template_runsv.inc.sh

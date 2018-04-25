@@ -5,12 +5,10 @@ cmd="zmq_adapter --file /dev/rpmsg_piksi100 -p '>tcp://127.0.0.1:43011' -s '>tcp
 dir="/"
 user="ad_r100"
 
-setup_permissions() {
-
-    addgroup -S $user
-    adduser -S -D -H -G $user $user
-
-    chown $user:$user /dev/rpmsg_piksi100
+setup_permissions()
+{
+  add_service_user $user
+  chown $user:$user /dev/rpmsg_piksi100
 }
 
 source /etc/init.d/template_runsv.inc.sh

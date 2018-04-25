@@ -5,6 +5,8 @@ log_tag=copy_sys_logs
 source /etc/init.d/sdcard.sh
 source /etc/init.d/logging.sh
 
+setup_loggers
+
 should_run()
 {
   if needs_migration $MOUNTNAME; then

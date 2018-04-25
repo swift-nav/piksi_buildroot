@@ -24,6 +24,5 @@
 /etc/dropbear/dropbear_dsa_host_key		f	600	0	0	-	-	-	-	-
 /etc/dropbear/dropbear_ecdsa_host_key		f	600	0	0	-	-	-	-	-
 /etc/dropbear/dropbear_rsa_host_key		f	600	0	0	-	-	-	-	-
-/etc/monitrc				f	600	0	0	-	-	-	-	-
 /etc/inittab				f	644	0	0	-	-	-	-	-
 /lib/mdev/automount.sh			f	755	0	0	-	-	-	-	-

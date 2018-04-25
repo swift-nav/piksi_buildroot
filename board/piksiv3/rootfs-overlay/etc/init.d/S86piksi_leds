@@ -38,12 +38,12 @@ copy_duro_eeprom()
   fi
 }
 
-setup_permissions() {
+setup_permissions()
+{
+  chown $user:$user /dev/i2c-0
+  chown $user:$user /dev/i2c-1
 
-    chown $user:$user /dev/i2c-0
-    chown $user:$user /dev/i2c-1
-
-    copy_duro_eeprom
+  copy_duro_eeprom
 }
 
 source /etc/init.d/template_runsv.inc.sh

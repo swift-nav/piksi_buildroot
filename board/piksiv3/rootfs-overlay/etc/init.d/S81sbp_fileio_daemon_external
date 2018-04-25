@@ -9,8 +9,7 @@ user="fio_ex"
 
 setup_permissions()
 {
-    mkdir -p $FILEIO_DIR
-    chown -R $user:$user $FILEIO_DIR
+  configure_file_resource $user $FILEIO_DIR 0700
 }
 
 source /etc/init.d/template_runsv.inc.sh

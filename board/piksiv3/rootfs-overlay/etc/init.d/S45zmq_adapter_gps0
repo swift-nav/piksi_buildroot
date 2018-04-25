@@ -1,5 +1,7 @@
 #!/bin/sh
 
+source /etc/init.d/common.sh
+
 user="ad_gps0"
 name="zmq_adapter_gps0"
 dir="/"
@@ -24,7 +26,6 @@ post_launch()
 }
 
 post_shutdown() { rm -fv /dev/gps0; }
-has_user()      { id -u $1 &>/dev/null; }
 
 wait_create_gps0()
 {
@@ -37,25 +38,15 @@ wait_create_gps0()
 
 setup_permissions()
 {
-  has_user $user || addgroup -S $user
-  has_user $user || adduser -S -D -H -G $user $user
-
-  mkdir -p /var/run/gps_ntp
-  chown $user:$user /var/run/gps_ntp
-}
-
-get_pid() { cat "$pid_file"; }
-
-is_running()
-{
-  [ -f "$pid_file" ] && [ -d "/proc/`get_pid`" ] > /dev/null 2>&1
+  add_service_user $user
+  configure_dir_resource $user /var/run/gps_ntp 0770
 }
 
 do_start()
 {
   setup_permissions
 
-  if is_running; then
+  if is_running $pid_file; then
     echo "Already started"
   else
 
@@ -69,7 +60,7 @@ do_start()
 
     post_launch
 
-    if ! is_running; then
+    if ! is_running $pid_file; then
       echo "Unable to start, see $stdout_log and $stderr_log"
       exit 1
     fi
@@ -78,14 +69,14 @@ do_start()
 
 do_stop()
 {
-  if is_running; then
+  if is_running $pid_file; then
 
     echo -n "Stopping $name.."
-    kill -SIGTERM $(get_pid)
+    kill -SIGTERM $(get_pid $pid_file)
 
     for i in {1..10}
     do
-      if ! is_running; then
+      if ! is_running $pid_file; then
         break
       fi
 
@@ -94,7 +85,7 @@ do_stop()
     done
     echo
 
-    if is_running; then
+    if is_running $pid_file; then
       echo "Not stopped; may still be shutting down or shutdown may have failed"
       exit 1
     else
@@ -113,7 +104,7 @@ do_stop()
 do_restart()
 {
   $0 stop
-  if is_running; then
+  if is_running $pid_file; then
     echo "Unable to stop, will not attempt to start"
     exit 1
   fi
@@ -122,7 +113,7 @@ do_restart()
 
 do_status()
 {
-  if is_running; then
+  if is_running $pid_file; then
     echo "Running"
   else
     echo "Stopped"

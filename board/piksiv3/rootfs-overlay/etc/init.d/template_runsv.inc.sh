@@ -6,28 +6,13 @@
 # user=""
 # source template.inc.sh
 
+source /etc/init.d/common.sh
+
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
 
 tag=tmpl_runsv
 fac=daemon
-
-has_user()      { id -u $1 &>/dev/null; }
-
-add_service_user()
-{
-  local user=$1; shift
-
-  has_user $user || addgroup -S $user
-  has_user $user || adduser -S -D -H -G $user $user
-}
-
-_setup_permissions()
-{
-  if type setup_permissions | grep -q "shell function"; then
-    setup_permissions
-  fi
-}
 
 pid_file="/var/service/${name}/supervise/pid"
 

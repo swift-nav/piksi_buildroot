@@ -20,7 +20,7 @@ logi() { _log_level=info;  log_base $*; }
 logd() { _log_level=debug; log_base $*; }
 loge() { _log_level=err;   log_base $*; }
 
-setup_loggers()
+_setup_loggers()
 {
   logger_stdout=/var/run/$log_tag.stdout
   rm -f $logger_stdout
@@ -46,5 +46,8 @@ cleanup_loggers()
   rm ${logger_stdout} ${logger_stderr}
 }
 
-setup_loggers
-trap 'cleanup_loggers' EXIT TERM
+setup_loggers()
+{
+  _setup_loggers
+  trap 'cleanup_loggers' EXIT TERM
+}
