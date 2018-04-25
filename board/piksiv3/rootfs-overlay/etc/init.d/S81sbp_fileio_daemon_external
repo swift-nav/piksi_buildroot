@@ -9,7 +9,7 @@ user="fio_ex"
 
 setup_permissions()
 {
-  configure_file_resource $user $FILEIO_DIR 0700
+  configure_dir_resource $user $FILEIO_DIR 0700
 }
 
 source /etc/init.d/template_runsv.inc.sh
