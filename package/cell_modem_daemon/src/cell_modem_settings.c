@@ -21,7 +21,6 @@
 #include <signal.h>
 #include <stdbool.h>
 
-#include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
@@ -31,12 +30,18 @@
 #include "cell_modem_settings.h"
 #include "cell_modem_inotify.h"
 
+#define CELL_MODEM_DEV_OVERRIDE_DEFAULT "ttyACM0"
+
 static enum modem_type modem_type = MODEM_TYPE_GSM;
 static char *cell_modem_dev;
 /* External settings */
 static char cell_modem_apn[32] = "hologram";
 static bool cell_modem_enabled_;
 static bool cell_modem_debug;
+static char cell_modem_dev_override[PATH_MAX] = CELL_MODEM_DEV_OVERRIDE_DEFAULT;
+
+/* context for rescan on override notify */
+inotify_ctx_t * inotify_ctx = NULL;
 
 static int cell_modem_notify(void *context);
 
@@ -47,7 +52,7 @@ static int cell_modem_notify(void *context);
 
 enum { STORAGE_SIZE = SBP_PAYLOAD_SIZE_MAX-1 };
 
-void cell_modem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type)
+void cell_modem_set_dev(char *dev, enum modem_type type)
 {
   cell_modem_dev = dev;
   modem_type = type;
@@ -64,7 +69,7 @@ void cell_modem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_
      (cell_modem_dev != NULL) &&
      (modem_type != MODEM_TYPE_INVALID) &&
      (stat != RUNIT_RUNNING))
-    cell_modem_notify(pubsub_ctx);
+    cell_modem_notify(NULL);
 }
 
 int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
@@ -132,17 +137,51 @@ static int cell_modem_notify(void *context)
   return start_runit_service(&cfg_start);
 }
 
+char * cell_modem_get_dev_override(void)
+{
+  return strlen(cell_modem_dev_override) == 0 ? NULL : cell_modem_dev_override;
+}
+
+static int cell_modem_notify_dev_override(void *context)
+{
+  inotify_ctx_t *ctx = *((inotify_ctx_t **)context);
+  if (ctx == NULL) {
+    return 0;
+  }
+  // Don't allow changes if cell modem is enabled
+  if (cell_modem_enabled_) {
+      sbp_log(LOG_WARNING, "Modem must be disabled to modify device override");
+    return 1;
+  }
+
+  // override updated
+  if (cell_modem_get_dev_override() != NULL) {
+    if (!cell_modem_tty_exists(cell_modem_dev_override)) {
+      sbp_log(LOG_WARNING,
+              "Modem device override tty does not exist: '%s'",
+              cell_modem_dev_override);
+    }
+  }
+  cell_modem_set_dev_to_invalid(ctx);
+  cell_modem_notify(NULL);
+  cell_modem_scan_for_modem(ctx);
+  return 0;
+}
+
 int cell_modem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx)
 {
   settings_register(settings_ctx, "cell_modem", "APN", &cell_modem_apn,
                     sizeof(cell_modem_apn), SETTINGS_TYPE_STRING,
-                    cell_modem_notify, pubsub_ctx);
+                    cell_modem_notify, NULL);
   settings_register(settings_ctx, "cell_modem", "enable", &cell_modem_enabled_,
                     sizeof(cell_modem_enabled_), SETTINGS_TYPE_BOOL,
-                    cell_modem_notify, pubsub_ctx);
+                    cell_modem_notify, NULL);
   settings_register(settings_ctx, "cell_modem", "debug", &cell_modem_debug,
                     sizeof(cell_modem_debug), SETTINGS_TYPE_BOOL,
                     NULL, NULL);
-  async_wait_for_tty(pubsub_ctx);
+  settings_register(settings_ctx, "cell_modem", "device_override", &cell_modem_dev_override,
+                    sizeof(cell_modem_dev_override), SETTINGS_TYPE_STRING,
+                    cell_modem_notify_dev_override, &inotify_ctx);
+  inotify_ctx = async_wait_for_tty(pubsub_ctx);
   return 0;
 }
