@@ -4,7 +4,7 @@ MOUNTPOINT="$MOUNT_BASE/$MOUNTNAME"
 
 is_mounted()
 {
-    grep -q $MOUNTPOINT /proc/mounts
+  grep -q $MOUNTPOINT /proc/mounts
 }
 
 inotify_wait_mountpoint()
