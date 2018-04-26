@@ -36,12 +36,14 @@ fi
 log_dir="$MOUNTPOINT/logs"
 mkdir -p "$log_dir"
 
-N=0
-while [[ -d "$log_dir/$N" ]]; do
+N=1
+while true; do
+  log_dir_n="$log_dir/$(printf '%04d' $N)"
+  if ! [[ -d "$log_dir_n" ]]; then
+    break;
+  fi
   N=$(($N+1))
 done
-
-log_dir_n="$log_dir/$N"
 
 cleanup_rsync()
 {
