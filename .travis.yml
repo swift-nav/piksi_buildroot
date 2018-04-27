@@ -49,6 +49,7 @@ matrix:
       after_success:
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
         - ./scripts/travis_pr_describe.sh
+        - ./scripts/generate_requirements.sh
         - ./scripts/hitl_smoke_test.sh
         - SLACK_CHANNEL=github ./scripts/comment.sh
       after_failure:

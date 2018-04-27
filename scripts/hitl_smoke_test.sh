@@ -58,9 +58,6 @@ RUNS=\
 # Capture IDs of kicked off jobs.
 capture_ids=()
 
-GENERATE_REQUIREMENTS=y $D/../fetch_firmware.sh
-$D/../publish.sh $D/../requirements.yaml
-
 # Clear out metrics.yaml
 echo >metrics.yaml
 
