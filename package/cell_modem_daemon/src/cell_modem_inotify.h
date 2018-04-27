@@ -13,7 +13,10 @@
 #ifndef _SWIFT_CELL_MODEM_INOTIFY_H
 #define _SWIFT_CELL_MODEM_INOTIFY_H
 
+typedef struct inotify_ctx_s inotify_ctx_t;
 bool cell_modem_tty_exists(const char* path);
-void async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx);
+void cell_modem_scan_for_modem(inotify_ctx_t *ctx);
+void cell_modem_set_dev_to_invalid(inotify_ctx_t *ctx);
+inotify_ctx_t * async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx);
 
-#endif//_SWIFT_CELLMODEM_INOTIFY_H
+#endif//_SWIFT_CELL_MODEM_INOTIFY_H
