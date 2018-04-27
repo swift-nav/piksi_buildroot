@@ -16,7 +16,9 @@ TARGET_CFLAGS       := $(TARGET_CFLAGS) -flto
 TARGET_LDFLAGS      := $(TARGET_LDFLAGS) -flto
 
 LTO_PLUGIN=--plugin $(shell find $(TOOLCHAIN_EXTERNAL_BIN)/.. -name "liblto_plugin.so" | head -1)
+ifneq ($(DEBUG),)
 $(info LTO_PLUGIN: $(LTO_PLUGIN))
+endif
 
 # Don't use LTO for Linux or uboot
 NO_FLTO := linux-xilinx,uboot_custom
@@ -51,13 +53,14 @@ define toolchain-external-post
 	$(info *******************************)
 	$(info *** Installing LTO wrappers ***)
 	$(info *******************************)
+        $(info * TOOLCHAIN_EXTERNAL_PREFIX: $(TOOLCHAIN_EXTERNAL_PREFIX))
 	$(Q)ln -sf $(TOOLCHAIN_EXTERNAL_CROSS)gcc-ar \
 	  $(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-ar
 	$(Q)ln -sf $(TOOLCHAIN_EXTERNAL_CROSS)gcc-nm \
 	  $(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-nm
 	$(Q)ln -sf $(TOOLCHAIN_EXTERNAL_CROSS)gcc-ranlib \
 	  $(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-ranlib
-	$(call make-toolchain-wrapper,$(TOOLCHAIN_EXTERNAL_PREFIX)-gcc)
+	$(call make-toolchain-wrapper,$(TOOLCHAIN_EXTERNAL_PREFIX)-gcc.br_real)
 	$(call make-toolchain-wrapper,$(TOOLCHAIN_EXTERNAL_PREFIX)-ld)
 endef
 
@@ -74,16 +77,22 @@ define unwrap-toolchain
 endef
 
 define disable-lto-pre
+	$(eval BR2_TARGET_OPTIMIZATION := $(filter-out -flto,$(BR2_TARGET_OPTIMIZATION)))
+	$(eval BR2_TARGET_CFLAGS := $(filter-out -flto,$(BR2_TARGET_CFLAGS)))
+	$(eval BR2_TARGET_LDFLAGS := $(filter-out -flto,$(BR2_TARGET_LDFLAGS)))
 	$(eval TARGET_CFLAGS := $(filter-out -flto,$(TARGET_CFLAGS)))
 	$(eval TARGET_LDFLAGS := $(filter-out -flto,$(TARGET_LDFLAGS)))
-	$(call wrap-toolchain,gcc)
+	$(call wrap-toolchain,gcc.br_real)
 	$(call wrap-toolchain,ld)
 endef
 
 define reenable-lto-post
+	$(eval BR2_TARGET_OPTIMIZATION := $(BR2_TARGET_OPTIMIZATION) -flto)
+	$(eval BR2_TARGET_CFLAGS := $(BR2_TARGET_CFLAGS) -flto)
+	$(eval BR2_TARGET_LDFLAGS := $(BR2_TARGET_LDFLAGS) -flto)
 	$(eval TARGET_CFLAGS := $(TARGET_CFLAGS) -flto)
 	$(eval TARGET_LDFLAGS := $(TARGET_LDFLAGS) -flto)
-	$(call unwrap-toolchain,gcc)
+	$(call unwrap-toolchain,gcc.br_real)
 	$(call unwrap-toolchain,ld)
 endef
 
@@ -110,6 +119,6 @@ force-install-toolchain-wrappers:
 
 force-uninstall-toolchain-wrappers:
 	$(call uninstall-toolchain-wrapper,$(TOOLCHAIN_EXTERNAL_PREFIX)-ld)
-	$(call uninstall-toolchain-wrapper,$(TOOLCHAIN_EXTERNAL_PREFIX)-gcc)
+	$(call uninstall-toolchain-wrapper,$(TOOLCHAIN_EXTERNAL_PREFIX)-gcc.br_real)
 
 endif

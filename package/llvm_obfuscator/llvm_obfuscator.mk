@@ -20,9 +20,10 @@ define HOST_LLVM_OBFUSCATOR_PRE_EXTRACT_FIXUP
 endef
 
 HOST_LLVM_OBFUSCATOR_PRE_EXTRACT_HOOKS += HOST_LLVM_OBFUSCATOR_PRE_EXTRACT_FIXUP
-SYSROOT = $(shell find $(HOST_DIR)/usr -name 'sysroot')
+SYSROOT = $(shell find $(HOST_DIR) -name 'sysroot' | grep -v llvm-obf)
 
 define HOST_LLVM_OBFUSCATOR_INSTALL_CMDS
+
 	mkdir -p $(HOST_DIR)/opt/llvm-obfuscator
 	rsync -az $(@D)/opt/llvm-obfuscator/ $(HOST_DIR)/opt/llvm-obfuscator/
 	rsync -az --ignore-existing \
@@ -31,6 +32,7 @@ define HOST_LLVM_OBFUSCATOR_INSTALL_CMDS
 		$(SYSROOT)/usr/lib/ $(HOST_DIR)/opt/llvm-obfuscator/sysroot/usr/lib/
 	rsync -az --ignore-existing \
 		$(SYSROOT)/usr/include/ $(HOST_DIR)/opt/llvm-obfuscator/sysroot/usr/include/
+
 endef
 
 LLVM_OBF_CC      = $(HOST_DIR)/opt/llvm-obfuscator/wrappers/bin/arm-linux-gnueabihf-clang

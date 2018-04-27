@@ -15,12 +15,16 @@ trap 'rm -rfv $build_dir' EXIT
 cp -v "$D/Dockerfile.base" "${build_dir}"
 cd "${build_dir}"
 
+echo '>>> Running docker build command...'
+
 docker build \
   --force-rm \
   --no-cache \
   -f Dockerfile.base \
   -t "$DOCKER_REPO_NAME:$VERSION_TAG" \
   .
+
+echo '>>> Pushing build to Docker Hub...'
 
 if [[ -n "${DOCKER_PASS:-}" ]]; then
   echo $DOCKER_PASS | docker login --username="${DOCKER_USER:-swiftnav}" --password-stdin

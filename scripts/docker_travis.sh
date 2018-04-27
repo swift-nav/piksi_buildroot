@@ -14,13 +14,11 @@ else
   file_names=$( git diff --name-only "$TRAVIS_COMMIT_RANGE" || echo "" )
 fi
 
-echo ">>> Files associated with current build request:"
+echo ">>> Detecting files associated with current build request"
 echo "$file_names"
-
-echo "..."
 
 if echo "$file_names" | grep -q -E "/Dockerfile[.]base"; then
 	"$D/docker_base.bash"
 else
-  echo "No modifications to base Docker image found..."
+  echo ">>> No modifications to base Docker image found"
 fi
