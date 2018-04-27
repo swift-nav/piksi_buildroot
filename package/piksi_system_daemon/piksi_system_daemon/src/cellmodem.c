@@ -40,16 +40,15 @@ static char *cellmodem_dev;
 
 /* External settings */
 static char cellmodem_apn[32] = "hologram";
-static bool cellmodem_enabled;
-static bool cellmodem_debug;
+static bool cellmodem_enabled = false;
+static bool cellmodem_debug = false;
 static char cellmodem_dev_override[PATH_MAX] = CELLMODEM_DEV_OVERRIDE_DEFAULT;
-static int cellmodem_pppd_pid;
+static int cellmodem_pppd_pid = 0;
 
 /* context for rescan on override notify */
 inotify_ctx_t * inotify_ctx = NULL;
 
 static int cellmodem_notify(void *context);
-static int cellmodem_notify_respawn(void *context, bool is_respawn);
 
 #define SBP_PAYLOAD_SIZE_MAX (255u)
 
@@ -90,7 +89,7 @@ int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
   (void)loop;
   (void)timer_id;
 
-  cellmodem_notify_respawn(arg, true);
+  cellmodem_notify(arg);
 
   return 0;
 }
@@ -111,7 +110,6 @@ static int cellmodem_notify_dev_override(void *context)
       sbp_log(LOG_WARNING, "Modem must be disabled to modify device override");
     return 1;
   }
-
 
   // override updated
   if (cellmodem_get_dev_override() != NULL) {
@@ -147,30 +145,15 @@ static bool is_running(int pid)
   return stat(proc_path, &s) == 0 && (s.st_mode & S_IFMT) == S_IFDIR;
 }
 
-typedef struct {
-  bool first_compare;
-  bool previous_value;
-} has_changed_t;
-
-static bool has_changed(bool current_value, has_changed_t* ctx)
+static bool settings_valid(bool cellmodem_enabled,
+                           char* cellmodem_dev,
+                           enum modem_type modem_type)
 {
-  bool has_changed_ = current_value != ctx->previous_value;
-  ctx->previous_value = current_value;
-  if (ctx->first_compare) {
-    ctx->first_compare = false;
-    return true;
-  }
-  return has_changed_;
+  return cellmodem_enabled && cellmodem_dev != NULL && modem_type != MODEM_TYPE_INVALID;
 }
 
 static int cellmodem_notify(void *context)
 {
-  return cellmodem_notify_respawn(context, false);
-}
-
-static int cellmodem_notify_respawn(void *context, bool is_respawn)
-{
-  static has_changed_t has_changed_ctx = { .first_compare = true };
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = context;
 
   /* Kill the old pppd, if it exists. */
@@ -203,11 +186,7 @@ static int cellmodem_notify_respawn(void *context, bool is_respawn)
     cellmodem_pppd_pid = 0;
   }
 
-  if (!is_respawn && !has_changed(cellmodem_enabled, &has_changed_ctx)) {
-    return 0;
-  }
-
-  if ((!cellmodem_enabled) || (cellmodem_dev == NULL) || (modem_type == MODEM_TYPE_INVALID)) {
+  if (!settings_valid(cellmodem_enabled, cellmodem_dev, modem_type)) {
     return 0;
   }
 
