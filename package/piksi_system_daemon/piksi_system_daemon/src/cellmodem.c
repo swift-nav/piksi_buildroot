@@ -51,49 +51,25 @@ inotify_ctx_t * inotify_ctx = NULL;
 static int cellmodem_notify(void *context);
 
 #define SBP_PAYLOAD_SIZE_MAX (255u)
-enum { STORAGE_SIZE = SBP_PAYLOAD_SIZE_MAX-1 };
+
+// One less so the buffer is always NULL terminated
+enum { MAX_STR_LENGTH = SBP_PAYLOAD_SIZE_MAX-1 };
 
 static void pppd_output_callback(const char *buf, void *arg)
 {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = arg;
 
-  if (!cellmodem_debug)
+  if (!cellmodem_debug || buf == NULL)
     return;
 
-  int len = strlen(buf);
-  static char storage[SBP_PAYLOAD_SIZE_MAX] = {0};
+  msg_log_t *msg = alloca(SBP_PAYLOAD_SIZE_MAX);
+  memset(msg, 0, SBP_PAYLOAD_SIZE_MAX);
 
-  static char* buffer = storage;
-  static size_t remaining = STORAGE_SIZE;
-
-  size_t copy_len = MIN(remaining, len);
-
-  memcpy(buffer, buf, copy_len);
-  buffer = &buffer[copy_len];
-
-  remaining -= copy_len;
-
-  // Hacky workaround for things that are sent one character at a time...
-  if (len == 1 && (strcmp(storage, "NO CARRIER") != 0 &&
-                   strcmp(storage, "OK") != 0 &&
-                   strcmp(storage, "AT") != 0 &&
-                   strcmp(storage, "AT&D2") != 0))
-  {
-     return;
-  }
-
-  msg_log_t *msg = alloca(sizeof(storage) + 1);
   msg->level = 7;
-
-  strncpy(msg->text, storage, sizeof(storage));
+  strncpy(msg->text, buf, MAX_STR_LENGTH);
 
   sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
-                  SBP_MSG_LOG, sizeof(*msg) + strlen(storage), (void*)msg);
-
-  // Reset
-  buffer = &storage[0];
-  remaining = STORAGE_SIZE;
-  memset(buffer, 0, remaining);
+                  SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (void*)msg);
 }
 
 void cellmodem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type)
