@@ -49,6 +49,7 @@ static int cellmodem_pppd_pid;
 inotify_ctx_t * inotify_ctx = NULL;
 
 static int cellmodem_notify(void *context);
+static int cellmodem_notify_respawn(void *context, bool is_respawn);
 
 #define SBP_PAYLOAD_SIZE_MAX (255u)
 
@@ -89,7 +90,7 @@ int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
   (void)loop;
   (void)timer_id;
 
-  cellmodem_notify(arg);
+  cellmodem_notify_respawn(arg, true);
 
   return 0;
 }
@@ -142,35 +143,71 @@ static bool is_running(int pid)
   struct stat s;
   char proc_path[64];
   int count = sprintf(proc_path, "/proc/%d", pid);
-  assert(count < sizeof(proc_path) );
+  assert( count < sizeof(proc_path) );
   return stat(proc_path, &s) == 0 && (s.st_mode & S_IFMT) == S_IFDIR;
+}
+
+typedef struct {
+  bool first_compare;
+  bool previous_value;
+} has_changed_t;
+
+static bool has_changed(bool current_value, has_changed_t* ctx)
+{
+  bool has_changed_ = current_value != ctx->previous_value;
+  ctx->previous_value = current_value;
+  if (ctx->first_compare) {
+    ctx->first_compare = false;
+    return true;
+  }
+  return has_changed_;
 }
 
 static int cellmodem_notify(void *context)
 {
+  return cellmodem_notify_respawn(context, false);
+}
+
+static int cellmodem_notify_respawn(void *context, bool is_respawn)
+{
+  static has_changed_t has_changed_ctx = { .first_compare = true };
   sbp_zmq_pubsub_ctx_t *pubsub_ctx = context;
 
   /* Kill the old pppd, if it exists. */
   if (cellmodem_pppd_pid) {
-    int ret = kill(cellmodem_pppd_pid, SIGTERM);
-    piksi_log(LOG_DEBUG,
-              "Killing pppd with PID: %d (kill returned %d, errno %d)",
+
+    int ret = system("/usr/bin/kill_chat_command");
+    piksi_log(LOG_DEBUG, "Chat command kill script returned: %d", ret);
+
+    ret = kill(cellmodem_pppd_pid, SIGINT);
+    piksi_log(LOG_DEBUG, "Sent pppd PID %d SIGINT (returned %d, errno %d)",
               cellmodem_pppd_pid, ret, errno);
+
+    ret = kill(cellmodem_pppd_pid, SIGTERM);
+    piksi_log(LOG_DEBUG, "Sent pppd PID %d SIGTERM (returned %d, errno %d)",
+              cellmodem_pppd_pid, ret, errno);
+
     usleep(pppd_shutdown_deadline_usec);
+
     if (is_running(cellmodem_pppd_pid)) {
+
       piksi_log(LOG_DEBUG, "pppd still running, sending SIGKILL...");
       ret = kill(cellmodem_pppd_pid, SIGKILL);
+
       if (ret != 0) {
-        piksi_log(LOG_DEBUG,
-                  "kill(pppd, SIGKILL) failed: %d, %s", errno, strerror(errno));
+        piksi_log(LOG_DEBUG, "kill(pppd, SIGKILL) failed: %d, %s",
+                  errno, strerror(errno));
       }
     }
+
     cellmodem_pppd_pid = 0;
   }
 
-  if ((!cellmodem_enabled) ||
-      (cellmodem_dev == NULL) ||
-      (modem_type == MODEM_TYPE_INVALID)) {
+  if (!is_respawn && !has_changed(cellmodem_enabled, &has_changed_ctx)) {
+    return 0;
+  }
+
+  if ((!cellmodem_enabled) || (cellmodem_dev == NULL) || (modem_type == MODEM_TYPE_INVALID)) {
     return 0;
   }
 
@@ -178,10 +215,10 @@ static int cellmodem_notify(void *context)
   switch (modem_type) {
   case MODEM_TYPE_GSM:
     snprintf(chatcmd, sizeof(chatcmd),
-             "/usr/sbin/chat -v -T %s -f /etc/ppp/chatscript-gsm", cellmodem_apn);
+             "/usr/bin/chat_command gsm %s", cellmodem_apn);
     break;
   case MODEM_TYPE_CDMA:
-    strcpy(chatcmd, "/usr/sbin/chat -v -f /etc/ppp/chatscript-cdma");
+    strcpy(chatcmd, "/usr/bin/chat_command cdma");
     break;
   }
 
