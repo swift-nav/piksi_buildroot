@@ -1,10 +1,30 @@
 #!/bin/sh
 
-pppd_pid=$(cat /var/run/cell_modem_daemon/sv/pppd_daemon/supervise/pid)
+is_running()
+{
+  local the_pid=$1; shift
+  [[ -d "/proc/$the_pid)" ]] >/dev/null 2>&1
+}
+
+pppd_pid_file=/var/run/cell_modem_daemon/sv/pppd_daemon/supervise/pid
+pppd_pid=$(cat $pppd_pid_file 2>/dev/null)
 
 if [[ -z "$pppd_pid" ]]; then
-  echo "ERROR: pppd pid file not found"
+  echo "pppd pid file not found" >&2
   exit 1
 fi
 
+if ! kill_chat_command; then
+  echo "kill_chat_command reported failure" >&2
+fi
+
+kill -HUP $pppd_pid
+sleep 0.1
+
 kill -TERM $pppd_pid
+sleep 0.1
+
+if is_running $pppd_pid; then
+  echo "pppd is still running, sending SIGKILL" >&2
+  kill -KILL $pppd_pid
+fi

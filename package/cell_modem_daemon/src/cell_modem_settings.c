@@ -108,10 +108,10 @@ static int cell_modem_notify(void *context)
   switch (modem_type) {
   case MODEM_TYPE_GSM:
     snprintf(chatcmd, sizeof(chatcmd),
-             "/usr/sbin/chat -v -T %s -f /etc/ppp/chatscript-gsm", cell_modem_apn);
+             "/usr/bin/chat_command gsm %s", cell_modem_apn);
     break;
   case MODEM_TYPE_CDMA:
-    strcpy(chatcmd, "/usr/sbin/chat -v -f /etc/ppp/chatscript-cdma");
+    strcpy(chatcmd, "/usr/bin/chat_command cdma");
     break;
   case MODEM_TYPE_INVALID:
   default:
@@ -122,7 +122,10 @@ static int cell_modem_notify(void *context)
 
   char command_line[1024];
   int count = snprintf(command_line, sizeof(command_line),
-                       "sudo /usr/sbin/pppd %s connect '%s' %s", cell_modem_dev, chatcmd, debug_log);
+                       "sudo /usr/sbin/pppd %s connect '%s' %s %s",
+                       cell_modem_dev, chatcmd,
+                       cell_modem_debug ? "debug" : "",
+                       debug_log);
 
   assert( (size_t)count < sizeof(command_line) );
 
