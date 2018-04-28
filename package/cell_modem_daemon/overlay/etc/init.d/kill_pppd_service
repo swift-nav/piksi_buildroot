@@ -2,12 +2,16 @@
 
 is_running()
 {
-  local the_pid=$1; shift
-  [[ -d "/proc/$the_pid)" ]] >/dev/null 2>&1
+  for the_pid in $*; do
+    if [[ -d "/proc/$the_pid" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 pppd_pid_file=/var/run/cell_modem_daemon/sv/pppd_daemon/supervise/pid
-pppd_pid=$(cat $pppd_pid_file 2>/dev/null)
+pppd_pid=$(cat $pppd_pid_file /var/run/ppp*.pid 2>/dev/null)
 
 if [[ -z "$pppd_pid" ]]; then
   echo "pppd pid file not found" >&2
@@ -19,7 +23,7 @@ if ! kill_chat_command; then
 fi
 
 kill -HUP $pppd_pid
-sleep 0.1
+sleep 1.0
 
 kill -TERM $pppd_pid
 sleep 0.1
