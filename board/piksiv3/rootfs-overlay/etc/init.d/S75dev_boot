@@ -6,6 +6,8 @@ lib_output_path="/lib/firmware"
 persistent_output_path="/persistent"
 script_path="/root"
 
+source /etc/init.d/copy_from.sh
+
 start() {
   # Get 'dev_boot' bootarg
   dev_boot=`cat /proc/device-tree/chosen/bootargs |
