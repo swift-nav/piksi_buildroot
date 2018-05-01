@@ -13,6 +13,7 @@
 #ifndef __CELLMODEM_H
 #define __CELLMODEM_H
 
+#include <libpiksi/sbp_zmq_pubsub.h>
 #include <libpiksi/settings.h>
 
 enum modem_type {
@@ -23,6 +24,7 @@ enum modem_type {
 
 int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx);
 void cellmodem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type);
+char * cellmodem_get_dev_override(void);
 int pppd_respawn(zloop_t *loop, int timer_id, void *arg);
 
 #endif

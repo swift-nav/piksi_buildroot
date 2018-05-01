@@ -31,7 +31,7 @@
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
-typedef struct {
+typedef struct inotify_ctx_s {
   sbp_zmq_pubsub_ctx_t *pubsub_ctx;
   zloop_t *loop;
   zmq_pollitem_t pollitem;
@@ -50,6 +50,64 @@ bool cellmodem_tty_exists(const char* path) {
   int ret = stat(full_path, &buf);
 
   return ret == 0 && S_ISCHR(buf.st_mode);
+}
+
+static int update_dev_from_probe(inotify_ctx_t *ctx, char *dev)
+{
+  if (ctx == NULL) {
+    return 1;
+  }
+  if (dev == NULL || dev[0] == '\0') {
+    return 1;
+  }
+  if (!cellmodem_tty_exists(dev)) {
+    piksi_log(LOG_WARNING,
+              "Update dev tty does not exist: '%s'",
+              dev);
+    return 1;
+  }
+  char *dev_override = cellmodem_get_dev_override();
+  if (dev_override != NULL && strcmp(dev_override, dev) != 0) {
+    return 1;
+  }
+  ctx->modem_type = cellmodem_probe(dev);
+  if (ctx->modem_type != MODEM_TYPE_INVALID) {
+    ctx->cellmodem_dev = strdup(dev);
+    cellmodem_set_dev(ctx->pubsub_ctx, ctx->cellmodem_dev , ctx->modem_type );
+    return 0;
+  }
+  return 1;
+}
+
+void cellmodem_set_dev_to_invalid(inotify_ctx_t *ctx)
+{
+  if (ctx == NULL) {
+    return;
+  }
+  ctx->modem_type = MODEM_TYPE_INVALID;
+  if (ctx->cellmodem_dev != NULL) {
+    free(ctx->cellmodem_dev);
+    ctx->cellmodem_dev = NULL;
+  }
+  cellmodem_set_dev(ctx->pubsub_ctx, NULL, MODEM_TYPE_INVALID);
+}
+
+void cellmodem_scan_for_modem(inotify_ctx_t *ctx)
+{
+  if (ctx == NULL) {
+    return;
+  }
+  /* Try what's already here.  Inotify will only tell us about new devs */
+  DIR *dir = opendir("/dev");
+  struct dirent *ent = readdir(dir);
+  for (struct dirent *ent = readdir(dir); ent; ent = readdir(dir)) {
+    if (ent->d_type == DT_CHR) {
+      if (update_dev_from_probe(ctx, ent->d_name) == 0) {
+        break;
+      }
+    }
+  }
+  closedir(dir);
 }
 
 static int inotify_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
@@ -77,20 +135,15 @@ static int inotify_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
       piksi_log(LOG_DEBUG, "got notification that '%s' was created", event->name);
       if ((ctx->modem_type == MODEM_TYPE_INVALID) && cellmodem_tty_exists(event->name)) {
         usleep(100000);
-        ctx->modem_type = cellmodem_probe(event->name, ctx->pubsub_ctx);
-        if (ctx->modem_type != MODEM_TYPE_INVALID) {
-          ctx->cellmodem_dev = strdup(event->name);
-          cellmodem_set_dev(ctx->pubsub_ctx, ctx->cellmodem_dev, ctx->modem_type);
+        if (update_dev_from_probe(ctx, event->name) == 0) {
+          piksi_log(LOG_DEBUG, "set modem device to '%s' from notification", event->name);
         }
       }
     } else if (event->mask & IN_DELETE) {
       piksi_log(LOG_DEBUG, "got notification that '%s' was deleted", event->name);
       if ((ctx->cellmodem_dev != NULL) &&
           (strcmp(ctx->cellmodem_dev, event->name) == 0)) {
-        ctx->modem_type = MODEM_TYPE_INVALID;
-        free(ctx->cellmodem_dev);
-        ctx->cellmodem_dev = NULL;
-        cellmodem_set_dev(ctx->pubsub_ctx, NULL, MODEM_TYPE_INVALID);
+        cellmodem_set_dev_to_invalid(ctx);
       }
     } else {
       piksi_log(LOG_WARNING, "unhandled inotify event");
@@ -102,7 +155,7 @@ static int inotify_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
   return 0;
 }
 
-void async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
+inotify_ctx_t * async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
 {
   int inotify_fd = inotify_init1(IN_NONBLOCK);
 
@@ -128,24 +181,12 @@ void async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
   ctx->loop = sbp_zmq_pubsub_zloop_get(pubsub_ctx);
   zloop_poller(ctx->loop, &ctx->pollitem, inotify_output_cb, ctx);
 
-  /* Try what's already here.  Inotify will only tell us about new devs */
-  DIR *dir = opendir("/dev");
-  struct dirent *ent = readdir(dir);
-  for (struct dirent *ent = readdir(dir); ent; ent = readdir(dir)) {
-    if (ent->d_type == DT_CHR) {
-      ctx->modem_type = cellmodem_probe(ent->d_name, pubsub_ctx);
-      if (ctx->modem_type != MODEM_TYPE_INVALID) {
-        ctx->cellmodem_dev = strdup(ent->d_name);
-        cellmodem_set_dev(ctx->pubsub_ctx, ctx->cellmodem_dev, ctx->modem_type);
-        break;
-      }
-    }
-  }
-  closedir(dir);
+  cellmodem_scan_for_modem(ctx);
 
-  return;
+  return ctx;
 
 fail:
   piksi_log(LOG_DEBUG, "modem detection error, waiting to retry");
   zloop_timer(sbp_zmq_pubsub_zloop_get(pubsub_ctx), 5000, 1, pppd_respawn, pubsub_ctx);
+  return NULL;
 }

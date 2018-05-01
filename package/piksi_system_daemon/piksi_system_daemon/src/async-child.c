@@ -108,7 +108,10 @@ static int raw_fgets(char *str, size_t len, int fd)
 static int async_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 {
   struct async_child_ctx *ctx = arg;
-  char buf[128];
+  char buf[128] = { 0 };
+
+  assert(ctx != NULL);
+  assert(item != NULL);
 
   if (raw_fgets(buf, sizeof(buf), item->fd) > 0) {
     if (ctx->output_callback)
