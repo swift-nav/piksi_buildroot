@@ -35,7 +35,11 @@ matrix:
 
     # Check if docker base image needs to be re-built
     - script:
-        - ./scripts/docker_travis.sh
+        - bash -c "while true; do sleep 1m; echo ...; done" &
+        - set -o pipefail && ./scripts/docker_travis.sh 2>&1 | tee -a docker_build.out | grep --line-buffered '^>>>'
+      after_success:
+        - tail -n 500 docker_build.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh docker_build.out
 
     # Normal image build
     - env:
@@ -83,7 +87,7 @@ matrix:
       after_success:
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh sdk_build.out
       after_failure:
-        - tail -n 500 build.out
+        - tail -n 500 sdk_build.out
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh sdk_build.out
 
 env:

@@ -23,7 +23,7 @@ docker build \
   .
 
 if [[ -n "${DOCKER_PASS:-}" ]]; then
-  docker login --username="${DOCKER_USER:-swiftnav}" --password="$DOCKER_PASS"
+  echo $DOCKER_PASS | docker login --username="${DOCKER_USER:-swiftnav}" --password-stdin
   docker push "$DOCKER_REPO_NAME:$VERSION_TAG"
 else
   echo "WARNING: Not pushing new image to Docker Hub"

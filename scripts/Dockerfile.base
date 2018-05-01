@@ -27,7 +27,7 @@ RUN \
       checkinstall \
       m4 \
       rsync \
-      ssh \
+      openssh-client \
       && \
   pwd && mkdir -p cmake-build && cd cmake-build && \
   wget https://cmake.org/files/v3.10/cmake-3.10.1.tar.gz && \
