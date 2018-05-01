@@ -13,8 +13,6 @@
 #ifndef __CELL_MODEM_PROBE_H
 #define __CELL_MODEM_PROBE_H
 
-#include <libpiksi/sbp_zmq_pubsub.h>
-
-enum modem_type cell_modem_probe(const char *dev, sbp_zmq_pubsub_ctx_t *pubsub_ctx);
+enum modem_type cell_modem_probe(const char *dev);
 
 #endif

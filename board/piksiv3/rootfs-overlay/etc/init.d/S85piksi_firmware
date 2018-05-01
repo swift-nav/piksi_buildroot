@@ -2,13 +2,36 @@
 
 name="piksi_firmware"
 
-uart0_svc=/var/run/ports_daemon/sv/uart0/supervise/stat
-uart1_svc=/var/run/ports_daemon/sv/uart1/supervise/stat
+settings_ini=/persistent/config.ini
+
+svc_path()
+{
+  echo /var/run/ports_daemon/sv/${1}/supervise/stat
+}
+
+port_disabled()
+{
+  local the_port=$1; shift
+
+  cat $settings_ini  | tr $'\n' ' ' | \
+    grep -q "\[${the_port}\][^\]]*mode=Disabled"
+}
+
+service_up()
+{
+  local svc=$1; shift
+  local the_svc_path=$(svc_path $svc)
+
+  if port_disabled $svc; then
+    return 0
+  fi
+
+  grep -q run $the_svc_path
+}
 
 services_up()
 {
-  grep -q run $uart0_svc \
-    && grep -q run $uart1_svc
+  service_up uart0 && service_up uart1
 }
 
 wait_services()
