@@ -20,11 +20,19 @@ is_running() {
     [ -f "$pid_file" ] && [ -d "/proc/`get_pid`" ] > /dev/null 2>&1
 }
 
+_pre_launch()
+{
+  if type pre_launch | grep -q "shell function"; then
+    pre_launch
+  fi
+}
+
 case "$1" in
     start)
     if is_running; then
         echo "Already started"
     else
+        _pre_launch
         echo "Starting $name"
         cd "$dir"
         if [ -z "$user" ]; then

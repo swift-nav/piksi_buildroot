@@ -6,6 +6,8 @@ log_tag=$name
 source /etc/init.d/sdcard.sh
 source /etc/init.d/logging.sh
 
+setup_loggers
+
 partition_disk()
 {
   local dev="$1"; shift
