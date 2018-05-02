@@ -85,6 +85,8 @@ pre_launch()
   load_modules
   check_usb_load
   check_cdc_acm || logw -s "Modem failed to populate tty device files."
+  
+  sleep 10 # give cell modem plenty of time to setup before accessing it
 }
 
 source /etc/init.d/template_process.inc.sh
