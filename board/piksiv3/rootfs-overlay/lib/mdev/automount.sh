@@ -5,6 +5,8 @@ log_tag=automount
 
 source /etc/init.d/logging.sh
 
+setup_loggers
+
 do_umount()
 {
   local devname=$1; shift
