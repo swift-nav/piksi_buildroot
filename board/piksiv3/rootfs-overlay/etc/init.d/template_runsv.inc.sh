@@ -70,12 +70,21 @@ do_start()
   fi
 }
 
+do_stop()
+{
+  sv down /var/service/${name}
+  # Remove symlink
+  rm /var/service/${name}
+  # Remove generated service dir
+  rm -rf /etc/sv/${name}
+}
+
 case "$1" in
   start)
     do_start
     ;;
   stop)
-    sv down /var/service/${name}
+    do_stop
     ;;
   restart)
     $0 stop
