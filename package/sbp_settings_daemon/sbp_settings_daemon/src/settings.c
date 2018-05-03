@@ -316,7 +316,7 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   (void)sender_id; (void)context; (void)len; (void)msg;
 
   FILE *f = fopen(SETTINGS_FILE, "w");
-  const char *sec;
+  const char *sec = NULL;
 
   if (f == NULL) {
     piksi_log(LOG_ERR, "Error opening config file!");

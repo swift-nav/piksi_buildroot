@@ -14,5 +14,4 @@ setup_permissions() {
     setcap cap_net_admin+ep /usr/bin/${name}
 }
 
-source /etc/init.d/template_process.inc.sh
-
+source /etc/init.d/template_runsv.inc.sh

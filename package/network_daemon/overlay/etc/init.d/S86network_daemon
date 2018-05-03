@@ -5,4 +5,4 @@ cmd="network_daemon"
 dir="/"
 user="networkd"
 
-source /etc/init.d/template_process.inc.sh
+source /etc/init.d/template_runsv.inc.sh

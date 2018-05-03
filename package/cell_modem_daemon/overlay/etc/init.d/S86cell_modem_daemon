@@ -12,4 +12,4 @@ setup_permissions() {
     chown $user:$user ${MODEM_BASE}*
 }
 
-source /etc/init.d/template_process.inc.sh
+source /etc/init.d/template_runsv.inc.sh

@@ -7,10 +7,9 @@ user="configd"
 
 SETTINGS_FILE="/persistent/config.ini"
 
-setup_permissions() {
-
-    touch $SETTINGS_FILE
-    chown $user:$user $SETTINGS_FILE
+setup_permissions()
+{
+  configure_file_resource $user $SETTINGS_FILE 0600
 }
 
-source /etc/init.d/template_process.inc.sh
+source /etc/init.d/template_runsv.inc.sh
