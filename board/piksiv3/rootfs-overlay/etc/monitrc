@@ -81,3 +81,7 @@ check process health_daemon with pidfile /var/run/health_daemon.pid
 check process network_daemon with pidfile /var/run/network_daemon.pid
     start program = "/etc/init.d/S86network_daemon start"
     stop program = "/etc/init.d/S86network_daemon stop"
+
+check process cell_modem_daemon with pidfile /var/run/cell_modem_daemon.pid
+    start program = "/etc/init.d/S99.2cell_modem_daemon start"
+    stop program = "/etc/init.d/S99.2cell_modem_daemon stop"
