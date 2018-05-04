@@ -8,7 +8,12 @@ SOURCES=\
   logging.c \
   networking.c \
   interface.c \
-  runit.c
+  runit.c \
+  sbp_pubsub.c \
+  endpoint.c \
+  sbp_tx.c \
+  sbp_rx.c \
+  loop.c
 ARFLAGS=rcs $(LTO_PLUGIN)
 CFLAGS+=-std=gnu11 -fPIC -I../include
 LDFLAGS+=-shared
