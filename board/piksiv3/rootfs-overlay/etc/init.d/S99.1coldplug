@@ -7,6 +7,10 @@ case "$1" in
   start)
 	echo "Coldplug modules..."
 	# coldplug modules
+
+  # Sleep to allow modem to fully power on
+  sleep 10
+
 	find /sys/ -name modalias -print0 | xargs -0 sort -u -z | xargs -0 modprobe -abq
 	;;
   stop)

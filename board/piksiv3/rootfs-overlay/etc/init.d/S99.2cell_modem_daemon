@@ -6,7 +6,7 @@ cmd="cell_modem_daemon --serial-port $AUX_MODEM_PORT"
 dir="/"
 user=""
 
-log_tag=S86cell_modem_daemon
+log_tag=S99.2cell_modem_daemon
 source /etc/init.d/logging.sh
 
 load_modules()
@@ -84,6 +84,9 @@ pre_launch()
   sleep 0.1
   load_modules
   check_usb_load
+
+  # Sleep to allow modem to fully power on and register stuff
+  sleep 10
   check_cdc_acm || logw -s "Modem failed to populate tty device files."
 }
 

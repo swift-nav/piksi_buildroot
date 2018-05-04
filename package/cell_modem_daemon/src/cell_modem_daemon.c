@@ -126,7 +126,7 @@ static void send_cell_modem_status(struct cell_modem_ctx_s *cell_modem_ctx)
 
 const char* network_available_path = "/var/run/network_available";
 
-static bool read_internet_enable()
+static bool is_network_available()
 {
   FILE* fp = fopen(network_available_path, "r");
   if (fp == NULL) {
@@ -134,7 +134,7 @@ static bool read_internet_enable()
     return false;
   }
 
-  char buf[1];
+  char buf[1] = {0};
   size_t read_count = fread(buf, 1, sizeof(buf), fp);
 
   if (read_count < 1) {
@@ -142,14 +142,14 @@ static bool read_internet_enable()
     return false;
   }
 
-  bool has_inet = strcmp(buf, "1") == 0;
-
+  bool has_inet = buf[0] == '1';
+#if 0
   if (has_inet) {
     piksi_log(LOG_DEBUG, "%s: network available", __FUNCTION__);
   } else {
     piksi_log(LOG_DEBUG, "%s: network unavailable", __FUNCTION__);
   }
-
+#endif
   return has_inet;
 }
 
@@ -181,52 +181,76 @@ static void reset_modem_and_die(struct cell_modem_ctx_s* cell_modem_ctx)
 {
   static const unsigned int cell_modem_off_period = 2;
 
-  char buf[256];
+  int rlen = 0;
+  char buf[256] = {0};
 
-  static struct setting s = {
+  static struct setting s_power_off = {
     .section = "cell_modem",
     .name = "modem_enabled",
+    .value = "False",
+  };
+
+  static struct setting s_disable_pppd = {
+    .section = "cell_modem",
+    .name = "enabled",
     .value = "False",
   };
 
   sbp_zmq_pubsub_ctx_t *ctx = cell_modem_ctx->sbp_ctx;
   sbp_zmq_tx_ctx_t *tx_ctx = sbp_zmq_pubsub_tx_ctx_get(ctx);
 
-  /* Reply with write message with our value */
-  int rlen = settings_format_setting(&s, buf, sizeof(buf));
-
   piksi_log(LOG_DEBUG, "%s: sending modem disable command", __FUNCTION__);
 
+  /* Reply with write message with our value */
+  rlen = settings_format_setting(&s_power_off, buf, sizeof(buf));
   sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
                        (u8)rlen, (u8*)buf, SBP_SENDER_ID);
 
+  /* Reply with write message with our value */
+  rlen = settings_format_setting(&s_disable_pppd, buf, sizeof(buf));
+  sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
+                       (u8)rlen, (u8*)buf, SBP_SENDER_ID);
+
+
   sleep(cell_modem_off_period);
 
-  static struct setting s_disable = {
+  static struct setting s_power_on = {
     .section = "cell_modem",
     .name = "modem_enabled",
     .value = "True",
   };
 
-  rlen = settings_format_setting(&s_disable, buf, sizeof(buf));
+  static struct setting s_enable_pppd = {
+    .section = "cell_modem",
+    .name = "enabled",
+    .value = "True",
+  };
 
   piksi_log(LOG_DEBUG, "%s: sending modem enable command", __FUNCTION__);
 
+  rlen = settings_format_setting(&s_power_on, buf, sizeof(buf));
   sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
                        (u8)rlen, (u8*)buf, SBP_SENDER_ID);
 
+  rlen = settings_format_setting(&s_enable_pppd, buf, sizeof(buf));
+  sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
+                       (u8)rlen, (u8*)buf, SBP_SENDER_ID);
+
+
+  system("killall -9 chat");
+  system("killall -9 pppd");
 
   exit(0);
 }
 
 static void check_reset_no_inet(struct cell_modem_ctx_s* cell_modem_ctx)
 {
-  static const time_t reset_period_sec = 15;
+  static const time_t reset_period_sec = 60;
 
   static time_t no_inet_time = 0;
   static bool in_no_inet = false;
 
-  if (read_internet_enable()) {
+  if (is_network_available()) {
     in_no_inet = false;
     return;
   }
