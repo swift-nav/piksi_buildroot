@@ -131,6 +131,7 @@ static bool is_network_available()
   FILE* fp = fopen(network_available_path, "r");
   if (fp == NULL) {
     piksi_log(LOG_ERR, "%s: failed to open '%s': %s", __FUNCTION__, network_available_path, strerror(errno));
+    fclose(fp);
     return false;
   }
 
@@ -139,9 +140,11 @@ static bool is_network_available()
 
   if (read_count < 1) {
     piksi_log(LOG_ERR, "%s: failed to read from '%s'", __FUNCTION__, network_available_path);
+    fclose(fp);
     return false;
   }
 
+  fclose(fp);
   bool has_inet = buf[0] == '1';
 #if 0
   if (has_inet) {
@@ -245,6 +248,12 @@ static void reset_modem_and_die(struct cell_modem_ctx_s* cell_modem_ctx)
 
 static void check_reset_no_inet(struct cell_modem_ctx_s* cell_modem_ctx)
 {
+  static volatile bool check_running = false;
+  if (check_running)
+    return;
+
+  check_running = true;
+
   static const time_t reset_period_sec = 60;
 
   static time_t no_inet_time = 0;
@@ -252,6 +261,7 @@ static void check_reset_no_inet(struct cell_modem_ctx_s* cell_modem_ctx)
 
   if (is_network_available()) {
     in_no_inet = false;
+    check_running = false;
     return;
   }
 
@@ -265,6 +275,8 @@ static void check_reset_no_inet(struct cell_modem_ctx_s* cell_modem_ctx)
     piksi_log(LOG_WARNING, "%s: time-out on internet check, resetting modem", __FUNCTION__);
     reset_modem_and_die(cell_modem_ctx);
   }
+
+  check_running = false;
 }
 
 /**
