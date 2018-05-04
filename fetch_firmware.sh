@@ -22,6 +22,11 @@ FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
 export AWS_DEFAULT_REGION="us-west-2"
 
+if [[ $(uname -a) == *NixOS* ]]; then
+  # Remove buildroot from LD_LIBRARY_PATH
+  export LD_LIBRARY_PATH=/lib:/usr/lib
+fi
+
 fetch() {
   aws s3 cp --no-sign-request "$@" || aws s3 cp "$@"
 }
@@ -48,3 +53,4 @@ download_fw() {
 }
 
 download_fw "prod"
+

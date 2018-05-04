@@ -208,6 +208,8 @@ static int cellmodem_notify(void *context)
                   chatcmd,
                   NULL};
 
+  sleep(30);
+
   /* Create a new pppd process. */
   async_spawn(sbp_zmq_pubsub_zloop_get(pubsub_ctx), args,
               pppd_output_callback, pppd_exit_callback, pubsub_ctx,

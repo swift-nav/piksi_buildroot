@@ -1,0 +1,93 @@
+#!/bin/sh
+
+AUX_MODEM_PORT="/dev/ttyACM3"
+name="cell_modem_daemon"
+cmd="cell_modem_daemon --serial-port $AUX_MODEM_PORT"
+dir="/"
+user=""
+
+log_tag=S99.2cell_modem_daemon
+source /etc/init.d/logging.sh
+
+load_modules()
+{
+  modprobe ci_hdrc_usb2
+}
+
+unload_modules()
+{
+  modprobe -r ci_hdrc_usb2
+}
+
+is_duro()
+{
+  [[ -f "/cfg/duro_eeprom" ]] || return 1
+  grep -q DURO /cfg/duro_eeprom
+}
+
+scan_usb_devs()
+{
+  local expected_usb_devs=2
+
+  for retry in $(seq 1 20); do
+    usb_devs=$(lsusb | wc -l)
+    if [[ "$usb_devs" -ge "$expected_usb_devs" ]]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+
+  return 1
+}
+
+check_usb_load()
+{
+  local max_retries=2
+
+  for retry in $(seq $max_retries); do
+
+    if ! is_duro; then
+      logd -s "This is a *NOT* Duro, not checking if the USB modem loaded."
+      return 0
+    fi
+
+    logd -s "This is a Duro, checking that the USB modem was found..."
+    if scan_usb_devs; then
+      logd -s "Found the expected number of USB devices."
+      return 0
+    fi
+
+    logw -s "USB modem failed to enumerate (found: ${usb_devs}), reloading USB modules..."
+    unload_modules
+    load_modules
+  done
+
+  return 1
+}
+
+check_cdc_acm()
+{
+  for retry in $(seq 1 10); do
+    if [[ -c "/dev/ttyUSB0" ]] || [[ -c "/dev/ttyACM0" ]]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
+pre_launch()
+{
+  unload_modules
+  modprobe ehci_hcd
+  modprobe cdc_acm
+  sleep 0.1
+  load_modules
+  check_usb_load
+
+  # Sleep to allow modem to fully power on and register stuff
+  sleep 10
+  check_cdc_acm || logw -s "Modem failed to populate tty device files."
+}
+
+source /etc/init.d/template_process.inc.sh

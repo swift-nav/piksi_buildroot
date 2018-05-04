@@ -23,6 +23,7 @@
 
 #include <libsbp/sbp.h>
 #include <libsbp/piksi.h>
+#include <libsbp/settings.h>
 #include <libsbp/system.h>
 
 #include "at_command_utils.h"
@@ -123,6 +124,161 @@ static void send_cell_modem_status(struct cell_modem_ctx_s *cell_modem_ctx)
   }
 }
 
+const char* network_available_path = "/var/run/network_available";
+
+static bool is_network_available()
+{
+  FILE* fp = fopen(network_available_path, "r");
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "%s: failed to open '%s': %s", __FUNCTION__, network_available_path, strerror(errno));
+    fclose(fp);
+    return false;
+  }
+
+  char buf[1] = {0};
+  size_t read_count = fread(buf, 1, sizeof(buf), fp);
+
+  if (read_count < 1) {
+    piksi_log(LOG_ERR, "%s: failed to read from '%s'", __FUNCTION__, network_available_path);
+    fclose(fp);
+    return false;
+  }
+
+  fclose(fp);
+  bool has_inet = buf[0] == '1';
+#if 0
+  if (has_inet) {
+    piksi_log(LOG_DEBUG, "%s: network available", __FUNCTION__);
+  } else {
+    piksi_log(LOG_DEBUG, "%s: network unavailable", __FUNCTION__);
+  }
+#endif
+  return has_inet;
+}
+
+#define BUFSIZE 256
+
+struct setting {
+  char section[BUFSIZE];
+  char name[BUFSIZE];
+  char value[BUFSIZE];
+};
+
+/* Format setting into SBP message payload */
+static int settings_format_setting(struct setting *s, char *buf, int len)
+{
+  int buflen;
+
+  /* build and send reply */
+  strncpy(buf, s->section, (size_t)len);
+  buflen = (int)(strlen(s->section) + 1);
+  strncpy(buf + buflen, s->name,(size_t)(len - buflen));
+  buflen += (int)(strlen(s->name) + 1);
+  strncpy(buf + buflen, s->value,(size_t)(len - buflen));
+  buflen += (int)(strlen(s->value) + 1);
+
+  return (int) buflen;
+}
+
+static void reset_modem_and_die(struct cell_modem_ctx_s* cell_modem_ctx)
+{
+  static const unsigned int cell_modem_off_period = 2;
+
+  int rlen = 0;
+  char buf[256] = {0};
+
+  static struct setting s_power_off = {
+    .section = "cell_modem",
+    .name = "modem_enabled",
+    .value = "False",
+  };
+
+  static struct setting s_disable_pppd = {
+    .section = "cell_modem",
+    .name = "enabled",
+    .value = "False",
+  };
+
+  sbp_zmq_pubsub_ctx_t *ctx = cell_modem_ctx->sbp_ctx;
+  sbp_zmq_tx_ctx_t *tx_ctx = sbp_zmq_pubsub_tx_ctx_get(ctx);
+
+  piksi_log(LOG_DEBUG, "%s: sending modem disable command", __FUNCTION__);
+
+  /* Reply with write message with our value */
+  rlen = settings_format_setting(&s_power_off, buf, sizeof(buf));
+  sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
+                       (u8)rlen, (u8*)buf, SBP_SENDER_ID);
+
+  /* Reply with write message with our value */
+  rlen = settings_format_setting(&s_disable_pppd, buf, sizeof(buf));
+  sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
+                       (u8)rlen, (u8*)buf, SBP_SENDER_ID);
+
+
+  sleep(cell_modem_off_period);
+
+  static struct setting s_power_on = {
+    .section = "cell_modem",
+    .name = "modem_enabled",
+    .value = "True",
+  };
+
+  static struct setting s_enable_pppd = {
+    .section = "cell_modem",
+    .name = "enabled",
+    .value = "True",
+  };
+
+  piksi_log(LOG_DEBUG, "%s: sending modem enable command", __FUNCTION__);
+
+  rlen = settings_format_setting(&s_power_on, buf, sizeof(buf));
+  sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
+                       (u8)rlen, (u8*)buf, SBP_SENDER_ID);
+
+  rlen = settings_format_setting(&s_enable_pppd, buf, sizeof(buf));
+  sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
+                       (u8)rlen, (u8*)buf, SBP_SENDER_ID);
+
+
+  system("killall -9 chat");
+  system("killall -9 pppd");
+
+  exit(0);
+}
+
+static void check_reset_no_inet(struct cell_modem_ctx_s* cell_modem_ctx)
+{
+  static volatile bool check_running = false;
+  if (check_running)
+    return;
+
+  check_running = true;
+
+  static const time_t reset_period_sec = 60;
+
+  static time_t no_inet_time = 0;
+  static bool in_no_inet = false;
+
+  if (is_network_available()) {
+    in_no_inet = false;
+    check_running = false;
+    return;
+  }
+
+  if (!in_no_inet) {
+    in_no_inet = true;
+    no_inet_time = time(NULL);
+  }
+
+  if (time(NULL) - no_inet_time >= reset_period_sec) {
+
+    piksi_log(LOG_WARNING, "%s: time-out on internet check, resetting modem", __FUNCTION__);
+    reset_modem_and_die(cell_modem_ctx);
+  }
+
+  check_running = false;
+}
+
 /**
  * @brief cell_status_timer_callback - used to trigger cell status updates
  */
@@ -135,6 +291,8 @@ static int cell_status_timer_callback(zloop_t *loop, int timer_id, void *arg)
   if (cell_modem_enable_watch) {
     send_cell_modem_status(cell_modem_ctx);
   }
+
+  check_reset_no_inet(cell_modem_ctx);
 
   return 0;
 }
