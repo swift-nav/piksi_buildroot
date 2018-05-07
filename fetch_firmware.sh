@@ -22,8 +22,8 @@ D=$( (cd "$(dirname "$0")" || exit 1 >/dev/null; pwd -P) )
 [[ -z "$DEBUG" ]] || set -x
 set -e
 
-FW_VERSION=${1:-v1.5.10}
-NAP_VERSION=${2:-v1.5.10}
+FW_VERSION=${1:-v1.5.12}
+NAP_VERSION=${2:-v1.5.12}
 
 FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
