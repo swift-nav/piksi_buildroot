@@ -6,6 +6,13 @@ ifeq ($(HW_CONFIG),)
 HW_CONFIG    := prod
 endif
 
+BUILD_ENV_ARGS = \
+  BR2_EXTERNAL=$(BR2_EXTERNAL) \
+  BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF) \
+  BR2_BUILD_PIKSI_INS_REF=$(BR2_BUILD_PIKSI_INS_REF) \
+  BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON) \
+  HW_CONFIG=$(HW_CONFIG) \
+
 .PHONY: all firmware config image clean host-config host-image host-clean     \
         docker-setup docker-make-image docker-make-clean                      \
         docker-make-host-image docker-make-host-clean docker-run              \
@@ -20,11 +27,11 @@ firmware:
 	./fetch_firmware.sh
 
 config:
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output piksiv3_defconfig
 
 image: config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
+	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
 
 clean:
@@ -48,7 +55,7 @@ flush-rootfs:
 # '  pkg-<pkg>-reconfigure      - Restart the build from the configure step'
 # '  pkg-<pkg>-rebuild          - Restart the build from the build step'
 pkg-%: config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF) \
+	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot $* O=output
 
 host-pkg-%: host-config
@@ -70,13 +77,13 @@ rebuild-changed: export BUILD_TEMP=/tmp SINCE=$(SINCE)
 rebuild-changed: _rebuild_changed
 
 _rebuild_changed:
-	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
+	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot \
 			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py) \
 			O=output
 
 _print_db:
-	BR2_EXTERNAL=$(BR2_EXTERNAL) HW_CONFIG=$(HW_CONFIG) \
+	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot all O=output -np
 
 docker-build-image:
@@ -155,5 +162,17 @@ help:
 
 clang-complete:
 	@./scripts/gen-clang-complete
+
+docker-make-sdk:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make sdk
+
+sdk:
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) -C buildroot O=output V=$(V) sdk
+	@echo '>>>' Uninstalling piksi toolchain wrappers...
+	$(MAKE) -C buildroot force-uninstall-toolchain-wrappers
+	@echo '>>>' Creating SDK archive...
+	tar -cJf piksi_sdk.txz -C buildroot/output/host .
 
 .PHONY: help
