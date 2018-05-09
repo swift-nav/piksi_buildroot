@@ -22,7 +22,7 @@ port_disabled()
   local the_port=$1; shift
 
   # If it's SBP mode, then it's enabled
-  if detect_sbp_mode; then
+  if detect_sbp_mode $the_port; then
     return 1
   fi
 
