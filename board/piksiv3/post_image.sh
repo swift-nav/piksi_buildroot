@@ -12,8 +12,8 @@ else
 fi
 
 CFG=piksiv3_$HW_CONFIG
-GIT_STRING=$(git -C $BR2_EXTERNAL_piksi_buildroot_PATH describe --tags        \
-                 --dirty --always --match 'v[0-9]*\.[0-9]*\.[0-9]*')
+get_git_string_script="$(dirname "$0")"/get_git_string.sh
+GIT_STRING=$($get_git_string_script)
 # remove the githash from the filename for useability
 FILE_GIT_STRING=${GIT_STRING%%-g*}
 
