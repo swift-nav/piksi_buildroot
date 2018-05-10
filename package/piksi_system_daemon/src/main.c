@@ -199,18 +199,48 @@ static int date_string_get(const char *timestamp_string,
 static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
 {
   char name_string[64];
+  char uimage_string[64];
+  bool is_dev = false;
   if (file_read_string("/img_tbl/boot/name",
                        name_string, sizeof(name_string)) == 0) {
-    /* firmware_build_id contains the full image name */
+
+    if (file_read_string("/uimage_ver/name",
+                         uimage_string, sizeof(uimage_string)) != 0) {
+      sprintf(uimage_string, "unknown_uimage_version");
+    }
+
+    /* If image_table version starts with DEV, we booted a DEV build
+     * If we have DEV:
+     *   - firmware_build_id, firwmare_version, firmware_build_date come from uimage version
+     *   - new setting "dev_imageset_version" is created to keep track of what imageset is used
+     * Otherwise:
+     *   - All version and date strings are from image table
+     */
+
     static char firmware_build_id[sizeof(name_string)];
-    strncpy(firmware_build_id, name_string, sizeof(firmware_build_id));
+    if (strncmp(name_string, "DEV", 3) == 0) {
+      static char dev_imageset_version[sizeof(name_string)];
+      strncpy(dev_imageset_version, name_string, sizeof(dev_imageset_version));
+      is_dev = true;
+      strncpy(firmware_build_id, uimage_string, sizeof(name_string));
+      settings_register_readonly(settings_ctx, "system_info", "dev_imageset_version",
+                                 dev_imageset_version, sizeof(dev_imageset_version),
+                                 SETTINGS_TYPE_STRING);
+
+    } else {
+      strncpy(firmware_build_id, name_string, sizeof(firmware_build_id));
+      if (strncmp(name_string, uimage_string, sizeof(name_string)) != 0) {
+        piksi_log(LOG_ERR, "Prod Build detected where uimage != img_table version");
+      }
+    }
+
     settings_register_readonly(settings_ctx, "system_info", "firmware_build_id",
                                firmware_build_id, sizeof(firmware_build_id),
                                SETTINGS_TYPE_STRING);
 
     /* firmware_version contains everything before the git hash */
     static char firmware_version[sizeof(name_string)];
-    strncpy(firmware_version, name_string, sizeof(firmware_version));
+    strncpy(firmware_version, firmware_build_id, sizeof(firmware_version));
     char *sep = strstr(firmware_version, "-g");
     if (sep != NULL) {
       *sep = 0;
@@ -219,10 +249,10 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
                                firmware_version, sizeof(firmware_version),
                                SETTINGS_TYPE_STRING);
   }
-
   char timestamp_string[32];
-  if (file_read_string("/img_tbl/boot/timestamp", timestamp_string,
-                       sizeof(timestamp_string)) == 0) {
+  if (file_read_string(is_dev ? "/uimage_ver/timestamp" :
+                                "/img_tbl/boot/timestamp",
+                       timestamp_string, sizeof(timestamp_string)) == 0) {
     static char firmware_build_date[128];
     if (date_string_get(timestamp_string, firmware_build_date,
                         sizeof(firmware_build_date)) == 0) {
