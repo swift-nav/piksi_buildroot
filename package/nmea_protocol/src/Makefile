@@ -1,7 +1,7 @@
 TARGET=libnmea_protocol
 SOURCES=info_nmea.c
 CFLAGS=-std=gnu11 -fPIC
-ARFLAGS=rcs
+ARFLAGS=rcs $(LTO_PLUGIN)
 LDFLAGS=-shared
 
 CROSS=

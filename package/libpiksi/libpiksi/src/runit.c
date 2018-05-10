@@ -141,11 +141,20 @@ int start_runit_service(runit_config_t *cfg)
   FILE* control_fp = fopen(path_buf, "w");
   CHECK_FS_CALL(control_fp != NULL, "fopen", path_buf);
 
-  if (cfg->restart)
-    fprintf(control_fp, "u");
-  else
-    fprintf(control_fp, "o");
+  char sv_start_command[1024];
 
+  if (cfg->restart) {
+    fprintf(control_fp, "u");
+    CHECKED_SPRINTF(sv_start_command, sizeof(sv_start_command),
+                    "/usr/bin/sv up %s", service_dir_final);
+  }
+  else {
+    fprintf(control_fp, "o");
+    CHECKED_SPRINTF(sv_start_command, sizeof(sv_start_command),
+                    "/usr/bin/sv once %s", service_dir_final);
+  }
+
+  CHECK_FS_CALL(system(sv_start_command) == 0, "system", sv_start_command);
   CHECK_FS_CALL(fclose(control_fp) == 0, "fclose", path_buf);
 
   return 0;
