@@ -209,28 +209,31 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
       sprintf(uimage_string, "unknown_uimage_version");
     }
 
+    static char imageset_build_id[sizeof(name_string)];
+    strncpy(imageset_build_id, name_string, sizeof(imageset_build_id));
+    settings_register_readonly(settings_ctx, "system_info", "imageset_build_id",
+                               imageset_build_id, sizeof(imageset_build_id),
+                               SETTINGS_TYPE_STRING);
+
     /* If image_table version starts with DEV, we booted a DEV build
      * If we have DEV:
      *   - firmware_build_id, firwmare_version, firmware_build_date come from uimage version
-     *   - new setting "dev_imageset_version" is created to keep track of what imageset is used
-     * Otherwise:
-     *   - All version and date strings are from image table
+     *   - "imageset_build_id" always says what imageset was used
+     * If we have PROD
+         - imageset_build_id and firmware_build_id should be identical
+         - we use the firmware_build_id and firmware_build_date from the image_set as they are
+           more relevant for production builds and matches legacy behavior
      */
 
     static char firmware_build_id[sizeof(name_string)];
     if (strncmp(name_string, "DEV", 3) == 0) {
-      static char dev_imageset_version[sizeof(name_string)];
-      strncpy(dev_imageset_version, name_string, sizeof(dev_imageset_version));
       is_dev = true;
-      strncpy(firmware_build_id, uimage_string, sizeof(name_string));
-      settings_register_readonly(settings_ctx, "system_info", "dev_imageset_version",
-                                 dev_imageset_version, sizeof(dev_imageset_version),
-                                 SETTINGS_TYPE_STRING);
-
+      strncpy(firmware_build_id, uimage_string, sizeof(firmware_build_id));
     } else {
       strncpy(firmware_build_id, name_string, sizeof(firmware_build_id));
-      if (strncmp(name_string, uimage_string, sizeof(name_string)) != 0) {
-        piksi_log(LOG_ERR, "Prod Build detected where uimage != img_table version");
+      if (strncmp(imageset_build_id, uimage_string, sizeof(imageset_build_id)) != 0) {
+        /* we should never get here, in PROD, imageset_version and uimage version should match every time*/
+        piksi_log(LOG_ERR, "Production build detected where uimage_build_id != imageset_build_id");
       }
     }
 
