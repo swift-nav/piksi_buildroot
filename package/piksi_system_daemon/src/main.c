@@ -36,6 +36,8 @@
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define SBP_MAX_NETWORK_INTERFACES 10
 
+#define STR_BUFFER_SIZE 64
+#define DATE_STR_BUFFER_SIZE 128
 static double network_polling_frequency = 0.1;
 static double network_polling_retry_frequency = 1;
 static bool log_ping_activity = false;
@@ -198,19 +200,19 @@ static int date_string_get(const char *timestamp_string,
 
 static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
 {
-  char name_string[64];
-  char uimage_string[64];
+  char name_string[STR_BUFFER_SIZE];
+  char uimage_string[STR_BUFFER_SIZE];
   bool is_dev = false;
   if (file_read_string("/img_tbl/boot/name",
-                       name_string, sizeof(name_string)) == 0) {
+                       name_string, STR_BUFFER_SIZE) == 0) {
 
     if (file_read_string("/uimage_ver/name",
                          uimage_string, sizeof(uimage_string)) != 0) {
       sprintf(uimage_string, "unknown_uimage_version");
     }
 
-    static char imageset_build_id[sizeof(name_string)];
-    strncpy(imageset_build_id, name_string, sizeof(imageset_build_id));
+    static char imageset_build_id[STR_BUFFER_SIZE];
+    strncpy(imageset_build_id, name_string, STR_BUFFER_SIZE);
     settings_register_readonly(settings_ctx, "system_info", "imageset_build_id",
                                imageset_build_id, sizeof(imageset_build_id),
                                SETTINGS_TYPE_STRING);
@@ -225,13 +227,13 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
            more relevant for production builds and matches legacy behavior
      */
 
-    static char firmware_build_id[sizeof(name_string)];
+    static char firmware_build_id[STR_BUFFER_SIZE];
     if (strncmp(name_string, "DEV", 3) == 0) {
       is_dev = true;
-      strncpy(firmware_build_id, uimage_string, sizeof(firmware_build_id));
+      strncpy(firmware_build_id, uimage_string, STR_BUFFER_SIZE); 
     } else {
-      strncpy(firmware_build_id, name_string, sizeof(firmware_build_id));
-      if (strncmp(imageset_build_id, uimage_string, sizeof(imageset_build_id)) != 0) {
+      strncpy(firmware_build_id, name_string, STR_BUFFER_SIZE); 
+      if (strncmp(imageset_build_id, uimage_string, STR_BUFFER_SIZE) != 0) {
         /* we should never get here, in PROD, imageset_version and uimage version should match every time*/
         piksi_log(LOG_ERR, "Production build detected where uimage_build_id != imageset_build_id");
       }
@@ -242,8 +244,8 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
                                SETTINGS_TYPE_STRING);
 
     /* firmware_version contains everything before the git hash */
-    static char firmware_version[sizeof(name_string)];
-    strncpy(firmware_version, firmware_build_id, sizeof(firmware_version));
+    static char firmware_version[STR_BUFFER_SIZE];
+    strncpy(firmware_version, firmware_build_id, STR_BUFFER_SIZE);
     char *sep = strstr(firmware_version, "-g");
     if (sep != NULL) {
       *sep = 0;
@@ -252,35 +254,35 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
                                firmware_version, sizeof(firmware_version),
                                SETTINGS_TYPE_STRING);
   }
-  char timestamp_string[32];
+  char timestamp_string[STR_BUFFER_SIZE];
   if (file_read_string(is_dev ? "/uimage_ver/timestamp" :
                                 "/img_tbl/boot/timestamp",
-                       timestamp_string, sizeof(timestamp_string)) == 0) {
-    static char firmware_build_date[128];
+                       timestamp_string, STR_BUFFER_SIZE) == 0) {
+    static char firmware_build_date[DATE_STR_BUFFER_SIZE];
     if (date_string_get(timestamp_string, firmware_build_date,
-                        sizeof(firmware_build_date)) == 0) {
+                        DATE_STR_BUFFER_SIZE) == 0) {
       settings_register_readonly(settings_ctx, "system_info", "firmware_build_date",
                                  firmware_build_date, sizeof(firmware_build_date),
                                  SETTINGS_TYPE_STRING);
     }
   }
 
-  char loader_name_string[64];
+  char loader_name_string[STR_BUFFER_SIZE];
   if (file_read_string("/img_tbl/loader/name",
-                       loader_name_string, sizeof(loader_name_string)) == 0) {
-    static char loader_build_id[sizeof(loader_name_string)];
-    strncpy(loader_build_id, loader_name_string, sizeof(loader_build_id));
+                       loader_name_string, STR_BUFFER_SIZE) == 0) {
+    static char loader_build_id[STR_BUFFER_SIZE];
+    strncpy(loader_build_id, loader_name_string, STR_BUFFER_SIZE );
     settings_register_readonly(settings_ctx, "system_info", "loader_build_id",
                                loader_build_id, sizeof(loader_build_id),
                                SETTINGS_TYPE_STRING);
   }
 
-  char loader_timestamp_string[32];
+  char loader_timestamp_string[STR_BUFFER_SIZE];
   if (file_read_string("/img_tbl/loader/timestamp", loader_timestamp_string,
-                       sizeof(loader_timestamp_string)) == 0) {
-    static char loader_build_date[128];
+                       STR_BUFFER_SIZE) == 0) {
+    static char loader_build_date[DATE_STR_BUFFER_SIZE];
     if (date_string_get(loader_timestamp_string, loader_build_date,
-                        sizeof(loader_build_date)) == 0) {
+                        DATE_STR_BUFFER_SIZE) == 0) {
       settings_register_readonly(settings_ctx, "system_info", "loader_build_date",
                                  loader_build_date, sizeof(loader_build_date),
                                  SETTINGS_TYPE_STRING);
