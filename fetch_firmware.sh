@@ -15,7 +15,6 @@
 
 ###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
 ###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
-###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
 
 D=$( (cd "$(dirname "$0")" || exit 1 >/dev/null; pwd -P) )
 
@@ -27,10 +26,10 @@ if [[ $(uname -a) == *NixOS* ]]; then
   export LD_LIBRARY_PATH=/lib:/usr/lib
 fi
 
-FW_VERSION=${1:-v1.4.0-develop-2018050419}
+FW_VERSION=${1:-v1.4.0-develop-2018050419-10-g0db4cff1}
 NAP_VERSION=${2:-v1.4.0-develop-2018050419}
 
-FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
+FW_S3_PATH=s3://swiftnav-artifacts-pull-requests/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 export AWS_DEFAULT_REGION="us-west-2"
 
