@@ -79,6 +79,7 @@ let
 
     # Make sure buildroot Python loads dynamic modules from the right place
     export LD_LIBRARY_PATH=$PWD/buildroot/output/host/usr/lib:/lib:/usr/lib
+    export PATH=$PWD/scripts/wrappers/bin:$PWD/buildroot/output/host/bin:$PATH
 
     # See note about hardeningDisable above
     export hardeningDisable=all
@@ -100,13 +101,6 @@ let
   '';
   
   extraBuildCommands = ''
-    ## Attempting something similar to this: https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/science/logic/saw-tools/default.nix#L38
-    ## ... but this hack doesn't work because they aren't similar enough versions
-    #
-    # mkdir -p $out/lib
-    # ln -sf ${pkgs.ncurses.out}/lib/libncursesw.so.6.0 $out/lib/libtinfo.so.5.0
-    # ln -sf $out/lib/libtinfo.so.5.0 $out/lib/libtinfo.so.5
-    #
   '';
 };
 
