@@ -74,6 +74,10 @@ static int update_dev_from_probe(inotify_ctx_t *ctx, char *dev)
     ctx->cell_modem_dev = strdup(dev);
     cell_modem_set_dev(ctx->cell_modem_dev, ctx->modem_type);
     return 0;
+  } else if (dev_override != NULL && strcmp(dev_override, dev) == 0) {
+    piksi_log(LOG_WARNING,
+              "Override device failed probe: %s",
+              dev);
   }
   return 1;
 }
@@ -185,6 +189,8 @@ inotify_ctx_t * async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
   zloop_poller(ctx->loop, &ctx->pollitem, inotify_output_cb, ctx);
 
   cell_modem_scan_for_modem(ctx);
+
+  zloop_timer(sbp_zmq_pubsub_zloop_get(pubsub_ctx), 1000, 0, override_probe_retry, ctx);
 
   return ctx;
 
