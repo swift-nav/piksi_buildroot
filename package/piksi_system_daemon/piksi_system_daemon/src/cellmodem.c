@@ -32,6 +32,7 @@
 #include "async-child.h"
 
 #define CELLMODEM_DEV_OVERRIDE_DEFAULT "ttyACM0"
+#define CELL_MODEM_MAX_BOOT_RETRIES (10u)
 
 const int pppd_shutdown_deadline_usec = 500e3; // 0.5 seconds
 
@@ -90,6 +91,22 @@ int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
   (void)timer_id;
 
   cellmodem_notify(arg);
+
+  return 0;
+}
+
+int override_probe_retry(zloop_t *loop, int timer_id, void *arg)
+{
+  static int probe_retries = 0;
+  inotify_ctx_t *ctx = (inotify_ctx_t*) arg;
+  if (cellmodem_get_dev_override() != NULL
+      && cellmodem_dev == NULL
+      && probe_retries++ < CELL_MODEM_MAX_BOOT_RETRIES) {
+    cellmodem_scan_for_modem(inotify_ctx);
+  } else {
+    piksi_log(LOG_DEBUG, "Ending override probe retry timer after %d attempts", probe_retries);
+    zloop_timer_end(loop, timer_id);
+  }
 
   return 0;
 }
