@@ -143,12 +143,12 @@ static int cell_modem_notify(void *context)
 
 int override_probe_retry(zloop_t *loop, int timer_id, void *arg)
 {
-  static int probe_retries = 0;
+  static uint32_t probe_retries = 0;
   inotify_ctx_t *ctx = (inotify_ctx_t*) arg;
-  if (cellmodem_get_dev_override() != NULL
-      && cellmodem_dev == NULL
+  if (cell_modem_get_dev_override() != NULL
+      && cell_modem_dev == NULL
       && probe_retries++ < CELL_MODEM_MAX_BOOT_RETRIES) {
-    cellmodem_scan_for_modem(inotify_ctx);
+    cell_modem_scan_for_modem(ctx);
   } else {
     piksi_log(LOG_DEBUG, "Ending override probe retry timer after %d attempts", probe_retries);
     zloop_timer_end(loop, timer_id);
