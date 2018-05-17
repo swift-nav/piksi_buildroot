@@ -7,6 +7,7 @@ let
   targetPkgs = pkgs: with pkgs; [
     awscli
     bash
+    binutils
     bc
     bison
     bzip2
