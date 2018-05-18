@@ -134,6 +134,22 @@ void * pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
                                    void *context);
 
 /**
+ * @brief   Add a poll handle for a given file descriptor
+ * @details Add a poll handle for a given file descriptor
+ *
+ * @param[in] pk_loop       Pointer to the Piksi loop to use.
+ * @param[in] fd            File descriptor to poll for incoming data.
+ * @param[in] callback      Callback to use.
+ * @param[in] context       Pointer to user data that will be passed to callback.
+ *
+ * @return                  Poll handle if added successfully, otherwise NULL
+ */
+void * pk_loop_poll_add(pk_loop_t *pk_loop,
+                        int fd,
+                        pk_loop_cb callback,
+                        void *context);
+
+/**
  * @brief   Check handle is valid.
  * @details Check handle is valid. If loop owns this handle, it is valid.
  *

@@ -423,25 +423,39 @@ void * pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
   assert(pk_ept != NULL);
   assert(callback != NULL);
 
+  return pk_loop_poll_add(pk_loop,
+                          pk_endpoint_poll_handle_get(pk_ept),
+                          callback,
+                          context);
+}
+
+void * pk_loop_poll_add(pk_loop_t *pk_loop,
+                        int fd,
+                        pk_loop_cb callback,
+                        void *context)
+{
+  assert(pk_loop != NULL);
+  assert(fd >= 0);
+  assert(callback != NULL);
+
   uv_poll_t *uv_poll = (uv_poll_t *)malloc(sizeof(uv_poll_t));
   if (uv_poll == NULL) {
     piksi_log(LOG_ERR, "Failed to allocate uv_poll for reader add");
     goto failure;
   }
 
-  int poll_handle = pk_endpoint_poll_handle_get(pk_ept);
-  if (uv_poll_init_socket(pk_loop->uv_loop, uv_poll, poll_handle) != 0) {
-    piksi_log(LOG_ERR, "Failed to init uv_poll for reader add");
+  if (uv_poll_init(pk_loop->uv_loop, uv_poll, fd) != 0) {
+    piksi_log(LOG_ERR, "Failed to init uv_poll");
     goto failure;
   }
 
   if (uv_poll_start(uv_poll, UV_READABLE | UV_DISCONNECT, uv_loop_poll_handler) != 0) {
-    piksi_log(LOG_ERR, "Failed to start uv_poll for reader add");
+    piksi_log(LOG_ERR, "Failed to start uv_poll");
     goto failure;
   }
 
   if (pk_loop_add_handle_context((uv_handle_t *)uv_poll, callback, context) != 0) {
-    piksi_log(LOG_ERR, "Failed to allocate callback context for reader add");
+    piksi_log(LOG_ERR, "Failed to allocate callback context for poll add");
     goto failure;
   }
 
