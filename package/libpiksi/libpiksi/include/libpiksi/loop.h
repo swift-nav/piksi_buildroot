@@ -90,6 +90,34 @@ void * pk_loop_signal_handler_add(pk_loop_t *pk_loop,
                                   void *context);
 
 /**
+ * @brief   Add a timer
+ * @details Add a timer with a callback, the returned handle can be used to reset in other contexts
+ *
+ * @param[in] pk_loop       Pointer to the Piksi loop to use.
+ * @param[in] period_ms     Timer callback period in milliseconds.
+ * @param[in] callback      Callback to use.
+ * @param[in] context       Pointer to user data that will be passed to callback.
+ *
+ * @return                  Timer handle if added successfully, otherwise NULL
+ */
+void * pk_loop_timer_add(pk_loop_t *pk_loop,
+                         u64 period_ms,
+                         pk_loop_cb callback,
+                         void *context);
+
+/**
+ * @brief   Reset a timer
+ * @details Reset a timer using the handle returned during add
+ *
+ * @param[in] handle        Handle pointer.
+ *
+ * @return                  The operation result.
+ * @retval 0                Timer reset successfully.
+ * @retval -1               An error occurred.
+ */
+int pk_loop_timer_reset(void *handle);
+
+/**
  * @brief   Add a reader for a given Piksi Endpoint
  * @details Add a reader for a given Piksi Endpoint
  *

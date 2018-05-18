@@ -13,6 +13,10 @@
 #ifndef __HEALTH_CONTEXT_H
 #define __HEALTH_CONTEXT_H
 
+#include <libpiksi/loop.h>
+#include <libpiksi/sbp_pubsub.h>
+#include <libpiksi/settings.h>
+
 /*
  * Shared context for use by health monitors
  */
@@ -24,9 +28,14 @@ typedef struct health_ctx_s health_ctx_t;
 bool health_context_get_debug(health_ctx_t *health_ctx);
 
 /*
+ * Get loop from health context
+ */
+pk_loop_t *health_context_get_loop(health_ctx_t *health_ctx);
+
+/*
  * Get sbp_ctx from health context
  */
-sbp_zmq_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx);
+sbp_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx);
 
 /*
  * Get settings_ctx from health context

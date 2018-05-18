@@ -322,6 +322,73 @@ failure:
 }
 
 /**
+ * @brief timer_handler - wrapping callback for uv_timer_t
+ * @param timer: timer handle
+ */
+static void timer_handler(uv_timer_t* timer)
+{
+  uv_handle_t *handle = (uv_handle_t *)timer;
+  pk_loop_t *loop = pk_loop_from_uv_handle(handle);
+  pk_callback_ctx_t *cb_ctx = pk_callback_context_from_uv_handle(handle);
+
+  if (cb_ctx->callback != NULL) {
+    cb_ctx->callback(loop, handle, cb_ctx->data);
+  }
+}
+
+void * pk_loop_timer_add(pk_loop_t *pk_loop,
+                         u64 period_ms,
+                         pk_loop_cb callback,
+                         void *context)
+{
+  assert(pk_loop != NULL);
+
+  uv_timer_t *uv_timer = (uv_timer_t *)malloc(sizeof(uv_timer_t));
+  if (uv_timer == NULL) {
+    piksi_log(LOG_ERR, "Failed to allocate timer context");
+    goto failure;
+  }
+
+  if (uv_timer_init(pk_loop->uv_loop, uv_timer) != 0) {
+    piksi_log(LOG_ERR, "Failed to init timer context");
+    goto failure;
+  }
+
+  if (uv_timer_start(uv_timer, timer_handler, period_ms, period_ms) != 0) {
+    piksi_log(LOG_ERR, "Failed to start timer context");
+    goto failure;
+  }
+
+  if (pk_loop_add_handle_context((uv_handle_t *)uv_timer, callback, context) != 0) {
+    piksi_log(LOG_ERR, "Failed to allocate callback context for timer handle add");
+    goto failure;
+  }
+
+  return uv_timer;
+
+failure:
+  pk_loop_destroy_uv_handle((uv_handle_t *)uv_timer);
+  return NULL;
+}
+
+int pk_loop_timer_reset(void *handle)
+{
+  assert(handle != NULL);
+
+  if (uv_handle_get_type((uv_handle_t *)handle) != UV_TIMER) {
+    piksi_log(LOG_ERR, "Invalid handle passed to timer reset: type mismatch");
+    return -1;
+  }
+
+  if(uv_timer_again((uv_timer_t *)handle) != 0) {
+    piksi_log(LOG_ERR, "Could not reset timer");
+    return -1;
+  }
+
+  return 0;
+}
+
+/**
  * @brief uv_loop_poll_handler - wrapping callback for uv_poll_t
  * @param poller: poll handle
  * @param status: poll operation status
