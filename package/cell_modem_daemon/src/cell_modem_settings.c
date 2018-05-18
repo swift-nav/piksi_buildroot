@@ -31,6 +31,7 @@
 #include "cell_modem_inotify.h"
 
 #define CELL_MODEM_DEV_OVERRIDE_DEFAULT "ttyACM0"
+#define CELL_MODEM_MAX_BOOT_RETRIES (10u)
 
 static enum modem_type modem_type = MODEM_TYPE_GSM;
 static char *cell_modem_dev;
@@ -138,6 +139,22 @@ static int cell_modem_notify(void *context)
   };
 
   return start_runit_service(&cfg_start);
+}
+
+int override_probe_retry(zloop_t *loop, int timer_id, void *arg)
+{
+  static uint32_t probe_retries = 0;
+  inotify_ctx_t *ctx = (inotify_ctx_t*) arg;
+  if (cell_modem_get_dev_override() != NULL
+      && cell_modem_dev == NULL
+      && probe_retries++ < CELL_MODEM_MAX_BOOT_RETRIES) {
+    cell_modem_scan_for_modem(ctx);
+  } else {
+    piksi_log(LOG_DEBUG, "Ending override probe retry timer after %d attempts", probe_retries);
+    zloop_timer_end(loop, timer_id);
+  }
+
+  return 0;
 }
 
 char * cell_modem_get_dev_override(void)
