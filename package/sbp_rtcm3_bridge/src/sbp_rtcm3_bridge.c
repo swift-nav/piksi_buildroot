@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -11,11 +11,7 @@
  */
 
 #include <assert.h>
-#include <czmq.h>
 #include <getopt.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
-#include <libpiksi/sbp_zmq_rx.h>
-#include <libpiksi/settings.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 #include <libsbp/navigation.h>
@@ -30,8 +26,6 @@
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
 #define RTCM3_SUB_ENDPOINT  ">tcp://127.0.0.1:45010"  /* RTCM3 Internal Out */
-#define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
-#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
 
 bool rtcm3_debug = false;
 
@@ -39,33 +33,22 @@ struct rtcm3_sbp_state state;
 
 bool simulator_enabled_watch = false;
 
-static int rtcm3_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
+static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void *context)
 {
-  (void)zloop;
-  (void)arg;
-  zmsg_t *msg;
-  while (1) {
-    msg = zmsg_recv(zsock);
-    if (msg != NULL) {
-      /* Break on success */
-      break;
-    } else if (errno == EINTR) {
-      /* Retry if interrupted */
-      continue;
-    } else {
-      /* Return error */
-      piksi_log(LOG_ERR, "error in zmsg_recv()");
-      return -1;
-    }
-  }
-
-  zframe_t *frame;
-  for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
-    rtcm2sbp_decode_frame(zframe_data(frame), zframe_size(frame), &state);
-  }
-
-  zmsg_destroy(&msg);
+  rtcm2sbp_decode_frame(data, length, context);
   return 0;
+}
+
+static void rtcm3_reader_handler(pk_loop_t *loop, void *handle, void *context)
+{
+  (void)loop;
+  (void)handle;
+  pk_endpoint_t *rtcm_sub_ept = (pk_endpoint_t *)context;
+  if (pk_endpoint_receive(rtcm_sub_ept, rtcm2sbp_decode_frame_shim, &state) != 0) {
+    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s",
+              __FUNCTION__, "pk_endpoint_receive", __FILE__, __LINE__,
+              pk_endpoint_strerror());
+  }
 }
 
 static void usage(char *command)
@@ -162,91 +145,73 @@ static int notify_simulator_enable_changed(void *context)
   return 0;
 }
 
-static int cleanup(settings_ctx_t **settings_ctx_loc,
-                   sbp_zmq_pubsub_ctx_t **pubsub_ctx_loc,
-                   int status);
+static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
 
 int main(int argc, char *argv[])
 {
   settings_ctx_t *settings_ctx = NULL;
-  sbp_zmq_pubsub_ctx_t *ctx = NULL;
+  pk_loop_t *loop = NULL;
+  pk_endpoint_t *rtcm3_sub = NULL;
 
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
     usage(argv[0]);
-    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
   /* Need to init state variable before we get SBP in */
   rtcm2sbp_init(&state, sbp_message_send, sbp_base_obs_invalid);
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
-  ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
-  if (ctx == NULL) {
-    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+  if (sbp_init() != 0) {
+    piksi_log(LOG_ERR, "error initializing SBP");
+    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  zsock_t *rtcm3_sub = zsock_new_sub(RTCM3_SUB_ENDPOINT, "");
+  loop = sbp_get_loop();
+  if (loop == NULL) {
+    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
+  }
+
+  rtcm3_sub = pk_endpoint_create(RTCM3_SUB_ENDPOINT, PK_ENDPOINT_SUB);
   if (rtcm3_sub == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
-    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  if (zloop_reader(sbp_zmq_pubsub_zloop_get(ctx), rtcm3_sub,
-                   rtcm3_reader_handler, NULL) != 0) {
+  if (pk_loop_endpoint_reader_add(loop, rtcm3_sub, rtcm3_reader_handler, rtcm3_sub)
+      == NULL) {
     piksi_log(LOG_ERR, "error adding reader");
-    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
-  }
-
-  if (sbp_init(sbp_zmq_pubsub_rx_ctx_get(ctx),
-               sbp_zmq_pubsub_tx_ctx_get(ctx)) != 0) {
-    piksi_log(LOG_ERR, "error initializing SBP");
-    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
   if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
-    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
   if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting UTC TIME callback");
-    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  settings_ctx = settings_create();
-
-  if (settings_ctx == NULL) {
-    sbp_log(LOG_ERR, "Error registering for settings!");
-    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
-  }
-
-  if (settings_reader_add(settings_ctx,
-                          sbp_zmq_pubsub_zloop_get(ctx)) != 0) {
-    sbp_log(LOG_ERR, "Error registering for settings read!");
-    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
-  }
+  settings_ctx = sbp_get_settings_ctx();
 
   settings_add_watch(settings_ctx, "simulator", "enabled",
                      &simulator_enabled_watch , sizeof(simulator_enabled_watch),
                      SETTINGS_TYPE_BOOL,
                      notify_simulator_enable_changed, NULL);
 
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
+  sbp_run();
 
-  return cleanup(&settings_ctx, &ctx, EXIT_SUCCESS);
+  exit(cleanup(&rtcm3_sub, EXIT_SUCCESS));
 }
 
-static int cleanup(settings_ctx_t **settings_ctx_loc,
-                   sbp_zmq_pubsub_ctx_t **pubsub_ctx_loc,
-                   int status) {
-  sbp_zmq_pubsub_destroy(pubsub_ctx_loc);
-  settings_destroy(settings_ctx_loc);
+static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status)
+{
+  pk_endpoint_destroy(rtcm_ept_loc);
+  sbp_deinit();
   logging_deinit();
-
   return status;
 }
