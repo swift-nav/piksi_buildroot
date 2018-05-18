@@ -24,6 +24,10 @@
 
 #include <libpiksi/common.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @struct  pk_endpoint_t
  *
@@ -109,5 +113,12 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
  * @retval -1               An error occurred.
  */
 int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length);
+
+//shim function for settings loop while we're still using zmq
+const char * pk_endpoint_strerror(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LIBPIKSI_ENDPOINT_H */

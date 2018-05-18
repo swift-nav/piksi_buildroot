@@ -165,3 +165,8 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
 
   return 0;
 }
+
+const char * pk_endpoint_strerror(void)
+{
+  return zmq_strerror(zmq_errno());
+}

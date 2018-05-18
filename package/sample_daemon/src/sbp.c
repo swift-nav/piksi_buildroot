@@ -68,7 +68,7 @@ int sbp_init(void)
     goto failure;
   }
 
-  if (sbp_rx_attach(settings_rx_ctx_get(ctx.settings_ctx), ctx.loop) != 0) {
+  if (settings_attach(ctx.settings_ctx, ctx.loop) != 0) {
     piksi_log(LOG_ERR, "Error registering for settings read!");
     goto failure;
   }
