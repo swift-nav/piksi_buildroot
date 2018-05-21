@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-UPGRADE_TOOL_VERSION = v1.4.0-develop-2018051217-31-g3487bf0
+UPGRADE_TOOL_VERSION = v1.4.0-develop-2018052114
 UPGRADE_TOOL_SITE = git@github.com:swift-nav/piksi_upgrade_tool_bin.git
 UPGRADE_TOOL_SITE_METHOD = git
 
