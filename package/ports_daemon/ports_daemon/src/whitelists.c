@@ -75,7 +75,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_UART1] = {
     .name = "uart1",
-    .wl = "23,29,65,72,74,81,97,117,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+    .wl = "23,29,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
     /*  This filter represents the messages in use by the console.
         It removes all ECEF nav messages as well as parts of nav msg.
         MsgThreadState                23
@@ -86,6 +86,8 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgSpecan                     81
         MsgMeasurementState           97
         MsgGloBiases                 117
+        MsgEphemerisGPSDepF          134
+        MsgEphemerisGloDepD          136
         MsgEphemerisBDS              137
         MsgEphemerisGPS              138
         MsgEphemerisGlo              139
@@ -127,7 +129,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_TCP_SERVER0] = {
     .name = "tcp_server0",
-    .wl = "23,29,65,72,74,81,97,117,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+    .wl = "23,29,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
     /*  This filter represents the messages in use by the console.
         It removes all ECEF nav messages as well as parts of nav msg.
         MsgThreadState                23
@@ -138,6 +140,8 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgSpecan                     81
         MsgMeasurementState           97
         MsgGloBiases                 117
+        MsgEphemerisGPSDepF          134
+        MsgEphemerisGloDepD          136
         MsgEphemerisBDS              137
         MsgEphemerisGPS              138
         MsgEphemerisGlo              139
@@ -175,7 +179,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_TCP_SERVER1] = {
     .name = "tcp_server1",
-    .wl = "23,29,65,72,74,81,97,117,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+    .wl = "23,29,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
     /*  This filter represents the messages in use by the console.
         It removes all ECEF nav messages as well as parts of nav msg.
         MsgThreadState                23
@@ -186,6 +190,8 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgSpecan                     81
         MsgMeasurementState           97
         MsgGloBiases                 117
+        MsgEphemerisGPSDepF          134
+        MsgEphemerisGloDepD          136
         MsgEphemerisBDS              137
         MsgEphemerisGPS              138
         MsgEphemerisGlo              139
@@ -223,7 +229,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_TCP_CLIENT0] = {
     .name = "tcp_client0",
-    .wl = "23,29,65,72,74,81,97,117,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+    .wl = "23,29,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
     /*  This filter represents the messages in use by the console.
         It removes all ECEF nav messages as well as parts of nav msg.
         MsgThreadState                23
@@ -234,6 +240,8 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgSpecan                     81
         MsgMeasurementState           97
         MsgGloBiases                 117
+        MsgEphemerisGPSDepF          134
+        MsgEphemerisGloDepD          136
         MsgEphemerisBDS              137
         MsgEphemerisGPS              138
         MsgEphemerisGlo              139
@@ -271,7 +279,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_TCP_CLIENT1] = {
     .name = "tcp_client1",
-    .wl = "23,29,65,72,74,81,97,117,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+    .wl = "23,29,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
     /*  This filter represents the messages in use by the console.
         It removes all ECEF nav messages as well as parts of nav msg.
         MsgThreadState                23
@@ -282,6 +290,8 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgSpecan                     81
         MsgMeasurementState           97
         MsgGloBiases                 117
+        MsgEphemerisGPSDepF          134
+        MsgEphemerisGloDepD          136
         MsgEphemerisBDS              137
         MsgEphemerisGPS              138
         MsgEphemerisGlo              139
@@ -327,7 +337,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_UDP_CLIENT0] = {
     .name = "udp_client0",
-    .wl = "23,29,65,72,74,81,97,117,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+    .wl = "23,29,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
     /*  This filter represents the messages in use by the console.
         It removes all ECEF nav messages as well as parts of nav msg.
         MsgThreadState                23
@@ -338,6 +348,8 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgSpecan                     81
         MsgMeasurementState           97
         MsgGloBiases                 117
+        MsgEphemerisGPSDepF          134
+        MsgEphemerisGloDepD          136
         MsgEphemerisBDS              137
         MsgEphemerisGPS              138
         MsgEphemerisGlo              139
@@ -375,7 +387,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_UDP_CLIENT1] = {
     .name = "udp_client1",
-    .wl = "23,29,65,72,74,81,97,117,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+    .wl = "23,29,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
     /*  This filter represents the messages in use by the console.
         It removes all ECEF nav messages as well as parts of nav msg.
         MsgThreadState                23
@@ -386,6 +398,8 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgSpecan                     81
         MsgMeasurementState           97
         MsgGloBiases                 117
+        MsgEphemerisGPSDepF          134
+        MsgEphemerisGloDepD          136
         MsgEphemerisBDS              137
         MsgEphemerisGPS              138
         MsgEphemerisGlo              139
