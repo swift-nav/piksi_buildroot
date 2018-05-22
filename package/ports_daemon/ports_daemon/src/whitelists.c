@@ -284,7 +284,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgGloBiases                 117
         MsgEphemerisGPS              134
         MsgEphemerisGlo              136
-        MsgEphemerisGal              137
+        MsgEphemerisBds              137
         MsgIono                      144
         MsgEphemerisGal              149
         MsgFileioReadResp            163
@@ -390,7 +390,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgEphemerisGlo              136
         MsgEphemerisBds              137
         MsgIono                      144
-        MsgEphemerisBds              149
+        MsgEphemerisGal              149
         MsgFileioReadResp            163
         MsgSettingsReadResp          165
         MsgSettingsReadByIndexDone   166
