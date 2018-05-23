@@ -16,6 +16,7 @@ start() {
         echo "ERROR: FPGA configuration failed" | sbp_log --error
         echo "ERROR: FPGA configuration failed"
       fi
+      tries=`expr $tries + 1`
     done
   else
     echo "ERROR: FPGA bitstream not found" | logger
