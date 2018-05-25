@@ -10,70 +10,27 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libsbp/sbp.h>
-#include <libsbp/logging.h>
-#include <libpiksi/util.h>
-#include <czmq.h>
 #include <getopt.h>
 #include <unistd.h>
 
+#include <libsbp/sbp.h>
+#include <libsbp/logging.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/sbp_tx.h>
+
+#define PROGRAM_NAME "sbp_log"
+
+#define SBP_PUB_ENDPOINT ">tcp://127.0.0.1:43011"
+#define SBP_SUB_ENDPOINT ">tcp://127.0.0.1:43010"
+
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
-static u16 sbp_sender_id = SBP_SENDER_ID;
-static zsock_t *zpub;
-static sbp_state_t sbp;
-static u8 buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
-static u8 buf_len;
-
-static u32 sbp_write(u8 *b, u32 n, void *context)
-{
-  (void)context;
-  n = SWFT_MIN(n, sizeof(buf));
-  memcpy(&buf[buf_len], b, n);
-  buf_len += n;
-  return n;
-}
-
-static void sbp_write_flush(void)
-{
-  zmsg_t *msg = zmsg_new();
-  zmsg_addmem(msg, buf, buf_len);
-  zmsg_send(&msg, zpub);
-  buf_len = 0;
-}
-
-static void sbp_send_msg(sbp_state_t *sbp, u16 msg_type, u8 len, u8 buff[])
-{
-  sbp_send_message(sbp, msg_type, sbp_sender_id, len, buff, sbp_write);
-  sbp_write_flush();
-}
-
-static int file_read_string(const char *filename, char *str, size_t str_size)
-{
-  FILE *fp = fopen(filename, "r");
-  if (fp == NULL) {
-    fprintf(stderr, "error opening %s\n", filename);
-    return -1;
-  }
-
-  bool success = (fgets(str, str_size, fp) != NULL);
-
-  fclose(fp);
-
-  if (!success) {
-    fprintf(stderr, "error reading %s\n", filename);
-    return -1;
-  }
-
-  return 0;
-}
 
 int main(int argc, char *argv[])
 {
-  char sbp_sender_id_string[32];
-  if (file_read_string("/cfg/sbp_sender_id", sbp_sender_id_string,
-                        sizeof(sbp_sender_id_string)) == 0) {
-    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
-  }
+  int ret = -1;
+
+  logging_init(PROGRAM_NAME);
 
   msg_log_t *msg = alloca(SBP_FRAMING_MAX_PAYLOAD_SIZE);
   const static struct option long_options[] = {
@@ -96,18 +53,22 @@ int main(int argc, char *argv[])
     msg->level = opt;
   }
 
-  sbp_state_init(&sbp);
-  zpub =  zsock_new_pub(">tcp://localhost:43011");
+  sbp_tx_ctx_t *ctx = sbp_tx_create(SBP_PUB_ENDPOINT);
+  if (ctx == NULL) {
+    exit(EXIT_FAILURE);
+  }
+
   /* Delay for long enough for socket thread to sort itself out */
   usleep(100000);
 
   while (fgets(msg->text,
                SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text),
                stdin)) {
-    sbp_send_msg(&sbp, SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (u8*)msg);
+    sbp_tx_send(ctx, SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (u8*)msg);
   }
 
-  zsock_destroy(&zpub);
+  sbp_tx_destroy(&ctx);
+  logging_deinit();
 
   return 0;
 }
