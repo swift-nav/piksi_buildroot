@@ -10,7 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include "settings.h"
@@ -22,21 +22,36 @@
 
 int main(void)
 {
+  int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
-  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
+  sbp_pubsub_ctx_t *ctx = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
   if (ctx == NULL) {
-    exit(EXIT_FAILURE);
+    goto settings_cleanup;
   }
 
-  settings_setup(sbp_zmq_pubsub_rx_ctx_get(ctx),
-                 sbp_zmq_pubsub_tx_ctx_get(ctx));
+  pk_loop_t *loop = pk_loop_create();
+  if (loop == NULL) {
+    goto settings_cleanup;
+  }
 
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
+  if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx), loop) != 0) {
+    goto settings_cleanup;
+  }
 
-  sbp_zmq_pubsub_destroy(&ctx);
-  exit(EXIT_SUCCESS);
+  settings_setup(sbp_pubsub_rx_ctx_get(ctx),
+                 sbp_pubsub_tx_ctx_get(ctx));
+
+  pk_loop_run_simple(loop);
+
+  ret = EXIT_SUCCESS;
+
+settings_cleanup:
+  sbp_pubsub_destroy(&ctx);
+  pk_loop_destroy(&loop);
+  logging_deinit();
+  exit(ret);
 }
