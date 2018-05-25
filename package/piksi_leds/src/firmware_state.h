@@ -13,7 +13,7 @@
 #ifndef __FIRMWARE_STATE_H
 #define __FIRMWARE_STATE_H
 
-#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/sbp_rx.h>
 
 enum mode {
   MODE_INVALID,
@@ -36,7 +36,7 @@ struct soln_state {
   bool antenna;
 };
 
-void firmware_state_init(sbp_zmq_rx_ctx_t *ctx);
+void firmware_state_init(sbp_rx_ctx_t *ctx);
 u8 firmware_state_obs_counter_get(void);
 void firmware_state_get(struct soln_state *);
 bool firmware_state_heartbeat_seen(void);
