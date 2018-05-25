@@ -4,7 +4,7 @@ SOURCES= \
 	run_ports_daemon_test.cc
 
 LIBS= \
-	-lczmq -lsbp -lpiksi -ldl -lpthread -lgtest -lstdc++ \
+	-luv -lczmq -lsbp -lpiksi -ldl -lpthread -lgtest -lstdc++ \
 	../src/whitelists.o
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src

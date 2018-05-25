@@ -4,7 +4,7 @@ SOURCES= \
 	minIni/minIni.c \
 	settings.c \
 
-LIBS=-lczmq -lsbp -lpiksi
+LIBS=-luv -lczmq -lsbp -lpiksi
 
 CFLAGS+=-std=gnu11
 ARFLAGS=rcs	$(LTO_PLUGIN)

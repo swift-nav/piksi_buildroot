@@ -7,7 +7,7 @@
 PIKSI_LEDS_VERSION = 0.1
 PIKSI_LEDS_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_leds/src"
 PIKSI_LEDS_SITE_METHOD = local
-PIKSI_LEDS_DEPENDENCIES = czmq libsbp libpiksi
+PIKSI_LEDS_DEPENDENCIES = libuv czmq libsbp libpiksi
 
 define PIKSI_LEDS_USERS
 	ledd -1 ledd -1 * - - -

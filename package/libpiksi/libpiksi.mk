@@ -8,7 +8,7 @@ LIBPIKSI_VERSION = 0.1
 LIBPIKSI_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/libpiksi/libpiksi"
 LIBPIKSI_SITE_METHOD = local
-LIBPIKSI_DEPENDENCIES = czmq libsbp
+LIBPIKSI_DEPENDENCIES = libuv czmq libsbp
 LIBPIKSI_INSTALL_STAGING = YES
 
 define LIBPIKSI_BUILD_CMDS

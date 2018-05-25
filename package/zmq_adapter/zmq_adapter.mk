@@ -8,7 +8,7 @@ ZMQ_ADAPTER_VERSION = 0.1
 ZMQ_ADAPTER_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/zmq_adapter/src"
 ZMQ_ADAPTER_SITE_METHOD = local
-ZMQ_ADAPTER_DEPENDENCIES = czmq libsbp libpiksi
+ZMQ_ADAPTER_DEPENDENCIES = libuv czmq libsbp libpiksi
 
 define ZMQ_ADAPTER_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
