@@ -12,7 +12,6 @@
 
 #include <assert.h>
 #include <getopt.h>
-#include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>

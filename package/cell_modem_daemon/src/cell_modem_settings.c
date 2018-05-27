@@ -24,7 +24,6 @@
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
-#include <libpiksi/util.h>
 #include <libsbp/logging.h>
 
 #include "cell_modem_settings.h"

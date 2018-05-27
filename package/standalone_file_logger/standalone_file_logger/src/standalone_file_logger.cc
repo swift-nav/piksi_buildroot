@@ -20,7 +20,6 @@
 #include <libpiksi/loop.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/util.h>
 
 #include "rotating_logger.h"
 

@@ -24,7 +24,6 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
-#include <libpiksi/util.h>
 
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>

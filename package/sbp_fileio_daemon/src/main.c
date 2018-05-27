@@ -12,7 +12,6 @@
 
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/util.h>
 #include <getopt.h>
 #include "sbp_fileio.h"
 

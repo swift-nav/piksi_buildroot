@@ -18,7 +18,6 @@
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/networking.h>
-#include <libpiksi/util.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/piksi.h>
