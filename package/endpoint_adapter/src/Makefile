@@ -1,12 +1,12 @@
-TARGET=zmq_adapter
+TARGET=endpoint_adapter
 SOURCES= \
-	zmq_adapter.c \
-	zmq_adapter_stdio.c \
-	zmq_adapter_file.c \
-	zmq_adapter_tcp_listen.c \
-	zmq_adapter_tcp_connect.c \
-	zmq_adapter_udp_listen.c \
-	zmq_adapter_udp_connect.c \
+	endpoint_adapter.c \
+	endpoint_adapter_stdio.c \
+	endpoint_adapter_file.c \
+	endpoint_adapter_tcp_listen.c \
+	endpoint_adapter_tcp_connect.c \
+	endpoint_adapter_udp_listen.c \
+	endpoint_adapter_udp_connect.c \
 	framer.c \
 	framer_none.c \
 	filter.c \

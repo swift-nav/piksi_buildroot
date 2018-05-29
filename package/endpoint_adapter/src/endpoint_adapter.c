@@ -10,7 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "zmq_adapter.h"
+#include "endpoint_adapter.h"
 #include "framer.h"
 #include "filter.h"
 #include "protocols.h"

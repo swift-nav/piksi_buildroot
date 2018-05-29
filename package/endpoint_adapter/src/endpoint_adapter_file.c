@@ -13,7 +13,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "zmq_adapter.h"
+#include "endpoint_adapter.h"
 
 static int is_pipe(const char *file_path)
 {

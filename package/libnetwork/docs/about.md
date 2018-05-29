@@ -27,8 +27,8 @@ respectively. Taken together, these run with:
 mkfifo /var/run/skylark/download /var/run/skylark/upload
 skylark_daemon --download --file /var/run/skylark/download --url https://broker.skylark2.swiftnav.com
 skylark_daemon --upload --file /var/run/skylark/upload --url https://broker.skylark2.swiftnav.com
-zmq_adapter --file /var/run/skylark/upload -s >tcp://127.0.0.1:43070
-zmq_adapter --file /var/run/skylark/download -p >tcp://127.0.0.1:43071
+endpoint_adapter --file /var/run/skylark/upload -s >tcp://127.0.0.1:43070
+endpoint_adapter --file /var/run/skylark/download -p >tcp://127.0.0.1:43071
 ```
 
 The upload and download modes read and write from two FIFOs they materialize:

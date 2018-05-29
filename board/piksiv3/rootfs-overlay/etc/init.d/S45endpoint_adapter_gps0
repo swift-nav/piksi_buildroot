@@ -3,7 +3,7 @@
 source /etc/init.d/common.sh
 
 user="ad_gps0"
-name="zmq_adapter_gps0"
+name="endpoint_adapter_gps0"
 dir="/"
 
 cmd="/etc/init.d/gps_adapter.sh"
