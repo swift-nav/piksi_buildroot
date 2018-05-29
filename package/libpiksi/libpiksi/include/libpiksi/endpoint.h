@@ -73,6 +73,16 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type);
 void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc);
 
 /**
+ * @brief   Get the type of an endpoint context
+ * @details Get the type of an endpoint context
+ *
+ * @param[in] pk_ept        Pointer to Piksi endpoint context to use.
+ *
+ * @return                  Type of endpoint
+ */
+pk_endpoint_type pk_endpoint_type_get(pk_endpoint_t *pk_ept);
+
+/**
  * @brief   Get the poll handle of an endpoint context
  * @details Get the poll handle of an endpoint context. The main purpose
  *          of this function is for use with a pk_loop_t context
@@ -82,6 +92,20 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc);
  * @return                  Underlying file descriptor of endpoint
  */
 int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept);
+
+/**
+ * @brief   Read a single message from the endpoint context into a supplied buffer
+ * @details Read a single message from the endpoint context into a supplied buffer
+ *
+ * @param[in] pk_ept        Pointer to Piksi endpoint context to use.
+ * @param[out] buffer       Pointer the memory location the message will be copied to.
+ * @param[in] count         Size of the supplied buffer.
+ *
+ * @return                  The operation result.
+ * @retval 0                Number of bytes copied into the supplied buffer.
+ * @retval -1               An error occurred.
+ */
+ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count);
 
 /**
  * @brief   Receive messages from the endpoint context

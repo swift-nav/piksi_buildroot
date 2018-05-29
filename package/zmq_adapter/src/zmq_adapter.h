@@ -10,8 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_ZMQ_ADAPTER_H
-#define SWIFTNAV_ZMQ_ADAPTER_H
+#ifndef SWIFTNAV_ENDPOINT_ADAPTER_H
+#define SWIFTNAV_ENDPOINT_ADAPTER_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -32,4 +32,4 @@ extern bool debug;
     fprintf(stdout, "[PID %d] %s+%d(%s) " format, getpid(), \
       __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__);
 
-#endif /* SWIFTNAV_ZMQ_ADAPTER_H */
+#endif /* SWIFTNAV_ENDPOINT_ADAPTER_H */

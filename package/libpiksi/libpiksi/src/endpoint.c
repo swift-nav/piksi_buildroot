@@ -90,11 +90,77 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
   *pk_ept_loc = NULL;
 }
 
+pk_endpoint_type pk_endpoint_type_get(pk_endpoint_t *pk_ept)
+{
+  return pk_ept->type;
+}
+
 int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
 {
   assert(pk_ept != NULL);
+  assert(pk_ept->type != PK_ENDPOINT_PUB);
 
   return zsock_fd(pk_ept->zsock);
+}
+
+/**
+ * @brief pk_endpoint_receive_zmsg - helper to retrieve a single message
+ * @param pk_ept: pointer to the endpoint context
+ * @return a newly allocated zmsg_t instance or NULL on failure
+ */
+static zmsg_t * pk_endpoint_receive_zmsg(pk_endpoint_t *pk_ept)
+{
+  assert(pk_ept != NULL);
+  assert(pk_ept->type != PK_ENDPOINT_PUB);
+
+  zmsg_t *msg;
+  while (1) {
+    msg = zmsg_recv(pk_ept->zsock);
+    if (msg != NULL) {
+      /* Break on success */
+      return msg;
+    } else if (errno == EINTR) {
+      /* Retry if interrupted */
+      continue;
+    } else {
+      /* Return error */
+      piksi_log(LOG_ERR, "error in zmsg_recv()");
+      return NULL;
+    }
+  }
+}
+
+ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
+{
+  assert(pk_ept != NULL);
+  assert(buffer != NULL);
+
+  zmsg_t * msg = pk_endpoint_receive_zmsg(pk_ept);
+  if (msg == NULL) {
+    return -1;
+  }
+
+  size_t buffer_index = 0;
+  zframe_t *frame = zmsg_first(msg);
+  while (frame != NULL) {
+    const void *data = zframe_data(frame);
+    size_t size = zframe_size(frame);
+
+    size_t copy_length = buffer_index + size <= count ?
+        size : count - buffer_index;
+
+    if (copy_length > 0) {
+      memcpy(&((uint8_t *)buffer)[buffer_index], data, copy_length);
+      buffer_index += copy_length;
+    }
+
+    frame = zmsg_next(msg);
+  }
+
+  zmsg_destroy(&msg);
+  assert(msg == NULL);
+
+  return buffer_index;
 }
 
 int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context)
@@ -104,20 +170,9 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
   assert(rx_cb != NULL);
 
   while (ZMQ_POLLIN & zsock_events(pk_ept->zsock)) {
-    zmsg_t *msg;
-    while (1) {
-      msg = zmsg_recv(pk_ept->zsock);
-      if (msg != NULL) {
-        /* Break on success */
-        break;
-      } else if (errno == EINTR) {
-        /* Retry if interrupted */
-        continue;
-      } else {
-        /* Return error */
-        piksi_log(LOG_ERR, "error in zmsg_recv()");
-        return -1;
-      }
+    zmsg_t * msg = pk_endpoint_receive_zmsg(pk_ept);
+    if (msg == NULL) {
+      return -1;
     }
 
     zframe_t *frame;
