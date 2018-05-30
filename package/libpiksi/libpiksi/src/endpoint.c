@@ -13,6 +13,7 @@
 #include <assert.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include <libpiksi/endpoint.h>
 
@@ -130,6 +131,44 @@ static zmsg_t * pk_endpoint_receive_zmsg(pk_endpoint_t *pk_ept)
   }
 }
 
+/**
+ * @brief fill_buffer_from_zmsg - helper to collapse zframes into buffer
+ * @param msg: zmq message to copy into supplied buffer
+ * @param buffer: pointer to memory to fill
+ * @param count: size of fill buffer
+ * @return the number of bytes written to the buffer, or -1 for error
+ */
+static ssize_t fill_buffer_from_zmsg(zmsg_t *msg, u8 *buffer, size_t count)
+{
+  assert(msg != NULL);
+  assert(buffer != NULL);
+
+  size_t index = 0;
+  zframe_t *frame;
+  bool overflow = false;
+  for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
+    const void *data = zframe_data(frame);
+    size_t size = zframe_size(frame);
+
+    if (index + size > count) {
+      overflow = true;
+    }
+    size_t copy_length = SWFT_MIN(size, count - index);
+    if (copy_length > 0) {
+      memcpy((uint8_t *)(buffer + index), data, copy_length);
+      index += copy_length;
+    }
+    if (overflow) {
+      break;
+    }
+  }
+
+  if (overflow) {
+    piksi_log(LOG_WARNING, "overflow in zmsg buffer fill");
+  }
+  return index;
+}
+
 ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 {
   assert(pk_ept != NULL);
@@ -140,27 +179,47 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
     return -1;
   }
 
-  size_t buffer_index = 0;
-  zframe_t *frame = zmsg_first(msg);
-  while (frame != NULL) {
-    const void *data = zframe_data(frame);
-    size_t size = zframe_size(frame);
-
-    size_t copy_length = buffer_index + size <= count ?
-        size : count - buffer_index;
-
-    if (copy_length > 0) {
-      memcpy(&((uint8_t *)buffer)[buffer_index], data, copy_length);
-      buffer_index += copy_length;
-    }
-
-    frame = zmsg_next(msg);
-  }
+  ssize_t result = fill_buffer_from_zmsg(msg, buffer, count);
 
   zmsg_destroy(&msg);
   assert(msg == NULL);
 
-  return buffer_index;
+  return result;
+}
+
+/**
+ * @brief dup_zmsg_to_buffer - helper to collapse zmsg frames
+ * @note  caller must free the returned buffer if call is successful
+ * @param msg: zmq message to copy
+ * @param buffer_loc: double pointer to place alloc'd buffer
+ * @param count_loc: pointer to place the length of the returned data
+ * @return 0 on success, -1 on failure
+ */
+static int dup_zmsg_to_buffer(zmsg_t *msg, u8 **buffer_loc, size_t *count_loc)
+{
+  assert(msg != NULL);
+  assert(buffer_loc != NULL);
+  assert(count_loc != NULL);
+
+  size_t buffer_size = zmsg_content_size(msg);
+  u8 *buffer = (u8 *)malloc(buffer_size);
+  if (buffer == NULL) {
+    piksi_log(LOG_ERR, "Failed to allocate buffer for zmsg dup");
+    return -1;
+  }
+
+  ssize_t buffer_index = fill_buffer_from_zmsg(msg, buffer, buffer_size);
+  if (buffer_index == -1) {
+    piksi_log(LOG_ERR, "failed to copy zmsg into dup buffer");
+    return -1;
+  }
+
+  if (buffer_index != buffer_size) {
+    piksi_log(LOG_WARNING, "dup zmsg - data copied not equal to buffer_size");
+  }
+  *buffer_loc = buffer;
+  *count_loc = buffer_index;
+  return 0;
 }
 
 int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context)
@@ -175,9 +234,15 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
       return -1;
     }
 
-    zframe_t *frame;
-    for (frame = zmsg_first(msg); frame != NULL; frame = zmsg_next(msg)) {
-      rx_cb(zframe_data(frame), zframe_size(frame), context);
+    if (zmsg_size(msg) != 1) {
+      piksi_log(LOG_WARNING, "Piksi endpoint received non-conforming message!");
+    }
+
+    u8 *dup_buffer = NULL;
+    size_t dup_length = 0;
+    if (dup_zmsg_to_buffer(msg, &dup_buffer, &dup_length) == 0) {
+      rx_cb(dup_buffer, dup_length, context);
+      free(dup_buffer);
     }
 
     zmsg_destroy(&msg);
