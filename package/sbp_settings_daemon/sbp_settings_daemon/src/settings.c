@@ -236,12 +236,12 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   u8 buflen;
 
   if (len == 0) {
-    piksi_log(LOG_WARNING, "Error in settings read message");
+    piksi_log(LOG_WARNING, "Error in settings read message: length is zero");
     return;
   }
 
   if (msg[len-1] != '\0') {
-    piksi_log(LOG_WARNING, "Error in settings read message");
+    piksi_log(LOG_WARNING, "Error in settings read message: null string");
     return;
   }
 
@@ -260,7 +260,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
         if (i == len-1)
           break;
       default:
-        piksi_log(LOG_WARNING, "Error in settings read message");
+        piksi_log(LOG_WARNING, "Error in settings read message: parse error");
         return;
       }
     }
@@ -268,7 +268,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
 
   s = settings_lookup(section, setting);
   if (s == NULL) {
-    piksi_log(LOG_WARNING, "Error in settings read message");
+    piksi_log(LOG_WARNING, "Error in settings read message: setting not found (%s.%s)", section, setting);
     return;
   }
 
