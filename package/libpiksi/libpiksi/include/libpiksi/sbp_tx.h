@@ -57,7 +57,7 @@ void sbp_tx_destroy(sbp_tx_ctx_t **ctx_loc);
 
 /**
  * @brief   Send an SBP message.
- * @details Send an SBP message via using the default SBP sender ID.
+ * @details Send an SBP message using the default SBP sender ID.
  *
  * @param[in] ctx           Pointer to the context to use.
  * @param[in] msg_type      Type of SBP message to send.
@@ -72,7 +72,7 @@ int sbp_tx_send(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload);
 
 /**
  * @brief   Send an SBP message with non-default SBP sender ID.
- * @details Send an SBP message via using a non-default SBP sender ID.
+ * @details Send an SBP message with non-default SBP sender ID.
  *
  * @param[in] ctx           Pointer to the context to use.
  * @param[in] msg_type      Type of SBP message to send.

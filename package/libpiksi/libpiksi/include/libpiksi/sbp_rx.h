@@ -119,7 +119,7 @@ int sbp_rx_callback_remove(sbp_rx_ctx_t *ctx, sbp_msg_callbacks_node_t **node);
 
 /**
  * @brief   Read and process incoming data.
- * @details Read and process a incoming messages.
+ * @details Read and process all incoming messages.
  *
  * @note    This function will block until a message is received, and will
  *          process multiple messages if more than one has been queued.

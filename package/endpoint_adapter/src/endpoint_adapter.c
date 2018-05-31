@@ -49,8 +49,6 @@ typedef enum {
 typedef enum {
   ENDPOINT_INVALID,
   ENDPOINT_PUBSUB,
-  ENDPOINT_REQ,
-  ENDPOINT_REP
 } endpoint_mode_t;
 
 typedef struct {
@@ -73,15 +71,12 @@ static const char *filter_in_name = FRAMER_NONE_NAME;
 static const char *filter_out_name = FRAMER_NONE_NAME;
 static const char *filter_in_config = NULL;
 static const char *filter_out_config = NULL;
-static int rep_timeout_ms = REP_TIMEOUT_DEFAULT_ms;
 static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
 static bool nonblock = false;
 static int outq;
 
 static const char *pub_addr = NULL;
 static const char *sub_addr = NULL;
-static const char *req_addr = NULL;
-static const char *rep_addr = NULL;
 static const char *port_name = "<unknown>";
 static const char *file_path = NULL;
 static int tcp_listen_port = -1;
@@ -91,13 +86,9 @@ static const char *udp_connect_addr = NULL;
 
 static pid_t pub_pid = -1;
 static pid_t sub_pid = -1;
-static pid_t req_pid = -1;
-static pid_t rep_pid = -1;
 static pid_t *pids[] = {
   &pub_pid,
   &sub_pid,
-  &req_pid,
-  &rep_pid
 };
 
 static void usage(char *command)
@@ -109,10 +100,6 @@ static void usage(char *command)
   fprintf(stderr, "\t\tsink socket, may be combined with --sub\n");
   fprintf(stderr, "\t-s, --sub <addr>\n");
   fprintf(stderr, "\t\tsource socket, may be combined with --pub\n");
-  fprintf(stderr, "\t-r, --req <addr>\n");
-  fprintf(stderr, "\t\tbidir socket, may not be combined\n");
-  fprintf(stderr, "\t-y, --rep <addr>\n");
-  fprintf(stderr, "\t\tbidir socket, may not be combined\n");
 
   fprintf(stderr, "\nFramer Mode - optional\n");
   fprintf(stderr, "\t-f, --framer <framer>\n");
@@ -133,8 +120,6 @@ static void usage(char *command)
   fprintf(stderr, "\t--udp-c <addr>\n");
 
   fprintf(stderr, "\nMisc options\n");
-  fprintf(stderr, "\t--rep-timeout <ms>\n");
-  fprintf(stderr, "\t\tresponse timeout before resetting a REP socket\n");
   fprintf(stderr, "\t--startup-delay <ms>\n");
   fprintf(stderr, "\t\ttime to delay after opening a socket\n");
   fprintf(stderr, "\t--nonblock\n");
@@ -167,8 +152,6 @@ static int parse_options(int argc, char *argv[])
   const struct option long_opts[] = {
     {"pub",               required_argument, 0, 'p'},
     {"sub",               required_argument, 0, 's'},
-    {"req",               required_argument, 0, 'r'},
-    {"rep",               required_argument, 0, 'y'},
     {"framer",            required_argument, 0, 'f'},
     {"stdio",             no_argument,       0, OPT_ID_STDIO},
     {"name",              required_argument, 0, OPT_ID_NAME},
@@ -177,7 +160,6 @@ static int parse_options(int argc, char *argv[])
     {"tcp-c",             required_argument, 0, OPT_ID_TCP_CONNECT},
     {"udp-l",             required_argument, 0, OPT_ID_UDP_LISTEN},
     {"udp-c",             required_argument, 0, OPT_ID_UDP_CONNECT},
-    {"rep-timeout",       required_argument, 0, OPT_ID_REP_TIMEOUT},
     {"startup-delay",     required_argument, 0, OPT_ID_STARTUP_DELAY},
     {"filter-in",         required_argument, 0, OPT_ID_FILTER_IN},
     {"filter-out",        required_argument, 0, OPT_ID_FILTER_OUT},
@@ -231,11 +213,6 @@ static int parse_options(int argc, char *argv[])
       case OPT_ID_UDP_CONNECT: {
         io_mode = IO_UDP_CONNECT;
         udp_connect_addr = optarg;
-      }
-      break;
-
-      case OPT_ID_REP_TIMEOUT: {
-        rep_timeout_ms = strtol(optarg, NULL, 10);
       }
       break;
 
@@ -298,18 +275,6 @@ static int parse_options(int argc, char *argv[])
       case 's': {
         endpoint_mode = ENDPOINT_PUBSUB;
         sub_addr = optarg;
-      }
-      break;
-
-      case 'r': {
-        endpoint_mode = ENDPOINT_REQ;
-        req_addr = optarg;
-      }
-      break;
-
-      case 'y': {
-        endpoint_mode = ENDPOINT_REP;
-        rep_addr = optarg;
       }
       break;
 
@@ -403,18 +368,6 @@ static int handle_init(handle_t *handle, pk_endpoint_t *pk_ept,
   return 0;
 }
 
-static int handle_attach(const handle_t *handle,
-                         pk_loop_t *loop,
-                         pk_loop_cb callback,
-                         void *context)
-{
-  if (handle->pk_ept != NULL) {
-    return (pk_loop_endpoint_reader_add(loop, handle->pk_ept, callback, context) == NULL);
-  } else {
-    return (pk_loop_poll_add(loop, handle->read_fd, callback, context) == NULL);
-  }
-}
-
 static pk_endpoint_t * pk_endpoint_start(int type)
 {
   const char *addr = NULL;
@@ -426,16 +379,6 @@ static pk_endpoint_t * pk_endpoint_start(int type)
 
     case PK_ENDPOINT_SUB: {
       addr = sub_addr;
-    }
-    break;
-
-    case PK_ENDPOINT_REQ: {
-      addr = req_addr;
-    }
-    break;
-
-    case PK_ENDPOINT_REP: {
-      addr = rep_addr;
     }
     break;
 
@@ -454,21 +397,6 @@ static pk_endpoint_t * pk_endpoint_start(int type)
   usleep(1000 * startup_delay_ms);
   debug_printf("opened socket: %s\n", addr);
   return pk_ept;
-}
-
-static void pk_endpoint_restart(pk_endpoint_t **pk_ept_loc)
-{
-  pk_endpoint_type type = pk_endpoint_type_get(*pk_ept_loc);
-  pk_endpoint_destroy(pk_ept_loc);
-  assert(*pk_ept_loc == NULL);
-
-  /* Closing a bound socket can take some time.
-   * Try a few times to reopen. */
-  int retry = ENDPOINT_RESTART_RETRY_COUNT;
-  do {
-    usleep(1000 * ENDPOINT_RESTART_RETRY_DELAY_ms);
-    *pk_ept_loc = pk_endpoint_start(type);
-  } while ((*pk_ept_loc == NULL) && (--retry > 0));
 }
 
 static ssize_t write_with_count(pk_endpoint_t *pk_ept, const void *buffer, size_t count)
@@ -641,35 +569,6 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
   return buffer_index;
 }
 
-static ssize_t frame_transfer(handle_t *read_handle, handle_t *write_handle,
-                              bool *success)
-{
-  *success = false;
-
-  /* Read from read_handle */
-  uint8_t buffer[READ_BUFFER_SIZE];
-  ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
-  debug_printf("read %zd bytes\n", read_count);
-  if (read_count <= 0) {
-    return read_count;
-  }
-
-  /* Write to write_handle via framer */
-  size_t frames_written;
-  ssize_t write_count = handle_write_one_via_framer(write_handle,
-                                                    buffer, read_count,
-                                                    &frames_written);
-  if (write_count < 0) {
-    return write_count;
-  }
-  if (write_count != read_count) {
-    syslog(LOG_ERR, "warning: write_count != read_count");
-  }
-
-  *success = (frames_written == 1);
-  return read_count;
-}
-
 static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
 {
   debug_printf("io loop begin\n");
@@ -701,136 +600,6 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
           write_count, read_count);
     }
   }
-
-  debug_printf("io loop end\n");
-}
-
-typedef struct reqrep_state {
-  handle_t *req_handle;
-  handle_t *rep_handle;
-  void *timeout_handle;
-  bool reply_pending;
-} reqrep_state_t;
-
-static void req_handle_callback(pk_loop_t *loop, void *handle, void *context)
-{
-  reqrep_state_t *ctx = (reqrep_state_t *)context;
-
-  if (!ctx->reply_pending) {
-    syslog(LOG_ERR, "warning: reply received but not pending");
-    if (ctx->rep_handle->pk_ept != NULL) {
-      /* Reply received with no request outstanding.
-       * Read and drop data from req_handle. */
-      syslog(LOG_ERR, "dropping data");
-      uint8_t buffer[READ_BUFFER_SIZE];
-      ssize_t read_count = handle_read(ctx->req_handle, buffer, sizeof(buffer));
-      debug_printf("read %zd bytes\n", read_count);
-      if (read_count <= 0) {
-        pk_loop_stop(loop);
-      }
-      return;
-    }
-  }
-
-  bool ok;
-  if (frame_transfer(ctx->req_handle, ctx->rep_handle, &ok) <= 0) {
-    pk_loop_stop(loop);
-  }
-
-  if (ok) {
-    ctx->reply_pending = false;
-  }
-}
-
-static void timeout_callback(pk_loop_t *loop, void *handle, void *context)
-{
-  reqrep_state_t *ctx = (reqrep_state_t *)context;
-
-  /* Assume the outstanding request was lost.
-   * Reset the REP socket so that another request may be received. */
-  syslog(LOG_ERR, "reply timeout - resetting socket");
-  pk_endpoint_restart(&ctx->rep_handle->pk_ept);
-  if (ctx->rep_handle->pk_ept == NULL) {
-    pk_loop_stop(loop);
-  }
-  ctx->reply_pending = false;
-
-  // remove timer or this will continue to trigger
-  pk_loop_remove_handle(handle);
-  ctx->timeout_handle = NULL;
-}
-
-static void rep_handle_callback(pk_loop_t *loop, void *handle, void *context)
-{
-  (void)handle;
-  reqrep_state_t *ctx = (reqrep_state_t *)context;
-
-  if (ctx->reply_pending) {
-    syslog(LOG_ERR, "warning: request received while already pending");
-    if (ctx->req_handle->pk_ept != NULL) {
-      /* Request received with another outstanding.
-       * Reset the REQ socket so that the new request may be sent. */
-      syslog(LOG_ERR, "resetting socket");
-      pk_endpoint_restart(&ctx->req_handle->pk_ept);
-      if (ctx->req_handle->pk_ept == NULL) {
-        pk_loop_stop(loop);
-      }
-      ctx->reply_pending = false;
-    }
-  }
-
-  bool ok;
-  if (frame_transfer(ctx->rep_handle, ctx->req_handle, &ok) <= 0) {
-    pk_loop_stop(loop);
-  }
-
-  if (ok) {
-    ctx->reply_pending = true;
-    // use a timer to catch timeouts on a pending reply
-    if (ctx->rep_handle->pk_ept != NULL) {
-      if (ctx->timeout_handle != NULL) {
-        pk_loop_remove_handle(ctx->timeout_handle); // in case of previous reply pending
-      }
-      ctx->timeout_handle = pk_loop_timer_add(loop, rep_timeout_ms, timeout_callback, ctx);
-      if (ctx->timeout_handle == NULL) {
-        piksi_log(LOG_ERR, "Failed to register reply timeout");
-        pk_loop_stop(loop);
-      }
-    }
-  }
-}
-
-static void io_loop_reqrep(handle_t *req_handle, handle_t *rep_handle)
-{
-  debug_printf("io loop begin\n");
-
-  reqrep_state_t ctx = {
-    .req_handle = req_handle,
-    .rep_handle = rep_handle,
-    .timeout_handle = NULL,
-    .reply_pending = false,
-  };
-
-  pk_loop_t *loop = pk_loop_create();
-  if (loop == NULL) {
-    piksi_log(LOG_ERR, "failed to allocate loop for rep/req io");
-    goto cleanup;
-  }
-
-  if (handle_attach(req_handle, loop, req_handle_callback, &ctx) != 0) {
-    piksi_log(LOG_ERR, "failed to attach req_handle to loop");
-    goto cleanup;
-  }
-
-  if (handle_attach(rep_handle, loop, rep_handle_callback, &ctx) != 0) {
-    piksi_log(LOG_ERR, "failed to attach rep_handle to loop");
-    goto cleanup;
-  }
-
-  pk_loop_run_simple(loop);
-
-cleanup:
-  pk_loop_destroy(&loop);
 
   debug_printf("io loop end\n");
 }
@@ -944,80 +713,6 @@ void io_loop_start(int read_fd, int write_fd)
           /* parent process */
           sub_pid = pid;
         }
-      }
-
-    }
-    break;
-
-    case ENDPOINT_REQ: {
-
-      pid_t pid = fork();
-      if (pid == 0) {
-        /* child process */
-        pk_endpoint_t *req = pk_endpoint_start(PK_ENDPOINT_REQ);
-        if (req == NULL) {
-          exit(EXIT_FAILURE);
-        }
-
-        handle_t req_handle;
-        if (handle_init(&req_handle, req, -1, -1, framer_name,
-                        filter_in_name, filter_in_config) != 0) {
-          exit(EXIT_FAILURE);
-        }
-
-        handle_t fd_handle;
-        if (handle_init(&fd_handle, NULL, read_fd, write_fd, FRAMER_NONE_NAME,
-                        filter_out_name, filter_out_config) != 0) {
-          exit(EXIT_FAILURE);
-        }
-
-        io_loop_reqrep(&req_handle, &fd_handle);
-
-        pk_endpoint_destroy(&req);
-        assert(req == NULL);
-        handle_deinit(&req_handle);
-        handle_deinit(&fd_handle);
-        exit(EXIT_SUCCESS);
-      } else {
-        /* parent process */
-        req_pid = pid;
-      }
-
-    }
-    break;
-
-    case ENDPOINT_REP: {
-
-      pid_t pid = fork();
-      if (pid == 0) {
-        /* child process */
-        pk_endpoint_t *rep = pk_endpoint_start(PK_ENDPOINT_REP);
-        if (rep == NULL) {
-          exit(EXIT_FAILURE);
-        }
-
-        handle_t rep_handle;
-        if (handle_init(&rep_handle, rep, -1, -1, framer_name,
-                        filter_in_name, filter_in_config) != 0) {
-          exit(EXIT_FAILURE);
-        }
-
-        handle_t fd_handle;
-        if (handle_init(&fd_handle, NULL, read_fd, write_fd, FRAMER_NONE_NAME,
-                        filter_out_name, filter_out_config) != 0) {
-          exit(EXIT_FAILURE);
-        }
-
-        io_loop_reqrep(&fd_handle, &rep_handle);
-
-        pk_endpoint_destroy(&rep);
-        assert(rep == NULL);
-        handle_deinit(&rep_handle);
-        handle_deinit(&fd_handle);
-        exit(EXIT_SUCCESS);
-      } else {
-        /* parent process */
-        rep_pid = pid;
       }
 
     }

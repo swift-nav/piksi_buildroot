@@ -150,17 +150,6 @@ void * pk_loop_poll_add(pk_loop_t *pk_loop,
                         void *context);
 
 /**
- * @brief   Check handle is valid.
- * @details Check handle is valid. If loop owns this handle, it is valid.
- *
- * @param[in] pk_loop       Pointer to the Piksi loop to use.
- * @param[in] handle        Pointer to handle to check.
- *
- * @return                  True if valid, otherwise false.
- */
-bool pk_loop_handle_is_valid(pk_loop_t *pk_loop, void *handle);
-
-/**
  * @brief   Remove a callback handle
  * @details Remove a callback handle from the loop, ending any calls from that context.
  *

@@ -110,7 +110,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count);
 /**
  * @brief   Receive messages from the endpoint context
  * @details Receive messages from the endpoint context. The callback supplied
- *          will be call for each message received. A single call to this function
+ *          will be called for each message received. A single call to this function
  *          may result in several calls to the callback as multiple messages may
  *          be queued.
  *

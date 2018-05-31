@@ -69,7 +69,8 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   } break;
   default:
   {
-    // error condition!
+    piksi_log(LOG_ERR, "Unsupported endpoint type");
+    goto failure;
   } break;
   } // end of switch
 

@@ -22,26 +22,12 @@
  * @brief Loop Callback Context
  *
  * This holds the user callback and data for use in the local
- * callback handlers which obfuscate the underlying loop APIs
+ * callback handlers which encapsulate the underlying loop APIs
  */
 typedef struct pk_callback_ctx_s {
   pk_loop_cb callback;
   void *data;
 } pk_callback_ctx_t;
-
-/**
- * @brief Match Callback Context
- *
- * Maps over handles in the loop to match a specific handle
- * and optionally call a supplied callback with data to
- * operate on that handle.
- */
-typedef struct match_handle_ctx_s {
-  void *handle;
-  bool match;
-  uv_walk_cb callback;
-  void *data;
-} match_handle_ctx_t;
 
 /**
  * @brief Piksi Loop Context
@@ -61,7 +47,7 @@ static void pk_loop_callback_context_destroy(pk_callback_ctx_t **cb_ctx_loc);
 /**
  * @brief pk_loop_callback_context_create - factory method for callback contexts
  * @param callback: Piksi loop callback to store
- * @param data: Optionl user data to pass into callback
+ * @param data: Optional user data to pass into callback
  * @return a newly created callback context or NULL if allocation failed
  */
 static pk_callback_ctx_t * pk_loop_callback_context_create(pk_loop_cb callback, void *data)
@@ -229,7 +215,7 @@ static void loop_destroy_callback(uv_handle_t *handle, void *arg)
  * Contrary to our use case, a uv_loop generally runs until completion
  * as indicated by the natural removal of all handles from the loop
  * from within callbacks. As we use uv_loop_stop() to exit loop operation,
- * we then need to manually walk to loop to remove each individual handle
+ * we then need to manually walk the loop to remove each individual handle
  * in order to cleanup the loop itself with uv_loop_close()
  * @param uv_loop: loop to cleanup and destroy
  */
@@ -238,11 +224,14 @@ static void pk_loop_destroy_uv_loop(uv_loop_t *uv_loop)
   if (uv_loop == NULL) {
     return;
   }
+  // call destroy on all handles in the loop
   uv_walk(uv_loop, loop_destroy_callback, NULL);
+  // run loop to finish handle cleanup, is 'alive' until last handle removed
   while(uv_loop_alive(uv_loop)) {
     if (uv_run(uv_loop, UV_RUN_NOWAIT) == 0) {
       break;
     }
+    // Shouldn't need to get here but log if we do
     piksi_log(LOG_DEBUG, "Re-running loop to close pending handles");
   }
   uv_loop_close(uv_loop);
@@ -464,40 +453,6 @@ void * pk_loop_poll_add(pk_loop_t *pk_loop,
 failure:
   pk_loop_destroy_uv_handle((uv_handle_t *)uv_poll);
   return NULL;
-}
-
-/**
- * @brief match_handle_walk_callback - maps over handles attempting to match
- * This is mostly a helper for handle_is_valid to receive the match context and
- * use the contents to either match the current handle and call the callback or
- * pass
- * @param handle:
- * @param arg:
- */
-static void match_handle_walk_callback(uv_handle_t *handle, void *arg)
-{
-  match_handle_ctx_t *ctx = (match_handle_ctx_t *)arg;
-  if (ctx->handle == (void *)handle) {
-    if (ctx->callback != NULL) {
-      ctx->callback(handle, ctx->data);
-    }
-    ctx->match = true;
-  }
-}
-
-bool pk_loop_handle_is_valid(pk_loop_t *pk_loop, void *handle)
-{
-  assert(pk_loop != NULL);
-  match_handle_ctx_t ctx = {
-    .handle = handle,
-    .match = false,
-    .callback = NULL,
-    .data = NULL
-  };
-
-  uv_walk(pk_loop->uv_loop, match_handle_walk_callback, &ctx);
-
-  return ctx.match;
 }
 
 int pk_loop_remove_handle(void *handle)
