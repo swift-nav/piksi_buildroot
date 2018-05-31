@@ -17,9 +17,9 @@
 #include <libpiksi/loop.h>
 #include <libpiksi/logging.h>
 
-#include "zmq_router.h"
-#include "zmq_router_load.h"
-#include "zmq_router_print.h"
+#include "endpoint_router.h"
+#include "endpoint_router_load.h"
+#include "endpoint_router_print.h"
 
 #define PROGRAM_NAME "router"
 

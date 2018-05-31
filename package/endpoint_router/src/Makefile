@@ -1,8 +1,8 @@
-TARGET=zmq_router
+TARGET=endpoint_router
 SOURCES= \
-	zmq_router.c \
-	zmq_router_load.c \
-	zmq_router_print.c
+	endpoint_router.c \
+	endpoint_router_load.c \
+	endpoint_router_print.c
 LIBS=-luv -lczmq -lsbp -lpiksi -lyaml
 CFLAGS=-std=gnu11 -Wall
 

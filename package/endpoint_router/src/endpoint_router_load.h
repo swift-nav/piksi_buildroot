@@ -10,12 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_ZMQ_ROUTER_PRINT_H
-#define SWIFTNAV_ZMQ_ROUTER_PRINT_H
+#ifndef SWIFTNAV_ENDPOINT_ROUTER_LOAD_H
+#define SWIFTNAV_ENDPOINT_ROUTER_LOAD_H
 
-#include "zmq_router.h"
-#include <stdio.h>
+#include "endpoint_router.h"
 
-int router_print(FILE *f, const router_t *router);
+router_t * router_load(const char *filename);
 
-#endif /* SWIFTNAV_ZMQ_ROUTER_PRINT_H */
+#endif /* SWIFTNAV_ENDPOINT_ROUTER_LOAD_H */

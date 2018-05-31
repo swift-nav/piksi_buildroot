@@ -1,6 +1,6 @@
 #!/bin/sh
 
-name="zmq_router_sbp"
+name="endpoint_router_sbp"
 dir="/"
 user="rt_sbp"
 
@@ -10,11 +10,11 @@ setup_permissions()
 }
 
 if grep -q "smoothpose_mode=INS Only" /persistent/config.ini; then
-  router_config="/etc/zmq_router/sbp_router_smoothpose.yml"
+  router_config="/etc/endpoint_router/sbp_router_smoothpose.yml"
 else
-  router_config="/etc/zmq_router/sbp_router.yml"
+  router_config="/etc/endpoint_router/sbp_router.yml"
 fi
 
-cmd="zmq_router -f $router_config"
+cmd="endpoint_router -f $router_config"
 
 source /etc/init.d/template_runsv.inc.sh

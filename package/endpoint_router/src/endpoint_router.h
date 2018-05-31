@@ -10,8 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_ZMQ_ROUTER_H
-#define SWIFTNAV_ZMQ_ROUTER_H
+#ifndef SWIFTNAV_ENDPOINT_ROUTER_H
+#define SWIFTNAV_ENDPOINT_ROUTER_H
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -55,4 +55,4 @@ typedef struct {
 
 void debug_printf(const char *msg, ...);
 
-#endif /* SWIFTNAV_ZMQ_ROUTER_H */
+#endif /* SWIFTNAV_ENDPOINT_ROUTER_H */

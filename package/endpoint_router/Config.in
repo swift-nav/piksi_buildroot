@@ -1,5 +1,5 @@
-config BR2_PACKAGE_ZMQ_ROUTER
-	bool "zmq_router"
+config BR2_PACKAGE_ENDPOINT_ROUTER
+	bool "endpoint_router"
 	select BR2_PACKAGE_LIBUV
 	select BR2_PACKAGE_CZMQ
 	select BR2_PACKAGE_LIBSBP

@@ -14,7 +14,7 @@
 
 #include <libpiksi/logging.h>
 
-#include "zmq_router_load.h"
+#include "endpoint_router_load.h"
 
 #define PROCESS_FN(name) int process_##name(yaml_event_t *event,              \
                                             yaml_parser_t *parser,            \
