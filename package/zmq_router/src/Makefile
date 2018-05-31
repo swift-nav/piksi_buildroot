@@ -3,7 +3,7 @@ SOURCES= \
 	zmq_router.c \
 	zmq_router_load.c \
 	zmq_router_print.c
-LIBS=-lczmq -lyaml
+LIBS=-luv -lczmq -lsbp -lpiksi -lyaml
 CFLAGS=-std=gnu11 -Wall
 
 CROSS=

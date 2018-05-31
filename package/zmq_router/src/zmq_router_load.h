@@ -15,6 +15,6 @@
 
 #include "zmq_router.h"
 
-router_t * zmq_router_load(const char *filename);
+router_t * router_load(const char *filename);
 
 #endif /* SWIFTNAV_ZMQ_ROUTER_LOAD_H */

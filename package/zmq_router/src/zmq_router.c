@@ -10,12 +10,18 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "zmq_router.h"
-#include "zmq_router_load.h"
-#include "zmq_router_print.h"
 #include <stdio.h>
 #include <string.h>
 #include <getopt.h>
+
+#include <libpiksi/loop.h>
+#include <libpiksi/logging.h>
+
+#include "zmq_router.h"
+#include "zmq_router_load.h"
+#include "zmq_router_print.h"
+
+#define PROGRAM_NAME "router"
 
 static struct {
   const char *filename;
@@ -26,6 +32,8 @@ static struct {
   .print = false,
   .debug = false
 };
+
+static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context);
 
 static void usage(char *command)
 {
@@ -87,19 +95,95 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static void filters_destroy(filter_t **filter_loc)
+{
+  if (filter_loc == NULL || *filter_loc == NULL) {
+    return;
+  }
+  filter_t *filter = *filter_loc;
+  filter_t *next = NULL;
+  while(filter != NULL) {
+    next = filter->next;
+    if (filter->data != NULL) free(filter->data);
+    free(filter);
+    filter = next;
+  }
+  *filter_loc = NULL;
+}
+
+static void forwarding_rules_destroy(forwarding_rule_t **forwarding_rule_loc)
+{
+  if (forwarding_rule_loc == NULL || *forwarding_rule_loc == NULL) {
+    return;
+  }
+  forwarding_rule_t *forwarding_rule = *forwarding_rule_loc;
+  forwarding_rule_t *next = NULL;
+  while(forwarding_rule != NULL) {
+    next = forwarding_rule->next;
+    if (forwarding_rule->dst_port_name != NULL
+        && forwarding_rule->dst_port_name[0] != '\0') {
+      free((void *)forwarding_rule->dst_port_name);
+    }
+    filters_destroy(&forwarding_rule->filters_list);
+    free(forwarding_rule);
+    forwarding_rule = next;
+  }
+  *forwarding_rule_loc = NULL;
+}
+
+static void ports_destroy(port_t **port_loc)
+{
+  if (port_loc == NULL || *port_loc == NULL) {
+    return;
+  }
+  port_t *port = *port_loc;
+  port_t *next = NULL;
+  while(port != NULL) {
+    next = port->next;
+    if (port->name != NULL && port->name[0] != '\0') {
+      free((void *)port->name);
+    }
+    if (port->pub_addr != NULL && port->pub_addr[0] != '\0') {
+      free((void *)port->pub_addr);
+    }
+    if (port->sub_addr != NULL && port->sub_addr[0] != '\0') {
+      free((void *)port->sub_addr);
+    }
+    pk_endpoint_destroy(&port->pub_ept);
+    pk_endpoint_destroy(&port->sub_ept);
+    forwarding_rules_destroy(&port->forwarding_rules_list);
+    free(port);
+    port = next;
+  }
+  free(port);
+  *port_loc = NULL;
+}
+
+static void router_teardown(router_t **router_loc)
+{
+  if (router_loc == NULL || *router_loc == NULL) {
+    return;
+  }
+  router_t *router = *router_loc;
+  if (router->name != NULL) free((void *)router->name);
+  ports_destroy(&router->ports_list);
+  free(router);
+  *router_loc = NULL;
+}
+
 static int router_setup(router_t *router)
 {
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
-    port->pub_socket = zsock_new_pub(port->pub_addr);
-    if (port->pub_socket == NULL) {
-      printf("zsock_new_pub() error\n");
+    port->pub_ept = pk_endpoint_create(port->pub_addr, PK_ENDPOINT_PUB);
+    if (port->pub_ept == NULL) {
+      piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
 
-    port->sub_socket = zsock_new_sub(port->sub_addr, "");
-    if (port->sub_socket == NULL) {
-      printf("zsock_new_sub() error\n");
+    port->sub_ept = pk_endpoint_create(port->sub_addr, PK_ENDPOINT_SUB);
+    if (port->sub_ept == NULL) {
+      piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
   }
@@ -107,13 +191,12 @@ static int router_setup(router_t *router)
   return 0;
 }
 
-static int zloop_router_add(zloop_t *zloop, router_t *router,
-                            zloop_reader_fn reader_fn)
+static int router_attach(router_t *router, pk_loop_t *loop)
 {
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
-    if (zloop_reader(zloop, port->sub_socket, reader_fn, port) != 0) {
-      printf("zloop_reader() error\n");
+    if (pk_loop_endpoint_reader_add(loop, port->sub_ept, loop_reader_callback, port) == NULL) {
+      piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
       return -1;
     }
   }
@@ -122,31 +205,13 @@ static int zloop_router_add(zloop_t *zloop, router_t *router,
 }
 
 static void filter_match_process(forwarding_rule_t *forwarding_rule,
-                                 filter_t *filter, zmsg_t *msg)
+                                 filter_t *filter,
+                                 const u8 *data,
+                                 size_t length)
 {
   switch (filter->action) {
     case FILTER_ACTION_ACCEPT: {
-      zmsg_t *tx_msg = zmsg_dup(msg);
-      if (tx_msg == NULL) {
-        printf("zmsg_dup() error\n");
-        break;
-      }
-
-      while (1) {
-        int ret = zmsg_send(&tx_msg, forwarding_rule->dst_port->pub_socket);
-        if (ret == 0) {
-          /* Break on success */
-          break;
-        } else if (errno == EINTR) {
-          /* Retry if interrupted */
-          continue;
-        } else {
-          /* Fail on error */
-          printf("zmsg_send() error\n");
-          zmsg_destroy(&tx_msg);
-          return;
-        }
-      }
+      pk_endpoint_send(forwarding_rule->dst_port->pub_ept, data, length);
     }
     break;
 
@@ -156,14 +221,15 @@ static void filter_match_process(forwarding_rule_t *forwarding_rule,
     break;
 
     default: {
-      printf("invalid filter action\n");
+      piksi_log(LOG_ERR, "invalid filter action\n");
     }
     break;
   }
 }
 
 static void rule_process(forwarding_rule_t *forwarding_rule,
-                         const void *prefix, int prefix_len, zmsg_t *msg)
+                         const u8 *data,
+                         size_t length)
 {
   /* Iterate over filters for this rule */
   filter_t *filter;
@@ -175,15 +241,15 @@ static void rule_process(forwarding_rule_t *forwarding_rule,
     /* Empty filter matches all */
     if (filter->len == 0) {
       match = true;
-    } else if (prefix != NULL) {
-      if ((prefix_len >= filter->len) &&
-          (memcmp(prefix, filter->data, filter->len) == 0)) {
+    } else if (data != NULL) {
+      if ((length >= filter->len) &&
+          (memcmp(data, filter->data, filter->len) == 0)) {
         match = true;
       }
     }
 
     if (match) {
-      filter_match_process(forwarding_rule, filter, msg);
+      filter_match_process(forwarding_rule, filter, data, length);
 
       /* Done with this rule after finding a filter match */
       break;
@@ -191,44 +257,27 @@ static void rule_process(forwarding_rule_t *forwarding_rule,
   }
 }
 
-static int reader_fn(zloop_t *zloop, zsock_t *zsock, void *arg)
+static int reader_fn(const u8 *data, const size_t length, void *context)
 {
-  port_t *port = (port_t *)arg;
-
-  zmsg_t *rx_msg;
-  while (1) {
-    rx_msg = zmsg_recv(port->sub_socket);
-    if (rx_msg != NULL) {
-      /* Break on success */
-      break;
-    } else if (errno == EINTR) {
-      /* Retry if interrupted */
-      continue;
-    } else {
-      /* Return on error */
-      printf("zmsg_recv() error\n");
-      return 0;
-    }
-  }
-
-  /* Get first frame for filtering */
-  zframe_t *rx_frame_first = zmsg_first(rx_msg);
-  const void *rx_prefix = NULL;
-  size_t rx_prefix_len = 0;
-  if (rx_frame_first != NULL) {
-    rx_prefix = zframe_data(rx_frame_first);
-    rx_prefix_len = zframe_size(rx_frame_first);
-  }
+  port_t *port = (port_t *)context;
 
   /* Iterate over forwarding rules */
   forwarding_rule_t *forwarding_rule;
   for (forwarding_rule = port->forwarding_rules_list; forwarding_rule != NULL;
        forwarding_rule = forwarding_rule->next) {
-    rule_process(forwarding_rule, rx_prefix, rx_prefix_len, rx_msg);
+    rule_process(forwarding_rule, data, length);
   }
 
-  zmsg_destroy(&rx_msg);
   return 0;
+}
+
+static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context)
+{
+  (void)loop;
+  (void)handle;
+  port_t *port = (port_t *)context;
+
+  pk_endpoint_receive(port->sub_ept, reader_fn, port);
 }
 
 void debug_printf(const char *msg, ...)
@@ -243,60 +292,62 @@ void debug_printf(const char *msg, ...)
   va_end(ap);
 }
 
+static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc);
+
 int main(int argc, char *argv[])
 {
+  pk_loop_t *loop = NULL;
+  router_t *router = NULL;
+
+  logging_init(PROGRAM_NAME);
+
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
-    exit(EXIT_FAILURE);
+    exit(cleanup(EXIT_FAILURE, &loop, &router));
   }
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
   /* Load router from config file */
-  router_t *router = zmq_router_load(options.filename);
+  router = router_load(options.filename);
   if (router == NULL) {
-    exit(EXIT_FAILURE);
+    exit(cleanup(EXIT_FAILURE, &loop, &router));
   }
 
   /* Print router config and exit if requested */
   if (options.print) {
-    if (zmq_router_print(stdout, router) != 0) {
+    if (router_print(stdout, router) != 0) {
       exit(EXIT_FAILURE);
     }
-    exit(EXIT_SUCCESS);
+    exit(cleanup(EXIT_SUCCESS, &loop, &router));
   }
 
   /* Set up router data */
   if (router_setup(router) != 0) {
-    exit(EXIT_FAILURE);
+    exit(cleanup(EXIT_FAILURE, &loop, &router));
   }
 
-  /* Create zloop */
-  zloop_t *zloop = zloop_new();
-  if (zloop == NULL) {
-    exit(EXIT_FAILURE);
+  /* Create loop */
+  loop = pk_loop_create();
+  if (loop == NULL) {
+    exit(cleanup(EXIT_FAILURE, &loop, &router));
   }
 
-  /* Add router to zloop */
-  if (zloop_router_add(zloop, router, reader_fn) != 0) {
-    exit(EXIT_FAILURE);
+  /* Add router to loop */
+  if (router_attach(router, loop) != 0) {
+    exit(cleanup(EXIT_FAILURE, &loop, &router));
   }
 
-  while (1) {
-    int zloop_ret = zloop_start(zloop);
-    if (zloop_ret == 0) {
-      /* Interrupted */
-      continue;
-    } else if (zloop_ret == -1) {
-      /* Canceled by a handler */
-      return 0;
-    } else {
-      /* Error occurred */
-      printf("error in zloop\n");
-      return -1;
-    }
-  }
+  pk_loop_run_simple(loop);
 
-  exit(EXIT_SUCCESS);
+  exit(cleanup(EXIT_SUCCESS, &loop, &router));
+}
+
+static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc)
+{
+  router_teardown(router_loc);
+  pk_loop_destroy(loop_loc);
+  logging_deinit();
+  return result;
 }

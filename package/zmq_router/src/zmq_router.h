@@ -16,7 +16,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <czmq.h>
+
+#include <libpiksi/endpoint.h>
 
 typedef enum {
   FILTER_ACTION_ACCEPT,
@@ -41,8 +42,8 @@ typedef struct port_s {
   const char *name;
   const char *pub_addr;
   const char *sub_addr;
-  zsock_t *pub_socket;
-  zsock_t *sub_socket;
+  pk_endpoint_t *pub_ept;
+  pk_endpoint_t *sub_ept;
   forwarding_rule_t *forwarding_rules_list;
   struct port_s *next;
 } port_t;

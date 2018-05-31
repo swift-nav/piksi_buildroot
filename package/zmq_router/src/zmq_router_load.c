@@ -10,8 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "zmq_router_load.h"
 #include <yaml.h>
+
+#include <libpiksi/logging.h>
+
+#include "zmq_router_load.h"
 
 #define PROCESS_FN(name) int process_##name(yaml_event_t *event,              \
                                             yaml_parser_t *parser,            \
@@ -313,8 +316,8 @@ static PROCESS_FN(port)
     .name = "",
     .pub_addr = "",
     .sub_addr = "",
-    .pub_socket = NULL,
-    .sub_socket = NULL,
+    .pub_ept = NULL,
+    .sub_ept = NULL,
     .forwarding_rules_list = NULL,
     .next = NULL
   };
@@ -533,7 +536,7 @@ static int dst_ports_set(router_t *router)
   return 0;
 }
 
-router_t * zmq_router_load(const char *filename)
+router_t * router_load(const char *filename)
 {
   FILE *f = NULL;
   router_t *router = NULL;

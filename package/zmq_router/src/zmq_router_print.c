@@ -69,7 +69,7 @@ static int print_port(FILE *f, const char *prefix, const port_t *port)
   return 0;
 }
 
-int zmq_router_print(FILE *f, const router_t *router)
+int router_print(FILE *f, const router_t *router)
 {
   const char *prefix = "";
 

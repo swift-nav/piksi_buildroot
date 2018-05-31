@@ -16,6 +16,6 @@
 #include "zmq_router.h"
 #include <stdio.h>
 
-int zmq_router_print(FILE *f, const router_t *router);
+int router_print(FILE *f, const router_t *router);
 
 #endif /* SWIFTNAV_ZMQ_ROUTER_PRINT_H */
