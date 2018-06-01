@@ -1,0 +1,4 @@
+config BR2_PACKAGE_FPGA_ERROR_MONI
+	bool "fpga_error_moni"
+	select BR2_PACKAGE_CZMQ
+	select BR2_PACKAGE_LIBPIKSI
