@@ -63,7 +63,8 @@ start() {
   # Run custom script if present
   if [ -f "$script_path/init_script.sh" ]; then
     echo "Running init_script.sh"
-    sh "$script_path/init_script.sh"
+    SERVER_IP=$server_ip SD_PATH=$sd_path \
+      sh "$script_path/init_script.sh"
   fi
 }
 

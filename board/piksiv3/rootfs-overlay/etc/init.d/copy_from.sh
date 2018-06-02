@@ -1,8 +1,8 @@
 copy_from_sd()
 {
-  local sd_path=$1
-  local filename=$2
-  local output_path=$3
+  local sd_path=$1; shift
+  local filename=$1; shift
+  local output_path=$1; shift
   local sd_file="$sd_path/$filename"
   local output_file="$output_path/$filename"
 
@@ -20,9 +20,9 @@ copy_from_sd()
 
 copy_from_net()
 {
-  local server_ip=$1
-  local filename=$2
-  local output_path=$3
+  local server_ip=$1; shift
+  local filename=$1; shift
+  local output_path=$1; shift
   local uuid=`cat /factory/uuid`
   local net_file="PK$uuid/$filename"
   local output_file="$output_path/$filename"
