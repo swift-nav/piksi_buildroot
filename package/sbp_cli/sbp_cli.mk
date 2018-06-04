@@ -7,7 +7,7 @@
 SBP_CLI_VERSION = 0.1
 SBP_CLI_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_cli/src"
 SBP_CLI_SITE_METHOD = local
-SBP_CLI_DEPENDENCIES = czmq libsbp
+SBP_CLI_DEPENDENCIES = nanomsg libsbp
 
 define SBP_CLI_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all

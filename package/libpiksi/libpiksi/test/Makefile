@@ -6,7 +6,7 @@ SOURCES= \
 	test_pubsub_loop_integration.cc
 
 LIBS= \
-	-luv -lczmq -lpiksi -lsbp -ldl -lpthread -lgtest
+	-luv -lnanomsg -lpiksi -lsbp -ldl -lpthread -lgtest
 
 CFLAGS=-std=gnu++11 -z muldefs -I. -I../include -L../src
 

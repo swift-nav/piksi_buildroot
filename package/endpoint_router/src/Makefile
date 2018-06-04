@@ -3,7 +3,7 @@ SOURCES= \
 	endpoint_router.c \
 	endpoint_router_load.c \
 	endpoint_router_print.c
-LIBS=-luv -lczmq -lsbp -lpiksi -lyaml
+LIBS=-luv -lnanomsg -lsbp -lpiksi -lyaml
 CFLAGS=-std=gnu11 -Wall
 
 CROSS=
