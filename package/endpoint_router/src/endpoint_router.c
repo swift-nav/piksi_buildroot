@@ -176,13 +176,13 @@ static int router_setup(router_t *router)
 {
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
-    port->pub_ept = pk_endpoint_create(port->pub_addr, PK_ENDPOINT_PUB);
+    port->pub_ept = pk_endpoint_create(port->pub_addr, PK_ENDPOINT_PUB_SERVER);
     if (port->pub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
 
-    port->sub_ept = pk_endpoint_create(port->sub_addr, PK_ENDPOINT_SUB);
+    port->sub_ept = pk_endpoint_create(port->sub_addr, PK_ENDPOINT_SUB_SERVER);
     if (port->sub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;

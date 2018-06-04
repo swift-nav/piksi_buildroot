@@ -44,8 +44,9 @@ static void test_timeout_cb(pk_loop_t *loop, void *handle, void *context)
   const char *simple_message = SIMPLE_RECV_MSG;
   size_t msg_len = strlen(simple_message);
   // use expect here so that we exit gracefully after the timer expires
-  EXPECT_EQ(pk_endpoint_send(snd_ctx->ept, (u8 *)simple_message, msg_len), 0);
-  snd_ctx->sent++;
+  int result = pk_endpoint_send(snd_ctx->ept, (u8 *)simple_message, msg_len);
+  EXPECT_EQ(result, 0);
+  if (result == 0) snd_ctx->sent++;
 }
 
 static void test_poll_cb(pk_loop_t *loop, void *handle, void *context)
@@ -69,11 +70,11 @@ TEST_F(PubsubLoopIntegrationTests, pubsubLoopIntegrationTest)
   ASSERT_NE(loop, nullptr);
 
   // this is cleaned up in TearDown
-  sub_ept = pk_endpoint_create("@tcp://127.0.0.1:49010", PK_ENDPOINT_SUB);
+  sub_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_SUB_SERVER);
   ASSERT_NE(sub_ept, nullptr);
 
   // this is cleaned up in TearDown
-  pub_ept = pk_endpoint_create(">tcp://127.0.0.1:49010", PK_ENDPOINT_PUB);
+  pub_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_PUB);
   ASSERT_NE(pub_ept, nullptr);
 
   struct snd_ctx_s snd_ctx = { .ept = pub_ept, .sent = 0 };

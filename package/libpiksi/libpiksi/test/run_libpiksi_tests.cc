@@ -16,10 +16,17 @@
 #include <iostream>
 
 #include <gtest/gtest.h>
+#include <libpiksi/logging.h>
 
 #include <libpiksi_tests.h>
 
+#define PROGRAM_NAME "libpiksi_tests"
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+  logging_init(PROGRAM_NAME);
+  logging_debug_printf(true);
+  auto ret = RUN_ALL_TESTS();
+  logging_deinit();
+  return ret;
 }

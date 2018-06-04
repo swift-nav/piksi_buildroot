@@ -40,7 +40,9 @@ typedef struct pk_endpoint_s pk_endpoint_t;
  */
 typedef enum {
   PK_ENDPOINT_PUB,
+  PK_ENDPOINT_PUB_SERVER,
   PK_ENDPOINT_SUB,
+  PK_ENDPOINT_SUB_SERVER,
   PK_ENDPOINT_REP,
   PK_ENDPOINT_REQ
 } pk_endpoint_type;
@@ -138,7 +140,12 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
  */
 int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length);
 
-//shim function for settings loop while we're still using zmq
+/**
+ * @brief   Get specific error string following and operation that failed
+ * @details Get specific error string following and operation that failed
+ *
+ * @return                  Pointer to a const string buffer with description
+ */
 const char * pk_endpoint_strerror(void);
 
 #ifdef __cplusplus

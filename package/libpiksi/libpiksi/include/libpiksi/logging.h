@@ -47,6 +47,8 @@ extern "C" {
  */
 int logging_init(const char *identity);
 
+void logging_debug_printf(bool enable);
+
 /**
  * @brief   Deinitialize logging.
  * @details Deinitialize the global logging state for the process.
