@@ -1,5 +1,5 @@
 # This file is a variant the stock sbp_router.yml With it, the router sends the
-# "best position" and "best velcity" estimates through a new nav_daemon port
+# "best position" and "best velocity" estimates through a new nav_daemon port
 # before going to the external interfaces.  It can be used to allow a process
 # like a loosely coupled INS filter to intercept and transform the best GNSS
 # position and velocity estimates they go on the wire The key changes to the
