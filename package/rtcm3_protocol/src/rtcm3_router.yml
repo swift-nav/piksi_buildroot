@@ -2,12 +2,12 @@
 name: RTCM3_ROUTER
 ports:
   - name: RTCM3_PORT_INTERNAL
-    pub_addr: "@tcp://127.0.0.1:45010"
-    sub_addr: "@tcp://127.0.0.1:45011"
+    pub_addr: "tcp://127.0.0.1:45010"
+    sub_addr: "tcp://127.0.0.1:45011"
 
   - name: RTCM3_PORT_EXTERNAL
-    pub_addr: "@tcp://127.0.0.1:45030"
-    sub_addr: "@tcp://127.0.0.1:45031"
+    pub_addr: "tcp://127.0.0.1:45030"
+    sub_addr: "tcp://127.0.0.1:45031"
     forwarding_rules:
       - dst_port: RTCM3_PORT_INTERNAL
         filters:

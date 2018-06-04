@@ -24,7 +24,7 @@
 
 #define PROGRAM_NAME      "nmea_daemon"
 
-#define NMEA_PUB_ENDPOINT ">tcp://127.0.0.1:44030"  /* NMEA Pub */
+#define NMEA_PUB_ENDPOINT "tcp://127.0.0.1:44030"  /* NMEA Pub */
 
 #define BASE_DIRECTORY    "/var/run/nmea"
 

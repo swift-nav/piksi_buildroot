@@ -82,7 +82,7 @@ static int ntrip_adapter_execfn(void) {
     "endpoint_adapter",
     "-f", "rtcm3",
     "--file", FIFO_FILE_PATH,
-    "-p", ">tcp://127.0.0.1:45031",
+    "-p", "tcp://127.0.0.1:45031",
     NULL,
   };
 

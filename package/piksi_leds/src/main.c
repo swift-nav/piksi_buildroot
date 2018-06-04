@@ -19,8 +19,8 @@
 
 #define PROGRAM_NAME "piksi_leds"
 
-#define PUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43031"
-#define SUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43030"
+#define PUB_ENDPOINT_EXTERNAL_SBP "tcp://localhost:43031"
+#define SUB_ENDPOINT_EXTERNAL_SBP "tcp://localhost:43030"
 
 int main(void)
 {

@@ -34,8 +34,8 @@
 
 #define PROGRAM_NAME "piksi_system_daemon"
 
-#define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
-#define SUB_ENDPOINT ">tcp://127.0.0.1:43010"
+#define PUB_ENDPOINT "tcp://127.0.0.1:43011"
+#define SUB_ENDPOINT "tcp://127.0.0.1:43010"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define SBP_MAX_NETWORK_INTERFACES 10

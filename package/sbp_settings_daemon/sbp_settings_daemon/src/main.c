@@ -16,8 +16,8 @@
 
 #define PROGRAM_NAME "sbp_settings_daemon"
 
-#define PUB_ENDPOINT ">tcp://localhost:43021"
-#define SUB_ENDPOINT ">tcp://localhost:43020"
+#define PUB_ENDPOINT "tcp://localhost:43021"
+#define SUB_ENDPOINT "tcp://localhost:43020"
 
 int main(void)
 {

@@ -15,7 +15,7 @@ cleanup()
 
 trap 'cleanup' HUP TERM
 
-endpoint_adapter --stdio -s '>tcp://127.0.0.1:44030' >$fifo &
+endpoint_adapter --stdio -s 'tcp://127.0.0.1:44030' >$fifo &
 endpoint_adapter_pid=$!
 
 socat pty,raw,link=/tmp/tmp.gps0 fd:0 <$fifo &
