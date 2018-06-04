@@ -15,6 +15,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/endpoint.h>

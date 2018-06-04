@@ -10,6 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <unistd.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include <libpiksi/logging.h>
 
 #include "skylark_settings.h"

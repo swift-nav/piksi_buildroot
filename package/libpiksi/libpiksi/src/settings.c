@@ -66,11 +66,13 @@
  * @date 2018-02-23
  */
 
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
-#include <string.h>
-#include <assert.h>
 #include <libsbp/settings.h>
 
 #include <libpiksi/settings.h>

@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <time.h>
 #include <libpiksi/logging.h>
 
 #include <libsbp/observation.h>

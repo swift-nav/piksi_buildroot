@@ -24,7 +24,10 @@
 #include <stddef.h>
 #include <signal.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/wait.h>
+#include <arpa/inet.h>
+#include <sys/stat.h>
 #include <termios.h>
 #include <stdio.h>
 #include <stdlib.h>

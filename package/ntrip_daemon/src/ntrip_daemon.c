@@ -14,6 +14,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>

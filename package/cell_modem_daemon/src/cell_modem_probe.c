@@ -12,10 +12,12 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <errno.h>
 
 #include <libpiksi/logging.h>
 #include <libsbp/logging.h>

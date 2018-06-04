@@ -12,6 +12,7 @@
 
 #include <getopt.h>
 #include <unistd.h>
+#include <stddef.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/logging.h>

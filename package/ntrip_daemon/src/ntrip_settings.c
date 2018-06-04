@@ -11,6 +11,8 @@
  */
 
 #include <unistd.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include <libpiksi/logging.h>
 
 #include "ntrip_settings.h"

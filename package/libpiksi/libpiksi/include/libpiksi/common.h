@@ -13,7 +13,12 @@
 #ifndef LIBPIKSI_COMMON_H
 #define LIBPIKSI_COMMON_H
 
+#include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 #include <libsbp/sbp.h>
 
 #ifndef SIZET_MAX

@@ -13,7 +13,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/inotify.h>
+#include <limits.h>
 #include <unistd.h>
+#include <errno.h>
+#include <dirent.h>
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -11,7 +11,7 @@
  */
 
 #include <libpiksi/logging.h>
-#include <syslog.h>
+#include <stdarg.h>
 
 #define FACILITY LOG_LOCAL0
 #define OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)

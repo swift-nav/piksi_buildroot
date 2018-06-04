@@ -22,6 +22,7 @@
 #ifndef LIBPIKSI_LOOP_H
 #define LIBPIKSI_LOOP_H
 
+#include <signal.h>
 #include <libpiksi/common.h>
 
 #include <libpiksi/endpoint.h>
