@@ -799,9 +799,6 @@ int main(int argc, char *argv[])
 
   debug_printf("Parsed command line\n");
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   signal(SIGPIPE, SIG_IGN); /* Allow write to return an error */
   signal(SIGIO, SIG_IGN);
 

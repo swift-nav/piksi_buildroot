@@ -129,9 +129,6 @@ int main(int argc, char *argv[])
 
   piksi_log(LOG_DEBUG, "Startup...");
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   health_ctx.loop = pk_loop_create();
   if (health_ctx.loop == NULL) {
     status = EXIT_FAILURE;

@@ -142,9 +142,6 @@ int main(int argc, char *argv[])
     return cleanup(&loop, &ctx, EXIT_FAILURE);
   }
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   loop = pk_loop_create();
   if (loop == NULL) {
     return cleanup(&loop, &ctx, EXIT_FAILURE);

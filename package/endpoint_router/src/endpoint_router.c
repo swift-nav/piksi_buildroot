@@ -306,9 +306,6 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router));
   }
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   /* Load router from config file */
   router = router_load(options.filename);
   if (router == NULL) {

@@ -166,9 +166,6 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   ctx.sub_ept = pk_endpoint_create(NMEA_PUB_ENDPOINT, PK_ENDPOINT_SUB);
   if (ctx.sub_ept == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");

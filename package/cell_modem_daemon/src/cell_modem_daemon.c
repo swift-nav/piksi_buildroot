@@ -170,9 +170,6 @@ int main(int argc, char *argv[])
       at_serial_port_command_destroy(&at_command);
     }
   } else {
-    /* Prevent czmq from catching signals */
-    zsys_handler_set(NULL);
-
     loop = pk_loop_create();
     if (loop == NULL) {
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));

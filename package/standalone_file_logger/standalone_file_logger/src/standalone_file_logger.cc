@@ -297,9 +297,6 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(nullptr);
-
   pk_loop_t *loop = pk_loop_create();
   if (loop == NULL) {
     exit(EXIT_FAILURE);

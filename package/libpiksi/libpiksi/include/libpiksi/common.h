@@ -15,7 +15,6 @@
 
 #include <stdint.h>
 #include <libsbp/sbp.h>
-#include <czmq.h>
 
 #ifndef SIZET_MAX
 #   define SIZET_MAX  ((size_t)(ssize_t)(-1))

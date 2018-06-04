@@ -34,9 +34,6 @@ static struct {
 
 int sbp_init(void)
 {
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   ctx.loop = pk_loop_create();
   if (ctx.loop == NULL) {
     goto failure;

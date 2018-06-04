@@ -1512,9 +1512,6 @@ bool settings_loop(const char* control_socket,
 {
   piksi_log(LOG_INFO, "Starting daemon mode for settings...");
 
-  // Block ZMQ signal handlers
-  zsys_handler_set(NULL);
-
   pk_loop_t *loop = pk_loop_create();
   if (loop == NULL) {
     goto settings_loop_cleanup;

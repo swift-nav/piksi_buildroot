@@ -18,7 +18,6 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#include <czmq.h>
 
 void io_loop_start(int read_fd, int write_fd);
 void io_loop_wait(void);

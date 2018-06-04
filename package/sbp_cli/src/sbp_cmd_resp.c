@@ -83,9 +83,6 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   sbp_tx_ctx_t *ctx = sbp_tx_create(SBP_PUB_ENDPOINT);
   if (ctx == NULL) {
     exit(EXIT_FAILURE);

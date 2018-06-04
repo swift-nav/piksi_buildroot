@@ -27,9 +27,6 @@ int main(void)
   int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   sbp_rx_ctx_t *ctx = sbp_rx_create(SUB_ENDPOINT_EXTERNAL_SBP);
   if (ctx == NULL) {
     goto cleanup;
