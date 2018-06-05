@@ -277,7 +277,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
 
-  u8 headerlen = sizeof(*msg) + strlen(filename) + 1;
+  u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
   int f = open(filename, O_WRONLY | O_CREAT, 0666);
   if (f < 0) {
     piksi_log(LOG_ERR, "Error opening %s for write", filename);
