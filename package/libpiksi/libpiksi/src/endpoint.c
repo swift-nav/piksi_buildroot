@@ -105,7 +105,6 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
                        pk_endpoint_strerror());
     goto failure;
   }
-  usleep(1000);
 
   return pk_ept;
 
@@ -240,12 +239,8 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
     int written = nn_send(pk_ept->nn_sock, data, length, 0);
     if (written != -1) {
       /* Break on success */
-      if (written == length) {
-        return 0;
-      } else {
-        piksi_log(LOG_ERR, "Message partial send (%d out of %d)", written, length);
-        return -1;
-      }
+      assert(written == length);
+      return 0;
     } else if (errno == EINTR) {
       /* Retry if interrupted */
       continue;

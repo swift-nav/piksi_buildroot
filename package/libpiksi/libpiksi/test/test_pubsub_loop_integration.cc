@@ -12,7 +12,6 @@
 
 #include <gtest/gtest.h>
 
-#include <libpiksi_tests.h>
 #include <test_pubsub_loop_integration.h>
 
 struct snd_ctx_s {

@@ -17,7 +17,7 @@
 #define OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)
 
 static char log_ident[256];
-bool debug_printf = false;
+bool log_stdout_only = false;
 
 int logging_init(const char *identity)
 {
@@ -26,9 +26,9 @@ int logging_init(const char *identity)
   return 0;
 }
 
-void logging_debug_printf(bool enable)
+void logging_log_to_stdout_only(bool enable)
 {
-  debug_printf = enable;
+  log_stdout_only = enable;
 }
 
 void logging_deinit(void)
@@ -47,10 +47,13 @@ void piksi_log(int priority, const char *format, ...)
 
 void piksi_vlog(int priority, const char *format, va_list ap)
 {
-  if (debug_printf) {
+  if (log_stdout_only) {
     char *with_return = (char *)malloc(strlen(format) + 1);
-    sprintf(with_return, "%s\n", format);
-    vprintf(with_return, ap);
+    if (with_return != NULL) {
+      sprintf(with_return, "%s\n", format);
+      vprintf(with_return, ap);
+      free(with_return);
+    }
     return;
   }
   if ((priority & LOG_FACMASK) == LOG_SBP) {

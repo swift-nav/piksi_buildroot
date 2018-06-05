@@ -47,7 +47,12 @@ extern "C" {
  */
 int logging_init(const char *identity);
 
-void logging_debug_printf(bool enable);
+/**
+ * @brief   Log to stdout only - for host testing purposes only.
+ *
+ * @param[in] enable        Enable or disable logging to stdout only
+ */
+void logging_log_to_stdout_only(bool enable);
 
 /**
  * @brief   Deinitialize logging.

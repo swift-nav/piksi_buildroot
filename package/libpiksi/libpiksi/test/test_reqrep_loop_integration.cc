@@ -12,10 +12,7 @@
 
 #include <gtest/gtest.h>
 
-#include <libpiksi_tests.h>
-
-#include <libpiksi/loop.h>
-#include <libpiksi/endpoint.h>
+#include <test_reqrep_loop_integration.h>
 
 struct reqrep_ctx_s {
   pk_endpoint_t *req_ept;
@@ -68,15 +65,15 @@ static void test_timeout_cb(pk_loop_t *loop, void *handle, void *context)
   }
 }
 
-TEST_F(LibpiksiTests, reqrepLoopIntegrationTest)
+TEST_F(ReqrepLoopIntegrationTests, reqrepLoopIntegrationTest)
 {
-  pk_loop_t *loop = pk_loop_create();
+  loop = pk_loop_create();
   ASSERT_NE(loop, nullptr);
 
-  pk_endpoint_t *rep_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_REP);
+  rep_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_REP);
   ASSERT_NE(rep_ept, nullptr);
 
-  pk_endpoint_t *req_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_REQ);
+  req_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_REQ);
   ASSERT_NE(req_ept, nullptr);
 
   struct reqrep_ctx_s ctx = { .req_ept = req_ept,
@@ -90,13 +87,7 @@ TEST_F(LibpiksiTests, reqrepLoopIntegrationTest)
 
   pk_loop_run_simple_with_timeout(loop, 2000);
 
-  EXPECT_GT(ctx.recvd, 0);
-  EXPECT_EQ(ctx.sent, ctx.recvd);
-  pk_endpoint_destroy(&rep_ept);
-  EXPECT_EQ(rep_ept, nullptr);
-  pk_endpoint_destroy(&req_ept);
-  EXPECT_EQ(req_ept, nullptr);
-  pk_loop_destroy(&loop);
-  EXPECT_EQ(loop, nullptr);
+  ASSERT_GT(ctx.recvd, 0);
+  ASSERT_EQ(ctx.sent, ctx.recvd);
 }
 
