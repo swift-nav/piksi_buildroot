@@ -13,6 +13,8 @@
 #ifndef LIBPIKSI_TESTS_H
 #define LIBPIKSI_TESTS_H
 
+#include <test_pubsub_loop_integration.h>
+
 class LibpiksiTests : public ::testing::Test { };
 
 #endif /* LIBPIKSI_TESTS_H */
