@@ -2,20 +2,32 @@
 
 name="usb_gadget"
 
+CONFIGURE_NETWORKING="/persistent/usb_gadget_networking"
+RELEASE_LOCKDOWN="/etc/release_lockdown"
+
+net() {
+    [[ -f "$CONFIGURE_NETWORKING" ]]
+}
+
+lockdown() {
+    [[ -f "$RELEASE_LOCKDOWN" ]]
+}
+
 VENDOR_ID="0x2E69"
 PRODUCT_ID="0x1001"
 MANUFACTURER="Swift Navigation"
 PRODUCT="Piksi Multi"
 SERIAL_NUMBER=`cat /factory/uuid`
-CONFIGURATION="CDC 2xACM"
-CONFIGURATION1="CDC 2xACM+ECM"
-CONFIGURATION2="CDC 2xACM+RNDIS"
 
-CONFIGURE_NETWORKING="/persistent/usb-gadget-networking"
+if lockdown; then
+  ACM="ACM"
+else
+  ACM="2xACM"
+fi
 
-net() {
-  test -e "$CONFIGURE_NETWORKING"
-}
+CONFIGURATION="CDC ${ACM}"
+CONFIGURATION1="CDC ${ACM}+ECM"
+CONFIGURATION2="CDC ${ACM}+RNDIS"
 
 start() {
   # Create gadget
@@ -33,17 +45,21 @@ start() {
 
   # Functions
   mkdir functions/acm.GS0
-  mkdir functions/acm.GS1
+  lockdown || mkdir functions/acm.GS1
+
   net && mkdir functions/rndis.usb0
   net && mkdir functions/ecm.usb0
 
   # Configurations (linux, osx)
   mkdir configs/c.1
   mkdir configs/c.1/strings/0x409
+
   net && echo "$CONFIGURATION1" > configs/c.1/strings/0x409/configuration
   net || echo "$CONFIGURATION" > configs/c.1/strings/0x409/configuration
+
   ln -s functions/acm.GS0 configs/c.1
-  ln -s functions/acm.GS1 configs/c.1
+  lockdown || ln -s functions/acm.GS1 configs/c.1
+
   net && ln -s functions/ecm.usb0 configs/c.1
 
   if net; then
@@ -52,7 +68,7 @@ start() {
     mkdir configs/c.2/strings/0x409
     echo "$CONFIGURATION2" > configs/c.2/strings/0x409/configuration
     ln -s functions/acm.GS0 configs/c.2
-    ln -s functions/acm.GS1 configs/c.2
+    [[ -f /etc/release_lockdown ]] || ln -s functions/acm.GS1 configs/c.2
     ln -s functions/rndis.usb0 configs/c.2
 
     # Make Windows10 prefer config c.2 by creating Microsoft OS Descriptor

@@ -27,6 +27,14 @@ endif
 
 export BR2_HAS_PIKSI_INS_REF
 
+PIKSI_INS_REPO :=  git@github.com:carnegieroboticsllc/piksi_ins.git
+
+ifneq ($(BR2_BUILD_PIKSI_INS),)
+BR2_HAS_PIKSI_INS := $(shell git ls-remote $(PIKSI_INS_REPO) &>/dev/null && echo y)
+endif
+
+export BR2_HAS_PIKSI_INS
+
 ifneq ($(AWS_ACCESS_KEY_ID),)
 AWS_VARIABLES := -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)
 endif
@@ -45,7 +53,9 @@ DOCKER_ENV_ARGS :=                                                            \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
   -e BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF)                           \
+  -e BR2_HAS_PIKSI_INS=$(BR2_HAS_PIKSI_INS)                                   \
   -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
+  -e BR2_BUILD_RELEASE_PROTECTED=$(BR2_BUILD_RELEASE_PROTECTED)               \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
   -e DISABLE_NIXOS_SUPPORT=$(DISABLE_NIXOS_SUPPORT)                           \
   $(AWS_VARIABLES)                                                            \

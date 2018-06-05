@@ -9,7 +9,10 @@ endif
 BUILD_ENV_ARGS = \
   BR2_EXTERNAL=$(BR2_EXTERNAL) \
   BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF) \
+  BR2_BUILD_RELEASE_PROTECTED=$(BR2_BUILD_RELEASE_PROTECTED) \
+  BR2_BUILD_RELEASE_OPEN=$(BR2_BUILD_RELEASE_OPEN) \
   BR2_BUILD_PIKSI_INS_REF=$(BR2_BUILD_PIKSI_INS_REF) \
+  BR2_BUILD_PIKSI_INS=$(BR2_BUILD_PIKSI_INS) \
   BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON) \
   HW_CONFIG=$(HW_CONFIG) \
 
@@ -30,7 +33,38 @@ config:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output piksiv3_defconfig
 
+dev-tools-clean: pkg-piksi_dev_tools-dirclean
+dev-tools-build: pkg-piksi_dev_tools
+
+rel-lockdown-clean: pkg-release_lockdown-dirclean
+
+image-release-open: export BR2_BUILD_RELEASE_OPEN=y
+image-release-open: config
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) flush-rootfs rel-lockdown-clean
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) -C buildroot O=output V=$(V)
+
+image-release-protected: export BR2_BUILD_RELEASE_PROTECTED=y
+image-release-protected: config
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) flush-rootfs rel-lockdown-clean
+	[ -z "$BR2_BUILD_PIKSI_INS" ] || \
+		$(BUILD_ENV_ARGS) \
+			$(MAKE) pkg-piksi_ins-rebuild
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) -C buildroot O=output V=$(V)
+
+image-release-ins: export BR2_BUILD_PIKSI_INS=y
+image-release-ins:
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) image-release-protected
+
 image: config
+	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
+		$(MAKE) rel-lockdown-clean
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) dev-tools-clean dev-tools-build
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
 
@@ -79,7 +113,7 @@ rebuild-changed: _rebuild_changed
 _rebuild_changed:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot \
-			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py) \
+			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py | grep -v lockdown | grep -v piksi_ins) \
 			O=output
 
 _print_db:
@@ -105,9 +139,21 @@ docker-rebuild-changed:
 		$(DOCKER_TAG) \
 		make _rebuild_changed
 
-docker-make-image: docker-config
+docker-make-image:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make image
+
+docker-make-image-release-open:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make image-release-open
+
+docker-make-image-release-protected:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make image-release-protected
+
+docker-make-image-release-ins:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make image-release-ins
 
 docker-make-clean:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \

@@ -21,7 +21,7 @@ check_service()
 
 monitor_services()
 {
-  check_service sshd /var/run/dropbear.pid /etc/init.d/S50dropbear
+  [ -f /etc/release_lockdown ] || check_service sshd /var/run/dropbear.pid /etc/init.d/S50dropbear
   check_service syslogd /var/run/syslogd.pid /etc/init.d/S01logging
   check_service klogd /var/run/klogd.pid /etc/init.d/S01logging
 }

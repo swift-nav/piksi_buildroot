@@ -1,0 +1,2 @@
+config BR2_RELEASE_LOCKDOWN
+	bool "release_lockdown"

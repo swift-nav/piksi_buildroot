@@ -11,6 +11,8 @@ else
   LOG_DEBUG=/dev/null
 fi
 
+BUILD_TOOLS_REPO=git@github.com:swift-nav/piksi_build_tools.git
+
 CFG=piksiv3_$HW_CONFIG
 get_git_string_script="$(dirname "$0")"/get_git_string.sh
 GIT_STRING=$($get_git_string_script)
@@ -29,7 +31,9 @@ UBOOT_BASE_DIR=`find $BUILD_DIR -maxdepth 1 -type d -name "uboot_custom-${UBOOT_
 
 DEV_BIN_PATH=$OUTPUT_DIR/PiksiMulti-DEV-$FILE_GIT_STRING.bin
 FAILSAFE_BIN_PATH=$OUTPUT_DIR/PiksiMulti-FAILSAFE-$FILE_GIT_STRING.bin
-PROD_BIN_PATH=$OUTPUT_DIR/PiksiMulti-$FILE_GIT_STRING.bin
+INTERNAL_BIN_PATH=$OUTPUT_DIR/PiksiMulti-INTERNAL-$FILE_GIT_STRING.bin
+REL_OPEN_BIN_PATH=$OUTPUT_DIR/PiksiMulti-$FILE_GIT_STRING.bin
+REL_PROT_BIN_PATH=$OUTPUT_DIR/PiksiMulti-PROTECTED-$FILE_GIT_STRING.bin
 
 if [[ -z "${UBOOT_BASE_DIR}" ]]; then
   echo "ERROR: Could not find uboot directory" >&2
@@ -94,7 +98,7 @@ generate_prod() {
 
   $UBOOT_PROD_DIR/tools/image_table_util                                      \
   --append --print --print-images                                             \
-  --out "$PROD_BIN_PATH"                                                      \
+  --out "$INTERNAL_BIN_PATH"                                                  \
   --name "$GIT_STRING"                                                        \
   --timestamp $(date +%s)                                                     \
   --hardware v3_$HW_CONFIG                                                    \
@@ -151,14 +155,35 @@ fi
 
 if [ -e $FIRMWARE_DIR/piksi_firmware.elf ] && \
    [ -e $FIRMWARE_DIR/piksi_fpga.bit ]; then
+
   generate_prod
+
+  if [ -n "$BR2_BUILD_RELEASE_PROTECTED" ]; then
+
+    if ! git ls-remote ${BUILD_TOOLS_REPO} &>/dev/null; then
+      echo "*** ERROR: No access to build tools repository, cannot create protected image ***"
+    fi
+
+    git clone ${BUILD_TOOLS_REPO} ${HOST_DIR}/piksi_build_tools
+    ${HOST_DIR}/piksi_build_tools/bin/encrypt_and_sign $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
+
+    rm ${INTERNAL_BIN_PATH}
+    rm -rf ${HOST_DIR}/piksi_build_tools
+  fi
+
+  if [ -n "$BR2_BUILD_RELEASE_OPEN" ]; then
+      mv -v ${INTERNAL_BIN_PATH} ${REL_OPEN_BIN_PATH}
+  fi
+
 else
   echo "*** NO FIRMWARE FILES FOUND, NOT BUILDING PRODUCTION IMAGE ***"
 fi
 
 # Strip absolute path in case we're inside the docker container
 if [[ -n "$BR2_EXTERNAL_piksi_buildroot_PATH" ]]; then
-  PROD_BIN_PATH=${PROD_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
+  REL_OPEN_BIN_PATH=${REL_OPEN_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
+  REL_PROT_BIN_PATH=${REL_PROT_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
+  INTERNAL_BIN_PATH=${INTERNAL_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
   DEV_BIN_PATH=${DEV_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
   FAILSAFE_BIN_PATH=${FAILSAFE_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 fi
@@ -166,8 +191,18 @@ fi
 bold=$(tput rev 2>/dev/null)
 normal=$(tput sgr0 2>/dev/null)
 
-echo
-echo -e "${bold}>>> PROD firmware image located at:${normal}\n\t$PROD_BIN_PATH"
+if [ -f "${BR2_EXTERNAL_piksi_buildroot_PATH}/$INTERNAL_BIN_PATH" ]; then
+  echo -e "${bold}>>> INTERNAL firmware image located at:${normal}\n\t$INTERNAL_BIN_PATH"
+fi
+
+if [ -n "$BR2_BUILD_RELEASE_OPEN" ]; then
+  echo -e "${bold}>>> RELEASE/OPEN firmware image located at:${normal}\n\t$REL_OPEN_BIN_PATH"
+fi
+
+if [ -n "$BR2_BUILD_RELEASE_PROTECTED" ]; then
+  echo -e "${bold}>>> RELEASE/PROTECTED firmware image located at:${normal}\n\t$REL_PROT_BIN_PATH"
+fi
+
 echo -e "${bold}>>> DEV firmware image located at:${normal}\n\t$DEV_BIN_PATH"
 echo -e "${bold}>>> FAILSAFE firmware image located at:${normal}\n\t$FAILSAFE_BIN_PATH"
 echo

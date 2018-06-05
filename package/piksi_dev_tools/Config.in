@@ -1,0 +1,2 @@
+config BR2_PIKSI_DEV_TOOLS
+	bool "piksi_dev_tools"
