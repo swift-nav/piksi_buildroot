@@ -123,7 +123,9 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
     return;
   }
 
-  if (strcmp(msg->command, "upgrade_tool upgrade.image_set.bin") != 0) {
+  if (   strcmp(msg->command, "upgrade_tool upgrade.image_set.bin") != 0
+      && strcmp(msg->command, "spawn_nc") != 0 )
+  {
     msg_command_resp_t resp = {
       .sequence = msg->sequence,
       .code = (u32)-1,
@@ -132,6 +134,21 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
                     SBP_MSG_COMMAND_RESP, sizeof(resp), (u8*)&resp);
     return;
   }
+
+  if (strcmp(msg->command, "spawn_nc") == 0) {
+
+    char spawn_nc[1024];
+
+    size_t count = snprintf(spawn_nc, sizeof(spawn_nc),
+                            "sudo -u fio_ex /usr/bin/spawn_nc; "
+                            "sbp_cmd_resp --sequence %u --status $?",
+                            msg->sequence);
+    assert( count < sizeof(spawn_nc) );
+
+    system(spawn_nc);
+
+    return;
+  };
 
   const char* upgrade_cmd =
     "sh -c 'set -o pipefail;                                      "
