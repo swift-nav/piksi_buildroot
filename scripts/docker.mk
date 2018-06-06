@@ -16,8 +16,9 @@ UID := $(shell id -u)
 GID := $(shell id -g)
 endif
 
-DOCKER_BUILD_VOLUME = piksi_buildroot-$(USER)$(_DOCKER_SUFFIX)
-DOCKER_TAG = piksi_buildroot-$(USER)$(_DOCKER_SUFFIX)
+LOWER_USER = $(shell echo $(USER) | tr A-Z a-z)
+DOCKER_BUILD_VOLUME = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
+DOCKER_TAG = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
 
 PIKSI_INS_REF_REPO := git@github.com:swift-nav/piksi_inertial_ipsec_crl.git
 
