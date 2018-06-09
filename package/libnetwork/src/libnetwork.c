@@ -161,6 +161,8 @@ static network_context_t empty_context = {
 #define HTTP_RESPONSE_CODE_OK (200L)
 #define NTRIP_DROPPED_CONNECTION_WARNING "Connection dropped with no data. This may be because this NTRIP caster expects an NMEA GGA string to be sent from the receiver. You can enable this through the ntrip.gga_period setting."
 
+static void trim_crlf(char* buf) __attribute__((nonnull(1)));
+
 void libnetwork_shutdown()
 {
   context_node_t* node;
@@ -473,18 +475,16 @@ static size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
   return -1;
 }
 
-static void trim_crlf(char* in_buf, char* out_buf, size_t buf_size)
+static void trim_crlf(char* buf)
 {
-  strncpy(out_buf, in_buf, buf_size);
-  char* crlf = strstr(out_buf, "\r\n");
-  *crlf = '\0';
+  char *crlf = strstr(buf, "\r\n");
+  if (crlf != NULL) *crlf = '\0';
 }
 
 static void cache_gga_xfer_buffer(network_context_t *ctx, char* buf, size_t buflen, size_t fill)
 {
   if (ctx->gga_xfer_buffer == NULL || buflen != ctx->gga_xfer_buflen) {
-    if (ctx->gga_xfer_buffer != NULL)
-      free(ctx->gga_xfer_buffer);
+    if (ctx->gga_xfer_buffer != NULL) free(ctx->gga_xfer_buffer);
     ctx->gga_xfer_buffer = malloc(buflen);
     ctx->gga_xfer_buflen = buflen;
   }
@@ -496,21 +496,74 @@ static void cache_gga_xfer_buffer(network_context_t *ctx, char* buf, size_t bufl
 static size_t fill_with_gga_xfer_cache(network_context_t *ctx, char* buf, size_t buflen)
 {
   // If there's no cache, pause
-  if (ctx->gga_xfer_buffer != NULL) {
-    piksi_log(LOG_DEBUG, "%s: no cache, pausing cURL read function", __FUNCTION__);
-    return CURL_READFUNC_PAUSE;
+  if (ctx->gga_xfer_buffer == NULL) {
+    piksi_log(LOG_DEBUG, "%s: no cached GGA sentence is present", __FUNCTION__);
+    return 0;
   }
 
   size_t fill = ctx->gga_xfer_fill;
 
   if (ctx->gga_xfer_fill > buflen) {
-    piksi_log(LOG_WARNING, "%s: cached gga xfer buf larger than cURL read buf", __FUNCTION__);
+    piksi_log(LOG_WARNING, "%s: cached GGA sentence is larger than provided buffer", __FUNCTION__);
     fill = buflen;
   }
 
   memcpy(buf, ctx->gga_xfer_buffer, fill);
 
   return fill;
+}
+
+static size_t fetch_gga_string(network_context_t *ctx, char *buf, size_t buf_size)
+{
+  FILE *fp_gga_cache = fopen(NMEA_GGA_FILE, "r");
+
+  if (fp_gga_cache == NULL) {
+    piksi_log(LOG_WARNING, "failed to open '" NMEA_GGA_FILE "' file: %s", strerror(errno));
+    return fill_with_gga_xfer_cache(ctx, buf, buf_size);
+  }
+
+  if (ctx->debug) {
+    piksi_log(LOG_DEBUG, "provided buffer size: %lu", buf_size);
+  }
+
+  // Subtract one to ensure we can null terminate
+  size_t byte_count = fread(buf, 1, buf_size - 1, fp_gga_cache);
+
+  if (byte_count == 0 || ferror(fp_gga_cache)) {
+
+    if (++ctx->gga_error_count >= MAX_GGA_UPLOAD_READ_ERRORS) {
+      piksi_log(LOG_SBP|LOG_ERR, "max number of GGA file read errors exceeded (" NMEA_GGA_FILE ")");
+    }
+
+    if (ferror(fp_gga_cache)) {
+      piksi_log(LOG_WARNING, "error reading '" NMEA_GGA_FILE "': %s", strerror(errno));
+    } else {
+      piksi_log(LOG_WARNING, "no data while reading '" NMEA_GGA_FILE "'");
+    }
+
+    fclose(fp_gga_cache);
+
+    return fill_with_gga_xfer_cache(ctx, buf, buf_size);
+  }
+
+  if (ctx->debug) {
+    piksi_log(LOG_DEBUG, "'" NMEA_GGA_FILE "' read count: %lu", byte_count);
+  }
+
+  // Null terminate
+  buf[byte_count] = '\0';
+  trim_crlf(buf);
+
+  ctx->gga_error_count = 0;
+
+  fclose(fp_gga_cache);
+  cache_gga_xfer_buffer(ctx, buf, buf_size, byte_count);
+
+  if (ctx->debug) {
+    piksi_log(LOG_DEBUG, "Sending up GGA data: '%s'", buf);
+  }
+
+  return byte_count;
 }
 
 static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
@@ -521,68 +574,29 @@ static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
 
   if (now - ctx->last_xfer_time < ctx->gga_xfer_secs) {
     if (ctx->debug) {
-      piksi_log(LOG_DEBUG, "Last transfer too recent, pausing");
+      piksi_log(LOG_DEBUG, "Last GGA upload too recent, pausing");
     }
+    return CURL_READFUNC_PAUSE;
+  }
+
+  char gga_buf[256] = {0};
+  size_t byte_count = fetch_gga_string(ctx, gga_buf, sizeof(gga_buf));
+
+  if (byte_count == 0) {
+    return CURL_READFUNC_PAUSE;
+  }
+
+  size_t header_size = snprintf(buf, size*n, "Ntrip-GGA: %s\r\n", gga_buf);
+
+  if ( header_size >= size*n ) {
+    sbp_log(LOG_ERR|LOG_SBP, "%s: unexpected buffer error building GGA string (%s:%d)",
+            __FUNCTION__, __FILE__, __LINE__);
     return CURL_READFUNC_PAUSE;
   }
 
   ctx->last_xfer_time = now;
 
-  FILE *fp_gga_cache = fopen(NMEA_GGA_FILE, "r");
-
-  if (fp_gga_cache == NULL) {
-    piksi_log(LOG_WARNING, "failed to open '" NMEA_GGA_FILE "' file: %s", strerror(errno));
-    return fill_with_gga_xfer_cache(ctx, buf, size*n);
-  }
-
-  if (ctx->debug) {
-    piksi_log(LOG_DEBUG, "cURL provided buffer size: %lu (size: %lu, count: %lu)", size*n, size, n);
-  }
-
-  size_t byte_count = fread(buf, 1, size*n, fp_gga_cache);
-
-  if (byte_count == 0) {
-
-    if (++ctx->gga_error_count == MAX_GGA_UPLOAD_READ_ERRORS) {
-      sbp_log(LOG_ERR, "max number of GGA file read errors exceeded (" NMEA_GGA_FILE ")");
-    }
-
-    fclose(fp_gga_cache);
-    piksi_log(LOG_WARNING, "no data while reading '" NMEA_GGA_FILE "'");
-
-    return fill_with_gga_xfer_cache(ctx, buf, size*n);
-  }
-
-  if (ctx->debug) {
-    piksi_log(LOG_DEBUG, "'" NMEA_GGA_FILE "' read count: %lu", byte_count);
-  }
-
-  if (ferror(fp_gga_cache)) {
-
-    if (++ctx->gga_error_count == MAX_GGA_UPLOAD_READ_ERRORS) {
-      sbp_log(LOG_ERR, "max number of GGA file read errors exceeded (" NMEA_GGA_FILE ")");
-    }
-
-    fclose(fp_gga_cache);
-    piksi_log(LOG_WARNING, "error reading '" NMEA_GGA_FILE "': %s", strerror(errno));
-
-    return fill_with_gga_xfer_cache(ctx, buf, size*n);
-  }
-
-  ctx->gga_error_count = 0;
-
-  fclose(fp_gga_cache);
-  cache_gga_xfer_buffer(ctx, buf, size*n, byte_count);
-
-  if (ctx->debug) {
-
-    char log_buf[512];
-    trim_crlf(buf, log_buf, sizeof(log_buf));
-
-    piksi_log(LOG_DEBUG, "Sending up GGA data: '%s'", log_buf);
-  }
-
-  return byte_count;
+  return header_size;
 }
 
 static void service_control_fifo(network_context_t *ctx)
@@ -865,13 +879,31 @@ static void network_request(network_context_t* ctx, CURL *curl)
   }
 }
 
-static struct curl_slist *ntrip_init(CURL *curl)
+static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
 {
   struct curl_slist *chunk = NULL;
+
   chunk = curl_slist_append(chunk, "Ntrip-Version: Ntrip/2.0");
+  chunk = curl_slist_append(chunk, "Expect:");
+
+  char gga_buf[128] = {0};
+  size_t gga_len = fetch_gga_string(ctx, gga_buf, sizeof(gga_buf));
+
+  if (gga_len > 0) {
+
+    char header_buf[256] = {0};
+
+    size_t c = snprintf(header_buf, sizeof(header_buf), "Ntrip-GGA: %s", gga_buf);
+    assert( c < sizeof(header_buf) );
+
+    curl_slist_append(chunk, header_buf);
+
+  } else {
+    piksi_log(LOG_WARNING, "was not able to insert NTRIP GGA header");
+  }
 
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
-  curl_easy_setopt(curl, CURLOPT_USERAGENT,  "NTRIP ntrip-client/1.0");
+  curl_easy_setopt(curl, CURLOPT_USERAGENT,  "NTRIP swift-ntrip-client/1.0");
 
   return chunk;
 }
@@ -913,7 +945,7 @@ void ntrip_download(network_context_t *ctx)
     return;
   }
 
-  struct curl_slist *chunk = ntrip_init(curl);
+  struct curl_slist *chunk = ntrip_init(ctx, curl);
 
   if (ctx->gga_xfer_secs > 0) {
 
@@ -923,6 +955,7 @@ void ntrip_download(network_context_t *ctx)
     curl_easy_setopt(curl, CURLOPT_READDATA,         ctx);
 
     chunk = curl_slist_append(chunk, "Transfer-Encoding:");
+
   } else {
     ctx->response_code_check = ntrip_response_code_check;
   }
