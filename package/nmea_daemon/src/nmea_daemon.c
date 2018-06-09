@@ -113,7 +113,6 @@ static int nmea_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 
   if (rename(tmp_file_name, NMEA_GGA_OUTPUT_PATH) < 0) {
     sbp_log(LOG_WARNING, "rename failed: %s", strerror(errno));
-    return 0;
   }
 
 exit_success:
