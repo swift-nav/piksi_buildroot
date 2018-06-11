@@ -28,8 +28,8 @@
 
 #define PROGRAM_NAME "cell_modem_daemon"
 
-#define SBP_SUB_ENDPOINT ">tcp://127.0.0.1:43060" /* SBP Internal Out */
-#define SBP_PUB_ENDPOINT ">tcp://127.0.0.1:43061" /* SBP Internal In */
+#define SBP_SUB_ENDPOINT "tcp://127.0.0.1:43060" /* SBP Internal Out */
+#define SBP_PUB_ENDPOINT "tcp://127.0.0.1:43061" /* SBP Internal In */
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE (255u)
 #define CELL_STATUS_UPDATE_INTERVAL (1000u)
@@ -170,9 +170,6 @@ int main(int argc, char *argv[])
       at_serial_port_command_destroy(&at_command);
     }
   } else {
-    /* Prevent czmq from catching signals */
-    zsys_handler_set(NULL);
-
     loop = pk_loop_create();
     if (loop == NULL) {
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));

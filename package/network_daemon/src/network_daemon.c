@@ -25,8 +25,8 @@
 
 #define PROGRAM_NAME "network_daemon"
 
-#define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43060"  /* SBP Internal Out */
-#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43061"  /* SBP Internal In */
+#define SBP_SUB_ENDPOINT    "tcp://127.0.0.1:43060"  /* SBP Internal Out */
+#define SBP_PUB_ENDPOINT    "tcp://127.0.0.1:43061"  /* SBP Internal In */
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE (255u)
 #define SBP_MAX_NETWORK_INTERFACES (10u)
@@ -141,9 +141,6 @@ int main(int argc, char *argv[])
     usage(argv[0]);
     return cleanup(&loop, &ctx, EXIT_FAILURE);
   }
-
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
 
   loop = pk_loop_create();
   if (loop == NULL) {

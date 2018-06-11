@@ -34,8 +34,8 @@
 
 #define PROGRAM_NAME "health_daemon"
 
-#define SBP_SUB_ENDPOINT ">tcp://127.0.0.1:43030" /* SBP External Out */
-#define SBP_PUB_ENDPOINT ">tcp://127.0.0.1:43031" /* SBP External In */
+#define SBP_SUB_ENDPOINT "tcp://127.0.0.1:43030" /* SBP External Out */
+#define SBP_PUB_ENDPOINT "tcp://127.0.0.1:43031" /* SBP External In */
 
 struct health_ctx_s {
   bool health_debug;
@@ -128,9 +128,6 @@ int main(int argc, char *argv[])
   }
 
   piksi_log(LOG_DEBUG, "Startup...");
-
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
 
   health_ctx.loop = pk_loop_create();
   if (health_ctx.loop == NULL) {

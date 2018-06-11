@@ -10,6 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <stddef.h>
+
 #include <yaml.h>
 
 #include <libpiksi/logging.h>

@@ -15,10 +15,21 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <errno.h>
+
 #include <syslog.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
-#include <czmq.h>
 
 void io_loop_start(int read_fd, int write_fd);
 void io_loop_wait(void);

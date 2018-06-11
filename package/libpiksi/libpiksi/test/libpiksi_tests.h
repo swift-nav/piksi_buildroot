@@ -14,6 +14,7 @@
 #define LIBPIKSI_TESTS_H
 
 #include <test_pubsub_loop_integration.h>
+#include <test_reqrep_loop_integration.h>
 
 class LibpiksiTests : public ::testing::Test { };
 

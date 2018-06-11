@@ -24,15 +24,18 @@
 #include <stddef.h>
 #include <signal.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/wait.h>
+#include <arpa/inet.h>
+#include <sys/stat.h>
 #include <termios.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define PROGRAM_NAME "piksi_system_daemon"
 
-#define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
-#define SUB_ENDPOINT ">tcp://127.0.0.1:43010"
+#define PUB_ENDPOINT "tcp://127.0.0.1:43011"
+#define SUB_ENDPOINT "tcp://127.0.0.1:43010"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define SBP_MAX_NETWORK_INTERFACES 10
@@ -424,15 +427,12 @@ int main(void)
 {
   logging_init(PROGRAM_NAME);
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   pk_loop_t *loop = pk_loop_create();
   if (loop == NULL) {
     exit(EXIT_FAILURE);
   }
 
-  /* Set up SBP ZMQ */
+  /* Set up SBP */
   sbp_pubsub_ctx_t *pubsub_ctx = sbp_pubsub_create(PUB_ENDPOINT,
                                                    SUB_ENDPOINT);
   if (pubsub_ctx == NULL) {

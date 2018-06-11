@@ -15,6 +15,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/endpoint.h>
@@ -22,7 +24,7 @@
 
 #define PROGRAM_NAME      "nmea_daemon"
 
-#define NMEA_PUB_ENDPOINT ">tcp://127.0.0.1:44030"  /* NMEA Pub */
+#define NMEA_PUB_ENDPOINT "tcp://127.0.0.1:44030"  /* NMEA Pub */
 
 #define BASE_DIRECTORY    "/var/run/nmea"
 
@@ -165,9 +167,6 @@ int main(int argc, char *argv[])
     usage(argv[0]);
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
-
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
 
   ctx.sub_ept = pk_endpoint_create(NMEA_PUB_ENDPOINT, PK_ENDPOINT_SUB);
   if (ctx.sub_ept == NULL) {

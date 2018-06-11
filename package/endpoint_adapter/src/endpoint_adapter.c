@@ -25,7 +25,7 @@
 #include <unistd.h>
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
-#define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/zmq_protocols"
+#define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
 #define READ_BUFFER_SIZE 65536
 #define REP_TIMEOUT_DEFAULT_ms 10000
 #define STARTUP_DELAY_DEFAULT_ms 0
@@ -798,9 +798,6 @@ int main(int argc, char *argv[])
   }
 
   debug_printf("Parsed command line\n");
-
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
 
   signal(SIGPIPE, SIG_IGN); /* Allow write to return an error */
   signal(SIGIO, SIG_IGN);

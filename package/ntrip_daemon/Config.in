@@ -1,7 +1,7 @@
 config BR2_PACKAGE_NTRIP_DAEMON
   bool "ntrip_daemon"
   select BR2_PACKAGE_LIBUV
-  select BR2_PACKAGE_CZMQ
+  select BR2_PACKAGE_NANOMSG
   select BR2_PACKAGE_LIBSBP
   select BR2_PACKAGE_LIBPIKSI
   select BR2_PACKAGE_LIBCURL

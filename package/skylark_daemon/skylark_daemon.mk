@@ -8,7 +8,7 @@ SKYLARK_DAEMON_VERSION = 0.1
 SKYLARK_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/skylark_daemon"
 SKYLARK_DAEMON_SITE_METHOD = local
-SKYLARK_DAEMON_DEPENDENCIES = libuv czmq libsbp libpiksi libcurl libnetwork
+SKYLARK_DAEMON_DEPENDENCIES = libuv nanomsg libsbp libpiksi libcurl libnetwork
 
 define SKYLARK_DAEMON_USERS
 	skylarkd -1 skylarkd -1 * - - -

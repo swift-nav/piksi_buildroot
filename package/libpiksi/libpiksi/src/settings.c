@@ -66,17 +66,19 @@
  * @date 2018-02-23
  */
 
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
-#include <string.h>
-#include <assert.h>
 #include <libsbp/settings.h>
 
 #include <libpiksi/settings.h>
 
-#define PUB_ENDPOINT ">tcp://127.0.0.1:43071"
-#define SUB_ENDPOINT ">tcp://127.0.0.1:43070"
+#define PUB_ENDPOINT "tcp://127.0.0.1:43071"
+#define SUB_ENDPOINT "tcp://127.0.0.1:43070"
 
 #define REGISTER_TIMEOUT_MS 100
 #define REGISTER_TRIES 5
@@ -1511,9 +1513,6 @@ bool settings_loop(const char* control_socket,
                    handle_command_fn do_handle_command)
 {
   piksi_log(LOG_INFO, "Starting daemon mode for settings...");
-
-  // Block ZMQ signal handlers
-  zsys_handler_set(NULL);
 
   pk_loop_t *loop = pk_loop_create();
   if (loop == NULL) {

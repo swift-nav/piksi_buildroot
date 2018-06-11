@@ -12,7 +12,7 @@ SOURCES= \
 	filter.c \
 	filter_none.c \
 	protocols.c
-LIBS=-luv -lczmq -lzmq -lsbp -lpiksi -ldl
+LIBS=-luv -lnanomsg -lsbp -lpiksi -ldl
 CFLAGS=-std=gnu11 -Wall
 
 CROSS=

@@ -1,5 +1,5 @@
 # This file is a variant the stock sbp_router.yml With it, the router sends the
-# "best position" and "best velcity" estimates through a new nav_daemon port
+# "best position" and "best velocity" estimates through a new nav_daemon port
 # before going to the external interfaces.  It can be used to allow a process
 # like a loosely coupled INS filter to intercept and transform the best GNSS
 # position and velocity estimates they go on the wire The key changes to the
@@ -8,8 +8,8 @@
 name: SBP_ROUTER
 ports:
   - name: SBP_PORT_FIRMWARE
-    pub_addr: "@tcp://127.0.0.1:43010"
-    sub_addr: "@tcp://127.0.0.1:43011"
+    pub_addr: "tcp://127.0.0.1:43010"
+    sub_addr: "tcp://127.0.0.1:43011"
     forwarding_rules:
       - dst_port: SBP_PORT_SETTINGS_DAEMON
         filters:
@@ -60,8 +60,8 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
-    pub_addr: "@tcp://127.0.0.1:43020"
-    sub_addr: "@tcp://127.0.0.1:43021"
+    pub_addr: "tcp://127.0.0.1:43020"
+    sub_addr: "tcp://127.0.0.1:43021"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -78,8 +78,8 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_EXTERNAL
-    pub_addr: "@tcp://127.0.0.1:43030"
-    sub_addr: "@tcp://127.0.0.1:43031"
+    pub_addr: "tcp://127.0.0.1:43030"
+    sub_addr: "tcp://127.0.0.1:43031"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -107,32 +107,32 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_FILEIO_FIRMWARE
-    pub_addr: "@tcp://127.0.0.1:43040"
-    sub_addr: "@tcp://127.0.0.1:43041"
+    pub_addr: "tcp://127.0.0.1:43040"
+    sub_addr: "tcp://127.0.0.1:43041"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
           - { action: ACCEPT }
 
   - name: SBP_PORT_FILEIO_EXTERNAL
-    pub_addr: "@tcp://127.0.0.1:43050"
-    sub_addr: "@tcp://127.0.0.1:43051"
+    pub_addr: "tcp://127.0.0.1:43050"
+    sub_addr: "tcp://127.0.0.1:43051"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
           - { action: ACCEPT }
 
   - name: SBP_PORT_INTERNAL
-    pub_addr: "@tcp://127.0.0.1:43060"
-    sub_addr: "@tcp://127.0.0.1:43061"
+    pub_addr: "tcp://127.0.0.1:43060"
+    sub_addr: "tcp://127.0.0.1:43061"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
           - { action: ACCEPT }
 
   - name: SBP_PORT_SETTINGS_CLIENT
-    pub_addr: "@tcp://127.0.0.1:43070"
-    sub_addr: "@tcp://127.0.0.1:43071"
+    pub_addr: "tcp://127.0.0.1:43070"
+    sub_addr: "tcp://127.0.0.1:43071"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
@@ -147,8 +147,8 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_SKYLARK
-    pub_addr: "@tcp://127.0.0.1:43080"
-    sub_addr: "@tcp://127.0.0.1:43081"
+    pub_addr: "tcp://127.0.0.1:43080"
+    sub_addr: "tcp://127.0.0.1:43081"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -162,8 +162,8 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_NAV_DAEMON  # Entire Section Smoothpose Change**
-    pub_addr: "@tcp://127.0.0.1:43090"
-    sub_addr: "@tcp://127.0.0.1:43091"
+    pub_addr: "tcp://127.0.0.1:43090"
+    sub_addr: "tcp://127.0.0.1:43091"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:

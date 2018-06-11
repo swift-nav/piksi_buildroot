@@ -12,6 +12,7 @@
 
 #include <getopt.h>
 #include <unistd.h>
+#include <stddef.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/logging.h>
@@ -21,8 +22,8 @@
 
 #define PROGRAM_NAME "sbp_log"
 
-#define SBP_PUB_ENDPOINT ">tcp://127.0.0.1:43011"
-#define SBP_SUB_ENDPOINT ">tcp://127.0.0.1:43010"
+#define SBP_PUB_ENDPOINT "tcp://127.0.0.1:43011"
+#define SBP_SUB_ENDPOINT "tcp://127.0.0.1:43010"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 

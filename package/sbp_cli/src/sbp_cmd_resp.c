@@ -21,7 +21,7 @@
 
 #define PROGRAM_NAME "sbp_cmb_resp"
 
-#define SBP_PUB_ENDPOINT ">tcp://127.0.0.1:43011"
+#define SBP_PUB_ENDPOINT "tcp://127.0.0.1:43011"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
@@ -82,9 +82,6 @@ int main(int argc, char *argv[])
     usage(argv[0]);
     exit(EXIT_FAILURE);
   }
-
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
 
   sbp_tx_ctx_t *ctx = sbp_tx_create(SBP_PUB_ENDPOINT);
   if (ctx == NULL) {

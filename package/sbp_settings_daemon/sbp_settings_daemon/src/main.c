@@ -16,16 +16,13 @@
 
 #define PROGRAM_NAME "sbp_settings_daemon"
 
-#define PUB_ENDPOINT ">tcp://localhost:43021"
-#define SUB_ENDPOINT ">tcp://localhost:43020"
+#define PUB_ENDPOINT "tcp://localhost:43021"
+#define SUB_ENDPOINT "tcp://localhost:43020"
 
 int main(void)
 {
   int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
-
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
 
   sbp_pubsub_ctx_t *ctx = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
   if (ctx == NULL) {

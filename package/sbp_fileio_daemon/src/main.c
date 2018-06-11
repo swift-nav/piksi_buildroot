@@ -113,9 +113,6 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   sbp_pubsub_ctx_t *ctx = sbp_pubsub_create(pub_endpoint, sub_endpoint);
   if (ctx == NULL) {
     goto cleanup;

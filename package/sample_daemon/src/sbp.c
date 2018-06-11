@@ -16,8 +16,8 @@
 
 #include "sbp.h"
 
-#define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
-#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
+#define SBP_SUB_ENDPOINT    "tcp://127.0.0.1:43030"  /* SBP External Out */
+#define SBP_PUB_ENDPOINT    "tcp://127.0.0.1:43031"  /* SBP External In */
 
 static struct {
   pk_loop_t *loop;
@@ -39,9 +39,6 @@ static void signal_cb(pk_loop_t *pk_loop, void *handle, void *context)
 
 int sbp_init(void)
 {
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
   ctx.loop = pk_loop_create();
   if (ctx.loop == NULL) {
     goto failure;
