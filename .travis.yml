@@ -94,6 +94,9 @@ matrix:
         - tail -n 500 sdk_build.out
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh sdk_build.out
 
+  allow_failures:
+    - env: BR2_BUILD_PIKSI_INS_REF=y
+
 env:
   global:
     - PIKSI_NON_INTERACTIVE_BUILD=y
