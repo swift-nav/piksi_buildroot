@@ -491,11 +491,11 @@ static size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
   return -1;
 }
 
-static void trim_crlf(char *buf, size_t *byte_count)
+static void trim_crlf(char *buf, size_t *len)
 {
   char *crlf = strstr(buf, "\r\n");
   if (crlf != NULL) *crlf = '\0';
-  if (byte_count != NULL) *byte_count = strlen(buf) + 1;
+  if (len != NULL) *len = strlen(buf);
 }
 
 static void cache_gga_xfer_buffer(network_context_t *ctx, char* buf, size_t buflen, size_t fill)
@@ -530,7 +530,7 @@ static size_t fill_with_gga_xfer_cache(network_context_t *ctx, char* buf, size_t
   return fill;
 }
 
-static size_t fetch_gga_string(network_context_t *ctx, char *buf, size_t buf_size)
+static size_t fetch_gga_buffer(network_context_t *ctx, char *buf, size_t buf_size)
 {
   FILE *fp_gga_cache = fopen(NMEA_GGA_FILE, "r");
 
@@ -544,9 +544,9 @@ static size_t fetch_gga_string(network_context_t *ctx, char *buf, size_t buf_siz
   }
 
   // Subtract one to ensure we can null terminate
-  size_t byte_count = fread(buf, 1, buf_size - 1, fp_gga_cache);
+  size_t read_count = fread(buf, 1, buf_size - 1, fp_gga_cache);
 
-  if (byte_count == 0 || ferror(fp_gga_cache)) {
+  if (read_count == 0 || ferror(fp_gga_cache)) {
 
     if (++ctx->gga_error_count >= MAX_GGA_UPLOAD_READ_ERRORS) {
       piksi_log(LOG_SBP|LOG_ERR, "max number of GGA file read errors exceeded (" NMEA_GGA_FILE ")");
@@ -564,19 +564,21 @@ static size_t fetch_gga_string(network_context_t *ctx, char *buf, size_t buf_siz
   }
 
   if (ctx->debug) {
-    piksi_log(LOG_DEBUG, "'" NMEA_GGA_FILE "' read count: %lu", byte_count);
+    piksi_log(LOG_DEBUG, "'" NMEA_GGA_FILE "' read count: %lu", read_count);
   }
 
-  // Null terminate
-  buf[byte_count] = '\0';
-  trim_crlf(buf, &byte_count);
+  size_t gga_str_len = read_count;
+
+  // Null terminate so trim_crlf won't walk off end of buffer
+  buf[read_count] = '\0';
+  trim_crlf(buf, &gga_str_len);
 
   ctx->gga_error_count = 0;
 
   fclose(fp_gga_cache);
-  cache_gga_xfer_buffer(ctx, buf, buf_size, byte_count);
+  cache_gga_xfer_buffer(ctx, buf, buf_size, gga_str_len);
 
-  return byte_count;
+  return gga_str_len;
 }
 
 static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
@@ -592,8 +594,8 @@ static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
     return CURL_READFUNC_PAUSE;
   }
 
-  char gga_buf[256] = {0};
-  size_t byte_count = fetch_gga_string(ctx, gga_buf, sizeof(gga_buf));
+  char gga_string[256] = {0};
+  size_t byte_count = fetch_gga_buffer(ctx, gga_string, sizeof(gga_string) - 1);
 
   if (byte_count == 0) {
     return CURL_READFUNC_PAUSE;
@@ -602,9 +604,9 @@ static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
   size_t header_size = 0;
 
   if (ctx->gga_rev1) {
-    header_size = snprintf(buf, size*n, "%s\r\n", gga_buf);
+    header_size = snprintf(buf, size*n, "%s\r\n", gga_string);
   } else {
-    header_size = snprintf(buf, size*n, "Ntrip-GGA: %s\r\n", gga_buf);
+    header_size = snprintf(buf, size*n, "Ntrip-GGA: %s\r\n", gga_string);
   }
 
   if ( header_size >= size*n ) {
@@ -614,10 +616,10 @@ static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
   }
 
   if (ctx->debug) {
-    char gga_buf_log[256] = {0};
-    strncpy(gga_buf_log, buf, sizeof(gga_buf_log) - 1);
-    trim_crlf(gga_buf_log, NULL);
-    piksi_log(LOG_DEBUG, "Sending up GGA data: '%s'", gga_buf_log);
+    char gga_string_log[256] = {0};
+    strncpy(gga_string_log, buf, sizeof(gga_string_log) - 1);
+    trim_crlf(gga_string_log, NULL);
+    piksi_log(LOG_DEBUG, "Sending up GGA data: '%s'", gga_string_log);
   }
 
   ctx->last_xfer_time = now;
@@ -926,14 +928,14 @@ static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
   chunk = curl_slist_append(chunk, "Ntrip-Version: Ntrip/2.0");
   chunk = curl_slist_append(chunk, "Expect:");
 
-  char gga_buf[128] = {0};
-  size_t gga_len = fetch_gga_string(ctx, gga_buf, sizeof(gga_buf));
+  char gga_string[128] = {0};
+  size_t gga_len = fetch_gga_buffer(ctx, gga_string, sizeof(gga_string) - 1);
 
   if (gga_len > 0) {
 
     char header_buf[256] = {0};
 
-    size_t c = snprintf(header_buf, sizeof(header_buf), "Ntrip-GGA: %s", gga_buf);
+    size_t c = snprintf(header_buf, sizeof(header_buf), "Ntrip-GGA: %s", gga_string);
     assert( c < sizeof(header_buf) );
 
     curl_slist_append(chunk, header_buf);
