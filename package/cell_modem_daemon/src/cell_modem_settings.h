@@ -13,7 +13,7 @@
 #ifndef __CELL_MODEM_SETTINGS_H
 #define __CELL_MODEM_SETTINGS_H
 
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/loop.h>
 #include <libpiksi/settings.h>
 
 enum modem_type {
@@ -22,10 +22,11 @@ enum modem_type {
   MODEM_TYPE_CDMA,
 };
 
-int cell_modem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx);
+int cell_modem_init(pk_loop_t *loop, settings_ctx_t *settings_ctx);
+void cell_modem_deinit(void);
 void cell_modem_set_dev(char *dev, enum modem_type type);
-int pppd_respawn(zloop_t *loop, int timer_id, void *arg);
-int override_probe_retry(zloop_t *loop, int timer_id, void *arg);
+void pppd_respawn(pk_loop_t *loop, void *timer_handle, void *context);
+void override_probe_retry(pk_loop_t *loop, void *timer_handle, void *context);
 bool cell_modem_enabled(void);
 char * cell_modem_get_dev_override(void);
 

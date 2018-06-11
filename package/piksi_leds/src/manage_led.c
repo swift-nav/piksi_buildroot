@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/mman.h>
+#include <fcntl.h>
 #include <libsbp/common.h>
 #include <libpiksi/logging.h>
 

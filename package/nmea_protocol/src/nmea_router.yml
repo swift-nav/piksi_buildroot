@@ -2,13 +2,13 @@
 name: NMEA_ROUTER
 ports:
   - name: NMEA_PORT_FIRMWARE
-    pub_addr: "@tcp://127.0.0.1:44010"
-    sub_addr: "@tcp://127.0.0.1:44011"
+    pub_addr: "tcp://127.0.0.1:44010"
+    sub_addr: "tcp://127.0.0.1:44011"
     forwarding_rules:
       - dst_port: NMEA_PORT_EXTERNAL
         filters:
           - { action: ACCEPT }
 
   - name: NMEA_PORT_EXTERNAL
-    pub_addr: "@tcp://127.0.0.1:44030"
-    sub_addr: "@tcp://127.0.0.1:44031"
+    pub_addr: "tcp://127.0.0.1:44030"
+    sub_addr: "tcp://127.0.0.1:44031"

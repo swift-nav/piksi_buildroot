@@ -11,18 +11,24 @@
  */
 
 #include <libpiksi/logging.h>
-#include <syslog.h>
+#include <stdarg.h>
 
 #define FACILITY LOG_LOCAL0
 #define OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)
 
 static char log_ident[256];
+bool log_stdout_only = false;
 
 int logging_init(const char *identity)
 {
   snprintf(log_ident, sizeof(log_ident), "%s", identity);
   openlog(identity, OPTIONS, FACILITY);
   return 0;
+}
+
+void logging_log_to_stdout_only(bool enable)
+{
+  log_stdout_only = enable;
 }
 
 void logging_deinit(void)
@@ -41,6 +47,15 @@ void piksi_log(int priority, const char *format, ...)
 
 void piksi_vlog(int priority, const char *format, va_list ap)
 {
+  if (log_stdout_only) {
+    char *with_return = (char *)malloc(strlen(format) + 1);
+    if (with_return != NULL) {
+      sprintf(with_return, "%s\n", format);
+      vprintf(with_return, ap);
+      free(with_return);
+    }
+    return;
+  }
   if ((priority & LOG_FACMASK) == LOG_SBP) {
     priority &= ~LOG_FACMASK;
     sbp_vlog(priority, format, ap);

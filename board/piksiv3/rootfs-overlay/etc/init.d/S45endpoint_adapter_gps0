@@ -1,0 +1,143 @@
+#!/bin/sh
+
+source /etc/init.d/common.sh
+
+user="ad_gps0"
+name="endpoint_adapter_gps0"
+dir="/"
+
+cmd="/etc/init.d/gps_adapter.sh"
+
+dyn_pty_name=tmp.gps0
+dyn_pty_path=/tmp/$dyn_pty_name
+
+pid_file="/var/run/$name.pid"
+stdout_log="/var/log/$name.log"
+stderr_log="/var/log/$name.err"
+
+ulimit -c unlimited
+
+pre_launch() { rm -fv $dyn_pty_path; }
+
+post_launch()
+{
+  wait_create_gps0
+  ln -sf $(readlink -f $dyn_pty_path) /dev/gps0
+}
+
+post_shutdown() { rm -fv /dev/gps0; }
+
+wait_create_gps0()
+{
+  echo "Waiting for gps0 pty to be created..."
+
+  while [[ ! -e "$dyn_pty_path" ]] && ! inotifywait -t 1 -e create /tmp -q | grep -q "CREATE $dyn_pty_name"; do
+    continue;
+  done
+}
+
+setup_permissions()
+{
+  add_service_user $user
+  configure_dir_resource $user /var/run/gps_ntp 0770
+}
+
+do_start()
+{
+  setup_permissions
+
+  if is_running $pid_file; then
+    echo "Already started"
+  else
+
+    echo "Starting $name"
+    cd "$dir"
+
+    pre_launch
+
+    chpst -u $user $cmd >> "$stdout_log" 2>> "$stderr_log" &
+    echo $! > "$pid_file"
+
+    post_launch
+
+    if ! is_running $pid_file; then
+      echo "Unable to start, see $stdout_log and $stderr_log"
+      exit 1
+    fi
+  fi
+}
+
+do_stop()
+{
+  if is_running $pid_file; then
+
+    echo -n "Stopping $name.."
+    kill -SIGTERM $(get_pid $pid_file)
+
+    for i in {1..10}
+    do
+      if ! is_running $pid_file; then
+        break
+      fi
+
+      echo -n "."
+      sleep 1
+    done
+    echo
+
+    if is_running $pid_file; then
+      echo "Not stopped; may still be shutting down or shutdown may have failed"
+      exit 1
+    else
+      echo "Stopped"
+      if [ -f "$pid_file" ]; then
+        rm "$pid_file"
+      fi
+    fi
+
+    post_shutdown
+  else
+    echo "Not running"
+  fi
+}
+
+do_restart()
+{
+  $0 stop
+  if is_running $pid_file; then
+    echo "Unable to stop, will not attempt to start"
+    exit 1
+  fi
+  $0 start
+}
+
+do_status()
+{
+  if is_running $pid_file; then
+    echo "Running"
+  else
+    echo "Stopped"
+    exit 1
+  fi
+}
+
+case "$1" in
+  start)
+    do_start
+    ;;
+  stop)
+    do_stop
+    ;;
+  restart)
+    do_restart
+    ;;
+  status)
+    do_status
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status}"
+    exit 1
+  ;;
+esac
+
+exit 0

@@ -10,6 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <unistd.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include <libpiksi/logging.h>
 
 #include "skylark_settings.h"
@@ -46,9 +49,9 @@ static int skylark_upload_daemon_execfn(void) {
 
 static int skylark_upload_adapter_execfn(void) {
   char *argv[] = {
-    "zmq_adapter",
+    "endpoint_adapter",
     "--file", UPLOAD_FIFO_FILE_PATH,
-    "-s", ">tcp://127.0.0.1:43080",
+    "-s", "tcp://127.0.0.1:43080",
     "--filter-out", "sbp",
     "--filter-out-config", "/etc/skylark_upload_filter_out_config",
     NULL,
@@ -72,10 +75,10 @@ static int skylark_download_daemon_execfn(void) {
 
 static int skylark_download_adapter_execfn(void) {
   char *argv[] = {
-    "zmq_adapter",
+    "endpoint_adapter",
     "-f", "sbp",
     "--file", DOWNLOAD_FIFO_FILE_PATH,
-    "-p", ">tcp://127.0.0.1:43081",
+    "-p", "tcp://127.0.0.1:43081",
     NULL,
   };
 

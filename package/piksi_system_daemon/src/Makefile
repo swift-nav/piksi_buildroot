@@ -2,7 +2,7 @@ TARGET=piksi_system_daemon
 SOURCES= \
 	main.c
 
-LIBS=-lczmq -lsbp -lpiksi -ldl
+LIBS=-luv -lnanomsg -lsbp -lpiksi -ldl
 
 CFLAGS+=-std=gnu11
 ARFLAGS=rcs $(LTO_PLUGIN)

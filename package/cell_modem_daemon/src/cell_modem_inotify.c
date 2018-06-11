@@ -13,7 +13,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/inotify.h>
+#include <limits.h>
 #include <unistd.h>
+#include <errno.h>
+#include <dirent.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +24,7 @@
 #include <signal.h>
 #include <stdbool.h>
 
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/logging.h>
 #include <libsbp/logging.h>
 
@@ -29,16 +32,75 @@
 #include "cell_modem_inotify.h"
 #include "cell_modem_probe.h"
 
+#define PPPD_RESPAWN_TIMEOUT (5000u)
+#define OVERRIDE_RETRY_TIMER_PERIOD (1000u)
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
 typedef struct inotify_ctx_s {
-  zloop_t *loop;
-  zmq_pollitem_t pollitem;
+  pk_loop_t *loop;
+  void *pollitem;
   int inotify_fd;
   int watch_descriptor;
   char *cell_modem_dev;
   enum modem_type modem_type;
 } inotify_ctx_t;
+
+static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, void *context);
+
+inotify_ctx_t * inotify_ctx_create(const char *path,
+                                   int inotify_init_flags,
+                                   uint32_t inotify_watch_flags,
+                                   pk_loop_t *loop)
+{
+  inotify_ctx_t *ctx = calloc(1, sizeof(inotify_ctx_t));
+  if (ctx == NULL) {
+    goto failure;
+  }
+
+  ctx->inotify_fd = inotify_init1(inotify_init_flags);
+  if (ctx->inotify_fd == -1) {
+    piksi_log(LOG_DEBUG, "inotify init failed: %d", errno);
+    goto failure;
+  }
+
+  ctx->watch_descriptor = inotify_add_watch(ctx->inotify_fd, path, inotify_watch_flags);
+  if (ctx->watch_descriptor == -1) {
+    piksi_log(LOG_DEBUG, "inotify add failed: %d", errno);
+    goto failure;
+  }
+
+  ctx->loop = loop;
+  ctx->pollitem = pk_loop_poll_add(ctx->loop, ctx->inotify_fd, inotify_output_cb, ctx);
+  if (ctx->pollitem == NULL) {
+    piksi_log(LOG_DEBUG, "inotify poll add failed");
+    goto failure;
+  }
+
+  return ctx;
+
+failure:
+  inotify_ctx_destroy(&ctx);
+  return NULL;
+}
+
+void inotify_ctx_destroy(inotify_ctx_t **ctx_loc)
+{
+  if (ctx_loc == NULL || *ctx_loc == NULL) {
+   return;
+  }
+  inotify_ctx_t *ctx = *ctx_loc;
+  if (ctx->inotify_fd >= 0) {
+    if (ctx->watch_descriptor != -1) {
+      inotify_rm_watch(ctx->inotify_fd, ctx->watch_descriptor);
+    }
+    close(ctx->inotify_fd);
+  }
+  if (ctx->pollitem) {
+    pk_loop_remove_handle(ctx->pollitem);
+  }
+  free(ctx);
+  *ctx_loc = NULL;
+}
 
 bool cell_modem_tty_exists(const char* path) {
 
@@ -78,6 +140,7 @@ static int update_dev_from_probe(inotify_ctx_t *ctx, char *dev)
     piksi_log(LOG_WARNING,
               "Override device failed probe: %s",
               dev);
+    return -1;
   }
   return 1;
 }
@@ -95,41 +158,43 @@ void cell_modem_set_dev_to_invalid(inotify_ctx_t *ctx)
   cell_modem_set_dev(NULL, MODEM_TYPE_INVALID);
 }
 
-void cell_modem_scan_for_modem(inotify_ctx_t *ctx)
+int cell_modem_scan_for_modem(inotify_ctx_t *ctx)
 {
+  int result = -1;
   if (ctx == NULL) {
-    return;
+    return -1;
   }
   /* Try what's already here.  Inotify will only tell us about new devs */
   DIR *dir = opendir("/dev");
   for (struct dirent *ent = readdir(dir); ent; ent = readdir(dir)) {
     if (ent->d_type == DT_CHR) {
-      if (update_dev_from_probe(ctx, ent->d_name) == 0) {
+      result = update_dev_from_probe(ctx, ent->d_name);
+      if (result <= 0) {
         break;
       }
     }
   }
   closedir(dir);
+
+  return result;
 }
 
-static int inotify_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
+static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, void *context)
 {
   (void) loop;
-  (void) item;
+  (void) poll_handle;
 
-  inotify_ctx_t *ctx = (inotify_ctx_t*) arg;
+  inotify_ctx_t *ctx = (inotify_ctx_t*) context;
 
   char buf[BUF_LEN] __attribute__ ((aligned(__alignof__(struct inotify_event))));
   ssize_t count = read(ctx->inotify_fd, buf, BUF_LEN);
 
   if (count == 0) {
     piksi_log(LOG_ERR, "inotify read failed");
-    return 0;
   }
 
   if (count < -1) {
     piksi_log(LOG_ERR, "inotify other error");
-    return 0;
   }
 
   for (char* p = buf; p < buf + count; ) {
@@ -159,43 +224,31 @@ static int inotify_output_cb(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 
     p += sizeof(struct inotify_event) + event->len;
   }
-
-  return 0;
 }
 
-inotify_ctx_t * async_wait_for_tty(sbp_zmq_pubsub_ctx_t *pubsub_ctx)
+inotify_ctx_t * async_wait_for_tty(pk_loop_t *loop)
 {
-  int inotify_fd = inotify_init1(IN_NONBLOCK);
-
-  if (inotify_fd < 0) {
-    piksi_log(LOG_DEBUG, "inotify init failed: %d", errno);
+  inotify_ctx_t *ctx = inotify_ctx_create("/dev",
+                                          IN_NONBLOCK,
+                                          IN_CREATE | IN_DELETE,
+                                          loop);
+  if (ctx == NULL) {
+    piksi_log(LOG_DEBUG, "inotify ctx create failed");
     goto fail;
   }
 
-  int watch_descriptor = inotify_add_watch(inotify_fd, "/dev", IN_CREATE | IN_DELETE);
-
-  if (watch_descriptor < 0) {
-    piksi_log(LOG_DEBUG, "inotify add failed: %d", errno);
-    goto fail;
+  if (cell_modem_scan_for_modem(ctx) != 0) {
+    piksi_log(LOG_DEBUG, "inital modem scan failed, waiting to retry");
+    pk_loop_timer_add(loop,
+                      OVERRIDE_RETRY_TIMER_PERIOD,
+                      override_probe_retry,
+                      ctx);
   }
-
-  inotify_ctx_t *ctx = calloc(1, sizeof(*ctx));
-
-  ctx->inotify_fd = inotify_fd;
-  ctx->pollitem.fd = inotify_fd;
-  ctx->pollitem.events = ZMQ_POLLIN|ZMQ_POLLERR;
-
-  ctx->loop = sbp_zmq_pubsub_zloop_get(pubsub_ctx);
-  zloop_poller(ctx->loop, &ctx->pollitem, inotify_output_cb, ctx);
-
-  cell_modem_scan_for_modem(ctx);
-
-  zloop_timer(sbp_zmq_pubsub_zloop_get(pubsub_ctx), 1000, 0, override_probe_retry, ctx);
 
   return ctx;
 
 fail:
-  piksi_log(LOG_DEBUG, "modem detection error, waiting to retry");
-  zloop_timer(sbp_zmq_pubsub_zloop_get(pubsub_ctx), 5000, 1, pppd_respawn, NULL);
+  piksi_log(LOG_DEBUG, "failed to create modem detection context, waiting to retry");
+  pk_loop_timer_add(loop, PPPD_RESPAWN_TIMEOUT, pppd_respawn, NULL);
   return NULL;
 }

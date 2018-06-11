@@ -21,11 +21,11 @@ define RTCM3_PROTOCOL_INSTALL_STAGING_CMDS
 endef
 
 define RTCM3_PROTOCOL_INSTALL_TARGET_CMDS
-    $(INSTALL) -d -m 0755 $(TARGET_DIR)/usr/lib/zmq_protocols
+    $(INSTALL) -d -m 0755 $(TARGET_DIR)/usr/lib/endpoint_protocols
     $(INSTALL) -D -m 0755 $(@D)/librtcm3_protocol.so*                         \
-                          $(TARGET_DIR)/usr/lib/zmq_protocols
-    $(INSTALL) -d -m 0755 $(TARGET_DIR)/etc/zmq_router
-    $(INSTALL) -D -m 0755 $(@D)/rtcm3_router.yml $(TARGET_DIR)/etc/zmq_router
+                          $(TARGET_DIR)/usr/lib/endpoint_protocols
+    $(INSTALL) -d -m 0755 $(TARGET_DIR)/etc/endpoint_router
+    $(INSTALL) -D -m 0755 $(@D)/rtcm3_router.yml $(TARGET_DIR)/etc/endpoint_router
 endef
 
 $(eval $(generic-package))

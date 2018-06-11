@@ -23,6 +23,7 @@
 #define LIBPIKSI_SETTINGS_H
 
 #include <libpiksi/common.h>
+#include <libpiksi/sbp_rx.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -195,83 +196,18 @@ int settings_add_watch(settings_ctx_t *ctx, const char *section,
                        void *notify_context);
 
 /**
- * @brief   Read and process incoming data.
- * @details Read and process a single incoming ZMQ message.
- *
- * @note    This function will block until a ZMQ message is received. For
- *          nonblocking operation, use the pollitem or reader APIs.
- *
- * @param[in] ctx           Pointer to the context to use.
- *
- * @return                  The operation result.
- * @retval 0                A message was successfully read and processed.
- * @retval -1               An error occurred.
- */
-int settings_read(settings_ctx_t *ctx);
-
-/**
- * @brief   Initialize a ZMQ pollitem.
- * @details Initialize a ZMQ pollitem to be used to poll the associated ZMQ
- *          socket for pending messages.
- *
- * @see     czmq, @c zmq_poll().
- *
- * @param[in] ctx           Pointer to the context to use.
- * @param[out] pollitem     Pointer to the ZMQ pollitem to initialize.
- *
- * @return                  The operation result.
- * @retval 0                The ZMQ pollitem was initialized successfully.
- * @retval -1               An error occurred.
- */
-int settings_pollitem_init(settings_ctx_t *ctx, zmq_pollitem_t *pollitem);
-
-/**
- * @brief   Check a ZMQ pollitem.
- * @details Check a ZMQ pollitem for pending messages and read a single
- *          incoming ZMQ message from the associated socket if available.
- *
- * @see     czmq, @c zmq_poll().
- *
- * @param[in] ctx           Pointer to the context to use.
- * @param[in] pollitem      Pointer to the ZMQ pollitem to check.
- *
- * @return                  The operation result.
- * @retval 0                The ZMQ pollitem was checked successfully.
- * @retval -1               An error occurred.
- */
-int settings_pollitem_check(settings_ctx_t *ctx, zmq_pollitem_t *pollitem);
-
-/**
- * @brief   Add a reader to a ZMQ loop.
- * @details Add a reader for the associated socket to a ZMQ loop. The reader
+ * @brief   Attach settings context to Piksi loop.
+ * @details Attach settings context to Piksi loop. Settings rx callbacks
  *          will be executed to process pending messages when available.
  *
- * @note    Pending messages will only be processed while the ZMQ loop is
- *          running. See @c zloop_start().
- *
- * @see     czmq, @c zloop_start().
- *
  * @param[in] ctx           Pointer to the context to use.
- * @param[in] zloop         Pointer to the ZMQ loop to use.
+ * @param[in] pk_loop       Pointer to the Piksi loop to use.
  *
  * @return                  The operation result.
- * @retval 0                The reader was added successfully.
+ * @retval 0                The settings reader was attached successfully.
  * @retval -1               An error occurred.
  */
-int settings_reader_add(settings_ctx_t *ctx, zloop_t *zloop);
-
-/**
- * @brief   Remove a reader from a ZMQ loop.
- * @details Remove a reader for the associated socket from a ZMQ loop.
- *
- * @param[in] ctx           Pointer to the context to use.
- * @param[in] zloop         Pointer to the ZMQ loop to use.
- *
- * @return                  The operation result.
- * @retval 0                The reader was removed successfully.
- * @retval -1               An error occurred.
- */
-int settings_reader_remove(settings_ctx_t *ctx, zloop_t *zloop);
+int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop);
 
 /**
  * @brief   Registers settings with the given context.

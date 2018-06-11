@@ -15,6 +15,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <linux/sockios.h>
 
@@ -23,6 +24,9 @@
 
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <curl/curl.h>
 

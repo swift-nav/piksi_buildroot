@@ -1,14 +1,16 @@
 TARGET=libpiksi
 SOURCES=\
-  sbp_zmq_tx.c \
-  sbp_zmq_rx.c \
-  sbp_zmq_pubsub.c \
+  sbp_tx.c \
+  sbp_rx.c \
+  sbp_pubsub.c \
   settings.c \
   util.c \
   logging.c \
   networking.c \
   interface.c \
-  runit.c
+  runit.c \
+  endpoint.c \
+  loop.c
 ARFLAGS=rcs $(LTO_PLUGIN)
 CFLAGS+=-std=gnu11 -fPIC -I../include
 LDFLAGS+=-shared

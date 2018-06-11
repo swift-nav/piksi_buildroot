@@ -17,7 +17,6 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
-#include <libpiksi/util.h>
 
 #include "ports.h"
 #include "protocols.h"
@@ -26,7 +25,7 @@
 
 #define PROGRAM_NAME "ports_daemon"
 
-#define PROTOCOL_LIBRARY_PATH "/usr/lib/zmq_protocols"
+#define PROTOCOL_LIBRARY_PATH "/usr/lib/endpoint_protocols"
 
 static bool debug = false;
 

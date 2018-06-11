@@ -27,21 +27,21 @@ respectively. Taken together, these run with:
 mkfifo /var/run/skylark/download /var/run/skylark/upload
 skylark_daemon --download --file /var/run/skylark/download --url https://broker.skylark2.swiftnav.com
 skylark_daemon --upload --file /var/run/skylark/upload --url https://broker.skylark2.swiftnav.com
-zmq_adapter --file /var/run/skylark/upload -s >tcp://127.0.0.1:43070
-zmq_adapter --file /var/run/skylark/download -p >tcp://127.0.0.1:43071
+endpoint_adapter --file /var/run/skylark/upload -s tcp://127.0.0.1:43070
+endpoint_adapter --file /var/run/skylark/download -p tcp://127.0.0.1:43071
 ```
 
 The upload and download modes read and write from two FIFOs they materialize:
-`/var/run/skylark/download` and `/var/run/skylark/upload`.  The ZMQ adapter
+`/var/run/skylark/download` and `/var/run/skylark/upload`.  The endpoint adapter
 processes manage the piping and framing of SBP via these pipes.  The dataflow
 here looks something like this:
 
 ```
 skylark_daemon (--download mode):
-  HTTP GET => callback writer => /var/run/skylark/download (FIFO) => ZMQ to Piksi Firmware
+  HTTP GET => callback writer => /var/run/skylark/download (FIFO) => endpoint to Piksi Firmware
 
 skylark_daemon (--upload mode):
-  ZMQ from Piksi Firmware => /var/run/skylark/upload (FIFO) => callback reader => HTTP PUT
+  endpoint from Piksi Firmware => /var/run/skylark/upload (FIFO) => callback reader => HTTP PUT
 ```
 
 ### Settings

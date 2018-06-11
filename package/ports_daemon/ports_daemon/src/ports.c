@@ -278,7 +278,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
    * Kill them here
    */
   if (port_config->type == PORT_TYPE_USB) {
-    (void)system("kill -9 `ps | grep GS0  | grep zmq_adapter | awk -F' ' '{print $1}'`");
+    (void)system("kill -9 `ps | grep GS0  | grep endpoint_adapter | awk -F' ' '{print $1}'`");
   }
 
   if (port_config->mode == MODE_DISABLED) {
@@ -291,7 +291,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
     return -1;
   }
 
-  /* Prepare the command used to launch zmq_adapter. */
+  /* Prepare the command used to launch endpoint_adapter. */
   char mode_opts[256] = {0};
   protocol->port_adapter_opts_get(mode_opts, sizeof(mode_opts),
                                   port_config->name);
@@ -302,10 +302,10 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   }
 
   snprintf(cmd, sizeof(cmd),
-           "zmq_adapter %s %s %s",
+           "endpoint_adapter %s %s %s",
            port_config->opts, opts, mode_opts);
 
-  piksi_log(LOG_DEBUG, "Starting zmq_adapter: %s", cmd);
+  piksi_log(LOG_DEBUG, "Starting endpoint_adapter: %s", cmd);
 
   return start_runit_service(&cfg);
 }

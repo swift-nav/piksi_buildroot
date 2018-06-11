@@ -10,21 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <float.h>
 #include <getopt.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-
-#include <czmq.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
-#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/sbp_pubsub.h>
+#include <libpiksi/loop.h>
 #include <libpiksi/settings.h>
-#include <libpiksi/util.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/observation.h>
@@ -42,12 +34,13 @@
 
 #define PROGRAM_NAME "health_daemon"
 
-#define SBP_SUB_ENDPOINT ">tcp://127.0.0.1:43030" /* SBP External Out */
-#define SBP_PUB_ENDPOINT ">tcp://127.0.0.1:43031" /* SBP External In */
+#define SBP_SUB_ENDPOINT "tcp://127.0.0.1:43030" /* SBP External Out */
+#define SBP_PUB_ENDPOINT "tcp://127.0.0.1:43031" /* SBP External In */
 
 struct health_ctx_s {
-  double health_debug;
-  sbp_zmq_pubsub_ctx_t *sbp_ctx;
+  bool health_debug;
+  pk_loop_t *loop;
+  sbp_pubsub_ctx_t *sbp_ctx;
   settings_ctx_t *settings_ctx;
 };
 
@@ -56,7 +49,12 @@ bool health_context_get_debug(health_ctx_t *health_ctx)
   return health_ctx->health_debug;
 }
 
-sbp_zmq_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx)
+pk_loop_t *health_context_get_loop(health_ctx_t *health_ctx)
+{
+  return health_ctx->loop;
+}
+
+sbp_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx)
 {
   return health_ctx->sbp_ctx;
 }
@@ -66,7 +64,12 @@ settings_ctx_t *health_context_get_settings_ctx(health_ctx_t *health_ctx)
   return health_ctx->settings_ctx;
 }
 
-static health_ctx_t health_ctx = { .health_debug = false, .sbp_ctx = NULL };
+static health_ctx_t health_ctx = {
+  .health_debug = false,
+  .loop = NULL,
+  .sbp_ctx = NULL,
+  .settings_ctx = NULL
+};
 
 static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
   { baseline_threshold_health_monitor_init,
@@ -126,11 +129,14 @@ int main(int argc, char *argv[])
 
   piksi_log(LOG_DEBUG, "Startup...");
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
+  health_ctx.loop = pk_loop_create();
+  if (health_ctx.loop == NULL) {
+    status = EXIT_FAILURE;
+    goto cleanup;
+  }
 
   health_ctx.sbp_ctx =
-    sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+    sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (health_ctx.sbp_ctx == NULL) {
     status = EXIT_FAILURE;
     goto cleanup;
@@ -143,8 +149,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  if (settings_reader_add(health_ctx.settings_ctx,
-                          sbp_zmq_pubsub_zloop_get(health_ctx.sbp_ctx)) != 0) {
+  if (settings_attach(health_ctx.settings_ctx, health_ctx.loop) != 0) {
     sbp_log(LOG_ERR, "Error registering for settings read!");
     status = EXIT_FAILURE;
     goto cleanup;
@@ -157,19 +162,18 @@ int main(int argc, char *argv[])
   }
 
   piksi_log(LOG_DEBUG, "Running...");
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(health_ctx.sbp_ctx));
+  pk_loop_run_simple(health_ctx.loop);
 
   for (u8 i = 0; i < health_monitor_init_pairs_n; i++) {
     health_monitor_init_pairs[i].deinit();
   }
 
-  sbp_zmq_pubsub_destroy(&health_ctx.sbp_ctx);
-
 cleanup:
   piksi_log(LOG_DEBUG, "Shutdown...");
-  sbp_zmq_pubsub_destroy(&health_ctx.sbp_ctx);
+  pk_loop_destroy(&health_ctx.loop);
+  sbp_pubsub_destroy(&health_ctx.sbp_ctx);
   settings_destroy(&health_ctx.settings_ctx);
   logging_deinit();
 
-  return status;
+  exit(status);
 }

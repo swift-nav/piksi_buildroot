@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "minIni/minIni.h"
 
@@ -160,7 +161,7 @@ static void settings_register_callback(u16 sender_id, u8 len, u8 msg[], void *co
 {
   (void)sender_id;
 
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   const char *section = NULL, *setting = NULL, *value = NULL, *type = NULL;
   if (!settings_parse_setting(len, msg, &section, &setting, &value, &type))
@@ -182,8 +183,8 @@ static void settings_register_callback(u16 sender_id, u8 len, u8 msg[], void *co
   /* Reply with write message with our value */
   char buf[256];
   size_t rlen = settings_format_setting(s, buf, sizeof(buf), false);
-  sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
-                       rlen, (u8*)buf, SBP_SENDER_ID);
+  sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE,
+                   rlen, (u8*)buf, SBP_SENDER_ID);
 }
 
 static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
@@ -223,7 +224,7 @@ static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void
 
 static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   if (sender_id != SBP_SENDER_ID) {
     piksi_log(LOG_WARNING, "Invalid sender");
@@ -236,12 +237,12 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   u8 buflen;
 
   if (len == 0) {
-    piksi_log(LOG_WARNING, "Error in settings read message");
+    piksi_log(LOG_WARNING, "Error in settings read message: length is zero");
     return;
   }
 
   if (msg[len-1] != '\0') {
-    piksi_log(LOG_WARNING, "Error in settings read message");
+    piksi_log(LOG_WARNING, "Error in settings read message: null string");
     return;
   }
 
@@ -260,7 +261,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
         if (i == len-1)
           break;
       default:
-        piksi_log(LOG_WARNING, "Error in settings read message");
+        piksi_log(LOG_WARNING, "Error in settings read message: parse error");
         return;
       }
     }
@@ -268,18 +269,18 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
 
   s = settings_lookup(section, setting);
   if (s == NULL) {
-    piksi_log(LOG_WARNING, "Error in settings read message");
+    piksi_log(LOG_WARNING, "Error in settings read message: setting not found (%s.%s)", section, setting);
     return;
   }
 
   buflen = settings_format_setting(s, buf, sizeof(buf), true);
-  sbp_zmq_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_RESP, buflen, (void*)buf);
+  sbp_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_RESP, buflen, (void*)buf);
   return;
 }
 
 static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   if (sender_id != SBP_SENDER_ID) {
     piksi_log(LOG_WARNING, "Invalid sender");
@@ -300,7 +301,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
     ;
 
   if (s == NULL) {
-    sbp_zmq_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_DONE, 0, NULL);
+    sbp_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_DONE, 0, NULL);
     return;
   }
 
@@ -308,7 +309,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   buf[buflen++] = msg[0];
   buf[buflen++] = msg[1];
   buflen += settings_format_setting(s, buf + buflen, sizeof(buf) - buflen, true);
-  sbp_zmq_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_RESP, buflen, (void*)buf);
+  sbp_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_RESP, buflen, (void*)buf);
 }
 
 static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *context)
@@ -345,7 +346,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
 {
   (void)sender_id;
 
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   const char *section = NULL, *setting = NULL, *value = NULL, *type = NULL;
   if (settings_parse_setting(len, msg, &section, &setting, &value, &type) &&
@@ -357,24 +358,24 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
 
   u8 resp[] = {SBP_WRITE_STATUS_SETTING_REJECTED};
   /* Reply with write response rejecting this setting */
-  sbp_zmq_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP,
-                       sizeof(resp), resp, SBP_SENDER_ID);
+  sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP,
+                   sizeof(resp), resp, SBP_SENDER_ID);
 }
 
-void settings_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx)
+void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx)
 {
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_SAVE,
-                               settings_save_callback, tx_ctx, NULL);
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE,
-                               settings_write_callback, tx_ctx, NULL);
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE_RESP,
-                               settings_write_reply_callback, tx_ctx, NULL);
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_REQ,
-                               settings_read_callback, tx_ctx, NULL);
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_REQ,
-                               settings_read_by_index_callback, tx_ctx, NULL);
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_REGISTER,
-                               settings_register_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_SAVE,
+                           settings_save_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE,
+                           settings_write_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE_RESP,
+                           settings_write_reply_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_REQ,
+                           settings_read_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_REQ,
+                           settings_read_by_index_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_REGISTER,
+                           settings_register_callback, tx_ctx, NULL);
 }
 
 void settings_reset_defaults(void)

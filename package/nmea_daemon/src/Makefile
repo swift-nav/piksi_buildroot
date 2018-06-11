@@ -1,6 +1,6 @@
 TARGET=nmea_daemon
 SOURCES= nmea_daemon.c
-LIBS=-lczmq -lsbp -lpiksi -lgnss_converters
+LIBS=-luv -lnanomsg -lsbp -lpiksi -lgnss_converters
 CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror -ggdb
 
 CROSS=

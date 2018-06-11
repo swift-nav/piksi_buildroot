@@ -1,4 +1,0 @@
-config BR2_PACKAGE_ZMQ_ROUTER
-	bool "zmq_router"
-	select BR2_PACKAGE_CZMQ
-	select BR2_PACKAGE_LIBYAML

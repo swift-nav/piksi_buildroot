@@ -12,6 +12,8 @@
 
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
 
 #include "led_adp8866.h"
 #include "led_adp8866_regs.h"

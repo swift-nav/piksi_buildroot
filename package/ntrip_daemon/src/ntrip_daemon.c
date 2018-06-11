@@ -14,18 +14,13 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
-#include <libpiksi/sbp_zmq_rx.h>
 #include <libpiksi/settings.h>
-#include <libpiksi/util.h>
 #include <libnetwork.h>
 
 #include "ntrip_settings.h"
-
-#define PUB_ENDPOINT ">tcp://127.0.0.1:43011"
-#define SUB_ENDPOINT ">tcp://127.0.0.1:43010"
 
 #define NTRIP_CONTROL_FILE "/var/run/ntrip/control/socket"
 #define NTRIP_CONTROL_SOCK "ipc://" NTRIP_CONTROL_FILE
