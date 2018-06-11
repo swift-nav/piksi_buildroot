@@ -169,7 +169,7 @@ static network_context_t empty_context = {
 #define HTTP_RESPONSE_CODE_OK (200L)
 #define NTRIP_DROPPED_CONNECTION_WARNING "Connection dropped with no data. This may be because this NTRIP caster expects an NMEA GGA string to be sent from the receiver. You can enable this through the ntrip.gga_period setting."
 
-static void trim_crlf(char* buf) __attribute__((nonnull(1)));
+static void trim_crlf(char* buf, size_t *byte_count) __attribute__((nonnull(1)));
 static void log_with_rate_limit(network_context_t* ctx, int priority, const char *format, ...)
   __attribute__((nonnull(1,3)));
 
@@ -491,10 +491,11 @@ static size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
   return -1;
 }
 
-static void trim_crlf(char* buf)
+static void trim_crlf(char *buf, size_t *byte_count)
 {
   char *crlf = strstr(buf, "\r\n");
   if (crlf != NULL) *crlf = '\0';
+  if (byte_count != NULL) *byte_count = strlen(buf) + 1;
 }
 
 static void cache_gga_xfer_buffer(network_context_t *ctx, char* buf, size_t buflen, size_t fill)
@@ -568,7 +569,7 @@ static size_t fetch_gga_string(network_context_t *ctx, char *buf, size_t buf_siz
 
   // Null terminate
   buf[byte_count] = '\0';
-  trim_crlf(buf);
+  trim_crlf(buf, &byte_count);
 
   ctx->gga_error_count = 0;
 
@@ -615,7 +616,7 @@ static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
   if (ctx->debug) {
     char gga_buf_log[256] = {0};
     strncpy(gga_buf_log, buf, sizeof(gga_buf_log) - 1);
-    trim_crlf(gga_buf_log);
+    trim_crlf(gga_buf_log, NULL);
     piksi_log(LOG_DEBUG, "Sending up GGA data: '%s'", gga_buf_log);
   }
 
