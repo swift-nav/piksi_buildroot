@@ -22,15 +22,17 @@ static bool ntrip_debug;
 static char ntrip_username[256];
 static char ntrip_password[256];
 static char ntrip_url[256];
-static char ntrip_interval_s[16];
-
 static int ntrip_interval = 0;
+static char ntrip_interval_s[16];
+static bool ntrip_rev1gga = false;
+static char ntrip_rev1gga_s[] = "n";
 
 static char *ntrip_argv_normal[] = {
   "ntrip_daemon",
   "--file", FIFO_FILE_PATH,
   "--url", ntrip_url,
   "--interval", ntrip_interval_s,
+  "--rev1gga", ntrip_rev1gga_s,
   NULL,
 };
 
@@ -40,6 +42,7 @@ static char *ntrip_argv_debug[] = {
   "--file", FIFO_FILE_PATH,
   "--url", ntrip_url,
   "--interval", ntrip_interval_s,
+  "--rev1gga", ntrip_rev1gga_s,
   NULL,
 };
 
@@ -50,6 +53,7 @@ static char *ntrip_argv_username[] = {
   "--password", ntrip_password,
   "--url", ntrip_url,
   "--interval", ntrip_interval_s,
+  "--rev1gga", ntrip_rev1gga_s,
   NULL,
 };
 
@@ -61,6 +65,7 @@ static char *ntrip_argv_username_debug[] = {
   "--password", ntrip_password,
   "--url", ntrip_url,
   "--interval", ntrip_interval_s,
+  "--rev1gga", ntrip_rev1gga_s,
   NULL,
 };
 
@@ -100,6 +105,7 @@ static int ntrip_notify(void *context)
   (void)context;
 
   snprintf(ntrip_interval_s, sizeof(ntrip_interval_s), "%d", ntrip_interval);
+  ntrip_rev1gga_s[0] = ntrip_rev1gga ? 'y' : 'n';
 
   for (int i=0; i<ntrip_processes_count; i++) {
     ntrip_process_t *process = &ntrip_processes[i];
@@ -177,6 +183,11 @@ void ntrip_init(settings_ctx_t *settings_ctx)
   settings_register(settings_ctx, "ntrip", "gga_out_interval",
                     &ntrip_interval, sizeof(ntrip_interval),
                     SETTINGS_TYPE_INT,
+                    ntrip_notify, NULL);
+
+  settings_register(settings_ctx, "ntrip", "gga_out_rev1",
+                    &ntrip_rev1gga, sizeof(ntrip_rev1gga),
+                    SETTINGS_TYPE_BOOL,
                     ntrip_notify, NULL);
 }
 

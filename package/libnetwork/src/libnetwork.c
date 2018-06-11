@@ -110,6 +110,8 @@ struct network_context_s {
   size_t gga_xfer_fill;        /**< How much of the GGA sentence buffer is filled */
 
   int gga_error_count;         /**< Number of consecutive errors reading GGA file */
+
+  bool gga_rev1;               /**< Should we use rev1 style GGA sentence? */
 };
 
 struct context_node {
@@ -154,6 +156,7 @@ static network_context_t empty_context = {
   .gga_xfer_buflen = 0,
   .gga_xfer_fill = 0,
   .gga_error_count = 0,
+  .gga_rev1 = false,
 };
 
 #define NMEA_GGA_FILE "/var/run/nmea/GGA"
@@ -162,6 +165,8 @@ static network_context_t empty_context = {
 #define NTRIP_DROPPED_CONNECTION_WARNING "Connection dropped with no data. This may be because this NTRIP caster expects an NMEA GGA string to be sent from the receiver. You can enable this through the ntrip.gga_period setting."
 
 static void trim_crlf(char* buf) __attribute__((nonnull(1)));
+static void log_with_rate_limit(network_context_t* ctx, int priority, const char *format, ...)
+  __attribute__((nonnull(1,3)));
 
 void libnetwork_shutdown()
 {
@@ -372,6 +377,12 @@ network_status_t libnetwork_set_gga_upload_interval(network_context_t* context, 
   return NETWORK_STATUS_SUCCESS;
 }
 
+network_status_t libnetwork_set_gga_upload_rev1(network_context_t* context, bool use_rev1)
+{
+  context->gga_rev1 = use_rev1;
+  return NETWORK_STATUS_SUCCESS;
+}
+
 static void warn_on_pipe_full(int fd, size_t pending_write, bool debug)
 {
   static time_t last_pipe_warn_time = 0;
@@ -559,10 +570,6 @@ static size_t fetch_gga_string(network_context_t *ctx, char *buf, size_t buf_siz
   fclose(fp_gga_cache);
   cache_gga_xfer_buffer(ctx, buf, buf_size, byte_count);
 
-  if (ctx->debug) {
-    piksi_log(LOG_DEBUG, "Sending up GGA data: '%s'", buf);
-  }
-
   return byte_count;
 }
 
@@ -586,12 +593,25 @@ static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
     return CURL_READFUNC_PAUSE;
   }
 
-  size_t header_size = snprintf(buf, size*n, "Ntrip-GGA: %s\r\n", gga_buf);
+  size_t header_size = 0;
+
+  if (ctx->gga_rev1) {
+    header_size = snprintf(buf, size*n, "%s\r\n", gga_buf);
+  } else {
+    header_size = snprintf(buf, size*n, "Ntrip-GGA: %s\r\n", gga_buf);
+  }
 
   if ( header_size >= size*n ) {
     sbp_log(LOG_ERR|LOG_SBP, "%s: unexpected buffer error building GGA string (%s:%d)",
             __FUNCTION__, __FILE__, __LINE__);
     return CURL_READFUNC_PAUSE;
+  }
+
+  if (ctx->debug) {
+    char gga_buf_log[256] = {0};
+    strncpy(gga_buf_log, buf, sizeof(gga_buf_log) - 1);
+    trim_crlf(gga_buf_log);
+    piksi_log(LOG_DEBUG, "Sending up GGA data: '%s'", gga_buf_log);
   }
 
   ctx->last_xfer_time = now;
@@ -687,7 +707,7 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
   if (ctx->bytes_transfered == bytes) {
     if (ctx->stall_count++ > MAX_STALLED_INTERVALS) {
 
-      sbp_log(LOG_WARNING, "connection stalled");
+      log_with_rate_limit(ctx, LOG_WARNING, "connection stalled");
       ctx->stall_count = 0;
 
       return -1;
@@ -828,6 +848,27 @@ static int network_response_code_check(network_context_t* ctx)
   return result;
 }
 
+static void log_with_rate_limit(network_context_t* ctx, int priority, const char *format, ...)
+{
+  time_t current_time = time(NULL);
+  time_t last_error_delta = current_time - ctx->last_curl_error_time;
+
+  int facpri = priority;
+
+  if (last_error_delta >= ERROR_REPORTING_INTERVAL && ctx->report_errors) {
+    facpri =  LOG_SBP|LOG_WARNING;
+    ctx->last_curl_error_time = current_time;
+  }
+
+  va_list ap;
+  va_start(ap, format);
+
+  piksi_vlog(facpri, format, ap);
+
+  va_end(ap);
+}
+
+
 static void network_request(network_context_t* ctx, CURL *curl)
 {
   char error_buf[CURL_ERROR_SIZE];
@@ -860,17 +901,10 @@ static void network_request(network_context_t* ctx, CURL *curl)
     ctx->response_code = response;
 
     if (code != CURLE_OK) {
-      time_t current_time = time(NULL);
-      time_t last_error_delta = current_time - ctx->last_curl_error_time;
-      int facpri = LOG_WARNING;
-      if (last_error_delta >= ERROR_REPORTING_INTERVAL && ctx->report_errors) {
-        facpri =  LOG_SBP|LOG_WARNING;
-        ctx->last_curl_error_time = current_time;
-      }
-      piksi_log(facpri, "curl request (error: %d) \"%s\"", code, error_buf);
+      log_with_rate_limit(ctx, LOG_WARNING, "curl request (error: %d) \"%s\"", code, error_buf);
     } else {
       if (response != 0) {
-        piksi_log(LOG_SBP|LOG_INFO, "curl request code %d", response);
+        log_with_rate_limit(ctx, LOG_WARNING, "curl request (code: %d) \"%s\"", code, error_buf);
         network_response_code_check(ctx);
       }
     }
