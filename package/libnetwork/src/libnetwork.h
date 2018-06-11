@@ -84,50 +84,35 @@ void libnetwork_destroy(network_context_t **ctx);
 /**
  * @brief Set the FD for this context
  *
- * @return                   The operation result.
- *
- * @retval  0                The setting was registered successfully.
- * @retval <0                An error occurred. @see @c network_status_t
+ * @return                   The operation result.  See @ref network_status_t.
  */
 network_status_t libnetwork_set_fd(network_context_t* context, int fd);
 
 /**
  * @brief Set the username for this context
  *
- * @return                   The operation result.
- *
- * @retval  0                The setting was registered successfully.
- * @retval <0                An error occurred. @see @c network_status_t
+ * @return                   The operation result.  See @ref network_status_t.
  */
 network_status_t libnetwork_set_username(network_context_t* context, const char* username);
 
 /**
  * @brief Set the password for this context
  *
- * @return                   The operation result.
- *
- * @retval  0                The setting was registered successfully.
- * @retval <0                An error occurred. @see @c network_status_t
+ * @return                   The operation result.  See @ref network_status_t.
  */
 network_status_t libnetwork_set_password(network_context_t* context, const char* password);
 
 /**
  * @brief Set the url for this context
  *
- * @return                   The operation result.
- *
- * @retval  0                The setting was registered successfully.
- * @retval <0                An error occurred. @see @c network_status_t
+ * @return                   The operation result.  See @ref network_status_t.
  */
 network_status_t libnetwork_set_url(network_context_t* context, const char* url);
 
 /**
  * @brief Set the debug flag for this context
  *
- * @return                   The operation result.
- *
- * @retval  0                The setting was registered successfully.
- * @retval <0                An error occurred. @see @c network_status_t
+ * @return                   The operation result.  See @ref network_status_t.
  */
 network_status_t libnetwork_set_debug(network_context_t* context, bool debug);
 
@@ -136,12 +121,18 @@ network_status_t libnetwork_set_debug(network_context_t* context, bool debug);
  *
  * @param[in] gga_interval   The GGA upload interval in seconds.
  *
- * @return                   The operation result.
- *
- * @retval  0                The setting was registered successfully.
- * @retval <0                An error occurred. @see @c network_status_t
+ * @return                   The operation result.  See @ref network_status_t.
  */
 network_status_t libnetwork_set_gga_upload_interval(network_context_t* context, int gga_interval);
+
+/**
+ * @brief Set the NTRIP GGA upload style to NTRIP 1.0
+ *
+ * @param[in] use_rev1       If true, the NTRIP GGA string will be formatted according to NTRIP 1.0
+ *
+ * @return                   The operation result.  See @ref network_status_t.
+ */
+network_status_t libnetwork_set_gga_upload_rev1(network_context_t* context, bool use_rev1);
 
 /**
  * @brief   Download from ntrip.
