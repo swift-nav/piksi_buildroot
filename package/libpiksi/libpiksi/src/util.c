@@ -44,15 +44,6 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
-static int zloop_timer_handler(zloop_t *loop, int timer_id, void *arg)
-{
-  (void)loop;
-  (void)timer_id;
-  (void)arg;
-
-  return -1;
-}
-
 u16 sbp_sender_id_get(void)
 {
   u16 sbp_sender_id = SBP_SENDER_ID;
@@ -99,39 +90,3 @@ bool device_is_duro(void)
                  strlen(DEVICE_DURO_ID_STRING)) == 0);
 }
 
-int zmq_simple_loop(zloop_t *zloop)
-{
-  assert(zloop != NULL);
-
-  while (1) {
-    int zloop_ret = zloop_start(zloop);
-    if (zloop_ret == 0) {
-      /* Interrupted */
-      continue;
-    } else if (zloop_ret == -1) {
-      /* Canceled by a handler */
-      return 0;
-    } else {
-      /* Error occurred */
-      piksi_log(LOG_ERR, "error in zloop");
-      return -1;
-    }
-  }
-}
-
-int zmq_simple_loop_timeout(zloop_t *zloop, u32 timeout_ms)
-{
-  assert(zloop != NULL);
-
-  zloop_set_ticket_delay(zloop, timeout_ms);
-
-  void *ticket = zloop_ticket(zloop, zloop_timer_handler, NULL);
-  if (ticket == NULL) {
-    piksi_log(LOG_ERR, "error creating zloop ticket");
-    return -1;
-  }
-
-  int result = zmq_simple_loop(zloop);
-  zloop_ticket_delete(zloop, ticket);
-  return result;
-}

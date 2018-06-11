@@ -16,7 +16,6 @@
 #include <libnetwork.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/navigation.h>

@@ -13,10 +13,10 @@
 #ifndef SWIFTNAV_SETTINGS_H
 #define SWIFTNAV_SETTINGS_H
 
-#include <libpiksi/sbp_zmq_rx.h>
-#include <libpiksi/sbp_zmq_tx.h>
+#include <libpiksi/sbp_rx.h>
+#include <libpiksi/sbp_tx.h>
 
-void settings_setup(sbp_zmq_rx_ctx_t *rx_ctx, sbp_zmq_tx_ctx_t *tx_ctx);
+void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx);
 void settings_reset_defaults(void);
 
 #endif  /* SWIFTNAV_SETTINGS_H */

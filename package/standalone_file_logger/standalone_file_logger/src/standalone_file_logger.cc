@@ -11,16 +11,15 @@
  */
 
 #include <assert.h>
-#include <czmq.h>
 #include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <libpiksi/loop.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/util.h>
 
 #include "rotating_logger.h"
 
@@ -46,14 +45,14 @@ static bool copy_system_logs_enable = false;
 
 static int poll_period_s = POLL_PERIOD_DEFAULT_s;
 
-static const char *zmq_sub_endpoint = nullptr;
+static const char *pk_sub_endpoint = nullptr;
 
 static RotatingLogger* logger = nullptr;
 
 static void usage(char *command) {
   printf("Usage: %s\n", command);
 
-  puts("\nSource - zmq sub endpoint");
+  puts("\nSource - sub endpoint");
   puts("\t-s, --sub <addr>");
 
   puts("\nSink Directory - directory to write logs");
@@ -93,7 +92,7 @@ static int parse_options(int argc, char *argv[]) {
   while ((c = getopt_long(argc, argv, "s:d:", long_opts, &opt_index)) != -1) {
     switch (c) {
       case 's': {
-        zmq_sub_endpoint = optarg;
+        pk_sub_endpoint = optarg;
       } break;
 
       case 'd': {
@@ -123,7 +122,7 @@ static int parse_options(int argc, char *argv[]) {
     }
   }
 
-  if (zmq_sub_endpoint == nullptr) {
+  if (pk_sub_endpoint == nullptr) {
     piksi_log(LOG_ERR, "Must specify source");
     return -1;
   }
@@ -134,15 +133,6 @@ static int parse_options(int argc, char *argv[]) {
   }
 
   return 0;
-}
-
-static void sigchld_handler(int signum) {
-  (void)signum;
-  int saved_errno = errno;
-  while (waitpid(-1, nullptr, WNOHANG) > 0) {
-    ;
-  }
-  errno = saved_errno;
 }
 
 static void process_log_callback(int priority, const char *msg_text)
@@ -237,15 +227,64 @@ static int setting_usb_logging_notify(void *context)
   return 0;
 }
 
-static void terminate_handler(int signum) {
+static int log_frame_callback(const u8 *data, const size_t length, void *context)
+{
+  if (logger != nullptr) {
+    logger->frame_handler(data, length);
+  }
+  return 0;
+}
+
+static void sub_poll_handler(pk_loop_t *loop, void *handle, void *context)
+{
+  (void)loop;
+  (void)handle;
+  pk_endpoint_t *pk_ept = (pk_endpoint_t *)context;
+  if (pk_endpoint_receive(pk_ept, log_frame_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s",
+        __FUNCTION__, "pk_endpoint_receive", __FILE__, __LINE__,
+        pk_endpoint_strerror());
+  }
+  return;
+}
+
+static void sigchld_handler(int signum) {
+  (void)signum;
+  int saved_errno = errno;
+  while (waitpid(-1, nullptr, WNOHANG) > 0) {
+    ;
+  }
+  errno = saved_errno;
+}
+
+static void terminate_handler(pk_loop_t *loop, void *handle, void *context)
+{
+  (void)context;
+  int signum = pk_loop_get_signal_from_handle(handle);
 
   stop_logging();
 
   /* Send this signal to the entire process group */
   killpg(0, signum);
 
-  /* Exit */
-  _exit(EXIT_SUCCESS);
+  pk_loop_stop(loop);
+}
+
+static int setup_terminate_handler(pk_loop_t *pk_loop)
+{
+  if (pk_loop_signal_handler_add(pk_loop, SIGINT, terminate_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
+    return -1;
+  }
+  if (pk_loop_signal_handler_add(pk_loop, SIGTERM, terminate_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
+    return -1;
+  }
+  if (pk_loop_signal_handler_add(pk_loop, SIGQUIT, terminate_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
+    return -1;
+  }
+  return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -255,11 +294,16 @@ int main(int argc, char *argv[]) {
 
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(nullptr);
+
+  pk_loop_t *loop = pk_loop_create();
+  if (loop == NULL) {
+    exit(EXIT_FAILURE);
+  }
 
   signal(SIGPIPE, SIG_IGN); /* Allow write to return an error */
 
@@ -273,37 +317,32 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  /* Set up handler for signals which should terminate the program */
-  struct sigaction terminate_sa;
-  terminate_sa.sa_handler = terminate_handler;
-  sigemptyset(&terminate_sa.sa_mask);
-  terminate_sa.sa_flags = 0;
-  if ((sigaction(SIGINT, &terminate_sa, nullptr) != 0) ||
-      (sigaction(SIGTERM, &terminate_sa, nullptr) != 0) ||
-      (sigaction(SIGQUIT, &terminate_sa, nullptr) != 0)) {
+  if (setup_terminate_handler(loop) != 0) {
     piksi_log(LOG_ERR, "error setting up terminate handler");
     exit(EXIT_FAILURE);
   }
 
-  zmq_pollitem_t items[2];
-
-  zsock_t * zmq_sub = zsock_new_sub(zmq_sub_endpoint, "");
-  if (zmq_sub == nullptr) {
+  pk_endpoint_t *pk_sub = pk_endpoint_create(pk_sub_endpoint, PK_ENDPOINT_SUB);
+  if (pk_sub == nullptr) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(EXIT_FAILURE);
   }
-  items[0] = (zmq_pollitem_t) {
-    .socket = zsock_resolve(zmq_sub),
-    .fd = 0,
-    .events = ZMQ_POLLIN,
-    .revents = 0
-  };
+
+  if (pk_loop_endpoint_reader_add(loop, pk_sub, sub_poll_handler, pk_sub) == NULL) {
+    piksi_log(LOG_ERR, "error adding SUB reader");
+    exit(EXIT_FAILURE);
+  }
 
   /* Set up settings */
   settings_ctx_t *settings_ctx = settings_create();
   if (settings_ctx == nullptr) {
     exit(EXIT_FAILURE);
   }
+  if (settings_attach(settings_ctx, loop) != 0) {
+    piksi_log(LOG_ERR, "error adding settings reader");
+    exit(EXIT_FAILURE);
+  }
+
   /* Register settings */
   settings_register(settings_ctx, "standalone_logging", "enable", &setting_usb_logging_enable,
                     sizeof(setting_usb_logging_enable), SETTINGS_TYPE_BOOL,
@@ -317,7 +356,6 @@ int main(int argc, char *argv[]) {
   settings_register(settings_ctx, "standalone_logging", "file_duration", &setting_usb_logging_slice_duration,
                     sizeof(setting_usb_logging_slice_duration), SETTINGS_TYPE_INT,
                     &setting_usb_logging_notify, nullptr);
-  settings_pollitem_init(settings_ctx, &items[1]);
 
   settings_type_t settings_type_logging_filesystem;
   settings_type_register_enum(settings_ctx,
@@ -333,32 +371,10 @@ int main(int argc, char *argv[]) {
 
   process_log_callback(LOG_INFO, "Starting");
 
-  while (true) {
-    int ret = zmq_poll(items, 2, -1);
+  pk_loop_run_simple(loop);
 
-    if (ret == -1) {
-      piksi_log(LOG_ERR, "poll failed");
-      exit(EXIT_FAILURE);
-    }
-
-    if (items[0].revents & ZMQ_POLLIN) {
-      zmsg_t *msg = zmsg_recv(zmq_sub);
-      if (msg == nullptr) {
-        continue;
-      }
-      if (logger != nullptr) {
-        zframe_t *frame;
-        for (frame = zmsg_first(msg); frame != nullptr; frame = zmsg_next(msg)) {
-          logger->frame_handler(zframe_data(frame), zframe_size(frame));
-        }
-      }
-      zmsg_destroy(&msg);
-    }
-
-    settings_pollitem_check(settings_ctx, &items[1]);
-  }
-
-  zsock_destroy(&zmq_sub);
+  pk_loop_destroy(&loop);
+  pk_endpoint_destroy(&pk_sub);
   settings_destroy(&settings_ctx);
 
   exit(EXIT_SUCCESS);

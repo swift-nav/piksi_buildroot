@@ -2,7 +2,7 @@ TARGET=test_standalone_file_logger
 SOURCES= \
 	run_rotating_logger_test.cc
 LIBS= \
-	-lczmq -lzmq -lsbp -lpiksi -lpthread -lgtest \
+	-luv -lczmq -lzmq -lsbp -lpiksi -lpthread -lgtest \
 	../src/standalone_file_logger.a
 CFLAGS=-std=gnu++11 -z muldefs -I../src
 

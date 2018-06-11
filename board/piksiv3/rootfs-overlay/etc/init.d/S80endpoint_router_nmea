@@ -1,0 +1,13 @@
+#!/bin/sh
+
+name="endpoint_router_nmea"
+cmd="endpoint_router -f /etc/endpoint_router/nmea_router.yml"
+dir="/"
+user="rt_nmea"
+
+setup_permissions()
+{
+  add_service_user $user
+}
+
+source /etc/init.d/template_runsv.inc.sh

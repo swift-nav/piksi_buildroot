@@ -45,7 +45,7 @@ echo "Performing upgrade..." |  sbp_log $LOGLEVEL
 echo "Performing upgrade..."
 # Killing monit and USB logger
 monit stop standalone_file_logger
-monit stop zmq_adapter_rpmsg_piksi100
+monit stop endpoint_adapter_rpmsg_piksi100
 upgrade_tool_output=$(upgrade_tool $FIRMWARE) 
 RETVAL=$?
 echo $upgrade_tool_output | sbp_log $LOGLEVEL

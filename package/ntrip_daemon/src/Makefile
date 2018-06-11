@@ -1,6 +1,6 @@
 TARGET=ntrip_daemon
 SOURCES=ntrip_daemon.c ntrip_settings.c
-LIBS=-lcurl -lczmq -lsbp -lpiksi -lnetwork -lzmq
+LIBS=-luv -lcurl -lczmq -lsbp -lpiksi -lnetwork -lzmq
 CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror
 
 CROSS=

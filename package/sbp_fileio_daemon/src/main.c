@@ -10,9 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/util.h>
 #include <getopt.h>
 #include "sbp_fileio.h"
 
@@ -91,7 +90,7 @@ static int parse_options(int argc, char *argv[])
   }
 
   if ((pub_endpoint == NULL) || (sub_endpoint == NULL)) {
-    printf("ZMQ endpoints not specified\n");
+    printf("Endpoints not specified\n");
     return -1;
   }
 
@@ -105,30 +104,45 @@ static int parse_options(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+  int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
     usage(argv[0]);
-    exit(EXIT_FAILURE);
+    goto cleanup;
   }
 
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
-  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(pub_endpoint, sub_endpoint);
+  sbp_pubsub_ctx_t *ctx = sbp_pubsub_create(pub_endpoint, sub_endpoint);
   if (ctx == NULL) {
-    exit(EXIT_FAILURE);
+    goto cleanup;
+  }
+
+  pk_loop_t *loop = pk_loop_create();
+  if (loop == NULL) {
+    goto cleanup;
+  }
+
+  if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx), loop) != 0) {
+    goto cleanup;
   }
 
   sbp_fileio_setup(basedir_path,
                    allow_factory_mtd,
                    allow_imageset_bin,
-                   sbp_zmq_pubsub_rx_ctx_get(ctx),
-                   sbp_zmq_pubsub_tx_ctx_get(ctx));
+                   sbp_pubsub_rx_ctx_get(ctx),
+                   sbp_pubsub_tx_ctx_get(ctx));
 
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
+  pk_loop_run_simple(loop);
 
-  sbp_zmq_pubsub_destroy(&ctx);
-  exit(EXIT_SUCCESS);
+  ret = EXIT_SUCCESS;
+
+cleanup:
+  sbp_pubsub_destroy(&ctx);
+  pk_loop_destroy(&loop);
+  logging_deinit();
+  exit(ret);
 }

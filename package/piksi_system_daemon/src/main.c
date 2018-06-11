@@ -10,8 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/settings.h>
+#include <libpiksi/loop.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libpiksi/runit.h>
@@ -87,7 +88,7 @@ static int eth_ip_config_notify(void *context)
 
 static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx = (sbp_zmq_pubsub_ctx_t *)context;
+  sbp_pubsub_ctx_t *pubsub_ctx = (sbp_pubsub_ctx_t *)context;
 
   msg_network_state_resp_t interfaces[SBP_MAX_NETWORK_INTERFACES];
   memset(interfaces, 0, sizeof(interfaces));
@@ -97,7 +98,7 @@ static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void* context)
 
   for (int i = 0; i < total_interfaces; i++)
   {
-    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
+    sbp_tx_send(sbp_pubsub_tx_ctx_get(pubsub_ctx),
                     SBP_MSG_NETWORK_STATE_RESP, sizeof(msg_network_state_resp_t),
                     (u8*)&interfaces[i]);
   }
@@ -107,11 +108,11 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   (void) sender_id;
 
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx = (sbp_zmq_pubsub_ctx_t *)context;
+  sbp_pubsub_ctx_t *pubsub_ctx = (sbp_pubsub_ctx_t *)context;
 
   /* TODO As more commands are added in the future the command field will need
    * to be parsed into a command and arguments, and restrictions imposed
-   * on what commands and arguments are legal.  For now we only accept two 
+   * on what commands and arguments are legal.  For now we only accept two
    * canned command.
    */
 
@@ -128,7 +129,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
       .sequence = msg->sequence,
       .code = (u32)-1,
     };
-    sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(pubsub_ctx),
+    sbp_tx_send(sbp_pubsub_tx_ctx_get(pubsub_ctx),
                     SBP_MSG_COMMAND_RESP, sizeof(resp), (u8*)&resp);
     return;
   }
@@ -230,9 +231,9 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
     static char firmware_build_id[STR_BUFFER_SIZE];
     if (strncmp(name_string, "DEV", 3) == 0) {
       is_dev = true;
-      strncpy(firmware_build_id, uimage_string, STR_BUFFER_SIZE); 
+      strncpy(firmware_build_id, uimage_string, STR_BUFFER_SIZE);
     } else {
-      strncpy(firmware_build_id, name_string, STR_BUFFER_SIZE); 
+      strncpy(firmware_build_id, name_string, STR_BUFFER_SIZE);
       if (strncmp(imageset_build_id, uimage_string, STR_BUFFER_SIZE) != 0) {
         /* we should never get here, in PROD, imageset_version and uimage version should match every time*/
         piksi_log(LOG_ERR, "Production build detected where uimage_build_id != imageset_build_id");
@@ -426,9 +427,14 @@ int main(void)
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
+  pk_loop_t *loop = pk_loop_create();
+  if (loop == NULL) {
+    exit(EXIT_FAILURE);
+  }
+
   /* Set up SBP ZMQ */
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT,
-                                                           SUB_ENDPOINT);
+  sbp_pubsub_ctx_t *pubsub_ctx = sbp_pubsub_create(PUB_ENDPOINT,
+                                                   SUB_ENDPOINT);
   if (pubsub_ctx == NULL) {
     exit(EXIT_FAILURE);
   }
@@ -439,8 +445,7 @@ int main(void)
     exit(EXIT_FAILURE);
   }
 
-  if (settings_reader_add(settings_ctx,
-                          sbp_zmq_pubsub_zloop_get(pubsub_ctx)) != 0) {
+  if (settings_attach(settings_ctx, loop) != 0) {
     exit(EXIT_FAILURE);
   }
 
@@ -477,22 +482,23 @@ int main(void)
                     &log_ping_activity, sizeof(log_ping_activity),
                     SETTINGS_TYPE_BOOL, network_polling_notify, NULL);
 
-  sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
+  sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET, reset_callback, NULL, NULL);
-  sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
+  sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
   img_tbl_settings_setup(settings_ctx);
   hardware_variant_settings_setup(settings_ctx);
-  sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
+  sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_COMMAND_REQ, sbp_command, pubsub_ctx, NULL);
-  sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(pubsub_ctx),
+  sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_NETWORK_STATE_REQ, sbp_network_req,
                                pubsub_ctx, NULL);
 
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(pubsub_ctx));
+  pk_loop_run_simple(loop);
 
-  sbp_zmq_pubsub_destroy(&pubsub_ctx);
+  pk_loop_destroy(&loop);
+  sbp_pubsub_destroy(&pubsub_ctx);
   settings_destroy(&settings_ctx);
   exit(EXIT_SUCCESS);
 }

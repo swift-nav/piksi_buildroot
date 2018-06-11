@@ -24,7 +24,6 @@
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
-#include <libpiksi/util.h>
 #include <libsbp/logging.h>
 
 #include "cell_modem_settings.h"
@@ -73,14 +72,11 @@ void cell_modem_set_dev(char *dev, enum modem_type type)
     cell_modem_notify(NULL);
 }
 
-int pppd_respawn(zloop_t *loop, int timer_id, void *arg)
+void pppd_respawn(pk_loop_t *loop, void *timer_handle, void *context)
 {
-  (void)loop;
-  (void)timer_id;
-
-  cell_modem_notify(arg);
-
-  return 0;
+  (void)context;
+  inotify_ctx = async_wait_for_tty(loop);
+  pk_loop_remove_handle(timer_handle);
 }
 
 bool cell_modem_enabled(void)
@@ -141,20 +137,19 @@ static int cell_modem_notify(void *context)
   return start_runit_service(&cfg_start);
 }
 
-int override_probe_retry(zloop_t *loop, int timer_id, void *arg)
+void override_probe_retry(pk_loop_t *loop, void *timer_handle, void *context)
 {
+  (void)loop;
   static uint32_t probe_retries = 0;
-  inotify_ctx_t *ctx = (inotify_ctx_t*) arg;
+  inotify_ctx_t *ctx = (inotify_ctx_t*) context;
   if (cell_modem_get_dev_override() != NULL
       && cell_modem_dev == NULL
       && probe_retries++ < CELL_MODEM_MAX_BOOT_RETRIES) {
     cell_modem_scan_for_modem(ctx);
   } else {
     piksi_log(LOG_DEBUG, "Ending override probe retry timer after %d attempts", probe_retries);
-    zloop_timer_end(loop, timer_id);
+    pk_loop_remove_handle(timer_handle);
   }
-
-  return 0;
 }
 
 char * cell_modem_get_dev_override(void)
@@ -188,7 +183,7 @@ static int cell_modem_notify_dev_override(void *context)
   return 0;
 }
 
-int cell_modem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ctx)
+int cell_modem_init(pk_loop_t *loop, settings_ctx_t *settings_ctx)
 {
   settings_register(settings_ctx, "cell_modem", "APN", &cell_modem_apn,
                     sizeof(cell_modem_apn), SETTINGS_TYPE_STRING,
@@ -202,6 +197,12 @@ int cell_modem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_c
   settings_register(settings_ctx, "cell_modem", "device_override", &cell_modem_dev_override,
                     sizeof(cell_modem_dev_override), SETTINGS_TYPE_STRING,
                     cell_modem_notify_dev_override, &inotify_ctx);
-  inotify_ctx = async_wait_for_tty(pubsub_ctx);
+  inotify_ctx = async_wait_for_tty(loop);
   return 0;
 }
+
+void cell_modem_deinit(void)
+{
+  inotify_ctx_destroy(&inotify_ctx);
+}
+

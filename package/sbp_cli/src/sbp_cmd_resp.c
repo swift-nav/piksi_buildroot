@@ -13,17 +13,15 @@
 #include <getopt.h>
 #include <unistd.h>
 
-#include <czmq.h>
-
 #include <libsbp/sbp.h>
 #include <libsbp/piksi.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/util.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/sbp_tx.h>
+
+#define PROGRAM_NAME "sbp_cmb_resp"
 
 #define SBP_PUB_ENDPOINT ">tcp://127.0.0.1:43011"
-#define SBP_SUB_ENDPOINT ">tcp://127.0.0.1:43010"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
@@ -79,6 +77,7 @@ static int parse_options(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+  logging_init(PROGRAM_NAME);
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
     exit(EXIT_FAILURE);
@@ -87,8 +86,7 @@ int main(int argc, char *argv[])
   /* Prevent czmq from catching signals */
   zsys_handler_set(NULL);
 
-  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT,
-                                                    SBP_SUB_ENDPOINT);
+  sbp_tx_ctx_t *ctx = sbp_tx_create(SBP_PUB_ENDPOINT);
   if (ctx == NULL) {
     exit(EXIT_FAILURE);
   }
@@ -103,10 +101,10 @@ int main(int argc, char *argv[])
   piksi_log(LOG_INFO, "sending command status: %d, sequence id: %u",
             status, sequence);
 
-  sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx),
-                  SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
+  sbp_tx_send(ctx, SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
 
-  sbp_zmq_pubsub_destroy(&ctx);
+  sbp_tx_destroy(&ctx);
+  logging_deinit();
 
   return 0;
 }

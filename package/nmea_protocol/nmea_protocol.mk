@@ -24,8 +24,8 @@ define NMEA_PROTOCOL_INSTALL_TARGET_CMDS
     $(INSTALL) -d -m 0755 $(TARGET_DIR)/usr/lib/zmq_protocols
     $(INSTALL) -D -m 0755 $(@D)/libnmea_protocol.so*                          \
                           $(TARGET_DIR)/usr/lib/zmq_protocols
-    $(INSTALL) -d -m 0755 $(TARGET_DIR)/etc/zmq_router
-    $(INSTALL) -D -m 0755 $(@D)/nmea_router.yml $(TARGET_DIR)/etc/zmq_router
+    $(INSTALL) -d -m 0755 $(TARGET_DIR)/etc/endpoint_router
+    $(INSTALL) -D -m 0755 $(@D)/nmea_router.yml $(TARGET_DIR)/etc/endpoint_router
 endef
 
 $(eval $(generic-package))

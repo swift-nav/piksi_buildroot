@@ -32,7 +32,7 @@
  * settings that can be configured as owned or non-owned (watch-only)
  * by the process running the client. Each setting which is added to
  * the list will be kept in sync with the settings daemon and/or the
- * owning process via asynchronous messages recieved in the zmq routed
+ * owning process via asynchronous messages received in the routed
  * endpoint for the client.
  *
  * Standard usage is as follow, initialize the settings context:
@@ -40,10 +40,10 @@
  * // Create the settings context
  * settings_ctx_t *settings_ctx = settings_create();
  * \endcode
- * Add a reader to the main zmq context zloop (if applicable)
+ * Add a reader to the main pk_loop (if applicable)
  * \code{.c}
- * // Depending on you implementation this will vary
- * settings_reader_add(settings_ctx, zmq_pubsub_ctx_zloop);
+ * // Depending on your implementation this will vary
+ * settings_attach(settings_ctx, loop);
  * \endcode
  * For settings owners, a setting is registered as follows:
  * \code{.c}
@@ -66,13 +66,14 @@
  * @date 2018-02-23
  */
 
-#include <libpiksi/settings.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 #include <string.h>
 #include <assert.h>
 #include <libsbp/settings.h>
+
+#include <libpiksi/settings.h>
 
 #define PUB_ENDPOINT ">tcp://127.0.0.1:43071"
 #define SUB_ENDPOINT ">tcp://127.0.0.1:43070"
@@ -85,11 +86,8 @@
 
 #define SBP_PAYLOAD_SIZE_MAX 255
 
-// In processes Socket used to quit the settings daemon if a SIGTERM/SIGINT is
-//   received so we can cleanly remove our control socket.
-static zsock_t* loop_quit = NULL;
-
 typedef struct {
+  pk_endpoint_t *cmd_ept;
   const char* command;
   handle_command_fn handler;
 } control_command_t;
@@ -160,7 +158,8 @@ typedef struct {
  * the registration, watching and callback functionality of the client.
  */
 struct settings_ctx_s {
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx;
+  pk_loop_t *loop;
+  sbp_pubsub_ctx_t *pubsub_ctx;
   type_data_t *type_data_list;
   setting_data_t *setting_data_list;
   registration_state_t registration_state;
@@ -491,7 +490,7 @@ static void compare_check(settings_ctx_t *ctx, const u8 *data, u8 data_len)
       (memcmp(data, r->compare_data, r->compare_data_len) == 0)) {
     r->match = true;
     r->pending = false;
-    sbp_zmq_rx_reader_interrupt(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx));
+    sbp_rx_reader_interrupt(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx));
   }
 }
 
@@ -694,13 +693,12 @@ static int setting_perform_request_reply_from(settings_ctx_t *ctx,
   u8 tries = 0;
   bool success = false;
   do {
-    sbp_zmq_tx_send_from(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                         message_type,
-                         message_length,
-                         message,
-                         sender_id);
-    zmq_simple_loop_timeout(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
-                            timeout_ms);
+    sbp_tx_send_from(sbp_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+                     message_type,
+                     message_length,
+                     message,
+                     sender_id);
+    pk_loop_run_simple_with_timeout(ctx->loop, timeout_ms);
     success = compare_match(ctx);
   } while (!success && (++tries < retries));
 
@@ -930,7 +928,7 @@ static int setting_send_write_response(settings_ctx_t *ctx,
                                        msg_settings_write_resp_t *write_response,
                                        u8 len)
 {
-  if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+  if (sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx->pubsub_ctx),
         SBP_MSG_SETTINGS_WRITE_RESP, len, (u8 *)write_response) != 0) {
     piksi_log(LOG_ERR, "error sending settings write response");
     return -1;
@@ -949,7 +947,7 @@ static int setting_send_read_response(settings_ctx_t *ctx,
                                       msg_settings_read_resp_t *read_response,
                                       u8 len)
 {
-  if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+  if (sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx->pubsub_ctx),
         SBP_MSG_SETTINGS_READ_RESP, len, (u8 *)read_response) != 0) {
     piksi_log(LOG_ERR, "error sending settings read response");
     return -1;
@@ -1092,9 +1090,9 @@ static void settings_write_resp_callback(u16 sender_id, u8 len, u8 msg[],
 static int settings_register_write_callback(settings_ctx_t *ctx)
 {
   if (!ctx->write_callback_registered) {
-    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                     SBP_MSG_SETTINGS_WRITE,
-                                     settings_write_callback, ctx, NULL) != 0) {
+    if (sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                                 SBP_MSG_SETTINGS_WRITE,
+                                 settings_write_callback, ctx, NULL) != 0) {
       piksi_log(LOG_ERR, "error registering settings write callback");
       return -1;
     } else {
@@ -1112,9 +1110,9 @@ static int settings_register_write_callback(settings_ctx_t *ctx)
 static int settings_register_read_resp_callback(settings_ctx_t *ctx)
 {
   if (!ctx->read_resp_callback_registered) {
-    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                     SBP_MSG_SETTINGS_READ_RESP,
-                                     settings_read_resp_callback, ctx, &ctx->read_resp_cb_node) != 0) {
+    if (sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                                 SBP_MSG_SETTINGS_READ_RESP,
+                                 settings_read_resp_callback, ctx, &ctx->read_resp_cb_node) != 0) {
       piksi_log(LOG_ERR, "error registering settings read resp callback");
       return -1;
     } else {
@@ -1132,8 +1130,8 @@ static int settings_register_read_resp_callback(settings_ctx_t *ctx)
 static int settings_deregister_read_resp_callback(settings_ctx_t *ctx)
 {
   if (ctx->read_resp_callback_registered) {
-    if (sbp_zmq_rx_callback_remove(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                   &ctx->read_resp_cb_node) != 0) {
+    if (sbp_rx_callback_remove(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                               &ctx->read_resp_cb_node) != 0) {
       piksi_log(LOG_ERR, "error deregistering settings read resp callback");
       return -1;
     } else {
@@ -1151,9 +1149,9 @@ static int settings_deregister_read_resp_callback(settings_ctx_t *ctx)
 static int settings_register_write_resp_callback(settings_ctx_t *ctx)
 {
   if (!ctx->write_resp_callback_registered) {
-    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                     SBP_MSG_SETTINGS_WRITE_RESP,
-                                     settings_write_resp_callback, ctx, NULL) != 0) {
+    if (sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                                 SBP_MSG_SETTINGS_WRITE_RESP,
+                                 settings_write_resp_callback, ctx, NULL) != 0) {
       piksi_log(LOG_ERR, "error registering settings write resp callback");
       return -1;
     } else {
@@ -1170,7 +1168,11 @@ static int settings_register_write_resp_callback(settings_ctx_t *ctx)
 static void members_destroy(settings_ctx_t *ctx)
 {
   if (ctx->pubsub_ctx != NULL) {
-    sbp_zmq_pubsub_destroy(&ctx->pubsub_ctx);
+    sbp_pubsub_destroy(&ctx->pubsub_ctx);
+  }
+
+  if (ctx->loop != NULL) {
+    pk_loop_destroy(&ctx->loop);
   }
 
   /* Free type data list elements */
@@ -1208,19 +1210,32 @@ settings_ctx_t * settings_create(void)
     return ctx;
   }
 
-  ctx->pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
-  if (ctx->pubsub_ctx == NULL) {
-    piksi_log(LOG_ERR, "error creating PUBSUB context");
-    destroy(&ctx);
-    return ctx;
-  }
-
+  ctx->loop = NULL;
   ctx->type_data_list = NULL;
   ctx->setting_data_list = NULL;
   ctx->registration_state.pending = false;
   ctx->write_callback_registered = false;
   ctx->write_resp_callback_registered = false;
   ctx->read_resp_callback_registered = false;
+
+  ctx->pubsub_ctx = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
+  if (ctx->pubsub_ctx == NULL) {
+    piksi_log(LOG_ERR, "error creating PUBSUB context");
+    destroy(&ctx);
+    return ctx;
+  }
+
+  ctx->loop = pk_loop_create();
+  if (ctx->loop == NULL) {
+    piksi_log(LOG_ERR, "error creating internal loop");
+    destroy(&ctx);
+    return ctx;
+  }
+
+  if (settings_attach(ctx, ctx->loop) != 0) {
+    destroy(&ctx);
+    return ctx;
+  }
 
   /* Register standard types */
   settings_type_t type;
@@ -1258,8 +1273,9 @@ settings_ctx_t * settings_create(void)
 
 void settings_destroy(settings_ctx_t **ctx)
 {
-  assert(ctx != NULL);
-  assert(*ctx != NULL);
+  if (ctx == NULL || *ctx == NULL) {
+    return;
+  }
 
   destroy(ctx);
 }
@@ -1368,146 +1384,76 @@ int settings_add_watch(settings_ctx_t *ctx, const char *section,
                               notify, notify_context, false, true);
 }
 
-int settings_read(settings_ctx_t *ctx)
+int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
 {
   assert(ctx != NULL);
+  assert(pk_loop != NULL);
 
-  return sbp_zmq_rx_read(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx));
+  return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
-int settings_pollitem_init(settings_ctx_t *ctx, zmq_pollitem_t *pollitem)
+static void signal_handler(pk_loop_t *loop, void *handle, void *context)
 {
-  assert(ctx != NULL);
-  assert(pollitem != NULL);
+  (void)context;
+  int signal_value = pk_loop_get_signal_from_handle(handle);
 
-  return sbp_zmq_rx_pollitem_init(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                  pollitem);
-}
-
-int settings_pollitem_check(settings_ctx_t *ctx, zmq_pollitem_t *pollitem)
-{
-  assert(ctx != NULL);
-  assert(pollitem != NULL);
-
-  return sbp_zmq_rx_pollitem_check(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                   pollitem);
-}
-
-int settings_reader_add(settings_ctx_t *ctx, zloop_t *zloop)
-{
-  assert(ctx != NULL);
-  assert(zloop != NULL);
-
-  return sbp_zmq_rx_reader_add(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                               zloop);
-}
-
-int settings_reader_remove(settings_ctx_t *ctx, zloop_t *zloop)
-{
-  assert(ctx != NULL);
-  assert(zloop != NULL);
-
-  return sbp_zmq_rx_reader_remove(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                  zloop);
-}
-
-static void cleanup_signal_handlers (void)
-{
-  zsock_destroy(&loop_quit);
-}
-
-static void signal_handler (int signal_value)
-{
   piksi_log(LOG_DEBUG, "Caught signal: %d", signal_value);
 
-  if (loop_quit != NULL) {
-    zsock_bsend(loop_quit, "1", 1);
+  pk_loop_stop(loop);
+}
+
+static void setup_signal_handlers(pk_loop_t *pk_loop)
+{
+  if (pk_loop_signal_handler_add(pk_loop, SIGINT, signal_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
+  }
+
+  if (pk_loop_signal_handler_add(pk_loop, SIGTERM, signal_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
+  }
+}
+
+static int command_receive_callback(const u8 *data, const size_t length, void *context)
+{
+  u8 *result = (u8 *)context;
+
+  if (length != 1) {
+    piksi_log(LOG_WARNING, "command received had invalid length: %u", length);
   } else {
-    piksi_log(LOG_DEBUG, "Loop quit socket was null...");
+    *result = data[0];
   }
-}
-
-static void setup_signal_handlers ()
-{
-  loop_quit = zsock_new_pair("@inproc://loop_quit");
-
-  if (loop_quit == NULL) {
-    piksi_log(LOG_ERR, "Error creating loop quit socket: %s",
-              zmq_strerror(zmq_errno()));
-    return;
-  }
-
-  struct sigaction action;
-
-  action.sa_handler = signal_handler;
-  action.sa_flags = 0;
-
-  sigemptyset (&action.sa_mask);
-
-  sigaction (SIGINT, &action, NULL);
-  sigaction (SIGTERM, &action, NULL);
-}
-
-static int loop_quit_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
-{
-  (void) zloop;
-  (void) arg;
-
-  u8 request = 0;
-  zsock_brecv(zsock, "1", &request);
-
-  if (request != 1) {
-    piksi_log(LOG_WARNING, "Loop quit handler received unexpected message: %d...", request);
-    return -1;
-  }
-
-  piksi_log(LOG_INFO, "Shutting down...");
-  return -1;
-}
-
-static int control_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
-{
-  (void)zloop;
-
-  control_command_t* cmd_info = (control_command_t*)arg;
-  char *data = NULL;
-
-  int rc = zsock_brecv(zsock, "s", &data);
-  if ( rc != 0 ) {
-    piksi_log(LOG_WARNING, "zsock_brecv error: %s", zmq_strerror(zmq_errno()));
-    return 0;
-  }
-
-  if (data == NULL) {
-    piksi_log(LOG_WARNING, "received data was null");
-    return 0;
-  }
-
-  u32 length = strlen(data);
-
-  if (length == 0 || length > 1) {
-    piksi_log(LOG_WARNING, "command had invalid length: %u", length);
-    return 0;
-  }
-
-  if (*data != cmd_info->command[0]) {
-    piksi_log(LOG_WARNING, "command had invalid value: %c", *data);
-    return 0;
-  }
-
-  u8 result = cmd_info->handler() ? 1 : 0;
-
-  zsock_bsend(zsock, "1", result);
 
   return 0;
 }
 
-static bool configure_control_socket(zloop_t* loop,
+static void control_handler(pk_loop_t *loop, void *handle, void *context)
+{
+  control_command_t* cmd_info = (control_command_t*)context;
+
+  u8 data = 0;
+  if (pk_endpoint_receive(cmd_info->cmd_ept, command_receive_callback, &data) != 0) {
+    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s",
+              __FUNCTION__, "pk_endpoint_receive", __FILE__, __LINE__,
+              pk_endpoint_strerror());
+    return;
+  }
+
+  if (data != cmd_info->command[0]) {
+    piksi_log(LOG_WARNING, "command had invalid value: %c", data);
+    return;
+  }
+
+  u8 result = cmd_info->handler() ? 1 : 0;
+
+  pk_endpoint_send(cmd_info->cmd_ept, &result, 1);
+}
+
+static bool configure_control_socket(pk_loop_t* loop,
                                      const char* control_socket,
                                      const char* control_socket_file,
                                      const char* control_command,
                                      handle_command_fn do_handle_command,
-                                     zsock_t** rep_socket,
+                                     pk_endpoint_t** rep_socket,
                                      control_command_t** ctrl_command_info)
 {
   #define CHECK_PRECONDITION(X) if (!(X)) { \
@@ -1524,7 +1470,6 @@ static bool configure_control_socket(zloop_t* loop,
   CHECK_PRECONDITION(ctrl_command_info != NULL);
 
   CHECK_PRECONDITION(rep_socket != NULL);
-  *rep_socket = zsock_new_rep(control_socket);
 
 #undef CHECK_PRECONDITION
 
@@ -1535,8 +1480,9 @@ static bool configure_control_socket(zloop_t* loop,
     return false;
   }
 
+  *rep_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REP);
   if (*rep_socket == NULL) {
-    const char* err_msg = zmq_strerror(zmq_errno());
+    const char* err_msg = pk_endpoint_strerror();
     piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s",
               control_socket, err_msg);
     return false;
@@ -1545,13 +1491,13 @@ static bool configure_control_socket(zloop_t* loop,
   *ctrl_command_info = malloc(sizeof(control_command_t));
 
   **ctrl_command_info = (control_command_t){
+    .cmd_ept = *rep_socket,
     .command = control_command,
     .handler = do_handle_command
   };
 
-  if (zloop_reader(loop, *rep_socket, control_handler, *ctrl_command_info) < 0) {
-    const char* err_msg = zmq_strerror(zmq_errno());
-    piksi_log(LOG_ERR, "Error registering reader: %s", err_msg);
+  if (pk_loop_endpoint_reader_add(loop, *rep_socket, control_handler, *ctrl_command_info) == NULL) {
+    piksi_log(LOG_ERR, "Error registering reader for control handler");
     return false;
   }
 
@@ -1568,21 +1514,16 @@ bool settings_loop(const char* control_socket,
 
   // Block ZMQ signal handlers
   zsys_handler_set(NULL);
-  // Install our own signal handlers
-  setup_signal_handlers();
 
-  zsock_t* rep_socket = NULL;
-  control_command_t* cmd_info = NULL;
-
-  zsock_t* loop_quit_reader = NULL;
-
-  /* Set up SBP ZMQ */
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT,
-                                                           SUB_ENDPOINT);
-  if (pubsub_ctx == NULL) {
-    piksi_log(LOG_ERR, "Error creating pub-sub");
-    return false;
+  pk_loop_t *loop = pk_loop_create();
+  if (loop == NULL) {
+    goto settings_loop_cleanup;
   }
+  // Install our own signal handlers
+  setup_signal_handlers(loop);
+
+  pk_endpoint_t* rep_socket = NULL;
+  control_command_t* cmd_info = NULL;
 
   bool ret = true;
 
@@ -1593,15 +1534,12 @@ bool settings_loop(const char* control_socket,
     goto settings_loop_cleanup;
   }
 
-  if (settings_reader_add(settings_ctx,
-                          sbp_zmq_pubsub_zloop_get(pubsub_ctx)) != 0) {
+  if (settings_attach(settings_ctx, loop) != 0) {
     ret = false;
     goto settings_loop_cleanup;
   }
 
   do_settings_register(settings_ctx);
-
-  zloop_t* loop = sbp_zmq_pubsub_zloop_get(pubsub_ctx);
 
   if (control_socket != NULL) {
     bool control_sock_configured =
@@ -1618,42 +1556,17 @@ bool settings_loop(const char* control_socket,
     }
   }
 
-  loop_quit_reader = zsock_new_pair(">inproc://loop_quit");
-
-  if (loop_quit_reader == NULL) {
-
-    piksi_log(LOG_ERR, "Error creating loop quit socket: %s",
-              zmq_strerror(zmq_errno()));
-
-    ret = false;
-    goto settings_loop_cleanup;
-  }
-
-  if (zloop_reader(loop, loop_quit_reader, loop_quit_handler, NULL) < 0) {
-
-    const char* err_msg = zmq_strerror(zmq_errno());
-    piksi_log(LOG_ERR, "Error registering reader: %s", err_msg);
-
-    ret = false;
-    goto settings_loop_cleanup;
-  }
-
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(pubsub_ctx));
+  pk_loop_run_simple(loop);
 
 settings_loop_cleanup:
   if (rep_socket != NULL)
-    zsock_destroy(&rep_socket);
+    pk_endpoint_destroy(&rep_socket);
 
   if (cmd_info != NULL)
     free(cmd_info);
 
-  if (loop_quit_reader != NULL)
-    zsock_destroy(&loop_quit_reader);
-
-  cleanup_signal_handlers();
-
-  sbp_zmq_pubsub_destroy(&pubsub_ctx);
   settings_destroy(&settings_ctx);
+  pk_loop_destroy(&loop);
 
   return ret;
 }
@@ -1668,11 +1581,11 @@ int settings_loop_send_command(const char* target_description,
                                const char* command_description,
                                const char* control_socket)
 {
-# define CHECK_ZMQ_ERR(COND, FUNC) \
+# define CHECK_PK_EPT_ERR(COND, FUNC) \
   if (COND) { \
     piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s", \
               __FUNCTION__, __STRING(FUNC), __FILE__, __LINE__, \
-              zmq_strerror(zmq_errno())); \
+              pk_endpoint_strerror()); \
     return -1; \
   }
 
@@ -1681,27 +1594,27 @@ int settings_loop_send_command(const char* target_description,
   piksi_log(LOG_INFO, CMD_INFO_MSG, command_description, target_description);
   printf(CMD_INFO_MSG "\n", command_description, target_description);
 
-  zsock_t* req_socket = zsock_new_req(control_socket);
-  CHECK_ZMQ_ERR(req_socket == NULL, zsock_new_req);
+  pk_endpoint_t* req_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REQ);
+  CHECK_PK_EPT_ERR(req_socket == NULL, pk_endpoint_create);
 
-  int ret = zsock_bsend(req_socket, "s", command);
-  CHECK_ZMQ_ERR(ret != 0, zsock_send);
+  int ret = pk_endpoint_send(req_socket, command, strlen(command));
+  CHECK_PK_EPT_ERR(ret != 0, pk_endpoint_send);
 
   u8 result = 0;
-  ret = zsock_brecv(req_socket, "1", &result);
-  CHECK_ZMQ_ERR(ret != 0, zsock_recv);
+  ret = pk_endpoint_receive(req_socket, command_receive_callback, &result);
+  CHECK_PK_EPT_ERR(ret != 0, pk_endpoint_receive);
 
 # define CMD_RESULT_MSG "Result of '%s' command: %hhu"
 
   piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, result);
   printf(CMD_RESULT_MSG "\n", command_description, result);
 
-  zsock_destroy(&req_socket);
+  pk_endpoint_destroy(&req_socket);
 
   return 0;
 
 # undef CMD_RESULT_MSG
-# undef CHECK_ZMQ_ERR
+# undef CHECK_PK_EPT_ERR
 # undef CMD_INFO_MSG
 }
 

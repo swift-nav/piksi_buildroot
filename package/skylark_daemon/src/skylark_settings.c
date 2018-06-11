@@ -46,7 +46,7 @@ static int skylark_upload_daemon_execfn(void) {
 
 static int skylark_upload_adapter_execfn(void) {
   char *argv[] = {
-    "zmq_adapter",
+    "endpoint_adapter",
     "--file", UPLOAD_FIFO_FILE_PATH,
     "-s", ">tcp://127.0.0.1:43080",
     "--filter-out", "sbp",
@@ -72,7 +72,7 @@ static int skylark_download_daemon_execfn(void) {
 
 static int skylark_download_adapter_execfn(void) {
   char *argv[] = {
-    "zmq_adapter",
+    "endpoint_adapter",
     "-f", "sbp",
     "--file", DOWNLOAD_FIFO_FILE_PATH,
     "-p", ">tcp://127.0.0.1:43081",
