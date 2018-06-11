@@ -49,7 +49,7 @@ image-release-protected: export BR2_BUILD_RELEASE_PROTECTED=y
 image-release-protected: config
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) flush-rootfs rel-lockdown-clean
-	[ -z "$BR2_BUILD_PIKSI_INS" ] || \
+	[ -z "$(BR2_BUILD_PIKSI_INS)" ] || \
 		$(BUILD_ENV_ARGS) \
 			$(MAKE) pkg-piksi_ins-rebuild
 	$(BUILD_ENV_ARGS) \
