@@ -29,17 +29,17 @@
 static const char * const baudrate_enum_names[] = {
   "1200", "2400", "4800", "9600",
   "19200", "38400", "57600", "115200",
-  "230400", NULL
+  "230400", "460800", "921600", NULL
 };
 enum {
   BAUDRATE_1200, BAUDRATE_2400, BAUDRATE_4800, BAUDRATE_9600,
   BAUDRATE_19200, BAUDRATE_38400, BAUDRATE_57600, BAUDRATE_115200,
-  BAUDRATE_230400
+  BAUDRATE_230400, BAUDRATE_460800, BAUDRATE_921600
 };
 static const u32 baudrate_val_table[] = {
   B1200, B2400, B4800, B9600,
   B19200, B38400, B57600, B115200,
-  B230400
+  B230400, B460800, B921600
 };
 
 static const char * const flow_control_enum_names[] = {"None", "RTS/CTS", NULL};
