@@ -16,6 +16,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdarg.h>
 
 #include <linux/sockios.h>
 
