@@ -10,7 +10,7 @@ SAMPLE_DAEMON_VERSION = 0.1
 SAMPLE_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sample_daemon"
 SAMPLE_DAEMON_SITE_METHOD = local
-SAMPLE_DAEMON_DEPENDENCIES = czmq libsbp libpiksi
+SAMPLE_DAEMON_DEPENDENCIES = libuv nanomsg libsbp libpiksi
 
 define SAMPLE_DAEMON_USERS
 	sampld -1 sampld -1 * - - -

@@ -69,7 +69,7 @@ void my_health_monitor_deinit(void)
 }
 ```
 
-These are manually aggregated in `health_daemon.c` as an array of `health_monitor_init_fn_pairs`, where on execution each init function is called before handing control to the `zloop` which performs all of the callback management. On completion, once the `zloop` returns, the deinit function is called in order to clean up any memory allocation or other internals of the module.
+These are manually aggregated in `health_daemon.c` as an array of `health_monitor_init_fn_pairs`, where on execution each init function is called before handing control to the `pk_loop` which performs all of the callback management. On completion, once the `pk_loop` returns, the deinit function is called in order to clean up any memory allocation or other internals of the module.
 
 ```C
 /* health_daemon.c */

@@ -10,7 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <libpiksi/sbp_rx.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 
@@ -19,27 +19,38 @@
 
 #define PROGRAM_NAME "piksi_leds"
 
-#define PUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43031"
-#define SUB_ENDPOINT_EXTERNAL_SBP ">tcp://localhost:43030"
+#define PUB_ENDPOINT_EXTERNAL_SBP "tcp://localhost:43031"
+#define SUB_ENDPOINT_EXTERNAL_SBP "tcp://localhost:43030"
 
 int main(void)
 {
+  int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
-  sbp_zmq_pubsub_ctx_t *ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT_EXTERNAL_SBP,
-                                                    SUB_ENDPOINT_EXTERNAL_SBP);
+  sbp_rx_ctx_t *ctx = sbp_rx_create(SUB_ENDPOINT_EXTERNAL_SBP);
   if (ctx == NULL) {
-    exit(EXIT_FAILURE);
+    goto cleanup;
   }
 
-  firmware_state_init(sbp_zmq_pubsub_rx_ctx_get(ctx));
+  pk_loop_t *loop = pk_loop_create();
+  if (loop == NULL) {
+    goto cleanup;
+  }
+
+  if (sbp_rx_attach(ctx, loop) != 0) {
+    goto cleanup;
+  }
+
+  firmware_state_init(ctx);
   manage_led_setup(device_is_duro());
 
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
+  pk_loop_run_simple(loop);
 
-  sbp_zmq_pubsub_destroy(&ctx);
-  exit(EXIT_SUCCESS);
+  ret = EXIT_SUCCESS;
+
+cleanup:
+  sbp_rx_destroy(&ctx);
+  pk_loop_destroy(&loop);
+  logging_deinit();
+  exit(ret);
 }

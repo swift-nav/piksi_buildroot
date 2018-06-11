@@ -13,30 +13,46 @@
 #ifndef __FIRMWARE_STATE_H
 #define __FIRMWARE_STATE_H
 
-#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/sbp_rx.h>
 
-enum mode {
-  MODE_INVALID,
-  MODE_SPP,
-  MODE_DGNSS,
-  MODE_FLOAT,
-  MODE_FIXED,
+enum spp_mode {
+  SPP_MODE_INVALID = 0x00,
+  SPP_MODE_SPP,
+  SPP_MODE_DGNSS,
+  SPP_MODE_FLOAT,
+  SPP_MODE_FIXED,
+  SPP_MODE_DEAD_RECK,
+  SPP_MODE_SBAS
+};
+
+enum dgnss_mode {
+  DGNSS_MODE_INVALID = 0x00,
+  DGNSS_MODE_RESERVED,
+  DGNSS_MODE_DGNSS,
+  DGNSS_MODE_FLOAT,
+  DGNSS_MODE_FIXED,
+};
+
+enum ins_mode {
+  INS_MODE_NONE,
+  INS_MODE_INS_USED
 };
 
 struct soln_state {
   struct {
     struct timespec systime;
-    enum mode mode;
+    enum dgnss_mode mode;
   } dgnss;
   struct {
     struct timespec systime;
-    enum mode mode;
+    enum spp_mode mode;
+    enum ins_mode ins_mode;
   } spp;
   int sats;
   bool antenna;
 };
 
-void firmware_state_init(sbp_zmq_rx_ctx_t *ctx);
+void firmware_state_init(sbp_rx_ctx_t *ctx);
 u8 firmware_state_obs_counter_get(void);
 void firmware_state_get(struct soln_state *);
 bool firmware_state_heartbeat_seen(void);

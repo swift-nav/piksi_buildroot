@@ -22,7 +22,7 @@ const char *setting_name = "NMEA OUT";
 int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
 {
   return snprintf(buf, buf_size,
-                  "-p '>tcp://127.0.0.1:44031' "
-                  "-s '>tcp://127.0.0.1:44030'",
+                  "-p 'tcp://127.0.0.1:44031' "
+                  "-s 'tcp://127.0.0.1:44030'",
                   port_name);
 }

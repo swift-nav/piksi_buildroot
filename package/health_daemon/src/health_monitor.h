@@ -94,7 +94,7 @@ int health_monitor_init(health_monitor_t *monitor,
                         health_ctx_t *health_ctx,
                         u16 msg_type,
                         health_msg_callback_t msg_cb,
-                        u32 timer_period,
+                        u64 timer_period,
                         health_timer_callback_t timer_cb,
                         void *user_data);
 

@@ -17,7 +17,11 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
@@ -54,22 +58,22 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 void sbp_fileio_setup(const char *basedir,
                       bool allow_factory_mtd_,
                       bool allow_imageset_bin_,
-                      sbp_zmq_rx_ctx_t *rx_ctx,
-                      sbp_zmq_tx_ctx_t *tx_ctx)
+                      sbp_rx_ctx_t *rx_ctx,
+                      sbp_tx_ctx_t *tx_ctx)
 {
   basedir_path = basedir;
 
   allow_factory_mtd = allow_factory_mtd_;
   allow_imageset_bin = allow_imageset_bin_;
 
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ,
-                               read_cb, tx_ctx, NULL);
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ,
-                               read_dir_cb, tx_ctx, NULL);
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE,
-                               remove_cb, tx_ctx, NULL);
-  sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ,
-                               write_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ,
+                           read_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ,
+                           read_dir_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE,
+                           remove_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ,
+                           write_cb, tx_ctx, NULL);
 }
 
 static int allow_mtd_read(const char* path)
@@ -138,7 +142,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
   msg_fileio_read_req_t *msg = (msg_fileio_read_req_t *)msg_;
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
     piksi_log(LOG_WARNING, "Invalid fileio read message!");
@@ -167,8 +171,8 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     close(f);
   }
 
-  sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP,
-                  sizeof(*reply) + readlen, (u8*)reply);
+  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP,
+              sizeof(*reply) + readlen, (u8*)reply);
 }
 
 /** Directory listing callback.
@@ -184,7 +188,7 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
   msg_fileio_read_dir_req_t *msg = (msg_fileio_read_dir_req_t *)msg_;
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
     piksi_log(LOG_WARNING, "Invalid fileio read dir message!");
@@ -221,8 +225,8 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     closedir(dir);
   }
 
-  sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_DIR_RESP,
-                  sizeof(*reply) + len, (u8*)reply);
+  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_DIR_RESP,
+              sizeof(*reply) + len, (u8*)reply);
 }
 
 /* Remove file callback.
@@ -262,7 +266,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   if ((len <= sizeof(*msg) + 2) ||
       (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg)) ==
@@ -298,8 +302,8 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   }
 
   msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
-  sbp_zmq_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
-                  sizeof(reply), (u8*)&reply);
+  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
+              sizeof(reply), (u8*)&reply);
 
 cleanup:
   close(f);

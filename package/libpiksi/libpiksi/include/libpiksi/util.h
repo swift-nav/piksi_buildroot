@@ -60,33 +60,6 @@ int device_uuid_get(char *str, size_t str_size);
  */
 bool device_is_duro(void);
 
-/**
- * @brief   Run a ZMQ loop ignoring signals.
- * @details Run a ZMQ loop ignoring signals until an error occurs or a handler
- *          returns -1.
- *
- * @param[in] zloop         Pointer to the ZMQ loop to use.
- *
- * @return                  The operation result.
- * @retval 0                A handler returned -1.
- * @retval -1               An error occurred.
- */
-int zmq_simple_loop(zloop_t *zloop);
-
-/**
- * @brief   Run a ZMQ loop ignoring signals with timeout.
- * @details Run a ZMQ loop ignoring signals until an error occurs or a handler
- *          returns -1 with timeout.
- *
- * @param[in] zloop         Pointer to the ZMQ loop to use.
- * @param[in] timeout_ms    Timeout in milliseconds.
- *
- * @return                  The operation result.
- * @retval 0                A handler returned -1.
- * @retval -1               An error occurred.
- */
-int zmq_simple_loop_timeout(zloop_t *zloop, u32 timeout_ms);
-
 #define SWFT_MAX(a,b) \
   ({ typeof (a) _a = (a); \
   typeof (b) _b = (b); \

@@ -13,6 +13,7 @@
 #include "rotating_logger.h"
 
 #include <assert.h>
+#include <errno.h>
 #include <dirent.h>
 #include <stdarg.h>
 #include <string.h>
