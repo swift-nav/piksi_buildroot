@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Close stdin
+exec <&-
+
+# Launch netcat in listen mode, wait 30s for a connection
+nc -w 30 -p 44444 -l >/data/upgrade.image_set.bin &

@@ -32,10 +32,11 @@ NAP_VERSION=${2:-M4_NAP_VERSION}
 
 FW_S3_PATH=s3://M4_BUCKET/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://M4_BUCKET/piksi_fpga/$NAP_VERSION
+
 export AWS_DEFAULT_REGION="us-west-2"
 
 fetch() {
-  aws s3 cp --no-sign-request "$@" || aws s3 cp "$@"
+  aws s3 cp "$@"
 }
 
 download_fw() {
