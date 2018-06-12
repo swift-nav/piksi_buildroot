@@ -28,6 +28,8 @@
 #define MODE_DISABLED 0
 #define PID_INVALID 0
 
+#define FIXED_SBP_USB_PORT_NAME "usb2"
+
 typedef enum {
   PORT_TYPE_UART,
   PORT_TYPE_USB,
@@ -137,6 +139,17 @@ static port_config_t port_configs[] = {
   {
     .name = "usb0",
     .opts = "--name usb0 --file /dev/ttyGS0 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
+    .opts_get = NULL,
+    .type = PORT_TYPE_USB,
+    .mode_name_default = MODE_NAME_DEFAULT,
+    .mode = MODE_DISABLED,
+    .adapter_pid = PID_INVALID,
+    .restart = RESTART,
+    .first_start = true,
+  },
+  {
+    .name = FIXED_SBP_USB_PORT_NAME,
+    .opts = "--name " FIXED_SBP_USB_PORT_NAME " --file /dev/ttyGS2 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -271,8 +284,11 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
     return 0;
   }
 
-  port_config->first_start = false;
-  stop_runit_service(&cfg);
+  if (port_config->first_start) {
+    port_config->first_start = false;
+  } else {
+    stop_runit_service(&cfg);
+  }
 
   /* In case of USB adapters, sometimes we find that instances are still around.
    * Kill them here
@@ -468,6 +484,12 @@ int ports_init(settings_ctx_t *settings_ctx)
   /* Register settings */
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
     port_config_t *port_config = &port_configs[i];
+
+    if (strcmp(port_config->name, FIXED_SBP_USB_PORT_NAME) == 0) {
+      // skip settings registration for fixed SBP usb port
+      port_configure(port_config, true);
+      continue;
+    }
 
     if (port_config->type == PORT_TYPE_TCP_SERVER) {
       setting_tcp_server_port_register(settings_ctx, port_config);

@@ -69,6 +69,12 @@ static uart_t usb0 = {
   .flow_control = FLOW_CONTROL_NONE
 };
 
+static uart_t usb2 = {
+  .tty_path = "/dev/ttyGS2",
+  .baudrate = BAUDRATE_9600,
+  .flow_control = FLOW_CONTROL_NONE
+};
+
 static int uart_configure(const uart_t *uart)
 {
   int fd = open(uart->tty_path, O_RDONLY | O_NONBLOCK);
@@ -129,6 +135,9 @@ int serial_init(settings_ctx_t *settings_ctx)
 {
   /* Configure USB0 */
   uart_configure(&usb0);
+
+  /* Configure USB2 */
+  uart_configure(&usb2);
 
   /* Register settings */
   settings_type_t settings_type_baudrate;
