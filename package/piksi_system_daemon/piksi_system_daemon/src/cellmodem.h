@@ -26,5 +26,6 @@ int cellmodem_init(sbp_zmq_pubsub_ctx_t *pubsub_ctx, settings_ctx_t *settings_ct
 void cellmodem_set_dev(sbp_zmq_pubsub_ctx_t *pubsub_ctx, char *dev, enum modem_type type);
 char * cellmodem_get_dev_override(void);
 int pppd_respawn(zloop_t *loop, int timer_id, void *arg);
+int override_probe_retry(zloop_t *loop, int timer_id, void *arg);
 
 #endif
