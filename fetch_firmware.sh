@@ -27,11 +27,12 @@ if [[ $(uname -a) == *NixOS* ]]; then
   export LD_LIBRARY_PATH=/lib:/usr/lib
 fi
 
-FW_VERSION=${1:-v1.4.0-develop-2018060819}
-NAP_VERSION=${2:-v1.4.0-develop-2018060819}
+FW_VERSION=${1:-v1.4.0-develop-2018061217}
+NAP_VERSION=${2:-v1.4.0-develop-2018061217}
 
 FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
+
 export AWS_DEFAULT_REGION="us-west-2"
 
 fetch() {
