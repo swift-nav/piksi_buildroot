@@ -34,6 +34,7 @@ static const char *fifo_file_path = NULL;
 static const char *username = NULL;
 static const char *password = NULL;
 static const char *url = NULL;
+static bool rev1gga = false;
 
 static double gga_xfer_secs = 0.0;
 
@@ -60,6 +61,10 @@ static void usage(char *command)
   puts("\t--password   <password>");
   puts("\t--url        <url>");
 
+  puts("\nGGA options");
+  puts("\t--interval <secs>");
+  puts("\t--rev1gga <y|n>");
+
   puts("\nMisc options");
   puts("\t--debug");
 }
@@ -71,6 +76,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_URL,
     OPT_ID_DEBUG,
     OPT_ID_INTERVAL,
+    OPT_ID_REV1GGA,
     OPT_ID_USERNAME,
     OPT_ID_PASSWORD,
     OPT_ID_MODE_NTRIP,
@@ -87,6 +93,7 @@ static int parse_options(int argc, char *argv[])
     {"password",  required_argument, 0, OPT_ID_PASSWORD},
     {"url  ",     required_argument, 0, OPT_ID_URL},
     {"interval",  required_argument, 0, OPT_ID_INTERVAL},
+    {"rev1gga",   required_argument, 0, OPT_ID_REV1GGA},
     {"debug",     no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
@@ -136,6 +143,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_DEBUG: {
         debug = true;
+      }
+      break;
+
+      case OPT_ID_REV1GGA: {
+        rev1gga = *optarg == 'y';
       }
       break;
 
@@ -202,6 +214,8 @@ static bool configure_libnetwork(network_context_t* ctx, int fd)
     goto exit_error;
   if ((status = libnetwork_set_gga_upload_interval(ctx, gga_xfer_secs))
       != NETWORK_STATUS_SUCCESS)
+    goto exit_error;
+  if ((status = libnetwork_set_gga_upload_rev1(ctx, rev1gga)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
 
   return true;

@@ -115,7 +115,6 @@ static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void
 
   if (rename(tmp_file_name, NMEA_GGA_OUTPUT_PATH) < 0) {
     sbp_log(LOG_WARNING, "rename failed: %s", strerror(errno));
-    return 0;
   }
 
   return 0;
