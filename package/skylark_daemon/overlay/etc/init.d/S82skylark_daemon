@@ -8,7 +8,8 @@ user="skylarkd"
 setup_permissions() {
 
   mkdir -p /var/run/skylark/control
-  chown -R $user:$user /var/run/skylark
+  touch /var/run/skylark/control/socket
+  chown $user:$user /var/run/skylark/control/socket
 
   chown $user:$user /etc/skylark_upload_filter_out_config
 
@@ -20,6 +21,8 @@ setup_permissions() {
   touch /var/run/skylark/enabled
   chown $user:$user /var/run/skylark/enabled
   chmod 0644 /var/run/skylark/enabled
+
+  chown -R $user:$user /var/run/skylark
 }
 
 source /etc/init.d/template_process.inc.sh
