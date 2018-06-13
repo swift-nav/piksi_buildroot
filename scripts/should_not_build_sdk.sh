@@ -4,9 +4,11 @@ has_tag() {
   git describe --exact-match --tags &>/dev/null
 }
 
-if [ -z "$FORCE_SDK_BUILD" ]; then
+if [ -n "$FORCE_SDK_BUILD" ]; then
   echo ">>> We *SHOULD* create a buildroot SDK because FORCE_SDK_BUILD was set..."
   exit 1
+else
+  echo ">>> Found that FORCE_SDK_BUILD was NOT set..."
 fi
 
 if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
