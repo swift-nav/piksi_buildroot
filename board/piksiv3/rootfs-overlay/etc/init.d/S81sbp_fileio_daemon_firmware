@@ -1,10 +1,17 @@
 #!/bin/sh
 
+NDB_DIR="/persistent/ndb/"
+MTD_FILE="/factory/mtd"
+
 name="sbp_fileio_daemon_firmware"
-cmd="sbp_fileio_daemon -p >tcp://localhost:43041 -s >tcp://localhost:43040"
+cmd="sbp_fileio_daemon -p 'tcp://localhost:43041' -s 'tcp://localhost:43040' --basedir $NDB_DIR --mtd"
 dir="/"
-user=""
+user="fio_fw"
 
-mkdir -p /persistent/ndb
+setup_permissions()
+{
+  configure_file_resource $user $MTD_FILE 0640
+  configure_dir_resource $user $NDB_DIR 0700
+}
 
-source /etc/init.d/template_process.inc.sh
+source /etc/init.d/template_runsv.inc.sh

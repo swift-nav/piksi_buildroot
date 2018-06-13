@@ -12,6 +12,14 @@ ROOTFS=$1
 FIRMWARE_DIR_ROOTFS=$ROOTFS/lib/firmware
 FIRMWARE_DIR=$BASE_DIR/../../firmware
 
+VERSION_DIR=$ROOTFS/uimage_ver
+mkdir -p $VERSION_DIR
+get_git_string_script="$(dirname "$0")"/get_git_string.sh
+GIT_STRING=$($get_git_string_script)
+TIMESTAMP=$(date +%s)
+echo -n $GIT_STRING > $VERSION_DIR/name
+echo -n $TIMESTAMP > $VERSION_DIR/timestamp
+
 # Create firmware directory in the rootfs
 mkdir -p $FIRMWARE_DIR_ROOTFS
 
@@ -27,4 +35,3 @@ if [ -e $FIRMWARE_DIR/$HW_CONFIG/piksi_firmware.elf ] && \
 else
   echo "*** NO FIRMWARE FILES FOUND, SKIPPING ***"
 fi
-

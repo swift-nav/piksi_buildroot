@@ -23,6 +23,11 @@
 #define LIBPIKSI_SETTINGS_H
 
 #include <libpiksi/common.h>
+#include <libpiksi/sbp_rx.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief   Settings type.
@@ -191,83 +196,87 @@ int settings_add_watch(settings_ctx_t *ctx, const char *section,
                        void *notify_context);
 
 /**
- * @brief   Read and process incoming data.
- * @details Read and process a single incoming ZMQ message.
- *
- * @note    This function will block until a ZMQ message is received. For
- *          nonblocking operation, use the pollitem or reader APIs.
- *
- * @param[in] ctx           Pointer to the context to use.
- *
- * @return                  The operation result.
- * @retval 0                A message was successfully read and processed.
- * @retval -1               An error occurred.
- */
-int settings_read(settings_ctx_t *ctx);
-
-/**
- * @brief   Initialize a ZMQ pollitem.
- * @details Initialize a ZMQ pollitem to be used to poll the associated ZMQ
- *          socket for pending messages.
- *
- * @see     czmq, @c zmq_poll().
- *
- * @param[in] ctx           Pointer to the context to use.
- * @param[out] pollitem     Pointer to the ZMQ pollitem to initialize.
- *
- * @return                  The operation result.
- * @retval 0                The ZMQ pollitem was initialized successfully.
- * @retval -1               An error occurred.
- */
-int settings_pollitem_init(settings_ctx_t *ctx, zmq_pollitem_t *pollitem);
-
-/**
- * @brief   Check a ZMQ pollitem.
- * @details Check a ZMQ pollitem for pending messages and read a single
- *          incoming ZMQ message from the associated socket if available.
- *
- * @see     czmq, @c zmq_poll().
- *
- * @param[in] ctx           Pointer to the context to use.
- * @param[in] pollitem      Pointer to the ZMQ pollitem to check.
- *
- * @return                  The operation result.
- * @retval 0                The ZMQ pollitem was checked successfully.
- * @retval -1               An error occurred.
- */
-int settings_pollitem_check(settings_ctx_t *ctx, zmq_pollitem_t *pollitem);
-
-/**
- * @brief   Add a reader to a ZMQ loop.
- * @details Add a reader for the associated socket to a ZMQ loop. The reader
+ * @brief   Attach settings context to Piksi loop.
+ * @details Attach settings context to Piksi loop. Settings rx callbacks
  *          will be executed to process pending messages when available.
  *
- * @note    Pending messages will only be processed while the ZMQ loop is
- *          running. See @c zloop_start().
- *
- * @see     czmq, @c zloop_start().
- *
  * @param[in] ctx           Pointer to the context to use.
- * @param[in] zloop         Pointer to the ZMQ loop to use.
+ * @param[in] pk_loop       Pointer to the Piksi loop to use.
  *
  * @return                  The operation result.
- * @retval 0                The reader was added successfully.
+ * @retval 0                The settings reader was attached successfully.
  * @retval -1               An error occurred.
  */
-int settings_reader_add(settings_ctx_t *ctx, zloop_t *zloop);
+int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop);
 
 /**
- * @brief   Remove a reader from a ZMQ loop.
- * @details Remove a reader for the associated socket from a ZMQ loop.
+ * @brief   Registers settings with the given context.
  *
- * @param[in] ctx           Pointer to the context to use.
- * @param[in] zloop         Pointer to the ZMQ loop to use.
- *
- * @return                  The operation result.
- * @retval 0                The reader was removed successfully.
- * @retval -1               An error occurred.
+ * @details Intended to be used with @c settings_loop to register the settings
+ *          that the loop will be responsible for.
  */
-int settings_reader_remove(settings_ctx_t *ctx, zloop_t *zloop);
+typedef void (*register_settings_fn)(settings_ctx_t *ctx);
+
+/**
+ * @brief   Handles a control message for a @c settings_loop
+ *
+ * @details Intended to be used with @c settings_loop, this function is called
+ *          when the control command for the loop is received.
+ */
+typedef bool (*handle_command_fn)();
+
+/**
+ * @brief   Start a settings loop with a control sock.
+ * @details Starts a settings loop with a control socket, this is the main
+ *          entry point for a daemon that handles settings and has a simple
+ *          (one command) control socket.
+ *
+ * @param[in] control_socket       The control socket URL (in ZMQ format),
+ *                                 such as ipc://path/socket.unix
+ * @param[in] control_socket_file  The path of the control socket on the file
+ *                                 system, usually a substring of
+ *                                 @c control_socket
+ * @param[in] control_command      Single character string that will trigger
+ *                                 @c do_handle_command when written to the
+ *                                 @c control_socket.
+ * @param[in] do_register_settings Function that will register the settings
+ *                                 for this loop
+ * @param[in] do_handle_command    Function that handles the control command
+ *
+ * @return                  Settings loop exit status
+ * @retval 0                Successful exit
+ * @retval -1               An error occurred
+ */
+bool settings_loop(const char* control_socket,
+                   const char* control_socket_file,
+                   const char* control_command,
+                   register_settings_fn do_register_settings,
+                   handle_command_fn do_handle_command);
+
+bool settings_loop_simple(register_settings_fn do_register_settings);
+
+/**
+ * @brief   Send a control command to a running settings daemon
+ * @details Sends a control command to a daemon running with
+ *          a control socket setup by @c settings_loop
+ *
+ * @param[in] target_description   Description of the target for logging
+ * @param[in] command              The command to send
+ * @param[in] command_description  Description of the command for logging
+ * @param[in] control_socket       The ZMQ URL of the control socket to write
+ *                                 the command to.
+ *
+ * @return                  Result of the command, value depends on
+ *                          the command invoked.
+ */
+int settings_loop_send_command(const char* target_description,
+                               const char* command,
+                               const char* command_description,
+                               const char* control_socket);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LIBPIKSI_SETTINGS_H */
 

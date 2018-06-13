@@ -3,7 +3,13 @@
 name="sbp_settings_daemon"
 cmd="sbp_settings_daemon"
 dir="/"
-user=""
+user="configd"
 
-source /etc/init.d/template_process.inc.sh
+SETTINGS_FILE="/persistent/config.ini"
 
+setup_permissions()
+{
+  configure_file_resource $user $SETTINGS_FILE 0600
+}
+
+source /etc/init.d/template_runsv.inc.sh

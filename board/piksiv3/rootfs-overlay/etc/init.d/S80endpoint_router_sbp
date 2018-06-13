@@ -1,0 +1,20 @@
+#!/bin/sh
+
+name="endpoint_router_sbp"
+dir="/"
+user="rt_sbp"
+
+setup_permissions()
+{
+  add_service_user $user
+}
+
+if grep -q "smoothpose_mode=INS Only" /persistent/config.ini; then
+  router_config="/etc/endpoint_router/sbp_router_smoothpose.yml"
+else
+  router_config="/etc/endpoint_router/sbp_router.yml"
+fi
+
+cmd="endpoint_router -f $router_config"
+
+source /etc/init.d/template_runsv.inc.sh

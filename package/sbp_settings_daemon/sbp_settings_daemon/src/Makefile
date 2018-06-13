@@ -4,10 +4,10 @@ SOURCES= \
 	minIni/minIni.c \
 	settings.c \
 
-LIBS=-lczmq -lsbp -lpiksi
+LIBS=-luv -lnanomsg -lsbp -lpiksi
 
-CFLAGS=-std=gnu11
-ARFLAGS=rcs
+CFLAGS+=-std=gnu11
+ARFLAGS=rcs	$(LTO_PLUGIN)
 
 CROSS=
 

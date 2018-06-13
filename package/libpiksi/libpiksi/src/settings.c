@@ -32,7 +32,7 @@
  * settings that can be configured as owned or non-owned (watch-only)
  * by the process running the client. Each setting which is added to
  * the list will be kept in sync with the settings daemon and/or the
- * owning process via asynchronous messages recieved in the zmq routed
+ * owning process via asynchronous messages received in the routed
  * endpoint for the client.
  *
  * Standard usage is as follow, initialize the settings context:
@@ -40,10 +40,10 @@
  * // Create the settings context
  * settings_ctx_t *settings_ctx = settings_create();
  * \endcode
- * Add a reader to the main zmq context zloop (if applicable)
+ * Add a reader to the main pk_loop (if applicable)
  * \code{.c}
- * // Depending on you implementation this will vary
- * settings_reader_add(settings_ctx, zmq_pubsub_ctx_zloop);
+ * // Depending on your implementation this will vary
+ * settings_attach(settings_ctx, loop);
  * \endcode
  * For settings owners, a setting is registered as follows:
  * \code{.c}
@@ -66,16 +66,19 @@
  * @date 2018-02-23
  */
 
-#include <libpiksi/settings.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+
+#include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
-#include <string.h>
-#include <assert.h>
 #include <libsbp/settings.h>
 
-#define PUB_ENDPOINT ">tcp://127.0.0.1:43071"
-#define SUB_ENDPOINT ">tcp://127.0.0.1:43070"
+#include <libpiksi/settings.h>
+
+#define PUB_ENDPOINT "tcp://127.0.0.1:43071"
+#define SUB_ENDPOINT "tcp://127.0.0.1:43070"
 
 #define REGISTER_TIMEOUT_MS 100
 #define REGISTER_TRIES 5
@@ -84,6 +87,12 @@
 #define WATCH_INIT_TRIES 5
 
 #define SBP_PAYLOAD_SIZE_MAX 255
+
+typedef struct {
+  pk_endpoint_t *cmd_ept;
+  const char* command;
+  handle_command_fn handler;
+} control_command_t;
 
 typedef int (*to_string_fn)(const void *priv, char *str, int slen,
                             const void *blob, int blen);
@@ -151,7 +160,8 @@ typedef struct {
  * the registration, watching and callback functionality of the client.
  */
 struct settings_ctx_s {
-  sbp_zmq_pubsub_ctx_t *pubsub_ctx;
+  pk_loop_t *loop;
+  sbp_pubsub_ctx_t *pubsub_ctx;
   type_data_t *type_data_list;
   setting_data_t *setting_data_list;
   registration_state_t registration_state;
@@ -482,7 +492,7 @@ static void compare_check(settings_ctx_t *ctx, const u8 *data, u8 data_len)
       (memcmp(data, r->compare_data, r->compare_data_len) == 0)) {
     r->match = true;
     r->pending = false;
-    sbp_zmq_rx_reader_interrupt(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx));
+    sbp_rx_reader_interrupt(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx));
   }
 }
 
@@ -685,13 +695,12 @@ static int setting_perform_request_reply_from(settings_ctx_t *ctx,
   u8 tries = 0;
   bool success = false;
   do {
-    sbp_zmq_tx_send_from(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                         message_type,
-                         message_length,
-                         message,
-                         sender_id);
-    zmq_simple_loop_timeout(sbp_zmq_pubsub_zloop_get(ctx->pubsub_ctx),
-                            timeout_ms);
+    sbp_tx_send_from(sbp_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+                     message_type,
+                     message_length,
+                     message,
+                     sender_id);
+    pk_loop_run_simple_with_timeout(ctx->loop, timeout_ms);
     success = compare_match(ctx);
   } while (!success && (++tries < retries));
 
@@ -921,7 +930,7 @@ static int setting_send_write_response(settings_ctx_t *ctx,
                                        msg_settings_write_resp_t *write_response,
                                        u8 len)
 {
-  if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+  if (sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx->pubsub_ctx),
         SBP_MSG_SETTINGS_WRITE_RESP, len, (u8 *)write_response) != 0) {
     piksi_log(LOG_ERR, "error sending settings write response");
     return -1;
@@ -940,7 +949,7 @@ static int setting_send_read_response(settings_ctx_t *ctx,
                                       msg_settings_read_resp_t *read_response,
                                       u8 len)
 {
-  if (sbp_zmq_tx_send(sbp_zmq_pubsub_tx_ctx_get(ctx->pubsub_ctx),
+  if (sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx->pubsub_ctx),
         SBP_MSG_SETTINGS_READ_RESP, len, (u8 *)read_response) != 0) {
     piksi_log(LOG_ERR, "error sending settings read response");
     return -1;
@@ -1083,9 +1092,9 @@ static void settings_write_resp_callback(u16 sender_id, u8 len, u8 msg[],
 static int settings_register_write_callback(settings_ctx_t *ctx)
 {
   if (!ctx->write_callback_registered) {
-    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                     SBP_MSG_SETTINGS_WRITE,
-                                     settings_write_callback, ctx, NULL) != 0) {
+    if (sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                                 SBP_MSG_SETTINGS_WRITE,
+                                 settings_write_callback, ctx, NULL) != 0) {
       piksi_log(LOG_ERR, "error registering settings write callback");
       return -1;
     } else {
@@ -1103,9 +1112,9 @@ static int settings_register_write_callback(settings_ctx_t *ctx)
 static int settings_register_read_resp_callback(settings_ctx_t *ctx)
 {
   if (!ctx->read_resp_callback_registered) {
-    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                     SBP_MSG_SETTINGS_READ_RESP,
-                                     settings_read_resp_callback, ctx, &ctx->read_resp_cb_node) != 0) {
+    if (sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                                 SBP_MSG_SETTINGS_READ_RESP,
+                                 settings_read_resp_callback, ctx, &ctx->read_resp_cb_node) != 0) {
       piksi_log(LOG_ERR, "error registering settings read resp callback");
       return -1;
     } else {
@@ -1123,8 +1132,8 @@ static int settings_register_read_resp_callback(settings_ctx_t *ctx)
 static int settings_deregister_read_resp_callback(settings_ctx_t *ctx)
 {
   if (ctx->read_resp_callback_registered) {
-    if (sbp_zmq_rx_callback_remove(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                   &ctx->read_resp_cb_node) != 0) {
+    if (sbp_rx_callback_remove(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                               &ctx->read_resp_cb_node) != 0) {
       piksi_log(LOG_ERR, "error deregistering settings read resp callback");
       return -1;
     } else {
@@ -1142,9 +1151,9 @@ static int settings_deregister_read_resp_callback(settings_ctx_t *ctx)
 static int settings_register_write_resp_callback(settings_ctx_t *ctx)
 {
   if (!ctx->write_resp_callback_registered) {
-    if (sbp_zmq_rx_callback_register(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                     SBP_MSG_SETTINGS_WRITE_RESP,
-                                     settings_write_resp_callback, ctx, NULL) != 0) {
+    if (sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
+                                 SBP_MSG_SETTINGS_WRITE_RESP,
+                                 settings_write_resp_callback, ctx, NULL) != 0) {
       piksi_log(LOG_ERR, "error registering settings write resp callback");
       return -1;
     } else {
@@ -1161,7 +1170,11 @@ static int settings_register_write_resp_callback(settings_ctx_t *ctx)
 static void members_destroy(settings_ctx_t *ctx)
 {
   if (ctx->pubsub_ctx != NULL) {
-    sbp_zmq_pubsub_destroy(&ctx->pubsub_ctx);
+    sbp_pubsub_destroy(&ctx->pubsub_ctx);
+  }
+
+  if (ctx->loop != NULL) {
+    pk_loop_destroy(&ctx->loop);
   }
 
   /* Free type data list elements */
@@ -1199,19 +1212,32 @@ settings_ctx_t * settings_create(void)
     return ctx;
   }
 
-  ctx->pubsub_ctx = sbp_zmq_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
-  if (ctx->pubsub_ctx == NULL) {
-    piksi_log(LOG_ERR, "error creating PUBSUB context");
-    destroy(&ctx);
-    return ctx;
-  }
-
+  ctx->loop = NULL;
   ctx->type_data_list = NULL;
   ctx->setting_data_list = NULL;
   ctx->registration_state.pending = false;
   ctx->write_callback_registered = false;
   ctx->write_resp_callback_registered = false;
   ctx->read_resp_callback_registered = false;
+
+  ctx->pubsub_ctx = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
+  if (ctx->pubsub_ctx == NULL) {
+    piksi_log(LOG_ERR, "error creating PUBSUB context");
+    destroy(&ctx);
+    return ctx;
+  }
+
+  ctx->loop = pk_loop_create();
+  if (ctx->loop == NULL) {
+    piksi_log(LOG_ERR, "error creating internal loop");
+    destroy(&ctx);
+    return ctx;
+  }
+
+  if (settings_attach(ctx, ctx->loop) != 0) {
+    destroy(&ctx);
+    return ctx;
+  }
 
   /* Register standard types */
   settings_type_t type;
@@ -1249,8 +1275,9 @@ settings_ctx_t * settings_create(void)
 
 void settings_destroy(settings_ctx_t **ctx)
 {
-  assert(ctx != NULL);
-  assert(*ctx != NULL);
+  if (ctx == NULL || *ctx == NULL) {
+    return;
+  }
 
   destroy(ctx);
 }
@@ -1359,45 +1386,234 @@ int settings_add_watch(settings_ctx_t *ctx, const char *section,
                               notify, notify_context, false, true);
 }
 
-int settings_read(settings_ctx_t *ctx)
+int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
 {
   assert(ctx != NULL);
+  assert(pk_loop != NULL);
 
-  return sbp_zmq_rx_read(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx));
+  return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
-int settings_pollitem_init(settings_ctx_t *ctx, zmq_pollitem_t *pollitem)
+static void signal_handler(pk_loop_t *loop, void *handle, void *context)
 {
-  assert(ctx != NULL);
-  assert(pollitem != NULL);
+  (void)context;
+  int signal_value = pk_loop_get_signal_from_handle(handle);
 
-  return sbp_zmq_rx_pollitem_init(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                  pollitem);
+  piksi_log(LOG_DEBUG, "Caught signal: %d", signal_value);
+
+  pk_loop_stop(loop);
 }
 
-int settings_pollitem_check(settings_ctx_t *ctx, zmq_pollitem_t *pollitem)
+static void setup_signal_handlers(pk_loop_t *pk_loop)
 {
-  assert(ctx != NULL);
-  assert(pollitem != NULL);
+  if (pk_loop_signal_handler_add(pk_loop, SIGINT, signal_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
+  }
 
-  return sbp_zmq_rx_pollitem_check(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                   pollitem);
+  if (pk_loop_signal_handler_add(pk_loop, SIGTERM, signal_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
+  }
 }
 
-int settings_reader_add(settings_ctx_t *ctx, zloop_t *zloop)
+static int command_receive_callback(const u8 *data, const size_t length, void *context)
 {
-  assert(ctx != NULL);
-  assert(zloop != NULL);
+  u8 *result = (u8 *)context;
 
-  return sbp_zmq_rx_reader_add(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                               zloop);
+  if (length != 1) {
+    piksi_log(LOG_WARNING, "command received had invalid length: %u", length);
+  } else {
+    *result = data[0];
+  }
+
+  return 0;
 }
 
-int settings_reader_remove(settings_ctx_t *ctx, zloop_t *zloop)
+static void control_handler(pk_loop_t *loop, void *handle, void *context)
 {
-  assert(ctx != NULL);
-  assert(zloop != NULL);
+  control_command_t* cmd_info = (control_command_t*)context;
 
-  return sbp_zmq_rx_reader_remove(sbp_zmq_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                                  zloop);
+  u8 data = 0;
+  if (pk_endpoint_receive(cmd_info->cmd_ept, command_receive_callback, &data) != 0) {
+    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s",
+              __FUNCTION__, "pk_endpoint_receive", __FILE__, __LINE__,
+              pk_endpoint_strerror());
+    return;
+  }
+
+  if (data != cmd_info->command[0]) {
+    piksi_log(LOG_WARNING, "command had invalid value: %c", data);
+    return;
+  }
+
+  u8 result = cmd_info->handler() ? 1 : 0;
+
+  pk_endpoint_send(cmd_info->cmd_ept, &result, 1);
 }
+
+static bool configure_control_socket(pk_loop_t* loop,
+                                     const char* control_socket,
+                                     const char* control_socket_file,
+                                     const char* control_command,
+                                     handle_command_fn do_handle_command,
+                                     pk_endpoint_t** rep_socket,
+                                     control_command_t** ctrl_command_info)
+{
+  #define CHECK_PRECONDITION(X) if (!(X)) { \
+    piksi_log(LOG_ERR, "Precondition check failed: %s (%s:%d)", \
+              __STRING(X), __FILE__, __LINE__);                 \
+    return false; }
+
+  CHECK_PRECONDITION(loop != NULL);
+  CHECK_PRECONDITION(control_socket != NULL);
+  CHECK_PRECONDITION(control_socket_file != NULL);
+  CHECK_PRECONDITION(control_command != NULL);
+  CHECK_PRECONDITION(control_handler != NULL);
+  CHECK_PRECONDITION(do_handle_command != NULL);
+  CHECK_PRECONDITION(ctrl_command_info != NULL);
+
+  CHECK_PRECONDITION(rep_socket != NULL);
+
+#undef CHECK_PRECONDITION
+
+  int rc = chmod(control_socket_file, 0777);
+  if (rc != 0) {
+    piksi_log(LOG_ERR, "Error configuring IPC pipe permissions: %s",
+              strerror(errno));
+    return false;
+  }
+
+  *rep_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REP);
+  if (*rep_socket == NULL) {
+    const char* err_msg = pk_endpoint_strerror();
+    piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s",
+              control_socket, err_msg);
+    return false;
+  }
+
+  *ctrl_command_info = malloc(sizeof(control_command_t));
+
+  **ctrl_command_info = (control_command_t){
+    .cmd_ept = *rep_socket,
+    .command = control_command,
+    .handler = do_handle_command
+  };
+
+  if (pk_loop_endpoint_reader_add(loop, *rep_socket, control_handler, *ctrl_command_info) == NULL) {
+    piksi_log(LOG_ERR, "Error registering reader for control handler");
+    return false;
+  }
+
+  return true;
+}
+
+bool settings_loop(const char* control_socket,
+                   const char* control_socket_file,
+                   const char* control_command,
+                   register_settings_fn do_settings_register,
+                   handle_command_fn do_handle_command)
+{
+  piksi_log(LOG_INFO, "Starting daemon mode for settings...");
+
+  pk_loop_t *loop = pk_loop_create();
+  if (loop == NULL) {
+    goto settings_loop_cleanup;
+  }
+  // Install our own signal handlers
+  setup_signal_handlers(loop);
+
+  pk_endpoint_t* rep_socket = NULL;
+  control_command_t* cmd_info = NULL;
+
+  bool ret = true;
+
+  /* Set up settings */
+  settings_ctx_t *settings_ctx = settings_create();
+  if (settings_ctx == NULL) {
+    ret = false;
+    goto settings_loop_cleanup;
+  }
+
+  if (settings_attach(settings_ctx, loop) != 0) {
+    ret = false;
+    goto settings_loop_cleanup;
+  }
+
+  do_settings_register(settings_ctx);
+
+  if (control_socket != NULL) {
+    bool control_sock_configured =
+      configure_control_socket(loop,
+                               control_socket,
+                               control_socket_file,
+                               control_command,
+                               do_handle_command,
+                               &rep_socket,
+                               &cmd_info);
+    if (!control_sock_configured) {
+      ret = false;
+      goto settings_loop_cleanup;
+    }
+  }
+
+  pk_loop_run_simple(loop);
+
+settings_loop_cleanup:
+  if (rep_socket != NULL)
+    pk_endpoint_destroy(&rep_socket);
+
+  if (cmd_info != NULL)
+    free(cmd_info);
+
+  settings_destroy(&settings_ctx);
+  pk_loop_destroy(&loop);
+
+  return ret;
+}
+
+bool settings_loop_simple(register_settings_fn do_settings_register)
+{
+  return settings_loop(NULL, NULL, NULL, do_settings_register, NULL);
+}
+
+int settings_loop_send_command(const char* target_description,
+                               const char* command,
+                               const char* command_description,
+                               const char* control_socket)
+{
+# define CHECK_PK_EPT_ERR(COND, FUNC) \
+  if (COND) { \
+    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s", \
+              __FUNCTION__, __STRING(FUNC), __FILE__, __LINE__, \
+              pk_endpoint_strerror()); \
+    return -1; \
+  }
+
+#define CMD_INFO_MSG "Sending '%s' command to %s..."
+
+  piksi_log(LOG_INFO, CMD_INFO_MSG, command_description, target_description);
+  printf(CMD_INFO_MSG "\n", command_description, target_description);
+
+  pk_endpoint_t* req_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REQ);
+  CHECK_PK_EPT_ERR(req_socket == NULL, pk_endpoint_create);
+
+  int ret = pk_endpoint_send(req_socket, command, strlen(command));
+  CHECK_PK_EPT_ERR(ret != 0, pk_endpoint_send);
+
+  u8 result = 0;
+  ret = pk_endpoint_receive(req_socket, command_receive_callback, &result);
+  CHECK_PK_EPT_ERR(ret != 0, pk_endpoint_receive);
+
+# define CMD_RESULT_MSG "Result of '%s' command: %hhu"
+
+  piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, result);
+  printf(CMD_RESULT_MSG "\n", command_description, result);
+
+  pk_endpoint_destroy(&req_socket);
+
+  return 0;
+
+# undef CMD_RESULT_MSG
+# undef CHECK_PK_EPT_ERR
+# undef CMD_INFO_MSG
+}
+

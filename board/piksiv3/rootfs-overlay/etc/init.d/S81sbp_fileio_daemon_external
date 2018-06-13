@@ -1,9 +1,15 @@
 #!/bin/sh
 
+FILEIO_DIR=/data/
+
 name="sbp_fileio_daemon_external"
-cmd="sbp_fileio_daemon -p >tcp://localhost:43051 -s >tcp://localhost:43050"
+cmd="sbp_fileio_daemon -p 'tcp://localhost:43051' -s 'tcp://localhost:43050' --basedir $FILEIO_DIR --imageset"
 dir="/"
-user=""
+user="fio_ex"
 
-source /etc/init.d/template_process.inc.sh
+setup_permissions()
+{
+  configure_dir_resource $user $FILEIO_DIR 0700
+}
 
+source /etc/init.d/template_runsv.inc.sh

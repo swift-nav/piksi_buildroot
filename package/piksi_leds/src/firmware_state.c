@@ -10,7 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/sbp_zmq_pubsub.h>
+#include <time.h>
 #include <libpiksi/logging.h>
 
 #include <libsbp/observation.h>
@@ -22,6 +22,8 @@
 
 /* These really belong in libsbp */
 #define SBP_ECEF_FLAGS_MODE_MASK 0x7
+#define SBP_ECEF_FLAGS_INS_MODE_MASK 0x18
+#define SBP_ECEF_FLAGS_INS_MODE_GET(x) ((SBP_ECEF_FLAGS_INS_MODE_MASK & x) >> 3)
 #define SBP_HEARTBEAT_FLAGS_ANTENNA_MASK (1 << 31)
 #define SBP_HEARTBEAT_FLAGS_ANTENNA_SHORT_MASK (1 << 30)
 
@@ -49,6 +51,7 @@ static void sbp_msg_pos_ecef_callback(u16 sender_id, u8 len, u8 msg_[], void *ct
 {
   msg_pos_ecef_t *msg = (void*)msg_;
   soln_state.spp.mode = msg->flags & SBP_ECEF_FLAGS_MODE_MASK;
+  soln_state.spp.ins_mode = SBP_ECEF_FLAGS_INS_MODE_GET(msg->flags);
   clock_gettime(CLOCK_MONOTONIC, &soln_state.spp.systime);
 }
 
@@ -85,16 +88,16 @@ void firmware_state_get(struct soln_state *out)
   memcpy(out, &soln_state, sizeof(*out));
 }
 
-void firmware_state_init(sbp_zmq_rx_ctx_t *ctx)
+void firmware_state_init(sbp_rx_ctx_t *ctx)
 {
-  sbp_zmq_rx_callback_register(ctx, SBP_MSG_OBS,
-                               sbp_msg_obs_callback, NULL, NULL);
-  sbp_zmq_rx_callback_register(ctx, SBP_MSG_POS_ECEF,
-                               sbp_msg_pos_ecef_callback, NULL, NULL);
-  sbp_zmq_rx_callback_register(ctx, SBP_MSG_BASELINE_ECEF,
-                               sbp_msg_baseline_ecef_callback, NULL, NULL);
-  sbp_zmq_rx_callback_register(ctx, SBP_MSG_HEARTBEAT,
-                               sbp_msg_heartbeat_callback, NULL, NULL);
-  sbp_zmq_rx_callback_register(ctx, SBP_MSG_TRACKING_STATE,
-                               sbp_msg_tracking_state_callback, NULL, NULL);
+  sbp_rx_callback_register(ctx, SBP_MSG_OBS,
+                           sbp_msg_obs_callback, NULL, NULL);
+  sbp_rx_callback_register(ctx, SBP_MSG_POS_ECEF,
+                           sbp_msg_pos_ecef_callback, NULL, NULL);
+  sbp_rx_callback_register(ctx, SBP_MSG_BASELINE_ECEF,
+                           sbp_msg_baseline_ecef_callback, NULL, NULL);
+  sbp_rx_callback_register(ctx, SBP_MSG_HEARTBEAT,
+                           sbp_msg_heartbeat_callback, NULL, NULL);
+  sbp_rx_callback_register(ctx, SBP_MSG_TRACKING_STATE,
+                           sbp_msg_tracking_state_callback, NULL, NULL);
 }

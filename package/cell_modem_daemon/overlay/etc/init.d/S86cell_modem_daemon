@@ -1,0 +1,15 @@
+#!/bin/sh
+
+MODEM_BASE="/dev/ttyACM"
+AUX_MODEM_PORT="/dev/ttyACM3"
+name="cell_modem_daemon"
+cmd="cell_modem_daemon --serial-port $AUX_MODEM_PORT"
+dir="/"
+user="celld"
+
+setup_permissions() {
+    # Force device ownership
+    chown $user:$user ${MODEM_BASE}*
+}
+
+source /etc/init.d/template_runsv.inc.sh

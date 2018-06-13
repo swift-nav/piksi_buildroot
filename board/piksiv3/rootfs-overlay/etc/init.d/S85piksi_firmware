@@ -2,7 +2,63 @@
 
 name="piksi_firmware"
 
-start() {
+settings_ini=/persistent/config.ini
+
+svc_path()
+{
+  echo /var/run/ports_daemon/sv/${1}/supervise/stat
+}
+
+detect_sbp_mode()
+{
+  local the_port=$1; shift
+
+  cat $settings_ini  | tr $'\n' ' ' | \
+    grep -q "\[${the_port}\][^\]]*mode=SBP"
+}
+
+port_disabled()
+{
+  local the_port=$1; shift
+
+  # If it's SBP mode, then it's enabled
+  if detect_sbp_mode $the_port; then
+    return 1
+  fi
+
+  # If any other mode, it's effectively "disabled" for this check
+  cat $settings_ini  | tr $'\n' ' ' | \
+    grep -q "\[${the_port}\][^\]]*mode="
+}
+
+service_up()
+{
+  local svc=$1; shift
+  local the_svc_path=$(svc_path $svc)
+
+  if port_disabled $svc; then
+    return 0
+  fi
+
+  grep -q run $the_svc_path
+}
+
+services_up()
+{
+  service_up uart0 && service_up uart1
+}
+
+wait_services()
+{
+  while ! services_up; do
+    sleep 0.1;
+  done
+}
+
+start()
+{
+  wait_services
+
   if [ -f "/lib/firmware/piksi_firmware.elf" ]; then
     modprobe zynq_remoteproc
   else
@@ -10,7 +66,8 @@ start() {
   fi
 }
 
-stop() {
+stop()
+{
   rmmod zynq_remoteproc
 }
 

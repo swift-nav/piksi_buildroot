@@ -15,8 +15,10 @@ branches:
     - v1.3.0-release
     - v1.4.0-release
     - v1.5.0-release
+    - v1.6.0-release
 
 before_install:
+  - ./scripts/check_for_s3_cred.sh || travis_terminate 1
   - openssl aes-256-cbc -K $encrypted_09ba210c188e_key -iv $encrypted_09ba210c188e_iv -in .travis_piksi_ins_ref_key.enc -out /tmp/travis_piksi_ins_ref_key -d
   - eval "$(ssh-agent -s)"
   - chmod 0600 /tmp/travis_piksi_ins_ref_key
@@ -34,56 +36,86 @@ matrix:
   include:
 
     # Check if docker base image needs to be re-built
-    - script:
-        - ./scripts/docker_travis.sh
+    - env:
+        - TRAVIS_TARGET=docker
+      script:
+        - bash -c "while true; do sleep 1m; echo ...; done" &
+        - set -o pipefail && ./scripts/docker_travis.sh 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
+      after_success:
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
+      after_failure:
+        - tail -n 500 build_${TRAVIS_TARGET}.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
 
     # Normal image build
     - env:
-        - TRAVIS_TARGET=docker-make-image
+        - TRAVIS_TARGET=internal
       script:
         - make docker-setup
         - make docker-make-firmware
         - bash -c "while true; do sleep 1m; echo ...; done" &
-        - set -o pipefail && make docker-make-image 2>&1 | tee -a build.out | grep --line-buffered '^>>>'
+        - set -o pipefail && make docker-make-image 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
       after_success:
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out buildroot/output/images/piksiv3_prod/*
-        - ./scripts/travis_pr_describe.sh
-        - ./scripts/hitl_smoke_test.sh
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out buildroot/output/images/piksiv3_prod/* || travis_terminate 1
+        - ./scripts/travis_pr_describe.sh || travis_terminate 1
+        - ./scripts/generate_requirements.sh || travis_terminate 1
+        - ./scripts/hitl_smoke_test.sh || travis_terminate 1
         - SLACK_CHANNEL=github ./scripts/comment.sh
       after_failure:
-        - tail -n 500 build.out
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build.out
+        - tail -n 500 build_${TRAVIS_TARGET}.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
+
+    # Release image build
+    - env:
+        - TRAVIS_TARGET=release
+      script:
+        - make docker-setup
+        - make docker-make-firmware
+        - bash -c "while true; do sleep 1m; echo ...; done" &
+        - set -o pipefail && make docker-make-image-release-open 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
+        - set -o pipefail && make docker-make-image-release-ins 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
+      after_success:
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin buildroot/output/images/piksiv3_prod/PiksiMulti-PROTECTED-v*.bin || travis_terminate 1
+        - ./scripts/travis_pr_describe.sh || travis_terminate 1
+        - ./scripts/generate_requirements.sh || travis_terminate 1
+        - ./scripts/hitl_smoke_test.sh || travis_terminate 1
+        - SLACK_CHANNEL=github ./scripts/comment.sh
+      after_failure:
+        - tail -n 500 build_${TRAVIS_TARGET}.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
 
     # Host image build to run tests
     - env:
-        - TRAVIS_TARGET=docker-make-host-image
+        - TRAVIS_TARGET=host
       script:
         - make firmware
         - make docker-setup
         - bash -c "while true; do sleep 1m; echo ...; done" &
-        - set -o pipefail && make docker-make-host-image 2>&1 | tee -a host_build.out | grep --line-buffered '^>>>'
+        - set -o pipefail && make docker-make-host-image 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
       after_success:
         - git fetch --tags --unshallow
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh host_build.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
       after_failure:
-        - tail -n 500 host_build.out
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh host_build.out
+        - tail -n 500 build_${TRAVIS_TARGET}.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
 
     # Normal build + SDK sample app + piksi_ins_ref
     - env:
-        - TRAVIS_TARGET=docker-make-image
+        - TRAVIS_TARGET=sdk
         - BR2_BUILD_SAMPLE_DAEMON=y
         - BR2_BUILD_PIKSI_INS_REF=y
       script:
         - make docker-setup
         - make docker-make-firmware
         - bash -c "while true; do sleep 1m; echo ...; done" &
-        - set -o pipefail && make docker-make-image 2>&1 | tee -a sdk_build.out | grep --line-buffered '^>>>'
+        - set -o pipefail && make docker-make-image 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
+        - ./scripts/should_not_build_sdk.sh || ( set -o pipefail && make docker-make-sdk 2>&1 | tee -a build.out | grep --line-buffered '^>>>' )
       after_success:
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh sdk_build.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
+        - ./scripts/should_not_build_sdk.sh || PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh piksi_sdk.txz
       after_failure:
-        - tail -n 500 build.out
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh sdk_build.out
+        - tail -n 500 build_${TRAVIS_TARGET}.out
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
 
 env:
   global:

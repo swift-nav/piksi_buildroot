@@ -2,11 +2,13 @@
 
 name="rtc_load"
 
-start() {
+start()
+{
   modprobe rtc-m41t80
 }
 
-stop() {
+stop()
+{
   rmmod rtc-m41t80
 }
 

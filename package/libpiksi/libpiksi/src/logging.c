@@ -11,18 +11,24 @@
  */
 
 #include <libpiksi/logging.h>
-#include <syslog.h>
+#include <stdarg.h>
 
 #define FACILITY LOG_LOCAL0
 #define OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)
 
 static char log_ident[256];
+bool log_stdout_only = false;
 
 int logging_init(const char *identity)
 {
   snprintf(log_ident, sizeof(log_ident), "%s", identity);
   openlog(identity, OPTIONS, FACILITY);
   return 0;
+}
+
+void logging_log_to_stdout_only(bool enable)
+{
+  log_stdout_only = enable;
 }
 
 void logging_deinit(void)
@@ -35,18 +41,40 @@ void piksi_log(int priority, const char *format, ...)
 {
   va_list ap;
   va_start(ap, format);
-  vsyslog(priority, format, ap);
+  piksi_vlog(priority, format, ap);
   va_end(ap);
 }
 
 void piksi_vlog(int priority, const char *format, va_list ap)
 {
+  if (log_stdout_only) {
+    char *with_return = (char *)malloc(strlen(format) + 1);
+    if (with_return != NULL) {
+      sprintf(with_return, "%s\n", format);
+      vprintf(with_return, ap);
+      free(with_return);
+    }
+    return;
+  }
+  if ((priority & LOG_FACMASK) == LOG_SBP) {
+    priority &= ~LOG_FACMASK;
+    sbp_vlog(priority, format, ap);
+  }
+
   vsyslog(priority, format, ap);
 }
 
 #define NUM_LOG_LEVELS 8
 
 void sbp_log(int priority, const char *msg_text, ...)
+{
+  va_list ap;
+  va_start(ap, msg_text);
+  sbp_vlog(priority, msg_text, ap);
+  va_end(ap);
+}
+
+void sbp_vlog(int priority, const char *msg_text, va_list ap)
 {
   const char *log_args[NUM_LOG_LEVELS] = {"emerg", "alert", "crit",
                                           "error", "warn", "notice",
@@ -56,10 +84,9 @@ void sbp_log(int priority, const char *msg_text, ...)
     priority = LOG_INFO;
   }
 
-  FILE *output;
   char cmd_buf[256];
   snprintf(cmd_buf, sizeof(cmd_buf), "sbp_log --%s", log_args[priority]);
-  output = popen (cmd_buf, "w");
+  FILE *output = popen (cmd_buf, "w");
 
   if (output == 0) {
     piksi_log(LOG_ERR, "couldn't call sbp_log.");
@@ -68,10 +95,7 @@ void sbp_log(int priority, const char *msg_text, ...)
 
   char formatted_msg[2048];
 
-  va_list ap;
-  va_start(ap, msg_text);
   vsnprintf(formatted_msg, sizeof(formatted_msg), msg_text, ap);
-  va_end(ap);
 
   char msg_buf[2048];
   snprintf(msg_buf, sizeof(msg_buf), "%s: %s", log_ident, formatted_msg);

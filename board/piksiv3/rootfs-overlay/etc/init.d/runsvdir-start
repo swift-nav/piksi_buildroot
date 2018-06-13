@@ -1,0 +1,39 @@
+#!/bin/sh
+
+name=runit
+
+svc_dir=/etc/sv
+run_dir=/var/service
+
+stdout=/var/run/$name.stdout
+stderr=/var/run/$name.stderr
+
+mkdir -p $run_dir
+
+ls -1 $svc_dir | while read -r svc; do
+   ln -sf $svc_dir/$svc $run_dir/$svc
+done
+
+cleanup()
+{
+  kill -HUP $pid $stderr_pid $stdout_pid && \
+    kill -TERM $pid $stderr_pid $stdout_pid
+
+  exit 0
+}
+
+trap 'cleanup' HUP TERM
+
+rm -f $stdout $stderr
+mkfifo $stdout $stderr
+
+logger -t $name -p daemon.info <$stdout &
+stdout_pid=$!
+
+logger -t $name -p daemon.err  <$stderr &
+stderr_pid=$!
+
+runsvdir $run_dir 1>$stdout 2>$stderr &
+
+pid=$!
+wait $pid

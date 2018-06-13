@@ -13,8 +13,17 @@
 #ifndef LIBPIKSI_COMMON_H
 #define LIBPIKSI_COMMON_H
 
+#include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 #include <libsbp/sbp.h>
-#include <czmq.h>
+
+#ifndef SIZET_MAX
+#   define SIZET_MAX  ((size_t)(ssize_t)(-1))
+#   define SSIZET_MAX  ((ssize_t)(((size_t)1<<(8*sizeof(ssize_t)-1))-1))
+#endif
 
 #endif /* LIBPIKSI_COMMON_H */

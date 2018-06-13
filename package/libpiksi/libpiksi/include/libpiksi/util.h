@@ -24,6 +24,10 @@
 
 #include <libpiksi/common.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief   Get the SBP sender ID for the system.
  * @details Returns the board-specific SBP sender ID.
@@ -49,43 +53,28 @@ u64 system_uptime_ms_get(void);
 int device_uuid_get(char *str, size_t str_size);
 
 /**
- * @brief   Run a ZMQ loop ignoring signals.
- * @details Run a ZMQ loop ignoring signals until an error occurs or a handler
- *          returns -1.
+ * @brief   Determine if the current system is Duro
+ * @details Returns the true or false
  *
- * @param[in] zloop         Pointer to the ZMQ loop to use.
- *
- * @return                  The operation result.
- * @retval 0                A handler returned -1.
- * @retval -1               An error occurred.
+ * @return  True if the current system is a Duro
  */
-int zmq_simple_loop(zloop_t *zloop);
+bool device_is_duro(void);
 
-/**
- * @brief   Run a ZMQ loop ignoring signals with timeout.
- * @details Run a ZMQ loop ignoring signals until an error occurs or a handler
- *          returns -1 with timeout.
- *
- * @param[in] zloop         Pointer to the ZMQ loop to use.
- * @param[in] timeout_ms    Timeout in milliseconds.
- *
- * @return                  The operation result.
- * @retval 0                A handler returned -1.
- * @retval -1               An error occurred.
- */
-int zmq_simple_loop_timeout(zloop_t *zloop, u32 timeout_ms);
-
-#define MAX(a,b) \
+#define SWFT_MAX(a,b) \
   ({ typeof (a) _a = (a); \
   typeof (b) _b = (b); \
   _a > _b ? _a : _b; })
 
-#define MIN(a,b) \
+#define SWFT_MIN(a,b) \
   ({ typeof (a) _a = (a); \
   typeof (b) _b = (b); \
   _a < _b ? _a : _b; })
 
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LIBPIKSI_UTIL_H */
 
