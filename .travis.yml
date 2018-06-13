@@ -109,10 +109,10 @@ matrix:
         - make docker-make-firmware
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-image 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
-        - ./scripts/should_not_build_sdk.sh || ( set -o pipefail && make docker-make-sdk 2>&1 | tee -a build.out | grep --line-buffered '^>>>' )
+        - DEBUG=1 ./scripts/should_not_build_sdk.sh || ( set -o pipefail && make docker-make-sdk 2>&1 | tee -a build.out | grep --line-buffered '^>>>' )
       after_success:
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
-        - ./scripts/should_not_build_sdk.sh || PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh piksi_sdk.txz
+        - DEBUG=1 ./scripts/should_not_build_sdk.sh || PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh piksi_sdk.txz
       after_failure:
         - tail -n 500 build_${TRAVIS_TARGET}.out
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
