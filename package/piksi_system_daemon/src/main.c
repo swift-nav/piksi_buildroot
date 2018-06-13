@@ -46,6 +46,8 @@ static double network_polling_frequency = 0.1;
 static double network_polling_retry_frequency = 1;
 static bool log_ping_activity = false;
 
+static bool ota_enabled = false;
+
 #define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
 //#define DEBUG_PIKSI_SYSTEM_DAEMON
 
@@ -476,6 +478,35 @@ static int network_polling_notify(void *context)
   return 0;
 }
 
+#define OTA_SYS_COMMAND_ERROR "ota_enabled_notify: system command failed: '%s', status: %d"
+
+static int ota_enabled_notify(void *context)
+{
+  (void) context;
+
+  int rc;
+  size_t count;
+
+  char sys_command[128];
+
+  if (ota_enabled) {
+    count = snprintf(sys_command, sizeof(sys_command),
+                     "echo y >/var/run/ota_enabled");
+    assert(count < sizeof(sys_command));
+  } else {
+    count = snprintf(sys_command, sizeof(sys_command),
+                     "echo >/var/run/ota_enabled");
+    assert(count < sizeof(sys_command));
+  }
+
+  rc = system(sys_command);
+  if (rc != 0) {
+    piksi_log(LOG_WARNING, OTA_SYS_COMMAND_ERROR, sys_command, rc);
+  }
+
+  return 0;
+}
+
 int main(void)
 {
   logging_init(PROGRAM_NAME);
@@ -539,6 +570,10 @@ int main(void)
   settings_register(settings_ctx, "system", "log_ping_activity",
                     &log_ping_activity, sizeof(log_ping_activity),
                     SETTINGS_TYPE_BOOL, network_polling_notify, NULL);
+
+  settings_register(settings_ctx, "system", "ota_enabled",
+                    &ota_enabled, sizeof(ota_enabled),
+                    SETTINGS_TYPE_BOOL, ota_enabled_notify, NULL);
 
   sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_RESET, reset_callback, NULL, NULL);
