@@ -93,6 +93,8 @@ generate_prod() {
 
   echo -n "Generating PROD firmware image image... "
 
+  cp -v $FAILSAFE_BIN_PATH $FIRMWARE_DIR/PiksiMulti-FAILSAFE.bin
+
   # Ensure log is empty
   true >$LOG_FILE
 
