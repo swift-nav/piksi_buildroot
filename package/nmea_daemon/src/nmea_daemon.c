@@ -28,6 +28,8 @@
 
 #define BASE_DIRECTORY    "/var/run/nmea"
 
+#define NO_FIX_GGA        "$GPGGA,,,,,,0,,,,M,,M,,*66"
+
 const char* const NMEA_GGA_OUTPUT_PATH = BASE_DIRECTORY "/GGA";
 
 bool nmea_debug = false;
@@ -184,6 +186,15 @@ int main(int argc, char *argv[])
                                   nmea_reader_handler,
                                   &ctx) == NULL) {
     piksi_log(LOG_ERR, "error registering reader");
+    exit(cleanup(EXIT_FAILURE, &ctx));
+  }
+
+  FILE* fp = fopen(NMEA_GGA_OUTPUT_PATH, "w");
+  if (fp != NULL) {
+    fprintf(fp, "%s\r\n", NO_FIX_GGA);
+    fclose(fp);
+  } else {
+    piksi_log(LOG_SBP|LOG_ERR, "unable to open '%s'");
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
