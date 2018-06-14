@@ -456,6 +456,11 @@ int main(void)
     exit(EXIT_FAILURE);
   }
 
+  /* Attach pubsub to loop */
+  if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(pubsub_ctx), loop) != 0) {
+    exit(EXIT_FAILURE);
+  }
+
   /* Set up settings */
   settings_ctx_t *settings_ctx = settings_create();
   if (settings_ctx == NULL) {
