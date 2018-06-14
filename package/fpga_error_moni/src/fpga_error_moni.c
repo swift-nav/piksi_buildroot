@@ -16,11 +16,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <czmq.h>
-
 #include <libpiksi/logging.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
-#include <libpiksi/sbp_zmq_rx.h>
+#include <libpiksi/loop.h>
+#include <libpiksi/sbp_pubsub.h>
+#include <libpiksi/sbp_rx.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/util.h>
 
@@ -30,8 +29,8 @@
 
 #define PROGRAM_NAME "fpga_error_moni"
 
-#define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
-#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
+#define SBP_SUB_ENDPOINT    "tcp://127.0.0.1:43030"  /* SBP External Out */
+#define SBP_PUB_ENDPOINT    "tcp://127.0.0.1:43031"  /* SBP External In */
 
 bool print_debug = false;
 
@@ -87,7 +86,7 @@ static void info_callback(u16 sender_id, u8 len, u8 msg[], void *context)
         return;
       }
       fgets(line, 16, fid);
-      fclose(fid); fid = NULL;      
+      fclose(fid); fid = NULL;
       sbp_log(LOG_ERR, "cat %s -> %s", DONE_PIN_FILE, line);
     }
   }
@@ -95,7 +94,8 @@ static void info_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 
 int main(int argc, char *argv[]) {
   int status = EXIT_SUCCESS;
-  sbp_zmq_pubsub_ctx_t *ctx = NULL;
+  pk_loop_t *loop = NULL;
+  sbp_pubsub_ctx_t *ctx = NULL;
 
   logging_init(PROGRAM_NAME);
 
@@ -107,17 +107,20 @@ int main(int argc, char *argv[]) {
 
   sbp_log(LOG_INFO, PROGRAM_NAME " launched");
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
+  loop = pk_loop_create();
+  if (loop == NULL) {
+    status = EXIT_FAILURE;
+    goto cleanup;
+  }
 
-  ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (ctx == NULL) {
     status = EXIT_FAILURE;
     goto cleanup;
   }
 
-  sbp_zmq_rx_ctx_t *rx_ctx = sbp_zmq_pubsub_rx_ctx_get(ctx);
-  sbp_zmq_tx_ctx_t *tx_ctx = sbp_zmq_pubsub_tx_ctx_get(ctx);
+  sbp_rx_ctx_t *rx_ctx = sbp_pubsub_rx_ctx_get(ctx);
+  sbp_tx_ctx_t *tx_ctx = sbp_pubsub_tx_ctx_get(ctx);
 
   if ((NULL == rx_ctx) || (NULL == tx_ctx)) {
     sbp_log(LOG_ERR, "Error initializing SBP!");
@@ -125,17 +128,22 @@ int main(int argc, char *argv[]) {
     goto cleanup;
   }
 
-  
-  if (sbp_zmq_rx_callback_register(rx_ctx, SBP_MSG_LOG, info_callback, ctx, NULL) != 0) {
+  if (sbp_rx_attach(rx_ctx, loop) != 0) {
+    status = EXIT_FAILURE;
+    goto cleanup;
+  }
+
+  if (sbp_rx_callback_register(rx_ctx, SBP_MSG_LOG, info_callback, ctx, NULL) != 0) {
     sbp_log(LOG_ERR, "Error setting SBP_MSG_LOG callback!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
 
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
+  pk_loop_run_simple(loop);
 
 cleanup:
-  sbp_zmq_pubsub_destroy(&ctx);
+  sbp_pubsub_destroy(&ctx);
+  pk_loop_destroy(&loop);
   logging_deinit();
 
   return status;
