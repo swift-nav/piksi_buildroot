@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="fpga_error_moni"
+cmd="fpga_error_moni"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh
