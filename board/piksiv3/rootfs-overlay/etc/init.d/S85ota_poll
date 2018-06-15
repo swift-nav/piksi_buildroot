@@ -3,11 +3,10 @@
 name="ota_poll"
 cmd="/etc/init.d/ota_poll.sh"
 dir="/"
-user="piksi_sys"
 
 setup_permissions()
 {
-  configure_file_resource $user /var/run/ota_enabled 0644
+  configure_file_resource piksi_sys /var/run/ota_enabled 0644
 }
 
 source /etc/init.d/template_process.inc.sh

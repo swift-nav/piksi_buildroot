@@ -1,10 +1,13 @@
 #!/bin/ash
 
+log_tag=ota
+source /etc/init.d/logging.sh
+setup_loggers
+
 ## Resources and configuration:
 
-check_period=1
+check_period=1800
 
-polling_period_file=/dev/null
 ota_enabled_file=/var/run/ota_enabled
 
 ## Functions:
@@ -29,9 +32,10 @@ trap 'kill $child_pid; exit' EXIT STOP TERM
 
 while true; do
   if ota_enabled; then
-    echo 'OTA poll'
-    date
+    ota_tool `cat /cfg/device_uuid` \
+             `cat /img_tbl/boot/name`
+    sleep $check_period
   else
+    sleep 10
   fi
-  sleep $check_period
 done
