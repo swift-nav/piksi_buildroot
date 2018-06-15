@@ -57,6 +57,18 @@ fn upgrade_firmware(path: &std::path::Path) -> Result<(), String> {
     return Ok(());
 }
 
+fn reboot() -> Result<(), String> {
+    println!("rebooting");
+    let cmd_output = String::from_utf8(
+                        Command::new("reboot").arg("-f")
+                        .output()
+                        .map_err(|e| format!("Error calling reboot: {}", e.to_string()))?
+                        .stdout)
+                     .map_err(|e| format!("Error encoding reboot output: {}", e.to_string()))?;
+    println!("{}", cmd_output);
+    return Ok(());
+}
+
 fn is_uuid(uuid: String) -> Result<(), String> {
     match Uuid::parse_str(&uuid) {
         Err(_) => Err(String::from("Device UUID not correctly formatted")),
@@ -114,7 +126,7 @@ fn main() {
 
     // Make a request to the OTA service to get the details of what firmware we
     // should be running
-    let mut decoded = ota_service_request(uuid, current_version, url).expect("OTA service request error");
+    let decoded = ota_service_request(uuid, current_version, url).expect("OTA service request error");
 
     println!("target version: {}", decoded.version);
 
@@ -144,4 +156,5 @@ fn main() {
     }
 
     upgrade_firmware(fw_path).unwrap();
+    reboot().unwrap();
 }
