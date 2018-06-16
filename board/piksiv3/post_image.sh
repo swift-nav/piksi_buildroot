@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ -z "$HW_CONFIG" ]; then
   echo "ERROR: HW_CONFIG is not set"
   exit 1
@@ -93,7 +95,13 @@ generate_prod() {
 
   echo -n "Generating PROD firmware image image... "
 
-  cp -v $FAILSAFE_BIN_PATH $FIRMWARE_DIR/PiksiMulti-FAILSAFE.bin
+  if [ -n "$BR2_BUILD_RELEASE_PROTECTED" ] || [ -n "$BR2_BUILD_RELEASE_OPEN" ]; then
+    echo "This is a release image, staging new failsafe bootloader..."
+    cp -v $FAILSAFE_BIN_PATH $FIRMWARE_DIR/PiksiMulti-FAILSAFE.bin
+  else
+    echo "This is *NOT* a release image, purging stage of failsafe bootloader..."
+    rm -vf $FIRMWARE_DIR/PiksiMulti-FAILSAFE.bin
+  fi
 
   # Ensure log is empty
   true >$LOG_FILE
