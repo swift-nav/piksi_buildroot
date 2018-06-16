@@ -21,10 +21,15 @@
 #include <termios.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <libpiksi/logging.h>
 
 #include "serial.h"
+
+#define RELEASE_LOCKDOWN "/etc/release_lockdown"
 
 static const char * const baudrate_enum_names[] = {
   "1200", "2400", "4800", "9600",
@@ -135,6 +140,9 @@ int serial_init(settings_ctx_t *settings_ctx)
 {
   /* Configure USB0 */
   uart_configure(&usb0);
+
+  struct stat s;
+  usb2.tty_path = stat(RELEASE_LOCKDOWN, &s) == 0 ? "/dev/ttyGS1" : "/dev/ttyGS2";
 
   /* Configure USB2 */
   uart_configure(&usb2);

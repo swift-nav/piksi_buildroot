@@ -15,6 +15,10 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
 
@@ -29,6 +33,15 @@
 #define PID_INVALID 0
 
 #define FIXED_SBP_USB_PORT_NAME "usb2"
+#define RELEASE_LOCKDOWN "/etc/release_lockdown"
+
+// This is the default for most serial devices, we need to drop and flush
+//   data when we get to this point to avoid sending partial SBP packets.
+//   See https://elixir.bootlin.com/linux/v4.6/source/include/linux/serial.h#L29
+#define SERIAL_XMIT_SIZE "4096"
+
+// See https://elixir.bootlin.com/linux/v4.6/source/drivers/usb/gadget/function/u_serial.c#L83
+#define USB_SERIAL_XMIT_SIZE "8192"
 
 typedef enum {
   PORT_TYPE_UART,
@@ -63,6 +76,20 @@ typedef int (*opts_get_fn_t)(char *buf, size_t buf_size,
                              const opts_data_t *opts_data);
 
 #define RUNIT_SERVICE_DIR "/var/run/ports_daemon/sv"
+
+static int opts_get_fixed_sbp(char *buf, size_t buf_size,
+                              const opts_data_t *opts_data)
+{
+  (void) opts_data;
+
+  struct stat s;
+  const char* tty = stat(RELEASE_LOCKDOWN, &s) == 0 ? "ttyGS1" : "ttyGS2";
+
+  #define OPT_PATTERN \
+    ("--name " FIXED_SBP_USB_PORT_NAME " --file /dev/%s --nonblock --outq " USB_SERIAL_XMIT_SIZE)
+
+  return snprintf(buf, buf_size, OPT_PATTERN, tty);
+}
 
 static int opts_get_tcp_server(char *buf, size_t buf_size,
                                const opts_data_t *opts_data)
@@ -105,14 +132,6 @@ typedef struct {
   bool first_start;
 } port_config_t;
 
-// This is the default for most serial devices, we need to drop and flush
-//   data when we get to this point to avoid sending partial SBP packets.
-//   See https://elixir.bootlin.com/linux/v4.6/source/include/linux/serial.h#L29
-#define SERIAL_XMIT_SIZE "4096"
-
-// See https://elixir.bootlin.com/linux/v4.6/source/drivers/usb/gadget/function/u_serial.c#L83
-#define USB_SERIAL_XMIT_SIZE "8192"
-
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
@@ -149,8 +168,8 @@ static port_config_t port_configs[] = {
   },
   {
     .name = FIXED_SBP_USB_PORT_NAME,
-    .opts = "--name " FIXED_SBP_USB_PORT_NAME " --file /dev/ttyGS2 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
-    .opts_get = NULL,
+    .opts = "",
+    .opts_get = opts_get_fixed_sbp,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
