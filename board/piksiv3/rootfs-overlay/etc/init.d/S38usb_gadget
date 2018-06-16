@@ -1,16 +1,11 @@
 #!/bin/sh
 
-name="usb_gadget"
+source /etc/init.d/common.sh
 
 CONFIGURE_NETWORKING="/persistent/usb_gadget_networking"
-RELEASE_LOCKDOWN="/etc/release_lockdown"
 
 net() {
     [[ -f "$CONFIGURE_NETWORKING" ]]
-}
-
-lockdown() {
-    [[ -f "$RELEASE_LOCKDOWN" ]]
 }
 
 VENDOR_ID="0x2E69"
@@ -117,4 +112,5 @@ stop() {
   #  2. stop SBP service
 }
 
+name="usb_gadget" # used in template_command.inc.sh
 source /etc/init.d/template_command.inc.sh
