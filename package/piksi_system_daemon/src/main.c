@@ -127,8 +127,11 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
     return;
   }
 
-  if (   strcmp(msg->command, "upgrade_tool upgrade.image_set.bin") != 0
-      && strcmp(msg->command, "spawn_nc") != 0 )
+  if (    strcmp(msg->command, "upgrade_tool upgrade.image_set.bin") != 0
+       && strcmp(msg->command, "spawn_nc") != 0
+       && strcmp(msg->command, "stream_logs") != 0
+       && strcmp(msg->command, "dump_syslog") != 0
+     )
   {
     msg_command_resp_t resp = {
       .sequence = msg->sequence,
@@ -148,11 +151,38 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
                             "sbp_cmd_resp --sequence %u --status $?",
                             msg->sequence);
     assert( count < sizeof(spawn_nc) );
-
-    system(spawn_nc);
+    (void) system(spawn_nc);
 
     return;
   };
+
+  if (strcmp(msg->command, "stream_logs") == 0) {
+
+    char stream_logs[1024];
+
+    size_t count = snprintf(stream_logs, sizeof(stream_logs),
+                            "stream_logs; sbp_cmd_resp --sequence %u --status $?",
+                            msg->sequence);
+
+    assert( count < sizeof(stream_logs) );
+    (void) system(stream_logs);
+
+    return;
+  };
+
+  if (strcmp(msg->command, "dump_syslog") == 0) {
+
+    char dump_syslog[1024];
+
+    size_t count = snprintf(dump_syslog, sizeof(dump_syslog),
+                            "dump_syslog; sbp_cmd_resp --sequence %u --status $?",
+                            msg->sequence);
+
+    assert( count < sizeof(dump_syslog) );
+    (void) system(dump_syslog);
+
+    return;
+  }
 
   const char* upgrade_cmd =
     "sh -c 'set -o pipefail;                                      "
