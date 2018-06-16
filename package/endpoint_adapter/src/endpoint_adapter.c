@@ -10,19 +10,24 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "endpoint_adapter.h"
-#include "framer.h"
-#include "filter.h"
-#include "protocols.h"
+#define _DEFAULT_SOURCE
+
 #include <stdlib.h>
 #include <getopt.h>
 #include <dlfcn.h>
-#include <libpiksi/logging.h>
-#include <libpiksi/loop.h>
 #include <syslog.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
+#include <limits.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/loop.h>
+
+#include "endpoint_adapter.h"
+#include "framer.h"
+#include "filter.h"
+#include "protocols.h"
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
@@ -78,7 +83,7 @@ static int outq;
 static const char *pub_addr = NULL;
 static const char *sub_addr = NULL;
 static const char *port_name = "<unknown>";
-static const char *file_path = NULL;
+static char file_path[PATH_MAX] = "";
 static int tcp_listen_port = -1;
 static const char *tcp_connect_addr = NULL;
 static int udp_listen_port = -1;
@@ -188,7 +193,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_FILE: {
         io_mode = IO_FILE;
-        file_path = optarg;
+        char* rp = realpath(optarg, file_path);
+        if (rp == NULL) {
+          fprintf(stderr, "realpath returned error: %s\n", strerror(errno));
+        }
+        debug_printf("--file: %s (realpath: %s)\n", (char *)optarg, file_path);
       }
       break;
 

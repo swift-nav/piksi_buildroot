@@ -10,10 +10,14 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#define _DEFAULT_SOURCE
 
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
@@ -29,6 +33,14 @@
 #define PID_INVALID 0
 
 #define FIXED_SBP_USB_PORT_NAME "usb2"
+
+// This is the default for most serial devices, we need to drop and flush
+//   data when we get to this point to avoid sending partial SBP packets.
+//   See https://elixir.bootlin.com/linux/v4.6/source/include/linux/serial.h#L29
+#define SERIAL_XMIT_SIZE "4096"
+
+// See https://elixir.bootlin.com/linux/v4.6/source/drivers/usb/gadget/function/u_serial.c#L83
+#define USB_SERIAL_XMIT_SIZE "8192"
 
 typedef enum {
   PORT_TYPE_UART,
@@ -105,14 +117,6 @@ typedef struct {
   bool first_start;
 } port_config_t;
 
-// This is the default for most serial devices, we need to drop and flush
-//   data when we get to this point to avoid sending partial SBP packets.
-//   See https://elixir.bootlin.com/linux/v4.6/source/include/linux/serial.h#L29
-#define SERIAL_XMIT_SIZE "4096"
-
-// See https://elixir.bootlin.com/linux/v4.6/source/drivers/usb/gadget/function/u_serial.c#L83
-#define USB_SERIAL_XMIT_SIZE "8192"
-
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
@@ -138,7 +142,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "usb0",
-    .opts = "--name usb0 --file /dev/ttyGS0 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
+    .opts = "--name usb0 --file /dev/tty.usb0 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -149,7 +153,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = FIXED_SBP_USB_PORT_NAME,
-    .opts = "--name " FIXED_SBP_USB_PORT_NAME " --file /dev/ttyGS2 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
+    .opts = "--name " FIXED_SBP_USB_PORT_NAME " --file /dev/tty.usb2 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,

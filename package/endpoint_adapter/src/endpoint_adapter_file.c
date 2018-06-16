@@ -42,7 +42,7 @@ int file_loop(const char *file_path, int need_read, int need_write)
       fd_read = open(file_path, O_RDONLY);
     }
     if (fd_read < 0) {
-      syslog(LOG_ERR, "error opening file");
+      syslog(LOG_ERR, "error opening file: %s (%s)", file_path, strerror(errno));
       debug_printf("Error opening fd_read\n");
       return 1;
     }

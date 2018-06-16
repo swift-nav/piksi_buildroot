@@ -9,6 +9,7 @@ endif
 BUILD_ENV_ARGS = \
   BR2_EXTERNAL=$(BR2_EXTERNAL) \
   BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF) \
+  BR2_HAS_PIKSI_INS=$(BR2_HAS_PIKSI_INS) \
   BR2_BUILD_RELEASE_PROTECTED=$(BR2_BUILD_RELEASE_PROTECTED) \
   BR2_BUILD_RELEASE_OPEN=$(BR2_BUILD_RELEASE_OPEN) \
   BR2_BUILD_PIKSI_INS_REF=$(BR2_BUILD_PIKSI_INS_REF) \
@@ -38,22 +39,36 @@ dev-tools-build: pkg-piksi_dev_tools
 
 rel-lockdown-clean: pkg-release_lockdown-dirclean
 
-image-release-open: export BR2_BUILD_RELEASE_OPEN=y
-image-release-open: config
+POST_IMAGE_ENV = HW_CONFIG=prod \
+                 BINARIES_DIR=buildroot/output/images \
+                 TARGET_DIR=buildroot/output/target \
+                 BUILD_DIR=buildroot/output/build \
+                 BR2_EXTERNAL_piksi_buildroot_PATH=$(PWD)
+
+define _release_build
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) flush-rootfs rel-lockdown-clean
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) -C buildroot O=output V=$(V) uboot_custom
+	@$(POST_IMAGE_ENV) BR2_JUST_GEN_FAILSAFE=y ./board/piksiv3/post_image.sh
+	$(1)
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
+endef
 
-image-release-protected: export BR2_BUILD_RELEASE_PROTECTED=y
-image-release-protected: config
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) flush-rootfs rel-lockdown-clean
+define _release_ins_build
 	[ -z "$(BR2_BUILD_PIKSI_INS)" ] || \
 		$(BUILD_ENV_ARGS) \
 			$(MAKE) pkg-piksi_ins-rebuild
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot O=output V=$(V)
+endef
+
+image-release-open: export BR2_BUILD_RELEASE_OPEN=y
+image-release-open: config
+	$(call _release_build,:)
+
+image-release-protected: export BR2_BUILD_RELEASE_PROTECTED=y
+image-release-protected: config
+	$(call _release_build,$(_release_ins_build))
 
 image-release-ins: export BR2_BUILD_PIKSI_INS=y
 image-release-ins:
