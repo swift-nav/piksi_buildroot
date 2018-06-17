@@ -39,19 +39,19 @@ dev-tools-build: pkg-piksi_dev_tools
 
 rel-lockdown-clean: pkg-release_lockdown-dirclean
 
+POST_IMAGE_ENV = HW_CONFIG=prod \
+								 BINARIES_DIR=buildroot/output/images \
+								 TARGET_DIR=buildroot/output/target \
+								 BUILD_DIR=buildroot/output/build \
+								 BR2_EXTERNAL_piksi_buildroot_PATH=$(PWD)
+
 define _release_build
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) flush-rootfs rel-lockdown-clean
 	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot O=output V=$(V)
-	@cp ./buildroot/output/target/lib/firmware/PiksiMulti-FAILSAFE.bin \
-			./buildroot/output/images/
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) flush-rootfs rel-lockdown-clean
-	@mkdir -p ./buildroot/output/target/lib/firmware
-	@cp ./buildroot/output/images/PiksiMulti-FAILSAFE.bin \
-			./buildroot/output/target/lib/firmware/PiksiMulti-FAILSAFE.bin
-	$1
+		$(MAKE) -C buildroot O=output V=$(V) uboot_custom
+	@$(POST_IMAGE_ENV) BR2_JUST_GEN_FAILSAFE=y ./board/piksiv3/post_image.sh
+	$(1)
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
 endef
