@@ -16,6 +16,7 @@ branches:
     - v1.4.0-release
     - v1.5.0-release
     - v1.6.0-release
+    - v1.6-CRL
 
 before_install:
   - ./scripts/check_for_s3_cred.sh || travis_terminate 1
