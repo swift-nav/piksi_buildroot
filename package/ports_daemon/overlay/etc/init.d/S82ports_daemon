@@ -14,13 +14,8 @@ setup_permissions() {
 
   chown portsd:portsd /dev/ttyPS0
   chown portsd:portsd /dev/ttyPS1
-  chown portsd:portsd /dev/ttyGS0
-
-  if lockdown; then
-    chown portsd:portsd /dev/ttyGS1
-  else
-    chown portsd:portsd /dev/ttyGS2
-  fi
+  chown portsd:portsd $(readlink -f /dev/tty.usb0)
+  chown portsd:portsd $(readlink -f /dev/tty.usb2)
 
   # Setup runit dir dynamic services
   mkdir -p /var/run/${name}/sv

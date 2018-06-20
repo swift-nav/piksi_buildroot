@@ -40,10 +40,10 @@ dev-tools-build: pkg-piksi_dev_tools
 rel-lockdown-clean: pkg-release_lockdown-dirclean
 
 POST_IMAGE_ENV = HW_CONFIG=prod \
-								 BINARIES_DIR=buildroot/output/images \
-								 TARGET_DIR=buildroot/output/target \
-								 BUILD_DIR=buildroot/output/build \
-								 BR2_EXTERNAL_piksi_buildroot_PATH=$(PWD)
+                 BINARIES_DIR=buildroot/output/images \
+                 TARGET_DIR=buildroot/output/target \
+                 BUILD_DIR=buildroot/output/build \
+                 BR2_EXTERNAL_piksi_buildroot_PATH=$(PWD)
 
 define _release_build
 	$(BUILD_ENV_ARGS) \

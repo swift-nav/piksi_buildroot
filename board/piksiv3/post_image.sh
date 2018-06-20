@@ -108,7 +108,7 @@ generate_dev()
 
 generate_prod()
 {
-  echo -n ">>> Generating PROD firmware image image... "
+  echo -n ">>> Generating PROD firmware image... "
 
   # Ensure log is empty
   true >$LOG_FILE

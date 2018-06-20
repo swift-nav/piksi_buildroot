@@ -10,6 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#define _DEFAULT_SOURCE
+
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
@@ -24,6 +26,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include <libpiksi/logging.h>
 
@@ -51,7 +54,7 @@ static const char * const flow_control_enum_names[] = {"None", "RTS/CTS", NULL};
 enum {FLOW_CONTROL_NONE, FLOW_CONTROL_RTS_CTS};
 
 typedef struct {
-  const char *tty_path;
+  char tty_path[PATH_MAX];
   u8 baudrate;
   u8 flow_control;
 } uart_t;
@@ -69,13 +72,13 @@ static uart_t uart1 = {
 };
 
 static uart_t usb0 = {
-  .tty_path = "/dev/ttyGS0",
+  .tty_path = "/dev/tty.usb0",
   .baudrate = BAUDRATE_9600,
   .flow_control = FLOW_CONTROL_NONE
 };
 
 static uart_t usb2 = {
-  .tty_path = "/dev/ttyGS2",
+  .tty_path = "/dev/tty.usb2",
   .baudrate = BAUDRATE_9600,
   .flow_control = FLOW_CONTROL_NONE
 };
@@ -138,13 +141,11 @@ static int flow_control_notify(void *context)
 
 int serial_init(settings_ctx_t *settings_ctx)
 {
-  /* Configure USB0 */
+  realpath(usb0.tty_path, usb0.tty_path);
+  realpath(usb2.tty_path, usb2.tty_path);
+
+  /* Configure USB0 and USB2 */
   uart_configure(&usb0);
-
-  struct stat s;
-  usb2.tty_path = stat(RELEASE_LOCKDOWN, &s) == 0 ? "/dev/ttyGS1" : "/dev/ttyGS2";
-
-  /* Configure USB2 */
   uart_configure(&usb2);
 
   /* Register settings */
