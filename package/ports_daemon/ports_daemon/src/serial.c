@@ -32,8 +32,6 @@
 
 #include "serial.h"
 
-#define RELEASE_LOCKDOWN "/etc/release_lockdown"
-
 static const char * const baudrate_enum_names[] = {
   "1200", "2400", "4800", "9600",
   "19200", "38400", "57600", "115200",
