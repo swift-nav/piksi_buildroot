@@ -76,7 +76,7 @@ matrix:
         - set -o pipefail && make docker-make-image-release-open 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
         - set -o pipefail && make docker-make-image-release-ins 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
       after_success:
-        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin buildroot/output/images/piksiv3_prod/PiksiMulti-PROTECTED-v*.bin || travis_terminate 1
+        - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out buildroot/output/images/piksiv3_prod/PiksiMulti-CRL-v*.bin buildroot/output/images/piksiv3_prod/PiksiMulti-PROTECTED-CRL-v*.bin || travis_terminate 1
         - ./scripts/travis_pr_describe.sh || travis_terminate 1
         - ./scripts/generate_requirements.sh || travis_terminate 1
         - ./scripts/hitl_smoke_test.sh || travis_terminate 1
