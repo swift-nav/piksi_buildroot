@@ -1,5 +1,7 @@
 #!/bin/sh
 
+source /etc/init.d/common.sh
+
 name="ports_daemon"
 cmd="ports_daemon"
 dir="/"
@@ -12,8 +14,8 @@ setup_permissions() {
 
   chown portsd:portsd /dev/ttyPS0
   chown portsd:portsd /dev/ttyPS1
-  chown portsd:portsd /dev/ttyGS0
-  chown portsd:portsd /dev/ttyGS2
+  chown portsd:portsd $(readlink -f /dev/tty.usb0)
+  chown portsd:portsd $(readlink -f /dev/tty.usb2)
 
   # Setup runit dir dynamic services
   mkdir -p /var/run/${name}/sv

@@ -1,16 +1,18 @@
 #!/bin/sh
 
-name="usb_gadget"
+name="usb_gadget" # required by template_command.inc.sh
+
+source /etc/init.d/common.sh
+
+log_tag=$name # required by logging.sh
+source /etc/init.d/logging.sh
+
+setup_loggers
 
 CONFIGURE_NETWORKING="/persistent/usb_gadget_networking"
-RELEASE_LOCKDOWN="/etc/release_lockdown"
 
 net() {
     [[ -f "$CONFIGURE_NETWORKING" ]]
-}
-
-lockdown() {
-    [[ -f "$RELEASE_LOCKDOWN" ]]
 }
 
 VENDOR_ID="0x2E69"
@@ -108,6 +110,28 @@ start() {
   for dev in /sys/class/udc/*; do
     echo `basename "$dev"` > UDC
   done
+
+  if lockdown; then
+    if [[ -c /dev/ttyGS0 ]] && [[ -c /dev/ttyGS1 ]]; then
+      if [[ -c /dev/ttyGS2 ]]; then
+        loge --sbp "invalid configuration, only expected 2 gadget serial devices, found 3"
+      else
+        logi "configuring USB serial symlinks for lockdown mode..."
+      fi
+    else
+      loge --sbp "invalid configuration, only expected 2 gadget serial devices"
+    fi
+    ln -sf /dev/ttyGS0 /dev/tty.usb0
+    ln -sf /dev/ttyGS1 /dev/tty.usb2
+  else
+    if [[ -c /dev/ttyGS0 ]] && [[ -c /dev/ttyGS1 ]] && [[ -c /dev/ttyGS2 ]]; then
+      logi "configuring USB serial symlinks for open mode..."
+    else
+      loge --sbp "invalid configuration, expected 3 gadget serial devices"
+    fi
+    ln -sf /dev/ttyGS0 /dev/tty.usb0
+    ln -sf /dev/ttyGS2 /dev/tty.usb2
+  fi
 }
 
 stop() {

@@ -1,0 +1,3 @@
+#!/bin/ash
+
+tail -F /var/log/*.err /var/log/*.log /var/log/messages
