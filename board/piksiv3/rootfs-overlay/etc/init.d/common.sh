@@ -57,3 +57,10 @@ add_service_user()
   has_user $user || addgroup -S $user
   has_user $user || adduser -S -D -H -G $user $user
 }
+
+_release_lockdown=/etc/release_lockdown
+
+lockdown()
+{
+    [[ -f "$_release_lockdown" ]]
+}

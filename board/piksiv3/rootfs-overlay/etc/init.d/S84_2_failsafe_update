@@ -1,5 +1,7 @@
 #!/bin/ash
 
+source /etc/init.d/common.sh
+
 name="failsafe_update"
 log_tag=$name
 
@@ -59,12 +61,23 @@ already_updated()
 
 run_upgrade_tool()
 {
+  /etc/init.d/S95watchdog_disable start
   upgrade_tool --debug --failsafe $staged_failsafe
 }
 
 do_failsafe_update()
 {
   logi "Checking failsafe bootloader..."
+
+  if ! lockdown; then
+    logi "Not a locked down image, do not need to upgrade failsafe..."
+    return 0
+  fi
+
+  if ! [[ -f "$staged_failsafe" ]]; then
+    loge --sbp "Error this is a locked down image, but there's no staged failsafe image..."
+    return 0
+  fi
 
   if already_updated; then
     logi "The failsafe bootloader is already up-to-date..."
