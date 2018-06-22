@@ -5,13 +5,23 @@ cmd="piksi_system_daemon"
 dir="/"
 user="piksi_sys"
 
-setup_permissions() {
-    # Setup runit dir dynamic services
-    mkdir -p /var/run/${name}/sv
-    chown -R ${user}:${user} /var/run/${name}
+piksi_sys_dir=/var/run/piksi_sys
 
-    # Add the network admin capability
-    setcap cap_net_admin+ep /usr/bin/${name}
+setup_permissions()
+{
+  configure_dir_resource $user $piksi_sys_dir 0755
+
+  configure_file_resource $user $piksi_sys_dir/network_available 0644
+  configure_file_resource $user $piksi_sys_dir/network_polling_period 0644
+  configure_file_resource $user $piksi_sys_dir/network_polling_retry_period 0644
+  configure_file_resource $user $piksi_sys_dir/enable_ping_logging 0644
+
+  # Setup runit dir dynamic services
+  mkdir -p /var/run/${name}/sv
+  chown -R ${user}:${user} /var/run/${name}
+
+  # Add the network admin capability
+  setcap cap_net_admin+ep /usr/bin/${name}
 }
 
 source /etc/init.d/template_runsv.inc.sh
