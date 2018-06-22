@@ -5,8 +5,8 @@ name=runit
 svc_dir=/etc/sv
 run_dir=/var/service
 
-stdout=/var/run/$name.stdout
-stderr=/var/run/$name.stderr
+stdout=/var/run/fifos/$name.stdout
+stderr=/var/run/fifos/$name.stderr
 
 mkdir -p $run_dir
 
@@ -16,13 +16,14 @@ done
 
 cleanup()
 {
-  kill -HUP $pid $stderr_pid $stdout_pid && \
-    kill -TERM $pid $stderr_pid $stdout_pid
+  rm $stdout
+  rm $stderr
 
-  exit 0
+  kill -HUP $pid $stderr_pid $stdout_pid
+  kill -TERM $pid $stderr_pid $stdout_pid
 }
 
-trap 'cleanup' HUP TERM STOP EXIT
+trap 'cleanup; exit 0' HUP TERM STOP EXIT
 
 rm -f $stdout $stderr
 mkfifo $stdout $stderr

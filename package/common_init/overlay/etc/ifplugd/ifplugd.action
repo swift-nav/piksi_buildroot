@@ -1,0 +1,38 @@
+#!/bin/ash
+
+interface=$1
+shift
+
+action=$1
+shift
+
+log_tag=ifplugd_action
+source /etc/init.d/logging.sh
+
+setup_loggers
+
+case "$action" in
+  up)
+    logi "bringing interface '$interface' up"
+    sudo ifup $interface; status=$?
+    if [[ $status -ne 0 ]] ; then
+      logw "ifup reported non-zero exit status: $status"
+    fi
+    if grep -q dhcp /etc/network/interfaces; then
+      dhcpcd --rebind $interface
+    fi
+    break
+  ;;
+  down)
+    logi "bringing interface '$interface' down"
+    sudo ifdown $interface; status=$?
+    if [[ $status -ne 0 ]] ; then
+      logw "ifdown reported non-zero exit status: $?"
+    fi
+    break;
+  ;;
+  *)
+    logw "unknown action for interface '$interface': $action"
+    break;
+  ;;
+esac

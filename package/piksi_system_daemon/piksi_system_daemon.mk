@@ -21,7 +21,6 @@ endef
 
 define PIKSI_SYSTEM_DAEMON_USERS
 	piksi_sys -1 piksi_sys -1 * - - -
-	pk_log -1 pk_log -1 * - - -
 endef
 
 BR2_ROOTFS_OVERLAY += "${PIKSI_SYSTEM_DAEMON_SITE}/overlay"

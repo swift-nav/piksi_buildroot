@@ -114,7 +114,7 @@ while true; do
 done &
 
 child_pid=$!
-trap 'kill $child_pid; exit' EXIT STOP TERM
+trap 'kill $child_pid; exit' EXIT STOP TERM HUP
 
 while true; do
   log_start
