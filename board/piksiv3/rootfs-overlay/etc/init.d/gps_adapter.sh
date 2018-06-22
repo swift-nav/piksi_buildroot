@@ -9,11 +9,9 @@ cleanup()
 {
   rm $fifo
   kill $endpoint_adapter_pid $socat_pid
-
-  exit 0
 }
 
-trap 'cleanup' HUP TERM
+trap 'cleanup; exit 0' EXIT TERM STOP HUP
 
 endpoint_adapter --stdio -s 'tcp://127.0.0.1:44030' >$fifo &
 endpoint_adapter_pid=$!

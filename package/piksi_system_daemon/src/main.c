@@ -49,6 +49,10 @@ static bool log_ping_activity = false;
 #define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
 //#define DEBUG_PIKSI_SYSTEM_DAEMON
 
+#define NETWORK_POLLING_PERIOD_FILE "/var/run/piksi_sys/network_polling_period"
+#define NETWORK_POLLING_RETRY_PERIOD_FILE "/var/run/piksi_sys/network_polling_retry_period"
+#define ENABLE_PING_LOGGING_FILE "/var/run/piksi_sys/enable_ping_logging"
+
 static const char const * ip_mode_enum_names[] = {"Static", "DHCP", NULL};
 enum {IP_CFG_STATIC, IP_CFG_DHCP};
 static u8 eth_ip_mode = IP_CFG_STATIC;
@@ -59,14 +63,16 @@ static char eth_gateway[16] = "192.168.0.1";
 static void eth_update_config(void)
 {
   if (eth_ip_mode == IP_CFG_DHCP) {
-    system("sudo /etc/init.d/update_eth0_config dhcp");
+    int rc = system("sudo /etc/init.d/update_eth0_config dhcp");
+    if (rc != 0) piksi_log(LOG_WARNING, "exit status from update_eth0_config script: %d", rc);
   } else {
     char command[1024] = {0};
     size_t count = snprintf(command, sizeof(command),
                             "sudo /etc/init.d/update_eth0_config static %s %s %s",
                             eth_ip_addr, eth_netmask, eth_gateway);
     assert( count < sizeof(command) );
-    system(command);
+    int rc = system(command);
+    if (rc != 0) piksi_log(LOG_WARNING, "exit status from update_eth0_config script: %d", rc);
   }
 }
 
@@ -422,49 +428,49 @@ static int system_time_src_notify(void *context)
   return system(command);
 }
 
-#define POLLING_SYS_COMMAND_ERROR "network_polling_notify: system command failed: '%s', status: %d"
-
 static int network_polling_notify(void *context)
 {
   (void) context;
 
-  int rc;
-  size_t count;
+  struct { char buf[32]; int count; const char *name; } formatters[3] = {
 
-  char sys_command[128];
-  count = snprintf(sys_command, sizeof(sys_command),
-                   "echo %.02f >/var/run/network_polling_period",
-                   (1.0 / network_polling_frequency));
-  assert(count < sizeof(sys_command));
+    [0].name = "network_polling_frequency",
+    [0].count = ({ snprintf(formatters[0].buf, sizeof(formatters[0].buf),
+          "%.02f", (1.0 / network_polling_frequency)); }),
 
-  rc = system(sys_command);
-  if (rc != 0) {
-    piksi_log(LOG_WARNING, POLLING_SYS_COMMAND_ERROR, sys_command, rc);
+    [1].name = "network_polling_retry_frequency",
+    [1].count = ({ snprintf(formatters[1].buf, sizeof(formatters[1].buf),
+          "%.02f", (1.0 / network_polling_retry_frequency)); }),
+
+    [2].name = "log_ping_activity",
+    [2].count = ({ snprintf(formatters[2].buf, sizeof(formatters[2].buf),
+          "%s", log_ping_activity ? "y" : ""); }),
+  };
+
+  for (size_t x = 0; x < COUNT_OF(formatters); x++) {
+    if ((size_t) formatters[x].count >= sizeof(formatters[x].buf)) {
+      piksi_log(LOG_ERR|LOG_SBP, "buffer overflow while formatting setting '%s'", formatters[x].name);
+      return 0;
+    }
   }
 
-  count = snprintf(sys_command, sizeof(sys_command),
-                   "echo %.02f >/var/run/network_polling_retry_period",
-                   (1.0 / network_polling_retry_frequency));
-  assert(count < sizeof(sys_command));
+  struct { const char* filename; const char* value; } settings_value_files[3] = {
+    [0].filename = NETWORK_POLLING_PERIOD_FILE,       [0].value = formatters[0].buf,
+    [1].filename = NETWORK_POLLING_RETRY_PERIOD_FILE, [1].value = formatters[1].buf,
+    [2].filename = ENABLE_PING_LOGGING_FILE,          [2].value = formatters[2].buf,
+  };
 
-  rc = system(sys_command);
-  if (rc != 0) {
-    piksi_log(LOG_WARNING, POLLING_SYS_COMMAND_ERROR, sys_command, rc);
-  }
-
-  if (log_ping_activity) {
-    count = snprintf(sys_command, sizeof(sys_command),
-                     "echo y >/var/run/enable_ping_logging");
-    assert(count < sizeof(sys_command));
-  } else {
-    count = snprintf(sys_command, sizeof(sys_command),
-                     "echo >/var/run/enable_ping_logging");
-    assert(count < sizeof(sys_command));
-  }
-
-  rc = system(sys_command);
-  if (rc != 0) {
-    piksi_log(LOG_WARNING, POLLING_SYS_COMMAND_ERROR, sys_command, rc);
+  for (size_t x = 0; x < COUNT_OF(settings_value_files); x++) {
+    FILE* fp = fopen(settings_value_files[x].filename, "w");
+    if (fp == NULL) {
+      piksi_log(LOG_ERR|LOG_SBP, "failed to open '%s': %s", settings_value_files[x].filename, strerror(errno));
+      continue;
+    }
+    int count = fprintf(fp, "%s", settings_value_files[x].value);
+    if (count < 0) {
+      piksi_log(LOG_ERR|LOG_SBP, "error writing to '%s': %s", settings_value_files[x].filename, strerror(errno));
+    }
+    fclose(fp);
   }
 
   return 0;

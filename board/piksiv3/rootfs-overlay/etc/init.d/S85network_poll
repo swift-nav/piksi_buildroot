@@ -5,12 +5,17 @@ cmd="/etc/init.d/network_poll.sh"
 dir="/"
 user="piksi_sys"
 
+piksi_sys_dir=/var/run/piksi_sys
+
 setup_permissions()
 {
-  configure_file_resource $user /var/run/network_available 0644
-  configure_file_resource $user /var/run/network_polling_period 0644
-  configure_file_resource $user /var/run/network_polling_retry_period 0644
-  configure_file_resource $user /var/run/enable_ping_logging 0644
+  configure_dir_resource $user $piksi_sys_dir 0755
+
+  configure_file_resource $user $piksi_sys_dir/network_available 0644
+  configure_file_resource $user $piksi_sys_dir/network_polling_period 0644
+  configure_file_resource $user $piksi_sys_dir/network_polling_retry_period 0644
+  configure_file_resource $user $piksi_sys_dir/enable_ping_logging 0644
+
   configure_file_resource $user /var/log/ping.log 0644
 }
 

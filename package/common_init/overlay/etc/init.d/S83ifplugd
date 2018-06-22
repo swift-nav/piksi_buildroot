@@ -1,0 +1,21 @@
+#!/bin/sh
+
+name="ifplugd_svc"
+cmd="/etc/init.d/ifplugd.sh"
+dir="/"
+user="ifplugd"
+
+setup_permissions()
+{
+  cp /bin/busybox /bin/busybox.ifplugd
+
+  echo '#!/bin/ash'                        > /bin/ash.ifplugd
+  echo 'exec /bin/busybox.ifplugd ash $@' >> /bin/ash.ifplugd
+
+  chmod +x /bin/ash.ifplugd
+
+  # Add the network admin capability
+  setcap cap_net_admin+ep /bin/busybox.ifplugd
+}
+
+source /etc/init.d/template_runsv.inc.sh

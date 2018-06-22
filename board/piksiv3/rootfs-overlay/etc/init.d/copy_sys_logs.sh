@@ -52,7 +52,7 @@ cleanup_rsync()
   [[ -z "$rsync_pid" ]] || kill "$rsync_pid"
 }
 
-trap 'cleanup_loggers; cleanup_rsync; exit 0' EXIT TERM INT
+trap 'cleanup_loggers; cleanup_rsync; exit 0' EXIT TERM STOP HUP INT
 
 mkdir "$log_dir_n"
 
