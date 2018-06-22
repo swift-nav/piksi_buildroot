@@ -2,6 +2,9 @@
 
 log_fac=daemon
 
+logger_stdout=/var/run/fifos/$log_tag.stdout
+logger_stderr=/var/run/fifos/$log_tag.stderr
+
 log_base()
 {
   local send_sbp=
@@ -20,14 +23,17 @@ logi() { _log_level=info;  log_base $*; }
 logd() { _log_level=debug; log_base $*; }
 loge() { _log_level=err;   log_base $*; }
 
+_cleanup_logger_fifos()
+{
+  rm -f $logger_stdout
+  rm -f $logger_stderr
+}
+
 _setup_loggers()
 {
-  logger_stdout=/var/run/$log_tag.stdout
-  rm -f $logger_stdout
-  mkfifo $logger_stdout
+  _cleanup_logger_fifos
 
-  logger_stderr=/var/run/$log_tag.stderr
-  rm -f $logger_stderr
+  mkfifo $logger_stdout
   mkfifo $logger_stderr
 
   if [[ $(id -u) -eq 0 ]]; then
@@ -45,17 +51,22 @@ _setup_loggers()
   logger_stdout_pid=$!
 
   exec 1>$logger_stdout
-  exec 2>$logger_stdout
+  exec 2>$logger_stderr
 }
 
 cleanup_loggers()
 {
-  kill ${logger_stderr_pid} ${logger_stdout_pid}
-  rm ${logger_stdout} ${logger_stderr}
+  _cleanup_logger_fifos
+
+  [[ -z "$logger_stderr_pid" ]] || \
+    kill ${logger_stderr_pid} &>/dev/null
+
+  [[ -z "$logger_stdout_pid" ]] || \
+    kill ${logger_stdout_pid} &>/dev/null
 }
 
 setup_loggers()
 {
   _setup_loggers
-  trap 'cleanup_loggers' EXIT TERM
+  trap 'cleanup_loggers; exit 0' EXIT STOP TERM HUP
 }

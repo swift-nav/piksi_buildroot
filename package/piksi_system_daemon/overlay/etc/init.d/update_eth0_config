@@ -16,7 +16,7 @@ fi
 interfaces=/etc/network/interfaces
 
 interfaces_tmp=$(mktemp)
-trap "rm -f $interfaces_tmp" EXIT TERM STOP
+trap "rm -f $interfaces_tmp; cleanup_loggers; exit 0" EXIT TERM STOP HUP
 
 if [[ "$mode" == "dhcp" ]]; then
   echo "iface eth0 inet dhcp" >$interfaces_tmp
@@ -32,7 +32,9 @@ else
 fi
 
 if diff -q $interfaces_tmp $interfaces &>/dev/null; then
+
   logi "Interface config unchanged, exiting"
+
   exit 0
 fi
 
@@ -42,5 +44,6 @@ logi "Interface config changed, reconfiguring..."
 ifdown -f eth0
 
 mv $interfaces_tmp $interfaces
+chmod 0644 $interfaces
 
 /etc/init.d/S83ifplugd start

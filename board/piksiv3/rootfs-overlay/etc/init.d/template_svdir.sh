@@ -4,15 +4,18 @@
 [[ -n "$service" ]] || { echo "ERROR: 'service' variable is not defined" >&2; exit 1; }
 [[ -n "$user"    ]] || { echo "ERROR: 'user' variable is not defined" >&2; exit 1; }
 
-stderr=/var/run/${service}.stderr
-stdout=/var/run/${service}.stdout
+stderr=/var/run/fifos/${service}.stderr
+stdout=/var/run/fifos/${service}.stdout
 
 cleanup()
 {
-    kill -HUP $pid $stderr_pid $stdout_pid && \
-        kill -TERM $pid $stderr_pid $stdout_pid
+  rm -f $stderr
+  rm -f $stdout
 
-    exit 0
+  kill -HUP $pid $stderr_pid $stdout_pid
+  kill -TERM $pid $stderr_pid $stdout_pid
+
+  exit 0
 }
 
 trap 'cleanup' HUP TERM STOP EXIT
