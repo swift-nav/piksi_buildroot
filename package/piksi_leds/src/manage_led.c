@@ -436,7 +436,7 @@ void sigbus_handler(int signum) {
 }
 
 void manage_led_setup(bool is_duro) {
-  const char* network_available_path = "/var/run/network_available";
+  const char* network_available_path = "/var/run/piksi_sys/network_available";
   network_available_fd = open(network_available_path, O_CREAT | O_RDONLY, 0644);
   if (network_available_fd < 0) {
     piksi_log(LOG_ERR, "failed to open file: %s", network_available_path);

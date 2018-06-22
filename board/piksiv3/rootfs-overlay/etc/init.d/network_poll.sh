@@ -8,12 +8,13 @@ default_retry_period=1
 skylark_enabled_file=/var/run/skylark/enabled
 ntrip_enabled_file=/var/run/ntrip/enabled
 
-polling_period_file=/var/run/network_polling_period
-polling_retry_file=/var/run/network_polling_retry_period
+# Files managed by piksi_system_daemon:
+piksi_sys_dir=/var/run/piksi_sys
+polling_period_file=$piksi_sys_dir/network_polling_period
+polling_retry_file=$piksi_sys_dir/network_polling_retry_period
+network_available_file=$piksi_sys_dir/network_available
+ping_log_enabled_file=$piksi_sys_dir/enable_ping_logging
 
-network_available_file=/var/run/network_available
-
-ping_log_enabled_file=/var/run/enable_ping_logging
 ping_log_file=/var/log/ping.log
 
 ## Functions:

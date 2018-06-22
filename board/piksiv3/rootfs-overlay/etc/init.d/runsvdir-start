@@ -22,15 +22,15 @@ cleanup()
   exit 0
 }
 
-trap 'cleanup' HUP TERM
+trap 'cleanup' HUP TERM STOP EXIT
 
 rm -f $stdout $stderr
 mkfifo $stdout $stderr
 
-logger -t $name -p daemon.info <$stdout &
+chpst -u pk_log logger -t $name -p daemon.info <$stdout &
 stdout_pid=$!
 
-logger -t $name -p daemon.err  <$stderr &
+chpst -u pk_log logger -t $name -p daemon.err  <$stderr &
 stderr_pid=$!
 
 runsvdir $run_dir 1>$stdout 2>$stderr &

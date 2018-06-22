@@ -30,10 +30,18 @@ _setup_loggers()
   rm -f $logger_stderr
   mkfifo $logger_stderr
 
-  logger -t $log_tag -p ${log_fac}.warn <$logger_stderr &
+  if [[ $(id -u) -eq 0 ]]; then
+    chpst -u pk_log logger -t $log_tag -p ${log_fac}.warn <$logger_stderr &
+  else
+    logger -t $log_tag -p ${log_fac}.warn <$logger_stderr &
+  fi
   logger_stderr_pid=$!
 
-  logger -t $log_tag -p ${log_fac}.info <$logger_stdout &
+  if [[ $(id -u) -eq 0 ]]; then
+    chpst -u pk_log logger -t $log_tag -p ${log_fac}.info <$logger_stdout &
+  else
+    logger -t $log_tag -p ${log_fac}.info <$logger_stdout &
+  fi
   logger_stdout_pid=$!
 
   exec 1>$logger_stdout
