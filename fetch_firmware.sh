@@ -31,12 +31,18 @@ FW_VERSION=${1:-v1.6.1}
 NAP_VERSION=${2:-v1.6.1}
 
 FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
-NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
+
+NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
+NAP_S3_SDK_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
 
 fetch() {
   aws s3 cp "$@"
+}
+
+fetch_no_sign() {
+  aws s3 cp --no-sign-request "$@"
 }
 
 download_fw() {
@@ -55,7 +61,8 @@ download_fw() {
     # Microzed FPGA image breaks the naming convention so deal with it as a special case
     fetch $NAP_S3_PATH/piksi_microzed_nt1065_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
   else
-    fetch $NAP_S3_PATH/piksi_${HW_CONFIG}_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
+    fetch $NAP_S3_PATH/piksi_${HW_CONFIG}_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit || \
+      fetch_no_sign $NAP_S3_SDK_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
   fi
 
 }
