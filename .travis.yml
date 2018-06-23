@@ -51,11 +51,12 @@ matrix:
     - env:
         - TRAVIS_TARGET=internal
       script:
-        - make docker-setup
-        - make docker-make-firmware
+        - make docker-setup | tee -a build_${TRAVIS_TARGET}.out
+        - make docker-make-firmware | tee -a build_${TRAVIS_TARGET}.out
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-image 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
       after_success:
+        - ls -l buildroot/output/images/piksiv3_prod
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out buildroot/output/images/piksiv3_prod/* || travis_terminate 1
         - ./scripts/travis_pr_describe.sh || travis_terminate 1
         - ./scripts/generate_requirements.sh || travis_terminate 1
@@ -69,12 +70,13 @@ matrix:
     - env:
         - TRAVIS_TARGET=release
       script:
-        - make docker-setup
-        - make docker-make-firmware
+        - make docker-setup | tee -a build_${TRAVIS_TARGET}.out
+        - make docker-make-firmware | tee -a build_${TRAVIS_TARGET}.out
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-image-release-open 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
         - set -o pipefail && make docker-make-image-release-ins 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
       after_success:
+        - ls -l buildroot/output/images/piksiv3_prod
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin buildroot/output/images/piksiv3_prod/PiksiMulti-PROTECTED-v*.bin || travis_terminate 1
         - ./scripts/travis_pr_describe.sh || travis_terminate 1
         - ./scripts/generate_requirements.sh || travis_terminate 1
@@ -88,8 +90,8 @@ matrix:
     - env:
         - TRAVIS_TARGET=host
       script:
-        - make firmware
-        - make docker-setup
+        - make firmware | tee -a build_${TRAVIS_TARGET}.out
+        - make docker-setup | tee -a build_${TRAVIS_TARGET}.out
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-host-image 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
       after_success:
@@ -105,8 +107,8 @@ matrix:
         - BR2_BUILD_SAMPLE_DAEMON=y
         - BR2_BUILD_PIKSI_INS_REF=y
       script:
-        - make docker-setup
-        - make docker-make-firmware
+        - make docker-setup | tee -a build_${TRAVIS_TARGET}.out
+        - make docker-make-firmware | tee -a build_${TRAVIS_TARGET}.out
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-image 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
         - ./scripts/should_not_build_sdk.sh || ( set -o pipefail && make docker-make-sdk 2>&1 | tee -a build.out | grep --line-buffered '^>>>' )
