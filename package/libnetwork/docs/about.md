@@ -19,7 +19,7 @@ remove the need for external, host-provided network connectivity.
 The `skylark_daemon` listens for Skylark configuration and starts and stops
 itself in upload and download mode as necessary. The upload and download daemons
 run independently for improved robustness and simplicity, pulling and pushing
-SBP data to two Skylark-specific ZeroMQ ports that are exposed on the Linux host
+SBP data to two Skylark-specific Nanomsg ports that are exposed on the Linux host
 are routed to the firmware: `tcp://127.0.0.1:43080` and `tcp://127.0.0.1:43081`,
 respectively. Taken together, these run with:
 

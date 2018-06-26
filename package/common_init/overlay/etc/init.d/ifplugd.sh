@@ -1,4 +1,4 @@
-#!/bin/ash.ifplugd
+#!/bin/ash
 
 log_tag=ifplugd_sh
 source /etc/init.d/logging.sh
@@ -17,6 +17,8 @@ cleanup()
 
   [[ -z "$pid" ]] || \
     kill -TERM $pid
+
+  sudo ifplugd -k
 }
 
 trap 'cleanup_loggers; cleanup; exit 0' HUP TERM STOP EXIT
@@ -26,8 +28,9 @@ run_ifplugd()
   local opts=
 
   opts="$opts -I "             # Don't exit on nonzero exit code from script
-#  opts="$opts -q "             # Don't run "down" script on exit
-#  opts="$opts -p "             # Don't run "up" script on start-up
+  opts="$opts -a "             # Don't up interface at each link probe
+  opts="$opts -q "             # Don't run "down" script on exit
+  opts="$opts -p "             # Don't run "up" script on start-up
   opts="$opts -n "             # Don't daemonize
   opts="$opts -i $interface "  # The interface to monitor
   opts="$opts -t $poll_delay " # How often to poll the device
