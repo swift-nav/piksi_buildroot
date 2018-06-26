@@ -75,11 +75,13 @@ image-release-ins:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) image-release-protected
 
+image: export BR2_BUILD_PIKSI_INS=y
 image: config
 	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
 		$(MAKE) rel-lockdown-clean
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) dev-tools-clean dev-tools-build
+	$(_release_ins_build)
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
 
