@@ -28,6 +28,7 @@
 #include <libsbp/file_io.h>
 
 #include "sbp_fileio.h"
+#include "fio_debug.h"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
@@ -157,6 +158,9 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   reply = alloca(sizeof(msg_fileio_read_resp_t) + readlen);
   reply->sequence = msg->sequence;
 
+  FIO_LOG_DEBUG("read request for '%s', seq=%u, off=%u",
+                msg->filename, msg->sequence, msg->offset);
+
   int st = allow_mtd_read(msg->filename);
 
   if (st == DENY_MTD_READ || (st == NO_MTD_READ && !validate_path(msg->filename))) {
@@ -203,6 +207,9 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   msg_fileio_read_dir_resp_t *reply = alloca(SBP_FRAMING_MAX_PAYLOAD_SIZE);
   reply->sequence = msg->sequence;
 
+  FIO_LOG_DEBUG("read_dir request for '%s', seq=%u, off=%u",
+                msg->dirname, msg->sequence, msg->offset);
+
   if (!validate_path(msg->dirname)) {
     piksi_log(LOG_WARNING, "Received FILEIO_READ_DIR request for path (%s) outside base directory (%s), ignoring...", msg->dirname, basedir_path);
     len = 0;
@@ -247,6 +254,8 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
 
   const char* filename = filter_imageset_bin((char*)msg);
 
+  FIO_LOG_DEBUG("remove request for '%s'", filename);
+
   if (!validate_path(filename)) {
     piksi_log(LOG_WARNING, "Received FILEIO_REMOVE request for path (%s) outside base directory (%s), ignoring...", filename, basedir_path);
     return;
@@ -265,8 +274,15 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
 static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
+
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+
+  msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
+  int write_count = -1;
+
+  FIO_LOG_DEBUG("write request for '%s', seq=%u, off=%u",
+                msg->filename, msg->sequence, msg->offset);
 
   if ((len <= sizeof(*msg) + 2) ||
       (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg)) ==
@@ -287,21 +303,20 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     piksi_log(LOG_ERR, "Error opening %s for write", filename);
     return;
   }
-  if (lseek(f, msg->offset, SEEK_SET) != msg->offset) {
+  if (lseek(f, msg->offset, SEEK_SET) != (off_t)msg->offset) {
     piksi_log(LOG_ERR,
               "Error seeking to offset %d in %s for write",
               msg->offset,
               filename);
     goto cleanup;
   }
-  int write_count = len - headerlen;
+  write_count = len - headerlen;
   if (write(f, msg_ + headerlen, write_count) != write_count) {
     piksi_log(
       LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
     goto cleanup;
   }
 
-  msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
               sizeof(reply), (u8*)&reply);
 
