@@ -15,6 +15,7 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0xAE, 0x00] } # Settings register
           - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
           - { action: REJECT }
       - dst_port: SBP_PORT_SETTINGS_CLIENT
         filters:
@@ -57,6 +58,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED  **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x00, 0x09] } # MSG_IMU_RAW  **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x01, 0x09] } # MSG_IMU_AUX  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0x09] } # MSG_ODOMETRY **Smoothpose Change**
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
