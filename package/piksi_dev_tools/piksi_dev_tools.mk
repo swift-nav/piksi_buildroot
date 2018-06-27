@@ -12,7 +12,7 @@ endif
 
 ifneq   ($(BR2_BUILD_PIKSI_DEV_TOOLS),)
 
-$(info *** Piksi dev tools package enabled...)
+$(info >>> Piksi dev tools package enabled...)
 
 PIKSI_DEV_TOOLS_VERSION = 0.1
 PIKSI_DEV_TOOLS_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_dev_tools"
@@ -28,6 +28,6 @@ $(eval $(generic-package))
 
 else
 
-$(info *** Piksi dev tools package DISABLED...)
+$(info >>> Piksi dev tools package DISABLED...)
 
 endif # ($(BR2_BUILD_PIKSI_DEV_TOOLS),)
