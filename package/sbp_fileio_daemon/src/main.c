@@ -13,9 +13,13 @@
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/logging.h>
 #include <getopt.h>
+
 #include "sbp_fileio.h"
+#include "fio_debug.h"
 
 #define PROGRAM_NAME "sbp_fileio_daemon"
+
+bool fio_debug = false;
 
 static const char *pub_endpoint = NULL;
 static const char *sub_endpoint = NULL;
@@ -23,11 +27,13 @@ static const char *basedir_path = NULL;
 
 static bool allow_factory_mtd  = false;
 static bool allow_imageset_bin = false;
+static bool print_usage = false;
 
 static void usage(char *command)
 {
   printf("Usage: %s\n", command);
 
+  puts("-h, --help            Print this message");
   puts("-p, --pub     <addr>  The address on which we should write the results of");
   puts("                      MSG_FILEIO_* messages");
   puts("-s, --sub     <addr>  The address on which we should listen for MSG_FILEIO_*");
@@ -37,6 +43,7 @@ static void usage(char *command)
   puts("-m, --mtd             Allow read access to /factory/mtd");
   puts("-i, --imageset        Allow write access to upgrade.image_set.bin, internally");
   puts("                      the file will be written to /data/upgrade.image_set.bin");
+  puts("-d, --debug           Output debug logging");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -47,12 +54,14 @@ static int parse_options(int argc, char *argv[])
     {"basedir",  required_argument, 0, 'b'},
     {"mtd",      no_argument,       0, 'm'},
     {"imageset", no_argument,       0, 'i'},
+    {"debug",    no_argument,       0, 'd'},
+    {"help",     no_argument,       0, 'h'},
     {0, 0, 0, 0}
   };
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "p:s:b:mi",
+  while ((c = getopt_long(argc, argv, "p:s:b:midh",
                           long_opts, &opt_index)) != -1) {
     switch (c) {
 
@@ -81,6 +90,16 @@ static int parse_options(int argc, char *argv[])
       }
       break;
 
+      case 'h': {
+        print_usage = true;
+      }
+      break;
+
+      case 'd': {
+        fio_debug = true;
+      }
+      break;
+
       default: {
         printf("invalid option\n");
         return -1;
@@ -104,6 +123,9 @@ static int parse_options(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+  pk_loop_t *loop = NULL;
+  sbp_pubsub_ctx_t *ctx = NULL;
+
   int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
 
@@ -113,12 +135,17 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  sbp_pubsub_ctx_t *ctx = sbp_pubsub_create(pub_endpoint, sub_endpoint);
+  if (print_usage) {
+    usage(argv[0]);
+    goto cleanup;
+  }
+
+  ctx = sbp_pubsub_create(pub_endpoint, sub_endpoint);
   if (ctx == NULL) {
     goto cleanup;
   }
 
-  pk_loop_t *loop = pk_loop_create();
+  loop = pk_loop_create();
   if (loop == NULL) {
     goto cleanup;
   }
