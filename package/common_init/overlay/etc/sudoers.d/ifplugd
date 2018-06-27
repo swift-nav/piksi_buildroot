@@ -1,3 +1,1 @@
-ifplugd ALL=(ALL) NOPASSWD: /sbin/ifup
-ifplugd ALL=(ALL) NOPASSWD: /sbin/ifdown
 ifplugd ALL=(ALL) NOPASSWD: /usr/sbin/ifplugd
