@@ -1,21 +1,11 @@
 include scripts/set-shell.mk
+include scripts/env-setup.mk
 
 BR2_EXTERNAL := $(CURDIR)
 
 ifeq ($(HW_CONFIG),)
 HW_CONFIG    := prod
 endif
-
-BUILD_ENV_ARGS = \
-  BR2_EXTERNAL=$(BR2_EXTERNAL) \
-  BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF) \
-  BR2_HAS_PIKSI_INS=$(BR2_HAS_PIKSI_INS) \
-  BR2_BUILD_RELEASE_PROTECTED=$(BR2_BUILD_RELEASE_PROTECTED) \
-  BR2_BUILD_RELEASE_OPEN=$(BR2_BUILD_RELEASE_OPEN) \
-  BR2_BUILD_PIKSI_INS_REF=$(BR2_BUILD_PIKSI_INS_REF) \
-  BR2_BUILD_PIKSI_INS=$(BR2_BUILD_PIKSI_INS) \
-  BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON) \
-  HW_CONFIG=$(HW_CONFIG) \
 
 .PHONY: all firmware config image clean host-config host-image host-clean     \
         docker-setup docker-make-image docker-make-clean                      \
@@ -35,6 +25,7 @@ config:
 		$(MAKE) -C buildroot O=output piksiv3_defconfig
 
 dev-tools-clean: pkg-piksi_dev_tools-dirclean
+
 dev-tools-build: pkg-piksi_dev_tools
 
 rel-lockdown-clean: pkg-release_lockdown-dirclean
@@ -75,11 +66,13 @@ image-release-ins:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) image-release-protected
 
+image: export BR2_BUILD_PIKSI_INS=y
 image: config
 	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
 		$(MAKE) rel-lockdown-clean
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) dev-tools-clean dev-tools-build
+	$(_release_ins_build)
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
 

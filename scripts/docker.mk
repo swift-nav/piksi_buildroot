@@ -7,35 +7,6 @@ ifneq ("$(DOCKER_SUFFIX)","")
 _DOCKER_SUFFIX := -$(DOCKER_SUFFIX)
 endif
 
-ifeq ("$(OS)","Windows_NT")
-USER := $(USERNAME)
-UID  := 1000
-GID  := 1000
-else
-UID := $(shell id -u)
-GID := $(shell id -g)
-endif
-
-LOWER_USER = $(shell echo $(USER) | tr A-Z a-z)
-DOCKER_BUILD_VOLUME = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
-DOCKER_TAG = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
-
-PIKSI_INS_REF_REPO := git@github.com:swift-nav/piksi_inertial_ipsec_crl.git
-
-ifneq ($(BR2_BUILD_PIKSI_INS_REF),)
-BR2_HAS_PIKSI_INS_REF := $(shell git ls-remote $(PIKSI_INS_REF_REPO) &>/dev/null && echo y)
-endif
-
-export BR2_HAS_PIKSI_INS_REF
-
-PIKSI_INS_REPO :=  git@github.com:carnegieroboticsllc/piksi_ins.git
-
-ifneq ($(BR2_BUILD_PIKSI_INS),)
-BR2_HAS_PIKSI_INS := $(shell git ls-remote $(PIKSI_INS_REPO) &>/dev/null && echo y)
-endif
-
-export BR2_HAS_PIKSI_INS
-
 ifneq ($(AWS_ACCESS_KEY_ID),)
 AWS_VARIABLES := -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID)
 endif
@@ -47,6 +18,10 @@ endif
 ifeq ($(PIKSI_NON_INTERACTIVE_BUILD),)
 INTERACTIVE_ARGS := $(shell tty &>/dev/null && echo "--tty --interactive")
 endif
+
+LOWER_USER = $(shell echo $(USER) | tr A-Z a-z)
+DOCKER_BUILD_VOLUME = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
+DOCKER_TAG = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
 
 DOCKER_ENV_ARGS :=                                                            \
   -e USER=$(USER)                                                             \
