@@ -26,4 +26,11 @@ else
 
 $(info >>> *** WARNING: Piksi INS was enabled, but access to project failed! ***)
 
+PIKSI_INS_VERSION = 1.0
+PIKSI_INS_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/empty"
+PIKSI_INS_SITE_METHOD = local
+PIKSI_INS_DEPENDENCIES =
+
+$(eval $(generic-package))
+
 endif # ($(BR2_HAS_PIKSI_INS),y)
