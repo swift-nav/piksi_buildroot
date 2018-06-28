@@ -9,7 +9,7 @@ setup_permissions()
   add_service_user $user
 }
 
-if grep -q "smoothpose_mode=INS Only" /persistent/config.ini; then
+if grep -q "output_mode=Loosely Coupled" /persistent/config.ini; then
   router_config="/etc/endpoint_router/sbp_router_smoothpose.yml"
 else
   router_config="/etc/endpoint_router/sbp_router.yml"
