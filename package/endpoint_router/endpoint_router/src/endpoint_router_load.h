@@ -15,6 +15,15 @@
 
 #include "endpoint_router.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 router_t * router_load(const char *filename);
+void router_teardown(router_t **router_loc);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SWIFTNAV_ENDPOINT_ROUTER_LOAD_H */
