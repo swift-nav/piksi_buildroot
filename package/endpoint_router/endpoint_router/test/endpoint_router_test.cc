@@ -49,6 +49,92 @@ TEST_F(EndpointRouterTests, BasicTest)
   router_teardown(&r);
 }
 
+char accept_ports[32][32] = {0};
+char reject_ports[32][32] = {0};
+
+int accept_count = 0;
+int reject_count = 0;
+
+void reset_accept_reject_state()
+{
+  accept_count = 0;
+  reject_count = 0;
+
+  memset(accept_ports, 0, sizeof(accept_ports));
+  memset(reject_ports, 0, sizeof(reject_ports));
+}
+
+TEST_F(EndpointRouterTests, FullTest)
+{
+
+  char path[PATH_MAX];
+  sprintf(path, "%s/sbp_router_full.yml", test_data_dir);
+
+  router_t *r = router_load(path);
+  EXPECT_NE(r, nullptr);
+
+  forwarding_rule_t *rules = r->ports_list[0].forwarding_rules_list;
+
+  auto match_fn = [](forwarding_rule_t *r, filter_t *f, const u8 *d, size_t l) {
+    if (f->action == FILTER_ACTION_ACCEPT) {
+      strcpy(accept_ports[accept_count++], r->dst_port_name);
+    } else if (f->action == FILTER_ACTION_REJECT) {
+      strcpy(reject_ports[reject_count++], r->dst_port_name);
+    } else {
+      EXPECT_TRUE(false);
+    }
+  };
+
+  const u8 settings_register_data[] = {0x55, 0xAE, 0x00};
+  process_forwarding_rules(rules, settings_register_data, 3, match_fn);
+
+  EXPECT_EQ(accept_count, 2);
+  EXPECT_EQ(reject_count, 5);
+
+  EXPECT_STREQ(accept_ports[0], "SBP_PORT_SETTINGS_DAEMON");
+  EXPECT_STREQ(accept_ports[1], "SBP_PORT_INTERNAL");
+
+  EXPECT_STREQ(reject_ports[0], "SBP_PORT_SETTINGS_CLIENT");
+  EXPECT_STREQ(reject_ports[1], "SBP_PORT_EXTERNAL");
+  EXPECT_STREQ(reject_ports[2], "SBP_PORT_FILEIO_FIRMWARE");
+  EXPECT_STREQ(reject_ports[3], "SBP_PORT_SKYLARK");
+  EXPECT_STREQ(reject_ports[4], "SBP_PORT_NAV_DAEMON");
+
+  reset_accept_reject_state();
+  const u8 settings_read_resp_data[] = {0x55, 0xA5, 0x00};
+  process_forwarding_rules(rules, settings_read_resp_data, 3, match_fn);
+
+  EXPECT_EQ(accept_count, 3);
+  EXPECT_EQ(reject_count, 4);
+
+  EXPECT_STREQ(accept_ports[0], "SBP_PORT_SETTINGS_DAEMON");
+  EXPECT_STREQ(accept_ports[1], "SBP_PORT_EXTERNAL");
+  EXPECT_STREQ(accept_ports[2], "SBP_PORT_INTERNAL");
+
+  EXPECT_STREQ(reject_ports[0], "SBP_PORT_SETTINGS_CLIENT");
+  EXPECT_STREQ(reject_ports[1], "SBP_PORT_FILEIO_FIRMWARE");
+  EXPECT_STREQ(reject_ports[2], "SBP_PORT_SKYLARK");
+  EXPECT_STREQ(reject_ports[3], "SBP_PORT_NAV_DAEMON");
+
+  reset_accept_reject_state();
+  const u8 settings_write_resp_data[] = {0x55, 0xAF, 0x00};
+  process_forwarding_rules(rules, settings_write_resp_data, 3, match_fn);
+
+  EXPECT_EQ(accept_count, 4);
+  EXPECT_EQ(reject_count, 3);
+
+  EXPECT_STREQ(accept_ports[0], "SBP_PORT_SETTINGS_DAEMON");
+  EXPECT_STREQ(accept_ports[1], "SBP_PORT_SETTINGS_CLIENT");
+  EXPECT_STREQ(accept_ports[2], "SBP_PORT_EXTERNAL");
+  EXPECT_STREQ(accept_ports[3], "SBP_PORT_INTERNAL");
+
+  EXPECT_STREQ(reject_ports[0], "SBP_PORT_FILEIO_FIRMWARE");
+  EXPECT_STREQ(reject_ports[1], "SBP_PORT_SKYLARK");
+  EXPECT_STREQ(reject_ports[2], "SBP_PORT_NAV_DAEMON");
+
+  router_teardown(&r);
+}
+
 int main(int argc, char **argv)
 {
 
