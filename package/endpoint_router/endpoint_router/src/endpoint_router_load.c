@@ -15,6 +15,7 @@
 #include <yaml.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include "endpoint_router_load.h"
 
@@ -253,8 +254,14 @@ static filter_t * current_filter_get(router_t *router)
   return filter;
 }
 
+typedef void (*consume_str_fn_t)(port_t *p, char* s);
+
+#define MAKE_CONSUME_FN(FuncName, TheField)                   \
+  consume_str_fn_t FuncName =                                 \
+    lambda (void, (port_t *p, char *s) { p->TheField = s; }); \
+
 static int event_port_string(yaml_parser_t *parser, void *context,
-                             size_t offset)
+                             consume_str_fn_t consume_str_fn)
 {
   router_t *router = (router_t *)context;
 
@@ -268,7 +275,8 @@ static int event_port_string(yaml_parser_t *parser, void *context,
     return -1;
   }
 
-  *(char **)((char *)port + offset) = str;
+  consume_str_fn(port, str);
+
   return 0;
 }
 
@@ -339,31 +347,30 @@ static PROCESS_FN(port)
 static PROCESS_FN(port_name)
 {
   (void) event;
-
   debug_printf("process_port_name\n");
-  return event_port_string(parser, context, offsetof(port_t, name));
+  MAKE_CONSUME_FN(assign_name, name);
+  return event_port_string(parser, context, assign_name);
 }
 
 static PROCESS_FN(pub_addr)
 {
   (void) event;
-
   debug_printf("process_pub_addr\n");
-  return event_port_string(parser, context, offsetof(port_t, pub_addr));
+  MAKE_CONSUME_FN(assign_pub_addr, pub_addr);
+  return event_port_string(parser, context, assign_pub_addr);
 }
 
 static PROCESS_FN(sub_addr)
 {
   (void) event;
-
   debug_printf("process_sub_addr\n");
-  return event_port_string(parser, context, offsetof(port_t, sub_addr));
+  MAKE_CONSUME_FN(assign_sub_addr, sub_addr);
+  return event_port_string(parser, context, assign_sub_addr);
 }
 
 static PROCESS_FN(forwarding_rules_)
 {
   (void) event;
-
   debug_printf("process_forwarding_rules\n");
   return handle_expected_events(parser, forwarding_rules_events, context);
 }
