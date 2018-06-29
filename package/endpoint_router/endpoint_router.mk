@@ -47,7 +47,7 @@ define ENDPOINT_ROUTER_INSTALL_TARGET_CMDS
 endef
 
 define ENDPOINT_ROUTER_INSTALL_STAGING_CMDS
-    $(INSTALL) -D -m 0755 $(@D)/endpoint_router $(STAGING_DIR)/usr/bin
+    $(INSTALL) -D -m 0755 $(@D)/src/endpoint_router $(STAGING_DIR)/usr/bin
     $(INSTALL) -d -m 0755 $(STAGING_DIR)/etc/endpoint_router
 endef
 
