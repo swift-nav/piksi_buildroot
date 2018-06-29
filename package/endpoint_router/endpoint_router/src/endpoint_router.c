@@ -180,16 +180,17 @@ void rule_process(forwarding_rule_t *forwarding_rule, const u8 *data, size_t len
   }
 }
 
+void process_forwarding_rules(forwarding_rule_t *forwarding_rule, const u8 *data, const size_t length, match_fn_t match_fn)
+{
+  for ( /*empty */; forwarding_rule != NULL; forwarding_rule = forwarding_rule->next) {
+    rule_process(forwarding_rule, data, length, match_fn);
+  }
+}
+
 static int reader_fn(const u8 *data, const size_t length, void *context)
 {
   port_t *port = (port_t *)context;
-
-  /* Iterate over forwarding rules */
-  forwarding_rule_t *forwarding_rule;
-  for (forwarding_rule = port->forwarding_rules_list; forwarding_rule != NULL;
-       forwarding_rule = forwarding_rule->next) {
-    rule_process(forwarding_rule, data, length, filter_match_process);
-  }
+  process_forwarding_rules(port->forwarding_rules_list, data, length, filter_match_process);
 
   return 0;
 }
