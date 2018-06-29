@@ -76,6 +76,12 @@ void setup_sigchild_handler(void (*handler)(int));
 
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
+#define lambda(return_type, function_body)      \
+  ({                                            \
+    return_type __fn__ function_body            \
+      __fn__;                                   \
+  })
+
 #ifdef __cplusplus
 }
 #endif
