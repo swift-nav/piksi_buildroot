@@ -9,7 +9,7 @@ OBJECTS = $(SOURCES:.c=.o)
 
 LIBS=-luv -lnanomsg -lsbp -lpiksi -lyaml -lcmph
 
-CFLAGS=-std=gnu11 -Wall
+CFLAGS+=-O3 -ggdb3 -std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Wjump-misses-init -Werror
 
 ARFLAGS=rcs $(LTO_PLUGIN)
 

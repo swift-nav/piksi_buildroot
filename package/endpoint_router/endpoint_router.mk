@@ -33,7 +33,8 @@ endif # ($(BR2_RUN_TESTS),y) ####
 endif # ($(BR2_BUILD_TESTS),y) ##
 
 define ENDPOINT_ROUTER_BUILD_CMDS
-    $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) CFLAGS="$(TARGET_CFLAGS)" -C $(@D) all
+    CFLAGS="$(TARGET_CFLAGS)" \
+			$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 		$(ENDPOINT_ROUTER_BUILD_CMDS_TESTS)
 endef
 
