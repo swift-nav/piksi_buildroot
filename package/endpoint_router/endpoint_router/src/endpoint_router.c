@@ -276,11 +276,13 @@ static void process_buffer_via_framer(port_t *port, const u8 *data, const size_t
 
 static void process_buffer(port_t *port, const u8 *data, const size_t length)
 {
-  /* Iterate over forwarding rules */
-  forwarding_rule_t *forwarding_rule;
-  for (forwarding_rule = port->forwarding_rules_list; forwarding_rule != NULL;
-       forwarding_rule = forwarding_rule->next) {
-    rule_process(forwarding_rule, data, length, filter_match_process);
+  process_forwarding_rules(port->forwarding_rules_list, data, length, filter_match_process); 
+}
+
+void process_forwarding_rules(forwarding_rule_t *forwarding_rule, const u8 *data, const size_t length, match_fn_t match_fn)
+{
+  for ( /*empty */; forwarding_rule != NULL; forwarding_rule = forwarding_rule->next) {
+    rule_process(forwarding_rule, data, length, match_fn);
   }
 }
 
@@ -293,6 +295,7 @@ static int reader_fn(const u8 *data, const size_t length, void *context)
 
   PK_METRICS_UPDATE(router_metrics, MI.size_total, PK_METRICS_VALUE((u32) length));
 
+  process_forwarding_rules(port->forwarding_rules_list, data, length, filter_match_process);
   if (options.process_sbp) {
     process_buffer_via_framer(port, data, length);
   } else {
