@@ -20,7 +20,7 @@
 extern "C" {
 #endif
 
-int router_print(FILE *f, const router_t *router);
+int router_print(FILE *f, const router_cfg_t *router);
 
 #ifdef __cplusplus
 }
