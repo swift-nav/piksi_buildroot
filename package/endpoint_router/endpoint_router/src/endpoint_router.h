@@ -19,6 +19,9 @@
 
 #include <libpiksi/endpoint.h>
 
+struct cmph_s;
+typedef struct cmph_s cmph_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -55,7 +58,13 @@ typedef struct port_s {
 typedef struct {
   const char *name;
   port_t *ports_list;
+} router_cfg_t;
+
+typedef struct {
+  router_cfg_t* router_cfg;
+  cmph_t *hash;
 } router_t;
+
 
 void debug_printf(const char *msg, ...);
 
@@ -64,10 +73,8 @@ typedef void (* match_fn_t)(forwarding_rule_t *forwarding_rule,
                             const u8 *data,
                             size_t length);
 
-void rule_process(forwarding_rule_t *forwarding_rule,
-                  const u8 *data,
-                  size_t length,
-                  match_fn_t match_fn);
+router_t* router_create(const char *filename);
+void router_teardown(router_t **router_loc);
 
 void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
                               const u8 *data,

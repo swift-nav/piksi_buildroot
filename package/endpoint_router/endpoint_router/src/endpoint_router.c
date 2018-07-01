@@ -155,9 +155,10 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static int router_setup(router_t *router, pk_loop_t *loop)
+static int router_create_endpoints(router_cfg_t *router, pk_loop_t *loop)
 {
   port_t *port;
+
   for (port = router->ports_list; port != NULL; port = port->next) {
 
     port->pub_ept = pk_endpoint_create(port->pub_addr, PK_ENDPOINT_PUB_SERVER);
@@ -180,10 +181,13 @@ static int router_setup(router_t *router, pk_loop_t *loop)
   return 0;
 }
 
-static int router_attach(router_t *router, pk_loop_t *loop)
+static int router_attach(router_cfg_t *router, pk_loop_t *loop)
 {
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
+
+    // TODO: fork here for parallelization
+
     if (pk_loop_endpoint_reader_add(loop, port->sub_ept, loop_reader_callback, port) == NULL) {
       piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
       return -1;
@@ -216,7 +220,10 @@ static void filter_match_process(forwarding_rule_t *forwarding_rule,
   }
 }
 
-void rule_process(forwarding_rule_t *forwarding_rule, const u8 *data, size_t length, match_fn_t match_fn)
+static void rule_process(forwarding_rule_t *forwarding_rule,
+                         const u8 *data,
+                         size_t length,
+                         match_fn_t match_fn)
 {
   /* Iterate over filters for this rule */
   filter_t *filter;
@@ -277,13 +284,6 @@ static void process_buffer_via_framer(port_t *port, const u8 *data, const size_t
 static void process_buffer(port_t *port, const u8 *data, const size_t length)
 {
   process_forwarding_rules(port->forwarding_rules_list, data, length, filter_match_process); 
-}
-
-void process_forwarding_rules(forwarding_rule_t *forwarding_rule, const u8 *data, const size_t length, match_fn_t match_fn)
-{
-  for ( /*empty */; forwarding_rule != NULL; forwarding_rule = forwarding_rule->next) {
-    rule_process(forwarding_rule, data, length, match_fn);
-  }
 }
 
 static int reader_fn(const u8 *data, const size_t length, void *context)
@@ -379,6 +379,58 @@ static void loop_1s_metrics(pk_loop_t *loop, void *handle, int status, void *con
   pk_loop_timer_reset(handle);
 }
 
+void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
+                              const u8 *data,
+                              const size_t length,
+                              match_fn_t match_fn)
+{
+  for (/* empty */; forwarding_rule != NULL; forwarding_rule = forwarding_rule->next) {
+    rule_process(forwarding_rule, data, length, match_fn);
+  }
+}
+
+#define UNSTAGE_CLEANUP(TheType, TheReturn)                             \
+  ({ TheType unstage = TheReturn; TheReturn = NULL; unstage; })
+
+#define STAGE_CLEANUP(TheVar, CleanUpExpr)                              \
+  void clean_up_ ## TheVar (int* _X_ ## TheVar) {                       \
+    (void) _X_ ## TheVar;                                               \
+    CleanUpExpr;                                                        \
+  };                                                                    \
+  int _X_clean_up_ ## TheVar                                            \
+    __attribute__((__cleanup__(clean_up_ ## TheVar))) = 0;              \
+  (void) _X_clean_up_ ## TheVar;                                        \
+
+router_t* router_create(const char *filename)
+{
+  router_t *router = malloc(sizeof(router_t));
+  STAGE_CLEANUP(router, ({
+    if (router != NULL) free(router);
+  }));
+
+  router_cfg_t *router_cfg = router_cfg_load(filename);
+
+  if (router_cfg == NULL)
+    return NULL;
+
+  router->router_cfg = router_cfg;
+
+  return UNSTAGE_CLEANUP(router_t*, router);
+}
+
+void router_teardown(router_t **router_loc)
+{
+  if (*router_loc == NULL) return;
+
+  router_t *router = *router_loc;
+  router_cfg_teardown(&router->router_cfg);
+
+  // TODO: Tear down cmph stuff
+  free(router);
+
+  *router_loc = NULL;
+}
+
 int main(int argc, char *argv[])
 {
   pk_loop_t *loop = NULL;
@@ -410,17 +462,17 @@ int main(int argc, char *argv[])
   }
 
   /* Load router from config file */
-  router = router_load(options.filename);
+  router = router_create(options.filename);
   if (router == NULL) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
   /* Print router config and exit if requested */
   if (options.print) {
-    if (router_print(stdout, router) != 0) {
+    if (router_print(stdout, router->router_cfg) != 0) {
       exit(EXIT_FAILURE);
     }
-    exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
+    exit(cleanup(EXIT_SUCCESS, &loop, &router, &router_metrics));
   }
 
   /* Create loop */
@@ -429,8 +481,8 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  /* Set up router data */
-  if (router_setup(router, loop) != 0) {
+  /* Set up router endpoints */
+  if (router_create_endpoints(router->router_cfg, loop) != 0) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
@@ -448,7 +500,7 @@ int main(int argc, char *argv[])
   assert( handle != NULL );
 
   /* Add router to loop */
-  if (router_attach(router, loop) != 0) {
+  if (router_attach(router->router_cfg, loop) != 0) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
@@ -463,5 +515,6 @@ static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_m
   pk_loop_destroy(loop_loc);
   pk_metrics_destroy(metrics_loc);
   logging_deinit();
+
   return result;
 }
