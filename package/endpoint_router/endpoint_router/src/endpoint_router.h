@@ -16,8 +16,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <cmph.h>
 
 #include <libpiksi/endpoint.h>
+
+struct cmph_s;
+typedef struct cmph_s cmph_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,6 +60,19 @@ typedef struct port_s {
 typedef struct {
   const char *name;
   port_t *ports_list;
+} router_cfg_t;
+
+typedef struct {
+  cmph_t *hash;
+  size_t accept_ports_count;
+  pk_endpoint_t *accept_ports;
+  size_t default_accept_ports_count;
+  pk_endpoint_t *default_accept_ports;
+} rule_cache_t;
+
+typedef struct {
+  router_cfg_t *router_cfg;
+  rule_cache_t *port_rule_cache;
 } router_t;
 
 void debug_printf(const char *msg, ...);
@@ -64,17 +81,35 @@ void router_log(int priority, const char *msg, ...);
 typedef void (*match_fn_t)(const forwarding_rule_t *forwarding_rule,
                            const filter_t *filter,
                            const u8 *data,
-                           size_t length);
+                           size_t length,
+                           void *context);
 
 void process_forwarding_rule(const forwarding_rule_t *forwarding_rule,
                              const u8 *data,
                              size_t length,
                              match_fn_t match_fn);
 
+router_t *router_create(const char *filename);
+void router_teardown(router_t **router_loc);
+
 void process_forwarding_rules(const forwarding_rule_t *forwarding_rule,
                               const u8 *data,
-                              size_t length,
-                              match_fn_t match_fn);
+                              const size_t length,
+                              match_fn_t match_fn,
+                              void *context);
+
+#define MAX_PREFIX_LEN 8
+
+typedef struct {
+  size_t count;
+  size_t prefix_len;
+  u8 (*prefixes)[MAX_PREFIX_LEN];
+} rule_prefixes_t;
+
+rule_prefixes_t* extract_rule_prefixes(port_t *port);
+inline void rule_prefixes_destroy(rule_prefixes_t **p) {
+  if (p != NULL && *p != NULL) { free((*p)->prefixes); free(*p); *p = NULL; }
+}
 
 #ifdef __cplusplus
 }

@@ -203,7 +203,7 @@ error:
   return -1;
 }
 
-static port_t *current_port_get(router_t *router)
+static port_t *current_port_get(router_cfg_t *router)
 {
   port_t *port = router->ports_list;
   if (port == NULL) {
@@ -217,7 +217,7 @@ static port_t *current_port_get(router_t *router)
   return port;
 }
 
-static forwarding_rule_t *current_forwarding_rule_get(router_t *router)
+static forwarding_rule_t *current_forwarding_rule_get(router_cfg_t *router)
 {
   port_t *port = current_port_get(router);
   if (port == NULL) {
@@ -236,7 +236,7 @@ static forwarding_rule_t *current_forwarding_rule_get(router_t *router)
   return forwarding_rule;
 }
 
-static filter_t *current_filter_get(router_t *router)
+static filter_t *current_filter_get(router_cfg_t *router)
 {
   forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
   if (forwarding_rule == NULL) {
@@ -265,7 +265,7 @@ NESTED_FN_TYPEDEF(int, consume_str_fn_t, port_t *p, char *);
 
 static int event_port_string(yaml_parser_t *parser, void *context, consume_str_fn_t consume_str_fn)
 {
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
   port_t *port = NULL;
 
   char *str = NULL;
@@ -281,7 +281,6 @@ error:
   return -1;
 }
 
-
 static PROCESS_FN(router)
 {
   (void)event;
@@ -295,7 +294,7 @@ static PROCESS_FN(router_name)
   (void)event;
 
   debug_printf("process_router_name\n");
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   char *str;
   if (event_scalar_value_get(parser, &str) != 0) {
@@ -319,7 +318,7 @@ static PROCESS_FN(port)
   (void)event;
 
   debug_printf("process_port\n");
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   port_t **p_next = &router->ports_list;
   while (*p_next != NULL) {
@@ -416,7 +415,7 @@ static PROCESS_FN(forwarding_rule_)
   (void)event;
 
   debug_printf("%s\n", __FUNCTION__);
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   port_t *port = current_port_get(router);
   if (port == NULL) {
@@ -449,7 +448,7 @@ static PROCESS_FN(dst_port)
   (void)event;
 
   debug_printf("%s\n", __FUNCTION__);
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
   if (forwarding_rule == NULL) {
@@ -478,7 +477,7 @@ static PROCESS_FN(filter)
   (void)event;
 
   debug_printf("%s\n", __FUNCTION__);
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
   if (forwarding_rule == NULL) {
@@ -511,7 +510,7 @@ static PROCESS_FN(action)
   (void)event;
 
   debug_printf("%s\n", __FUNCTION__);
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   filter_t *filter = current_filter_get(router);
   if (filter == NULL) {
@@ -550,7 +549,7 @@ static PROCESS_FN(prefix_element)
   (void)parser;
 
   debug_printf("%s\n", __FUNCTION__);
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   filter_t *filter = current_filter_get(router);
   if (filter == NULL) {
@@ -577,7 +576,7 @@ static PROCESS_FN(prefix_element)
   return 0;
 }
 
-static int dst_ports_set(router_t *router)
+static int dst_ports_set(router_cfg_t *router)
 {
   /* Iterate over ports */
   port_t *port;
@@ -610,10 +609,10 @@ static int dst_ports_set(router_t *router)
   return 0;
 }
 
-router_t *router_load(const char *filename)
+router_cfg_t *router_cfg_load(const char *filename)
 {
   FILE *f = NULL;
-  router_t *router = NULL;
+  router_cfg_t *router = NULL;
 
   yaml_parser_t parser;
   if (!yaml_parser_initialize(&parser)) {
@@ -627,13 +626,13 @@ router_t *router_load(const char *filename)
     goto error;
   }
 
-  router = (router_t *)malloc(sizeof(*router));
+  router = (router_cfg_t *)malloc(sizeof(*router));
   if (router == NULL) {
     router_log(LOG_ERR, "error allocating router\n");
     goto error;
   }
 
-  *router = (router_t){
+  *router = (router_cfg_t){
     .name = "",
     .ports_list = NULL,
   };
@@ -662,7 +661,7 @@ error:
   }
 
   if (router != NULL) {
-    free(router);
+    router_cfg_teardown(&router);
   }
 
   return NULL;
@@ -734,12 +733,12 @@ static void ports_destroy(port_t **port_loc)
   *port_loc = NULL;
 }
 
-void router_teardown(router_t **router_loc)
+void router_cfg_teardown(router_cfg_t **router_loc)
 {
   if (router_loc == NULL || *router_loc == NULL) {
     return;
   }
-  router_t *router = *router_loc;
+  router_cfg_t *router = *router_loc;
   if (router->name != NULL) free((void *)router->name);
   ports_destroy(&router->ports_list);
   free(router);
