@@ -72,9 +72,10 @@ bool device_is_duro(void);
 
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
-#define lambda(return_type, function_body)      \
+#define lambda(TheReturnType, ...)              \
+  __extension__                                 \
   ({                                            \
-    return_type __fn__ function_body            \
+    TheReturnType __fn__ __VA_ARGS__            \
       __fn__;                                   \
   })
 

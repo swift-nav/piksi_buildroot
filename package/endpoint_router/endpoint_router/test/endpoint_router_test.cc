@@ -29,7 +29,7 @@ TEST_F(EndpointRouterTests, BasicTest) {
   char path[PATH_MAX];
   sprintf(path, "%s/sbp_router.yml", test_data_dir);
 
-  router_t *r = router_load(path);
+  router_cfg_t *r = router_cfg_load(path);
   EXPECT_NE( r, nullptr );
 
   forwarding_rule_t *rules = r->ports_list[0].forwarding_rules_list;
@@ -42,10 +42,10 @@ TEST_F(EndpointRouterTests, BasicTest) {
                     }
                   };
 
-  rule_process(rules, data, 3, match_fn);
+  process_forwarding_rules(rules, data, 3, match_fn);
   EXPECT_TRUE(match_fn_accept);
 
-  router_teardown( &r );
+  router_cfg_teardown( &r );
 }
 
 char accept_ports[32][32] = { 0 };
@@ -68,7 +68,7 @@ TEST_F(EndpointRouterTests, FullTest) {
   char path[PATH_MAX];
   sprintf(path, "%s/sbp_router_full.yml", test_data_dir);
 
-  router_t *r = router_load(path);
+  router_cfg_t *r = router_cfg_load(path);
   EXPECT_NE( r, nullptr );
 
   forwarding_rule_t *rules = r->ports_list[0].forwarding_rules_list;
@@ -131,7 +131,27 @@ TEST_F(EndpointRouterTests, FullTest) {
   EXPECT_STREQ(reject_ports[1], "SBP_PORT_SKYLARK");
   EXPECT_STREQ(reject_ports[2], "SBP_PORT_NAV_DAEMON");
 
-  router_teardown( &r );
+  router_cfg_teardown( &r );
+}
+
+TEST_F(EndpointRouterTests, RouterCreate) {
+
+  char path[PATH_MAX];
+  sprintf(path, "%s/sbp_router.yml", test_data_dir);
+
+  router_t *r = router_create(path);
+  EXPECT_NE( r, nullptr );
+
+  router_teardown(&r);
+}
+
+TEST_F(EndpointRouterTests, BrokenRules) {
+
+  char path[PATH_MAX];
+  sprintf(path, "%s/sbp_router_broken.yml", test_data_dir);
+
+  router_t *r = router_create(path);
+  EXPECT_EQ( r, nullptr );
 }
 
 int main(int argc, char** argv) {
