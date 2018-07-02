@@ -160,6 +160,10 @@ int main(int argc, char *argv[])
     return cleanup(&loop, &ctx, EXIT_FAILURE);
   }
 
+  if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx), loop) != 0) {
+    return cleanup(&loop, &ctx, EXIT_FAILURE);
+  }
+
   pk_loop_run_simple(loop);
   piksi_log(LOG_DEBUG, "Network Daemon: Normal Exit");
 
