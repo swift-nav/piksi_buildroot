@@ -398,8 +398,14 @@ void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
   }
 }
 
-#define UNSTAGE_CLEANUP(TheType, TheReturn)                             \
-  ({ TheType unstage = TheReturn; TheReturn = NULL; unstage; })
+#define UNSTAGE_CLEANUP(TheReturn, TheType)                         \
+  ({ TheType __unstage = TheReturn; TheReturn = NULL; __unstage; })
+
+#define ARRAY_OF_FIXED_BLOCKS(TheType, TheSize) \
+  TheType (*__unstage)[TheSize]
+
+#define UNSTAGE_CLEANUP_X(TheReturn, TypeNameDecl)              \
+  ({ TypeNameDecl = TheReturn; TheReturn = NULL; __unstage; })
 
 #define STAGE_CLEANUP(TheVar, CleanUpExpr)                              \
   void clean_up_ ## TheVar (int* _X_ ## TheVar) {                       \
@@ -409,6 +415,83 @@ void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
   int _X_clean_up_ ## TheVar                                            \
     __attribute__((__cleanup__(clean_up_ ## TheVar))) = 0;              \
   (void) _X_clean_up_ ## TheVar;                                        \
+
+rule_prefixes_t* extract_rule_prefixes(port_t *port)
+{
+  size_t total_filter_prefixes = 0;
+  forwarding_rule_t *rules = NULL;
+
+  int prefix_len = -1;
+
+  for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
+    size_t filter_count = 0;
+    for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
+      filter_count++;
+      if (prefix_len < 0) {
+        prefix_len = filter->len;
+      } else if (prefix_len != (int)filter->len) {
+        // TODO: error case, fail
+      }
+      if (prefix_len > MAX_PREFIX_LEN) {
+        // TOOD: error case, fail
+      }
+    }
+    total_filter_prefixes += filter_count;
+  }
+
+  size_t filter_prefix_index = 0;
+  size_t prefix_buf_len = sizeof(u8) * MAX_PREFIX_LEN * total_filter_prefixes;
+
+  u8 (*all_filter_prefixes)[MAX_PREFIX_LEN] = malloc(prefix_buf_len);
+  memset(all_filter_prefixes, 0, prefix_buf_len);
+
+  STAGE_CLEANUP(all_filter_prefixes, ({free(all_filter_prefixes);}));
+
+  for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
+    for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
+      u8* filter_prefix = all_filter_prefixes[filter_prefix_index++];
+      if (filter->data != NULL && filter->len > 0) {
+        memcpy(filter_prefix, filter->data, prefix_len);
+      }
+    }
+  }
+
+  int compare_prefixes(const void *a, const void *b) {
+    return memcmp(a, b, (size_t)prefix_len);
+  };
+
+  qsort(all_filter_prefixes, total_filter_prefixes, MAX_PREFIX_LEN, compare_prefixes);
+
+  u8 (*deduped_filter_prefixes)[MAX_PREFIX_LEN] = malloc(prefix_buf_len);
+  memset(deduped_filter_prefixes, 0, prefix_buf_len);
+
+  STAGE_CLEANUP(deduped_filter_prefixes, ({
+    if (deduped_filter_prefixes != NULL ) free(deduped_filter_prefixes);
+  }));
+
+  size_t deduped_filter_index = 0;
+
+  u8* prev_entry = NULL;
+  for (size_t filter_idx = 0; filter_idx < total_filter_prefixes; filter_idx++) {
+    if (prev_entry == NULL) {
+      prev_entry = all_filter_prefixes[filter_idx];
+      continue;
+    }
+    if (memcmp(prev_entry, all_filter_prefixes[filter_idx], prefix_len) != 0) {
+      memcpy(deduped_filter_prefixes[deduped_filter_index++], all_filter_prefixes[filter_idx], prefix_len);
+    }
+    prev_entry = all_filter_prefixes[filter_idx];
+  }
+
+  rule_prefixes_t *rule_prefixes = malloc(sizeof(rule_prefixes_t));
+  STAGE_CLEANUP(rule_prefixes, ({if (rule_prefixes != NULL) free(rule_prefixes);}));
+
+  rule_prefixes->prefixes = UNSTAGE_CLEANUP_X(deduped_filter_prefixes, ARRAY_OF_FIXED_BLOCKS(u8, MAX_PREFIX_LEN));
+  rule_prefixes->count = deduped_filter_index;
+  rule_prefixes->prefix_len = prefix_len;
+
+  return UNSTAGE_CLEANUP(rule_prefixes, rule_prefixes_t*);
+}
 
 router_t* router_create(const char *filename)
 {
@@ -434,7 +517,6 @@ router_t* router_create(const char *filename)
   for (port_t *port = router_cfg->ports_list; port != NULL; port = port->next) {
 
     rule_cache_t *rule_cache = &router->port_rule_cache[port_index];
-    int prefix_len = -1;
 
     size_t rule_count = 0;
     forwarding_rule_t *rules = port->forwarding_rules_list;
@@ -448,50 +530,11 @@ router_t* router_create(const char *filename)
     rule_cache->default_accept_ports = malloc(sizeof(pk_endpoint_t*) * rule_count);
     */
 
-    size_t total_filter_prefixes = 0;
+    rule_prefixes_t *rule_prefixes = extract_rule_prefixes(port);
+    STAGE_CLEANUP(rule_prefixes, ({
+          if(rule_prefixes != NULL) rule_prefixes_destroy(&rule_prefixes);
+        }));
 
-    #define MAX_PREFIX_LEN 8
-
-    for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
-      size_t filter_count = 0;
-      for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
-        filter_count++;
-        if (prefix_len < 0) {
-          prefix_len = filter->len;
-        } else if (prefix_len != (int)filter->len) {
-          // TODO: error case, fail
-        }
-        if (prefix_len > MAX_PREFIX_LEN) {
-          // TOOD: error case, fail
-        }
-      }
-      total_filter_prefixes += filter_count;
-    }
-
-    size_t filter_prefix_index = 0;
-    size_t prefix_buf_len = sizeof(u8) * MAX_PREFIX_LEN * total_filter_prefixes;
-
-    u8 (*all_filter_prefixes)[MAX_PREFIX_LEN] = malloc(prefix_buf_len);
-    memset(all_filter_prefixes, 0, prefix_buf_len);
-
-    STAGE_CLEANUP(all_filter_prefixes, ({free(all_filter_prefixes);}));
-
-    for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
-      for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
-        u8* filter_prefix = all_filter_prefixes[filter_prefix_index++];
-        if (filter->data != NULL && filter->len > 0) {
-          memcpy(filter_prefix, filter->data, prefix_len);
-        }
-      }
-    }
-
-    int compare_prefixes(const void *a, const void *b) {
-      return memcmp(a, b, (size_t)prefix_len);
-    };
-
-    qsort(all_filter_prefixes, total_filter_prefixes, MAX_PREFIX_LEN, compare_prefixes);
-
-    // TODO: Strip dupes
     // TODO: Create cmph hash
 
     /*
@@ -504,7 +547,7 @@ router_t* router_create(const char *filename)
     port_index++;
   }
 
-  return UNSTAGE_CLEANUP(router_t*, router);
+  return UNSTAGE_CLEANUP(router, router_t*);
 }
 
 void router_teardown(router_t **router_loc)
