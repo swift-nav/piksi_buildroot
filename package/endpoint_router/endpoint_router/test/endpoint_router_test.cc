@@ -35,14 +35,14 @@ TEST_F(EndpointRouterTests, BasicTest) {
   forwarding_rule_t *rules = r->ports_list[0].forwarding_rules_list;
   const u8 data[] = { 0x1, 0x2, 0x3 };
 
-  auto match_fn = [](forwarding_rule_t *r, filter_t *f, const u8 *d, size_t l)
+  auto match_fn = [](forwarding_rule_t *r, filter_t *f, const u8 *d, size_t l, void*)
                   {
                     if (f->action == FILTER_ACTION_ACCEPT) {
                       match_fn_accept = true;
                     }
                   };
 
-  process_forwarding_rules(rules, data, 3, match_fn);
+  process_forwarding_rules(rules, data, 3, match_fn, NULL);
   EXPECT_TRUE(match_fn_accept);
 
   router_cfg_teardown( &r );
@@ -73,7 +73,7 @@ TEST_F(EndpointRouterTests, FullTest) {
 
   forwarding_rule_t *rules = r->ports_list[0].forwarding_rules_list;
 
-  auto match_fn = [](forwarding_rule_t *r, filter_t *f, const u8 *d, size_t l)
+  auto match_fn = [](forwarding_rule_t *r, filter_t *f, const u8 *d, size_t l, void*)
                   {
                     if (f->action == FILTER_ACTION_ACCEPT) {
                       strcpy(accept_ports[accept_count++], r->dst_port_name);
@@ -85,7 +85,7 @@ TEST_F(EndpointRouterTests, FullTest) {
                   };
 
   const u8 settings_register_data[] = { 0x55, 0xAE, 0x00 };
-  process_forwarding_rules(rules, settings_register_data, 3, match_fn);
+  process_forwarding_rules(rules, settings_register_data, 3, match_fn, NULL);
 
   EXPECT_EQ(accept_count, 2);
   EXPECT_EQ(reject_count, 5);
@@ -101,7 +101,7 @@ TEST_F(EndpointRouterTests, FullTest) {
 
   reset_accept_reject_state();
   const u8 settings_read_resp_data[] = { 0x55, 0xA5, 0x00 };
-  process_forwarding_rules(rules, settings_read_resp_data, 3, match_fn);
+  process_forwarding_rules(rules, settings_read_resp_data, 3, match_fn, NULL);
 
   EXPECT_EQ(accept_count, 3);
   EXPECT_EQ(reject_count, 4);
@@ -117,7 +117,7 @@ TEST_F(EndpointRouterTests, FullTest) {
 
   reset_accept_reject_state();
   const u8 settings_write_resp_data[] = { 0x55, 0xAF, 0x00 };
-  process_forwarding_rules(rules, settings_write_resp_data, 3, match_fn);
+  process_forwarding_rules(rules, settings_write_resp_data, 3, match_fn, NULL);
 
   EXPECT_EQ(accept_count, 4);
   EXPECT_EQ(reject_count, 3);

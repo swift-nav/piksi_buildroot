@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <cmph.h>
 
 #include <libpiksi/endpoint.h>
 
@@ -58,17 +59,25 @@ typedef struct {
 } router_cfg_t;
 
 typedef struct {
-  router_cfg_t* router_cfg;
   cmph_t *hash;
-} router_t;
+  size_t accept_ports_count;
+  pk_endpoint_t *accept_ports;
+  size_t default_accept_ports_count;
+  pk_endpoint_t *default_accept_ports;
+} rule_cache_t;
 
+typedef struct {
+  router_cfg_t *router_cfg;
+  rule_cache_t *port_rule_cache;
+} router_t;
 
 void debug_printf(const char *msg, ...);
 
 typedef void (* match_fn_t)(forwarding_rule_t *forwarding_rule,
                             filter_t *filter,
                             const u8 *data,
-                            size_t length);
+                            size_t length,
+                            void *context);
 
 router_t* router_create(const char *filename);
 void router_teardown(router_t **router_loc);
@@ -76,7 +85,8 @@ void router_teardown(router_t **router_loc);
 void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
                               const u8 *data,
                               const size_t length,
-                              match_fn_t match_fn);
+                              match_fn_t match_fn,
+                              void *context);
 
 #ifdef __cplusplus
 }

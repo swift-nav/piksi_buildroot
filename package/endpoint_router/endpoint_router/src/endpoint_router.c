@@ -138,16 +138,23 @@ static int router_attach(router_cfg_t *router, pk_loop_t *loop)
 static void filter_match_process(forwarding_rule_t *forwarding_rule,
                                  filter_t *filter,
                                  const u8 *data,
-                                 size_t length)
+                                 size_t length,
+                                 void *context)
 {
+  (void) context;
+
+  //rule_cache_t *rule_cache = (rule_cache_t *) context;
+  // TODO: ^^
+
   switch (filter->action) {
     case FILTER_ACTION_ACCEPT: {
       pk_endpoint_send(forwarding_rule->dst_port->pub_ept, data, length);
+      // TODO: full out cache struct
     }
     break;
 
     case FILTER_ACTION_REJECT: {
-
+      // NOOP
     }
     break;
 
@@ -161,7 +168,8 @@ static void filter_match_process(forwarding_rule_t *forwarding_rule,
 static void rule_process(forwarding_rule_t *forwarding_rule,
                          const u8 *data,
                          size_t length,
-                         match_fn_t match_fn)
+                         match_fn_t match_fn,
+                         void *context)
 {
   /* Iterate over filters for this rule */
   filter_t *filter;
@@ -181,7 +189,7 @@ static void rule_process(forwarding_rule_t *forwarding_rule,
     }
 
     if (match) {
-      match_fn(forwarding_rule, filter, data, length);
+      match_fn(forwarding_rule, filter, data, length, context);
 
       /* Done with this rule after finding a filter match */
       break;
@@ -192,7 +200,17 @@ static void rule_process(forwarding_rule_t *forwarding_rule,
 static int reader_fn(const u8 *data, const size_t length, void *context)
 {
   port_t *port = (port_t *)context;
-  process_forwarding_rules(port->forwarding_rules_list, data, length, filter_match_process);
+  //rule_cache_t *rule_cache = (rule_cache_t *)context;
+
+  // Steps for optimization
+  // 1.) Hash incoming data according incoming lengths (all are 3 by default now)
+  // 2.) Check map for match
+  // 3.) If there's a match then forwarding to all ports in the map
+  //    a.) if there's a match then send to all listed ports
+  //    b.) if no match, send to all ports that are default accept
+
+  // TODO: use rule_cache_t instead of:
+  process_forwarding_rules(port->forwarding_rules_list, data, length, filter_match_process, NULL);
 
   return 0;
 }
@@ -221,10 +239,11 @@ void debug_printf(const char *msg, ...)
 void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
                               const u8 *data,
                               const size_t length,
-                              match_fn_t match_fn)
+                              match_fn_t match_fn,
+                              void* context)
 {
   for (/* empty */; forwarding_rule != NULL; forwarding_rule = forwarding_rule->next) {
-    rule_process(forwarding_rule, data, length, match_fn);
+    rule_process(forwarding_rule, data, length, match_fn, context);
   }
 }
 
@@ -253,6 +272,86 @@ router_t* router_create(const char *filename)
     return NULL;
 
   router->router_cfg = router_cfg;
+  size_t port_count = 0;
+  for (port_t *port = router_cfg->ports_list; port != NULL; port = port->next) {
+    port_count++;
+  }
+
+  router->port_rule_cache = malloc(sizeof(rule_cache_t) * port_count);
+  size_t port_index = 0;
+
+  for (port_t *port = router_cfg->ports_list; port != NULL; port = port->next) {
+
+    rule_cache_t *rule_cache = &router->port_rule_cache[port_index];
+    int prefix_len = -1;
+
+    size_t rule_count = 0;
+    forwarding_rule_t *rules = port->forwarding_rules_list;
+    for (/* empty */; rules != NULL; rules = rules->next) {
+      rule_count++;
+    }
+
+    (void) rule_cache;
+    /*
+    rule_cache->accept_ports = malloc(sizeof(pk_endpoint_t*) * rule_count);
+    rule_cache->default_accept_ports = malloc(sizeof(pk_endpoint_t*) * rule_count);
+    */
+
+    size_t total_filter_prefixes = 0;
+
+    #define MAX_PREFIX_LEN 8
+
+    for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
+      size_t filter_count = 0;
+      for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
+        filter_count++;
+        if (prefix_len < 0) {
+          prefix_len = filter->len;
+        } else if (prefix_len != (int)filter->len) {
+          // TODO: error case, fail
+        }
+        if (prefix_len > MAX_PREFIX_LEN) {
+          // TOOD: error case, fail
+        }
+      }
+      total_filter_prefixes += filter_count;
+    }
+
+    size_t filter_prefix_index = 0;
+    size_t prefix_buf_len = sizeof(u8) * MAX_PREFIX_LEN * total_filter_prefixes;
+
+    u8 (*all_filter_prefixes)[MAX_PREFIX_LEN] = malloc(prefix_buf_len);
+    memset(all_filter_prefixes, 0, prefix_buf_len);
+
+    STAGE_CLEANUP(all_filter_prefixes, ({free(all_filter_prefixes);}));
+
+    for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
+      for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
+        u8* filter_prefix = all_filter_prefixes[filter_prefix_index++];
+        if (filter->data != NULL && filter->len > 0) {
+          memcpy(filter_prefix, filter->data, prefix_len);
+        }
+      }
+    }
+
+    int compare_prefixes(const void *a, const void *b) {
+      return memcmp(a, b, (size_t)prefix_len);
+    };
+
+    qsort(all_filter_prefixes, total_filter_prefixes, MAX_PREFIX_LEN, compare_prefixes);
+
+    // TODO: Strip dupes
+    // TODO: Create cmph hash
+
+    /*
+      process_forwarding_rules(port->forwarding_rules_list,
+      filter->data,
+      filter->len, filter_match_process,
+      rule_cache);
+    */
+
+    port_index++;
+  }
 
   return UNSTAGE_CLEANUP(router_t*, router);
 }
@@ -263,6 +362,13 @@ void router_teardown(router_t **router_loc)
 
   router_t *router = *router_loc;
   router_cfg_teardown(&router->router_cfg);
+
+  /* TODO:
+    rule_cache->accept_ports = malloc(sizeof(pk_endpoint_t*) * rule_count);
+    rule_cache->default_accept_ports = malloc(sizeof(pk_endpoint_t*) * rule_count);
+  */
+
+  free(router->port_rule_cache);
 
   // TODO: Tear down cmph stuff
   free(router);
