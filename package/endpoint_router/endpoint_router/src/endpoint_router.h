@@ -91,6 +91,19 @@ void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
                               match_fn_t match_fn,
                               void *context);
 
+#define MAX_PREFIX_LEN 8
+
+typedef struct {
+  size_t count;
+  size_t prefix_len;
+  u8 (*prefixes)[MAX_PREFIX_LEN];
+} rule_prefixes_t;
+
+rule_prefixes_t* extract_rule_prefixes(port_t *port);
+inline void rule_prefixes_destroy(rule_prefixes_t **p) {
+  if (p != NULL && *p != NULL) { free((*p)->prefixes); free(*p); *p = NULL; }
+}
+
 #ifdef __cplusplus
 }
 #endif

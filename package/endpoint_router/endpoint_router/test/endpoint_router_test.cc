@@ -154,6 +154,40 @@ TEST_F(EndpointRouterTests, BrokenRules) {
   EXPECT_EQ( r, nullptr );
 }
 
+TEST_F(EndpointRouterTests, DedupeRulePrefixes) {
+
+  char path[PATH_MAX];
+  sprintf(path, "%s/sbp_router_dupe.yml", test_data_dir);
+
+  router_cfg_t *r = router_cfg_load(path);
+  EXPECT_NE( r, nullptr );
+
+
+  port_t *port = &r->ports_list[0];
+  rule_prefixes_t *rule_prefixes = extract_rule_prefixes(port);
+
+  EXPECT_NE( rule_prefixes, nullptr );
+  EXPECT_EQ( rule_prefixes->count, 5 );
+
+  u8 prefix1[] = { 0x01, 0x02, 0x03 };
+  EXPECT_EQ( memcmp(rule_prefixes->prefixes[0], prefix1, rule_prefixes->prefix_len), 0 );
+
+  u8 prefix2[] = { 0x01, 0x02, 0x04 };
+  EXPECT_EQ( memcmp(rule_prefixes->prefixes[1], prefix2, rule_prefixes->prefix_len), 0 );
+
+  u8 prefix3[] = { 0x01, 0x02, 0x05 };
+  EXPECT_EQ( memcmp(rule_prefixes->prefixes[2], prefix3, rule_prefixes->prefix_len), 0 );
+
+  u8 prefix4[] = { 0x02, 0x02, 0x03 };
+  EXPECT_EQ( memcmp(rule_prefixes->prefixes[3], prefix4, rule_prefixes->prefix_len), 0 );
+
+  u8 prefix5[] = { 0x02, 0x02, 0x05 };
+  EXPECT_EQ( memcmp(rule_prefixes->prefixes[4], prefix5, rule_prefixes->prefix_len), 0 );
+
+  rule_prefixes_destroy( &rule_prefixes );
+  router_cfg_teardown( &r );
+}
+
 int main(int argc, char** argv) {
 
   ::testing::InitGoogleTest(&argc, argv);
