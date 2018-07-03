@@ -31,44 +31,30 @@ FW_VERSION=${1:-v1.6.4}
 NAP_VERSION=${2:-v1.6.4}
 
 FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
-
-NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
-NAP_SDK_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
+NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
 
 fetch() {
-  aws s3 cp "$@"
-}
-
-fetch_no_sign() {
   aws s3 cp --no-sign-request "$@"
 }
 
 download_fw() {
-  HW_CONFIG=$1
-  FIRMWARE_DIR=firmware/$HW_CONFIG
+  FIRMWARE_DIR=firmware/prod
 
   # Make firmware download dir
   mkdir -p $FIRMWARE_DIR
 
   # Download piksi_firmware
-  fetch $FW_S3_PATH/piksi_firmware_v3_$HW_CONFIG.stripped.elf \
+  fetch $FW_S3_PATH/piksi_firmware_v3_prod.stripped.elf \
     $FIRMWARE_DIR/piksi_firmware.elf
 
-  # Download piksi_fpga
-  if [ "$HW_CONFIG" == "microzed" ]; then
-    # Microzed FPGA image breaks the naming convention so deal with it as a special case
-    fetch $NAP_S3_PATH/piksi_microzed_nt1065_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
-  else
-    fetch $NAP_S3_PATH/piksi_${HW_CONFIG}_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit || \
-      fetch_no_sign $NAP_S3_SDK_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
-  fi
-
+  # Download piksi_fpga, try the prod variant first, then sdk variant
+  fetch $NAP_S3_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
 }
 
 if [[ -z "$GENERATE_REQUIREMENTS" ]]; then
-  download_fw "prod" || echo "ERROR: failed to download FPGA and RTOS artifacts"
+  download_fw || echo "ERROR: failed to download FPGA and RTOS artifacts"
 else
   REQUIREMENTS_M4="$D/requirements.yaml.m4"
   REQUIREMENTS_OUT="${REQUIREMENTS_M4%.m4}"
