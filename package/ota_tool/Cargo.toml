@@ -13,5 +13,14 @@ serde_json = "1.0.13"
 clap = "2.31.2"
 
 [profile.release]
+panic = "abort"
 lto = true
+codegen-units = 1
+incremental = false
+
+[profile.dev]
+panic = "abort"
+lto = true
+codegen-units = 1
+incremental = false
 
