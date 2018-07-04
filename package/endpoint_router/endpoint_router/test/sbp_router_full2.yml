@@ -1,0 +1,66 @@
+name: SBP_ROUTER
+ports:
+
+  - name: SBP_PORT_FIRMWARE
+    pub_addr: "tcp://127.0.0.1:43010"
+    sub_addr: "tcp://127.0.0.1:43011"
+    metric: "sbp/firmware"
+    forwarding_rules:
+      - dst_port: SBP_PORT_SETTINGS_DAEMON
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAE, 0x00] } # Settings register
+          - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
+      - dst_port: SBP_PORT_FILEIO_FIRMWARE
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: ACCEPT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: ACCEPT, prefix: [0x55, 0xAC, 0x00] } # File reamove
+          - { action: ACCEPT, prefix: [0x55, 0xAD, 0x00] } # File write
+          - { action: REJECT }
+
+  - name: SBP_PORT_SETTINGS_DAEMON
+    pub_addr: "tcp://127.0.0.1:43020"
+    sub_addr: "tcp://127.0.0.1:43021"
+    metric: "sbp/settings"
+    forwarding_rules:
+      - dst_port: SBP_PORT_FIRMWARE
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
+          - { action: REJECT }
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
+          - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
+          - { action: REJECT }
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
+          - { action: REJECT }
+
+  - name: SBP_PORT_FILEIO_FIRMWARE
+    pub_addr: "tcp://127.0.0.1:43040"
+    sub_addr: "tcp://127.0.0.1:43041"
+    metric: "sbp/fileio"
+    forwarding_rules:
+      - dst_port: SBP_PORT_FIRMWARE
+        filters:
+          - { action: ACCEPT }
+
+  - name: SBP_PORT_SETTINGS_CLIENT
+    pub_addr: "tcp://127.0.0.1:43070"
+    sub_addr: "tcp://127.0.0.1:43071"
+    metric: "sbp/settings_client"
+    forwarding_rules:
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
+      - dst_port: SBP_PORT_SETTINGS_DAEMON
+        filters:
+          - { action: ACCEPT }

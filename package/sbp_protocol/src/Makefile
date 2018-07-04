@@ -1,8 +1,8 @@
 TARGET=libsbp_protocol
 SOURCES=info_sbp.c framer_sbp.c filter_sbp.c
-CFLAGS=-std=gnu11 -fPIC
+CFLAGS+=-std=gnu11 -fPIC -ggdb3 -O3
 ARFLAGS=rcs $(LTO_PLUGIN)
-LDFLAGS=-shared
+LDFLAGS+=-shared
 
 CROSS=
 
