@@ -47,8 +47,8 @@ typedef struct port_s {
   const char *name;
   const char *pub_addr;
   const char *sub_addr;
-  pk_endpoint_t *pub_ept;
-  pk_endpoint_t *sub_ept;
+  uint16_t pub_ept_index;
+  uint16_t sub_ept_index;
   forwarding_rule_t *forwarding_rules_list;
   struct port_s *next;
 } port_t;
@@ -69,25 +69,37 @@ typedef struct {
 typedef struct {
   u8 prefix[MAX_PREFIX_LEN];
   size_t count;
-  pk_endpoint_t** endpoints;
+  uint16_t* endpoint_indexes;
 } cached_port_t;
+
+typedef struct router_s router_t;
 
 typedef struct {
   cmph_t *hash;
   cmph_io_adapter_t *cmph_io_adapter;
   cached_port_t *cached_ports;
   size_t accept_ports_count;
-  pk_endpoint_t **accept_ports;
+  uint16_t* accept_port_indexes;
   rule_prefixes_t *rule_prefixes;
   size_t rule_count;
-  pk_endpoint_t *sub_ept;
+  uint16_t sub_ept_index;
+  struct router_s *router;
 } rule_cache_t;
 
 typedef struct {
+  port_t *port;
+  pk_endpoint_t *endpoint;
+  bool is_pub_addr;
+  const char* addr;
+} endpoint_slot_t;
+
+struct router_s {
   router_cfg_t *router_cfg;
   rule_cache_t *port_rule_cache;
   size_t port_count;
-} router_t;
+  uint16_t endpoint_slot_count;
+  endpoint_slot_t *endpoint_slots;
+};
 
 void debug_printf(const char *msg, ...);
 
@@ -99,7 +111,7 @@ typedef void (* match_fn_t)(forwarding_rule_t *forwarding_rule,
 
 typedef int (* load_endpoints_fn_t)(router_cfg_t* cfg);
 
-router_t* router_create(const char *filename, load_endpoints_fn_t load_endpoints);
+router_t* router_create(const char *filename);
 void router_teardown(router_t **router_loc);
 
 void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
@@ -115,10 +127,18 @@ inline void rule_prefixes_destroy(rule_prefixes_t **p) {
     { free((*p)->prefixes); free(*p); *p = NULL; }
 }
 
+int router_reader(const u8 *data, const size_t length, void *context);
+
+void populate_endpoint_slots(router_t *router, port_t *port);
+
 typedef int (*endpoint_send_fn_t)(pk_endpoint_t*, const u8*, const size_t);
 extern endpoint_send_fn_t endpoint_send_fn;
 
-int router_reader(const u8 *data, const size_t length, void *context);
+typedef void (* endpoint_destroy_fn_t)(pk_endpoint_t** p);
+extern endpoint_destroy_fn_t endpoint_destroy_fn;
+
+typedef pk_endpoint_t * (* endpoint_create_fn_t)(const char *endpoint, pk_endpoint_type type);
+extern endpoint_create_fn_t endpoint_create_fn;
 
 #ifdef __cplusplus
 }

@@ -14,6 +14,9 @@
 #include <stdarg.h>
 #include <string.h>
 #include <getopt.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <errno.h>
 
 #include <libpiksi/loop.h>
 #include <libpiksi/logging.h>
@@ -35,7 +38,10 @@ static struct {
   .debug = false
 };
 
+// Override-able for unit testing
+endpoint_create_fn_t endpoint_create_fn;
 endpoint_send_fn_t endpoint_send_fn;
+endpoint_destroy_fn_t endpoint_destroy_fn;
 
 static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context);
 
@@ -99,44 +105,110 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static int router_create_endpoints(router_cfg_t *router)
+static pk_endpoint_t* ept_lookup(router_t *router, uint16_t index)
 {
-  port_t *port;
-
-  for (port = router->ports_list; port != NULL; port = port->next) {
-
-    port->pub_ept = pk_endpoint_create(port->pub_addr, PK_ENDPOINT_PUB_SERVER);
-    if (port->pub_ept == NULL) {
-      piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
-      return -1;
-    }
-
-    port->sub_ept = pk_endpoint_create(port->sub_addr, PK_ENDPOINT_SUB_SERVER);
-    if (port->sub_ept == NULL) {
-      piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
-      return -1;
-    }
-  }
-
-  return 0;
+  return router->endpoint_slots[index].endpoint;
 }
 
-static int router_attach(router_t *router, pk_loop_t *loop)
+static void router_create_endpoint_slots(router_t *router)
+{
+  assert( router->router_cfg != NULL );
+  assert( router->port_count != 0 );
+
+  router->endpoint_slots = calloc(router->port_count*2, sizeof(endpoint_slot_t));
+
+  for (port_t *port = router->router_cfg->ports_list; port != NULL; port = port->next) {
+
+    port->pub_ept_index = router->endpoint_slot_count;
+    router->endpoint_slots[router->endpoint_slot_count++] =
+      (endpoint_slot_t) { .port = port, .addr = port->pub_addr, .is_pub_addr = true, .endpoint = NULL };
+
+    port->sub_ept_index = router->endpoint_slot_count;
+    router->endpoint_slots[router->endpoint_slot_count++] =
+      (endpoint_slot_t) { .port = port, .addr = port->sub_addr, .is_pub_addr = false, .endpoint = NULL };
+  }
+
+  return;
+}
+
+void populate_endpoint_slots(router_t *router, port_t *port)
+{
+  for (uint16_t idx = 0; idx < router->endpoint_slot_count; idx++) {
+
+#if 0
+    // If it's someone else's "pub" address, we need to subscribe to it,
+    //   if it's soemone else's "sub" address, we need to publish to it.
+    pk_endpoint_type ept_type = router->endpoint_slots[idx].is_pub_addr ?
+      PK_ENDPOINT_SUB : PK_ENDPOINT_PUB;
+#endif
+    pk_endpoint_type ept_type = router->endpoint_slots[idx].is_pub_addr ?
+      PK_ENDPOINT_PUB : PK_ENDPOINT_SUB;
+
+    if (port->pub_ept_index == idx) {
+      ept_type = PK_ENDPOINT_PUB_SERVER;
+    }
+
+    if (port->sub_ept_index == idx) {
+      ept_type = PK_ENDPOINT_SUB_SERVER;
+    }
+
+    const char *ept_type_str =
+      (ept_type == PK_ENDPOINT_PUB ? "PK_ENDPOINT_PUB" :
+       (ept_type == PK_ENDPOINT_SUB ? "PK_ENDPOINT_SUB" :
+        (ept_type == PK_ENDPOINT_PUB_SERVER ? "PK_ENDPOINT_PUB_SERVER" :
+         (ept_type == PK_ENDPOINT_SUB_SERVER ? "PK_ENDPOINT_SUB_SERVER" :
+          "<UNKNOWN>"))));
+
+    piksi_log(LOG_DEBUG, "Creating endpoint on %s (%s)", router->endpoint_slots[idx].addr, ept_type_str);
+
+    router->endpoint_slots[idx].endpoint =
+      endpoint_create_fn(router->endpoint_slots[idx].addr, ept_type);
+  }
+}
+
+enum {
+  ROUTER_ATTACH_ERROR = -1,
+  ROUTER_ATTACH_PARENT = 0,
+  ROUTER_ATTACH_CHILD = 1,
+};
+
+static int router_attach(router_t *router, pk_loop_t **loop)
 {
   size_t idx = 0;
   port_t *port;
 
   for (port = router->router_cfg->ports_list; port != NULL; port = port->next, idx++) {
+#if 0
+    pid_t pid = fork();
+    assert( pid >= 0 );
 
-    // TODO: fork here for parallelization
-
-    if (pk_loop_endpoint_reader_add(loop, port->sub_ept, loop_reader_callback, &router->port_rule_cache[idx]) == NULL) {
-      piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
-      return -1;
+    if (pid != 0) {
+      piksi_log(LOG_DEBUG, "forked child (%d) for port: %s", pid, port->name);
+      continue;
     }
+#endif
+    /* Create loop */
+    *loop = pk_loop_create();
+
+    if (*loop == NULL) {
+      return ROUTER_ATTACH_ERROR;
+    }
+
+    populate_endpoint_slots(router, port);
+
+    pk_endpoint_t *sub_ept = ept_lookup(router, port->sub_ept_index);
+    assert( sub_ept != NULL );
+
+    if (pk_loop_endpoint_reader_add(*loop, sub_ept, loop_reader_callback, &router->port_rule_cache[idx]) == NULL) {
+      piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
+      return ROUTER_ATTACH_ERROR;
+    }
+#if 0
+    return ROUTER_ATTACH_CHILD;
+#endif
   }
 
-  return 0;
+  return ROUTER_ATTACH_PARENT;
 }
 
 static void cache_match_process(forwarding_rule_t *forwarding_rule,
@@ -154,13 +226,20 @@ static void cache_match_process(forwarding_rule_t *forwarding_rule,
 
       if (rule_cache->hash != NULL) {
 
-        uint32_t key = cmph_search(rule_cache->hash, (const char *)data, rule_cache->rule_prefixes->prefix_len);
-        rule_cache->cached_ports[key].endpoints[rule_cache->cached_ports[key].count++] = forwarding_rule->dst_port->pub_ept;
-        memcpy(rule_cache->cached_ports[key].prefix, data, rule_cache->rule_prefixes->prefix_len);
+        uint32_t lookup_key = cmph_search(rule_cache->hash,
+                                          (const char *)data,
+                                          rule_cache->rule_prefixes->prefix_len);
+
+        cached_port_t *cached_port = &rule_cache->cached_ports[lookup_key];
+
+        size_t endpoints_idx = cached_port->count++;
+        cached_port->endpoint_indexes[endpoints_idx] = forwarding_rule->dst_port->pub_ept_index;
+
+        memcpy(cached_port->prefix, data, rule_cache->rule_prefixes->prefix_len);
 
       } else {
         // Port only has one accept rule, no need for a hash, incoming packets should
-        //   get picked up by the rule_cache_t->accept_ports list
+        //   get picked up by the of "accept by default" ports
       }
 
     }
@@ -218,7 +297,9 @@ int router_reader(const u8 *data, const size_t length, void *context)
   if (length < rule_cache->rule_prefixes->prefix_len) {
     // No match, send to all default accept ports
     for (size_t idx = 0; idx < rule_cache->accept_ports_count; idx++) {
-      endpoint_send_fn(rule_cache->accept_ports[idx], data, length);
+      uint16_t port_idx = rule_cache->accept_port_indexes[idx];
+      pk_endpoint_t *pub_ept = ept_lookup(rule_cache->router, port_idx);
+      endpoint_send_fn(pub_ept, data, length);
     }
 
     return 0;
@@ -233,12 +314,16 @@ int router_reader(const u8 *data, const size_t length, void *context)
   if (memcmp(rule_cache->cached_ports[key].prefix, match_buf, prefix_len) == 0) {
     // Match, forward to list of rules
     for (size_t idx = 0; idx < rule_cache->cached_ports[key].count; idx++) {
-      endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], data, length);
+      uint16_t port_idx = rule_cache->cached_ports[key].endpoint_indexes[idx];
+      pk_endpoint_t *pub_ept = ept_lookup(rule_cache->router, port_idx);
+      endpoint_send_fn(pub_ept, data, length);
     }
   } else {
     // No match, forward to everything that's default accept
     for (size_t idx = 0; idx < rule_cache->accept_ports_count; idx++) {
-      endpoint_send_fn(rule_cache->accept_ports[idx], data, length);
+      uint16_t port_idx = rule_cache->accept_port_indexes[idx];
+      pk_endpoint_t *pub_ept = ept_lookup(rule_cache->router, port_idx);
+      endpoint_send_fn(pub_ept, data, length);
     }
   }
 
@@ -251,8 +336,9 @@ static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context)
   (void)handle;
 
   rule_cache_t *rule_cache = (rule_cache_t *)context;
+  pk_endpoint_t *sub_ept = ept_lookup(rule_cache->router, rule_cache->sub_ept_index);
 
-  pk_endpoint_receive(rule_cache->sub_ept, router_reader, rule_cache);
+  pk_endpoint_receive(sub_ept, router_reader, rule_cache);
 }
 
 void debug_printf(const char *msg, ...)
@@ -324,7 +410,7 @@ rule_prefixes_t* extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
 
     // Check if this is a "default accept" filter chain
     if (filter_last->action == FILTER_ACTION_ACCEPT) {
-      rule_cache->accept_ports[rule_cache->accept_ports_count++] = rules->dst_port->pub_ept;
+      rule_cache->accept_port_indexes[rule_cache->accept_ports_count++] = rules->dst_port->pub_ept_index;
     }
   }
 
@@ -377,10 +463,13 @@ rule_prefixes_t* extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
   return UNSTAGE_CLEANUP(rule_prefixes, rule_prefixes_t*);
 }
 
-router_t* router_create(const char *filename, load_endpoints_fn_t load_endpoints)
+router_t* router_create(const char *filename)
 {
   router_t *router = malloc(sizeof(router_t));
   STAGE_CLEANUP(router, ({ if (router != NULL) free(router); }));
+
+  router->endpoint_slot_count = 0;
+  router->endpoint_slots = NULL;
 
   router_cfg_t *router_cfg = router_cfg_load(filename);
 
@@ -392,16 +481,14 @@ router_t* router_create(const char *filename, load_endpoints_fn_t load_endpoints
     if (router_cfg != NULL) router_cfg_teardown(&router_cfg);
   }));
 
-  if (load_endpoints(router_cfg) != 0) {
-    return NULL;
-  }
-
   router->router_cfg = UNSTAGE_CLEANUP(router_cfg, router_cfg_t*);
 
   router->port_count = 0;
   for (port_t *port = router->router_cfg->ports_list; port != NULL; port = port->next) {
     router->port_count++;
   }
+
+  router_create_endpoint_slots(router);
 
   router->port_rule_cache = calloc(router->port_count, sizeof(rule_cache_t));
 
@@ -410,8 +497,9 @@ router_t* router_create(const char *filename, load_endpoints_fn_t load_endpoints
   for (port_t *port = router->router_cfg->ports_list; port != NULL; port = port->next) {
 
     rule_cache_t *rule_cache = &router->port_rule_cache[port_index];
+    rule_cache->router = router;
 
-    rule_cache->sub_ept = port->sub_ept;
+    rule_cache->sub_ept_index = port->sub_ept_index;
     rule_cache->rule_count = 0;
 
     forwarding_rule_t *rules = port->forwarding_rules_list;
@@ -420,7 +508,7 @@ router_t* router_create(const char *filename, load_endpoints_fn_t load_endpoints
       rule_cache->rule_count++;
     }
 
-    rule_cache->accept_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t*));
+    rule_cache->accept_port_indexes = calloc(rule_cache->rule_count, sizeof(uint16_t));
 
     rule_prefixes_t *rule_prefixes = extract_rule_prefixes(port, rule_cache);
 
@@ -460,7 +548,7 @@ router_t* router_create(const char *filename, load_endpoints_fn_t load_endpoints
       rule_cache->cached_ports = calloc(rule_prefixes->count, sizeof(cached_port_t));
 
       for (size_t idx = 0; idx < rule_prefixes->count; idx++) {
-        rule_cache->cached_ports[idx].endpoints = calloc(router->port_count, sizeof(pk_endpoint_t*));
+        rule_cache->cached_ports[idx].endpoint_indexes = calloc(router->port_count, sizeof(uint16_t));
         rule_cache->cached_ports[idx].count = 0;
       }
 
@@ -509,16 +597,16 @@ void router_teardown(router_t **router_loc)
     if (rule_cache->cached_ports != NULL) {
 
       for (size_t idx = 0; idx < rule_cache->rule_prefixes->count; idx++) {
-        if (rule_cache->cached_ports->endpoints != NULL) {
-          free(rule_cache->cached_ports[idx].endpoints);
+        if (rule_cache->cached_ports->endpoint_indexes != NULL) {
+          free(rule_cache->cached_ports[idx].endpoint_indexes);
         }
       }
 
       free(rule_cache->cached_ports);
     }
 
-    if (rule_cache->accept_ports != NULL) {
-      free(rule_cache->accept_ports);
+    if (rule_cache->accept_port_indexes != NULL) {
+      free(rule_cache->accept_port_indexes);
     }
 
     rule_prefixes_destroy(&rule_cache->rule_prefixes);
@@ -532,7 +620,12 @@ void router_teardown(router_t **router_loc)
     }
   }
 
-  free(router->port_rule_cache);
+  if (router->endpoint_slots != NULL)
+    free(router->endpoint_slots);
+
+  if (router->port_rule_cache != NULL)
+    free(router->port_rule_cache);
+
   free(router);
 
   *router_loc = NULL;
@@ -545,8 +638,9 @@ int main(int argc, char *argv[])
   pk_loop_t *loop = NULL;
   router_t *router = NULL;
 
-  endpoint_destroy_fn = pk_endpoint_destroy;
+  endpoint_create_fn = pk_endpoint_create;
   endpoint_send_fn = pk_endpoint_send;
+  endpoint_destroy_fn = pk_endpoint_destroy;
 
   logging_init(PROGRAM_NAME);
 
@@ -556,7 +650,7 @@ int main(int argc, char *argv[])
   }
 
   /* Load router from config file */
-  router = router_create(options.filename, router_create_endpoints);
+  router = router_create(options.filename);
   if (router == NULL) {
     exit(cleanup(EXIT_FAILURE, &loop, &router));
   }
@@ -569,19 +663,31 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_SUCCESS, &loop, &router));
   }
 
-  /* Create loop */
-  loop = pk_loop_create();
-  if (loop == NULL) {
-    exit(cleanup(EXIT_FAILURE, &loop, &router));
-  }
-
+  int rc = router_attach(router, &loop);
   /* Add router to loop */
-  if (router_attach(router, loop) != 0) {
+  if (rc == ROUTER_ATTACH_ERROR) {
     exit(cleanup(EXIT_FAILURE, &loop, &router));
   }
-
-  pk_loop_run_simple(loop);
-
+#if 0
+  if (rc == ROUTER_ATTACH_CHILD) {
+#endif
+    piksi_log(LOG_DEBUG, "Child: entering message loop\n");
+    pk_loop_run_simple(loop);
+    piksi_log(LOG_DEBUG, "Child: exiting...\n");
+#if 0
+  } else {
+    piksi_log(LOG_DEBUG, "Parent: waiting for children\n");
+    int status = 0;
+    pid_t pid = 0;
+    while ((pid = wait(&status)) > 0) {
+      /* No-op */;
+    }
+    if (pid < 0 && errno != ECHILD) {
+      fprintf(stderr, "Unexpected wait() error: %s\n", strerror(errno));
+    }
+    piksi_log(LOG_DEBUG, "Parent: exiting...\n");
+  }
+#endif
   exit(cleanup(EXIT_SUCCESS, &loop, &router));
 }
 

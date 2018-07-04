@@ -54,17 +54,9 @@ static void reset_dummy_state()
   ept_ptr = 0;
 }
 
-static int router_create_endpoints(router_cfg_t *router)
+static pk_endpoint_t *dummy_pk_create_endpoint(const char*, pk_endpoint_type)
 {
-  port_t *port;
-
-  for (port = router->ports_list; port != NULL; port = port->next) {
-
-    port->pub_ept = (pk_endpoint_t *)ept_ptr++;
-    port->sub_ept = (pk_endpoint_t *)ept_ptr++;
-  }
-
-  return 0;
+  return (pk_endpoint_t *)ept_ptr++;
 }
 
 TEST_F(EndpointRouterTests, BasicTest) {
@@ -182,7 +174,7 @@ TEST_F(EndpointRouterTests, RouterCreate) {
   char path[PATH_MAX];
   sprintf(path, "%s/sbp_router.yml", test_data_dir);
 
-  router_t *r = router_create(path, router_create_endpoints);
+  router_t *r = router_create(path);
   EXPECT_NE( r, nullptr );
 
   router_teardown(&r);
@@ -190,7 +182,9 @@ TEST_F(EndpointRouterTests, RouterCreate) {
   sprintf(path, "%s/sbp_router_full2.yml", test_data_dir);
 
   reset_dummy_state();
-  r = router_create(path, router_create_endpoints);
+  r = router_create(path);
+
+  populate_endpoint_slots(r, &r->router_cfg->ports_list[0]);
 
   EXPECT_NE( r, nullptr );
   EXPECT_NE( r->port_rule_cache, nullptr );
@@ -213,7 +207,7 @@ TEST_F(EndpointRouterTests, BrokenRules) {
   char path[PATH_MAX];
   sprintf(path, "%s/sbp_router_broken.yml", test_data_dir);
 
-  router_t *r = router_create(path, router_create_endpoints);
+  router_t *r = router_create(path);
   EXPECT_EQ( r, nullptr );
 }
 
@@ -228,7 +222,7 @@ TEST_F(EndpointRouterTests, DedupeRulePrefixes) {
   rule_cache_t rule_cache;
 
   rule_cache.rule_count = 2;
-  rule_cache.accept_ports = (pk_endpoint_t**) calloc(rule_cache.rule_count, sizeof(pk_endpoint_t*));
+  rule_cache.accept_port_indexes = (uint16_t*) calloc(rule_cache.rule_count, sizeof(uint16_t*));
 
   port_t *port = &r->ports_list[0];
   rule_prefixes_t *rule_prefixes = extract_rule_prefixes(port, &rule_cache);
@@ -254,13 +248,14 @@ TEST_F(EndpointRouterTests, DedupeRulePrefixes) {
   rule_prefixes_destroy( &rule_prefixes );
   router_cfg_teardown( &r );
 
-  free(rule_cache.accept_ports);
+  free(rule_cache.accept_port_indexes);
 }
 
 int main(int argc, char** argv) {
 
   endpoint_destroy_fn = dummy_pk_endpoint_destroy;
   endpoint_send_fn = dummy_pk_endpoint_send;
+  endpoint_create_fn = dummy_pk_create_endpoint;
 
   ::testing::InitGoogleTest(&argc, argv);
 
