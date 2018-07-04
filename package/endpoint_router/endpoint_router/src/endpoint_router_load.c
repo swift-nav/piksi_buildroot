@@ -19,6 +19,9 @@
 
 #include "endpoint_router_load.h"
 
+// Override-able for unit testing
+endpoint_destroy_fn_t endpoint_destroy_fn;
+
 #define PROCESS_FN(name) int process_##name(yaml_event_t *event,              \
                                             yaml_parser_t *parser,            \
                                             void *context)
@@ -687,8 +690,8 @@ static void ports_destroy(port_t **port_loc)
     if (port->sub_addr != NULL && port->sub_addr[0] != '\0') {
       free((void *)port->sub_addr);
     }
-    pk_endpoint_destroy(&port->pub_ept);
-    pk_endpoint_destroy(&port->sub_ept);
+    endpoint_destroy_fn(&port->pub_ept);
+    endpoint_destroy_fn(&port->sub_ept);
     forwarding_rules_destroy(&port->forwarding_rules_list);
     free(port);
     port = next;

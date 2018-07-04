@@ -58,17 +58,35 @@ typedef struct {
   port_t *ports_list;
 } router_cfg_t;
 
+#define MAX_PREFIX_LEN 8
+
+typedef struct {
+  size_t count;
+  size_t prefix_len;
+  u8 (*prefixes)[MAX_PREFIX_LEN];
+} rule_prefixes_t;
+
+typedef struct {
+  u8 prefix[MAX_PREFIX_LEN];
+  size_t count;
+  pk_endpoint_t** endpoints;
+} cached_port_t;
+
 typedef struct {
   cmph_t *hash;
+  cmph_io_adapter_t *cmph_io_adapter;
+  cached_port_t *cached_ports;
   size_t accept_ports_count;
-  pk_endpoint_t *accept_ports;
-  size_t default_accept_ports_count;
-  pk_endpoint_t *default_accept_ports;
+  pk_endpoint_t **accept_ports;
+  rule_prefixes_t *rule_prefixes;
+  size_t rule_count;
+  pk_endpoint_t *sub_ept;
 } rule_cache_t;
 
 typedef struct {
   router_cfg_t *router_cfg;
   rule_cache_t *port_rule_cache;
+  size_t port_count;
 } router_t;
 
 void debug_printf(const char *msg, ...);
@@ -79,7 +97,9 @@ typedef void (* match_fn_t)(forwarding_rule_t *forwarding_rule,
                             size_t length,
                             void *context);
 
-router_t* router_create(const char *filename);
+typedef int (* load_endpoints_fn_t)(router_cfg_t* cfg);
+
+router_t* router_create(const char *filename, load_endpoints_fn_t load_endpoints);
 void router_teardown(router_t **router_loc);
 
 void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
@@ -88,18 +108,17 @@ void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
                               match_fn_t match_fn,
                               void *context);
 
-#define MAX_PREFIX_LEN 8
+rule_prefixes_t* extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache);
 
-typedef struct {
-  size_t count;
-  size_t prefix_len;
-  u8 (*prefixes)[MAX_PREFIX_LEN];
-} rule_prefixes_t;
-
-rule_prefixes_t* extract_rule_prefixes(port_t *port);
 inline void rule_prefixes_destroy(rule_prefixes_t **p) {
-  if (p != NULL && *p != NULL) { free((*p)->prefixes); free(*p); *p = NULL; }
+  if (p != NULL && *p != NULL)
+    { free((*p)->prefixes); free(*p); *p = NULL; }
 }
+
+typedef int (*endpoint_send_fn_t)(pk_endpoint_t*, const u8*, const size_t);
+extern endpoint_send_fn_t endpoint_send_fn;
+
+int router_reader(const u8 *data, const size_t length, void *context);
 
 #ifdef __cplusplus
 }
