@@ -5,7 +5,7 @@ SOURCES = \
 	endpoint_router_load.c \
 	endpoint_router_print.c \
 
-LIBS=-luv -lsbp -lpiksi -lyaml -lsettings
+LIBS=-luv -lsbp -lpiksi -lyaml -lcmph -lsettings
 
 WARNING_FLAGS = \
 	-Wmissing-prototypes \
@@ -28,11 +28,11 @@ WARNING_FLAGS = \
 	-Wjump-misses-init \
 	-Werror
 
-CFLAGS+=-O3 -ggdb3 -std=gnu11  -rdynamic -funwind-tables $(WARNING_FLAGS)
+CFLAGS+=-O3 -ggdb3 -std=gnu11 -rdynamic -funwind-tables $(WARNING_FLAGS)
 
 ARFLAGS=rcs $(LTO_PLUGIN)
 
-OBJECTS = $(SOURCES:.c=.o)
+OBJECTS=$(SOURCES:.c=.o)
 
 CROSS=
 
