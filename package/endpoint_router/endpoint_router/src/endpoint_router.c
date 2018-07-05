@@ -215,20 +215,19 @@ static void rule_process(forwarding_rule_t *forwarding_rule,
   }
 }
 
-//int router_reader(const u8 *data, const size_t length, void *context)
-int router_reader(pk_nbuf_t **nbuf_loc, void *context)
+int router_reader(const u8 *data, const size_t length, void *context)
 {
-  pk_nbuf_t *nbuf = *nbuf_loc;
-
   //fprintf(stderr, "%s: enter (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
   rule_cache_t *rule_cache = (rule_cache_t *)context;
 
-  if (nbuf->size < rule_cache->rule_prefixes->prefix_len) {
+  //if (nbuf->size < rule_cache->rule_prefixes->prefix_len) {
+  if (length < rule_cache->rule_prefixes->prefix_len) {
     // No match, send to all default accept ports
     for (size_t idx = 0; idx < rule_cache->accept_ports_count; idx++) {
-      pk_nbuf_t* nbuf_copy = pk_dupe_nbuf(nbuf);
+      //pk_nbuf_t* nbuf_copy = pk_dupe_nbuf(nbuf);
       //fprintf(stderr, "%s: call out (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
-      endpoint_send_fn(rule_cache->accept_ports[idx], &nbuf_copy);
+      //endpoint_send_fn(rule_cache->accept_ports[idx], &nbuf_copy);
+      endpoint_send_fn(rule_cache->accept_ports[idx], data, length);
     }
 
     //fprintf(stderr, "%s: exit (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
@@ -236,21 +235,25 @@ int router_reader(pk_nbuf_t **nbuf_loc, void *context)
   }
 
   size_t prefix_len = rule_cache->rule_prefixes->prefix_len;
-  uint32_t key = cmph_search(rule_cache->hash, nbuf->buf, prefix_len);
+  //uint32_t key = cmph_search(rule_cache->hash, nbuf->buf, prefix_len);
+  uint32_t key = cmph_search(rule_cache->hash, (const char *)data, prefix_len);
 
-  if (memcmp(rule_cache->cached_ports[key].prefix, nbuf->buf, prefix_len) == 0) {
+  //if (memcmp(rule_cache->cached_ports[key].prefix, nbuf->buf, prefix_len) == 0) {
+  if (memcmp(rule_cache->cached_ports[key].prefix, data, prefix_len) == 0) {
     // Match, forward to list of rules
     for (size_t idx = 0; idx < rule_cache->cached_ports[key].count; idx++) {
-      pk_nbuf_t* nbuf_copy = pk_dupe_nbuf(nbuf);
+      //pk_nbuf_t* nbuf_copy = pk_dupe_nbuf(nbuf);
       //fprintf(stderr, "%s: call out (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
-      endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], &nbuf_copy);
+      //endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], &nbuf_copy);
+      endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], data, length);
     }
   } else {
     // No match, forward to everything that's default accept
     for (size_t idx = 0; idx < rule_cache->accept_ports_count; idx++) {
-      pk_nbuf_t* nbuf_copy = pk_dupe_nbuf(nbuf);
+      //pk_nbuf_t* nbuf_copy = pk_dupe_nbuf(nbuf);
       //fprintf(stderr, "%s: call out (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
-      endpoint_send_fn(rule_cache->accept_ports[idx], &nbuf_copy);
+      //endpoint_send_fn(rule_cache->accept_ports[idx], &nbuf_copy);
+      endpoint_send_fn(rule_cache->accept_ports[idx], data, length);
     }
   }
 
@@ -265,7 +268,8 @@ static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context)
 
   rule_cache_t *rule_cache = (rule_cache_t *)context;
 
-  pk_endpoint_receive_nbuf(rule_cache->sub_ept, router_reader, rule_cache);
+  //pk_endpoint_receive_nbuf(rule_cache->sub_ept, router_reader, rule_cache);
+  pk_endpoint_receive(rule_cache->sub_ept, router_reader, rule_cache);
 }
 
 void debug_printf(const char *msg, ...)
@@ -580,7 +584,8 @@ int main(int argc, char *argv[])
   router_t *router = NULL;
 
   endpoint_destroy_fn = pk_endpoint_destroy;
-  endpoint_send_fn = pk_endpoint_send_nbuf;
+  //endpoint_send_fn = pk_endpoint_send_nbuf;
+  endpoint_send_fn = pk_endpoint_send;
 
   logging_init(PROGRAM_NAME);
 

@@ -119,11 +119,12 @@ inline void rule_prefixes_destroy(rule_prefixes_t **p) {
     { free((*p)->prefixes); free(*p); *p = NULL; }
 }
 
-typedef int (*endpoint_send_fn_t)(pk_endpoint_t*, pk_nbuf_t**);
+//typedef int (*endpoint_send_fn_t)(pk_endpoint_t*, pk_nbuf_t**);
+typedef int (*endpoint_send_fn_t)(pk_endpoint_t*, const u8 *buf, size_t length);
 extern endpoint_send_fn_t endpoint_send_fn;
 
-//int router_reader(const u8 *data, const size_t length, void *context);
-int router_reader(pk_nbuf_t **nbuf, void *context);
+int router_reader(const u8 *data, const size_t length, void *context);
+//int router_reader(pk_nbuf_t **nbuf, void *context);
 
 #ifdef __cplusplus
 }
