@@ -25,7 +25,8 @@
 
 #define PROGRAM_NAME "router"
 
-#define NETWORK_BUF_SIZE 4096
+#define SEND_FLUSH_MS 1
+#define SEND_BUF_SIZE 4096
 
 static struct {
   const char *filename;
@@ -130,10 +131,7 @@ static int router_attach(router_t *router, pk_loop_t *loop)
 
   for (port = router->router_cfg->ports_list; port != NULL; port = port->next, idx++) {
 
-    // TODO: fork here for parallelization
-#define SEND_FLUSH_MS 2
-#define SEND_BUF_SIZE 4096
-    //pk_endpoint_buffer_sends(port->pub_ept, loop, SEND_FLUSH_MS, SEND_BUF_SIZE);
+    pk_endpoint_buffer_sends(port->pub_ept, loop, SEND_FLUSH_MS, SEND_BUF_SIZE);
 
     if (pk_loop_endpoint_reader_add(loop, port->sub_ept, loop_reader_callback, &router->port_rule_cache[idx]) == NULL) {
       piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
