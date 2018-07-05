@@ -12,7 +12,7 @@ SOURCES=\
   endpoint.c \
   loop.c
 ARFLAGS=rcs $(LTO_PLUGIN)
-CFLAGS+=-std=gnu11 -fPIC -I../include
+CFLAGS+=-ggdb3 -std=gnu11 -fPIC -I../include
 LDFLAGS+=-shared
 
 CROSS=

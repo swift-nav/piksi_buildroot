@@ -28,6 +28,8 @@
 extern "C" {
 #endif
 
+typedef struct pk_loop_s pk_loop_t;
+
 /**
  * @struct  pk_endpoint_t
  *
@@ -147,6 +149,8 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
  * @return                  Pointer to a const string buffer with description
  */
 const char * pk_endpoint_strerror(void);
+
+void pk_endpoint_buffer_sends(pk_endpoint_t *pk_ept, pk_loop_t *pk_loop, u64 flush_ms, size_t buf_size);
 
 #ifdef __cplusplus
 }

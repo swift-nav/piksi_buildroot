@@ -129,6 +129,9 @@ static int router_attach(router_t *router, pk_loop_t *loop)
   for (port = router->router_cfg->ports_list; port != NULL; port = port->next, idx++) {
 
     // TODO: fork here for parallelization
+#define SEND_FLUSH_MS 10
+#define SEND_BUF_SIZE 4096
+    pk_endpoint_buffer_sends(port->pub_ept, loop, SEND_FLUSH_MS, SEND_BUF_SIZE);
 
     if (pk_loop_endpoint_reader_add(loop, port->sub_ept, loop_reader_callback, &router->port_rule_cache[idx]) == NULL) {
       piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
@@ -224,13 +227,10 @@ int router_reader(const u8 *data, const size_t length, void *context)
     return 0;
   }
 
-  memset(match_buf, 0, MAX_PREFIX_LEN);
-  memcpy(match_buf, data, length);
-
   size_t prefix_len = rule_cache->rule_prefixes->prefix_len;
   uint32_t key = cmph_search(rule_cache->hash, (const char *)match_buf, prefix_len);
 
-  if (memcmp(rule_cache->cached_ports[key].prefix, match_buf, prefix_len) == 0) {
+  if (memcmp(rule_cache->cached_ports[key].prefix, data, prefix_len) == 0) {
     // Match, forward to list of rules
     for (size_t idx = 0; idx < rule_cache->cached_ports[key].count; idx++) {
       endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], data, length);
