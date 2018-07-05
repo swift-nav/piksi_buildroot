@@ -21,19 +21,52 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
-
 #include <libpiksi/endpoint.h>
+#include <libpiksi/loop.h>
 
 struct pk_endpoint_s {
   pk_endpoint_type type;
   int nn_sock;
   int eid;
+  bool buffer_sends;
+  u8 *send_buf;
+  size_t send_buf_fill;
+  size_t send_buf_size;
 };
 
 // Maximum number of packets to service for one socket
 #define EPT_SVC_MAX 128
 
 #define IPC_PREFIX "ipc://"
+
+static int pk_endpoint_flush_send(pk_endpoint_t *pk_ept)
+{
+  if (!pk_ept->buffer_sends)
+    return 0;
+
+  if (pk_ept->send_buf_fill == 0)
+    return 0;
+
+  while (1) {
+    int written = nn_send(pk_ept->nn_sock, pk_ept->send_buf, pk_ept->send_buf_fill, 0);
+    if (written != -1) {
+      /* Break on success */
+      assert(written == pk_ept->send_buf_fill);
+      break;
+    } else if (errno == EINTR) {
+      /* Retry if interrupted */
+      continue;
+    } else {
+      /* Return error */
+      piksi_log(LOG_ERR, "error in nn_send(): %s", pk_endpoint_strerror());
+      return -1;
+    }
+  }
+
+  pk_ept->send_buf_fill = 0;
+
+  return 0;
+}
 
 pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
 {
@@ -48,6 +81,12 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   pk_ept->type = type;
   pk_ept->nn_sock = -1;
   pk_ept->eid = -1;
+
+  pk_ept->buffer_sends = false;
+  pk_ept->send_buf = NULL;
+  pk_ept->send_buf_fill = 0;
+  pk_ept->send_buf_size = 0;
+
   bool do_bind = false;
   switch (pk_ept->type)
   {
@@ -146,6 +185,7 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
       break;
     }
   }
+  pk_endpoint_flush_send(pk_ept);
   if (pk_ept->nn_sock >= 0) {
     while (nn_close(pk_ept->nn_sock) != 0) {
       piksi_log(LOG_ERR, "Failed to close socket: %s", pk_endpoint_strerror());
@@ -155,6 +195,9 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
       }
       break;
     }
+  }
+  if (pk_ept->send_buf != NULL) {
+    free(pk_ept->send_buf);
   }
   free(pk_ept);
   *pk_ept_loc = NULL;
@@ -267,12 +310,31 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   assert(pk_ept != NULL);
   assert(pk_ept->type != PK_ENDPOINT_SUB || pk_ept->type != PK_ENDPOINT_SUB_SERVER);
 
+  const u8 *send_data = data;
+  size_t send_length = length;
+
+  if (pk_ept->buffer_sends) {
+
+    assert(length <= pk_ept->send_buf_size);
+
+    if (pk_ept->send_buf_fill + length <= pk_ept->send_buf_size) {
+
+      memcpy(&pk_ept->send_buf[pk_ept->send_buf_fill], data, length);
+      pk_ept->send_buf_fill += length;
+
+      return 0;
+    }
+
+    send_data = pk_ept->send_buf;
+    send_length = pk_ept->send_buf_fill;
+  }
+
   while (1) {
-    int written = nn_send(pk_ept->nn_sock, data, length, 0);
+    int written = nn_send(pk_ept->nn_sock, send_data, send_length, 0);
     if (written != -1) {
       /* Break on success */
-      assert(written == length);
-      return 0;
+      assert(written == send_length);
+      break;
     } else if (errno == EINTR) {
       /* Retry if interrupted */
       continue;
@@ -282,6 +344,14 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
       return -1;
     }
   }
+
+  if (pk_ept->buffer_sends) {
+    // Copy in the buffer that wouldn't fit
+    memcpy(pk_ept->send_buf, data, length);
+    pk_ept->send_buf_fill = length;
+  }
+
+  return 0;
 }
 
 const char * pk_endpoint_strerror(void)
@@ -289,3 +359,23 @@ const char * pk_endpoint_strerror(void)
   return nn_strerror(errno);
 }
 
+static void sendbuf_cb(pk_loop_t *loop, void *handle, void *context)
+{
+  pk_endpoint_t *pk_ept = context;
+  int rc = pk_endpoint_flush_send(pk_ept);
+  if (rc != 0) {
+    piksi_log(LOG_WARNING, "%s: socket flush failed", __FUNCTION__);
+  }
+}
+
+void pk_endpoint_buffer_sends(pk_endpoint_t *pk_ept, pk_loop_t *pk_loop, u64 flush_ms, size_t buf_size)
+{
+  pk_ept->buffer_sends = true;
+
+  assert( pk_ept->send_buf == NULL );
+
+  pk_ept->send_buf = malloc(buf_size);
+  pk_ept->send_buf_size = buf_size;
+
+  pk_loop_timer_add(pk_loop, flush_ms, sendbuf_cb, pk_ept);
+}
