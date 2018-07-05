@@ -28,6 +28,8 @@
 extern "C" {
 #endif
 
+typedef struct pk_loop_s pk_loop_t;
+
 /**
  * @struct  pk_endpoint_t
  *
@@ -147,6 +149,17 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
  * @return                  Pointer to a const string buffer with description
  */
 const char * pk_endpoint_strerror(void);
+
+/**
+  * @brief   Buffer outgoing sends
+  * @details Allows outgoing sends to be buffered so that larger buffers can be submitted to the kernel
+  *
+  * @param[in] pk_ept    The socket on which sends will be buffered
+  * @param[in] pk_loop   The loop that will receive a timeout when it's time to flush the buffer
+  * @param[in] flush_ms  Number of milliseconds before flushing the buffer
+  * @param[in] buf_size  The size of the internal buffer
+  */
+void pk_endpoint_buffer_sends(pk_endpoint_t *pk_ept, pk_loop_t *pk_loop, u64 flush_ms, size_t buf_size);
 
 #ifdef __cplusplus
 }
