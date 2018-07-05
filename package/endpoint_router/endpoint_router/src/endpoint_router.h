@@ -69,8 +69,11 @@ typedef struct {
 typedef struct {
   u8 prefix[MAX_PREFIX_LEN];
   size_t count;
-  pk_endpoint_t** endpoints;
+  // Add bus socket here
+  pk_endpoint_t** endpoints; // change to list of port names
 } cached_port_t;
+
+typedef struct router_s router_t;
 
 typedef struct {
   cmph_t *hash;
@@ -81,13 +84,14 @@ typedef struct {
   rule_prefixes_t *rule_prefixes;
   size_t rule_count;
   pk_endpoint_t *sub_ept;
+  router_t* router;
 } rule_cache_t;
 
-typedef struct {
+struct router_s {
   router_cfg_t *router_cfg;
   rule_cache_t *port_rule_cache;
   size_t port_count;
-} router_t;
+};
 
 void debug_printf(const char *msg, ...);
 
@@ -115,10 +119,11 @@ inline void rule_prefixes_destroy(rule_prefixes_t **p) {
     { free((*p)->prefixes); free(*p); *p = NULL; }
 }
 
-typedef int (*endpoint_send_fn_t)(pk_endpoint_t*, const u8*, const size_t);
+typedef int (*endpoint_send_fn_t)(pk_endpoint_t*, pk_nbuf_t**);
 extern endpoint_send_fn_t endpoint_send_fn;
 
-int router_reader(const u8 *data, const size_t length, void *context);
+//int router_reader(const u8 *data, const size_t length, void *context);
+int router_reader(pk_nbuf_t **nbuf, void *context);
 
 #ifdef __cplusplus
 }

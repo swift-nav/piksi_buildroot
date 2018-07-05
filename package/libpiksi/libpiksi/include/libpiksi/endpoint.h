@@ -30,6 +30,11 @@ extern "C" {
 
 typedef struct pk_loop_s pk_loop_t;
 
+typedef struct pk_nbuf_s {
+  void *buf;
+  size_t size;
+} pk_nbuf_t;
+
 /**
  * @struct  pk_endpoint_t
  *
@@ -53,6 +58,7 @@ typedef enum {
  * @brief   Piksi Endpoint Receive Callback Signature
  */
 typedef int (*pk_endpoint_receive_cb)(const u8 *data, const size_t length, void *context);
+typedef int (*pk_endpoint_nbuf_receive_cb)(pk_nbuf_t** nbuf, void *context);
 
 /**
  * @brief   Create a Piksi Endpoint context
@@ -127,6 +133,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count);
  * @retval -1               An error occurred.
  */
 int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context);
+int pk_endpoint_receive_nbuf(pk_endpoint_t *pk_ept, pk_endpoint_nbuf_receive_cb rx_cb, void *context);
 
 /**
  * @brief   Send a message from an endpoint
@@ -141,6 +148,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
  * @retval -1               An error occurred.
  */
 int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length);
+int pk_endpoint_send_nbuf(pk_endpoint_t *pk_ept, pk_nbuf_t** nbuf);
 
 /**
  * @brief   Get specific error string following and operation that failed
@@ -151,6 +159,15 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
 const char * pk_endpoint_strerror(void);
 
 void pk_endpoint_buffer_sends(pk_endpoint_t *pk_ept, pk_loop_t *pk_loop, u64 flush_ms, size_t buf_size);
+
+pk_nbuf_t * pk_alloc_nbuf(size_t buffer_size);
+pk_nbuf_t * pk_dupe_nbuf(pk_nbuf_t* nbuf);
+pk_nbuf_t * pk_nbuf_wrap(void* buf, size_t size);
+
+void pk_realloc_nbuf(pk_nbuf_t* nbuf, size_t buffer_size);
+
+void pk_nbuf_release(pk_nbuf_t *nbuf_loc);
+void pk_nbuf_destroy(pk_nbuf_t **nbuf_loc);
 
 #ifdef __cplusplus
 }

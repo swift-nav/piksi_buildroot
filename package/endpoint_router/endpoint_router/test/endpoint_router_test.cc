@@ -31,13 +31,10 @@ static size_t send_record_index = 0;
 
 static size_t ept_ptr = 0;
 
-static int dummy_pk_endpoint_send(pk_endpoint_t* endpoint, const u8 *buf, size_t len)
+static int dummy_pk_endpoint_send(pk_endpoint_t *endpoint, pk_nbuf_t *nbuf)
 {
-  (void) buf;
-  (void) len;
-
+  (void) nbuf;
   send_record[send_record_index++] = (size_t)endpoint;
-
   return 0;
 }
 
@@ -198,7 +195,9 @@ TEST_F(EndpointRouterTests, RouterCreate) {
   EXPECT_EQ( r->port_rule_cache[0].rule_prefixes->count, 7 );
 
   const u8 settings_write_resp_data[] = { 0x55, 0xAF, 0x00 };
-  router_reader(settings_write_resp_data, 3, &r->port_rule_cache[0]);
+  pk_nbuf_t nbuf = { .buf = (void*)settings_write_resp_data, .size = 3 };
+
+  router_reader(&nbuf, &r->port_rule_cache[0]);
 
   EXPECT_EQ( send_record_index, 2 );
 

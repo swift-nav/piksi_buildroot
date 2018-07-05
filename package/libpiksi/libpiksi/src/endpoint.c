@@ -195,22 +195,30 @@ static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept, void *buffer_loc, s
   assert(pk_ept != NULL);
   assert(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
 
+  int length = 0;
+
   while (1) {
-    *length_loc = nn_recv(pk_ept->nn_sock, buffer_loc, *length_loc, 0);
-    if (*length_loc >= 0) {
-      if (*length_loc == 0) piksi_log(LOG_WARNING, "Empty message received");
+    length = nn_recv(pk_ept->nn_sock, buffer_loc, *length_loc, NN_DONTWAIT);
+    if (length >= 0) {
+      if (length == 0) piksi_log(LOG_WARNING, "Empty message received");
       /* Break on success */
-      return 0;
+      break;
     } else if (errno == EINTR) {
       /* Retry if interrupted */
       piksi_log(LOG_DEBUG, "Retry recv on EINTR");
       continue;
+    } else if (errno == EAGAIN) {
+      // An "expected" error, don't need to report an error
+      return -1;
     } else {
       /* Return error */
       piksi_log(LOG_ERR, "error in nn_recv(): %s", pk_endpoint_strerror());
       return -1;
     }
   }
+
+  *length_loc = (size_t) length;
+  return 0;
 }
 
 ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
@@ -233,15 +241,46 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
   assert(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
   assert(rx_cb != NULL);
 
-  u8 *buffer = NULL;
-  size_t length = NN_MSG;
-  if (pk_endpoint_receive_nn_msg(pk_ept, (void *)&buffer, &length) != 0) {
-    piksi_log(LOG_ERR, "failed to receive nn_msg");
-    return -1;
+  for (;;) {
+
+    u8 *buffer = NULL;
+    size_t length = NN_MSG;
+
+    if (pk_endpoint_receive_nn_msg(pk_ept, (void *)&buffer, &length) != 0) {
+      if (errno == EAGAIN) break;
+      piksi_log(LOG_ERR, "failed to receive nn_msg");
+      return -1;
+    }
+
+    rx_cb(buffer, length, context);
+    nn_freemsg(buffer);
   }
 
-  rx_cb(buffer, length, context);
-  nn_freemsg(buffer);
+  return 0;
+}
+
+int pk_endpoint_receive_nbuf(pk_endpoint_t *pk_ept, pk_endpoint_nbuf_receive_cb rx_cb, void *context)
+{
+  assert(pk_ept != NULL);
+  assert(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
+  assert(rx_cb != NULL);
+
+  for (;;) {
+
+    void *nn_buf = NULL;
+    size_t length = NN_MSG;
+
+    if (pk_endpoint_receive_nn_msg(pk_ept, &nn_buf, &length) != 0) {
+      if (errno == EAGAIN) break;
+      piksi_log(LOG_ERR, "failed to receive nn_msg");
+      return -1;
+    }
+
+    pk_nbuf_t *nbuf = pk_nbuf_wrap(nn_buf, length);
+    rx_cb(&nbuf, context);
+
+    pk_nbuf_destroy(&nbuf);
+  }
 
   return 0;
 }
@@ -263,6 +302,7 @@ static int pk_endpoint_flush_send(pk_endpoint_t *pk_ept)
       assert(written == pk_ept->send_buf_fill);
       break;
     } else if (errno == EINTR) {
+      fprintf(stderr, "I'm got interrupted...\n");
       /* Retry if interrupted */
       continue;
     } else {
@@ -273,6 +313,41 @@ static int pk_endpoint_flush_send(pk_endpoint_t *pk_ept)
   }
 
   pk_ept->send_buf_fill = 0;
+
+  return 0;
+}
+
+int pk_endpoint_send_nbuf(pk_endpoint_t *pk_ept, pk_nbuf_t** nbuf)
+{
+  //fprintf(stderr, "%s: enter (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
+
+  assert(pk_ept != NULL);
+  assert(pk_ept->type != PK_ENDPOINT_SUB || pk_ept->type != PK_ENDPOINT_SUB_SERVER);
+
+  while (1) {
+    //fprintf(stderr, "%s: call out (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
+    int written = nn_send(pk_ept->nn_sock, &(*nbuf)->buf, NN_MSG, 0);
+    if (written != -1) {
+      /* Break on success */
+      assert(written == (*nbuf)->size);
+      break;
+    } else if (errno == EINTR) {
+      //fprintf(stderr, "I'm got interrupted...\n");
+      /* Retry if interrupted */
+      continue;
+    } else {
+      /* Return error */
+      piksi_log(LOG_ERR, "error in nn_send(): %s", pk_endpoint_strerror());
+      return -1;
+    }
+  }
+
+  // nn_send consumes the nn_allocmsg buffer
+  (*nbuf)->buf = NULL;
+  // Destroy our wrapper
+  pk_nbuf_destroy(nbuf);
+
+  //fprintf(stderr, "%s: exit (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
 
   return 0;
 }
@@ -354,4 +429,60 @@ void pk_endpoint_buffer_sends(pk_endpoint_t *pk_ept, pk_loop_t *pk_loop, u64 flu
   pk_ept->send_buf_size = buf_size;
 
   pk_loop_timer_add(pk_loop, flush_ms, sendbuf_cb, pk_ept);
+}
+
+pk_nbuf_t * pk_alloc_nbuf(size_t buffer_size)
+{
+  pk_nbuf_t *nbuf = malloc(sizeof(pk_nbuf_t));
+
+  nbuf->buf = nn_allocmsg(buffer_size, 0);
+  nbuf->size = buffer_size;
+
+  assert( nbuf->buf != NULL );
+
+  return nbuf;
+}
+
+pk_nbuf_t * pk_dupe_nbuf(pk_nbuf_t *nbuf_in)
+{
+  pk_nbuf_t *nbuf = pk_alloc_nbuf(nbuf_in->size);
+  memcpy(nbuf->buf, nbuf_in->buf, nbuf_in->size);
+
+  return nbuf;
+}
+
+pk_nbuf_t * pk_nbuf_wrap(void *buf, size_t size)
+{
+  pk_nbuf_t *nbuf = malloc(sizeof(pk_nbuf_t));
+  *nbuf = (pk_nbuf_t) { .buf = buf, .size = size };
+
+  return nbuf;
+}
+
+void pk_realloc_nbuf(pk_nbuf_t *nbuf, size_t new_size)
+{
+  nbuf->buf = nn_reallocmsg(nbuf->buf, new_size);
+  assert( nbuf->buf != NULL );
+  nbuf->size = new_size;
+}
+
+void pk_nbuf_release(pk_nbuf_t *nbuf)
+{
+  if (nbuf->buf != NULL)
+    nn_freemsg(nbuf->buf);
+
+  nbuf->buf = NULL;
+}
+
+void pk_nbuf_destroy(pk_nbuf_t **nbuf_loc)
+{
+  if (nbuf_loc == NULL || *nbuf_loc == NULL)
+    return;
+
+  pk_nbuf_t *nbuf = *nbuf_loc;
+  pk_nbuf_release(nbuf);
+
+  free(nbuf);
+
+  *nbuf_loc = NULL;
 }
