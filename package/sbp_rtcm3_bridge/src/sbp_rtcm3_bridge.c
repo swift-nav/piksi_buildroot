@@ -24,7 +24,7 @@
 
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
-#define RTCM3_SUB_ENDPOINT  "tcp://127.0.0.1:45010"  /* RTCM3 Internal Out */
+#define RTCM3_SUB_ENDPOINT  "ipc:///tmp/tmp.45010"  /* RTCM3 Internal Out */
 
 bool rtcm3_debug = false;
 

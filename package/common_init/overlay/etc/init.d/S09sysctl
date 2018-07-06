@@ -3,4 +3,5 @@ chmod a+rwx /tmp/cores
 /sbin/sysctl -p /etc/sysctl.conf
 mkdir -p /var/run/fifos
 chmod 1777 /var/run/fifos
+chmod 1777 /var/run/sockets
 echo "denyinterfaces eth0" >> /etc/dhcpcd.conf

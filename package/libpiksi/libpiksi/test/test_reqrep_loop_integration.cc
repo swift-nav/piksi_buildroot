@@ -70,10 +70,10 @@ TEST_F(ReqrepLoopIntegrationTests, reqrepLoopIntegrationTest)
   loop = pk_loop_create();
   ASSERT_NE(loop, nullptr);
 
-  rep_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_REP);
+  rep_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_REP);
   ASSERT_NE(rep_ept, nullptr);
 
-  req_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_REQ);
+  req_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_REQ);
   ASSERT_NE(req_ept, nullptr);
 
   struct reqrep_ctx_s ctx = { .req_ept = req_ept,

@@ -28,8 +28,8 @@
 
 #define PROGRAM_NAME "cell_modem_daemon"
 
-#define SBP_SUB_ENDPOINT "tcp://127.0.0.1:43060" /* SBP Internal Out */
-#define SBP_PUB_ENDPOINT "tcp://127.0.0.1:43061" /* SBP Internal In */
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP Internal Out */
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP Internal In */
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE (255u)
 #define CELL_STATUS_UPDATE_INTERVAL (1000u)

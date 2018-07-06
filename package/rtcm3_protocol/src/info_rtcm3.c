@@ -23,7 +23,7 @@ int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
 {
   return snprintf(buf, buf_size,
                   "-f rtcm3 "
-                  "-p 'tcp://127.0.0.1:45031' "
-                  "-s 'tcp://127.0.0.1:45030'",
+                  "-p 'ipc:///tmp/tmp.45031' "
+                  "-s 'ipc:///tmp/tmp.45030'",
                   port_name);
 }
