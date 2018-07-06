@@ -1,7 +1,7 @@
 #!/bin/sh
 
 name="endpoint_adapter_rpmsg_piksi101"
-cmd="endpoint_adapter --file /dev/rpmsg_piksi101 -p 'tcp://127.0.0.1:44011' -s 'tcp://127.0.0.1:44010'"
+cmd="endpoint_adapter --file /dev/rpmsg_piksi101 -p 'ipc:///var/run/sockets/nmea_firmware.sub' -s 'ipc:///var/run/sockets/nmea_firmware.pub'"
 dir="/"
 user="ad_r101"
 

@@ -69,11 +69,11 @@ TEST_F(PubsubLoopIntegrationTests, pubsubLoopIntegrationTest)
   ASSERT_NE(loop, nullptr);
 
   // this is cleaned up in TearDown
-  sub_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_SUB_SERVER);
+  sub_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_SUB_SERVER);
   ASSERT_NE(sub_ept, nullptr);
 
   // this is cleaned up in TearDown
-  pub_ept = pk_endpoint_create("tcp://127.0.0.1:49010", PK_ENDPOINT_PUB);
+  pub_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_PUB);
   ASSERT_NE(pub_ept, nullptr);
 
   struct snd_ctx_s snd_ctx = { .ept = pub_ept, .sent = 0 };

@@ -12,6 +12,8 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <nanomsg/nn.h>
 #include <nanomsg/pubsub.h>
@@ -27,6 +29,8 @@ struct pk_endpoint_s {
   int nn_sock;
   int eid;
 };
+
+#define IPC_PREFIX "ipc://"
 
 pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
 {
@@ -104,6 +108,16 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
                        do_bind ? "bind" : "connect",
                        pk_endpoint_strerror());
     goto failure;
+  }
+
+  if (do_bind) {
+    size_t prefix_len = strlen(IPC_PREFIX);
+    if (strlen(endpoint) > prefix_len) {
+      int rc = chmod(endpoint + prefix_len, 0777);
+      if (rc != 0) {
+        piksi_log(LOG_WARNING, "%s: chmod: %s", __FUNCTION__, strerror(errno));
+      }
+    }
   }
 
   return pk_ept;
