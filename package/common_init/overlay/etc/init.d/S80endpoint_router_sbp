@@ -15,7 +15,7 @@ else
   router_config="/etc/endpoint_router/sbp_router.yml"
 fi
 
-cmd="endpoint_router --buffer-sends -f $router_config"
-#cmd="endpoint_router -f $router_config"
+#cmd="endpoint_router --buffer-sends -f $router_config"
+cmd="endpoint_router -f $router_config"
 
 source /etc/init.d/template_runsv.inc.sh
