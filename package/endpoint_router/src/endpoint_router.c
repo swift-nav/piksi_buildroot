@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2016-2018 Swift Navigation Inc.
+ * Contact: Swift Engineering <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -24,14 +24,19 @@
 
 #define PROGRAM_NAME "router"
 
+#define SEND_FLUSH_MS 1
+#define SEND_BUF_SIZE 4096
+
 static struct {
   const char *filename;
   bool print;
   bool debug;
+  bool buffer_sends;
 } options = {
   .filename = NULL,
   .print = false,
-  .debug = false
+  .debug = false,
+  .buffer_sends = false,
 };
 
 static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context);
@@ -43,19 +48,22 @@ static void usage(char *command)
   puts("-f, --file <config.yml>");
   puts("--print");
   puts("--debug");
+  puts("--buffer-sends");
 }
 
 static int parse_options(int argc, char *argv[])
 {
   enum {
     OPT_ID_PRINT = 1,
-    OPT_ID_DEBUG
+    OPT_ID_DEBUG,
+    OPT_ID_BUFFER_SENDS,
   };
 
   const struct option long_opts[] = {
-    {"file",      required_argument, 0, 'f'},
-    {"print",     no_argument,       0, OPT_ID_PRINT},
-    {"debug",     no_argument,       0, OPT_ID_DEBUG},
+    {"file",             required_argument, 0, 'f'},
+    {"print",            no_argument,       0, OPT_ID_PRINT},
+    {"debug",            no_argument,       0, OPT_ID_DEBUG},
+    {"buffer-sends",     no_argument,       0, OPT_ID_BUFFER_SENDS},
     {0, 0, 0, 0}
   };
 
@@ -77,6 +85,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_DEBUG: {
         options.debug = true;
+      }
+      break;
+
+      case OPT_ID_BUFFER_SENDS: {
+        options.buffer_sends = true;
       }
       break;
 
@@ -196,6 +209,9 @@ static int router_attach(router_t *router, pk_loop_t *loop)
 {
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
+    if (options.buffer_sends) {
+      pk_endpoint_buffer_sends(port->pub_ept, loop, SEND_FLUSH_MS, SEND_BUF_SIZE);
+    }
     if (pk_loop_endpoint_reader_add(loop, port->sub_ept, loop_reader_callback, port) == NULL) {
       piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
       return -1;
