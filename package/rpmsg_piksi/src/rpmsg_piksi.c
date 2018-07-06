@@ -38,8 +38,8 @@
 #define CHANNEL_NAME "piksi"
 #define NUM_ENDPOINTS 3
 
-#define RPMSG_DATA_SIZE_MAX (512 - 16)
-#define RX_FIFO_SIZE (128*1024)
+#define RPMSG_DATA_SIZE_MAX (512)
+#define RX_FIFO_SIZE (16*1024)
 #define TX_BUFF_SIZE (RPMSG_DATA_SIZE_MAX)
 
 #define MAX_BUF_SUBMIT (4096)
@@ -118,8 +118,9 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
       size = sizeof(ept_params->tx_buff);
     }
 
-    if (offset + size > MAX_BUF_SUBMIT)
+    if (offset + size > MAX_BUF_SUBMIT) {
       break;
+    }
 
     if (copy_from_user(ept_params->tx_buff, &ubuff[offset], size)) {
       dev_err(ept_params->device, "User to kernel buff copy error.\n");

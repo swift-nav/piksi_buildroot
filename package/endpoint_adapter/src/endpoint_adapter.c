@@ -603,6 +603,9 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
       break;
     }
 
+    // TODO/JAM: Doesn't this drop data?!  Seems like this needs to save
+    //   the data that was left over and try to decode it with the next
+    //   read.
     if (write_count != read_count) {
       syslog(LOG_ERR, "warning: write_count != read_count");
       debug_printf("write_count != read_count %d %d\n",
