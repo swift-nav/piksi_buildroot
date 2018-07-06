@@ -4,7 +4,7 @@ NDB_DIR="/persistent/ndb/"
 MTD_FILE="/factory/mtd"
 
 name="sbp_fileio_daemon_firmware"
-cmd="sbp_fileio_daemon -p 'tcp://localhost:43041' -s 'tcp://localhost:43040' --basedir $NDB_DIR --mtd"
+cmd="sbp_fileio_daemon -p 'ipc:///tmp/tmp.43041' -s 'ipc:///tmp/tmp.43040' --basedir $NDB_DIR --mtd"
 dir="/"
 user="fio_fw"
 
