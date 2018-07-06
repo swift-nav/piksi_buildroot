@@ -42,6 +42,8 @@
 #define RX_FIFO_SIZE (16384)
 #define TX_BUFF_SIZE (RPMSG_DATA_SIZE_MAX)
 
+#define MAX_BUF_SUBMIT (4096)
+
 #define IOCTL_CMD_GET_KFIFO_SIZE      1
 #define IOCTL_CMD_GET_AVAIL_DATA_SIZE 2
 #define IOCTL_CMD_GET_FREE_BUFF_SIZE  3
@@ -94,6 +96,7 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
   struct ept_params *ept_params = p_file->private_data;
   unsigned int size;
   ssize_t retval;
+  size_t offset = 0;
 
   /* Acquire TX / rpmsg lock */
   retval = mutex_lock_interruptible(&ept_params->tx_rpmsg_lock);
@@ -107,22 +110,31 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
     goto done_locked;
   }
 
-  if (len <= sizeof(ept_params->tx_buff)) {
-    size = len;
-  } else {
+  while (len > 0 && offset < MAX_BUF_SUBMIT) {
+
+    if (len <= sizeof(ept_params->tx_buff)) {
+      size = len;
+    } else {
+      size = sizeof(ept_params->tx_buff);
+    }
+
+    if (copy_from_user(ept_params->tx_buff, &ubuff[offset], size)) {
+      dev_err(ept_params->device, "User to kernel buff copy error.\n");
+      retval = -1;
+      goto done_locked;
+    }
+
+    /* TODO: support non-blocking write */
+    retval = rpmsg_sendto(ept_params->rpmsg_chnl, ept_params->tx_buff,
+                          size, ept_params->addr);
+
+    len -= size;
+    offset += size;
+  }
+
+  if (len != 0) {
     dev_err(ept_params->device, "rpmsg truncated (len = %d)\n", len);
-    size = sizeof(ept_params->tx_buff);
   }
-
-  if (copy_from_user(ept_params->tx_buff, ubuff, size)) {
-    dev_err(ept_params->device, "User to kernel buff copy error.\n");
-    retval = -1;
-    goto done_locked;
-  }
-
-  /* TODO: support non-blocking write */
-  retval = rpmsg_sendto(ept_params->rpmsg_chnl, ept_params->tx_buff,
-                        size, ept_params->addr);
 
   if (retval) {
     dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n",

@@ -32,17 +32,24 @@ struct recv_ctx_s {
 #define SIMPLE_RECV_MSG  "123456789"
 #define SIMPLE_RECV_SIZE (100u)
 
+static size_t expected_recv_count = (sizeof(SIMPLE_RECV_MSG) / SEND_BUF_SIZE) + (sizeof(SIMPLE_RECV_MSG) % SEND_BUF_SIZE != 0 ? 1 : 0);
+
 static int test_simple_recv_cb(const u8 *data, const size_t length, void *context)
 {
   struct recv_ctx_s *recv_ctx = (struct recv_ctx_s *)context;
+
+  fprintf(stderr, "data: %s\n", data);
+
   // use expect here because ASSERT fails to compile
   int rc = memcmp(data,
                   SIMPLE_RECV_MSG + (SEND_BUF_SIZE * recv_ctx->recvd),
                   SWFT_MIN(recv_ctx->size, SEND_BUF_SIZE));
   EXPECT_EQ(rc, 0);
 
+  if (length == 0) return 0;
+
   recv_ctx->recvd++;
-  recv_ctx->size -= SEND_BUF_SIZE;
+  recv_ctx->size -= length;
 
   return 0;
 }
@@ -62,7 +69,7 @@ static void test_timeout_cb(pk_loop_t *loop, void *handle, void *context)
     result = pk_endpoint_send(snd_ctx->ept, (u8 *)&simple_message[offset], SWFT_MIN(msg_len, SEND_BUF_SIZE));
     msg_len -= SWFT_MIN(msg_len, SEND_BUF_SIZE);
     offset += SEND_BUF_SIZE;
-    ASSERT_EQ(result, 0);
+    EXPECT_EQ(result, 0);
     if (result == 0) snd_ctx->sent++;
   }
 }
@@ -74,7 +81,7 @@ static void test_poll_cb(pk_loop_t *loop, void *handle, void *context)
 
   // use expect here so that we exit gracefully after the timer expires
   EXPECT_EQ(pk_endpoint_receive(recv_ctx->ept, test_simple_recv_cb, recv_ctx), 0);
-  if (recv_ctx->recvd > 1) {
+  if (recv_ctx->recvd == expected_recv_count) {
     pk_loop_stop(loop);
   }
 }
@@ -101,7 +108,7 @@ TEST_F(PubsubLoopIntegrationTests, pubsubLoopIntegrationTest)
   struct recv_ctx_s recv_ctx = { .ept = sub_ept, .recvd = 0, .size = strlen(SIMPLE_RECV_MSG) };
   ASSERT_NE(pk_loop_endpoint_reader_add(loop, recv_ctx.ept, test_poll_cb, &recv_ctx), nullptr);
 
-  pk_loop_run_simple_with_timeout(loop, 1000);
+  pk_loop_run_simple_with_timeout(loop, 500);
 
   pk_endpoint_destroy(&pub_ept);
   pk_endpoint_destroy(&sub_ept);
@@ -109,7 +116,7 @@ TEST_F(PubsubLoopIntegrationTests, pubsubLoopIntegrationTest)
   pk_loop_destroy(&loop);
 
   ASSERT_GT(recv_ctx.recvd, 0);
-  ASSERT_GE(snd_ctx.sent, recv_ctx.recvd);
+  ASSERT_EQ(snd_ctx.sent, recv_ctx.recvd);
 }
 
 #undef SIMPLE_RECV_MSG

@@ -30,15 +30,15 @@ struct pk_endpoint_s {
   u8 *send_buf;
   size_t send_buf_fill;
   size_t send_buf_size;
+  void *timer_handle;
 };
 
 static int pk_endpoint_flush_send(pk_endpoint_t *pk_ept)
 {
-  if (!pk_ept->buffer_sends)
-    return 0;
 
-  if (pk_ept->send_buf_fill == 0)
+  if (!pk_ept->buffer_sends || pk_ept->send_buf_fill == 0) {
     return 0;
+  }
 
   while (1) {
     int written = nn_send(pk_ept->nn_sock, pk_ept->send_buf, pk_ept->send_buf_fill, 0);
@@ -79,6 +79,7 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   pk_ept->send_buf = NULL;
   pk_ept->send_buf_fill = 0;
   pk_ept->send_buf_size = 0;
+  pk_ept->timer_handle = NULL;
 
   bool do_bind = false;
   switch (pk_ept->type)
@@ -345,14 +346,19 @@ const char * pk_endpoint_strerror(void)
 static void sendbuf_cb(pk_loop_t *loop, void *handle, void *context)
 {
   pk_endpoint_t *pk_ept = context;
+
   int rc = pk_endpoint_flush_send(pk_ept);
   if (rc != 0) {
     piksi_log(LOG_WARNING, "%s: socket flush failed", __FUNCTION__);
   }
+
+  pk_loop_timer_reset(pk_ept->timer_handle);
 }
 
 void pk_endpoint_buffer_sends(pk_endpoint_t *pk_ept, pk_loop_t *pk_loop, u64 flush_ms, size_t buf_size)
 {
+  assert( !pk_ept->buffer_sends );
+
   pk_ept->buffer_sends = true;
 
   assert( pk_ept->send_buf == NULL );
@@ -360,5 +366,8 @@ void pk_endpoint_buffer_sends(pk_endpoint_t *pk_ept, pk_loop_t *pk_loop, u64 flu
   pk_ept->send_buf = malloc(buf_size);
   pk_ept->send_buf_size = buf_size;
 
-  pk_loop_timer_add(pk_loop, flush_ms, sendbuf_cb, pk_ept);
+  void *timer_handle = pk_loop_timer_add(pk_loop, flush_ms, sendbuf_cb, pk_ept);
+  assert( timer_handle != NULL );
+
+  pk_ept->timer_handle = timer_handle;
 }
