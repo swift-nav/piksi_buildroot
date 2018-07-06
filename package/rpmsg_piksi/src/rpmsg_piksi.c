@@ -110,13 +110,16 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
     goto done_locked;
   }
 
-  while (len > 0 && offset < MAX_BUF_SUBMIT) {
+  while (len > 0) {
 
     if (len <= sizeof(ept_params->tx_buff)) {
       size = len;
     } else {
       size = sizeof(ept_params->tx_buff);
     }
+
+    if (offset + size > MAX_BUF_SUBMIT)
+      break;
 
     if (copy_from_user(ept_params->tx_buff, &ubuff[offset], size)) {
       dev_err(ept_params->device, "User to kernel buff copy error.\n");
@@ -128,21 +131,21 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
     retval = rpmsg_sendto(ept_params->rpmsg_chnl, ept_params->tx_buff,
                           size, ept_params->addr);
 
+    if (retval) {
+      dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n",
+              size, retval);
+      goto done_locked;
+    }
+
     len -= size;
     offset += size;
   }
 
   if (len != 0) {
-    dev_err(ept_params->device, "rpmsg truncated (len = %d)\n", len);
+    dev_err(ept_params->device, "rpmsg truncated (len = %d)\n", offset);
   }
 
-  if (retval) {
-    dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n",
-            size, retval);
-    goto done_locked;
-  }
-
-  retval = size;
+  retval = offset;
 
 done_locked:
   mutex_unlock(&ept_params->tx_rpmsg_lock);
