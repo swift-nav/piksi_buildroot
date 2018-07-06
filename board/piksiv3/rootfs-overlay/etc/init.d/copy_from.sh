@@ -29,7 +29,7 @@ copy_from_net()
   local tmp_file="/tmp/$filename"
 
   echo "Retrieving $filename from network"
-  tftp -g -r "$net_file" -l "$tmp_file" -b 65464 "$server_ip"
+  tftp -g -r "$net_file" -l "$tmp_file" -b 16384 "$server_ip"
 
   if [ -f "$tmp_file" ]; then
     rm -f "$output_file"
