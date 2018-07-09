@@ -13,7 +13,7 @@ cleanup()
 
 trap 'cleanup; exit 0' EXIT TERM STOP HUP
 
-endpoint_adapter --stdio -s 'ipc:///tmp/tmp.44030' >$fifo &
+endpoint_adapter --stdio -s 'ipc:///var/run/sockets/nmea_external.pub' >$fifo &
 endpoint_adapter_pid=$!
 
 socat pty,raw,link=/tmp/tmp.gps0 fd:0 <$fifo &

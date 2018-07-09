@@ -24,7 +24,7 @@
 
 #define PROGRAM_NAME      "nmea_daemon"
 
-#define NMEA_PUB_ENDPOINT "ipc:///tmp/tmp.44030"  /* NMEA Pub */
+#define NMEA_PUB_ENDPOINT "ipc:///var/run/sockets/nmea_external.pub"  /* NMEA Pub */
 
 #define BASE_DIRECTORY    "/var/run/nmea"
 

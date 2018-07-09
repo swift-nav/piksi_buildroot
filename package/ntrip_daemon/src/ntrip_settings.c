@@ -87,7 +87,7 @@ static int ntrip_adapter_execfn(void) {
     "endpoint_adapter",
     "-f", "rtcm3",
     "--file", FIFO_FILE_PATH,
-    "-p", "ipc:///tmp/tmp.45031",
+    "-p", "ipc:///var/run/sockets/rtcm3_external.sub",
     NULL,
   };
 

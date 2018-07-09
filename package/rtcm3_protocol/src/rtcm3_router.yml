@@ -2,12 +2,12 @@
 name: RTCM3_ROUTER
 ports:
   - name: RTCM3_PORT_INTERNAL
-    pub_addr: "ipc:///tmp/tmp.45010"
-    sub_addr: "ipc:///tmp/tmp.45011"
+    pub_addr: "ipc:///var/run/sockets/rtcm3_internal.pub" #/tmp/tmp.45010"
+    sub_addr: "ipc:///var/run/sockets/rtcm3_internal.sub" #/tmp/tmp.45011"
 
   - name: RTCM3_PORT_EXTERNAL
-    pub_addr: "ipc:///tmp/tmp.45030"
-    sub_addr: "ipc:///tmp/tmp.45031"
+    pub_addr: "ipc:///var/run/sockets/rtcm3_external.pub" #/tmp/tmp.45030"
+    sub_addr: "ipc:///var/run/sockets/rtcm3_external.sub" #/tmp/tmp.45031"
     forwarding_rules:
       - dst_port: RTCM3_PORT_INTERNAL
         filters:
