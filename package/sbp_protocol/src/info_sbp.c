@@ -25,7 +25,7 @@ int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
                   "-f sbp "
                   "--filter-out sbp "
                   "--filter-out-config /etc/filter_out_config/%s "
-                  "-p 'tcp://127.0.0.1:43031' "
-                  "-s 'tcp://127.0.0.1:43030'",
+                  "-p 'ipc:///var/run/sockets/external.sub' "
+                  "-s 'ipc:///var/run/sockets/external.pub'",
                   port_name);
 }

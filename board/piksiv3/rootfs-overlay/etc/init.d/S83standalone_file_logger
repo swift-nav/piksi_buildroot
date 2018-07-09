@@ -1,7 +1,7 @@
 #!/bin/sh
 
 name="standalone_file_logger"
-cmd="standalone_file_logger -d /media/sda1/ -s 'tcp://127.0.0.1:43030'"
+cmd="standalone_file_logger -d /media/sda1/ -s 'ipc:///var/run/sockets/external.pub'"
 dir="/"
 user="stndfl"
 
