@@ -10,8 +10,9 @@ endif
 .PHONY: all firmware config image clean host-config host-image host-clean     \
         docker-setup docker-make-image docker-make-clean                      \
         docker-make-host-image docker-make-host-clean docker-run              \
-        docker-config pkg-% docker-pkg-%                                      \
+        docker-host-config docker-config pkg-% docker-pkg-%                   \
         docker-rebuild-changed rebuild-changed _rebuild_changed               \
+				docker-host-pkg-%                                                     \
 
 all: firmware image
 
@@ -121,7 +122,7 @@ rebuild-changed: _rebuild_changed
 _rebuild_changed:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot \
-			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py | grep -v lockdown | grep -v piksi_ins) \
+			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py | grep -v -E '(release_lockdown|piksi_ins|sample_daemon)') \
 			O=output
 
 _print_db:
@@ -180,9 +181,17 @@ docker-make-host-clean:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make host-clean
 
+docker-host-config:
+	docker run -e BR2_DISABLE_LTO=y $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
+		make -C buildroot O=host_output host_defconfig
+
 docker-config:
 	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make -C buildroot O=output piksiv3_defconfig
+
+docker-host-pkg-%: docker-host-config
+	docker run -e BR2_DISABLE_LTO=y $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make -C buildroot $* O=host_output
 
 docker-pkg-%: docker-config
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \

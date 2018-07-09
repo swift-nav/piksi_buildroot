@@ -20,15 +20,15 @@ The `skylark_daemon` listens for Skylark configuration and starts and stops
 itself in upload and download mode as necessary. The upload and download daemons
 run independently for improved robustness and simplicity, pulling and pushing
 SBP data to two Skylark-specific Nanomsg ports that are exposed on the Linux host
-are routed to the firmware: `tcp://127.0.0.1:43080` and `tcp://127.0.0.1:43081`,
+are routed to the firmware: `ipc:///var/run/sockets/skylark.pub` and `ipc:///var/run/sockets/skylark.sub`,
 respectively. Taken together, these run with:
 
 ```
 mkfifo /var/run/skylark/download /var/run/skylark/upload
 skylark_daemon --download --file /var/run/skylark/download --url https://broker.skylark2.swiftnav.com
 skylark_daemon --upload --file /var/run/skylark/upload --url https://broker.skylark2.swiftnav.com
-endpoint_adapter --file /var/run/skylark/upload -s tcp://127.0.0.1:43070
-endpoint_adapter --file /var/run/skylark/download -p tcp://127.0.0.1:43071
+endpoint_adapter --file /var/run/skylark/upload -s ipc:///var/run/sockets/settings_client.pub
+endpoint_adapter --file /var/run/skylark/download -p ipc:///var/run/sockets/settings_client.sub
 ```
 
 The upload and download modes read and write from two FIFOs they materialize:

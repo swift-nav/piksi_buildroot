@@ -35,8 +35,8 @@
 
 #define PROGRAM_NAME "health_daemon"
 
-#define SBP_SUB_ENDPOINT "tcp://127.0.0.1:43030" /* SBP External Out */
-#define SBP_PUB_ENDPOINT "tcp://127.0.0.1:43031" /* SBP External In */
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
 
 struct health_ctx_s {
   bool health_debug;

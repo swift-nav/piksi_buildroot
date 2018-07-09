@@ -22,8 +22,8 @@
 
 #define PROGRAM_NAME "sbp_log"
 
-#define SBP_PUB_ENDPOINT "tcp://127.0.0.1:43011"
-#define SBP_SUB_ENDPOINT "tcp://127.0.0.1:43010"
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/firmware.sub"
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/firmware.pub"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 

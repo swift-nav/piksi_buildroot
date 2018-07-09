@@ -77,8 +77,8 @@
 
 #include <libpiksi/settings.h>
 
-#define PUB_ENDPOINT "tcp://127.0.0.1:43071"
-#define SUB_ENDPOINT "tcp://127.0.0.1:43070"
+#define PUB_ENDPOINT "ipc:///var/run/sockets/settings_client.sub"
+#define SUB_ENDPOINT "ipc:///var/run/sockets/settings_client.pub"
 
 #define REGISTER_TIMEOUT_MS 100
 #define REGISTER_TRIES 5
