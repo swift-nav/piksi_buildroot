@@ -27,13 +27,10 @@ ota_enabled()
 
 ## Main script:
 
-child_pid=$!
-trap 'kill $child_pid; exit' EXIT STOP TERM
-
 while true; do
   if ota_enabled; then
-    ota_tool `cat /cfg/device_uuid` \
-             `cat /img_tbl/boot/name`
+    ota_tool $(cat /cfg/device_uuid) \
+      $(cat /img_tbl/boot/name)
     sleep $check_period
   else
     sleep 10

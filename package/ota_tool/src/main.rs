@@ -31,40 +31,67 @@ fn sha256(path: &std::path::Path) -> Result<String, String> {
     // OS X:
     // let mut base_cmd = Command::new("shasum");
     //         base_cmd.args(&["-a", "256"]);
-    let hash_cmd_output = String::from_utf8(
-                            base_cmd
-                            .arg(path.to_str().ok_or("Path error")?)
-                            .output()
-                            .map_err(|e| format!("Error calling shasum: {}", e.to_string()))?
-                            .stdout)
-                          .map_err(|e| format!("Error encoding shasum ouput: {}", e.to_string()))?;
-    return Ok(String::from(hash_cmd_output
-                           .split(" ")
-                           .next()
-                           .ok_or("Error parsing shasum output")?));
+
+    let path_s = path
+                 .to_str()
+                 .ok_or("Path error")
+                 ?;
+
+
+    let cmd_result = base_cmd
+                     .arg(path_s)
+                     .output()
+                     .map_err(|e| format!("Error calling sha256sum: {}", e.to_string()))
+                     ?;
+
+    let cmd_output = String::from_utf8(cmd_result.stdout)
+                     .map_err(|e| format!("Error encoding sha256sum output: {}", e.to_string()))
+                     ?;
+
+    let output_split = cmd_output
+                       .split(" ")
+                       .next()
+                       .ok_or("Error parsing sha256sum output")
+                       ?;
+
+    return Ok(String::from(output_split));
 }
 
 fn upgrade_firmware(path: &std::path::Path) -> Result<(), String> {
     println!("performing upgrade");
-    let cmd_output = String::from_utf8(
-                        Command::new("upgrade_tool")
-                        .arg(path.to_str().ok_or("Path error")?)
-                        .output()
-                        .map_err(|e| format!("Error calling upgrade_tool: {}", e.to_string()))?
-                        .stdout)
-                     .map_err(|e| format!("Error encoding upgrade_tool output: {}", e.to_string()))?;
+
+    let path_s = path
+                 .to_str()
+                 .ok_or("Path error")
+                 ?;
+
+    let cmd_result = Command::new("upgrade_tool")
+                     .arg(path_s)
+                     .output()
+                     .map_err(|e| format!("Error calling upgrade_tool: {}", e.to_string()))
+                     ?;
+
+    let cmd_output = String::from_utf8(cmd_result.stdout)
+                     .map_err(|e| format!("Error encoding upgrade_tool output: {}", e.to_string()))
+                     ?;
+
     println!("{}", cmd_output);
     return Ok(());
 }
 
 fn reboot() -> Result<(), String> {
     println!("rebooting");
-    let cmd_output = String::from_utf8(
-                        Command::new("reboot").arg("-f")
-                        .output()
-                        .map_err(|e| format!("Error calling reboot: {}", e.to_string()))?
-                        .stdout)
-                     .map_err(|e| format!("Error encoding reboot output: {}", e.to_string()))?;
+
+    let cmd_result = Command::new("reboot")
+                     .arg("-f")
+                     .output()
+                     .map_err(|e| format!("Error calling reboot: {}", e.to_string()))
+                     ?;
+
+    let cmd_output = String::from_utf8(cmd_result.stdout)
+                     .map_err(|e| format!("Error encoding reboot output: {}", e.to_string()))
+                     ?;
+
     println!("{}", cmd_output);
     return Ok(());
 }
@@ -81,10 +108,13 @@ fn ota_service_request(uuid: Uuid, current_version: &str, url: &str) -> Result<O
         .get(url)
         .header(DeviceUid(uuid))
         .header(CurrentVersion(String::from(current_version)))
-        .send().map_err(|e| format!("Error making request to OTA service: {}", e))?;
+        .send().map_err(|e| format!("Error making request to OTA service: {}", e))
+        ?;
+
     if !response.status().is_success() {
         return Err(format!("OTA service request error, server responded {}", response.status()));
     }
+
     return response.json().map_err(|e| format!("Error parsing JSON response: {}", e));
 }
 
@@ -139,7 +169,7 @@ fn main() {
     println!("expected sha256: {}", decoded.sha256);
 
     let mut fw_req = BufReader::new(reqwest::get(&decoded.url).expect("Error downloading firmware"));
-    let fw_path = Path::new("/tmp/PiksiMulti.bin");
+    let fw_path = Path::new("/data/PiksiMulti-OTA.bin");
     let mut fw_file = File::create(fw_path).expect("Error opening temporary firmware file");
     io::copy(&mut fw_req, &mut fw_file).expect("Error writing firmware file");
     fw_file.flush().expect("Error flushing firmware file");
