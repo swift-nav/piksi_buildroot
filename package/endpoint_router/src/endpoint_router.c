@@ -26,6 +26,24 @@
 
 #define PROGRAM_NAME "router"
 
+#define MI metrics_indexes
+
+PK_METRICS_TABLE(message_metrics_table, MI,
+
+  PK_METRICS_ENTRY("message/count",    "per_second", M_U32,  M_UPDATE_COUNT,   M_RESET_DEF,  count),
+  PK_METRICS_ENTRY("message/size",     ".total",     M_U32,  M_UPDATE_SUM,     M_RESET_DEF,  size_total),
+  PK_METRICS_ENTRY("message/size",     "per_second", M_U32,  M_UPDATE_AVERAGE, M_RESET_DEF,  size, 
+                   M_AVERAGE_OF(MI, size_total, count)),
+  PK_METRICS_ENTRY("message/wake_ups", "per_second", M_U32,  M_UPDATE_COUNT,   M_RESET_DEF,  wakeups),
+  PK_METRICS_ENTRY("message/wake_ups", "max",        M_U32,  M_UPDATE_MAX,     M_RESET_DEF,  wakeups_max),
+  PK_METRICS_ENTRY("message/wake_ups", ".total",     M_U32,  M_UPDATE_COUNT,   M_RESET_DEF,  wakeups_message_count),
+  PK_METRICS_ENTRY("message/latency",  "max",        M_TIME, M_UPDATE_MAX,     M_RESET_DEF,  latency_max),
+  PK_METRICS_ENTRY("message/latency",  ".delta",     M_TIME, M_UPDATE_DELTA,   M_RESET_TIME, latency_delta),
+  PK_METRICS_ENTRY("message/latency",  ".total",     M_TIME, M_UPDATE_SUM,     M_RESET_DEF,  latency_total),
+  PK_METRICS_ENTRY("message/latency",  "per_second", M_TIME, M_UPDATE_AVERAGE, M_RESET_DEF,  latency,
+                   M_AVERAGE_OF(MI, latency_total, count))
+ )
+
 static struct {
   const char *filename;
   const char *name;
@@ -36,30 +54,6 @@ static struct {
   .name = NULL,
   .print = false,
   .debug = false
-};
-
-static struct {
-  ssize_t count;
-  ssize_t size_snapshot;
-  ssize_t size;
-  ssize_t wakeups;
-  ssize_t wakeups_max;
-  ssize_t wakeups_message_count;
-  ssize_t latency;
-  ssize_t latency_max;
-  ssize_t latency_delta;
-  ssize_t latency_total;
-} message_metrics = {
-  .count = -1,
-  .size_snapshot = -1,
-  .size = -1,
-  .wakeups = -1,
-  .wakeups_max = -1,
-  .wakeups_message_count = -1,
-  .latency = -1,
-  .latency_max = -1,
-  .latency_delta = -1,
-  .latency_total = -1,
 };
 
 static pk_metrics_t *router_metrics = NULL;
@@ -304,9 +298,10 @@ static int reader_fn(const u8 *data, const size_t length, void *context)
 {
   port_t *port = (port_t *)context;
 
-  PK_METRICS_UPDATE(router_metrics, message_metrics.count, PK_METRICS_VALUE((u32) 1));
-  PK_METRICS_UPDATE(router_metrics, message_metrics.wakeups_message_count, PK_METRICS_VALUE((u32) 1));
-  PK_METRICS_UPDATE(router_metrics, message_metrics.size_snapshot, PK_METRICS_VALUE((u32) length));
+  PK_METRICS_UPDATE(router_metrics, MI.count);
+  PK_METRICS_UPDATE(router_metrics, MI.wakeups_message_count);
+
+  PK_METRICS_UPDATE(router_metrics, MI.size_total, PK_METRICS_VALUE((u32) length));
 
   /* Iterate over forwarding rules */
   forwarding_rule_t *forwarding_rule;
@@ -320,31 +315,25 @@ static int reader_fn(const u8 *data, const size_t length, void *context)
 
 static void pre_receive_metrics()
 {
-  pk_metrics_reset(router_metrics, message_metrics.latency_delta);
+  PK_METRICS_UPDATE(router_metrics, MI.wakeups);
 
-  PK_METRICS_UPDATE(router_metrics, message_metrics.wakeups, PK_METRICS_VALUE((u32) 1));
-  pk_metrics_reset(router_metrics, message_metrics.wakeups_message_count);
+  pk_metrics_reset(router_metrics, MI.latency_delta);
+  pk_metrics_reset(router_metrics, MI.wakeups_message_count);
 }
 
 static void post_receive_metrics()
 {
   pk_metrics_value_t count;
-  pk_metrics_read(router_metrics, message_metrics.wakeups_message_count, &count);
+  pk_metrics_read(router_metrics, MI.wakeups_message_count, &count);
 
-  PK_METRICS_UPDATE(router_metrics, message_metrics.wakeups_max,
-                    PK_METRICS_VALUE(count.u32));
-
-  PK_METRICS_UPDATE(router_metrics, message_metrics.latency_delta,
-                    PK_METRICS_VALUE(pk_metrics_gettime()));
+  PK_METRICS_UPDATE(router_metrics, MI.wakeups_max, count);
+  PK_METRICS_UPDATE(router_metrics, MI.latency_delta, PK_METRICS_VALUE(pk_metrics_gettime()));
 
   pk_metrics_value_t current_latency;
-  pk_metrics_read(router_metrics, message_metrics.latency_delta, &current_latency);
+  pk_metrics_read(router_metrics, MI.latency_delta, &current_latency);
 
-  PK_METRICS_UPDATE(router_metrics, message_metrics.latency_max,
-                    current_latency);
-
-  PK_METRICS_UPDATE(router_metrics, message_metrics.latency_total,
-                    current_latency);
+  PK_METRICS_UPDATE(router_metrics, MI.latency_max, current_latency);
+  PK_METRICS_UPDATE(router_metrics, MI.latency_total, current_latency);
 }
 
 static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context)
@@ -374,114 +363,19 @@ static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_m
 
 static void loop_1s_metrics(pk_loop_t *loop, void *handle, void *context)
 {
-  pk_metrics_value_t size;
-  pk_metrics_read(router_metrics, message_metrics.size_snapshot, &size);
-
-  pk_metrics_value_t count;
-  pk_metrics_read(router_metrics, message_metrics.count, &count);
-
-  pk_metrics_value_t time_total;
-  pk_metrics_read(router_metrics, message_metrics.latency_total, &time_total);
-
-  PK_METRICS_UPDATE(router_metrics, message_metrics.size,
-                    PK_METRICS_VALUE(count.u32 == 0 ? 0 : size.u32 / count.u32));
-
-  PK_METRICS_UPDATE(router_metrics, message_metrics.latency,
-                    PK_METRICS_VALUE(PK_METRICS_AS_TIME(count.u32 == 0 ? 0 : time_total.time.ns / count.u32)));
+  PK_METRICS_UPDATE(router_metrics, MI.size);
+  PK_METRICS_UPDATE(router_metrics, MI.latency);
 
   pk_metrics_flush(router_metrics);
 
-  pk_metrics_reset(router_metrics, message_metrics.count);
-  pk_metrics_reset(router_metrics, message_metrics.size_snapshot);
-  pk_metrics_reset(router_metrics, message_metrics.wakeups);
-  pk_metrics_reset(router_metrics, message_metrics.latency);
-  pk_metrics_reset(router_metrics, message_metrics.latency_max);
-  pk_metrics_reset(router_metrics, message_metrics.latency_total);
+  pk_metrics_reset(router_metrics, MI.count);
+  pk_metrics_reset(router_metrics, MI.size_total);
+  pk_metrics_reset(router_metrics, MI.wakeups);
+  pk_metrics_reset(router_metrics, MI.latency);
+  pk_metrics_reset(router_metrics, MI.latency_max);
+  pk_metrics_reset(router_metrics, MI.latency_total);
 
   pk_loop_timer_reset(handle);
-}
-
-static bool setup_metrics()
-{
-  size_t count = 0;
-  char metrics_folder[128] = {0};
-  const char* metrics_name = NULL;
-  ssize_t metrics_index = -1;
-
-  router_metrics = pk_metrics_create();
-
-  if (router_metrics == NULL) {
-    piksi_log(LOG_ERR, "metrics create failed");
-    return false;
-  }
-
-  pk_metrics_reset_fn_t initial = pk_metrics_reset_default;
-  pk_metrics_reset_fn_t time = pk_metrics_reset_time;
-
-  pk_metrics_updater_fn_t sum = pk_metrics_updater_sum;
-  pk_metrics_updater_fn_t assign = pk_metrics_updater_assign;
-  pk_metrics_updater_fn_t max = pk_metrics_updater_max;
-  pk_metrics_updater_fn_t delta = pk_metrics_updater_delta;
-
-  pk_metrics_type_t t_u32 = METRICS_TYPE_U32;
-  pk_metrics_type_t t_time = METRICS_TYPE_TIME;
-
-  struct {
-    const char* name;
-    const char* folder;
-    pk_metrics_type_t t;
-    pk_metrics_updater_fn_t u;
-    pk_metrics_reset_fn_t r;
-    ssize_t *idx;
-  }
-    metrics_table[] =
-  {
-    { .name = "per_second", .folder = "messages/count",    .t = t_u32,  .u = sum,    .r = initial, .idx = &message_metrics.count },
-    { .name = ".total",     .folder = "messages/size",     .t = t_u32,  .u = sum,    .r = initial, .idx = &message_metrics.size_snapshot },
-    { .name = "per_second", .folder = "messages/size",     .t = t_u32,  .u = assign, .r = initial, .idx = &message_metrics.size },
-    { .name = "per_second", .folder = "messages/wake_ups", .t = t_u32,  .u = sum,    .r = initial, .idx = &message_metrics.wakeups },
-    { .name = "max",        .folder = "messages/wake_ups", .t = t_u32,  .u = max,    .r = initial, .idx = &message_metrics.wakeups_max },
-    { .name = ".total",     .folder = "messages/wake_ups", .t = t_u32,  .u = sum,    .r = initial, .idx = &message_metrics.wakeups_message_count },
-    { .name = "per_second", .folder = "messages/latency",  .t = t_time, .u = assign, .r = initial, .idx = &message_metrics.latency },
-    { .name = "max",        .folder = "messages/latency",  .t = t_time, .u = max,    .r = initial, .idx = &message_metrics.latency_max },
-    { .name = ".delta",     .folder = "messages/latency",  .t = t_time, .u = delta,  .r = time,    .idx = &message_metrics.latency_delta },
-    { .name = ".total",     .folder = "messages/latency",  .t = t_time, .u = sum,    .r = initial, .idx = &message_metrics.latency_total },
-  };
-
-  pk_metrics_value_t empty_value = (pk_metrics_value_t) { .u32 = 0, .time.ns = 0 };
-
-  for (size_t idx = 0; idx < COUNT_OF(metrics_table); idx++) {
-
-    count = snprintf(metrics_folder, sizeof(metrics_folder), "endpoint_router_%s/%s", options.name, metrics_table[idx].folder);
-    assert( count < sizeof(metrics_folder) );
-
-    metrics_name = metrics_table[idx].name;
-
-    metrics_index =
-      pk_metrics_add(router_metrics,
-                     metrics_folder,
-                     metrics_name,
-                     metrics_table[idx].t,
-                     empty_value,
-                     metrics_table[idx].u,
-                     metrics_table[idx].r);
-
-    if (metrics_index < 0) {
-      goto fail;
-    }
-
-    *metrics_table[idx].idx = metrics_index;
-  }
-
-  return true;
-
-fail:
-  piksi_log(LOG_ERR, "metrics add for '%s/%s' failed: %s",
-            metrics_folder,
-            metrics_name,
-            pk_metrics_status_text(metrics_index));
-
-  return false;
 }
 
 int main(int argc, char *argv[])
@@ -521,7 +415,11 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  if (!setup_metrics()) {
+  router_metrics = pk_metrics_setup("endpoint_router",
+                                    options.name, 
+                                    message_metrics_table, 
+                                    COUNT_OF(message_metrics_table));
+  if (router_metrics == NULL) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 

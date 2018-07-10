@@ -65,6 +65,7 @@ typedef union pk_metrics_value_s {
 
 typedef struct {
   pk_metrics_value_t value;
+	pk_metrics_t *metrics;
   void *context;
 } pk_metrics_update_t;
 
@@ -75,8 +76,27 @@ typedef pk_metrics_value_t (* pk_metrics_updater_fn_t)(pk_metrics_type_t type,
 typedef pk_metrics_value_t (* pk_metrics_reset_fn_t)(pk_metrics_type_t type,
                                                      pk_metrics_value_t initial);
 
+typedef struct {
+  const char* folder;
+  const char* name;
+  pk_metrics_type_t type;
+  pk_metrics_updater_fn_t updater;
+  pk_metrics_reset_fn_t reseter;
+  ssize_t *idx;
+	void *context;
+} _pk_metrics_table_entry_t;
 
-pk_metrics_t * pk_metrics_create(void);
+typedef struct {
+	ssize_t *index_of_num;
+	ssize_t *index_of_dom;
+} pk_metrics_average_t;
+
+pk_metrics_t * _pk_metrics_create(void);
+
+pk_metrics_t* pk_metrics_setup(const char* metrics_base_name,
+                               const char* metrics_suffix,
+                               _pk_metrics_table_entry_t metrics_table[],
+                               size_t entry_count);
 
 void pk_metrics_destory(pk_metrics_t **metrics_loc);
 
@@ -96,7 +116,8 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
                        pk_metrics_type_t type,
                        pk_metrics_value_t initial_value,
                        pk_metrics_updater_fn_t updater_fn,
-                       pk_metrics_reset_fn_t reset_fn);
+                       pk_metrics_reset_fn_t reset_fn,
+											 void* context);
 
 int _pk_metrics_update(pk_metrics_t *metrics,
                        size_t metric_index,
@@ -118,6 +139,10 @@ pk_metrics_value_t pk_metrics_updater_count(pk_metrics_type_t type,
                                             pk_metrics_value_t current_value,
                                             pk_metrics_update_t update);
 
+pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
+                                              pk_metrics_value_t current_value,
+                                              pk_metrics_update_t update);
+
 pk_metrics_value_t pk_metrics_updater_max(pk_metrics_type_t type,
                                           pk_metrics_value_t current_value,
                                           pk_metrics_update_t update);
@@ -138,12 +163,18 @@ const char* pk_metrics_status_text(pk_metrics_status_t status);
 #define PK_METRICS_UPDATE(TheMetrics, MetricIndex, ...) \
   _pk_metrics_update(TheMetrics, MetricIndex, NARGS(__VA_ARGS__), ## __VA_ARGS__)
 
-__attribute__((always_inline)) inline pk_metrics_value_t pk_metrics_u32 (u32               v   ) { return (pk_metrics_value_t) { .u32  = v    }; }
-__attribute__((always_inline)) inline pk_metrics_value_t pk_metrics_u64 (u64               v   ) { return (pk_metrics_value_t) { .u64  = v    }; }
-__attribute__((always_inline)) inline pk_metrics_value_t pk_metrics_s32 (s32               v   ) { return (pk_metrics_value_t) { .s32  = v    }; }
-__attribute__((always_inline)) inline pk_metrics_value_t pk_metrics_s64 (s64               v   ) { return (pk_metrics_value_t) { .s64  = v    }; }
-__attribute__((always_inline)) inline pk_metrics_value_t pk_metrics_f64 (double            v   ) { return (pk_metrics_value_t) { .f64  = v    }; }
-__attribute__((always_inline)) inline pk_metrics_value_t pk_metrics_time(pk_metrics_time_t time) { return (pk_metrics_value_t) { .time = time }; }
+#define _DEF_METRICS_CONV_FUNC(TheType, TheParamType)         \
+  __attribute__((always_inline)) inline pk_metrics_value_t              \
+  pk_metrics_ ## TheType (TheParamType v) { return (pk_metrics_value_t) { .TheType = v }; }
+
+_DEF_METRICS_CONV_FUNC(u32,  u32)
+_DEF_METRICS_CONV_FUNC(u64,  u64)
+_DEF_METRICS_CONV_FUNC(s32,  s32)
+_DEF_METRICS_CONV_FUNC(s64,  s64)
+_DEF_METRICS_CONV_FUNC(f64,  double)
+_DEF_METRICS_CONV_FUNC(time, pk_metrics_time_t)
+
+#undef _DEF_METRICS_CONV_FUNC
 
 #define PK_METRICS_AS_TIME(TheValue) \
   ((pk_metrics_time_t) { .ns = (s64)(TheValue) })
@@ -161,6 +192,8 @@ __attribute__((always_inline)) inline pk_metrics_value_t pk_metrics_time(pk_metr
 #ifdef __cplusplus
 }
 #endif
+
+#include <libpiksi/metrics_table.h>
 
 #endif /* LIBPIKSI_METRICS_H */
 

@@ -4,7 +4,7 @@ SOURCES= \
 	endpoint_router_load.c \
 	endpoint_router_print.c
 LIBS=-luv -lnanomsg -lsbp -lpiksi -lyaml
-CFLAGS=-std=gnu11 -Wall
+CFLAGS=-std=gnu11 -Wall -save-temps
 
 CROSS=
 
