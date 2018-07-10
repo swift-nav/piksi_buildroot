@@ -1,7 +1,7 @@
 #!/bin/sh
 
 name="endpoint_router_rtcm3"
-cmd="endpoint_router -f /etc/endpoint_router/rtcm3_router.yml"
+cmd="endpoint_router --name rtcm3 -f /etc/endpoint_router/rtcm3_router.yml"
 dir="/"
 user="rt_rtcm3"
 
