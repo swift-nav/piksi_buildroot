@@ -40,6 +40,7 @@ typedef struct {
   FILE* stream;
   pk_metrics_value_t initial_value;
   pk_metrics_value_t value;
+  void *context;
 } metrics_descriptor_t;
 
 struct pk_metrics_s {
@@ -49,13 +50,76 @@ struct pk_metrics_s {
 
 static int mkpath(char *dir, mode_t mode);
 static void write_metric(const metrics_descriptor_t *desc);
+static u64 get_denominator_value(pk_metrics_type_t type, const pk_metrics_value_t *value);
 
-pk_metrics_t * pk_metrics_create(void)
+pk_metrics_t * _pk_metrics_create(void)
 {
   pk_metrics_t *metrics = calloc(1, sizeof(pk_metrics_t));
   if (metrics == NULL) return NULL;
 
   return metrics;
+}
+
+pk_metrics_t* pk_metrics_setup(const char* metrics_base_name,
+                               const char* metrics_suffix,
+                               _pk_metrics_table_entry_t metrics_table[],
+                               size_t entry_count)
+{
+  size_t count = 0;
+  char metrics_folder[128] = {0};
+  const char* metrics_name = NULL;
+  ssize_t metrics_index = -1;
+
+  pk_metrics_t *metrics = _pk_metrics_create();
+
+  if (metrics == NULL) {
+    piksi_log(LOG_ERR, "metrics create failed");
+    return NULL;
+  }
+
+  pk_metrics_value_t empty_value = { 0 };
+
+  for (size_t idx = 0; idx < entry_count; idx++) {
+
+    if (strlen(metrics_suffix) > 0) {
+      count = snprintf(metrics_folder, sizeof(metrics_folder),
+                       "%s_%s/%s", metrics_base_name, metrics_suffix, metrics_table[idx].folder);
+    } else {
+      count = snprintf(metrics_folder, sizeof(metrics_folder),
+                       "%s/%s", metrics_base_name, metrics_table[idx].folder);
+    }
+    assert( count < sizeof(metrics_folder) );
+
+    metrics_name = metrics_table[idx].name;
+
+    metrics_index =
+      pk_metrics_add(metrics,
+                     metrics_folder,
+                     metrics_name,
+                     metrics_table[idx].type,
+                     empty_value,
+                     metrics_table[idx].updater,
+                     metrics_table[idx].reseter,
+                     metrics_table[idx].context);
+
+    if (metrics_index < 0) {
+      goto fail;
+    }
+
+    *metrics_table[idx].idx = metrics_index;
+  }
+
+  return metrics;
+
+fail:
+  piksi_log(LOG_ERR, "metrics add for '%s/%s' failed: %s",
+            metrics_folder,
+            metrics_name,
+            pk_metrics_status_text(metrics_index));
+
+  pk_metrics_destory(&metrics);
+
+  return NULL;
 }
 
 void pk_metrics_destory(pk_metrics_t **metrics_loc)
@@ -78,7 +142,8 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
                        pk_metrics_type_t type,
                        pk_metrics_value_t initial_value,
                        pk_metrics_updater_fn_t updater_fn,
-                       pk_metrics_reset_fn_t reset_fn)
+                       pk_metrics_reset_fn_t reset_fn,
+                       void *context)
 {
   if (metrics->count >= MAX_METRICS) {
     return METRICS_STATUS_NO_SLOTS;
@@ -120,6 +185,7 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
   desc->reset_fn = reset_fn;
   desc->initial_value = initial_value;
   desc->value = reset_fn(type, initial_value);
+  desc->context = context;
 
   write_metric(desc);
 
@@ -147,7 +213,12 @@ int _pk_metrics_update(pk_metrics_t *metrics,
     return METRICS_STATUS_INVALID_INDEX;
   }
 
+  metrics_descriptor_t *desc = &metrics->descriptors[metrics_index];
+
   pk_metrics_update_t update;
+
+  update.context = desc->context;
+  update.metrics = metrics;
 
   va_list args;
   va_start(args, nargs);
@@ -156,7 +227,6 @@ int _pk_metrics_update(pk_metrics_t *metrics,
 
   va_end(args);
 
-  metrics_descriptor_t *desc = &metrics->descriptors[metrics_index];
   desc->value = desc->update_fn(desc->type, desc->value, update);
 
   return METRICS_STATUS_SUCCESS;
@@ -235,7 +305,6 @@ pk_metrics_value_t pk_metrics_reset_time(pk_metrics_type_t type,
   return (pk_metrics_value_t) { .time = pk_metrics_gettime() };
 }
 
-
 pk_metrics_value_t pk_metrics_updater_sum(pk_metrics_type_t type,
                                           pk_metrics_value_t current_value,
                                           pk_metrics_update_t update)
@@ -290,6 +359,61 @@ pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
   assert( false );
 }
 
+pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
+                                              pk_metrics_value_t current_value,
+                                              pk_metrics_update_t update)
+{
+  pk_metrics_average_t *average = update.context;
+  pk_metrics_t *metrics = update.metrics;
+
+  pk_metrics_value_t num;
+  pk_metrics_read(metrics, *average->index_of_num, &num);
+
+  pk_metrics_value_t dom;
+  pk_metrics_read(metrics, *average->index_of_dom, &dom);
+
+  pk_metrics_type_t num_type = metrics->descriptors[*average->index_of_num].type;
+  pk_metrics_type_t dom_type = metrics->descriptors[*average->index_of_dom].type;
+
+  assert( num_type == type );
+
+  // TODO: Find a more intelligent way to mix types
+
+  switch(type) {
+  case METRICS_TYPE_U32: {
+    u32 dom_value = (u32)get_denominator_value(dom_type, &dom);
+    return (pk_metrics_value_t) { .u32 = dom_value == 0 ? 0 : (num.u32 / dom_value) };
+  }
+  case METRICS_TYPE_S32: {
+    s32 dom_value = (s32)get_denominator_value(dom_type, &dom);
+    return (pk_metrics_value_t) { .s32 = dom_value == 0 ? 0 : (num.s32 / dom_value) };
+  }
+  case METRICS_TYPE_U64: {
+    u64 dom_value = (u64)get_denominator_value(dom_type, &dom);
+    return (pk_metrics_value_t) { .u64 = dom_value == 0 ? 0 : (num.u64 / dom_value) };
+  }
+  case METRICS_TYPE_S64: {
+    s64 dom_value = (s64)get_denominator_value(dom_type, &dom);
+    return (pk_metrics_value_t) { .s64 = dom_value == 0 ? 0 : (num.s64 / dom_value) };
+  }
+  case METRICS_TYPE_F64: {
+    double dom_value = (double)get_denominator_value(dom_type, &dom);
+    return (pk_metrics_value_t) { .f64 = dom_value == 0 ? 0 : (num.f64 / dom_value) };
+  }
+  case METRICS_TYPE_TIME: {
+    u64 dom_value = (u64)get_denominator_value(dom_type, &dom);
+    return (pk_metrics_value_t) { .time.ns = dom_value == 0 ? 0 : (num.time.ns / dom_value) };
+  }
+  case METRICS_TYPE_STR:
+    // TODO: Implement, leave as an error?
+  case METRICS_TYPE_UNKNOWN:
+  default:
+    break;
+  }
+
+  assert( false );
+}
+
 pk_metrics_value_t pk_metrics_updater_max(pk_metrics_type_t type,
                                           pk_metrics_value_t current_value,
                                           pk_metrics_update_t update)
@@ -317,12 +441,38 @@ pk_metrics_value_t pk_metrics_updater_max(pk_metrics_type_t type,
   assert( false );
 }
 
+pk_metrics_value_t pk_metrics_updater_count(pk_metrics_type_t type,
+                                            pk_metrics_value_t current_value,
+                                            pk_metrics_update_t update)
+{
+  switch(type) {
+  case METRICS_TYPE_U32:
+    return (pk_metrics_value_t) { .u32 = current_value.u32 + 1 };
+  case METRICS_TYPE_S32:
+    return (pk_metrics_value_t) { .s32 = current_value.s32 + 1 };
+  case METRICS_TYPE_U64:
+    return (pk_metrics_value_t) { .u64 = current_value.u64 + 1 };
+  case METRICS_TYPE_S64:
+    return (pk_metrics_value_t) { .s64 = current_value.s64 + 1 };
+  case METRICS_TYPE_F64:
+    return (pk_metrics_value_t) { .f64 = current_value.f64 + 1 };
+  case METRICS_TYPE_TIME:
+  case METRICS_TYPE_STR:
+  case METRICS_TYPE_UNKNOWN:
+  default:
+    break;
+  }
+
+  assert( false );
+}
+
 pk_metrics_value_t pk_metrics_updater_assign(pk_metrics_type_t type,
                                              pk_metrics_value_t current_value,
                                              pk_metrics_update_t update)
 {
   return update.value;
 }
+
 
 static int mkpath(char *dir, mode_t mode)
 {
@@ -375,4 +525,25 @@ static void write_metric(const metrics_descriptor_t *desc)
     assert( false );
     break;
   }
+}
+
+static u64 get_denominator_value(pk_metrics_type_t type, const pk_metrics_value_t *value_in)
+{
+  // TODO: Find some more intelligent way to do this...
+
+  u64 value; 
+  switch(type) { 
+    case METRICS_TYPE_U32:  value = (u64)value_in->u32;     break;
+    case METRICS_TYPE_U64:  value = (u64)value_in->u64;     break;
+    case METRICS_TYPE_S32:  value = (u64)value_in->s32;     break;
+    case METRICS_TYPE_S64:  value = (u64)value_in->s64;     break;
+    case METRICS_TYPE_F64:  value = (u64)value_in->f64;     break;
+    case METRICS_TYPE_TIME: value = (u64)value_in->time.ns; break;
+    case METRICS_TYPE_STR: 
+    case METRICS_TYPE_UNKNOWN: 
+    default: 
+       assert( false ); 
+  }
+
+  return value;
 }
