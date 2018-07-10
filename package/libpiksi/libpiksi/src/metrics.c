@@ -16,8 +16,11 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -32,7 +35,8 @@
 
 typedef struct {
   pk_metrics_type_t type;
-  pk_metrics_updater_fn_t updater;
+  pk_metrics_updater_fn_t update_fn;
+  pk_metrics_reset_fn_t reset_fn;
   FILE* stream;
   pk_metrics_value_t initial_value;
   pk_metrics_value_t value;
@@ -73,7 +77,8 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
                        const char* name,
                        pk_metrics_type_t type,
                        pk_metrics_value_t initial_value,
-                       pk_metrics_updater_fn_t updater_fn)
+                       pk_metrics_updater_fn_t updater_fn,
+                       pk_metrics_reset_fn_t reset_fn)
 {
   if (metrics->count >= MAX_METRICS) {
     return METRICS_STATUS_NO_SLOTS;
@@ -111,9 +116,10 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
   }
 
   desc->type = type;
-  desc->updater = updater_fn;
+  desc->update_fn = updater_fn;
+  desc->reset_fn = reset_fn;
   desc->initial_value = initial_value;
-  desc->value = initial_value;
+  desc->value = reset_fn(type, initial_value);
 
   write_metric(desc);
 
@@ -128,10 +134,10 @@ void pk_metrics_flush(const pk_metrics_t *metrics)
   }
 }
 
-int pk_metrics_update(pk_metrics_t *metrics,
-                      size_t metrics_index,
-                      pk_metrics_value_t new_value,
-                      void *context)
+int _pk_metrics_update(pk_metrics_t *metrics,
+                       size_t metrics_index,
+                       int nargs,
+                       ...)
 {
   if (metrics == NULL) {
     return METRICS_STATUS_SILENT_FAIL;
@@ -141,8 +147,17 @@ int pk_metrics_update(pk_metrics_t *metrics,
     return METRICS_STATUS_INVALID_INDEX;
   }
 
+  pk_metrics_update_t update;
+
+  va_list args;
+  va_start(args, nargs);
+
+  if (nargs == 1) update.value = va_arg(args, pk_metrics_value_t);
+
+  va_end(args);
+
   metrics_descriptor_t *desc = &metrics->descriptors[metrics_index];
-  desc->value = desc->updater(desc->type, desc->value, new_value, context);
+  desc->value = desc->update_fn(desc->type, desc->value, update);
 
   return METRICS_STATUS_SUCCESS;
 }
@@ -159,7 +174,7 @@ int pk_metrics_reset(pk_metrics_t *metrics,
   }
 
   metrics_descriptor_t *desc = &metrics->descriptors[metrics_index];
-  desc->value = desc->initial_value;
+  desc->value = desc->reset_fn(desc->type, desc->initial_value);
 
   return METRICS_STATUS_SUCCESS;
 }
@@ -197,24 +212,101 @@ const char* pk_metrics_status_text(pk_metrics_status_t status)
   }
 }
 
+pk_metrics_time_t pk_metrics_gettime()
+{
+  struct timespec s;
+
+  int rc = clock_gettime(CLOCK_MONOTONIC, &s);
+  assert( rc == 0 );
+
+  return (pk_metrics_time_t) { .ns = (s.tv_sec * 1e9) + s.tv_nsec };
+}
+
+pk_metrics_value_t pk_metrics_reset_default(pk_metrics_type_t type,
+                                            pk_metrics_value_t initial)
+{
+  return initial;
+}
+
+pk_metrics_value_t pk_metrics_reset_time(pk_metrics_type_t type,
+                                         pk_metrics_value_t initial)
+{
+  (void) initial;
+  return (pk_metrics_value_t) { .time = pk_metrics_gettime() };
+}
+
+
 pk_metrics_value_t pk_metrics_updater_sum(pk_metrics_type_t type,
                                           pk_metrics_value_t current_value,
-                                          pk_metrics_value_t new_value,
-                                          void *context)
+                                          pk_metrics_update_t update)
 {
-  (void) context;
-
   switch(type) {
   case METRICS_TYPE_U32:
-    return (pk_metrics_value_t) { .u32 = current_value.u32 + new_value.u32 };
+    return (pk_metrics_value_t) { .u32 = current_value.u32 + update.value.u32 };
   case METRICS_TYPE_S32:
-    return (pk_metrics_value_t) { .s32 = current_value.s32 + new_value.s32 };
+    return (pk_metrics_value_t) { .s32 = current_value.s32 + update.value.s32 };
   case METRICS_TYPE_U64:
-    return (pk_metrics_value_t) { .u64 = current_value.u64 + new_value.u64 };
+    return (pk_metrics_value_t) { .u64 = current_value.u64 + update.value.u64 };
   case METRICS_TYPE_S64:
-    return (pk_metrics_value_t) { .s64 = current_value.s64 + new_value.s64 };
+    return (pk_metrics_value_t) { .s64 = current_value.s64 + update.value.s64 };
   case METRICS_TYPE_F64:
-    return (pk_metrics_value_t) { .f64 = current_value.f64 + new_value.f64 };
+    return (pk_metrics_value_t) { .f64 = current_value.f64 + update.value.f64 };
+  case METRICS_TYPE_TIME:
+    return (pk_metrics_value_t) { .time.ns = current_value.time.ns + update.value.time.ns };
+  case METRICS_TYPE_STR:
+    // TODO: Implement, leave as an error?
+  case METRICS_TYPE_UNKNOWN:
+  default:
+    break;
+  }
+
+  assert( false );
+}
+
+pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
+                                            pk_metrics_value_t current_value,
+                                            pk_metrics_update_t update)
+{
+  switch(type) {
+  case METRICS_TYPE_U32:
+    return (pk_metrics_value_t) { .u32 = update.value.u32 - current_value.u32 };
+  case METRICS_TYPE_S32:
+    return (pk_metrics_value_t) { .s32 = update.value.s32 - current_value.s32 };
+  case METRICS_TYPE_U64:
+    return (pk_metrics_value_t) { .u64 = update.value.u64 - current_value.u64 };
+  case METRICS_TYPE_S64:
+    return (pk_metrics_value_t) { .s64 = update.value.s64 - current_value.s64 };
+  case METRICS_TYPE_F64:
+    return (pk_metrics_value_t) { .f64 = update.value.f64 - current_value.f64 };
+  case METRICS_TYPE_TIME:
+    return (pk_metrics_value_t) { .time = update.value.time.ns - current_value.time.ns };
+  case METRICS_TYPE_STR:
+    // TODO: Implement, leave as an error?
+  case METRICS_TYPE_UNKNOWN:
+  default:
+    break;
+  }
+
+  assert( false );
+}
+
+pk_metrics_value_t pk_metrics_updater_max(pk_metrics_type_t type,
+                                          pk_metrics_value_t current_value,
+                                          pk_metrics_update_t update)
+{
+  switch(type) {
+  case METRICS_TYPE_U32:
+    return (pk_metrics_value_t) { .u32 = SWFT_MAX(current_value.u32, update.value.u32) };
+  case METRICS_TYPE_S32:
+    return (pk_metrics_value_t) { .s32 = SWFT_MAX(current_value.s32, update.value.s32) };
+  case METRICS_TYPE_U64:
+    return (pk_metrics_value_t) { .u64 = SWFT_MAX(current_value.u64, update.value.u64) };
+  case METRICS_TYPE_S64:
+    return (pk_metrics_value_t) { .s64 = SWFT_MAX(current_value.s64, update.value.s64) };
+  case METRICS_TYPE_F64:
+    return (pk_metrics_value_t) { .f64 = SWFT_MAX(current_value.f64, update.value.f64) };
+  case METRICS_TYPE_TIME:
+    return (pk_metrics_value_t) { .time.ns = SWFT_MAX(current_value.time.ns, update.value.time.ns) };
   case METRICS_TYPE_STR:
     // TODO: Implement, leave as an error?
   case METRICS_TYPE_UNKNOWN:
@@ -227,11 +319,9 @@ pk_metrics_value_t pk_metrics_updater_sum(pk_metrics_type_t type,
 
 pk_metrics_value_t pk_metrics_updater_assign(pk_metrics_type_t type,
                                              pk_metrics_value_t current_value,
-                                             pk_metrics_value_t new_value,
-                                             void *context)
+                                             pk_metrics_update_t update)
 {
-  (void) context;
-  return new_value;
+  return update.value;
 }
 
 static int mkpath(char *dir, mode_t mode)
@@ -253,6 +343,9 @@ static int mkpath(char *dir, mode_t mode)
 static void write_metric(const metrics_descriptor_t *desc)
 {
   fseek(desc->stream, 0, SEEK_SET);
+  ftruncate(fileno(desc->stream), 0);
+
+  double timeval = 0;
 
   switch(desc->type) {
   case METRICS_TYPE_U32:
@@ -269,6 +362,10 @@ static void write_metric(const metrics_descriptor_t *desc)
     break;
   case METRICS_TYPE_F64:
     fprintf(desc->stream, "%f\n", desc->value.s64);
+    break;
+  case METRICS_TYPE_TIME:
+    timeval = (double)desc->value.time.ns / 1e6;
+    fprintf(desc->stream, "%0.03f\n", timeval);
     break;
   case METRICS_TYPE_STR:
     fprintf(desc->stream, "%s\n", desc->value.str);
