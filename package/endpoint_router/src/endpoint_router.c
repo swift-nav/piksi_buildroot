@@ -19,30 +19,38 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/metrics.h>
 #include <libpiksi/util.h>
+#include <libpiksi/protocols.h>
+#include <libpiksi/framer.h>
 
 #include "endpoint_router.h"
 #include "endpoint_router_load.h"
 #include "endpoint_router_print.h"
 
+#define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
+#define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
+
 #define PROGRAM_NAME "router"
 
 #define MI metrics_indexes
 #define MT message_metrics_table
+#define MR router_metrics
 
 PK_METRICS_TABLE(message_metrics_table, MI,
 
-  PK_METRICS_ENTRY("message/count",    "per_second", M_U32,  M_UPDATE_COUNT,   M_RESET_DEF,  count),
-  PK_METRICS_ENTRY("message/size",     ".total",     M_U32,  M_UPDATE_SUM,     M_RESET_DEF,  size_total),
-  PK_METRICS_ENTRY("message/size",     "per_second", M_U32,  M_UPDATE_AVERAGE, M_RESET_DEF,  size, 
-                   M_AVERAGE_OF(MI, size_total, count)),
-  PK_METRICS_ENTRY("message/wake_ups", "per_second", M_U32,  M_UPDATE_COUNT,   M_RESET_DEF,  wakeups),
-  PK_METRICS_ENTRY("message/wake_ups", "max",        M_U32,  M_UPDATE_MAX,     M_RESET_DEF,  wakeups_max),
-  PK_METRICS_ENTRY("message/wake_ups", ".total",     M_U32,  M_UPDATE_COUNT,   M_RESET_DEF,  wakeups_message_count),
-  PK_METRICS_ENTRY("message/latency",  "max",        M_TIME, M_UPDATE_MAX,     M_RESET_DEF,  latency_max),
-  PK_METRICS_ENTRY("message/latency",  ".delta",     M_TIME, M_UPDATE_DELTA,   M_RESET_TIME, latency_delta),
-  PK_METRICS_ENTRY("message/latency",  ".total",     M_TIME, M_UPDATE_SUM,     M_RESET_DEF,  latency_total),
-  PK_METRICS_ENTRY("message/latency",  "per_second", M_TIME, M_UPDATE_AVERAGE, M_RESET_DEF,  latency,
-                   M_AVERAGE_OF(MI, latency_total, count))
+  PK_METRICS_ENTRY("message/count",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
+  PK_METRICS_ENTRY("message/size",     ".total",      M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  size_total),
+  PK_METRICS_ENTRY("message/size",     "per_second",  M_U32,   M_UPDATE_AVERAGE, M_RESET_DEF,  size,
+                   M_AVERAGE_OF(MI,    size_total,    count)),
+  PK_METRICS_ENTRY("message/wake_ups", "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups),
+  PK_METRICS_ENTRY("message/wake_ups", "max",         M_U32,   M_UPDATE_MAX,     M_RESET_DEF,  wakeups_max),
+  PK_METRICS_ENTRY("message/wake_ups", ".total",      M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups_message_count),
+  PK_METRICS_ENTRY("message/latency",  "max",         M_TIME,  M_UPDATE_MAX,     M_RESET_DEF,  latency_max),
+  PK_METRICS_ENTRY("message/latency",  ".delta",      M_TIME,  M_UPDATE_DELTA,   M_RESET_TIME, latency_delta),
+  PK_METRICS_ENTRY("message/latency",  ".total",      M_TIME,  M_UPDATE_SUM,     M_RESET_DEF,  latency_total),
+  PK_METRICS_ENTRY("message/latency",  "per_second",  M_TIME,  M_UPDATE_AVERAGE, M_RESET_DEF,  latency,
+                   M_AVERAGE_OF(MI,    latency_total, count)),
+  PK_METRICS_ENTRY("frame/count",      "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
+  PK_METRICS_ENTRY("frame/leftover",   "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers)
  )
 
 static struct {
@@ -50,22 +58,29 @@ static struct {
   const char *name;
   bool print;
   bool debug;
+  bool process_sbp;
 } options = {
   .filename = NULL,
   .name = NULL,
   .print = false,
-  .debug = false
+  .debug = false,
+  .process_sbp = false,
 };
 
 static pk_metrics_t *router_metrics = NULL;
+static framer_t *framer_sbp = NULL;
 
 static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context);
+static void process_buffer(port_t *port, const u8 *data, const size_t length);
+static void process_buffer_via_framer(port_t *port, const u8 *data, const size_t length);
 
 static void usage(char *command)
 {
   printf("Usage: %s\n", command);
 
   puts("-f, --file <config.yml>");
+  puts("--name <name>");
+  puts("--sbp");
   puts("--print");
   puts("--debug");
 }
@@ -75,7 +90,8 @@ static int parse_options(int argc, char *argv[])
   enum {
     OPT_ID_PRINT = 1,
     OPT_ID_NAME,
-    OPT_ID_DEBUG
+    OPT_ID_DEBUG,
+    OPT_ID_SBP,
   };
 
   const struct option long_opts[] = {
@@ -83,6 +99,7 @@ static int parse_options(int argc, char *argv[])
     {"name",      required_argument, 0, OPT_ID_NAME},
     {"print",     no_argument,       0, OPT_ID_PRINT},
     {"debug",     no_argument,       0, OPT_ID_DEBUG},
+    {"sbp",       no_argument,       0, OPT_ID_SBP},
     {0, 0, 0, 0}
   };
 
@@ -109,6 +126,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_DEBUG: {
         options.debug = true;
+      }
+      break;
+
+      case OPT_ID_SBP: {
+        options.process_sbp = true;
       }
       break;
 
@@ -295,6 +317,46 @@ static void rule_process(forwarding_rule_t *forwarding_rule,
   }
 }
 
+static void process_buffer_via_framer(port_t *port, const u8 *data, const size_t length)
+{
+  size_t buffer_index = 0;
+
+  u32 frame_count = 0;
+  u32 leftover = 0;
+
+  while (buffer_index < length) {
+
+    const uint8_t *frame;
+    uint32_t frame_length;
+
+    buffer_index +=
+        framer_process(framer_sbp,
+                       &data[buffer_index],
+                       length - buffer_index,
+                       &frame, &frame_length);
+
+    if (frame == NULL) break;
+
+    process_buffer(port, frame, frame_length);    
+    frame_count += 1;
+  }
+
+  leftover = length - buffer_index;
+
+  PK_METRICS_UPDATE(MR, MI.frame_count, PK_METRICS_VALUE(frame_count));
+  PK_METRICS_UPDATE(MR, MI.frame_leftovers, PK_METRICS_VALUE(leftover));
+}
+
+static void process_buffer(port_t *port, const u8 *data, const size_t length)
+{
+  /* Iterate over forwarding rules */
+  forwarding_rule_t *forwarding_rule;
+  for (forwarding_rule = port->forwarding_rules_list; forwarding_rule != NULL;
+       forwarding_rule = forwarding_rule->next) {
+    rule_process(forwarding_rule, data, length);
+  }
+}
+
 static int reader_fn(const u8 *data, const size_t length, void *context)
 {
   port_t *port = (port_t *)context;
@@ -304,11 +366,10 @@ static int reader_fn(const u8 *data, const size_t length, void *context)
 
   PK_METRICS_UPDATE(router_metrics, MI.size_total, PK_METRICS_VALUE((u32) length));
 
-  /* Iterate over forwarding rules */
-  forwarding_rule_t *forwarding_rule;
-  for (forwarding_rule = port->forwarding_rules_list; forwarding_rule != NULL;
-       forwarding_rule = forwarding_rule->next) {
-    rule_process(forwarding_rule, data, length);
+  if (options.process_sbp) {
+    process_buffer_via_framer(port, data, length);
+  } else {
+    process_buffer(port, data, length);
   }
 
   return 0;
@@ -364,17 +425,20 @@ static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_m
 
 static void loop_1s_metrics(pk_loop_t *loop, void *handle, void *context)
 {
-  PK_METRICS_UPDATE(router_metrics, MI.size);
-  PK_METRICS_UPDATE(router_metrics, MI.latency);
+  PK_METRICS_UPDATE(MR, MI.size);
+  PK_METRICS_UPDATE(MR, MI.latency);
 
-  pk_metrics_flush(router_metrics);
+  pk_metrics_flush(MR);
 
-  pk_metrics_reset(router_metrics, MI.count);
-  pk_metrics_reset(router_metrics, MI.size_total);
-  pk_metrics_reset(router_metrics, MI.wakeups);
-  pk_metrics_reset(router_metrics, MI.latency);
-  pk_metrics_reset(router_metrics, MI.latency_max);
-  pk_metrics_reset(router_metrics, MI.latency_total);
+  pk_metrics_reset(MR, MI.count);
+  pk_metrics_reset(MR, MI.size_total);
+  pk_metrics_reset(MR, MI.wakeups);
+  pk_metrics_reset(MR, MI.wakeups_max);
+  pk_metrics_reset(MR, MI.latency);
+  pk_metrics_reset(MR, MI.latency_max);
+  pk_metrics_reset(MR, MI.latency_total);
+  pk_metrics_reset(MR, MI.frame_count);
+  pk_metrics_reset(MR, MI.frame_leftovers);
 
   pk_loop_timer_reset(handle);
 }
@@ -389,6 +453,24 @@ int main(int argc, char *argv[])
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
+  }
+
+  if (options.process_sbp) {
+
+    const char *protocol_library_path = getenv(PROTOCOL_LIBRARY_PATH_ENV_NAME);
+    if (protocol_library_path == NULL) {
+      protocol_library_path = PROTOCOL_LIBRARY_PATH_DEFAULT;
+    }
+
+    if (protocols_import(protocol_library_path) != 0) {
+      syslog(LOG_ERR, "error importing protocols");
+      fprintf(stderr, "error importing protocols\n");
+      exit(EXIT_FAILURE);
+    }
+
+    // TODO: Clean-up
+    framer_sbp = framer_create("sbp");
+    assert( framer_sbp != NULL );
   }
 
   /* Load router from config file */
@@ -443,7 +525,7 @@ static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_m
 {
   router_teardown(router_loc);
   pk_loop_destroy(loop_loc);
-  pk_metrics_destory(metrics_loc);
+  pk_metrics_destroy(metrics_loc);
   logging_deinit();
   return result;
 }

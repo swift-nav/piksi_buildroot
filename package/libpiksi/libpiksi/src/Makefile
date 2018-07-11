@@ -12,6 +12,11 @@ SOURCES=\
   endpoint.c \
   loop.c \
   metrics.c \
+  framer.c \
+  filter.c \
+  framer_none.c \
+  filter_none.c \
+  protocols.c \
 
 ARFLAGS=rcs $(LTO_PLUGIN)
 CFLAGS+=-std=gnu11 -fPIC -I../include

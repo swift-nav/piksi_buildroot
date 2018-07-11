@@ -10,11 +10,6 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "protocols.h"
-#include "framer.h"
-#include "filter.h"
-#include "framer_none.h"
-#include "filter_none.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,6 +17,13 @@
 #include <limits.h>
 #include <dlfcn.h>
 #include <syslog.h>
+
+#include <libpiksi/protocols.h>
+#include <libpiksi/framer.h>
+#include <libpiksi/filter.h>
+
+#include "framer_none.h"
+#include "filter_none.h"
 
 #define DLSYM_CAST(var) (*(void **) &(var))
 

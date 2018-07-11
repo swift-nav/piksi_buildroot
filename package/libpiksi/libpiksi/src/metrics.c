@@ -117,12 +117,12 @@ fail:
             metrics_name,
             pk_metrics_status_text(metrics_index));
 
-  pk_metrics_destory(&metrics);
+  pk_metrics_destroy(&metrics);
 
   return NULL;
 }
 
-void pk_metrics_destory(pk_metrics_t **metrics_loc)
+void pk_metrics_destroy(pk_metrics_t **metrics_loc)
 {
   if (metrics_loc == NULL || *metrics_loc == NULL) return;
 

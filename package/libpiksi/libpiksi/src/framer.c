@@ -10,11 +10,12 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "framer.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <syslog.h>
+
+#include <libpiksi/framer.h>
 
 typedef struct framer_interface_s {
   const char *name;
