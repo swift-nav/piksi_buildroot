@@ -23,6 +23,8 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
+#include <libpiksi/util.h>
+#include <libpiksi/metrics.h>
 
 #include "endpoint_adapter.h"
 #include "framer.h"
@@ -40,6 +42,27 @@
 #define FILTER_NONE_NAME "none"
 
 #define PROGRAM_NAME "endpoint_adapter"
+
+#define MI metrics_indexes
+#define MT metrics_table
+#define MR metrics_ref
+
+static const u64 one_second_ns = 1e9;
+static u64 last_metrics_flush = 0;
+
+static void do_metrics_flush(void);
+static void setup_metrics(const char* pubsub);
+
+static pk_metrics_t* MR;
+
+PK_METRICS_TABLE(MT, MI,
+
+  PK_METRICS_ENTRY("read/count",           "per_second",    M_U32,        M_UPDATE_COUNT,   M_RESET_DEF, read_count),
+  PK_METRICS_ENTRY("read/size/per_second", "total",         M_U32,        M_UPDATE_SUM,     M_RESET_DEF, read_size_total),
+  PK_METRICS_ENTRY("read/size/per_second", "average",       M_U32,        M_UPDATE_AVERAGE, M_RESET_DEF, read_size_average,
+                   M_AVERAGE_OF(MI,        read_size_total, read_count)),
+  PK_METRICS_ENTRY("error/mismatch",       "total",         M_U32,        M_UPDATE_COUNT,   M_RESET_DEF, mismatch)
+)
 
 typedef enum {
   IO_INVALID,
@@ -583,6 +606,9 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
   debug_printf("io loop begin\n");
 
   while (1) {
+
+    PK_METRICS_UPDATE(MR, MI.read_count);
+
     /* Read from read_handle */
     uint8_t buffer[READ_BUFFER_SIZE];
     ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
@@ -591,6 +617,8 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
           read_count, strerror(errno), errno);
       break;
     }
+
+    PK_METRICS_UPDATE(MR, MI.read_size_total, PK_METRICS_VALUE((u32) read_count));
 
     /* Write to write_handle via framer */
     size_t frames_written;
@@ -607,7 +635,10 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
       syslog(LOG_ERR, "warning: write_count != read_count");
       debug_printf("write_count != read_count %d %d\n",
           write_count, read_count);
+      PK_METRICS_UPDATE(MR, MI.mismatch);
     }
+
+    do_metrics_flush();
   }
 
   debug_printf("io loop end\n");
@@ -635,6 +666,40 @@ static void pid_terminate(pid_t *pid)
   }
 }
 
+static void do_metrics_flush(void) 
+{
+  if (pk_metrics_gettime().ns - last_metrics_flush < one_second_ns) {
+    return;
+  }
+
+  PK_METRICS_UPDATE(MR, MI.read_size_average);
+
+  last_metrics_flush = pk_metrics_gettime().ns;
+
+  pk_metrics_flush(MR);
+
+  pk_metrics_reset(MR, MI.read_count);
+  pk_metrics_reset(MR, MI.read_size_total);
+  pk_metrics_reset(MR, MI.read_size_average);
+} 
+
+static void setup_metrics(const char* pubsub) {
+
+  char suffix[128];
+  size_t count = snprintf(suffix, sizeof(suffix), "%s_%s", port_name, pubsub);
+  assert( count < sizeof(suffix) );
+
+  MR = pk_metrics_setup("endpoint_adapter", suffix, MT, COUNT_OF(MT));
+
+  if (MR == NULL) {
+    syslog(LOG_ERR, "error configuring metrics");
+    fprintf(stderr, "error configuring metrics\n");
+    exit(EXIT_FAILURE);
+  }
+
+  last_metrics_flush = pk_metrics_gettime().ns;
+}
+
 void io_loop_start(int read_fd, int write_fd)
 {
   if (nonblock && write_fd != -1) {
@@ -643,10 +708,10 @@ void io_loop_start(int read_fd, int write_fd)
   }
   switch (endpoint_mode) {
     case ENDPOINT_PUBSUB: {
-
       if (pub_addr != NULL && read_fd != -1) {
         debug_printf("Forking for pub\n");
         pid_t pid = fork();
+        setup_metrics("pub");
         if (pid == 0) {
           /* child process */
           pk_endpoint_t *pub = pk_endpoint_start(PK_ENDPOINT_PUB);
@@ -686,6 +751,7 @@ void io_loop_start(int read_fd, int write_fd)
 
       if (sub_addr != NULL && write_fd != -1) {
         debug_printf("Forking for sub\n");
+        setup_metrics("sub");
         pid_t pid = fork();
         if (pid == 0) {
           /* child process */

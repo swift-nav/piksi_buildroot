@@ -58,15 +58,19 @@ typedef enum {
 
 typedef union {
   struct {
+    char name[16];
     uint32_t port;
   } tcp_server_data;
   struct {
+    char name[16];
     char address[256];
   } tcp_client_data;
   struct {
+    char name[16];
     uint32_t port;
   } udp_server_data;
   struct {
+    char name[16];
     char address[256];
   } udp_client_data;
 } opts_data_t;
@@ -80,28 +84,28 @@ static int opts_get_tcp_server(char *buf, size_t buf_size,
                                const opts_data_t *opts_data)
 {
   uint32_t port = opts_data->tcp_server_data.port;
-  return snprintf(buf, buf_size, "--tcp-l %u", port);
+  return snprintf(buf, buf_size, "--name %s --tcp-l %u", opts_data->tcp_server_data.name, port);
 }
 
 static int opts_get_tcp_client(char *buf, size_t buf_size,
                                const opts_data_t *opts_data)
 {
   const char *address = opts_data->tcp_client_data.address;
-  return snprintf(buf, buf_size, "--tcp-c %s", address);
+  return snprintf(buf, buf_size, "--name %s --tcp-c %s", opts_data->tcp_client_data.name, address);
 }
 
 static int opts_get_udp_server(char *buf, size_t buf_size,
                                const opts_data_t *opts_data)
 {
   uint32_t port = opts_data->udp_server_data.port;
-  return snprintf(buf, buf_size, "--udp-l %u", port);
+  return snprintf(buf, buf_size, "--name %s --udp-l %u", opts_data->udp_server_data.name, port);
 }
 
 static int opts_get_udp_client(char *buf, size_t buf_size,
                                const opts_data_t *opts_data)
 {
   const char *address = opts_data->udp_client_data.address;
-  return snprintf(buf, buf_size, "--udp-c %s", address);
+  return snprintf(buf, buf_size, "--name %s --udp-c %s", opts_data->udp_client_data.name, address);
 }
 
 typedef struct {
@@ -165,6 +169,7 @@ static port_config_t port_configs[] = {
   {
     .name = "tcp_server0",
     .opts = "",
+    .opts_data.tcp_server_data.name = "tcp_server0",
     .opts_data.tcp_server_data.port = 55555,
     .opts_get = opts_get_tcp_server,
     .type = PORT_TYPE_TCP_SERVER,
@@ -177,6 +182,7 @@ static port_config_t port_configs[] = {
   {
     .name = "tcp_server1",
     .opts = "",
+    .opts_data.tcp_server_data.name = "tcp_server1",
     .opts_data.tcp_server_data.port = 55556,
     .opts_get = opts_get_tcp_server,
     .type = PORT_TYPE_TCP_SERVER,
@@ -189,6 +195,7 @@ static port_config_t port_configs[] = {
   {
     .name = "tcp_client0",
     .opts = "",
+    .opts_data.tcp_client_data.name = "tcp_client0",
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
@@ -201,6 +208,7 @@ static port_config_t port_configs[] = {
   {
     .name = "tcp_client1",
     .opts = "",
+    .opts_data.tcp_client_data.name = "tcp_client1",
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
@@ -213,6 +221,7 @@ static port_config_t port_configs[] = {
   {
     .name = "udp_server0",
     .opts = "",
+    .opts_data.udp_server_data.name = "udp_server0",
     .opts_data.udp_server_data.port = 55557,
     .opts_get = opts_get_udp_server,
     .type = PORT_TYPE_UDP_SERVER,
@@ -225,6 +234,7 @@ static port_config_t port_configs[] = {
   {
     .name = "udp_server1",
     .opts = "",
+    .opts_data.udp_server_data.name = "udp_server1",
     .opts_data.udp_server_data.port = 55558,
     .opts_get = opts_get_udp_server,
     .type = PORT_TYPE_UDP_SERVER,
@@ -237,6 +247,7 @@ static port_config_t port_configs[] = {
   {
     .name = "udp_client0",
     .opts = "",
+    .opts_data.udp_client_data.name = "udp_client0",
     .opts_data.udp_client_data.address = "",
     .opts_get = opts_get_udp_client,
     .type = PORT_TYPE_UDP_CLIENT,
@@ -249,6 +260,7 @@ static port_config_t port_configs[] = {
   {
     .name = "udp_client1",
     .opts = "",
+    .opts_data.udp_client_data.name = "udp_client1",
     .opts_data.udp_client_data.address = "",
     .opts_get = opts_get_udp_client,
     .type = PORT_TYPE_UDP_CLIENT,
