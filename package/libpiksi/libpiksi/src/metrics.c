@@ -90,8 +90,7 @@ pk_metrics_t* pk_metrics_setup(const char* metrics_base_name,
                        "%s/%s", metrics_base_name, metrics_table[idx].folder);
     }
 
-    if ( count < sizeof(metrics_folder) ) {
-      
+    if ( count >= sizeof(metrics_folder) ) {
       piksi_log(LOG_ERR, "%s: metrics folder too large (%s:%d)", __FUNCTION__, __FILE__, __LINE__);
       return NULL;
     }
@@ -344,6 +343,8 @@ pk_metrics_value_t pk_metrics_updater_sum(pk_metrics_type_t type,
 
   piksi_log(LOG_WARNING, "%s: invalid update operation (%s:%d)",
             __FUNCTION__, __FILE__, __LINE__);
+
+  return (pk_metrics_value_t) { 0 };
 }
 
 pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
@@ -393,13 +394,13 @@ pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
     return (pk_metrics_value_t) { 0 };
   }
 
-  if (*average->index_of_num < metrics->count ) {
+  if (*average->index_of_num >= metrics->count) {
     piksi_log(LOG_WARNING, "%s: invalid update operation: num index invalid (%s:%d)",
               __FUNCTION__, __FILE__, __LINE__);
     return (pk_metrics_value_t) { 0 };
   }
 
-  if (*average->index_of_dom < metrics->count ) {
+  if (*average->index_of_dom >= metrics->count) {
     piksi_log(LOG_WARNING, "%s: invalid update operation: dom index invalid (%s:%d)",
               __FUNCTION__, __FILE__, __LINE__);
     return (pk_metrics_value_t) { 0 };

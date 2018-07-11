@@ -47,7 +47,7 @@
 #define MT metrics_table
 #define MR metrics_ref
 
-static pk_metrics_t* MR;
+static pk_metrics_t* MR = NULL;
 
 PK_METRICS_TABLE(MT, MI,
 
@@ -751,6 +751,8 @@ static void setup_metrics(const char* pubsub) {
   size_t count = snprintf(suffix, sizeof(suffix), "%s_%s", port_name, pubsub);
   assert( count < sizeof(suffix) );
 
+  assert( MR == NULL );
+
   MR = pk_metrics_setup("endpoint_adapter", suffix, MT, COUNT_OF(MT));
 
   if (MR == NULL) {
@@ -773,8 +775,8 @@ void io_loop_start(int read_fd, int write_fd)
       if (pub_addr != NULL && read_fd != -1) {
         debug_printf("Forking for pub\n");
         pid_t pid = fork();
-        setup_metrics("pub");
         if (pid == 0) {
+          setup_metrics("pub");
           /* child process */
           pk_endpoint_t *pub = pk_endpoint_start(PK_ENDPOINT_PUB);
           if (pub == NULL) {
@@ -814,9 +816,9 @@ void io_loop_start(int read_fd, int write_fd)
 
       if (sub_addr != NULL && write_fd != -1) {
         debug_printf("Forking for sub\n");
-        setup_metrics("sub");
         pid_t pid = fork();
         if (pid == 0) {
+          setup_metrics("sub");
           /* child process */
           pk_endpoint_t *sub = pk_endpoint_start(PK_ENDPOINT_SUB);
           if (sub == NULL) {
