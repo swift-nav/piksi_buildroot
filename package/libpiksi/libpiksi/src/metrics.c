@@ -66,14 +66,15 @@ pk_metrics_t* pk_metrics_setup(const char* metrics_base_name,
                                size_t entry_count)
 {
   size_t count = 0;
-  char metrics_folder[128] = {0};
+  char metrics_folder[PATH_MAX] = {0};
   const char* metrics_name = NULL;
   ssize_t metrics_index = -1;
 
   pk_metrics_t *metrics = _pk_metrics_create();
 
   if (metrics == NULL) {
-    piksi_log(LOG_ERR, "metrics create failed");
+
+    piksi_log(LOG_ERR, "%s: metrics create failed (%s:%d)", __FUNCTION__, __FILE__, __LINE__);
     return NULL;
   }
 
@@ -88,7 +89,12 @@ pk_metrics_t* pk_metrics_setup(const char* metrics_base_name,
       count = snprintf(metrics_folder, sizeof(metrics_folder),
                        "%s/%s", metrics_base_name, metrics_table[idx].folder);
     }
-    assert( count < sizeof(metrics_folder) );
+
+    if ( count < sizeof(metrics_folder) ) {
+      
+      piksi_log(LOG_ERR, "%s: metrics folder too large (%s:%d)", __FUNCTION__, __FILE__, __LINE__);
+      return NULL;
+    }
 
     metrics_name = metrics_table[idx].name;
 
@@ -112,10 +118,13 @@ pk_metrics_t* pk_metrics_setup(const char* metrics_base_name,
   return metrics;
 
 fail:
-  piksi_log(LOG_ERR, "metrics add for '%s/%s' failed: %s",
+  piksi_log(LOG_ERR, "%s: metrics add for '%s/%s' failed: %s (%s:%d)",
+            __FUNCTION__,
             metrics_folder,
             metrics_name,
-            pk_metrics_status_text(metrics_index));
+            pk_metrics_status_text(metrics_index),
+            __FILE__,
+            __LINE__);
 
   pk_metrics_destroy(&metrics);
 
@@ -287,7 +296,13 @@ pk_metrics_time_t pk_metrics_gettime()
   struct timespec s;
 
   int rc = clock_gettime(CLOCK_MONOTONIC, &s);
-  assert( rc == 0 );
+
+  if ( rc != 0 ) {
+    piksi_log(LOG_WARNING, "%s: clock_gettime failed: %s (%s:%d)",
+              __FUNCTION__, strerror(errno), __FILE__, __LINE__);
+
+    return (pk_metrics_time_t) { .ns = 0 };
+  }
 
   return (pk_metrics_time_t) { .ns = (s.tv_sec * 1e9) + s.tv_nsec };
 }
@@ -322,14 +337,13 @@ pk_metrics_value_t pk_metrics_updater_sum(pk_metrics_type_t type,
     return (pk_metrics_value_t) { .f64 = current_value.f64 + update.value.f64 };
   case METRICS_TYPE_TIME:
     return (pk_metrics_value_t) { .time.ns = current_value.time.ns + update.value.time.ns };
-  case METRICS_TYPE_STR:
-    // TODO: Implement, leave as an error?
   case METRICS_TYPE_UNKNOWN:
   default:
     break;
   }
 
-  assert( false );
+  piksi_log(LOG_WARNING, "%s: invalid update operation (%s:%d)",
+            __FUNCTION__, __FILE__, __LINE__);
 }
 
 pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
@@ -349,14 +363,15 @@ pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
     return (pk_metrics_value_t) { .f64 = update.value.f64 - current_value.f64 };
   case METRICS_TYPE_TIME:
     return (pk_metrics_value_t) { .time = update.value.time.ns - current_value.time.ns };
-  case METRICS_TYPE_STR:
-    // TODO: Implement, leave as an error?
   case METRICS_TYPE_UNKNOWN:
   default:
     break;
   }
 
-  assert( false );
+  piksi_log(LOG_WARNING, "%s: invalid update operation (%s:%d)",
+            __FUNCTION__, __FILE__, __LINE__);
+
+  return (pk_metrics_value_t) { 0 };
 }
 
 pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
@@ -365,6 +380,30 @@ pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
 {
   pk_metrics_average_t *average = update.context;
   pk_metrics_t *metrics = update.metrics;
+
+  if (average->index_of_num == NULL) {
+    piksi_log(LOG_WARNING, "%s: invalid update operation: num index NULL (%s:%d)",
+              __FUNCTION__, __FILE__, __LINE__);
+    return (pk_metrics_value_t) { 0 };
+  }
+
+  if (average->index_of_dom == NULL) {
+    piksi_log(LOG_WARNING, "%s: invalid update operation: dom index NULL (%s:%d)",
+              __FUNCTION__, __FILE__, __LINE__);
+    return (pk_metrics_value_t) { 0 };
+  }
+
+  if (*average->index_of_num < metrics->count ) {
+    piksi_log(LOG_WARNING, "%s: invalid update operation: num index invalid (%s:%d)",
+              __FUNCTION__, __FILE__, __LINE__);
+    return (pk_metrics_value_t) { 0 };
+  }
+
+  if (*average->index_of_dom < metrics->count ) {
+    piksi_log(LOG_WARNING, "%s: invalid update operation: dom index invalid (%s:%d)",
+              __FUNCTION__, __FILE__, __LINE__);
+    return (pk_metrics_value_t) { 0 };
+  }
 
   pk_metrics_value_t num;
   pk_metrics_read(metrics, *average->index_of_num, &num);
@@ -375,7 +414,23 @@ pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
   pk_metrics_type_t num_type = metrics->descriptors[*average->index_of_num].type;
   pk_metrics_type_t dom_type = metrics->descriptors[*average->index_of_dom].type;
 
-  assert( num_type == type );
+  if (num_type == METRICS_TYPE_UNKNOWN) {
+    piksi_log(LOG_WARNING, "%s: invalid update operation: num type invalid (%s:%d)",
+              __FUNCTION__, __FILE__, __LINE__);
+    return (pk_metrics_value_t) { 0 };
+  }
+
+  if (dom_type == METRICS_TYPE_UNKNOWN) {
+    piksi_log(LOG_WARNING, "%s: invalid update operation: dom type invalid (%s:%d)",
+              __FUNCTION__, __FILE__, __LINE__);
+    return (pk_metrics_value_t) { 0 };
+  }
+
+  if (num_type != type) {
+    piksi_log(LOG_WARNING, "%s: invalid update operation, num type not equal to update type (%s:%d)",
+              __FUNCTION__, __FILE__, __LINE__);
+    return (pk_metrics_value_t) { 0 };
+  }
 
   // TODO: Find a more intelligent way to mix types
 
@@ -404,14 +459,15 @@ pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
     u64 dom_value = (u64)get_denominator_value(dom_type, &dom);
     return (pk_metrics_value_t) { .time.ns = dom_value == 0 ? 0 : (num.time.ns / dom_value) };
   }
-  case METRICS_TYPE_STR:
-    // TODO: Implement, leave as an error?
   case METRICS_TYPE_UNKNOWN:
   default:
     break;
   }
 
-  assert( false );
+  piksi_log(LOG_WARNING, "%s: invalid update operation (%s:%d)",
+            __FUNCTION__, __FILE__, __LINE__);
+
+  return (pk_metrics_value_t) { 0 };
 }
 
 pk_metrics_value_t pk_metrics_updater_max(pk_metrics_type_t type,
@@ -431,14 +487,15 @@ pk_metrics_value_t pk_metrics_updater_max(pk_metrics_type_t type,
     return (pk_metrics_value_t) { .f64 = SWFT_MAX(current_value.f64, update.value.f64) };
   case METRICS_TYPE_TIME:
     return (pk_metrics_value_t) { .time.ns = SWFT_MAX(current_value.time.ns, update.value.time.ns) };
-  case METRICS_TYPE_STR:
-    // TODO: Implement, leave as an error?
   case METRICS_TYPE_UNKNOWN:
   default:
     break;
   }
 
-  assert( false );
+  piksi_log(LOG_WARNING, "%s: invalid update operation (%s:%d)",
+            __FUNCTION__, __FILE__, __LINE__);
+
+  return (pk_metrics_value_t) { 0 };
 }
 
 pk_metrics_value_t pk_metrics_updater_count(pk_metrics_type_t type,
@@ -457,13 +514,15 @@ pk_metrics_value_t pk_metrics_updater_count(pk_metrics_type_t type,
   case METRICS_TYPE_F64:
     return (pk_metrics_value_t) { .f64 = current_value.f64 + 1 };
   case METRICS_TYPE_TIME:
-  case METRICS_TYPE_STR:
   case METRICS_TYPE_UNKNOWN:
   default:
     break;
   }
 
-  assert( false );
+  piksi_log(LOG_WARNING, "%s: invalid update operation (%s:%d)",
+            __FUNCTION__, __FILE__, __LINE__);
+
+  return (pk_metrics_value_t) { 0 };
 }
 
 pk_metrics_value_t pk_metrics_updater_assign(pk_metrics_type_t type,
@@ -500,31 +559,30 @@ static void write_metric(const metrics_descriptor_t *desc)
   switch(desc->type) {
   case METRICS_TYPE_U32:
     fprintf(desc->stream, "%u\n", desc->value.u32);
-    break;
+    return;
   case METRICS_TYPE_S32:
     fprintf(desc->stream, "%d\n", desc->value.s32);
-    break;
+    return;
   case METRICS_TYPE_U64:
     fprintf(desc->stream, "%llu\n", desc->value.u64);
-    break;
+    return;
   case METRICS_TYPE_S64:
     fprintf(desc->stream, "%lld\n", desc->value.s64);
-    break;
+    return;
   case METRICS_TYPE_F64:
     fprintf(desc->stream, "%f\n", desc->value.s64);
-    break;
+    return;
   case METRICS_TYPE_TIME:
     timeval = (double)desc->value.time.ns / 1e6;
     fprintf(desc->stream, "%0.03f\n", timeval);
-    break;
-  case METRICS_TYPE_STR:
-    fprintf(desc->stream, "%s\n", desc->value.str);
-    break;
+    return;
   case METRICS_TYPE_UNKNOWN:
   default:
-    assert( false );
     break;
   }
+
+  piksi_log(LOG_WARNING, "%s: invalid metric value operation (%s:%d)",
+            __FUNCTION__, __FILE__, __LINE__);
 }
 
 static u64 get_denominator_value(pk_metrics_type_t type, const pk_metrics_value_t *value_in)
@@ -539,7 +597,6 @@ static u64 get_denominator_value(pk_metrics_type_t type, const pk_metrics_value_
     case METRICS_TYPE_S64:  value = (u64)value_in->s64;     break;
     case METRICS_TYPE_F64:  value = (u64)value_in->f64;     break;
     case METRICS_TYPE_TIME: value = (u64)value_in->time.ns; break;
-    case METRICS_TYPE_STR: 
     case METRICS_TYPE_UNKNOWN: 
     default: 
        assert( false ); 

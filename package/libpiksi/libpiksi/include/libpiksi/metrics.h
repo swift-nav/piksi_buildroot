@@ -47,7 +47,6 @@ typedef enum {
   METRICS_TYPE_U32,
   METRICS_TYPE_U64,
   METRICS_TYPE_F64,
-  METRICS_TYPE_STR,
   METRICS_TYPE_TIME,
 } pk_metrics_type_t;
 
@@ -59,7 +58,6 @@ typedef union pk_metrics_value_s {
   u32 u32;
   u64 u64;
   double f64;
-  char str[128];
   pk_metrics_time_t time;
 } pk_metrics_value_t;
 
