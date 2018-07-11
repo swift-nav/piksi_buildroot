@@ -98,7 +98,7 @@ pk_metrics_t* pk_metrics_setup(const char* metrics_base_name,
                                _pk_metrics_table_entry_t metrics_table[],
                                size_t entry_count);
 
-void pk_metrics_destory(pk_metrics_t **metrics_loc);
+void pk_metrics_destroy(pk_metrics_t **metrics_loc);
 
 void pk_metrics_flush(const pk_metrics_t *metrics);
 
