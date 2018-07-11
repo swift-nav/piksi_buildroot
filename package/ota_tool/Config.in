@@ -1,0 +1,5 @@
+config BR2_PACKAGE_OTA_TOOL
+ 	bool "ota_tool"
+ 	depends on BR2_PACKAGE_HOST_RUSTC_ARCH_SUPPORTS
+ 	select BR2_PACKAGE_HOST_RUSTC
+ 	select BR2_PACKAGE_HOST_CARGO
