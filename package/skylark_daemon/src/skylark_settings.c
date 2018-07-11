@@ -50,6 +50,7 @@ static int skylark_upload_daemon_execfn(void) {
 static int skylark_upload_adapter_execfn(void) {
   char *argv[] = {
     "endpoint_adapter",
+    "--name", "skylark_upload"
     "--file", UPLOAD_FIFO_FILE_PATH,
     "-s", "ipc:///var/run/sockets/skylark.pub",
     "--filter-out", "sbp",
@@ -76,6 +77,7 @@ static int skylark_download_daemon_execfn(void) {
 static int skylark_download_adapter_execfn(void) {
   char *argv[] = {
     "endpoint_adapter",
+    "--name", "skylark_download"
     "-f", "sbp",
     "--file", DOWNLOAD_FIFO_FILE_PATH,
     "-p", "ipc:///var/run/sockets/skylark.sub",

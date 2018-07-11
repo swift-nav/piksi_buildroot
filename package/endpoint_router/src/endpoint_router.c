@@ -27,6 +27,7 @@
 #define PROGRAM_NAME "router"
 
 #define MI metrics_indexes
+#define MT message_metrics_table
 
 PK_METRICS_TABLE(message_metrics_table, MI,
 
@@ -415,10 +416,7 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  router_metrics = pk_metrics_setup("endpoint_router",
-                                    options.name, 
-                                    message_metrics_table, 
-                                    COUNT_OF(message_metrics_table));
+  router_metrics = pk_metrics_setup("endpoint_router", options.name, MT, COUNT_OF(MT));
   if (router_metrics == NULL) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
