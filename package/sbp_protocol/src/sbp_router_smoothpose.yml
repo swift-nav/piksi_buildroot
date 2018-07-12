@@ -110,7 +110,7 @@ ports:
 
   - name: SBP_PORT_FILEIO_FIRMWARE
     pub_addr: "ipc:///var/run/sockets/fileio_firmware.pub"
-    sub_addr: "var/run/sockets/fileio_firmware.sub"
+    sub_addr: "ipc:///var/run/sockets/fileio_firmware.sub"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -144,7 +144,7 @@ ports:
         filters:
           - { action: ACCEPT }
       # As long as no receivers echo this message back, then this is not a loop!  This is were
-      #  we actually need a 'bus' style socket
+      #  we actually need a 'bus' style socket.
       - dst_port: SBP_PORT_SETTINGS_CLIENT
         filters:
           - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
