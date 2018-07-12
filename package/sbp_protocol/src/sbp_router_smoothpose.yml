@@ -169,6 +169,7 @@ ports:
   - name: SBP_PORT_NAV_DAEMON  # Entire Section Smoothpose Change**
     pub_addr: "ipc:///var/run/sockets/nav_daemon.pub"
     sub_addr: "ipc:///var/run/sockets/nav_daemon.sub"
+    minimize_sends: True
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
