@@ -45,6 +45,7 @@ typedef struct port_s {
   pk_endpoint_t *pub_ept;
   pk_endpoint_t *sub_ept;
   forwarding_rule_t *forwarding_rules_list;
+  bool minimize_sends;
   struct port_s *next;
 } port_t;
 

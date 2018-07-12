@@ -90,6 +90,8 @@ int sbp_tx_send_from(sbp_tx_ctx_t *ctx,
                      u8 *payload,
                      u16 sbp_sender_id);
 
+pk_endpoint_t * sbp_tx_get_endpoint(sbp_tx_ctx_t *ctx);
+
 #endif /* LIBPIKSI_SBP_TX_H */
 
 /** @} */

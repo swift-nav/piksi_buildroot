@@ -202,3 +202,8 @@ bool sbp_rx_reader_interrupt_requested(sbp_rx_ctx_t *ctx)
 
   return ctx->reader_interrupt;
 }
+
+pk_endpoint_t * sbp_rx_get_endpoint(sbp_rx_ctx_t *ctx)
+{
+  return ctx->pk_ept;
+}

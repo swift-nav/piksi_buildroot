@@ -35,7 +35,7 @@ struct pk_endpoint_s {
 };
 
 // Maximum number of packets to service for one socket
-#define EPT_SVC_MAX 128
+#define EPT_SVC_MAX 32
 
 #define IPC_PREFIX "ipc://"
 

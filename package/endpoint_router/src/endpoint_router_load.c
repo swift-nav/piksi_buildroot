@@ -36,6 +36,7 @@ static PROCESS_FN(port);
 static PROCESS_FN(port_name);
 static PROCESS_FN(pub_addr);
 static PROCESS_FN(sub_addr);
+static PROCESS_FN(minimize_sends);
 static PROCESS_FN(forwarding_rules);
 static PROCESS_FN(forwarding_rule);
 static PROCESS_FN(dst_port);
@@ -69,6 +70,7 @@ static expected_event_t port_events[] = {
   { YAML_SCALAR_EVENT, "pub_addr", process_pub_addr, true },
   { YAML_SCALAR_EVENT, "sub_addr", process_sub_addr, true },
   { YAML_SCALAR_EVENT, "forwarding_rules", process_forwarding_rules, true },
+  { YAML_SCALAR_EVENT, "minimize_sends", process_minimize_sends, true },
   { YAML_MAPPING_END_EVENT, NULL, NULL, false },
   { YAML_NO_EVENT, NULL, NULL, false }
 };
@@ -253,6 +255,26 @@ static filter_t * current_filter_get(router_t *router)
   return filter;
 }
 
+static int event_port_bool(yaml_parser_t *parser, void *context,
+                           size_t offset)
+{
+  router_t *router = (router_t *)context;
+
+  char *str;
+  if (event_scalar_value_get(parser, &str) != 0) {
+    return -1;
+  }
+
+  port_t *port = current_port_get(router);
+  if (port == NULL) {
+    return -1;
+  }
+
+  *(bool*)((char *)port + offset) = strcasecmp("true", str) == 0;
+
+  return 0;
+}
+
 static int event_port_string(yaml_parser_t *parser, void *context,
                              size_t offset)
 {
@@ -271,7 +293,6 @@ static int event_port_string(yaml_parser_t *parser, void *context,
   *(char **)((char *)port + offset) = str;
   return 0;
 }
-
 
 static PROCESS_FN(router)
 {
@@ -321,6 +342,7 @@ static PROCESS_FN(port)
     .pub_ept = NULL,
     .sub_ept = NULL,
     .forwarding_rules_list = NULL,
+    .minimize_sends = false,
     .next = NULL
   };
 
@@ -344,6 +366,12 @@ static PROCESS_FN(sub_addr)
 {
   debug_printf("process_sub_addr\n");
   return event_port_string(parser, context, offsetof(port_t, sub_addr));
+}
+
+static PROCESS_FN(minimize_sends)
+{
+  debug_printf("process_minimize_sends\n");
+  return event_port_bool(parser, context, offsetof(port_t, minimize_sends));
 }
 
 static PROCESS_FN(forwarding_rules)

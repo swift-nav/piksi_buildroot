@@ -119,6 +119,7 @@ ports:
   - name: SBP_PORT_FILEIO_EXTERNAL
     pub_addr: "ipc:///var/run/sockets/fileio_external.pub"
     sub_addr: "ipc:///var/run/sockets/fileio_external.sub"
+    minimize_sends: True
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:

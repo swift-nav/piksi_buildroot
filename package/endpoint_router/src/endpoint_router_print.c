@@ -54,6 +54,7 @@ static int print_port(FILE *f, const char *prefix, const port_t *port)
   fprintf(f, "%s%s\n", prefix, port->name);
   fprintf(f, "%s\tpub_addr: %s\n", prefix, port->pub_addr);
   fprintf(f, "%s\tsub_addr: %s\n", prefix, port->sub_addr);
+  fprintf(f, "%s\tminimize_sends: %d\n", prefix, port->minimize_sends);
   fprintf(f, "%s\tforwarding_rules:\n", prefix);
 
   char prefix_new[PREFIX_STRING_SIZE_MAX];
