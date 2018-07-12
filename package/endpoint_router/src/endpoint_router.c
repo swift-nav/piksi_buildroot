@@ -518,7 +518,7 @@ int main(int argc, char *argv[])
 
   pk_loop_run_simple(loop);
 
-  exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
+  exit(cleanup(EXIT_SUCCESS, &loop, &router, &router_metrics));
 }
 
 static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_metrics_t **metrics_loc)
