@@ -10,11 +10,12 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "filter.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <syslog.h>
+
+#include <libpiksi/filter.h>
 
 typedef struct filter_interface_s {
   const char *name;
