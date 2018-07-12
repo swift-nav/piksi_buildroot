@@ -7,11 +7,7 @@ SOURCES= \
 	endpoint_adapter_tcp_connect.c \
 	endpoint_adapter_udp_listen.c \
 	endpoint_adapter_udp_connect.c \
-	framer.c \
-	framer_none.c \
-	filter.c \
-	filter_none.c \
-	protocols.c
+
 LIBS=-luv -lnanomsg -lsbp -lpiksi -ldl
 CFLAGS=-std=gnu11 -Wall
 

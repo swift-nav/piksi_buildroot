@@ -23,15 +23,17 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
+#include <libpiksi/util.h>
+#include <libpiksi/metrics.h>
+#include <libpiksi/framer.h>
+#include <libpiksi/filter.h>
+#include <libpiksi/protocols.h>
 
 #include "endpoint_adapter.h"
-#include "framer.h"
-#include "filter.h"
-#include "protocols.h"
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
-#define READ_BUFFER_SIZE 65536
+#define READ_BUFFER_SIZE 4096
 #define REP_TIMEOUT_DEFAULT_ms 10000
 #define STARTUP_DELAY_DEFAULT_ms 0
 #define ENDPOINT_RESTART_RETRY_COUNT 3
@@ -40,6 +42,25 @@
 #define FILTER_NONE_NAME "none"
 
 #define PROGRAM_NAME "endpoint_adapter"
+
+#define MI metrics_indexes
+#define MT metrics_table
+#define MR metrics_ref
+
+static pk_metrics_t* MR = NULL;
+
+PK_METRICS_TABLE(MT, MI,
+
+  PK_METRICS_ENTRY("read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, read_count),
+  PK_METRICS_ENTRY("read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, read_size_total),
+  PK_METRICS_ENTRY("read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, read_size_average,
+                   M_AVERAGE_OF(MI,         read_size_total,  read_count)),
+  PK_METRICS_ENTRY("error/mismatch",        "total",          M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, mismatch),
+  PK_METRICS_ENTRY("write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, write_count),
+  PK_METRICS_ENTRY("write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, write_size_total),
+  PK_METRICS_ENTRY("write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, write_size_average,
+                   M_AVERAGE_OF(MI,         write_size_total, write_count))
+)
 
 typedef enum {
   IO_INVALID,
@@ -64,6 +85,17 @@ typedef struct {
   filter_t *filter;
 } handle_t;
 
+static const u64 send_flush_timeout = 2*1e6; // 2ms
+static const u64 one_second_ns = 1e9;
+
+static u64 last_metrics_flush = 0;
+static u64 last_send_flush = 0;
+
+static void flush_min_sends(handle_t *handle, bool force);
+
+static void do_metrics_flush(void);
+static void setup_metrics(const char* pubsub);
+
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer,
                               size_t count);
@@ -79,6 +111,7 @@ static const char *filter_out_config = NULL;
 static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
 static bool nonblock = false;
 static int outq;
+static bool min_sends = false;
 
 static const char *pub_addr = NULL;
 static const char *sub_addr = NULL;
@@ -152,6 +185,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILTER_OUT_CONFIG,
     OPT_ID_NONBLOCK,
     OPT_ID_OUTQ,
+    OPT_ID_MIN_SENDS,
   };
 
   const struct option long_opts[] = {
@@ -173,6 +207,7 @@ static int parse_options(int argc, char *argv[])
     {"debug",             no_argument,       0, OPT_ID_DEBUG},
     {"nonblock",          no_argument,       0, OPT_ID_NONBLOCK},
     {"outq",              required_argument, 0, OPT_ID_OUTQ},
+    {"min-sends",         no_argument,       0, OPT_ID_MIN_SENDS},
     {0, 0, 0, 0}
   };
 
@@ -272,6 +307,11 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_OUTQ: {
         outq = strtol(optarg, NULL, 10);
+      }
+      break;
+
+      case OPT_ID_MIN_SENDS: {
+        min_sends = true;
       }
       break;
 
@@ -408,14 +448,6 @@ static pk_endpoint_t * pk_endpoint_start(int type)
   return pk_ept;
 }
 
-static ssize_t write_with_count(pk_endpoint_t *pk_ept, const void *buffer, size_t count)
-{
-  if (pk_endpoint_send(pk_ept, (u8 *)buffer, count) != 0) {
-    return -1;
-  }
-  return count;
-}
-
 static ssize_t fd_read(int fd, void *buffer, size_t count)
 {
   while (1) {
@@ -485,13 +517,60 @@ static ssize_t handle_read(handle_t *handle, void *buffer, size_t count)
   }
 }
 
-static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
+static uint8_t minimize_buffer[READ_BUFFER_SIZE * 2];
+static size_t minimize_buffer_fill = 0;
+
+static ssize_t handle_write_impl(handle_t *handle, const void *buffer, size_t count)
 {
+  PK_METRICS_UPDATE(MR, MI.write_count);
+  PK_METRICS_UPDATE(MR, MI.write_size_total, PK_METRICS_VALUE((u32) count));
+
   if (handle->pk_ept != NULL) {
-    return write_with_count(handle->pk_ept, buffer, count);
+    if (pk_endpoint_send(handle->pk_ept, (u8 *)buffer, count) != 0) {
+      return -1;
+    }
+    return count;
   } else {
     return fd_write(handle->write_fd, buffer, count);
   }
+}
+
+static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
+{
+  const void *buffer_out = buffer;
+  size_t count_out = count;
+
+  if (min_sends) {
+
+    memcpy(&minimize_buffer[minimize_buffer_fill], buffer, count);
+    minimize_buffer_fill += count;    
+
+    if (minimize_buffer_fill - count <= (sizeof(minimize_buffer)/2)) {
+      return count;
+
+    } else {
+      buffer_out = minimize_buffer;
+      count_out = minimize_buffer_fill;
+    }
+  }
+
+  ssize_t ret = handle_write_impl(handle, buffer_out, count_out);
+
+  return ret <= 0 ? ret : count;
+}
+
+static void flush_min_sends(handle_t *handle, bool force)
+{
+  if (!min_sends) return;
+
+  if (pk_metrics_gettime().ns - last_send_flush < send_flush_timeout) {
+    if (!force) return;
+  }
+
+  last_send_flush = pk_metrics_gettime().ns;
+
+  handle_write_impl(handle, minimize_buffer, minimize_buffer_fill);
+  minimize_buffer_fill = 0;
 }
 
 static ssize_t handle_write_all(handle_t *handle,
@@ -539,6 +618,7 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
     if (write_count < 0) {
       return write_count;
     }
+
     if (write_count != frame_length) {
       syslog(LOG_ERR, "warning: write_count != frame_length");
     }
@@ -583,14 +663,19 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
   debug_printf("io loop begin\n");
 
   while (1) {
+
+    PK_METRICS_UPDATE(MR, MI.read_count);
+
     /* Read from read_handle */
-    uint8_t buffer[READ_BUFFER_SIZE];
+    static uint8_t buffer[READ_BUFFER_SIZE];
     ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
     if (read_count <= 0) {
       debug_printf("read_count %d errno %s (%d)\n",
           read_count, strerror(errno), errno);
       break;
     }
+
+    PK_METRICS_UPDATE(MR, MI.read_size_total, PK_METRICS_VALUE((u32) read_count));
 
     /* Write to write_handle via framer */
     size_t frames_written;
@@ -607,7 +692,11 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
       syslog(LOG_ERR, "warning: write_count != read_count");
       debug_printf("write_count != read_count %d %d\n",
           write_count, read_count);
+      PK_METRICS_UPDATE(MR, MI.mismatch);
     }
+
+    flush_min_sends(write_handle, false);
+    do_metrics_flush();
   }
 
   debug_printf("io loop end\n");
@@ -635,6 +724,46 @@ static void pid_terminate(pid_t *pid)
   }
 }
 
+static void do_metrics_flush(void) 
+{
+  if (pk_metrics_gettime().ns - last_metrics_flush < one_second_ns) {
+    return;
+  }
+
+  PK_METRICS_UPDATE(MR, MI.read_size_average);
+  PK_METRICS_UPDATE(MR, MI.write_size_average);
+
+  last_metrics_flush = pk_metrics_gettime().ns;
+
+  pk_metrics_flush(MR);
+
+  pk_metrics_reset(MR, MI.read_count);
+  pk_metrics_reset(MR, MI.read_size_total);
+  pk_metrics_reset(MR, MI.read_size_average);
+  pk_metrics_reset(MR, MI.write_count);
+  pk_metrics_reset(MR, MI.write_size_total);
+  pk_metrics_reset(MR, MI.write_size_average);
+} 
+
+static void setup_metrics(const char* pubsub) {
+
+  char suffix[128];
+  size_t count = snprintf(suffix, sizeof(suffix), "%s_%s", port_name, pubsub);
+  assert( count < sizeof(suffix) );
+
+  assert( MR == NULL );
+
+  MR = pk_metrics_setup("endpoint_adapter", suffix, MT, COUNT_OF(MT));
+
+  if (MR == NULL) {
+    syslog(LOG_ERR, "error configuring metrics");
+    fprintf(stderr, "error configuring metrics\n");
+    exit(EXIT_FAILURE);
+  }
+
+  last_metrics_flush = pk_metrics_gettime().ns;
+}
+
 void io_loop_start(int read_fd, int write_fd)
 {
   if (nonblock && write_fd != -1) {
@@ -643,11 +772,11 @@ void io_loop_start(int read_fd, int write_fd)
   }
   switch (endpoint_mode) {
     case ENDPOINT_PUBSUB: {
-
       if (pub_addr != NULL && read_fd != -1) {
         debug_printf("Forking for pub\n");
         pid_t pid = fork();
         if (pid == 0) {
+          setup_metrics("pub");
           /* child process */
           pk_endpoint_t *pub = pk_endpoint_start(PK_ENDPOINT_PUB);
           if (pub == NULL) {
@@ -671,11 +800,12 @@ void io_loop_start(int read_fd, int write_fd)
           }
 
           io_loop_pubsub(&fd_handle, &pub_handle);
-
+          flush_min_sends(&pub_handle, true);
           pk_endpoint_destroy(&pub);
           assert(pub == NULL);
           handle_deinit(&pub_handle);
           handle_deinit(&fd_handle);
+          pk_metrics_destroy(&MR);
           debug_printf("Exiting from pub fork\n");
           exit(EXIT_SUCCESS);
         } else {
@@ -688,6 +818,7 @@ void io_loop_start(int read_fd, int write_fd)
         debug_printf("Forking for sub\n");
         pid_t pid = fork();
         if (pid == 0) {
+          setup_metrics("sub");
           /* child process */
           pk_endpoint_t *sub = pk_endpoint_start(PK_ENDPOINT_SUB);
           if (sub == NULL) {
@@ -711,7 +842,7 @@ void io_loop_start(int read_fd, int write_fd)
           }
 
           io_loop_pubsub(&sub_handle, &fd_handle);
-
+          flush_min_sends(&fd_handle, true);
           pk_endpoint_destroy(&sub);
           assert(sub == NULL);
           handle_deinit(&sub_handle);

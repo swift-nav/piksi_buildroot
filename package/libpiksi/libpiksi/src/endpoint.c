@@ -30,6 +30,9 @@ struct pk_endpoint_s {
   int eid;
 };
 
+// Maximum number of packets to service for one socket
+#define EPT_SVC_MAX 128
+
 #define IPC_PREFIX "ipc://"
 
 pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
@@ -241,7 +244,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
   assert(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
   assert(rx_cb != NULL);
 
-  for (;;) {
+  for (size_t i = 0; i < EPT_SVC_MAX; i++) {
 
     u8 *buffer = NULL;
     size_t length = NN_MSG;
