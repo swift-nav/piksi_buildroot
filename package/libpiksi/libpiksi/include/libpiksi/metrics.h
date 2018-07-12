@@ -63,7 +63,7 @@ typedef union pk_metrics_value_s {
 
 typedef struct {
   pk_metrics_value_t value;
-	pk_metrics_t *metrics;
+  pk_metrics_t *metrics;
   void *context;
 } pk_metrics_update_t;
 
@@ -81,12 +81,12 @@ typedef struct {
   pk_metrics_updater_fn_t updater;
   pk_metrics_reset_fn_t reseter;
   ssize_t *idx;
-	void *context;
+  void *context;
 } _pk_metrics_table_entry_t;
 
 typedef struct {
-	ssize_t *index_of_num;
-	ssize_t *index_of_dom;
+  ssize_t *index_of_num;
+  ssize_t *index_of_dom;
 } pk_metrics_average_t;
 
 pk_metrics_t * _pk_metrics_create(void);
@@ -115,7 +115,7 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
                        pk_metrics_value_t initial_value,
                        pk_metrics_updater_fn_t updater_fn,
                        pk_metrics_reset_fn_t reset_fn,
-											 void* context);
+                       void* context);
 
 int _pk_metrics_update(pk_metrics_t *metrics,
                        size_t metric_index,

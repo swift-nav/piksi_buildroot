@@ -27,7 +27,7 @@
 #define _ENTRY_GET_SYMTBLNAME(_1, ...) _1
 
 #define _SYMBOL_TABLE_ENTRY(Context, TheArgs) \
-	ssize_t _ENTRY_GET_SYMNAME TheArgs ;
+  ssize_t _ENTRY_GET_SYMNAME TheArgs ;
 
 #define _ENTRY_CONTEXT_6( _1, _2, _3, _4, _5, _6, ...) NULL
 #define _ENTRY_CONTEXT_7( _1, _2, _3, _4, _5, _6, _7, ...) _7
@@ -36,14 +36,14 @@
 #define _ENTRY_CONTEXT(...) _ENTRY_CONTEXT_(_M_FOREACH_NARG(__VA_ARGS__), __VA_ARGS__)
 
 #define _METRICS_TABLE_ENTRY(Context, TheArgs) {                           \
-	.folder  = _ENTRY_GET_FOLDER TheArgs,                                    \
-	.name    = _ENTRY_GET_NAME TheArgs,                                      \
-	.type    = _ENTRY_GET_TYPE TheArgs,                                      \
-	.updater = _ENTRY_GET_UPDATER TheArgs,                                   \
-	.reseter = _ENTRY_GET_RESETER TheArgs,                                   \
-	.idx     = & _ENTRY_GET_SYMTBLNAME Context . _ENTRY_GET_SYMNAME TheArgs, \
+  .folder  = _ENTRY_GET_FOLDER TheArgs,                                    \
+  .name    = _ENTRY_GET_NAME TheArgs,                                      \
+  .type    = _ENTRY_GET_TYPE TheArgs,                                      \
+  .updater = _ENTRY_GET_UPDATER TheArgs,                                   \
+  .reseter = _ENTRY_GET_RESETER TheArgs,                                   \
+  .idx     = & _ENTRY_GET_SYMTBLNAME Context . _ENTRY_GET_SYMNAME TheArgs, \
   .context = _ENTRY_CONTEXT TheArgs                                        \
-	},
+  },
 
 #define PK_METRICS_TABLE(MetricsTableName, SymbolTableName, ...)     \
   struct {                                                           \
@@ -69,6 +69,6 @@
 #define M_RESET_TIME     pk_metrics_reset_time
 
 #define M_AVERAGE_OF(SymTable, Sym1, Sym2) \
-	&((pk_metrics_average_t) { .index_of_num = & SymTable . Sym1, .index_of_dom = & SymTable . Sym2 })
+  &((pk_metrics_average_t) { .index_of_num = & SymTable . Sym1, .index_of_dom = & SymTable . Sym2 })
 
 #endif//LIBPIKSI_METRICS_TABLE_H
