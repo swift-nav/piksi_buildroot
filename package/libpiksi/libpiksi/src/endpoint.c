@@ -294,4 +294,3 @@ const char * pk_endpoint_strerror(void)
 {
   return nn_strerror(errno);
 }
-
