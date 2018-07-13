@@ -153,6 +153,15 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
+  // Used to detect that we're an "external" file io daemon
+  if (allow_imageset_bin) {
+
+    piksi_log(LOG_INFO, "buffering sends since this is an external fileio daemon...");
+
+    sbp_tx_ctx_t *tx_ctx = sbp_pubsub_tx_ctx_get(ctx);
+    pk_endpoint_buffer_sends(sbp_tx_get_endpoint(tx_ctx), loop, SEND_FLUSH_MS, SEND_BUF_SIZE);
+  }
+
   if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx), loop) != 0) {
     goto cleanup;
   }
