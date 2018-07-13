@@ -8,7 +8,7 @@ STANDALONE_FILE_LOGGER_VERSION = 0.1
 STANDALONE_FILE_LOGGER_SITE = \
 	"${BR2_EXTERNAL_piksi_buildroot_PATH}/package/standalone_file_logger/standalone_file_logger"
 STANDALONE_FILE_LOGGER_SITE_METHOD = local
-STANDALONE_FILE_LOGGER_DEPENDENCIES = libuv nanomsg libsbp libpiksi
+STANDALONE_FILE_LOGGER_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
 ifeq ($(BR2_BUILD_TESTS),y)
 	STANDALONE_FILE_LOGGER_DEPENDENCIES += gtest
 endif
