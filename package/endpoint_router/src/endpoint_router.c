@@ -26,6 +26,9 @@
 #include "endpoint_router_load.h"
 #include "endpoint_router_print.h"
 
+#define SEND_FLUSH_MS 1
+#define SEND_BUF_SIZE 4096
+
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
 
@@ -255,6 +258,10 @@ static int router_attach(router_t *router, pk_loop_t *loop)
 {
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
+		if (port->minimize_sends) {
+			piksi_log(LOG_INFO, "Minimizing sends for port '%s'", port->name);
+			pk_endpoint_buffer_sends(port->pub_ept, loop, SEND_FLUSH_MS, SEND_BUF_SIZE);
+		}
     if (pk_loop_endpoint_reader_add(loop, port->sub_ept, loop_reader_callback, port) == NULL) {
       piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
       return -1;

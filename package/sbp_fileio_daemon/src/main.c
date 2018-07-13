@@ -19,6 +19,9 @@
 
 #define PROGRAM_NAME "sbp_fileio_daemon"
 
+#define SEND_FLUSH_MS 1
+#define SEND_BUF_SIZE 4096
+
 bool fio_debug = false;
 
 static const char *pub_endpoint = NULL;

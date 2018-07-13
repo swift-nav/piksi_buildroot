@@ -108,3 +108,8 @@ int sbp_tx_send_from(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len,
 
   return send_buffer_flush(ctx);
 }
+
+pk_endpoint_t * sbp_tx_get_endpoint(sbp_tx_ctx_t *ctx)
+{
+  return ctx->pk_ept;
+}
