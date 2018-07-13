@@ -333,7 +333,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   }
 
   while (1) {
-    int written = nn_send(pk_ept->nn_sock, send_data, send_length, 0);
+    int written = nn_send(pk_ept->nn_sock, send_data, send_length, NN_DONTWAIT);
     if (written != -1) {
       /* Break on success */
       assert(written == send_length);
