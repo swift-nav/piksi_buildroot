@@ -255,10 +255,10 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
       return -1;
     }
 
-    if (rx_cb(buffer, length, context) != 0)
-      break;
-
+    bool stop = rx_cb(buffer, length, context) != 0;
     nn_freemsg(buffer);
+
+    if (stop) break;
   }
 
   return 0;
