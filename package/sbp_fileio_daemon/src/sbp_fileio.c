@@ -22,6 +22,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
@@ -32,11 +33,50 @@
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
+#define CLEANUP_FD_CACHE_MS 1e3
+
 static const char* basedir_path = NULL;
 static bool allow_factory_mtd = false;
 static bool allow_imageset_bin = false;
+static void *cleanup_timer_handle = NULL;
 
 #define IMAGESET_BIN_NAME "upgrade.image_set.bin"
+
+#define FD_CACHE_COUNT 32
+#define CACHE_CLOSE_AGE 3
+
+typedef struct {
+  FILE* fp;
+  bool cached;
+} fd_cache_result_t;
+
+typedef struct {
+  const char* mode;
+  int oflag;
+  mode_t perm;
+} open_params_t;
+
+static const open_params_t open_read = {
+  .mode = "r", .oflag = O_RDONLY, .perm = 0
+};
+
+static const open_params_t open_write = {
+  .mode = "w", .oflag = O_WRONLY|O_CREAT, .perm = 0666
+};
+ 
+#define OPEN_READ  (&open_read)
+#define OPEN_WRITE (&open_write)
+
+typedef struct {
+  FILE* fp;
+  char path[PATH_MAX];
+  char mode[4];
+  time_t opened_at;
+} fd_cache_t;
+
+static fd_cache_t fd_cache[FD_CACHE_COUNT] = {
+  [0 ... 9] = { NULL, "", "", 0 }
+};
 
 enum {
   DENY_MTD_READ = 0,
@@ -53,10 +93,112 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 
+static void purge_fd_cache(pk_loop_t *loop, void *handle, void *context)
+{
+  (void) context;
+  (void) loop;
+  (void) handle;
+
+  time_t now = time(NULL);
+
+  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+    if (fd_cache[idx].fp == NULL) continue;
+    if ( (now - fd_cache[idx].opened_at) >= CACHE_CLOSE_AGE) {
+      FIO_LOG_DEBUG("Closing cached fp (index %d): %p, filename: %s, mode: %s",
+                    idx, fd_cache[idx].fp, fd_cache[idx].path, fd_cache[idx].mode);
+      fclose(fd_cache[idx].fp);
+      fd_cache[idx] = (fd_cache_t) {
+        .fp = NULL, .path = "", .mode = "", .opened_at = -1
+      };
+    }
+  }
+
+  pk_loop_timer_reset(cleanup_timer_handle); 
+}
+
+static void return_to_cache(fd_cache_result_t *cache_result)
+{
+  if (!cache_result->cached && cache_result->fp != NULL) {
+    fclose(cache_result->fp);
+    return;
+  }
+}
+
+static void remove_cached_handles(const char* path)
+{
+  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+    if (strcmp(fd_cache[idx].path, path) == 0)
+    {
+      FIO_LOG_DEBUG("Found file handle, removing (index %d): filename: %s, mode: %s",
+                    idx, fd_cache[idx].path, fd_cache[idx].mode);
+      fclose(fd_cache[idx].fp);
+      fd_cache[idx] = (fd_cache_t) {
+        .fp = NULL, .path = "", .mode = "", .opened_at = -1
+      };
+    }
+  }
+}
+
+static void flush_cached_write_handles(const char* path, const char* mode)
+{
+  // If we're returning a read handle, but we have open write handles, flush
+  //   those write handles before returning the read handle.
+
+  FIO_LOG_DEBUG("Checking for flush: %s, mode: %s", path, mode);
+
+  if (strcmp(mode, OPEN_READ->mode) != 0) return;
+
+  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+    if (strcmp(fd_cache[idx].path, path) == 0
+        && strcmp(fd_cache[idx].mode, OPEN_WRITE->mode) == 0)
+    {
+      FIO_LOG_DEBUG("Found open write handle, flushing (index %d): filename: %s, mode: %s",
+                    idx, fd_cache[idx].path, fd_cache[idx].mode);
+      fflush(fd_cache[idx].fp);
+    }
+  }
+}
+
+static fd_cache_result_t open_from_cache(const char* path, const open_params_t *params)
+{
+  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+    if (strcmp(fd_cache[idx].path, path) == 0
+        && strcmp(fd_cache[idx].mode, params->mode) == 0)
+    {
+      FIO_LOG_DEBUG("Found cached file (index %d): filename: %s, mode: %s",
+                    idx, fd_cache[idx].path, fd_cache[idx].mode);
+      fd_cache[idx].opened_at = time(NULL);
+      flush_cached_write_handles(path, params->mode);
+      return (fd_cache_result_t) { .fp = fd_cache[idx].fp, .cached = true };
+    }
+  }
+  int fd = open(path, params->oflag, params->perm);
+  if (fd < 0) return (fd_cache_result_t) { .fp = NULL, .cached = false };
+  FILE* fp = fdopen(fd, params->mode);
+  assert( fp != NULL );
+  bool found_slot = false;
+  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+    if (fd_cache[idx].fp == NULL) {
+      strncpy(fd_cache[idx].path, path, sizeof(fd_cache[idx].path));
+      strncpy(fd_cache[idx].mode, params->mode, sizeof(fd_cache[idx].mode));
+      fd_cache[idx].fp = fp;
+      fd_cache[idx].opened_at = time(NULL);
+      found_slot = true;
+      break;
+    }
+  }
+  if (!found_slot) {
+    piksi_log(LOG_WARNING, "Could not find a cache slot for file descriptor.");
+  }
+  flush_cached_write_handles(path, params->mode);
+  return (fd_cache_result_t) { .fp = fp, .cached = found_slot };
+}
+
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
-void sbp_fileio_setup(const char *basedir,
+void sbp_fileio_setup(pk_loop_t *loop,
+                      const char *basedir,
                       bool allow_factory_mtd_,
                       bool allow_imageset_bin_,
                       sbp_rx_ctx_t *rx_ctx,
@@ -75,6 +217,8 @@ void sbp_fileio_setup(const char *basedir,
                            remove_cb, tx_ctx, NULL);
   sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ,
                            write_cb, tx_ctx, NULL);
+
+  cleanup_timer_handle = pk_loop_timer_add(loop, CLEANUP_FD_CACHE_MS, purge_fd_cache, NULL);
 }
 
 static int allow_mtd_read(const char* path)
@@ -164,15 +308,19 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   int st = allow_mtd_read(msg->filename);
 
   if (st == DENY_MTD_READ || (st == NO_MTD_READ && !validate_path(msg->filename))) {
-    piksi_log(LOG_WARNING, "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...", msg->filename, basedir_path);
+    piksi_log(LOG_WARNING, "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...",
+              msg->filename, basedir_path);
     readlen = 0;
   } else {
-    int f = open(msg->filename, O_RDONLY);
-    lseek(f, msg->offset, SEEK_SET);
-    readlen = read(f, &reply->contents, readlen);
-    if (readlen < 0)
+    fd_cache_result_t r = open_from_cache(msg->filename, OPEN_READ);
+    if (r.fp != NULL) {
+      lseek(fileno(r.fp), msg->offset, SEEK_SET);
+      readlen = fread(&reply->contents, 1, readlen, r.fp);
+      if (readlen < 0) readlen = 0;
+      return_to_cache(&r);
+    } else {
       readlen = 0;
-    close(f);
+    }
   }
 
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP,
@@ -261,6 +409,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
     return;
   }
 
+  remove_cached_handles(filename);
   unlink(filename);
 }
 
@@ -279,7 +428,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
-  int write_count = -1;
+  size_t write_count = 0;
 
   FIO_LOG_DEBUG("write request for '%s', seq=%u, off=%u",
                 msg->filename, msg->sequence, msg->offset);
@@ -293,17 +442,20 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   const char* filename = filter_imageset_bin(msg->filename);
   if (!validate_path(filename)) {
-    piksi_log(LOG_WARNING, "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...", filename, basedir_path);
+    piksi_log(LOG_WARNING,
+              "Received FILEIO_WRITE request for path (%s)"
+              " outside base directory (%s), ignoring...",
+              filename, basedir_path);
     return;
   }
 
   u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
-  int f = open(filename, O_WRONLY | O_CREAT, 0666);
-  if (f < 0) {
+  fd_cache_result_t r = open_from_cache(filename, OPEN_WRITE);
+  if (r.fp == NULL) {
     piksi_log(LOG_ERR, "Error opening %s for write", filename);
     return;
   }
-  if (lseek(f, msg->offset, SEEK_SET) != (off_t)msg->offset) {
+  if (lseek(fileno(r.fp), msg->offset, SEEK_SET) != (off_t)msg->offset) {
     piksi_log(LOG_ERR,
               "Error seeking to offset %d in %s for write",
               msg->offset,
@@ -311,7 +463,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     goto cleanup;
   }
   write_count = len - headerlen;
-  if (write(f, msg_ + headerlen, write_count) != write_count) {
+  if (fwrite(msg_ + headerlen, 1, write_count, r.fp) != write_count) {
     piksi_log(
       LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
     goto cleanup;
@@ -321,5 +473,5 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
               sizeof(reply), (u8*)&reply);
 
 cleanup:
-  close(f);
+  return_to_cache(&r);
 }

@@ -16,7 +16,8 @@
 #include <libpiksi/sbp_rx.h>
 #include <libpiksi/sbp_tx.h>
 
-void sbp_fileio_setup(const char *basedir,
+void sbp_fileio_setup(pk_loop_t* loop,
+                      const char *basedir,
                       bool allow_factory_mtd,
                       bool allow_imageset_bin,
                       sbp_rx_ctx_t *rx_ctx,

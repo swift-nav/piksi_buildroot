@@ -166,7 +166,8 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  sbp_fileio_setup(basedir_path,
+  sbp_fileio_setup(loop,
+                   basedir_path,
                    allow_factory_mtd,
                    allow_imageset_bin,
                    sbp_pubsub_rx_ctx_get(ctx),
