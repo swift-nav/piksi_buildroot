@@ -380,6 +380,8 @@ static void sendbuf_cb(pk_loop_t *loop, void *handle, void *context)
 
 void pk_endpoint_buffer_sends(pk_endpoint_t *pk_ept, pk_loop_t *pk_loop, u64 flush_ms, size_t buf_size)
 {
+  return;
+
   pk_ept->buffer_sends = true;
 
   assert( pk_ept->send_buf == NULL );
