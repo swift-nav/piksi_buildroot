@@ -18,7 +18,8 @@
 
 #include "path_validator.h"
 
-void sbp_fileio_setup(path_validator_t *pv_ctx,
+void sbp_fileio_setup(pk_loop_t *loop,
+                      path_validator_t *pv_ctx,
                       bool allow_factory_mtd,
                       bool allow_imageset_bin,
                       sbp_rx_ctx_t *rx_ctx,
