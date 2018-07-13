@@ -91,8 +91,6 @@ static const u64 one_second_ns = 1e9;
 static u64 last_metrics_flush = 0;
 static u64 last_send_flush = 0;
 
-static void flush_min_sends(handle_t *handle, bool force);
-
 static void do_metrics_flush(void);
 static void setup_metrics(const char* pubsub);
 
@@ -111,7 +109,6 @@ static const char *filter_out_config = NULL;
 static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
 static bool nonblock = false;
 static int outq;
-static bool min_sends = false;
 
 static const char *pub_addr = NULL;
 static const char *sub_addr = NULL;
@@ -185,7 +182,6 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILTER_OUT_CONFIG,
     OPT_ID_NONBLOCK,
     OPT_ID_OUTQ,
-    OPT_ID_MIN_SENDS,
   };
 
   const struct option long_opts[] = {
@@ -207,7 +203,6 @@ static int parse_options(int argc, char *argv[])
     {"debug",             no_argument,       0, OPT_ID_DEBUG},
     {"nonblock",          no_argument,       0, OPT_ID_NONBLOCK},
     {"outq",              required_argument, 0, OPT_ID_OUTQ},
-    {"min-sends",         no_argument,       0, OPT_ID_MIN_SENDS},
     {0, 0, 0, 0}
   };
 
@@ -307,11 +302,6 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_OUTQ: {
         outq = strtol(optarg, NULL, 10);
-      }
-      break;
-
-      case OPT_ID_MIN_SENDS: {
-        min_sends = true;
       }
       break;
 
@@ -517,10 +507,7 @@ static ssize_t handle_read(handle_t *handle, void *buffer, size_t count)
   }
 }
 
-static uint8_t minimize_buffer[READ_BUFFER_SIZE * 2];
-static size_t minimize_buffer_fill = 0;
-
-static ssize_t handle_write_impl(handle_t *handle, const void *buffer, size_t count)
+static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 {
   PK_METRICS_UPDATE(MR, MI.write_count);
   PK_METRICS_UPDATE(MR, MI.write_size_total, PK_METRICS_VALUE((u32) count));
@@ -533,44 +520,6 @@ static ssize_t handle_write_impl(handle_t *handle, const void *buffer, size_t co
   } else {
     return fd_write(handle->write_fd, buffer, count);
   }
-}
-
-static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
-{
-  const void *buffer_out = buffer;
-  size_t count_out = count;
-
-  if (min_sends) {
-
-    memcpy(&minimize_buffer[minimize_buffer_fill], buffer, count);
-    minimize_buffer_fill += count;    
-
-    if (minimize_buffer_fill - count <= (sizeof(minimize_buffer)/2)) {
-      return count;
-
-    } else {
-      buffer_out = minimize_buffer;
-      count_out = minimize_buffer_fill;
-    }
-  }
-
-  ssize_t ret = handle_write_impl(handle, buffer_out, count_out);
-
-  return ret <= 0 ? ret : count;
-}
-
-static void flush_min_sends(handle_t *handle, bool force)
-{
-  if (!min_sends) return;
-
-  if (pk_metrics_gettime().ns - last_send_flush < send_flush_timeout) {
-    if (!force) return;
-  }
-
-  last_send_flush = pk_metrics_gettime().ns;
-
-  handle_write_impl(handle, minimize_buffer, minimize_buffer_fill);
-  minimize_buffer_fill = 0;
 }
 
 static ssize_t handle_write_all(handle_t *handle,
@@ -695,7 +644,6 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
       PK_METRICS_UPDATE(MR, MI.mismatch);
     }
 
-    flush_min_sends(write_handle, false);
     do_metrics_flush();
   }
 
@@ -800,7 +748,6 @@ void io_loop_start(int read_fd, int write_fd)
           }
 
           io_loop_pubsub(&fd_handle, &pub_handle);
-          flush_min_sends(&pub_handle, true);
           pk_endpoint_destroy(&pub);
           assert(pub == NULL);
           handle_deinit(&pub_handle);
@@ -842,7 +789,6 @@ void io_loop_start(int read_fd, int write_fd)
           }
 
           io_loop_pubsub(&sub_handle, &fd_handle);
-          flush_min_sends(&fd_handle, true);
           pk_endpoint_destroy(&sub);
           assert(sub == NULL);
           handle_deinit(&sub_handle);
