@@ -270,7 +270,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   assert(pk_ept->type != PK_ENDPOINT_SUB || pk_ept->type != PK_ENDPOINT_SUB_SERVER);
 
   while (1) {
-    int written = nn_send(pk_ept->nn_sock, data, length, 0);
+    int written = nn_send(pk_ept->nn_sock, data, length, NN_DONTWAIT);
     if (written != -1) {
       /* Break on success */
       assert(written == length);
