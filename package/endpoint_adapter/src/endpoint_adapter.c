@@ -85,11 +85,9 @@ typedef struct {
   filter_t *filter;
 } handle_t;
 
-static const u64 send_flush_timeout = 2*1e6; // 2ms
 static const u64 one_second_ns = 1e9;
 
 static u64 last_metrics_flush = 0;
-static u64 last_send_flush = 0;
 
 static void do_metrics_flush(void);
 static void setup_metrics(const char* pubsub);
