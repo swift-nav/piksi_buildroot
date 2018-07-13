@@ -1,8 +1,8 @@
 config BR2_BUILD_TESTS
-	bool "Build Tests"
+  bool "Build Tests"
 config BR2_RUN_TESTS
-	bool "Run Tests"
-	depends on BR2_BUILD_TESTS
+  bool "Run Tests"
+  depends on BR2_BUILD_TESTS
 
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/libsbp/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/gnss_convertors/Config.in"
@@ -27,7 +27,7 @@ source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/ntrip_daemon/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/sample_daemon/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/sbp_protocol/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/nmea_daemon/Config.in"
-source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/fpga_error_moni/Config.in"
+source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/pfw_welcome/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/nmea_protocol/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/health_daemon/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/rtcm3_protocol/Config.in"
