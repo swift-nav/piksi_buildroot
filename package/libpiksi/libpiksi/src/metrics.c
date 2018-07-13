@@ -92,7 +92,7 @@ pk_metrics_t* pk_metrics_setup(const char* metrics_base_name,
 
     if ( count >= sizeof(metrics_folder) ) {
       piksi_log(LOG_ERR, "%s: metrics folder too large (%s:%d)", __FUNCTION__, __FILE__, __LINE__);
-      return NULL;
+      goto fail2;
     }
 
     metrics_name = metrics_table[idx].name;
@@ -124,7 +124,7 @@ fail:
             pk_metrics_status_text(metrics_index),
             __FILE__,
             __LINE__);
-
+fail2:
   pk_metrics_destroy(&metrics);
 
   return NULL;
