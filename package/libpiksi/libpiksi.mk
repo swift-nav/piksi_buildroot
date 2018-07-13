@@ -8,7 +8,7 @@ LIBPIKSI_VERSION = 0.1
 LIBPIKSI_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/libpiksi/libpiksi"
 LIBPIKSI_SITE_METHOD = local
-LIBPIKSI_DEPENDENCIES = libuv nanomsg libsbp
+LIBPIKSI_DEPENDENCIES = libuv nanomsg_custom libsbp
 ifeq ($(BR2_BUILD_TESTS),y)
 	LIBPIKSI_DEPENDENCIES += gtest
 endif

@@ -29,7 +29,7 @@ rm -f $stdout $stderr
 mkfifo $stdout $stderr
 
 chpst -u pk_log logger -t $name -p daemon.info <$stdout &
-stdout_pid=$!
+stnanocat --pub --connect-ipc /var/run/sockets/external.sub --file -dout_pid=$!
 
 chpst -u pk_log logger -t $name -p daemon.err  <$stderr &
 stderr_pid=$!
