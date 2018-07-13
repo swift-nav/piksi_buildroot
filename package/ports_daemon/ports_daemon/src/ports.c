@@ -84,7 +84,7 @@ static int opts_get_tcp_server(char *buf, size_t buf_size,
                                const opts_data_t *opts_data)
 {
   uint32_t port = opts_data->tcp_server_data.port;
-  return snprintf(buf, buf_size, "--name %s --tcp-l %u --min-sends", opts_data->tcp_server_data.name, port);
+  return snprintf(buf, buf_size, "--name %s --tcp-l %u --min-sends --nonblock", opts_data->tcp_server_data.name, port);
 }
 
 static int opts_get_tcp_client(char *buf, size_t buf_size,
@@ -124,7 +124,7 @@ typedef struct {
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
-    .opts = "--name uart0 --file /dev/ttyPS0 --min-sends --nonblock --outq " SERIAL_XMIT_SIZE,
+    .opts = "--name uart0 --file /dev/ttyPS0 --min-sends --nonblock-write --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -135,7 +135,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "uart1",
-    .opts = "--name uart1 --file /dev/ttyPS1 --min-sends --nonblock --outq " SERIAL_XMIT_SIZE,
+    .opts = "--name uart1 --file /dev/ttyPS1 --min-sends --nonblock-write --outq " SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -146,7 +146,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "usb0",
-    .opts = "--name usb0 --file /dev/tty.usb0 --min-sends --nonblock --outq " USB_SERIAL_XMIT_SIZE,
+    .opts = "--name usb0 --file /dev/tty.usb0 --min-sends --nonblock-write --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -157,7 +157,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = FIXED_SBP_USB_PORT_NAME,
-    .opts = "--name " FIXED_SBP_USB_PORT_NAME " --file /dev/tty.usb2 --min-sends --nonblock --outq " USB_SERIAL_XMIT_SIZE,
+    .opts = "--name " FIXED_SBP_USB_PORT_NAME " --file /dev/tty.usb2 --min-sends --nonblock-write --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,

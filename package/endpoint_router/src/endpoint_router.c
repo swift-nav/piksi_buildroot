@@ -40,20 +40,20 @@
 
 PK_METRICS_TABLE(message_metrics_table, MI,
 
-  PK_METRICS_ENTRY("message/count",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
-  PK_METRICS_ENTRY("message/size",     ".total",      M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  size_total),
-  PK_METRICS_ENTRY("message/size",     "per_second",  M_U32,   M_UPDATE_AVERAGE, M_RESET_DEF,  size,
-                   M_AVERAGE_OF(MI,    size_total,    count)),
-  PK_METRICS_ENTRY("message/wake_ups", "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups),
-  PK_METRICS_ENTRY("message/wake_ups", "max",         M_U32,   M_UPDATE_MAX,     M_RESET_DEF,  wakeups_max),
-  PK_METRICS_ENTRY("message/wake_ups", ".total",      M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups_message_count),
-  PK_METRICS_ENTRY("message/latency",  "max",         M_TIME,  M_UPDATE_MAX,     M_RESET_DEF,  latency_max),
-  PK_METRICS_ENTRY("message/latency",  ".delta",      M_TIME,  M_UPDATE_DELTA,   M_RESET_TIME, latency_delta),
-  PK_METRICS_ENTRY("message/latency",  ".total",      M_TIME,  M_UPDATE_SUM,     M_RESET_DEF,  latency_total),
-  PK_METRICS_ENTRY("message/latency",  "per_second",  M_TIME,  M_UPDATE_AVERAGE, M_RESET_DEF,  latency,
-                   M_AVERAGE_OF(MI,    latency_total, count)),
-  PK_METRICS_ENTRY("frame/count",      "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
-  PK_METRICS_ENTRY("frame/leftover",   "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers)
+  PK_METRICS_ENTRY("message/count",        "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
+  PK_METRICS_ENTRY("message/size/total",   "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  size_total),
+  PK_METRICS_ENTRY("message/size/average", "per_second",  M_U32,   M_UPDATE_AVERAGE, M_RESET_DEF,  size,
+                   M_AVERAGE_OF(MI,        size_total,    count)),
+  PK_METRICS_ENTRY("message/wake_ups",     "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups),
+  PK_METRICS_ENTRY("message/wake_ups",     "max",         M_U32,   M_UPDATE_MAX,     M_RESET_DEF,  wakeups_max),
+  PK_METRICS_ENTRY("message/wake_ups",     ".total",      M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups_message_count),
+  PK_METRICS_ENTRY("message/latency",      "max",         M_TIME,  M_UPDATE_MAX,     M_RESET_DEF,  latency_max),
+  PK_METRICS_ENTRY("message/latency",      ".delta",      M_TIME,  M_UPDATE_DELTA,   M_RESET_TIME, latency_delta),
+  PK_METRICS_ENTRY("message/latency",      ".total",      M_TIME,  M_UPDATE_SUM,     M_RESET_DEF,  latency_total),
+  PK_METRICS_ENTRY("message/latency",      "per_second",  M_TIME,  M_UPDATE_AVERAGE, M_RESET_DEF,  latency,
+                   M_AVERAGE_OF(MI,        latency_total, count)),
+  PK_METRICS_ENTRY("frame/count",          "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
+  PK_METRICS_ENTRY("frame/leftover",       "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers)
  )
 
 static struct {

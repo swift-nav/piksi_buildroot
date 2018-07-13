@@ -33,7 +33,7 @@
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
-#define READ_BUFFER_SIZE 4096
+#define READ_BUFFER_SIZE 64*1024
 #define REP_TIMEOUT_DEFAULT_ms 10000
 #define STARTUP_DELAY_DEFAULT_ms 0
 #define ENDPOINT_RESTART_RETRY_COUNT 3
@@ -109,7 +109,8 @@ static const char *filter_out_name = FRAMER_NONE_NAME;
 static const char *filter_in_config = NULL;
 static const char *filter_out_config = NULL;
 static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
-static bool nonblock = false;
+static bool nonblock_write = false;
+static bool nonblock_read = false;
 static int outq;
 static bool min_sends = false;
 
@@ -160,6 +161,7 @@ static void usage(char *command)
   fprintf(stderr, "\nMisc options\n");
   fprintf(stderr, "\t--startup-delay <ms>\n");
   fprintf(stderr, "\t\ttime to delay after opening a socket\n");
+  fprintf(stderr, "\t--nonblock-write\n");
   fprintf(stderr, "\t--nonblock\n");
   fprintf(stderr, "\t--debug\n");
   fprintf(stderr, "\t--outq <n>\n");
@@ -183,7 +185,8 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILTER_OUT,
     OPT_ID_FILTER_IN_CONFIG,
     OPT_ID_FILTER_OUT_CONFIG,
-    OPT_ID_NONBLOCK,
+    OPT_ID_NONBLOCK_WRITE,
+    OPT_ID_NONBLOCK_RW,
     OPT_ID_OUTQ,
     OPT_ID_MIN_SENDS,
   };
@@ -205,7 +208,8 @@ static int parse_options(int argc, char *argv[])
     {"filter-in-config",  required_argument, 0, OPT_ID_FILTER_IN_CONFIG},
     {"filter-out-config", required_argument, 0, OPT_ID_FILTER_OUT_CONFIG},
     {"debug",             no_argument,       0, OPT_ID_DEBUG},
-    {"nonblock",          no_argument,       0, OPT_ID_NONBLOCK},
+    {"nonblock-write",    no_argument,       0, OPT_ID_NONBLOCK_WRITE},
+    {"nonblock",          no_argument,       0, OPT_ID_NONBLOCK_RW},
     {"outq",              required_argument, 0, OPT_ID_OUTQ},
     {"min-sends",         no_argument,       0, OPT_ID_MIN_SENDS},
     {0, 0, 0, 0}
@@ -300,8 +304,14 @@ static int parse_options(int argc, char *argv[])
       }
       break;
 
-      case OPT_ID_NONBLOCK: {
-        nonblock = true;
+      case OPT_ID_NONBLOCK_WRITE: {
+        nonblock_write = true;
+      }
+      break;
+
+      case OPT_ID_NONBLOCK_RW: {
+        nonblock_read = true;
+        nonblock_write = true;
       }
       break;
 
@@ -448,16 +458,37 @@ static pk_endpoint_t * pk_endpoint_start(int type)
   return pk_ept;
 }
 
-static ssize_t fd_read(int fd, void *buffer, size_t count)
+static ssize_t fd_read_nonblocking(int fd, u8 *buffer, size_t count)
 {
+  size_t offset = 0;
   while (1) {
-    ssize_t ret = read(fd, buffer, count);
+    ssize_t ret = read(fd, &buffer[offset], count - offset);
+    /* Retry if interrupted */
+    if ((ret < 0) && (errno == EINTR)) {
+      continue;
+    } else {
+      return ret;
+    }
+    offset += ret;
+    if (offset >= count) {
+      break;
+    }
+  }
+}
+
+static ssize_t fd_read(int fd, u8 *buffer, size_t count)
+{
+  size_t offset = 0;
+
+  while (1) {
+    ssize_t ret = read(fd, &buffer[offset], count - offset);
     /* Retry if interrupted */
     if ((ret == -1) && (errno == EINTR)) {
       continue;
     } else {
       return ret;
     }
+    offset += ret;
   }
 }
 
@@ -508,12 +539,54 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
   }
 }
 
+typedef struct {
+  u8 *buf;
+  size_t length;
+  size_t offset;
+} receive_ctx_t;
+
+static int receive_cb(const u8* data, const size_t length, void *context)
+{
+  receive_ctx_t *ctx = context;
+
+  if (ctx->offset + length > ctx->length)
+    return -1;
+
+  memcpy(&ctx->buf[ctx->offset], data, length);
+  ctx->offset += length;
+
+  return 0;
+}
+
+static ssize_t handle_read_nonblocking(handle_t *handle, u8 *buffer, size_t count);
+
 static ssize_t handle_read(handle_t *handle, void *buffer, size_t count)
 {
+  if (nonblock_read) {
+    return handle_read_nonblocking(handle, buffer, count);
+  }
+
   if (handle->pk_ept != NULL) {
     return pk_endpoint_read(handle->pk_ept, buffer, count);
   } else {
     return fd_read(handle->read_fd, buffer, count);
+  }
+}
+
+static ssize_t handle_read_nonblocking(handle_t *handle, u8 *buffer, size_t count)
+{
+  receive_ctx_t ctx = { .buf = buffer, .length = count, .offset = 0 };
+
+  if (handle->pk_ept != NULL) {
+
+    int rc = pk_endpoint_receive(handle->pk_ept, receive_cb, &ctx);
+    if (rc < 0) return rc;
+
+    return ctx.offset;
+
+  } else {
+
+    return fd_read_nonblocking(handle->read_fd, buffer, count);
   }
 }
 
@@ -670,6 +743,10 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     static uint8_t buffer[READ_BUFFER_SIZE];
     ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
     if (read_count <= 0) {
+      if (errno == EWOULDBLOCK) {
+        usleep(1000);
+        continue;
+      }
       debug_printf("read_count %d errno %s (%d)\n",
           read_count, strerror(errno), errno);
       break;
@@ -766,9 +843,13 @@ static void setup_metrics(const char* pubsub) {
 
 void io_loop_start(int read_fd, int write_fd)
 {
-  if (nonblock && write_fd != -1) {
+  if (nonblock_write && write_fd != -1) {
     int arg = O_NONBLOCK;
     fcntl(write_fd, F_SETFL, &arg);
+  }
+  if (nonblock_read && read_fd != -1) {
+    int arg = O_NONBLOCK;
+    fcntl(read_fd, F_SETFL, &arg);
   }
   switch (endpoint_mode) {
     case ENDPOINT_PUBSUB: {
