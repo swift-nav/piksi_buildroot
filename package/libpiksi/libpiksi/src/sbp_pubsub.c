@@ -15,8 +15,6 @@
 #include <libpiksi/sbp_pubsub.h>
 
 struct sbp_pubsub_ctx_s {
-  pk_endpoint_t *pub_ept;
-  pk_endpoint_t *sub_ept;
   sbp_tx_ctx_t *tx_ctx;
   sbp_rx_ctx_t *rx_ctx;
 };

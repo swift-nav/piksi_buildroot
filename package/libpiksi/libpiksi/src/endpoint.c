@@ -31,7 +31,7 @@ struct pk_endpoint_s {
 };
 
 // Maximum number of packets to service for one socket
-#define EPT_SVC_MAX 128
+#define EPT_SVC_MAX 32
 
 #define IPC_PREFIX "ipc://"
 
@@ -250,12 +250,14 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
     size_t length = NN_MSG;
 
     if (pk_endpoint_receive_nn_msg(pk_ept, (void *)&buffer, &length, true) != 0) {
-      if (errno == EAGAIN) break;
+      if (errno == EWOULDBLOCK) break;
       piksi_log(LOG_ERR, "failed to receive nn_msg");
       return -1;
     }
 
-    rx_cb(buffer, length, context);
+    if (rx_cb(buffer, length, context) != 0)
+      break;
+
     nn_freemsg(buffer);
   }
 
@@ -273,6 +275,10 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
       /* Break on success */
       assert(written == length);
       return 0;
+    } else if (errno == EAGAIN) {
+      /* Retry... */
+      piksi_log(LOG_DEBUG, "%s: send returned with EAGAIN", __FUNCTION__, pk_endpoint_strerror());
+      continue;
     } else if (errno == EINTR) {
       /* Retry if interrupted */
       continue;
