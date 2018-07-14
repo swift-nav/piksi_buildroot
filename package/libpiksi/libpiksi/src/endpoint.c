@@ -35,6 +35,8 @@ struct pk_endpoint_s {
 
 #define IPC_PREFIX "ipc://"
 
+#define NN_RCVMAXSIZE_VAL (-1) // -1 means "unlimited"
+
 pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
 {
   assert(endpoint != NULL);
@@ -103,6 +105,13 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
     goto failure;
   } break;
   } // end of switch
+
+  int optval = NN_RCVMAXSIZE_VAL;
+  if (nn_setsockopt(pk_ept->nn_sock, NN_SOL_SOCKET, NN_RCVMAXSIZE, &optval, sizeof(int)) != 0) {
+    piksi_log(LOG_ERR, "error assigning NN_RCVMAXSIZE setting: %s",
+                       pk_endpoint_strerror());
+    goto failure;
+  }
 
   pk_ept->eid = do_bind ? nn_bind(pk_ept->nn_sock, endpoint)
                         : nn_connect(pk_ept->nn_sock, endpoint);
@@ -224,6 +233,7 @@ static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept, void *buffer_loc, s
   return 0;
 }
 
+// TODO: delete me
 ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 {
   assert(pk_ept != NULL);

@@ -78,9 +78,9 @@ int udp_connect_loop(const char *addr)
       continue;
     }
 
-    io_loop_start(-1, fd);
-    io_loop_wait_one();
-    io_loop_terminate();
+    io_loop_start(-1, fd, false);
+//    io_loop_wait_one();
+//    io_loop_terminate();
     close(fd);
     fd = -1;
   }

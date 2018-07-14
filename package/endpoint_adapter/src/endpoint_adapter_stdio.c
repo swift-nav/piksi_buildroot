@@ -14,8 +14,8 @@
 
 int stdio_loop(void)
 {
-  io_loop_start(STDIN_FILENO, STDOUT_FILENO);
-  io_loop_wait();
+  io_loop_start(STDIN_FILENO, STDOUT_FILENO, false);
+//  io_loop_wait();
 
   return 0;
 }
