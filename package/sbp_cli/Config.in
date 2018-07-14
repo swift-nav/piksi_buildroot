@@ -1,4 +1,4 @@
 config BR2_PACKAGE_SBP_CLI
 	bool "sbp_cli"
-	select BR2_PACKAGE_NANOMSG
+	select BR2_PACKAGE_NANOMSG_CUSTOM
 	select BR2_PACKAGE_LIBSBP

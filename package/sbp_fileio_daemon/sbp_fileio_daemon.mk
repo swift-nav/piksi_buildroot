@@ -8,7 +8,7 @@ SBP_FILEIO_DAEMON_VERSION = 0.1
 SBP_FILEIO_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_fileio_daemon/src"
 SBP_FILEIO_DAEMON_SITE_METHOD = local
-SBP_FILEIO_DAEMON_DEPENDENCIES = libuv nanomsg libsbp libpiksi
+SBP_FILEIO_DAEMON_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
 
 define SBP_FILEIO_DAEMON_USERS
 	fio_fw -1 fio_fw -1 * - - -
