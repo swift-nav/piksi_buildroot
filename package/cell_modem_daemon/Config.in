@@ -1,6 +1,6 @@
 config BR2_PACKAGE_CELL_MODEM_DAEMON
   bool "cell_modem_daemon"
   select BR2_PACKAGE_LIBUV
-  select BR2_PACKAGE_NANOMSG
+  select BR2_PACKAGE_NANOMSG_CUSTOM
   select BR2_PACKAGE_LIBSBP
   select BR2_PACKAGE_LIBPIKSI
