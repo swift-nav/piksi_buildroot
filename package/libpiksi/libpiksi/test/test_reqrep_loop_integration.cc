@@ -22,16 +22,35 @@ struct reqrep_ctx_s {
   int last_req;
 };
 
-static void test_req_cb(pk_loop_t *loop, void *handle, int status, void *context)
+static u8 req_value = 0;
+
+static int req_read_cb(const u8 *data, const size_t length, void *context) {
+
+  assert( length <= sizeof(req_value) );
+  memcpy(&req_value, data, length);
+
+  return -1; // return of non-zero terminates receive loop
+};
+
+static u8 rep_value = 0;
+
+static int rep_read_cb(const u8 *data, const size_t length, void *context) {
+
+  assert( length <= sizeof(rep_value) );
+  memcpy(&rep_value, data, length);
+
+  return -1; // return of non-zero terminates receive loop
+};
+
+static void test_req_cb(pk_loop_t *loop, void *handle, void *context)
 {
   (void)handle;
   (void)status;
 
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
 
-  u8 req_value = 0;
-  int result = pk_endpoint_read(ctx->req_ept, &req_value, sizeof(req_value));
-  EXPECT_EQ(result, 1);
+  int result = pk_endpoint_receive(ctx->req_ept, req_read_cb, NULL);
+  EXPECT_EQ(result, 0);
   EXPECT_EQ(req_value, ctx->last_req);
   if (req_value == ctx->last_req) ctx->recvd++;
   if (ctx->recvd > 1) {
@@ -46,12 +65,8 @@ static void test_rep_cb(pk_loop_t *loop, void *handle, int status, void *context
 
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
 
-  u8 rep_value = 0;
-  int result = pk_endpoint_read(ctx->rep_ept, &rep_value, sizeof(rep_value));
-
-  if (result == PKE_NOT_CONN) return;
-
-  EXPECT_EQ(result, 1);
+  int result = pk_endpoint_receive(ctx->rep_ept, rep_read_cb, NULL);
+  EXPECT_EQ(result, 0);
   result = pk_endpoint_send(ctx->rep_ept, &rep_value, sizeof(rep_value));
   EXPECT_EQ(result, 0);
 }

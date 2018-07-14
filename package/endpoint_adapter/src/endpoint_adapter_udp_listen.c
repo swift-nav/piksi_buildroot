@@ -54,8 +54,8 @@ int udp_listen_loop(int port)
     return 1;
   }
 
-  io_loop_start(fd, -1);
-  io_loop_wait();
+  io_loop_start(fd, -1, false);
+//  io_loop_wait();
   close(fd);
 
   return 0;

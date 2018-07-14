@@ -147,9 +147,9 @@ int tcp_connect_loop(const char *addr)
       return 1;
     }
     int wfd = dup(fd);
-    io_loop_start(fd, wfd);
-    io_loop_wait_one();
-    io_loop_terminate();
+    io_loop_start(fd, wfd, false);
+    //io_loop_wait_one();
+    //io_loop_terminate();
     close(fd);
     close(wfd);
     fd = -1;
