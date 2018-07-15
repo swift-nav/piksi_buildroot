@@ -52,15 +52,27 @@ static pk_metrics_t* MR = NULL;
 
 PK_METRICS_TABLE(MT, MI,
 
-  PK_METRICS_ENTRY("read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, read_count),
-  PK_METRICS_ENTRY("read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, read_size_total),
-  PK_METRICS_ENTRY("read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, read_size_average,
-                   M_AVERAGE_OF(MI,         read_size_total,  read_count)),
   PK_METRICS_ENTRY("error/mismatch",        "total",          M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, mismatch),
-  PK_METRICS_ENTRY("write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, write_count),
-  PK_METRICS_ENTRY("write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, write_size_total),
-  PK_METRICS_ENTRY("write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, write_size_average,
-                   M_AVERAGE_OF(MI,         write_size_total, write_count))
+
+  PK_METRICS_ENTRY("ingress/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, ingress_read_count),
+  PK_METRICS_ENTRY("ingress/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, ingress_read_size_total),
+  PK_METRICS_ENTRY("ingress/read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, ingress_read_size_average,
+                   M_AVERAGE_OF(MI,         ingress_read_size_total,  ingress_read_count)),
+
+  PK_METRICS_ENTRY("egress/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, egress_read_count),
+  PK_METRICS_ENTRY("egress/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, egress_read_size_total),
+  PK_METRICS_ENTRY("egress/read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, egress_read_size_average,
+                   M_AVERAGE_OF(MI,         egress_read_size_total,  egress_read_count)),
+
+  PK_METRICS_ENTRY("ingress/write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, ingress_write_count),
+  PK_METRICS_ENTRY("ingress/write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, ingress_write_size_total),
+  PK_METRICS_ENTRY("ingress/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, ingress_write_size_average,
+                   M_AVERAGE_OF(MI,         ingress_write_size_total, ingress_write_count)),
+
+  PK_METRICS_ENTRY("egress/write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, egress_write_count),
+  PK_METRICS_ENTRY("egress/write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, egress_write_size_total),
+  PK_METRICS_ENTRY("egress/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, egress_write_size_average,
+                   M_AVERAGE_OF(MI,         egress_write_size_total, egress_write_count))
 )
 
 typedef enum {
@@ -86,12 +98,8 @@ typedef struct {
   filter_t *filter;
 } handle_t;
 
-static const u64 one_second_ns = 1e9;
-
-static u64 last_metrics_flush = 0;
-
-static void do_metrics_flush(void);
-static void setup_metrics(const char* pubsub);
+static void do_metrics_flush(pk_loop_t *loop, void *handle, void *context);
+static void setup_metrics();
 
 static void die_error(const char *error);
 
@@ -113,7 +121,7 @@ static int outq;
 
 static const char *pub_addr = NULL;
 static const char *sub_addr = NULL;
-static const char *port_name = "<unknown>";
+static const char *port_name = NULL;
 static char file_path[PATH_MAX] = "";
 static int tcp_listen_port = -1;
 static const char *tcp_connect_addr = NULL;
@@ -143,13 +151,6 @@ static struct {
   .length = 0,
   .offset = 0,
   .oflow_count = 0,
-};
-
-static pid_t pub_pid = -1;
-static pid_t sub_pid = -1;
-static pid_t *pids[] = {
-  &pub_pid,
-  &sub_pid,
 };
 
 static void usage(char *command)
@@ -361,6 +362,11 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
+  if (port_name == NULL) {
+    fprintf(stderr, "a port name is required\n");
+    return -1;
+  }
+
   if (io_mode == IO_INVALID) {
     fprintf(stderr, "invalid mode\n");
     return -1;
@@ -461,6 +467,7 @@ static pk_endpoint_t * pk_endpoint_start(int type)
 
   usleep(1000 * startup_delay_ms);
   debug_printf("opened socket: %s\n", addr);
+
   return pk_ept;
 }
 
@@ -531,7 +538,7 @@ static int sub_ept_read(const u8 *buff, size_t length, void *context)
   if ((length + read_ctx.offset) > read_ctx.length) {
 
     assert( length <= sizeof(read_ctx.oflow) );
-    memcpy(read_ctx.oflow, buff, SWFT_MIN(length, sizeof(read_ctx.offset)));
+    memcpy(read_ctx.oflow, buff, length);
 
     read_ctx.oflow_count = length;
 
@@ -577,15 +584,22 @@ static ssize_t handle_read(handle_t *handle, u8* buffer, size_t count)
 
 static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 {
-  PK_METRICS_UPDATE(MR, MI.write_count);
-  PK_METRICS_UPDATE(MR, MI.write_size_total, PK_METRICS_VALUE((u32) count));
-
   if (handle->pk_ept != NULL) {
+
+    PK_METRICS_UPDATE(MR, MI.ingress_write_count);
+    PK_METRICS_UPDATE(MR, MI.ingress_write_size_total, PK_METRICS_VALUE((u32) count));
+
     if (pk_endpoint_send(handle->pk_ept, (u8 *)buffer, count) != 0) {
       return -1;
     }
+
     return count;
+
   } else {
+
+    PK_METRICS_UPDATE(MR, MI.egress_write_count);
+    PK_METRICS_UPDATE(MR, MI.egress_write_size_total, PK_METRICS_VALUE((u32) count));
+
     return fd_write(handle->write_fd, buffer, count);
   }
 }
@@ -677,9 +691,11 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
 
 static void io_loop_pubsub(pk_loop_t* loop, handle_t *read_handle, handle_t *write_handle)
 {
-  //debug_printf("io loop begin\n");
-
-  // PK_METRICS_UPDATE(MR, MI.read_count); // TODO: metrics
+  if (read_handle->pk_ept != NULL) {
+    PK_METRICS_UPDATE(MR, MI.egress_read_count);
+  } else {
+    PK_METRICS_UPDATE(MR, MI.ingress_read_count);
+  }
 
   /* Read from read_handle */
   static uint8_t buffer[READ_BUFFER_SIZE];
@@ -691,7 +707,11 @@ static void io_loop_pubsub(pk_loop_t* loop, handle_t *read_handle, handle_t *wri
     return;
   }
 
-  //PK_METRICS_UPDATE(MR, MI.read_size_total, PK_METRICS_VALUE((u32) read_count)); // TODO: metrics
+  if (read_handle->pk_ept != NULL) {
+    PK_METRICS_UPDATE(MR, MI.egress_read_size_total, PK_METRICS_VALUE((u32) read_count));
+  } else {
+    PK_METRICS_UPDATE(MR, MI.ingress_read_size_total, PK_METRICS_VALUE((u32) read_count));
+  }
 
   /* Write to write_handle via framer */
   size_t frames_written;
@@ -709,78 +729,56 @@ static void io_loop_pubsub(pk_loop_t* loop, handle_t *read_handle, handle_t *wri
     syslog(LOG_ERR, "warning: write_count != read_count");
     debug_printf("write_count != read_count %d %d\n",
         write_count, read_count);
-    // PK_METRICS_UPDATE(MR, MI.mismatch); // TODO: metrics
-  }
-
-  // do_metrics_flush(); // TODO: metrics
-}
-
-static int pid_wait_check(pid_t *pid, pid_t wait_pid)
-{
-  if (*pid > 0) {
-    if (*pid == wait_pid) {
-      *pid = -1;
-      return 0;
-    }
-  }
-
-  return -1;
-}
-
-static void pid_terminate(pid_t *pid)
-{
-  if (*pid > 0) {
-    if (kill(*pid, SIGTERM) != 0) {
-      syslog(LOG_ERR, "error terminating pid %d", *pid);
-    }
-    *pid = -1;
+    PK_METRICS_UPDATE(MR, MI.mismatch);
   }
 }
 
-static void do_metrics_flush(void) 
+static void do_metrics_flush(pk_loop_t *loop, void *handle, void *context)
 {
-  if (pk_metrics_gettime().ns - last_metrics_flush < one_second_ns) {
-    return;
-  }
+  (void) loop;
+  (void) handle;
+  (void) context;
 
-  PK_METRICS_UPDATE(MR, MI.read_size_average);
-  PK_METRICS_UPDATE(MR, MI.write_size_average);
+  PK_METRICS_UPDATE(MR, MI.ingress_read_size_average);
+  PK_METRICS_UPDATE(MR, MI.ingress_write_size_average);
 
-  last_metrics_flush = pk_metrics_gettime().ns;
+  PK_METRICS_UPDATE(MR, MI.egress_read_size_average);
+  PK_METRICS_UPDATE(MR, MI.egress_write_size_average);
 
   pk_metrics_flush(MR);
 
-  pk_metrics_reset(MR, MI.read_count);
-  pk_metrics_reset(MR, MI.read_size_total);
-  pk_metrics_reset(MR, MI.read_size_average);
-  pk_metrics_reset(MR, MI.write_count);
-  pk_metrics_reset(MR, MI.write_size_total);
-  pk_metrics_reset(MR, MI.write_size_average);
-} 
+  pk_metrics_reset(MR, MI.ingress_read_count);
+  pk_metrics_reset(MR, MI.ingress_read_size_total);
+  pk_metrics_reset(MR, MI.ingress_read_size_average);
+  pk_metrics_reset(MR, MI.ingress_write_count);
+  pk_metrics_reset(MR, MI.ingress_write_size_total);
+  pk_metrics_reset(MR, MI.ingress_write_size_average);
 
-static void setup_metrics(const char* pubsub) {
+  pk_metrics_reset(MR, MI.egress_read_count);
+  pk_metrics_reset(MR, MI.egress_read_size_total);
+  pk_metrics_reset(MR, MI.egress_read_size_average);
+  pk_metrics_reset(MR, MI.egress_write_count);
+  pk_metrics_reset(MR, MI.egress_write_size_total);
+  pk_metrics_reset(MR, MI.egress_write_size_average);
+}
 
-  char suffix[128];
-  size_t count = snprintf(suffix, sizeof(suffix), "%s_%s", port_name, pubsub);
-  assert( count < sizeof(suffix) );
+static void setup_metrics() {
 
   assert( MR == NULL );
 
-  MR = pk_metrics_setup("endpoint_adapter", suffix, MT, COUNT_OF(MT));
+  MR = pk_metrics_setup("endpoint_adapter", port_name, MT, COUNT_OF(MT));
 
   if (MR == NULL) {
     die_error("error configuring metrics");
     exit(EXIT_FAILURE);
   }
-
-  last_metrics_flush = pk_metrics_gettime().ns;
 }
 
 static void die_error(const char *error)
 {
   piksi_log(LOG_ERR|LOG_SBP, error);
   fprintf(stderr, "%s\n", error);
-    
+
   exit(EXIT_FAILURE);
 }
 
@@ -800,7 +798,7 @@ static void read_fd_cb(pk_loop_t *loop, void *handle, void *context)
   io_loop_pubsub(loop, &loop_ctx.read_handle, &loop_ctx.pub_handle);
 }
 
-void io_loop_start(int read_fd, int write_fd, bool fork_needed)
+int io_loop_start(int read_fd, int write_fd, bool fork_needed)
 {
   if (write_fd != -1) {
     int arg = O_NONBLOCK;
@@ -815,17 +813,22 @@ void io_loop_start(int read_fd, int write_fd, bool fork_needed)
   if (fork_needed) {
     pid_t pid = fork();
     if (pid != 0) {
-      // TODO: who uses this?
-      pub_pid = pid;
-      sub_pid = pid;
-      return;
+      return 0;
     }
   }
 
   loop_ctx.loop = pk_loop_create();
 
-  // TODO: setup metrics for pub and sub?
-  setup_metrics("pubsub");
+  setup_metrics();
+
+  void *handle =
+    pk_loop_timer_add(loop_ctx.loop,
+                      1000,
+                      do_metrics_flush,
+                      NULL);
+
+  assert( handle != NULL );
+
 
   if (pub_addr != NULL && read_fd != -1) {
 
@@ -885,112 +888,8 @@ void io_loop_start(int read_fd, int write_fd, bool fork_needed)
   pk_metrics_destroy(&MR);
 
   debug_printf("Exiting from pubsub (fork: %s)\n", fork_needed ? "y" : "n");
-  exit(EXIT_SUCCESS);
 
-#if 0
-  if (pub_addr != NULL && read_fd != -1) {
-    debug_printf("Forking for pub\n");
-    pid_t pid = fork();
-    if (pid == 0) {
-      setup_metrics("pub");
-      /* child process */
-      pk_endpoint_t *pub = pk_endpoint_start(PK_ENDPOINT_PUB);
-      if (pub == NULL) {
-        debug_printf("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
-        exit(EXIT_FAILURE);
-      }
-      io_loop_pubsub(&fd_handle, &pub_handle);
-      pk_endpoint_destroy(&pub);
-      assert(pub == NULL);
-      handle_deinit(&pub_handle);
-      handle_deinit(&fd_handle);
-      pk_metrics_destroy(&MR);
-      debug_printf("Exiting from pub fork\n");
-      exit(EXIT_SUCCESS);
-    } else {
-    }
-  }
-
-  // TODO assign one child pid somwhere
-  /* parent process */
-  pub_pid = pid;
-
-  if (sub_addr != NULL && write_fd != -1) {
-    debug_printf("Forking for sub\n");
-    pid_t pid = fork();
-    if (pid == 0) {
-      setup_metrics("sub");
-      /* child process */
-      pk_endpoint_t *sub = pk_endpoint_start(PK_ENDPOINT_SUB);
-      if (sub == NULL) {
-        debug_printf("pk_endpoint_start(PK_ENDPOINT_SUB) returned NULL\n");
-        exit(EXIT_FAILURE);
-      }
-
-      io_loop_pubsub(&sub_handle, &fd_handle);
-      pk_endpoint_destroy(&sub);
-      assert(sub == NULL);
-      handle_deinit(&sub_handle);
-      handle_deinit(&fd_handle);
-      debug_printf("Exiting from sub fork\n");
-      exit(EXIT_SUCCESS);
-    } else {
-      /* parent process */
-      sub_pid = pid;
-    }
-  }
-#endif
-}
-
-void io_loop_wait(void)
-{
-  while (1) {
-    debug_printf("waiting for children state change\n");
-    int ret = waitpid(-1, NULL, 0);
-    debug_printf("waitpid returned %d errno %d\n", ret, errno);
-    if ((ret == -1) && (errno == EINTR)) {
-      /* Retry if interrupted */
-      continue;
-    } else {
-      break;
-      /* If any of the childs dies, then the parent process must exit
-         and give the chance to the system to restart it */
-    }
-  }
-  debug_printf("Exit from io_loop_wait\n");
-}
-
-/* Used in tcp_connect */
-void io_loop_wait_one(void)
-{
-  while (1) {
-    pid_t pid = waitpid(-1, NULL, 0);
-    if ((pid == -1) && (errno == EINTR)) {
-      /* Retry if interrupted */
-      continue;
-    } else if (pid >= 0) {
-      int i;
-      for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
-        if (pid_wait_check(&pub_pid, pid) == 0) {
-          /* Return if a child from the list was terminated */
-          return;
-        }
-      }
-      /* Retry if the child was not in the list */
-      continue;
-    } else {
-      /* Return on error */
-      return;
-    }
-  }
-}
-
-void io_loop_terminate(void)
-{
-  int i;
-  for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
-    pid_terminate(pids[i]);
-  }
+  return 0;
 }
 
 int main(int argc, char *argv[])

@@ -31,10 +31,7 @@
 #include <arpa/inet.h>
 
 
-void io_loop_start(int read_fd, int write_fd, bool fork_needed);
-void io_loop_wait(void);
-void io_loop_wait_one(void);
-void io_loop_terminate(void);
+int io_loop_start(int read_fd, int write_fd, bool fork_needed);
 
 extern bool debug;
 

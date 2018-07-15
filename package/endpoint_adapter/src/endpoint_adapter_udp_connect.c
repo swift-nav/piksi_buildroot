@@ -59,7 +59,6 @@ static int socket_create(const struct sockaddr_in *addr)
 
 err:
   close(fd);
-  fd = -1;
   return ret;
 }
 
@@ -79,9 +78,6 @@ int udp_connect_loop(const char *addr)
     }
 
     io_loop_start(-1, fd, false);
-//    io_loop_wait_one();
-//    io_loop_terminate();
     close(fd);
-    fd = -1;
   }
 }
