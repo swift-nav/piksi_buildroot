@@ -79,7 +79,6 @@ static int socket_create(const struct sockaddr *addr, socklen_t addr_len)
 
 err:
   close(fd);
-  fd = -1;
   return ret;
 }
 
@@ -148,10 +147,7 @@ int tcp_connect_loop(const char *addr)
     }
     int wfd = dup(fd);
     io_loop_start(fd, wfd, false);
-    //io_loop_wait_one();
-    //io_loop_terminate();
     close(fd);
     close(wfd);
-    fd = -1;
   }
 }

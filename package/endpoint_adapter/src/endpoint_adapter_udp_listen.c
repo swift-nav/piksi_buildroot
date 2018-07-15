@@ -42,7 +42,6 @@ static int socket_create(int port)
 
 err:
   close(fd);
-  fd = -1;
   return ret;
 }
 
@@ -55,7 +54,6 @@ int udp_listen_loop(int port)
   }
 
   io_loop_start(fd, -1, false);
-//  io_loop_wait();
   close(fd);
 
   return 0;
