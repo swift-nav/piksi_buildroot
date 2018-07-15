@@ -142,15 +142,11 @@ static struct {
 
 static struct {
   u8* buffer;
-  size_t length;
-  size_t offset;
-  u8 oflow[OFLOW_BUFFER_SIZE];
-  size_t oflow_count;
+  size_t fill;
+  size_t size;
 } read_ctx = {
   .buffer = NULL,
-  .length = 0,
-  .offset = 0,
-  .oflow_count = 0,
+  .fill = 0,
 };
 
 static void usage(char *command)
@@ -533,22 +529,13 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
 
 static int sub_ept_read(const u8 *buff, size_t length, void *context)
 {
-  (void) context;
+  assert( length <= read_ctx.size );
 
-  if ((length + read_ctx.offset) > read_ctx.length) {
+  memcpy(read_ctx.buffer, buff, length);
+  read_ctx.fill += length;
 
-    assert( length <= sizeof(read_ctx.oflow) );
-    memcpy(read_ctx.oflow, buff, length);
-
-    read_ctx.oflow_count = length;
-
-    return -1;
-  }
-
-  memcpy(&read_ctx.buffer[read_ctx.offset], buff, length);
-  read_ctx.offset += length;
-
-  return 0;
+  // Return -1 to terminate the read loop, only read one packet
+  return -1;
 }
 
 static ssize_t handle_read(handle_t *handle, u8* buffer, size_t count)
@@ -556,18 +543,8 @@ static ssize_t handle_read(handle_t *handle, u8* buffer, size_t count)
   if (handle->pk_ept != NULL) {
 
     read_ctx.buffer = buffer;
-    read_ctx.length = count;
-    read_ctx.offset = 0;
-
-    if (read_ctx.oflow_count > 0) {
-
-      assert( read_ctx.oflow_count <= count );
-
-      memcpy(buffer, read_ctx.oflow, read_ctx.oflow_count);
-
-      read_ctx.offset = read_ctx.oflow_count;
-      read_ctx.oflow_count = 0;
-    }
+    read_ctx.size = count;
+    read_ctx.fill = 0;
 
     int rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
     if (rc != 0) {
@@ -575,7 +552,7 @@ static ssize_t handle_read(handle_t *handle, u8* buffer, size_t count)
                 __FUNCTION__, rc, __FILE__, __LINE__);
     }
 
-    return read_ctx.offset;
+    return read_ctx.fill;
 
   } else {
     return fd_read(handle->read_fd, buffer, count);
