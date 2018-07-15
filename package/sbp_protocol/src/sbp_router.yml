@@ -26,11 +26,15 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0xA8, 0x00] } # File read
           - { action: ACCEPT, prefix: [0x55, 0xA9, 0x00] } # File read dir
-          - { action: ACCEPT, prefix: [0x55, 0xAC, 0x00] } # File reamove
+          - { action: ACCEPT, prefix: [0x55, 0xAC, 0x00] } # File remove
           - { action: ACCEPT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: REJECT }
       - dst_port: SBP_PORT_INTERNAL
         filters:
+          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: ACCEPT }
       - dst_port: SBP_PORT_SKYLARK
         filters:
@@ -70,11 +74,19 @@ ports:
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
+          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
           - { action: REJECT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
           - { action: ACCEPT }
       - dst_port: SBP_PORT_SETTINGS_DAEMON
         filters:
+          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
           - { action: REJECT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
           - { action: ACCEPT }
@@ -87,6 +99,10 @@ ports:
           - { action: REJECT }
       - dst_port: SBP_PORT_INTERNAL
         filters:
+          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: ACCEPT }
       - dst_port: SBP_PORT_SETTINGS_CLIENT
         filters:
