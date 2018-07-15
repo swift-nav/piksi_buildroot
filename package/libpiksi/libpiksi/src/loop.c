@@ -388,10 +388,13 @@ static void uv_loop_poll_handler(uv_poll_t *poller, int status, int events)
   pk_loop_t *loop = pk_loop_from_uv_handle(handle);
   pk_callback_ctx_t *cb_ctx = pk_callback_context_from_uv_handle(handle);
 
+  // TODO: pass this to the handler so they can do something with it
   if (status < 0) {
     piksi_log(LOG_ERR, "UV_ERROR %s", uv_strerror(status));
     return;
   }
+
+  // TODO: pass this to the handler so they can do something with it
   if (events & UV_DISCONNECT) {
     piksi_log(LOG_ERR, "uv_poll_event - UV_DISCONNECT");
     return;

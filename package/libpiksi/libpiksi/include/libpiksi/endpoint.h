@@ -96,20 +96,6 @@ pk_endpoint_type pk_endpoint_type_get(pk_endpoint_t *pk_ept);
 int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept);
 
 /**
- * @brief   Read a single message from the endpoint context into a supplied buffer
- * @details Read a single message from the endpoint context into a supplied buffer
- *
- * @param[in] pk_ept        Pointer to Piksi endpoint context to use.
- * @param[out] buffer       Pointer the memory location the message will be copied to.
- * @param[in] count         Size of the supplied buffer.
- *
- * @return                  The operation result.
- * @retval 0                Number of bytes copied into the supplied buffer.
- * @retval -1               An error occurred.
- */
-ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count);
-
-/**
  * @brief   Receive messages from the endpoint context
  * @details Receive messages from the endpoint context. The callback supplied
  *          will be called for each message received. A single call to this function

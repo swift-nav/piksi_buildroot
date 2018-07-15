@@ -194,7 +194,6 @@ int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
  * @param pk_ept: pointer to the endpoint context
  * @param buffer: pointer to existing buffer - OR - double pointer to receive allocated msg
  * @param length: size of existing buffer - OR - pointer to receive msg length
- * @param nonblocking: if the call should be nonblocking
  *
  * @note    The buffer and length options mirror the nn_recv options
  *
@@ -202,7 +201,7 @@ int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
  * @retval 0                Receive operation was successful.
  * @retval -1               An error occurred.
  */
-static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept, void *buffer_loc, size_t *length_loc, bool nonblocking)
+static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept, void *buffer_loc, size_t *length_loc)
 {
   assert(pk_ept != NULL);
   assert(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
@@ -210,7 +209,7 @@ static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept, void *buffer_loc, s
   int length = 0;
 
   while (1) {
-    length = nn_recv(pk_ept->nn_sock, buffer_loc, *length_loc, nonblocking ? NN_DONTWAIT : 0);
+    length = nn_recv(pk_ept->nn_sock, buffer_loc, *length_loc, NN_DONTWAIT);
     if (length >= 0) {
       if (length == 0) piksi_log(LOG_WARNING, "Empty message received");
       /* Break on success */
@@ -219,7 +218,7 @@ static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept, void *buffer_loc, s
       /* Retry if interrupted */
       piksi_log(LOG_DEBUG, "Retry recv on EINTR");
       continue;
-    } else if (nonblocking && errno == EAGAIN) {
+    } else if (errno == EAGAIN) {
       // An "expected" error, don't need to report an error
       return -1;
     } else {
@@ -233,21 +232,6 @@ static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept, void *buffer_loc, s
   return 0;
 }
 
-// TODO: delete me
-ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
-{
-  assert(pk_ept != NULL);
-  assert(buffer != NULL);
-
-  size_t length = count;
-  if (pk_endpoint_receive_nn_msg(pk_ept, buffer, &length, false) != 0) {
-    piksi_log(LOG_ERR, "failed to receive nn_msg");
-    return -1;
-  }
-
-  return length;
-}
-
 int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context)
 {
   assert(pk_ept != NULL);
@@ -259,7 +243,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
     u8 *buffer = NULL;
     size_t length = NN_MSG;
 
-    if (pk_endpoint_receive_nn_msg(pk_ept, (void *)&buffer, &length, true) != 0) {
+    if (pk_endpoint_receive_nn_msg(pk_ept, (void *)&buffer, &length) != 0) {
       if (errno == EWOULDBLOCK) break;
       piksi_log(LOG_ERR, "failed to receive nn_msg");
       return -1;
