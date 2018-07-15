@@ -57,8 +57,6 @@ err_code=$?
   && sudo cp /home/$USER/.bash_history /host/tmp/piksi_buildroot_bash_history \
   || true
 
-echo ">>> Exit status: $err_code"
-
 exit $err_code
 
 # vim: ff=unix:
