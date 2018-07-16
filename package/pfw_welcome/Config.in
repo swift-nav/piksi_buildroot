@@ -1,0 +1,5 @@
+config BR2_PACKAGE_PFW_WELCOME
+  bool "pfw_welcome"
+  select BR2_PACKAGE_LIBUV
+  select BR2_PACKAGE_NANOMSG_CUSTOM
+  select BR2_PACKAGE_LIBPIKSI
