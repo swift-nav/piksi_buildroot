@@ -1,5 +1,5 @@
-TARGET=fpga_error_moni
-SOURCES=fpga_error_moni.c
+TARGET=pfw_welcome
+SOURCES=pfw_welcome.c
 LIBS=-luv -lnanomsg -lsbp -lpiksi
 CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror -ggdb
 
