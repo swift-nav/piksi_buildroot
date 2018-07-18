@@ -144,7 +144,6 @@ static void ephemeris_glo_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   (void) len;
   msg_ephemeris_glo_t *e = (msg_ephemeris_glo_t*)msg;
 
-  piksi_log(LOG_INFO, "FCN %u for sat %u", e->fcn, e->common.sid.sat);
   /* extract just the FCN field */
   rtcm2sbp_set_glo_fcn(e->common.sid, e->fcn, &state);
 }
