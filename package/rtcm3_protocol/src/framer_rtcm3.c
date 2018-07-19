@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <libpiksi/logging.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -175,6 +176,7 @@ uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
                          (s->buffer[total_length - 1] <<  0);
     if (frame_crc != computed_crc) {
       s->remove_count = 1;
+      piksi_log(LOG_INFO, "RTCM CRC error, buffer length %u\n", total_length);
       continue;
     }
 
