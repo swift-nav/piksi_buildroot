@@ -23,6 +23,7 @@
 #define LIBPIKSI_ENDPOINT_H
 
 #include <libpiksi/common.h>
+#include <libpiksi/loop.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -147,6 +148,12 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
  * @return                  Pointer to a const string buffer with description
  */
 const char * pk_endpoint_strerror(void);
+
+int pk_endpoint_accept(pk_endpoint_t *pk_ept);
+
+int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
+
+pk_loop_cb pk_endpoint_start_server(pk_endpoint_t *pk_ept, pk_loop_t *loop);
 
 #ifdef __cplusplus
 }
