@@ -132,10 +132,6 @@ uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
       if (count > available) {
         count = available;
       }
-      if (count > RTCM3_BUFFER_SIZE - s->buffer_length) {
-        piksi_log(LOG_INFO, "RTCM buffer full\n");
-        count = RTCM3_BUFFER_SIZE - s->buffer_length;
-      }
       memcpy(&s->buffer[s->buffer_length], &data[data_offset], count);
       s->buffer_length += count;
       data_offset += count;
