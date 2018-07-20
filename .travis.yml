@@ -8,6 +8,7 @@ services:
 
 branches:
   only:
+    - v1.6.0-release
     - master
     - /^v\d+\.\d+\.0-release$/
 
