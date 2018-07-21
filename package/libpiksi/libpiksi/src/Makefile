@@ -19,7 +19,7 @@ SOURCES=\
   protocols.c \
 
 ARFLAGS=rcs $(LTO_PLUGIN)
-CFLAGS+=-std=gnu11 -fPIC -I../include -O3
+CFLAGS+=-std=gnu11 -fPIC -I../include -ggdb3
 LDFLAGS+=-shared
 
 CROSS=

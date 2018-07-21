@@ -10,12 +10,18 @@ ENDPOINT_ADAPTER_SITE = \
 ENDPOINT_ADAPTER_SITE_METHOD = local
 ENDPOINT_ADAPTER_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
 
+ENDPOINT_ADAPTER_INSTALL_STAGING = YES
+
 define ENDPOINT_ADAPTER_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all
 endef
 
 define ENDPOINT_ADAPTER_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/endpoint_adapter $(TARGET_DIR)/usr/bin
+endef
+
+define ENDPOINT_ADAPTER_INSTALL_STAGING_CMDS
+    $(INSTALL) -D -m 0755 $(@D)/endpoint_adapter $(STAGING_DIR)/usr/bin
 endef
 
 $(eval $(generic-package))

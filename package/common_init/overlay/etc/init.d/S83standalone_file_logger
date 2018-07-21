@@ -1,7 +1,5 @@
 #!/bin/sh
 
-exit 0
-
 name="standalone_file_logger"
 cmd="standalone_file_logger -d /media/sda1/ -s 'ipc:///var/run/sockets/external.pub'"
 dir="/"

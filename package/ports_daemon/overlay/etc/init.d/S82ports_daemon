@@ -1,7 +1,5 @@
 #!/bin/sh
 
-exit 0
-
 source /etc/init.d/common.sh
 
 name="ports_daemon"
