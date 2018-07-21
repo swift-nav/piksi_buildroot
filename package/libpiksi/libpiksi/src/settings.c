@@ -1396,9 +1396,11 @@ int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
   return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
-static void signal_handler(pk_loop_t *loop, void *handle, void *context)
+static void signal_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)context;
+  (void)status;
+
   int signal_value = pk_loop_get_signal_from_handle(handle);
 
   piksi_log(LOG_DEBUG, "%s: caught signal: %d", __FUNCTION__, signal_value);
@@ -1431,8 +1433,10 @@ static int command_receive_callback(const u8 *data, const size_t length, void *c
   return 0;
 }
 
-static void control_handler(pk_loop_t *loop, void *handle, void *context)
+static void control_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
+  (void)status;
+
   control_command_t* cmd_info = (control_command_t*)context;
 
   u8 data = 0;
