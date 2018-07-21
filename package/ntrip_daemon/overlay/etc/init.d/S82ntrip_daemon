@@ -1,5 +1,7 @@
 #!/bin/sh
 
+exit 0
+
 name="ntrip_daemon"
 cmd="ntrip_daemon --settings"
 dir="/"

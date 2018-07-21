@@ -38,7 +38,7 @@
  * Standard usage is as follow, initialize the settings context:
  * \code{.c}
  * // Create the settings context
- * settings_ctx_t *settings_ctx = settings_create();
+ * settings_ctx_t *settings_ctx = settings_create(loop);
  * \endcode
  * Add a reader to the main pk_loop (if applicable)
  * \code{.c}
@@ -1204,7 +1204,7 @@ static void destroy(settings_ctx_t **ctx)
   *ctx = NULL;
 }
 
-settings_ctx_t * settings_create(void)
+settings_ctx_t * settings_create(pk_loop_t *loop)
 {
   settings_ctx_t *ctx = (settings_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
@@ -1227,17 +1227,24 @@ settings_ctx_t * settings_create(void)
     return ctx;
   }
 
-  ctx->loop = pk_loop_create();
-  if (ctx->loop == NULL) {
-    piksi_log(LOG_ERR, "error creating internal loop");
-    destroy(&ctx);
-    return ctx;
+#if 0
+  assert( loop != NULL );
+  ctx->loop = loop;
+  if (loop == NULL) {
+    ctx->loop = pk_loop_create();
+    if (ctx->loop == NULL) {
+      piksi_log(LOG_ERR, "error creating internal loop");
+      destroy(&ctx);
+      return ctx;
+    }
+  } else {
   }
 
   if (settings_attach(ctx, ctx->loop) != 0) {
     destroy(&ctx);
     return ctx;
   }
+#endif
 
   /* Register standard types */
   settings_type_t type;
@@ -1391,6 +1398,8 @@ int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
   assert(ctx != NULL);
   assert(pk_loop != NULL);
 
+  ctx->loop = pk_loop;
+
   return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
@@ -1531,7 +1540,7 @@ bool settings_loop(const char* control_socket,
   bool ret = true;
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = settings_create();
+  settings_ctx_t *settings_ctx = settings_create(loop);
   if (settings_ctx == NULL) {
     ret = false;
     goto settings_loop_cleanup;

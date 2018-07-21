@@ -18,3 +18,7 @@ fi
 cmd="endpoint_router --sbp --name sbp -f $router_config"
 
 source /etc/init.d/template_runsv.inc.sh
+
+while [ -f /tmp/pause_router ]; do
+  sleep 1
+done
