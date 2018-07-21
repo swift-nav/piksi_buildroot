@@ -12,4 +12,6 @@ setup_permissions()
   configure_dir_resource $user $FILEIO_DIR 0700
 }
 
+sleep 1
+
 source /etc/init.d/template_runsv.inc.sh

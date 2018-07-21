@@ -12,12 +12,16 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <unistd.h>
 #include <sys/eventfd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+
+#include <sys/ioctl.h>
+#include <linux/sockios.h>
 
 #if 0
 #include <nanomsg/nn.h>
@@ -57,6 +61,7 @@ struct pk_endpoint_s {
   int client_count;
   pk_loop_t *loop;
   void *poll_handle;
+  char path[PATH_MAX];
 };
 
 
@@ -133,6 +138,7 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   pk_ept->client_count = 0;
   pk_ept->loop = NULL;
   pk_ept->poll_handle = NULL;
+  strcpy(pk_ept->path, endpoint);
 
   for (size_t i = 0; i < MAX_CLIENTS; i++) {
     invalidate_client_slot(pk_ept, i);
@@ -297,6 +303,7 @@ static int recv_msg_impl(pk_endpoint_t *ept,
   while (1) {
 
     length = recvmsg(sock, &msg, 0);
+//    pk_log_anno(LOG_DEBUG, "recvmsg: length: %d", length);
 
     if (length >= 0) {
 
@@ -451,20 +458,41 @@ static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, const size_t 
   msg.msg_iov     = iov;
   msg.msg_iovlen  = 1;
 
+  void close_socket_helper() {
+      if (loop != NULL) {
+        assert( poll_handle != NULL );
+        assert( slot >= 0 );
+        pk_loop_poll_remove(loop, poll_handle);
+        close(sock);
+        record_disconnect(ept, slot);
+      }
+  };
+
   while (1) {
 
     int written = sendmsg(sock, &msg, 0);
     int error = errno;
+
+//    pk_log_anno(LOG_DEBUG, "sendmsg: length: %d", length);
 
     if (written != -1) {
       /* Break on success */
       assert(written == length);
       return 0;
 
-    } else if (error == EAGAIN) {
-      /* Retry... */
-      pk_log_anno(LOG_DEBUG, "sendmsg returned with EAGAIN");
-      continue;
+    } else if (error == EAGAIN || error == EWOULDBLOCK) {
+
+      int queued = -1;
+      int error = ioctl(sock, SIOCINQ, &queued);
+
+      if (queued == 0) {
+        close_socket_helper();
+        return 0;
+      }
+
+      pk_log_anno(LOG_WARNING, "sendmsg error (EAGAIN), dropped %d bytes (path: %s, slot: %d, queued: %d)", length, ept->path, slot, queued);
+
+      return 0;
 
     } else if (error == EINTR) {
       /* Retry if interrupted */
@@ -473,16 +501,7 @@ static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, const size_t 
 
     } else {
 
-      if (loop != NULL) {
-
-        assert( poll_handle != NULL );
-        assert( slot >= 0 );
-
-        pk_loop_poll_remove(loop, poll_handle);
-
-        close(sock);
-        record_disconnect(ept, slot);
-      }
+      close_socket_helper();
 
       if (error != EPIPE && error != ECONNRESET) {
         /* Return error */
@@ -499,14 +518,18 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   assert(pk_ept != NULL);
   assert(pk_ept->type != PK_ENDPOINT_SUB || pk_ept->type != PK_ENDPOINT_SUB_SERVER);
 
+  int rc = -1;
+
   if (pk_ept->type == PK_ENDPOINT_PUB) {
-    send_impl(pk_ept, pk_ept->sock, data, length, NULL, NULL, -1);
+    rc = send_impl(pk_ept, pk_ept->sock, data, length, NULL, NULL, -1);
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER) {
     for (int idx = 0; idx < MAX_CLIENTS; idx++) {
       if (!pk_ept->clients[idx].valid) continue;
-      send_impl(pk_ept, pk_ept->clients[idx].fd, data, length, pk_ept->loop, pk_ept->clients[idx].poll_handle, idx);
+      rc = send_impl(pk_ept, pk_ept->clients[idx].fd, data, length, pk_ept->loop, pk_ept->clients[idx].poll_handle, idx);
     }
   }
+
+  return rc;
 }
 
 const char * pk_endpoint_strerror(void)
@@ -574,7 +597,6 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
 
     close(client_context->fd);
     record_disconnect(client_context->ept, client_context->slot);
-
 
     return;
   }
