@@ -1,5 +1,7 @@
 #!/bin/sh
 
+exit 0
+
 MODEM_BASE="/dev/ttyACM"
 AUX_MODEM_PORT="/dev/ttyACM3"
 name="cell_modem_daemon"

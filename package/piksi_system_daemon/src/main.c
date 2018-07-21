@@ -498,7 +498,7 @@ int main(void)
   }
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = settings_create();
+  settings_ctx_t *settings_ctx = settings_create(loop);
   if (settings_ctx == NULL) {
     exit(EXIT_FAILURE);
   }
