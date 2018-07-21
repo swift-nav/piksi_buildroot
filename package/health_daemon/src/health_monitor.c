@@ -124,10 +124,12 @@ health_monitor_message_callback(u16 sender_id, u8 len, u8 msg[], void *ctx)
 /*
  * Call Monitor Timer Callback
  */
-static void health_monitor_timer_callback(pk_loop_t *loop, void * timer_handle, void *context)
+static void health_monitor_timer_callback(pk_loop_t *loop, void * timer_handle, int status, void *context)
 {
   (void)loop;
   (void)timer_handle;
+  (void)status;
+
   health_monitor_t *monitor = (health_monitor_t *)context;
   assert(monitor != NULL);
 

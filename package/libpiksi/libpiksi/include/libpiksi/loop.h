@@ -31,6 +31,14 @@ typedef struct pk_endpoint_s pk_endpoint_t;
 extern "C" {
 #endif
 
+enum {
+  LOOP_UNKNOWN = -1,
+  LOOP_SUCCESS = 0,
+  LOOP_READ,
+  LOOP_DISCONNECTED,
+  LOOP_ERROR,
+};
+
 /**
  * @struct  pk_loop_t
  *
@@ -41,7 +49,7 @@ typedef struct pk_loop_s pk_loop_t;
 /**
  * @brief   Piksi Loop Callback Signature
  */
-typedef void (*pk_loop_cb)(pk_loop_t *loop, void *handle, void *context);
+typedef void (*pk_loop_cb)(pk_loop_t *loop, void *handle, int status, void *context);
 
 /**
  * @brief   Create a Piksi loop context
@@ -135,20 +143,30 @@ void * pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
                                    void *context);
 
 /**
- * @brief   Add a poll handle for a given file descriptor
- * @details Add a poll handle for a given file descriptor
+ * @brief   add a poll handle for a given file descriptor
+ * @details add a poll handle for a given file descriptor
  *
- * @param[in] pk_loop       Pointer to the Piksi loop to use.
- * @param[in] fd            File descriptor to poll for incoming data.
- * @param[in] callback      Callback to use.
- * @param[in] context       Pointer to user data that will be passed to callback.
+ * @param[in] pk_loop       pointer to the piksi loop to use.
+ * @param[in] fd            file descriptor to poll for incoming data.
+ * @param[in] callback      callback to use.
+ * @param[in] context       pointer to user data that will be passed to callback.
  *
- * @return                  Poll handle if added successfully, otherwise NULL
+ * @return                  poll handle if added successfully, otherwise null
  */
 void * pk_loop_poll_add(pk_loop_t *pk_loop,
                         int fd,
                         pk_loop_cb callback,
                         void *context);
+
+/**
+ * @brief   add a poll handle for a given file descriptor
+ * @details add a poll handle for a given file descriptor
+ *
+ * @param[in] pk_loop       pointer to the piksi loop to use.
+ * @param[in] handle        the poll handle
+ */
+void pk_loop_poll_remove(pk_loop_t *pk_loop,
+                         void* handle);
 
 /**
  * @brief   Remove a callback handle
@@ -194,6 +212,10 @@ int pk_loop_run_simple_with_timeout(pk_loop_t *pk_loop, u32 timeout_ms);
  * @param[in] pk_loop       Pointer to the Piksi loop to use.
  */
 void pk_loop_stop(pk_loop_t *pk_loop);
+
+const char* pk_loop_last_error(pk_loop_t *pk_loop);
+
+const char* pk_loop_describe_status(int status);
 
 #ifdef __cplusplus
 }
