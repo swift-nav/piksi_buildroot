@@ -22,9 +22,11 @@ struct reqrep_ctx_s {
   int last_req;
 };
 
-static void test_req_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_req_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
+  (void)status;
+
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
 
   u8 req_value = 0;
@@ -37,9 +39,11 @@ static void test_req_cb(pk_loop_t *loop, void *handle, void *context)
   }
 }
 
-static void test_rep_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_rep_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
+  (void)status;
+
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
 
   u8 rep_value = 0;
@@ -49,10 +53,11 @@ static void test_rep_cb(pk_loop_t *loop, void *handle, void *context)
   EXPECT_EQ(result, 0);
 }
 
-static void test_timeout_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_timeout_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
+  (void)status;
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
   if (ctx->sent == ctx->recvd) {
     u8 simple_message = ctx->sent + 1;

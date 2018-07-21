@@ -32,7 +32,7 @@
 #include <libpiksi/endpoint.h>
 
 // Maximum number of packets to service for one socket
-#define EPT_SVC_MAX 32
+#define ENDPOINT_SERVICE_MAX 32
 
 #define IPC_PREFIX "ipc://"
 
@@ -41,6 +41,9 @@
 typedef struct {
   pk_endpoint_t *ept;
   int fd;
+  bool valid;
+  int slot;
+  void *poll_handle;
 } client_context_t;
 
 struct pk_endpoint_s {
@@ -49,11 +52,20 @@ struct pk_endpoint_s {
   int wakefd;
   int eid;
   bool nonblock;
+  bool woke;
   client_context_t clients[MAX_CLIENTS];
-  size_t client_count;
+  int client_count;
+  pk_loop_t *loop;
+  void *poll_handle;
 };
 
-static void accept_wake_handler(pk_loop_t *loop, void *handle, void *context);
+
+static int index_of_client_slot(pk_endpoint_t *pk_ept, client_context_t *ctx);
+static int find_free_client_slot(pk_endpoint_t *pk_ept);
+static void record_disconnect(pk_endpoint_t *pk_ept, int slot);
+static void invalidate_client_slot(pk_endpoint_t *pk_ept, int slot);
+
+static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void *context);
 
 static int create_un_socket()
 {
@@ -121,7 +133,14 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   pk_ept->sock = -1;
   pk_ept->eid = -1;
   pk_ept->nonblock = false;
+  pk_ept->woke = false;
   pk_ept->client_count = 0;
+  pk_ept->loop = NULL;
+  pk_ept->poll_handle = NULL;
+
+  for (size_t i = 0; i < MAX_CLIENTS; i++) {
+    invalidate_client_slot(pk_ept, i);
+  }
 
   bool do_bind = false;
   switch (pk_ept->type)
@@ -260,7 +279,14 @@ int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
   return pk_ept->type == PK_ENDPOINT_SUB ? pk_ept->sock : pk_ept->wakefd;
 }
 
-static int recv_msg_impl(int sock, u8 *buffer, size_t *length_loc, bool nonblocking)
+static int recv_msg_impl(pk_endpoint_t *ept,
+                         int sock,
+                         u8 *buffer,
+                         size_t *length_loc,
+                         bool nonblocking,
+                         pk_loop_t *loop,
+                         void *poll_handle,
+                         int slot)
 {
   int length = 0;
 
@@ -274,25 +300,38 @@ static int recv_msg_impl(int sock, u8 *buffer, size_t *length_loc, bool nonblock
   msg.msg_iovlen = 1;
 
   while (1) {
+
     length = recvmsg(sock, &msg, 0);
-    //		piksi_log(LOG_DEBUG, "%s: recvmsg = %d (%s:%d)", __FUNCTION__, length, __FILE__,
-    //__LINE__);
     if (length >= 0) {
-      if (length == 0) piksi_log(LOG_WARNING, "Empty message received");
-      /* Break on success */
+
+      if (length == 0) {
+        pk_log_anno(LOG_DEBUG, "socket closed");
+
+        if (loop != NULL) {
+
+          assert(poll_handle != NULL);
+          pk_loop_poll_remove(loop, poll_handle);
+
+          close(sock);
+        }
+
+        if (slot >= 0) record_disconnect(ept, slot);
+      }
+
       break;
+
     } else if (errno == EINTR) {
       /* Retry if interrupted */
-      piksi_log(LOG_DEBUG, "Retry recv on EINTR");
+      pk_log_anno(LOG_DEBUG, "got EINTR from recvmsg: %s", strerror(errno));
       continue;
+
     } else if (nonblocking && errno == EAGAIN) {
-      //			piksi_log(LOG_DEBUG, "%s: recv_msg_impl: EAGAIN (%s:%d)",
-      //__FUNCTION__, __FILE__, __LINE__);
       // An "expected" error, don't need to report an error
       return -1;
+
     } else {
       /* Return error */
-      piksi_log(LOG_ERR, "error in recv(): %s", pk_endpoint_strerror());
+      pk_log_anno(LOG_ERR, "recvmsg error: %s", strerror(errno));
       return -1;
     }
   }
@@ -318,7 +357,7 @@ static int recv_msg_impl(int sock, u8 *buffer, size_t *length_loc, bool nonblock
 static int pk_endpoint_recv_msg(pk_endpoint_t *pk_ept, u8 *buffer, size_t *length_loc, bool nonblocking)
 {
   assert(pk_ept != NULL);
-	return recv_msg_impl(pk_ept->sock, buffer, length_loc, nonblocking);
+  return recv_msg_impl(pk_ept->sock, buffer, length_loc, nonblocking);
 }
 #endif
 
@@ -331,7 +370,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
   assert(count > 0);
 
   size_t length = count;
-  if (recv_msg_impl(pk_ept->sock, buffer, &length, pk_ept->nonblock) != 0) {
+  if (recv_msg_impl(pk_ept, pk_ept->sock, buffer, &length, pk_ept->nonblock, NULL, NULL, -1) != 0) {
     piksi_log(LOG_ERR, "failed to receive message");
     return -1;
   }
@@ -339,16 +378,23 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
   return length;
 }
 
-static int service_reads(int fd, pk_endpoint_receive_cb rx_cb, void *context)
+static int service_reads(pk_endpoint_t *ept,
+                         int fd,
+                         pk_loop_t *loop,
+                         int client_slot,
+                         void *poll_handle,
+                         pk_endpoint_receive_cb rx_cb,
+                         void *context)
 {
-  for (size_t i = 0; i < EPT_SVC_MAX; i++) {
+  for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
     u8 buffer[4096];
     size_t length = sizeof(buffer);
-    if (recv_msg_impl(fd, buffer, &length, true) != 0) {
+    if (recv_msg_impl(ept, fd, buffer, &length, true, loop, poll_handle, client_slot) != 0) {
       if (errno == EWOULDBLOCK) break;
       piksi_log(LOG_ERR, "failed to receive message");
       return -1;
     }
+    if (length == 0) break;
     bool stop = rx_cb(buffer, length, context) != 0;
     if (stop) break;
   }
@@ -363,21 +409,46 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
   assert(rx_cb != NULL);
 
   if (pk_ept->type == PK_ENDPOINT_SUB_SERVER) {
-    //		piksi_log(LOG_DEBUG, "%s: reading from clients (%s:%d)", __FUNCTION__, __FILE__,
-    //__LINE__);
     int64_t counter = 0;
-    read(pk_ept->wakefd, &counter, sizeof(counter));
-    for (size_t i = 0; i < pk_ept->client_count; i++) {
-      if (service_reads(pk_ept->clients[i].fd, rx_cb, context) != 0) break;
+    ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
+
+    if (c < 0 || c != sizeof(counter)) {
+      pk_log_anno(LOG_ERR, "invalid read size from eventfd: %zd", c);
+      return -1;
     }
+
+    assert(counter == 1);
+    assert(pk_ept->woke);
+
+    pk_ept->woke = false;
+
+    for (size_t client_slot = 0; client_slot < MAX_CLIENTS; client_slot++) {
+
+      if (!pk_ept->clients[client_slot].valid) continue;
+
+      service_reads(pk_ept,
+                    pk_ept->clients[client_slot].fd,
+                    pk_ept->loop,
+                    client_slot,
+                    pk_ept->clients[client_slot].poll_handle,
+                    rx_cb,
+                    context);
+    }
+
   } else {
-    service_reads(pk_ept->sock, rx_cb, context);
+    service_reads(pk_ept, pk_ept->sock, pk_ept->loop, -1, pk_ept->poll_handle, rx_cb, context);
   }
 
   return 0;
 }
 
-static int send_impl(int sock, const u8 *data, const size_t length)
+static int send_impl(pk_endpoint_t *ept,
+                     int sock,
+                     const u8 *data,
+                     const size_t length,
+                     pk_loop_t *loop,
+                     void *poll_handle,
+                     int slot)
 {
   struct iovec iov[1] = {0};
   struct msghdr msg = {0};
@@ -389,25 +460,43 @@ static int send_impl(int sock, const u8 *data, const size_t length)
   msg.msg_iovlen = 1;
 
   while (1) {
+
     int written = sendmsg(sock, &msg, 0);
+    int error = errno;
+
     if (written != -1) {
       /* Break on success */
       assert(written == length);
       return 0;
-    } else if (errno == EAGAIN) {
+
+    } else if (error == EAGAIN) {
       /* Retry... */
-      piksi_log(LOG_DEBUG,
-                "%s: send returned with EAGAIN (%s:%d)",
-                __FUNCTION__,
-                __FILE__,
-                __LINE__);
+      pk_log_anno(LOG_DEBUG, "sendmsg returned with EAGAIN");
       continue;
-    } else if (errno == EINTR) {
+
+    } else if (error == EINTR) {
       /* Retry if interrupted */
+      pk_log_anno(LOG_DEBUG, "sendmsg returned with EINTR");
       continue;
+
     } else {
-      /* Return error */
-      piksi_log(LOG_ERR, "error in send(): %s", pk_endpoint_strerror());
+
+      if (loop != NULL) {
+
+        assert(poll_handle != NULL);
+        assert(slot >= 0);
+
+        pk_loop_poll_remove(loop, poll_handle);
+
+        close(sock);
+        record_disconnect(ept, slot);
+      }
+
+      if (error != EPIPE && error != ECONNRESET) {
+        /* Return error */
+        pk_log_anno(LOG_ERR, "error in sendmsg: %s", strerror(error));
+      }
+
       return -1;
     }
   }
@@ -419,11 +508,17 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   assert(pk_ept->type != PK_ENDPOINT_SUB || pk_ept->type != PK_ENDPOINT_SUB_SERVER);
 
   if (pk_ept->type == PK_ENDPOINT_PUB) {
-    send_impl(pk_ept->sock, data, length);
+    send_impl(pk_ept, pk_ept->sock, data, length, NULL, NULL, -1);
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER) {
-    //    piksi_log(LOG_DEBUG, "%s: sending to clients", __FUNCTION__, pk_endpoint_strerror());
-    for (int idx = 0; idx < pk_ept->client_count; idx++) {
-      send_impl(pk_ept->clients[idx].fd, data, length);
+    for (int idx = 0; idx < MAX_CLIENTS; idx++) {
+      if (!pk_ept->clients[idx].valid) continue;
+      send_impl(pk_ept,
+                pk_ept->clients[idx].fd,
+                data,
+                length,
+                pk_ept->loop,
+                pk_ept->clients[idx].poll_handle,
+                idx);
     }
   }
 }
@@ -452,42 +547,103 @@ int pk_endpoint_accept(pk_endpoint_t *pk_ept)
   int cl;
 
   if ((cl = accept(pk_ept->sock, NULL, NULL)) == -1) {
-    piksi_log(LOG_ERR, "accept error: %s", strerror(errno));
+    pk_log_anno(LOG_ERR, "accept error: %s", strerror(errno));
     return -1;
   }
 
   return cl;
 }
 
-static void client_read(pk_loop_t *loop, void *handle, void *context)
+static void discard_read_data(pk_loop_t *loop, client_context_t *ctx)
 {
   u8 read_buf[4096];
   size_t length = sizeof(read_buf);
 
+  for (int count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
+    if (recv_msg_impl(ctx->ept, ctx->fd, read_buf, &length, true, loop, ctx->poll_handle, ctx->slot)
+        != 0) {
+      break;
+    }
+  }
+}
+
+static void record_disconnect(pk_endpoint_t *ept, int slot)
+{
+  assert(ept != NULL);
+  assert(slot >= 0);
+  assert(slot < MAX_CLIENTS);
+
+  --ept->client_count;
+  invalidate_client_slot(ept, slot);
+}
+
+static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *context)
+{
   client_context_t *client_context = (client_context_t *)context;
 
-  //	piksi_log(LOG_DEBUG, "%s: waking up for client read: fd = %d (%s:%d)",
-  //					  __FUNCTION__, client_context->fd, __FILE__, __LINE__);
+  assert(client_context->valid);
 
-  if (client_context->ept->type == PK_ENDPOINT_PUB_SERVER) {
-    piksi_log(LOG_WARNING, "discarding read data from pub server");
-    for (int count = 0; count < EPT_SVC_MAX; count++) {
-      if (recv_msg_impl(client_context->fd, read_buf, &length, true) != 0) {
-        if (errno == EWOULDBLOCK) break;
-        break;
-      }
-    }
+  if (status == LOOP_ERROR || status == LOOP_DISCONNECTED) {
+
+    pk_log_anno(LOG_DEBUG, "client disconnected: %s", pk_loop_describe_status(status));
+
+    close(client_context->fd);
+    record_disconnect(client_context->ept, client_context->slot);
+
+
     return;
   }
+
+  if (status == LOOP_READ && client_context->ept->type == PK_ENDPOINT_PUB_SERVER) {
+
+    piksi_log(LOG_WARNING, "discarding read data from pub server");
+    discard_read_data(loop, client_context);
+
+    return;
+  }
+
+  // Don't wake-up loop again if one is already pending
+  if (client_context->ept->woke) return;
+
+  client_context->ept->woke = true;
 
   int64_t incr_value = 1;
   write(client_context->ept->wakefd, &incr_value, sizeof(incr_value));
 }
 
-static void accept_wake_handler(pk_loop_t *loop, void *handle, void *context)
+static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
+  assert(loop != NULL);
+
+  if (status != LOOP_SUCCESS) {
+
+    if (status == LOOP_ERROR) {
+      pk_log_anno(LOG_ERR,
+                  "status: %s; error: %s",
+                  pk_loop_describe_status(status),
+                  pk_loop_last_error(loop));
+    } else {
+      pk_log_anno(LOG_ERR, "status: %s", pk_loop_describe_status(status));
+    }
+
+    return;
+  }
+
   pk_endpoint_t *ept = (pk_endpoint_t *)context;
-  client_context_t *client_context = &ept->clients[ept->client_count++];
+  int client_slot = find_free_client_slot(ept);
+
+  if (client_slot < 0) {
+
+    piksi_log(LOG_WARNING, "unable to add new client, closing connection");
+    int clientfd = pk_endpoint_accept(ept);
+
+    shutdown(clientfd, SHUT_RDWR);
+    close(clientfd);
+
+    return;
+  }
+
+  client_context_t *client_context = &ept->clients[client_slot];
 
   piksi_log(LOG_DEBUG,
             "%s: got new client; client_count: %d; client_context: %p (%s:%d)",
@@ -503,23 +659,89 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, void *context)
 
   client_context->fd = clientfd;
   client_context->ept = ept;
+  client_context->valid = true;
+  client_context->slot = client_slot;
 
-  int status = -1;
-  if ((status = fcntl(clientfd, F_SETFL, fcntl(clientfd, F_GETFL, 0) | O_NONBLOCK))) {
-    perror("fcntl error");
+  if (fcntl(clientfd, F_SETFL, fcntl(clientfd, F_GETFL, 0) | O_NONBLOCK) < 0) {
+    piksi_log(LOG_WARNING,
+              "%s: fcntl error: %s (%s:%d)",
+              __FUNCTION__,
+              strerror(errno),
+              __FILE__,
+              __LINE__);
   }
 
-  assert(loop != NULL);
+  ++ept->client_count;
 
-  pk_loop_poll_add(loop, clientfd, client_read, client_context);
+  client_context->poll_handle =
+    pk_loop_poll_add(loop, clientfd, handle_client_wake, client_context);
 }
 
-pk_loop_cb pk_endpoint_start_server(pk_endpoint_t *pk_ept, pk_loop_t *loop)
+void pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle)
 {
-  pk_endpoint_set_non_blocking(pk_ept);
-
-  assert(pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_SUB_SERVER);
   assert(loop != NULL);
 
-  pk_loop_poll_add(loop, pk_ept->sock, accept_wake_handler, pk_ept);
+  if (pk_ept->loop == loop) return;
+
+  assert(pk_ept->loop == NULL);
+
+  pk_endpoint_set_non_blocking(pk_ept); // TODO handle error?
+  pk_ept->loop = loop;
+
+  if (poll_handle != NULL) pk_ept->poll_handle = poll_handle;
+
+  if (pk_ept->type == PK_ENDPOINT_SUB) return;
+  if (pk_ept->type == PK_ENDPOINT_PUB) return;
+
+  if (pk_ept->type == PK_ENDPOINT_REQ) return;
+
+  if (pk_ept->type == PK_ENDPOINT_REP) {
+    assert(false); // TODO implement
+  }
+
+  assert(poll_handle == NULL);
+  assert(pk_ept->poll_handle == NULL);
+
+  pk_ept->poll_handle = pk_loop_poll_add(loop, pk_ept->sock, accept_wake_handler, pk_ept);
+
+  // TODO do we need to return an error?
+}
+
+int find_free_client_slot(pk_endpoint_t *pk_ept)
+{
+  int slot = -1;
+  for (size_t i = 0; i < MAX_CLIENTS; i++) {
+    if (!pk_ept->clients[i].valid) {
+      slot = (int)i;
+      break;
+    }
+  }
+  if (slot < 0) pk_log_anno(LOG_ERR, "no free client slots");
+  return slot;
+}
+
+int index_of_client_slot(pk_endpoint_t *pk_ept, client_context_t *ctx)
+{
+  int slot = -1;
+  for (size_t i = 0; i < MAX_CLIENTS; i++) {
+    if (ctx->fd == pk_ept->clients[i].fd) {
+      slot = (int)i;
+      break;
+    }
+  }
+  if (slot < 0) pk_log_anno(LOG_ERR, "could not find slot for given client context");
+  return slot;
+}
+
+static void invalidate_client_slot(pk_endpoint_t *pk_ept, int slot)
+{
+  assert(slot < MAX_CLIENTS);
+
+  pk_ept->clients[slot] = (client_context_t){
+    .fd = -1,
+    .valid = false,
+    .ept = NULL,
+    .slot = -1,
+    .poll_handle = NULL,
+  };
 }

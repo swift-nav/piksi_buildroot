@@ -122,10 +122,15 @@ static void send_cell_modem_status(struct cell_modem_ctx_s *cell_modem_ctx)
 /**
  * @brief cell_status_timer_callback - used to trigger cell status updates
  */
-static void cell_status_timer_callback(pk_loop_t *loop, void *timer_handle, void *context)
+static void cell_status_timer_callback(pk_loop_t *loop,
+                                       void *timer_handle,
+                                       int status,
+                                       void *context)
 {
   (void)loop;
   (void)timer_handle;
+  (void)status;
+
   struct cell_modem_ctx_s *cell_modem_ctx = (struct cell_modem_ctx_s *)context;
 
   if (cell_modem_enabled()) {

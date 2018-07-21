@@ -246,10 +246,11 @@ static int log_frame_callback(const u8 *data, const size_t length, void *context
   return 0;
 }
 
-static void sub_poll_handler(pk_loop_t *loop, void *handle, void *context)
+static void sub_poll_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
+  (void)status;
   pk_endpoint_t *pk_ept = (pk_endpoint_t *)context;
   if (pk_endpoint_receive(pk_ept, log_frame_callback, NULL) != 0) {
     piksi_log(LOG_ERR,
@@ -273,9 +274,11 @@ static void sigchld_handler(int signum)
   errno = saved_errno;
 }
 
-static void terminate_handler(pk_loop_t *loop, void *handle, void *context)
+static void terminate_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)context;
+  (void)status;
+
   int signum = pk_loop_get_signal_from_handle(handle);
 
   stop_logging();

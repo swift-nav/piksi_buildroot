@@ -70,9 +70,17 @@
  * Add to piksi_log to send the log message to SBP as well as
  *   the system log (syslog).
  *
- *  E.g. `piksi_log(LOG_SBP|LOG_ERROR, "Some message");`
+ *  E.g. `piksi_log(LOG_SBP|LOG_ERR, "Some message");`
  */
 #define LOG_SBP LOG_LOCAL1
+
+#define pk_log_anno(FacPri, MsgPattern, ...) \
+  piksi_log(FacPri,                          \
+            ("%s: " MsgPattern " (%s:%d)"),  \
+            __FUNCTION__,                    \
+            ##__VA_ARGS__,                   \
+            __FILE__,                        \
+            __LINE__);
 
 #ifdef __cplusplus
 extern "C" {
