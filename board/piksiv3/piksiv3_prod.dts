@@ -51,9 +51,9 @@
 
   uart2: serial@80000000 {
     compatible = "xlnx,xps-uartlite-1.00.a";
-    reg = <0x0 0x80000000 0x10000>;
+    reg = <0x80000000 0x10000>;
     interrupt-parent = <&intc>;
-    interrupts = <0x0 54 0x1>;
+    interrupts = <0 54 1>;
     port-number = <0>;
   };
 };
