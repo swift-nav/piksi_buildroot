@@ -43,9 +43,9 @@ echo "New firmware image set detected: `ls $FIRMWARE`" | sbp_log $LOGLEVEL
 echo "New firmware image set detected: `ls $FIRMWARE`"
 echo "Performing upgrade..." |  sbp_log $LOGLEVEL
 echo "Performing upgrade..."
-# Killing monit and USB logger
-monit stop standalone_file_logger
-monit stop endpoint_adapter_rpmsg_piksi100
+# Killing realtime fw messages and USB logger
+/etc/init.d/S83endpoint_adapter_rpmsg_piksi100 stop
+/etc/init.d/S83standalone_file_logger stop
 upgrade_tool_output=$(upgrade_tool $FIRMWARE) 
 RETVAL=$?
 echo $upgrade_tool_output | sbp_log $LOGLEVEL
@@ -61,8 +61,8 @@ if [ $RETVAL -eq 0 ]; then
 fi
 if [ $RETVAL -ne 0 ]; then
   while [ 1 ]; do
-    echo "$(echo ${UT_RET} | cut -d',' -f$RETVAL): Upgrade was unsuccessful. Please verify the image and try again."  | sbp_log $LOGLEVEL
-    echo "$(echo ${UT_RET} | cut -d',' -f$RETVAL): Upgrade was unsuccessful. Please verify the image and try again."
+    echo "$(echo ${UT_RET} | cut -d',' -f$RETVAL): Upgrade was unsuccessful. Please verify the image and reboot."  | sbp_log $LOGLEVEL
+    echo "$(echo ${UT_RET} | cut -d',' -f$RETVAL): Upgrade was unsuccessful. Please verify the image and reboot."
     sleep 1
   done
 fi
