@@ -58,6 +58,22 @@ add_service_user()
   has_user $user || adduser -S -D -H -G $user $user
 }
 
+check_group()
+{
+  local user=$1; shift
+  local group=$1; shift
+
+  id -nG $user | grep -qw $group
+}
+
+add_user_to_group()
+{
+  local user=$1; shift
+  local group=$1; shift
+
+  check_group $user $group || adduser $user $group
+}
+
 _release_lockdown=/etc/release_lockdown
 
 lockdown()
