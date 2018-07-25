@@ -49,6 +49,7 @@ let
     sqlite.dev
     unzip
     utillinux
+    valgrind
     vim
     wget
     which
