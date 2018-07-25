@@ -1,7 +1,5 @@
 #!/bin/sh
 
-exit 0
-
 name="health_daemon"
 cmd="health_daemon"
 dir="/"

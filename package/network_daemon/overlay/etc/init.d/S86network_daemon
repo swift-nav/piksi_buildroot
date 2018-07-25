@@ -1,7 +1,5 @@
 #!/bin/sh
 
-exit 0
-
 name="network_daemon"
 cmd="network_daemon"
 dir="/"
