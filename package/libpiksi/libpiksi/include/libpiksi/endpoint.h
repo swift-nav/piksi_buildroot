@@ -153,7 +153,7 @@ int pk_endpoint_accept(pk_endpoint_t *pk_ept);
 
 int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
 
-void pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle);
+int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle);
 
 #ifdef __cplusplus
 }

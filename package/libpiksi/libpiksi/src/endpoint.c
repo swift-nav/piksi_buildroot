@@ -11,9 +11,12 @@
  */
 
 #include <errno.h>
+#include <execinfo.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -22,12 +25,6 @@
 
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
-
-#if 0
-#include <nanomsg/nn.h>
-#include <nanomsg/pubsub.h>
-#include <nanomsg/reqrep.h>
-#endif
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
@@ -41,6 +38,36 @@
 #define IPC_PREFIX "ipc://"
 
 #define MAX_CLIENTS 128
+
+void print_trace (const char* assert_str, const char* file, const char* func, int lineno)
+{
+  void *array[32];
+  size_t size;
+  char **strings;
+  size_t i;
+
+  size = backtrace (array, 32);
+  strings = backtrace_symbols (array, size);
+
+#define ASSERT_FAIL_MSG "ASSERT FAILURE: %s: %s (%s:%d), %zu backtrace entries:"
+
+  piksi_log(LOG_ERR, ASSERT_FAIL_MSG, func, assert_str, file, lineno, size);
+  fprintf(stderr, ASSERT_FAIL_MSG, func, assert_str, file, lineno, size);
+
+  for (i = 0; i < size; i++) {
+     piksi_log(LOG_ERR, "backtrace: %s", strings[i]);
+     fprintf(stderr, "backtrace: %s", strings[i]);
+  }
+
+  free(strings);
+}
+
+#define STRINGIFY(a) _STRINGIFY(a)
+#define _STRINGIFY(a) #a
+
+#define ASSERT_TRACE(TheAssert) \
+  { if(!(TheAssert)) { print_trace(STRINGIFY(TheAssert), __FILE__,\
+    __FUNCTION__, __LINE__); exit(EXIT_FAILURE); } }
 
 typedef struct {
   pk_endpoint_t *ept;
@@ -61,6 +88,7 @@ struct pk_endpoint_s {
   int client_count;
   pk_loop_t *loop;
   void *poll_handle;
+  void *poll_handle_read;
   char path[PATH_MAX];
 };
 
@@ -97,10 +125,11 @@ static int bind_un_socket(int fd, const char* path) {
   return 0;
 }
 
-static int start_un_listen(int fd) {
+static int start_un_listen(const char* path, int fd) {
 
-  if (listen(fd, 5) == -1) {
-    perror("listen error");
+  if (listen(fd, 50) == -1) {
+
+    pk_log_anno(LOG_ERR, "listen() error for socket: %s (path: %s)", strerror(errno), path);
     return -1;
   }
 
@@ -113,7 +142,7 @@ static int connect_un_socket(int fd, const char* path) {
   strncpy(addr.sun_path, path, sizeof(addr.sun_path)-1);
 
   if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-    perror("connect error");
+    pk_log_anno(LOG_WARNING, "connect error: %s", strerror(errno));
     return -1;
   }
 
@@ -122,7 +151,7 @@ static int connect_un_socket(int fd, const char* path) {
 
 pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
 {
-  assert(endpoint != NULL);
+  ASSERT_TRACE( endpoint != NULL );
 
   pk_endpoint_t *pk_ept = (pk_endpoint_t *)malloc(sizeof(pk_endpoint_t));
   if (pk_ept == NULL) {
@@ -138,6 +167,7 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   pk_ept->client_count = 0;
   pk_ept->loop = NULL;
   pk_ept->poll_handle = NULL;
+  pk_ept->poll_handle_read = NULL;
   strcpy(pk_ept->path, endpoint);
 
   for (size_t i = 0; i < MAX_CLIENTS; i++) {
@@ -164,38 +194,22 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   {
     pk_ept->sock = create_un_socket();
     if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK SUB socket: %s",
+      piksi_log(LOG_ERR, "error creating PK PUB/SUB socket: %s",
                          pk_endpoint_strerror());
       goto failure;
     }
   } break;
-  case PK_ENDPOINT_REQ:
-#if 0
-  {
-    pk_ept->sock = nn_socket(AF_SP, NN_REQ);
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK REQ socket: %s",
-                         pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-#endif
-    // TODO: implement
-    goto failure;
   case PK_ENDPOINT_REP:
-#if 0
-  {
     do_bind = true;
-    pk_ept->sock = nn_socket(AF_SP, NN_REP);
+  case PK_ENDPOINT_REQ:
+  {
+    pk_ept->sock = create_un_socket();
     if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK REP socket: %s",
+      piksi_log(LOG_ERR, "error creating PK REQ/REP socket: %s",
                          pk_endpoint_strerror());
       goto failure;
     }
   } break;
-#endif
-    // TODO: implement
-    goto failure;
   default:
   {
     piksi_log(LOG_ERR, "Unsupported endpoint type");
@@ -203,7 +217,17 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   } break;
   } // end of switch
 
-  size_t prefix_len = strlen(IPC_PREFIX);
+  static const size_t prefix_len = strlen(IPC_PREFIX);
+
+  if (do_bind) {
+    if (strstr(endpoint, IPC_PREFIX) != NULL) {
+      int rc = unlink(endpoint + prefix_len);
+      if (rc != 0 && errno != ENOENT) {
+        pk_log_anno(LOG_WARNING, "unlink: %s", strerror(errno));
+      }
+    }
+  }
+
   pk_ept->eid = do_bind ? bind_un_socket(pk_ept->sock, endpoint+prefix_len)
                         : connect_un_socket(pk_ept->sock, endpoint+prefix_len);
 
@@ -216,15 +240,21 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
 
   if (do_bind) {
 
-    if (strlen(endpoint) > prefix_len) {
+    if (start_un_listen(endpoint, pk_ept->sock) < 0) goto failure;
+
+    if (strstr(endpoint, IPC_PREFIX) != NULL) {
       int rc = chmod(endpoint + prefix_len, 0777);
       if (rc != 0) {
-        piksi_log(LOG_WARNING, "%s: chmod: %s", __FUNCTION__, strerror(errno));
+        pk_log_anno(LOG_WARNING, "chmod: %s", strerror(errno));
       }
     }
 
-    start_un_listen(pk_ept->sock);
     pk_ept->wakefd = eventfd(0, EFD_NONBLOCK);
+
+    if (pk_ept->wakefd < 0) {
+      pk_log_anno(LOG_ERR, "eventfd: %s", strerror(errno));
+      goto failure;
+    }
   }
 
   return pk_ept;
@@ -271,23 +301,33 @@ pk_endpoint_type pk_endpoint_type_get(pk_endpoint_t *pk_ept)
 
 int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
 {
-  assert(pk_ept != NULL);
+  ASSERT_TRACE( pk_ept != NULL );
 
-  assert(pk_ept->type != PK_ENDPOINT_PUB);
-  assert(pk_ept->type != PK_ENDPOINT_PUB_SERVER);
+  /* Pub and pub server are send only, they should not need to be polled for
+   * input, therefore this function should not be called on these socket
+   * types.
+   */
+  if (pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_PUB_SERVER) {
+    return -1;
+  }
 
-  // TODO: handle req/rep sockets
-  return pk_ept->type == PK_ENDPOINT_SUB ? pk_ept->sock : pk_ept->wakefd;
+  if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_REQ) {
+    return pk_ept->sock;
+  }
+
+  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
+    return pk_ept->wakefd;
+  }
 }
 
-static int recv_msg_impl(pk_endpoint_t *ept,
-                         int sock,
-                         u8 *buffer,
-                         size_t *length_loc,
-                         bool nonblocking,
-                         pk_loop_t *loop,
-                         void *poll_handle,
-                         int slot)
+static int recv_impl(pk_endpoint_t *ept,
+                     int sock,
+                     u8 *buffer,
+                     size_t *length_loc,
+                     bool nonblocking,
+                     pk_loop_t *loop,
+                     void *poll_handle,
+                     int slot)
 {
   int length = 0;
 
@@ -306,21 +346,18 @@ static int recv_msg_impl(pk_endpoint_t *ept,
 //    pk_log_anno(LOG_DEBUG, "recvmsg: length: %d", length);
 
     if (length >= 0) {
-
       if (length == 0) {
         pk_log_anno(LOG_DEBUG, "socket closed");
-
         if (loop != NULL) {
-
-          assert( poll_handle != NULL );
+          ASSERT_TRACE( poll_handle != NULL );
           pk_loop_poll_remove(loop, poll_handle);
-
-          close(sock);
         }
-
         if (slot >= 0) record_disconnect(ept, slot);
+        shutdown(sock, SHUT_RDWR);
+        close(sock);
       }
-
+      // TODO: we should probably auto reconnect here if we're a PUB/SUB/REQ
+      //   (non-server socket).
       break;
 
     } else if (errno == EINTR) {
@@ -344,36 +381,16 @@ static int recv_msg_impl(pk_endpoint_t *ept,
   return 0;
 }
 
-#if 0
-/**
- * @brief pk_endpoint_receive_msg - helper to retrieve a single message
- *
- * @param pk_ept: pointer to the endpoint context
- * @param buffer: pointer to existing buffer - OR - double pointer to receive allocated msg
- * @param length: size of existing buffer - OR - pointer to receive msg length
- * @param nonblocking: if the call should be nonblocking
- *
- * @return                  The operation result.
- * @retval 0                Receive operation was successful.
- * @retval -1               An error occurred.
- */
-static int pk_endpoint_recv_msg(pk_endpoint_t *pk_ept, u8 *buffer, size_t *length_loc, bool nonblocking)
-{
-  assert(pk_ept != NULL);
-  return recv_msg_impl(pk_ept->sock, buffer, length_loc, nonblocking);
-}
-#endif
-
 ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 {
-  assert(pk_ept != NULL);
-  assert(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
+  ASSERT_TRACE( pk_ept != NULL );
+  ASSERT_TRACE( pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER );
 
-  assert(buffer != NULL);
-  assert(count > 0);
+  ASSERT_TRACE( buffer != NULL );
+  ASSERT_TRACE( count > 0 );
 
   size_t length = count;
-  if (recv_msg_impl(pk_ept, pk_ept->sock, buffer, &length, pk_ept->nonblock, NULL, NULL, -1) != 0) {
+  if (recv_impl(pk_ept, pk_ept->sock, buffer, &length, pk_ept->nonblock, NULL, NULL, -1) != 0) {
     piksi_log(LOG_ERR, "failed to receive message");
     return -1;
   }
@@ -392,7 +409,7 @@ static int service_reads(pk_endpoint_t *ept,
   for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
     u8 buffer[4096];
     size_t length = sizeof(buffer);
-    if (recv_msg_impl(ept, fd, buffer, &length, true, loop, poll_handle, client_slot) != 0) {
+    if (recv_impl(ept, fd, buffer, &length, true, loop, poll_handle, client_slot) != 0) {
       if (errno == EWOULDBLOCK) break;
       piksi_log(LOG_ERR, "failed to receive message");
       return -1;
@@ -406,10 +423,10 @@ static int service_reads(pk_endpoint_t *ept,
 
 int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context)
 {
-  assert(pk_ept != NULL);
-  assert(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
-  assert(pk_ept->nonblock);
-  assert(rx_cb != NULL);
+  ASSERT_TRACE( pk_ept != NULL );
+  ASSERT_TRACE( pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER );
+  ASSERT_TRACE( pk_ept->nonblock );
+  ASSERT_TRACE( rx_cb != NULL );
 
   if (pk_ept->type == PK_ENDPOINT_SUB_SERVER) {
 
@@ -421,8 +438,8 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
       return -1;
     }
 
-    assert( counter == 1 );
-    assert( pk_ept->woke );
+    ASSERT_TRACE( counter == 1 );
+    ASSERT_TRACE( pk_ept->woke );
 
     pk_ept->woke = false;
 
@@ -460,12 +477,13 @@ static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, const size_t 
 
   void close_socket_helper() {
       if (loop != NULL) {
-        assert( poll_handle != NULL );
-        assert( slot >= 0 );
+        ASSERT_TRACE( poll_handle != NULL );
+        ASSERT_TRACE( slot >= 0 );
         pk_loop_poll_remove(loop, poll_handle);
-        close(sock);
         record_disconnect(ept, slot);
       }
+      shutdown(sock, SHUT_RDWR);
+      close(sock);
   };
 
   while (1) {
@@ -477,20 +495,24 @@ static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, const size_t 
 
     if (written != -1) {
       /* Break on success */
-      assert(written == length);
+      ASSERT_TRACE( written == length );
       return 0;
 
     } else if (error == EAGAIN || error == EWOULDBLOCK) {
 
-      int queued = -1;
-      int error = ioctl(sock, SIOCINQ, &queued);
+      int queued_input = -1;
+      int error = ioctl(sock, SIOCINQ, &queued_input);
 
-      if (queued == 0) {
-        close_socket_helper();
-        return 0;
-      }
+      if (error < 0) pk_log_anno(LOG_DEBUG, "unable to read SIOCINQ: %s", strerror(errno));
 
-      pk_log_anno(LOG_WARNING, "sendmsg error (EAGAIN), dropped %d bytes (path: %s, slot: %d, queued: %d)", length, ept->path, slot, queued);
+      int queued_output = -1;
+      error = ioctl(sock, SIOCOUTQ, &queued_output);
+
+      if (error < 0) pk_log_anno(LOG_DEBUG, "unable to read SIOCOUTQ: %s", strerror(errno));
+
+      pk_log_anno(LOG_WARNING, "sendmsg returned EAGAIN, dropping %d bytes (path: %s, slot: %d, queued input: %d, queued output: %d)", length, ept->path, slot, queued_input, queued_output);
+
+      close_socket_helper();
 
       return 0;
 
@@ -515,14 +537,14 @@ static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, const size_t 
 
 int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
 {
-  assert(pk_ept != NULL);
-  assert(pk_ept->type != PK_ENDPOINT_SUB || pk_ept->type != PK_ENDPOINT_SUB_SERVER);
+  ASSERT_TRACE( pk_ept != NULL );
+  ASSERT_TRACE( pk_ept->type != PK_ENDPOINT_SUB || pk_ept->type != PK_ENDPOINT_SUB_SERVER );
 
   int rc = -1;
 
   if (pk_ept->type == PK_ENDPOINT_PUB) {
     rc = send_impl(pk_ept, pk_ept->sock, data, length, NULL, NULL, -1);
-  } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER) {
+  } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     for (int idx = 0; idx < MAX_CLIENTS; idx++) {
       if (!pk_ept->clients[idx].valid) continue;
       rc = send_impl(pk_ept, pk_ept->clients[idx].fd, data, length, pk_ept->loop, pk_ept->clients[idx].poll_handle, idx);
@@ -542,7 +564,7 @@ int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept)
   int status = -1;
 
   if ( (status = fcntl(pk_ept->sock, F_SETFL, fcntl(pk_ept->sock, F_GETFL, 0) | O_NONBLOCK)) ) {
-    perror("fcntl error");
+    pk_log_anno(LOG_ERR, "fcntl error: %s", strerror(errno));
     return -1;
   }
 
@@ -569,7 +591,7 @@ static void discard_read_data(pk_loop_t *loop, client_context_t *ctx)
   size_t length = sizeof(read_buf);
 
   for (int count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
-    if (recv_msg_impl(ctx->ept, ctx->fd, read_buf, &length, true, loop, ctx->poll_handle, ctx->slot) != 0) {
+    if (recv_impl(ctx->ept, ctx->fd, read_buf, &length, true, loop, ctx->poll_handle, ctx->slot) != 0) {
       break;
     }
   }
@@ -577,9 +599,9 @@ static void discard_read_data(pk_loop_t *loop, client_context_t *ctx)
 
 static void record_disconnect(pk_endpoint_t *ept, int slot)
 {
-  assert( ept != NULL );
-  assert( slot >= 0 );
-  assert( slot < MAX_CLIENTS );
+  ASSERT_TRACE( ept != NULL );
+  ASSERT_TRACE( slot >= 0 );
+  ASSERT_TRACE( slot < MAX_CLIENTS );
 
   --ept->client_count;
   invalidate_client_slot(ept, slot);
@@ -589,7 +611,7 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
 {
   client_context_t *client_context = (client_context_t *)context;
 
-  assert( client_context->valid );
+  ASSERT_TRACE( client_context->valid );
 
   if (status == LOOP_ERROR || status == LOOP_DISCONNECTED) {
 
@@ -620,7 +642,7 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
 
 static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
-  assert( loop != NULL );
+  ASSERT_TRACE( loop != NULL );
 
   if (status != LOOP_SUCCESS) {
 
@@ -635,6 +657,8 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
   }
 
   pk_endpoint_t *ept = (pk_endpoint_t *)context;
+  ASSERT_TRACE( ept != NULL );
+
   int client_slot = find_free_client_slot(ept);
 
   if (client_slot < 0) {
@@ -648,15 +672,16 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
     return;
   }
 
+  pk_log_anno(LOG_DEBUG, "new client_slot: %d", client_slot);
+
   client_context_t *client_context = &ept->clients[client_slot];
 
-  piksi_log(LOG_DEBUG, "%s: got new client; client_count: %d; client_context: %p (%s:%d)",
-            __FUNCTION__, ept->client_count, client_context, __FILE__, __LINE__);
+  pk_log_anno(LOG_DEBUG, "new client_count: %d; path: %s",
+              ept->client_count+1, ept->path);
 
   int clientfd = pk_endpoint_accept(ept);
 
-  piksi_log(LOG_DEBUG, "%s: client_fd: %d (%s:%d)",
-            __FUNCTION__, clientfd, __FILE__, __LINE__);
+  pk_log_anno(LOG_DEBUG, "new client_fd: %d", clientfd);
 
   client_context->fd = clientfd;
   client_context->ept = ept;
@@ -671,44 +696,60 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
 
   client_context->poll_handle =
     pk_loop_poll_add(loop, clientfd, handle_client_wake, client_context);
+
+  ASSERT_TRACE( client_context->poll_handle != NULL );
 }
 
-void pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle)
+int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle_read)
 {
   pk_log_anno(LOG_DEBUG, "loop: %p; pk_ept->loop: %p", loop, pk_ept->loop);
 
-  assert( loop != NULL );
+  if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
+
+  if (pk_ept->type == PK_ENDPOINT_SUB ||
+      pk_ept->type == PK_ENDPOINT_PUB ||
+      pk_ept->type == PK_ENDPOINT_REQ)
+  {
+    ASSERT_TRACE(poll_handle_read != NULL);
+    pk_ept->poll_handle == poll_handle_read;
+
+    return 0;
+  }
+
+  ASSERT_TRACE( loop != NULL );
 
   if (pk_ept->loop == loop) {
-//    assert( pk_ept->poll_handle == poll_handle );
-    return;
+
+    /* If we're a server style PUB/SUB socket, pk_loop_endpoint_reader_add will
+     * pass a poll_handle to NULL because some else is handling the read events
+     * for the socket
+     */
+
+    ASSERT_TRACE( poll_handle_read != NULL );
+    ASSERT_TRACE( pk_ept->poll_handle_read == NULL );
+
+    ASSERT_TRACE( pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP );
+
+    pk_ept->poll_handle_read = poll_handle_read;
+
+    return 0;
   }
 
-  assert( pk_ept->loop == NULL );
-  assert( pk_ept->poll_handle == NULL );
+  ASSERT_TRACE( pk_ept->loop == NULL );
+  ASSERT_TRACE( pk_ept->poll_handle == NULL );
 
-  pk_endpoint_set_non_blocking(pk_ept); // TODO handle error?
+  if (pk_endpoint_set_non_blocking(pk_ept) < 0)
+    return -1;
+
   pk_ept->loop = loop;
 
-  if (poll_handle != NULL) pk_ept->poll_handle = poll_handle;
-
-  if (pk_ept->type == PK_ENDPOINT_SUB) return;
-  if (pk_ept->type == PK_ENDPOINT_PUB) return;
-
-  if (pk_ept->type == PK_ENDPOINT_REQ) return;
-
-  if (pk_ept->type == PK_ENDPOINT_REP) {
-    pk_log_anno(LOG_WARNING, "skipping init of PK_ENDPOINT_REP");
-    return;
-  }
-
-  assert( poll_handle == NULL );
-  assert( pk_ept->poll_handle == NULL );
+  ASSERT_TRACE( poll_handle_read == NULL );
+  ASSERT_TRACE( pk_ept->poll_handle == NULL );
 
   pk_ept->poll_handle =
     pk_loop_poll_add(loop, pk_ept->sock, accept_wake_handler, pk_ept);
 
-  // TODO do we need to return an error?
+  return pk_ept->poll_handle != NULL ? 0 : -1;
 }
 
 int find_free_client_slot(pk_endpoint_t *pk_ept)
@@ -739,7 +780,7 @@ int index_of_client_slot(pk_endpoint_t *pk_ept, client_context_t *ctx)
 
 static void invalidate_client_slot(pk_endpoint_t *pk_ept, int slot)
 {
-  assert( slot < MAX_CLIENTS );
+  ASSERT_TRACE( slot < MAX_CLIENTS );
 
   pk_ept->clients[slot] = (client_context_t) {
     .fd = -1,

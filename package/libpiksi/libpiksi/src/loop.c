@@ -424,12 +424,24 @@ void * pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
   assert(pk_ept != NULL);
   assert(callback != NULL);
 
-  void *poll_handle = pk_loop_poll_add(pk_loop,
-                                       pk_endpoint_poll_handle_get(pk_ept),
-                                       callback,
-                                       context);
+  int poll_fd = pk_endpoint_poll_handle_get(pk_ept);
 
-  pk_endpoint_loop_add(pk_ept, pk_loop, poll_handle); // TODO handle error?
+  if (poll_fd < 0) {
+    pk_log_anno(LOG_WARNING, "error fetching poll fd");
+    return NULL;
+  }
+
+  void *poll_handle = pk_loop_poll_add(pk_loop, poll_fd, callback, context);
+
+  if (poll_handle == NULL) {
+    pk_log_anno(LOG_ERR, "error adding poll fd to loop");
+    return NULL;
+  }
+
+  if (pk_endpoint_loop_add(pk_ept, pk_loop, poll_handle) < 0) {
+    pk_log_anno(LOG_ERR, "error adding loop to endpoint");
+    return NULL;
+  }
 
   return poll_handle;
 }
