@@ -146,20 +146,20 @@ int main(int argc, char *argv[])
   }
 
   if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(health_ctx.sbp_ctx), health_ctx.loop) != 0) {
-    sbp_log(LOG_ERR, "Error registering for pubsub read!");
+    piksi_log(LOG_ERR, "Error registering for pubsub read!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
 
   health_ctx.settings_ctx = settings_create();
   if (health_ctx.settings_ctx == NULL) {
-    sbp_log(LOG_ERR, "Error registering for settings!");
+    piksi_log(LOG_ERR, "Error registering for settings!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
 
   if (settings_attach(health_ctx.settings_ctx, health_ctx.loop) != 0) {
-    sbp_log(LOG_ERR, "Error registering for settings read!");
+    piksi_log(LOG_ERR, "Error registering for settings read!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
