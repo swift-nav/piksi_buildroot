@@ -1,0 +1,4 @@
+config BR2_PACKAGE_GNSS_CONVERTERS
+	bool "gnss_converters"
+	select BR2_PACKAGE_LIBSBP
+	select BR2_PACKAGE_LIBRTCM

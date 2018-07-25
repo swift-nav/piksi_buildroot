@@ -155,6 +155,18 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   rtcm2sbp_set_leap_second(leap_second,&state);
 }
 
+static void ephemeris_glo_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void) context;
+  (void) sender_id;
+  (void) len;
+  msg_ephemeris_glo_t *e = (msg_ephemeris_glo_t*)msg;
+
+  piksi_log(LOG_INFO, "FCN %u for sat %u", e->fcn, e->common.sid.sat);
+  /* extract just the FCN field */
+  rtcm2sbp_set_glo_fcn(e->common.sid, e->fcn, &state);
+}
+
 static int notify_simulator_enable_changed(void *context)
 {
   (void)context;
@@ -215,6 +227,15 @@ int main(int argc, char *argv[])
 
   if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting UTC TIME callback");
+    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_EPHEMERIS_GLO_DEP_D, ephemeris_glo_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting EPHEMERIS GLO callback");
+    return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
+  }
+  if (sbp_callback_register(SBP_MSG_EPHEMERIS_GLO, ephemeris_glo_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting EPHEMERIS GLO callback");
     return cleanup(&settings_ctx, &ctx, EXIT_FAILURE);
   }
 
