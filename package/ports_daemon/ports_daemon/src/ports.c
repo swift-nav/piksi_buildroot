@@ -32,7 +32,7 @@
 #define MODE_DISABLED 0
 #define PID_INVALID 0
 
-#define FIXED_SBP_USB_PORT_NAME "usb2"
+#define FIXED_SBP_USB_PORT_NAME "usb1"
 
 // This is the default for most serial devices, we need to drop and flush
 //   data when we get to this point to avoid sending partial SBP packets.
@@ -146,7 +146,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = "usb0",
-    .opts = "--name usb0 --file /dev/tty.usb0 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
+    .opts = "--name usb0 --file /dev/ttyGS0 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -157,7 +157,7 @@ static port_config_t port_configs[] = {
   },
   {
     .name = FIXED_SBP_USB_PORT_NAME,
-    .opts = "--name " FIXED_SBP_USB_PORT_NAME " --file /dev/tty.usb2 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
+    .opts = "--name " FIXED_SBP_USB_PORT_NAME " --file /dev/ttyGS1 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,

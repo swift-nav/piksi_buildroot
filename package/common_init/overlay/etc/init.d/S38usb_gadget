@@ -121,16 +121,12 @@ start() {
     else
       loge --sbp "invalid configuration, only expected 2 gadget serial devices"
     fi
-    ln -sf /dev/ttyGS0 /dev/tty.usb0
-    ln -sf /dev/ttyGS1 /dev/tty.usb2
   else
     if [[ -c /dev/ttyGS0 ]] && [[ -c /dev/ttyGS1 ]] && [[ -c /dev/ttyGS2 ]]; then
       logi "configuring USB serial symlinks for open mode..."
     else
       loge --sbp "invalid configuration, expected 3 gadget serial devices"
     fi
-    ln -sf /dev/ttyGS0 /dev/tty.usb0
-    ln -sf /dev/ttyGS2 /dev/tty.usb2
   fi
 }
 
