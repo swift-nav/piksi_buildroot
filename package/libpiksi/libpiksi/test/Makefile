@@ -9,7 +9,7 @@ SOURCES= \
 LIBS= \
 	-luv -lnanomsg -lpiksi -lsbp -ldl -lpthread -lgtest
 
-CFLAGS=-std=gnu++11 -z muldefs -I. -I../include -L../src
+CFLAGS=-ggdb3 -std=gnu++11 -z muldefs -I. -I../include -L../src
 
 CROSS=
 
