@@ -944,7 +944,6 @@ static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
     piksi_log(LOG_WARNING, "was not able to insert NTRIP GGA header");
   }
 
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
   curl_easy_setopt(curl, CURLOPT_USERAGENT,  "NTRIP swift-ntrip-client/1.0");
 
   return chunk;
@@ -961,7 +960,6 @@ static struct curl_slist *skylark_init(CURL *curl)
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, device_buf);
 
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
   curl_easy_setopt(curl, CURLOPT_USERAGENT,  "skylark-agent/1.0");
 
   return chunk;
@@ -1014,6 +1012,8 @@ void ntrip_download(network_context_t *ctx)
       piksi_log(LOG_DEBUG, "password: %s", ctx->password);
     }
   }
+
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA,        ctx);
@@ -1039,6 +1039,7 @@ void skylark_download(network_context_t *ctx)
   struct curl_slist *chunk = skylark_init(curl);
   chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
 
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA,        ctx);
@@ -1065,6 +1066,7 @@ void skylark_upload(network_context_t* ctx)
   chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
   chunk = curl_slist_append(chunk, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
 
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_PUT,              1L);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
   curl_easy_setopt(curl, CURLOPT_READFUNCTION,     network_upload_read);
