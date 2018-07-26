@@ -71,7 +71,7 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
   {                                                                        \
     if (!(TheAssert)) {                                                    \
       print_trace(STRINGIFY(TheAssert), __FILE__, __FUNCTION__, __LINE__); \
-      exit(EXIT_FAILURE);                                                  \
+      assert((TheAssert));                                                 \
     }                                                                      \
   }
 
@@ -333,6 +333,7 @@ static int recv_impl(pk_endpoint_t *ept,
                      void *poll_handle,
                      int slot)
 {
+  int err = 0;
   int length = 0;
 
   struct iovec iov[1] = {0};
@@ -371,33 +372,85 @@ static int recv_impl(pk_endpoint_t *ept,
 
     } else if (nonblocking && errno == EAGAIN) {
       // An "expected" error, don't need to report an error
-      return -1;
+      return PKE_EAGAIN;
 
     } else {
-      /* Return error */
-      pk_log_anno(LOG_ERR, "recvmsg error: %s", strerror(errno));
-      return -1;
+
+      if ((err = errno) != ENOTCONN) {
+        pk_log_anno(LOG_ERR, "recvmsg error: %d (%s)", err, strerror(err));
+      }
+
+      return err == ENOTCONN ? PKE_NOT_CONN : PKE_ERROR;
     }
   }
 
   *length_loc = (size_t) length;
 
-  return 0;
+  return PKE_SUCCESS;
+}
+
+bool valid_socket_type_for_read(pk_endpoint_t *pk_ept)
+{
+  if (pk_ept->type == PK_ENDPOINT_SUB) return true;
+
+  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER) return true;
+
+  if (pk_ept->type == PK_ENDPOINT_REP) return true;
+
+  if (pk_ept->type == PK_ENDPOINT_REQ) return true;
+
+  return false;
 }
 
 ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 {
   ASSERT_TRACE(pk_ept != NULL);
-  ASSERT_TRACE(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
-
   ASSERT_TRACE(buffer != NULL);
   ASSERT_TRACE(count > 0);
 
-  size_t length = count;
-  if (recv_impl(pk_ept, pk_ept->sock, buffer, &length, pk_ept->nonblock, NULL, NULL, -1) != 0) {
-    piksi_log(LOG_ERR, "failed to receive message");
+  if (!valid_socket_type_for_read(pk_ept)) {
+    pk_log_anno(LOG_ERR, "invalid socket type for read");
     return -1;
   }
+
+  size_t length = count;
+  int rc = 0;
+
+  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
+
+    int64_t counter = 0;
+    ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
+
+    if (c < 0 || c != sizeof(counter)) {
+      pk_log_anno(LOG_ERR, "invalid read size from eventfd: %zd", c);
+      return -1;
+    }
+
+    ASSERT_TRACE(counter == 1);
+    ASSERT_TRACE(pk_ept->woke);
+
+    pk_ept->woke = false;
+
+    for (size_t client_slot = 0; client_slot < MAX_CLIENTS; client_slot++) {
+
+      if (!pk_ept->clients[client_slot].valid) continue;
+
+      rc = recv_impl(pk_ept,
+                     pk_ept->clients[client_slot].fd,
+                     buffer,
+                     &length,
+                     pk_ept->nonblock,
+                     NULL,
+                     NULL,
+                     -1);
+    }
+
+  } else {
+
+    rc = recv_impl(pk_ept, pk_ept->sock, buffer, &length, pk_ept->nonblock, NULL, NULL, -1);
+  }
+
+  if (rc < 0) return rc;
 
   return length;
 }
@@ -413,8 +466,9 @@ static int service_reads(pk_endpoint_t *ept,
   for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
     u8 buffer[4096];
     size_t length = sizeof(buffer);
-    if (recv_impl(ept, fd, buffer, &length, true, loop, poll_handle, client_slot) != 0) {
-      if (errno == EWOULDBLOCK) break;
+    int rc = recv_impl(ept, fd, buffer, &length, true, loop, poll_handle, client_slot);
+    if (rc < 0) {
+      if (rc == PKE_EAGAIN || rc == PKE_NOT_CONN) break;
       piksi_log(LOG_ERR, "failed to receive message");
       return -1;
     }
@@ -428,11 +482,17 @@ static int service_reads(pk_endpoint_t *ept,
 int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context)
 {
   ASSERT_TRACE(pk_ept != NULL);
-  ASSERT_TRACE(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
-  ASSERT_TRACE(pk_ept->nonblock);
   ASSERT_TRACE(rx_cb != NULL);
 
-  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER) {
+  ASSERT_TRACE(pk_ept->nonblock);
+
+  if (!valid_socket_type_for_read(pk_ept)) {
+    pk_log_anno(LOG_ERR, "invalid socket type for read");
+    return -1;
+  }
+
+  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
+
     int64_t counter = 0;
     ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
 
@@ -500,8 +560,6 @@ static int send_impl(pk_endpoint_t *ept,
     int written = sendmsg(sock, &msg, 0);
     int error = errno;
 
-    //    pk_log_anno(LOG_DEBUG, "sendmsg: length: %d", length);
-
     if (written != -1) {
       /* Break on success */
       ASSERT_TRACE(written == length);
@@ -558,7 +616,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
 
   int rc = -1;
 
-  if (pk_ept->type == PK_ENDPOINT_PUB) {
+  if (pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_REQ) {
     rc = send_impl(pk_ept, pk_ept->sock, data, length, NULL, NULL, -1);
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     for (int idx = 0; idx < MAX_CLIENTS; idx++) {
@@ -726,8 +784,6 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
 
 int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle_read)
 {
-  pk_log_anno(LOG_DEBUG, "loop: %p; pk_ept->loop: %p", loop, pk_ept->loop);
-
   if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
 
   if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_PUB
@@ -742,9 +798,9 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_hand
 
   if (pk_ept->loop == loop) {
 
-    /* If we're a server style PUB/SUB socket, pk_loop_endpoint_reader_add will
-     * pass a poll_handle to NULL because some else is handling the read events
-     * for the socket
+    /* If we're a server style SUB/REP socket, pk_loop_endpoint_reader_add will
+     * pass a poll_handle of NULL because someone else should be handling the
+     * read events for the socket.
      */
 
     ASSERT_TRACE(poll_handle_read != NULL);
