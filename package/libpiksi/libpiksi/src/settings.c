@@ -1227,25 +1227,6 @@ settings_ctx_t * settings_create(pk_loop_t *loop)
     return ctx;
   }
 
-#if 0
-  assert( loop != NULL );
-  ctx->loop = loop;
-  if (loop == NULL) {
-    ctx->loop = pk_loop_create();
-    if (ctx->loop == NULL) {
-      piksi_log(LOG_ERR, "error creating internal loop");
-      destroy(&ctx);
-      return ctx;
-    }
-  } else {
-  }
-
-  if (settings_attach(ctx, ctx->loop) != 0) {
-    destroy(&ctx);
-    return ctx;
-  }
-#endif
-
   /* Register standard types */
   settings_type_t type;
 
@@ -1503,6 +1484,11 @@ static bool configure_control_socket(pk_loop_t* loop,
     return false;
   }
 
+  if (pk_endpoint_loop_add(*rep_socket, loop, NULL) < 0) {
+    piksi_log(LOG_ERR, "Error adding IPC socket to loop: %s", control_socket);
+    return false;
+  }
+
   *ctrl_command_info = malloc(sizeof(control_command_t));
 
   **ctrl_command_info = (control_command_t){
@@ -1552,7 +1538,7 @@ bool settings_loop(const char* control_socket,
   }
 
   do_settings_register(settings_ctx);
-#if 0
+
   if (control_socket != NULL) {
     bool control_sock_configured =
       configure_control_socket(loop,
@@ -1567,7 +1553,7 @@ bool settings_loop(const char* control_socket,
       goto settings_loop_cleanup;
     }
   }
-#endif
+
   pk_loop_run_simple(loop);
 
 settings_loop_cleanup:
@@ -1598,6 +1584,9 @@ int settings_loop_send_command(const char* target_description,
     piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s", \
               __FUNCTION__, __STRING(FUNC), __FILE__, __LINE__, \
               pk_endpoint_strerror()); \
+    fprintf(stderr, "%s: error in %s (%s:%d): %s", \
+            __FUNCTION__, __STRING(FUNC), __FILE__, __LINE__, \
+            pk_endpoint_strerror()); \
     return -1; \
   }
 
@@ -1609,17 +1598,19 @@ int settings_loop_send_command(const char* target_description,
   pk_endpoint_t* req_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REQ);
   CHECK_PK_EPT_ERR(req_socket == NULL, pk_endpoint_create);
 
-  int ret = pk_endpoint_send(req_socket, command, strlen(command));
-  CHECK_PK_EPT_ERR(ret != 0, pk_endpoint_send);
-
+  int ret = 0;
   u8 result = 0;
-  ret = pk_endpoint_receive(req_socket, command_receive_callback, &result);
-  CHECK_PK_EPT_ERR(ret != 0, pk_endpoint_receive);
+
+  ret = pk_endpoint_send(req_socket, command, strlen(command));
+  CHECK_PK_EPT_ERR(ret < 0, pk_endpoint_send);
+
+  ret = pk_endpoint_read(req_socket, &result, sizeof(result));
+  CHECK_PK_EPT_ERR(ret < 0, pk_endpoint_read);
 
 # define CMD_RESULT_MSG "Result of '%s' command: %hhu"
 
-  piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, result);
-  printf(CMD_RESULT_MSG "\n", command_description, result);
+  piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, ret);
+  printf(CMD_RESULT_MSG "\n", command_description, ret);
 
   pk_endpoint_destroy(&req_socket);
 
