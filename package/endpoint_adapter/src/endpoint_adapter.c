@@ -36,8 +36,7 @@
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
-#define READ_BUFFER_SIZE (64 * 1024)
-#define OFLOW_BUFFER_SIZE (32 * 1024)
+#define READ_BUFFER_SIZE (128 * 1024)
 #define REP_TIMEOUT_DEFAULT_ms 10000
 #define STARTUP_DELAY_DEFAULT_ms 0
 #define ENDPOINT_RESTART_RETRY_COUNT 3
@@ -106,7 +105,7 @@ typedef struct {
   bool is_can;
 } handle_t;
 
-static void do_metrics_flush(pk_loop_t *loop, void *handle, void *context);
+static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *context);
 static void setup_metrics();
 
 static void die_error(const char *error);
@@ -617,7 +616,13 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
 
 static int sub_ept_read(const u8 *buff, size_t length, void *context)
 {
-  assert( length <= read_ctx.size );
+  if (length > read_ctx.size) {
+
+    piksi_log(LOG_ERR|LOG_SBP, "%s: received more data we can ingest, dropping %zu bytes (%s:%d)",
+              __FUNCTION__, (length - read_ctx.size), __FILE__, __LINE__);
+
+    length = read_ctx.size;
+  }
 
   memcpy(read_ctx.buffer, buff, length);
   read_ctx.fill += length;
@@ -638,6 +643,7 @@ static ssize_t handle_read(handle_t *handle, u8* buffer, size_t count)
     read_ctx.fill = 0;
 
     int rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
+
     if (rc != 0) {
       piksi_log(LOG_WARNING, "%s: pk_endpoint_receive returned error: %d (%s:%d)",
                 __FUNCTION__, rc, __FILE__, __LINE__);
@@ -800,10 +806,11 @@ static void io_loop_pubsub(pk_loop_t* loop, handle_t *read_handle, handle_t *wri
   }
 }
 
-static void do_metrics_flush(pk_loop_t *loop, void *handle, void *context)
+static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void) loop;
   (void) handle;
+  (void) status;
   (void) context;
 
   PK_METRICS_UPDATE(MR, MI.ingress_read_size_average);
@@ -849,18 +856,35 @@ static void die_error(const char *error)
   exit(EXIT_FAILURE);
 }
 
-static void sub_reader_cb(pk_loop_t *loop, void *handle, void *context)
+static bool handle_loop_status(pk_loop_t *loop, int status)
+{
+  if ((status & LOOP_DISCONNECTED) || (status & LOOP_ERROR)) {
+    if (status & LOOP_ERROR) {
+      piksi_log(LOG_WARNING, "%s: got error event callback from loop: %s (%s:%d)",
+                __FUNCTION__, pk_loop_describe_status(status), __FILE__, __LINE__);
+    }
+    pk_loop_stop(loop);
+    return false;
+  }
+  return true;
+}
+
+static void sub_reader_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
   (void)context;
+
+  if (!handle_loop_status(loop, status)) return;
 
   io_loop_pubsub(loop_ctx.loop, &loop_ctx.sub_handle, &loop_ctx.write_handle);
 }
 
-static void read_fd_cb(pk_loop_t *loop, void *handle, void *context)
+static void read_fd_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
   (void)context;
+
+  if (!handle_loop_status(loop, status)) return;
 
   io_loop_pubsub(loop, &loop_ctx.read_handle, &loop_ctx.pub_handle);
 }
@@ -956,7 +980,7 @@ void io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
 
   debug_printf("Exiting from pubsub (fork: %s)\n", fork_needed ? "y" : "n");
 
-  return 0;
+  return -1;
 }
 
 int main(int argc, char *argv[])

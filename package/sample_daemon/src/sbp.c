@@ -37,6 +37,7 @@ static void signal_cb(pk_loop_t *pk_loop, void *handle, int status, void *contex
   (void)handle;
   (void)context;
   (void)status;
+
   piksi_log(LOG_DEBUG, "Received interrupt! Exiting...");
   pk_loop_stop(pk_loop);
 }

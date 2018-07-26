@@ -42,7 +42,7 @@ static int rep_read_cb(const u8 *data, const size_t length, void *context) {
   return -1; // return of non-zero terminates receive loop
 };
 
-static void test_req_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_req_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
   (void)status;

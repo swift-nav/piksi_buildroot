@@ -53,24 +53,28 @@ err:
   return ret;
 }
 
+static void reap_children(){
+  /* Reap terminated child processes */
+  while (waitpid(-1, NULL, WNOHANG) > 0) {
+    /* No-op */
+  } 
+}
+
 static void server_loop(int server_fd)
 {
   while (1) {
-    /* Reap terminated child processes */
-    while (waitpid(-1, NULL, WNOHANG) > 0) {
-      ;
-    }
-
+    reap_children();
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len);
 
     if (client_fd >= 0) {
       int wfd = dup(client_fd);
-      io_loop_start(client_fd, wfd, /* fork_needed = */ true);
+      int rc = io_loop_start(client_fd, wfd, /* fork_needed = */ true);
       close(client_fd);
       close(wfd);
       client_fd = -1;
+      if (rc != 0) break;
     } else if ((client_fd == -1) && (errno == EINTR)) {
       /* Retry if interrupted */
       continue;
