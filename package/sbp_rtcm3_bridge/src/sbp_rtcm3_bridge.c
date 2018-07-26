@@ -38,10 +38,11 @@ static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void 
   return 0;
 }
 
-static void rtcm3_reader_handler(pk_loop_t *loop, void *handle, void *context)
+static void rtcm3_reader_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
+  (void) status;
   pk_endpoint_t *rtcm_sub_ept = (pk_endpoint_t *)context;
   if (pk_endpoint_receive(rtcm_sub_ept, rtcm2sbp_decode_frame_shim, &state) != 0) {
     piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s",

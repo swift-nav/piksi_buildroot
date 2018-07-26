@@ -35,7 +35,7 @@ static int test_simple_recv_cb(const u8 *data, const size_t length, void *contex
   return 0;
 }
 
-static void test_timeout_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_timeout_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
@@ -48,7 +48,7 @@ static void test_timeout_cb(pk_loop_t *loop, void *handle, void *context)
   if (result == 0) snd_ctx->sent++;
 }
 
-static void test_poll_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_poll_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
   struct recv_ctx_s *recv_ctx = (struct recv_ctx_s *)context;

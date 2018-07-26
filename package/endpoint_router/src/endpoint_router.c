@@ -70,7 +70,7 @@ static struct {
 static pk_metrics_t *router_metrics = NULL;
 static framer_t *framer_sbp = NULL;
 
-static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context);
+static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void *context);
 static void process_buffer(port_t *port, const u8 *data, const size_t length);
 static void process_buffer_via_framer(port_t *port, const u8 *data, const size_t length);
 
@@ -398,10 +398,12 @@ static void post_receive_metrics()
   PK_METRICS_UPDATE(router_metrics, MI.latency_total, current_latency);
 }
 
-static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context)
+static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
+  (void)status;
+
   port_t *port = (port_t *)context;
 
   pre_receive_metrics();
@@ -423,7 +425,7 @@ void debug_printf(const char *msg, ...)
 
 static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_metrics_t **metrics);
 
-static void loop_1s_metrics(pk_loop_t *loop, void *handle, void *context)
+static void loop_1s_metrics(pk_loop_t *loop, void *handle, int status, void *context)
 {
   PK_METRICS_UPDATE(MR, MI.size);
   PK_METRICS_UPDATE(MR, MI.latency);

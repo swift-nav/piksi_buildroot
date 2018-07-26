@@ -87,7 +87,7 @@ void sbp_rx_destroy(sbp_rx_ctx_t **ctx_loc)
   *ctx_loc = NULL;
 }
 
-static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, void *context)
+static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, int status, void *context)
 {
   (void)handle;
   sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;

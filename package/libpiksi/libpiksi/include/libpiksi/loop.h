@@ -31,6 +31,14 @@
 extern "C" {
 #endif
 
+enum {
+  LOOP_UNKNOWN        =  -1,
+  LOOP_SUCCESS        = 0x0,
+  LOOP_READ           = 0x1,
+  LOOP_DISCONNECTED   = 0x2,
+  LOOP_ERROR          = 0x4,
+};
+
 /**
  * @struct  pk_loop_t
  *
@@ -41,7 +49,7 @@ typedef struct pk_loop_s pk_loop_t;
 /**
  * @brief   Piksi Loop Callback Signature
  */
-typedef void (*pk_loop_cb)(pk_loop_t *loop, void *handle, void *context);
+typedef void (*pk_loop_cb)(pk_loop_t *loop, void *handle, int status, void *context);
 
 /**
  * @brief   Create a Piksi loop context
@@ -150,6 +158,8 @@ void * pk_loop_poll_add(pk_loop_t *pk_loop,
                         pk_loop_cb callback,
                         void *context);
 
+void pk_loop_poll_remove(pk_loop_t *pk_loop, void *handle);
+
 /**
  * @brief   Remove a callback handle
  * @details Remove a callback handle from the loop, ending any calls from that context.
@@ -194,6 +204,10 @@ int pk_loop_run_simple_with_timeout(pk_loop_t *pk_loop, u32 timeout_ms);
  * @param[in] pk_loop       Pointer to the Piksi loop to use.
  */
 void pk_loop_stop(pk_loop_t *pk_loop);
+
+const char* pk_loop_describe_status(int status);
+
+const char* pk_loop_last_error(pk_loop_t *pk_loop);
 
 #ifdef __cplusplus
 }
