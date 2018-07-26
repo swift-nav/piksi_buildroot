@@ -32,11 +32,11 @@ extern "C" {
 #endif
 
 enum {
-  LOOP_UNKNOWN = -1,
-  LOOP_SUCCESS = 0,
-  LOOP_READ,
-  LOOP_DISCONNECTED,
-  LOOP_ERROR,
+  LOOP_UNKNOWN        =  -1,
+  LOOP_SUCCESS        = 0x0,
+  LOOP_READ           = 0x1,
+  LOOP_DISCONNECTED   = 0x2,
+  LOOP_ERROR          = 0x4,
 };
 
 /**
