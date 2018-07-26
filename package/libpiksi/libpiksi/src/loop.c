@@ -383,25 +383,28 @@ int pk_loop_timer_reset(void *handle)
 static void uv_loop_poll_handler(uv_poll_t *poller, int status, int events)
 {
   int loop_status = LOOP_SUCCESS;
+  bool remove = false;
 
   uv_handle_t *handle = (uv_handle_t *)poller;
   pk_loop_t *loop = pk_loop_from_uv_handle(handle);
   pk_callback_ctx_t *cb_ctx = pk_callback_context_from_uv_handle(handle);
 
   if (status < 0) {
-
-    status = LOOP_ERROR;
+    loop_status |= LOOP_ERROR;
     strncpy(loop->uv_error_msg, uv_strerror(status), sizeof(loop->uv_error_msg));
+    remove = true;
+  }
 
-    pk_loop_poll_remove(loop, handle);
+  if (events & UV_READABLE) {
+    loop_status |= LOOP_READ;
+  }
 
-  } else if (events & UV_READABLE) {
+  if (events & UV_DISCONNECT) {
+    loop_status |= LOOP_DISCONNECTED;
+    remove = true;
+  }
 
-    status = LOOP_READ;
-
-  } else if (events & UV_DISCONNECT) {
-
-    status = LOOP_DISCONNECTED;
+  if (remove) {
     pk_loop_poll_remove(loop, handle);
   }
 
@@ -538,13 +541,47 @@ const char *pk_loop_last_error(pk_loop_t *pk_loop)
 
 const char *pk_loop_describe_status(int status)
 {
-  switch (status) {
-  case LOOP_UNKNOWN: return "LOOP_UNKNOWN";
-  case LOOP_SUCCESS: return "LOOP_SUCCESS";
-  case LOOP_READ: return "LOOP_READ";
-  case LOOP_ERROR: return "LOOP_ERROR";
-  case LOOP_DISCONNECTED: return "LOOP_DISCONNECTED";
-  default: break;
+  static char buf[128] = {0};
+  buf[0] = '\0';
+
+  bool addbar = false;
+
+  if (status == LOOP_UNKNOWN) {
+    snprintf(buf, sizeof(buf), "LOOP_UNKNOWN");
+    return buf;
   }
-  assert(false);
+
+  if (status == LOOP_SUCCESS) {
+    snprintf(buf, sizeof(buf), "LOOP_UNKNOWN");
+    return buf;
+  }
+
+  if (status == LOOP_READ) {
+    snprintf(buf, sizeof(buf), "LOOP_READ");
+    addbar = true;
+  }
+
+  static char buf_disco[128] = {0};
+  buf_disco[0] = '\0';
+
+  if (status == LOOP_DISCONNECTED) {
+    snprintf(buf_disco,
+             sizeof(buf_disco),
+             "%s%sLOOP_DISCONNECTED",
+             addbar ? buf : "",
+             addbar ? "|" : "");
+    snprintf(buf, sizeof(buf), "%s", buf_disco);
+    addbar = true;
+  }
+
+  static char buf_error[128] = {0};
+  buf_error[0] = '\0';
+
+  if (status == LOOP_ERROR) {
+    snprintf(buf_error, sizeof(buf_error), "%s%sLOOP_ERROR", addbar ? buf : "", addbar ? "|" : "");
+    snprintf(buf, sizeof(buf), "%s", buf_error);
+    addbar = true;
+  }
+
+  return buf;
 }
