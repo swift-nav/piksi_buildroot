@@ -26,6 +26,8 @@
 #define SKYLARK_ALERT_RATE_LIMIT (10000u) /*ms*/
 #define NO_FIX (0)
 
+#define SKYLARK_ENABLED_FILE_PATH "/var/run/skylark/enabled"
+
 //#define DEBUG_SKYLARK_MONITOR
 #ifdef DEBUG_SKYLARK_MONITOR
 #define DEBUG_LOG(...) piksi_log(LOG_DEBUG, __VA_ARGS__)
@@ -38,7 +40,12 @@ static bool no_fix = true;
 
 static bool skylark_enabled() {
 
-  FILE* fp = fopen("/var/run/skylark/enabled", "r");
+  FILE* fp = fopen(SKYLARK_ENABLED_FILE_PATH, "r");
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "error opening %s", SKYLARK_ENABLED_FILE_PATH);
+    return false;
+  }
+
   char buf[1] = {0};
 
   (void) fread(buf, sizeof(buf), 1, fp);
