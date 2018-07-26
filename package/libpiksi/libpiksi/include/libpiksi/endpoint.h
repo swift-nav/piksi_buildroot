@@ -48,6 +48,13 @@ typedef enum {
   PK_ENDPOINT_REQ
 } pk_endpoint_type;
 
+enum {
+  PKE_SUCCESS  =  0,
+  PKE_ERROR    = -1,
+  PKE_NOT_CONN = -2,
+  PKE_EAGAIN   = -3,
+};
+
 /**
  * @brief   Piksi Endpoint Receive Callback Signature
  */

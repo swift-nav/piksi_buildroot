@@ -24,8 +24,6 @@ struct reqrep_ctx_s {
 
 static void test_req_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
-  fprintf(stderr, "***%s (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
-
   (void)handle;
   (void)status;
 
@@ -43,8 +41,6 @@ static void test_req_cb(pk_loop_t *loop, void *handle, int status, void *context
 
 static void test_rep_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
-  fprintf(stderr, "***%s (%s:%d)\n", __FUNCTION__, __FILE__, __LINE__);
-
   (void)handle;
   (void)status;
 
@@ -52,6 +48,10 @@ static void test_rep_cb(pk_loop_t *loop, void *handle, int status, void *context
 
   u8 rep_value = 0;
   int result = pk_endpoint_read(ctx->rep_ept, &rep_value, sizeof(rep_value));
+
+  if (result == PKE_NOT_CONN)
+    return;
+
   EXPECT_EQ(result, 1);
   result = pk_endpoint_send(ctx->rep_ept, &rep_value, sizeof(rep_value));
   EXPECT_EQ(result, 0);
@@ -62,6 +62,7 @@ static void test_timeout_cb(pk_loop_t *loop, void *handle, int status, void *con
   (void)loop;
   (void)handle;
   (void)status;
+
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
   if (ctx->sent == ctx->recvd) {
     u8 simple_message = ctx->sent + 1;
@@ -73,8 +74,7 @@ static void test_timeout_cb(pk_loop_t *loop, void *handle, int status, void *con
     }
   }
 }
-// TODO req/rep is broken, fix it
-#if 0
+
 TEST_F(ReqrepLoopIntegrationTests, reqrepLoopIntegrationTest)
 {
   loop = pk_loop_create();
@@ -83,7 +83,7 @@ TEST_F(ReqrepLoopIntegrationTests, reqrepLoopIntegrationTest)
   rep_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_REP);
   ASSERT_NE(rep_ept, nullptr);
 
-  pk_endpoint_loop_add(rep_ept, loop, NULL);
+  ASSERT_GE(pk_endpoint_loop_add(rep_ept, loop, NULL), 0);
 
   req_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_REQ);
   ASSERT_NE(req_ept, nullptr);
@@ -104,4 +104,3 @@ TEST_F(ReqrepLoopIntegrationTests, reqrepLoopIntegrationTest)
   ASSERT_GT(ctx.recvd, 0);
   ASSERT_EQ(ctx.sent, ctx.recvd);
 }
-#endif
