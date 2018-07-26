@@ -6,6 +6,7 @@ name="ports_daemon"
 cmd="ports_daemon"
 dir="/"
 user="portsd"
+priority="-17"
 
 setup_permissions() {
 

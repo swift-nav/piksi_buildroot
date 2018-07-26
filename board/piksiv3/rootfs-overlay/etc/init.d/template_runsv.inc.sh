@@ -27,13 +27,17 @@ _setup_svdir()
     exit 1
   fi
 
-  echo "#!/bin/ash"                                  > "/etc/sv/${name}/run"
-  echo "cd ${dir}"                                  >> "/etc/sv/${name}/run"
-  echo "echo Starting ${name}... \\"                >> "/etc/sv/${name}/run"
-  echo "  | logger -t ${tag} -p ${fac}.info"        >> "/etc/sv/${name}/run"
-  echo "exec chpst -u $user:$user $cmd \\"          >> "/etc/sv/${name}/run"
-  echo "  1>>${stdout_log} \\"                      >> "/etc/sv/${name}/run"
-  echo "  2>>${stderr_log}"                         >> "/etc/sv/${name}/run"
+  if [[ -z "$priority" ]]; then
+    priority=0
+  fi
+
+  echo "#!/bin/ash"                                            > "/etc/sv/${name}/run"
+  echo "cd ${dir}"                                            >> "/etc/sv/${name}/run"
+  echo "echo Starting ${name}... \\"                          >> "/etc/sv/${name}/run"
+  echo "  | logger -t ${tag} -p ${fac}.info"                  >> "/etc/sv/${name}/run"
+  echo "exec nice -n $priority chpst -u $user:$user $cmd \\"  >> "/etc/sv/${name}/run"
+  echo "  1>>${stdout_log} \\"                                >> "/etc/sv/${name}/run"
+  echo "  2>>${stderr_log}"                                   >> "/etc/sv/${name}/run"
 
   chmod +x /etc/sv/${name}/run
 
