@@ -9,7 +9,7 @@ SOURCES= \
 	endpoint_adapter_udp_connect.c \
 
 LIBS=-luv -lnanomsg -lsbp -lpiksi -ldl
-CFLAGS=-std=gnu11 -Wall
+CFLAGS=-std=gnu11 -Wall -O3
 
 CROSS=
 
