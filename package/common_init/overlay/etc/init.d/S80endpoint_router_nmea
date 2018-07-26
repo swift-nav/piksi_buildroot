@@ -4,6 +4,7 @@ name="endpoint_router_nmea"
 cmd="endpoint_router --name nmea -f /etc/endpoint_router/nmea_router.yml"
 dir="/"
 user="rt_nmea"
+priority="-19"
 
 setup_permissions()
 {
