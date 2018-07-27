@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+#include <sys/queue.h>
 
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
@@ -64,20 +65,25 @@ void print_trace (const char* assert_str, const char* file, const char* func, in
   free(strings);
 }
 
-#define STRINGIFY(a) _STRINGIFY(a)
-#define _STRINGIFY(a) #a
-
 #define ASSERT_TRACE(TheAssert) \
-  { if(!(TheAssert)) { print_trace(STRINGIFY(TheAssert), __FILE__,\
+  { if(!(TheAssert)) { print_trace(__STRING(TheAssert), __FILE__,\
     __FUNCTION__, __LINE__); assert((TheAssert)); } }
+
+typedef struct client_node client_node_t;
 
 typedef struct {
   pk_endpoint_t *ept;
   int fd;
-  bool valid;
-  int slot;
   void *poll_handle;
+  client_node_t *node;
 } client_context_t;
+
+struct client_node {
+  client_context_t val;
+  LIST_ENTRY(client_node) entries;
+};
+
+typedef LIST_HEAD(client_nodes_head, client_node) client_nodes_head_t;
 
 struct pk_endpoint_s {
   pk_endpoint_type type;
@@ -86,7 +92,7 @@ struct pk_endpoint_s {
   int eid;
   bool nonblock;
   bool woke;
-  client_context_t clients[MAX_CLIENTS];
+  client_nodes_head_t client_nodes_head;
   int client_count;
   pk_loop_t *loop;
   void *poll_handle;
@@ -95,11 +101,7 @@ struct pk_endpoint_s {
 };
 
 
-static int index_of_client_slot(pk_endpoint_t *pk_ept, client_context_t *ctx);
-static int find_free_client_slot(pk_endpoint_t *pk_ept);
-static void record_disconnect(pk_endpoint_t *pk_ept, int slot);
-static void invalidate_client_slot(pk_endpoint_t *pk_ept, int slot);
-
+static void record_disconnect(pk_endpoint_t *pk_ept, client_node_t *node);
 static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void *context);
 
 static int create_un_socket() {
@@ -172,9 +174,7 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   pk_ept->poll_handle_read = NULL;
   strcpy(pk_ept->path, endpoint);
 
-  for (size_t i = 0; i < MAX_CLIENTS; i++) {
-    invalidate_client_slot(pk_ept, i);
-  }
+  LIST_INIT(&pk_ept->client_nodes_head);
 
   bool do_bind = false;
   switch (pk_ept->type)
@@ -288,6 +288,14 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
       break;
     }
   }
+  while (!LIST_EMPTY(&pk_ept->client_nodes_head)) {
+    client_node_t *node = LIST_FIRST(&pk_ept->client_nodes_head);
+    LIST_REMOVE(node, entries);
+    if (pk_ept->loop != NULL) {
+      pk_loop_poll_remove(pk_ept->loop, node->val.poll_handle);
+    }
+    free(node);
+  }
   free(pk_ept);
   *pk_ept_loc = NULL;
 }
@@ -325,7 +333,7 @@ static int recv_impl(pk_endpoint_t *ept,
                      bool nonblocking,
                      pk_loop_t *loop,
                      void *poll_handle,
-                     int slot)
+                     client_node_t *node)
 {
   int err = 0;
   int length = 0;
@@ -351,7 +359,7 @@ static int recv_impl(pk_endpoint_t *ept,
           ASSERT_TRACE( poll_handle != NULL );
           pk_loop_poll_remove(loop, poll_handle);
         }
-        if (slot >= 0) record_disconnect(ept, slot);
+        if (node != NULL) record_disconnect(ept, node);
         shutdown(sock, SHUT_RDWR);
         close(sock);
       }
@@ -429,18 +437,16 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 
     pk_ept->woke = false;
 
-    for (size_t client_slot = 0; client_slot < MAX_CLIENTS; client_slot++) {
-
-      if (!pk_ept->clients[client_slot].valid) continue;
-
+    client_node_t *node;
+    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries) {
       rc = recv_impl(pk_ept,
-                     pk_ept->clients[client_slot].fd,
+                     node->val.fd,
                      buffer,
                      &length,
                      pk_ept->nonblock,
                      NULL,
                      NULL,
-                     -1);
+                     NULL);
     }
 
   } else {
@@ -452,7 +458,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
                    pk_ept->nonblock,
                    NULL,
                    NULL,
-                   -1);
+                   NULL);
   }
 
   if (rc < 0) return rc;
@@ -463,7 +469,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 static int service_reads(pk_endpoint_t *ept,
                          int fd,
                          pk_loop_t *loop,
-                         int client_slot,
+                         client_node_t* node,
                          void *poll_handle,
                          pk_endpoint_receive_cb rx_cb,
                          void *context)
@@ -471,7 +477,7 @@ static int service_reads(pk_endpoint_t *ept,
   for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
     u8 buffer[4096];
     size_t length = sizeof(buffer);
-    int rc = recv_impl(ept, fd, buffer, &length, true, loop, poll_handle, client_slot);
+    int rc = recv_impl(ept, fd, buffer, &length, true, loop, poll_handle, node);
     if (rc < 0) {
       if (rc == PKE_EAGAIN || rc == PKE_NOT_CONN) break;
       piksi_log(LOG_ERR, "failed to receive message");
@@ -511,22 +517,19 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
 
     pk_ept->woke = false;
 
-    for (size_t client_slot = 0; client_slot < MAX_CLIENTS; client_slot++) {
-
-      if (!pk_ept->clients[client_slot].valid)
-        continue;
-
+    client_node_t *node;
+    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries) {
       service_reads(pk_ept,
-                    pk_ept->clients[client_slot].fd,
+                    node->val.fd,
                     pk_ept->loop,
-                    client_slot,
-                    pk_ept->clients[client_slot].poll_handle,
+                    node,
+                    node->val.poll_handle,
                     rx_cb,
                     context);
     }
 
   } else {
-    service_reads(pk_ept, pk_ept->sock, pk_ept->loop, -1, pk_ept->poll_handle, rx_cb, context);
+    service_reads(pk_ept, pk_ept->sock, pk_ept->loop, NULL, pk_ept->poll_handle, rx_cb, context);
   }
 
   return 0;
@@ -538,7 +541,7 @@ static int send_impl(pk_endpoint_t *ept,
                      const size_t length,
                      pk_loop_t *loop,
                      void* poll_handle,
-                     int slot)
+                     client_node_t *node)
 {
   struct iovec iov[1] = {0};
   struct msghdr msg = {0};
@@ -552,9 +555,9 @@ static int send_impl(pk_endpoint_t *ept,
   void close_socket_helper() {
       if (loop != NULL) {
         ASSERT_TRACE( poll_handle != NULL );
-        ASSERT_TRACE( slot >= 0 );
+        ASSERT_TRACE( node != NULL );
         pk_loop_poll_remove(loop, poll_handle);
-        record_disconnect(ept, slot);
+        record_disconnect(ept, node);
       }
       shutdown(sock, SHUT_RDWR);
       close(sock);
@@ -583,8 +586,8 @@ static int send_impl(pk_endpoint_t *ept,
       if (error < 0) pk_log_anno(LOG_DEBUG, "unable to read SIOCOUTQ: %s", strerror(errno));
 
       pk_log_anno(LOG_WARNING, "sendmsg returned EAGAIN, dropping %d bytes "
-								  "(path: %s, slot: %d, queued input: %d, queued output: %d)",
-								  length, ept->path, slot, queued_input, queued_output);
+                  "(path: %s, node: %p, queued input: %d, queued output: %d)",
+                  length, ept->path, node, queued_input, queued_output);
 
       close_socket_helper();
 
@@ -617,11 +620,17 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   int rc = -1;
 
   if (pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_REQ) {
-    rc = send_impl(pk_ept, pk_ept->sock, data, length, NULL, NULL, -1);
+    rc = send_impl(pk_ept, pk_ept->sock, data, length, NULL, NULL, NULL);
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
-    for (int idx = 0; idx < MAX_CLIENTS; idx++) {
-      if (!pk_ept->clients[idx].valid) continue;
-      rc = send_impl(pk_ept, pk_ept->clients[idx].fd, data, length, pk_ept->loop, pk_ept->clients[idx].poll_handle, idx);
+    client_node_t *node;
+    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries) {
+      rc = send_impl(pk_ept,
+                     node->val.fd,
+                     data,
+                     length,
+                     pk_ept->loop,
+                     node->val.poll_handle,
+                     node);
     }
   }
 
@@ -665,34 +674,37 @@ static void discard_read_data(pk_loop_t *loop, client_context_t *ctx)
   size_t length = sizeof(read_buf);
 
   for (int count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
-    if (recv_impl(ctx->ept, ctx->fd, read_buf, &length, true, loop, ctx->poll_handle, ctx->slot) != 0) {
+    if (recv_impl(ctx->ept, ctx->fd, read_buf, &length, true, loop, ctx->poll_handle, ctx->node) != 0) {
       break;
     }
   }
 }
 
-static void record_disconnect(pk_endpoint_t *ept, int slot)
+static void record_disconnect(pk_endpoint_t *ept, client_node_t *node)
 {
   ASSERT_TRACE( ept != NULL );
-  ASSERT_TRACE( slot >= 0 );
-  ASSERT_TRACE( slot < MAX_CLIENTS );
+  ASSERT_TRACE( node != NULL );
 
   --ept->client_count;
-  invalidate_client_slot(ept, slot);
+  LIST_REMOVE(node, entries);
+
+  free(node);
+
+  if (ept->client_count < 0) {
+    pk_log_anno(LOG_ERR|LOG_SBP, "client count is negative (count: %d)", ept->client_count);
+  }
 }
 
 static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *context)
 {
   client_context_t *client_context = (client_context_t *)context;
 
-  ASSERT_TRACE( client_context->valid );
-
   if ((status & LOOP_ERROR) || (status & LOOP_DISCONNECTED)) {
 
     pk_log_anno(LOG_DEBUG, "client disconnected: %s (%08x)", pk_loop_describe_status(status), status);
 
     close(client_context->fd);
-    record_disconnect(client_context->ept, client_context->slot);
+    record_disconnect(client_context->ept, client_context->node);
 
     return;
   }
@@ -733,9 +745,9 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
   pk_endpoint_t *ept = (pk_endpoint_t *)context;
   ASSERT_TRACE( ept != NULL );
 
-  int client_slot = find_free_client_slot(ept);
+  client_node_t *client_node = (client_node_t *)malloc(sizeof(client_node_t));
 
-  if (client_slot < 0) {
+  if (client_node == NULL) {
 
     piksi_log(LOG_WARNING, "unable to add new client, closing connection");
     int clientfd = pk_endpoint_accept(ept);
@@ -746,9 +758,9 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
     return;
   }
 
-  pk_log_anno(LOG_DEBUG, "new client_slot: %d", client_slot);
+  LIST_INSERT_HEAD(&ept->client_nodes_head, client_node, entries);
 
-  client_context_t *client_context = &ept->clients[client_slot];
+  client_context_t *client_context = &client_node->val;
 
   pk_log_anno(LOG_DEBUG, "new client_count: %d; path: %s",
               ept->client_count+1, ept->path);
@@ -759,14 +771,15 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
 
   client_context->fd = clientfd;
   client_context->ept = ept;
-  client_context->valid = true;
-  client_context->slot = client_slot;
+  client_context->node = client_node;
 
   if (fcntl(clientfd, F_SETFL, fcntl(clientfd, F_GETFL, 0) | O_NONBLOCK) < 0) {
     pk_log_anno(LOG_WARNING, "fcntl error: %s", strerror(errno));
   }
 
-  ++ept->client_count;
+  if (++ept->client_count > MAX_CLIENTS) {
+    piksi_log(LOG_WARNING|LOG_SBP, "client count exceeding expected maximum: %zu", ept->client_count);
+  }
 
   client_context->poll_handle =
     pk_loop_poll_add(loop, clientfd, handle_client_wake, client_context);
@@ -822,43 +835,4 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_hand
     pk_loop_poll_add(loop, pk_ept->sock, accept_wake_handler, pk_ept);
 
   return pk_ept->poll_handle != NULL ? 0 : -1;
-}
-
-int find_free_client_slot(pk_endpoint_t *pk_ept)
-{
-  int slot = -1;
-  for (size_t i = 0; i < MAX_CLIENTS; i++) {
-    if (!pk_ept->clients[i].valid) {
-      slot = (int) i;
-      break;
-    }
-  }
-  if (slot < 0) pk_log_anno(LOG_ERR, "no free client slots");
-  return slot;
-}
-
-int index_of_client_slot(pk_endpoint_t *pk_ept, client_context_t *ctx)
-{
-  int slot = -1;
-  for (size_t i = 0; i < MAX_CLIENTS; i++) {
-    if (ctx->fd == pk_ept->clients[i].fd) {
-      slot = (int) i;
-      break;
-    }
-  }
-  if (slot < 0) pk_log_anno(LOG_ERR, "could not find slot for given client context");
-  return slot;
-}
-
-static void invalidate_client_slot(pk_endpoint_t *pk_ept, int slot)
-{
-  ASSERT_TRACE( slot < MAX_CLIENTS );
-
-  pk_ept->clients[slot] = (client_context_t) {
-    .fd = -1,
-    .valid = false,
-    .ept = NULL,
-    .slot = -1,
-    .poll_handle = NULL,
-  };
 }
