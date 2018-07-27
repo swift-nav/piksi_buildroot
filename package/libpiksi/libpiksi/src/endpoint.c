@@ -577,14 +577,14 @@ static int send_impl(pk_endpoint_t *ept,
 
       if (error < 0) pk_log_anno(LOG_DEBUG, "unable to read SIOCOUTQ: %s", strerror(errno));
 
-      pk_log_anno(
-        LOG_WARNING,
-        "sendmsg returned EAGAIN, dropping %d bytes (path: %s, slot: %d, queued input: %d, queued output: %d)",
-        length,
-        ept->path,
-        slot,
-        queued_input,
-        queued_output);
+      pk_log_anno(LOG_WARNING,
+                  "sendmsg returned EAGAIN, dropping %d bytes "
+                  "(path: %s, slot: %d, queued input: %d, queued output: %d)",
+                  length,
+                  ept->path,
+                  slot,
+                  queued_input,
+                  queued_output);
 
       close_socket_helper();
 
@@ -600,10 +600,10 @@ static int send_impl(pk_endpoint_t *ept,
       close_socket_helper();
 
       if (error != EPIPE && error != ECONNRESET) {
-        /* Return error */
         pk_log_anno(LOG_ERR, "error in sendmsg: %s", strerror(error));
       }
 
+      /* Return error */
       return -1;
     }
   }
@@ -694,9 +694,12 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
 
   ASSERT_TRACE(client_context->valid);
 
-  if (status == LOOP_ERROR || status == LOOP_DISCONNECTED) {
+  if ((status & LOOP_ERROR) || (status & LOOP_DISCONNECTED)) {
 
-    pk_log_anno(LOG_DEBUG, "client disconnected: %s", pk_loop_describe_status(status));
+    pk_log_anno(LOG_DEBUG,
+                "client disconnected: %s (%08x)",
+                pk_loop_describe_status(status),
+                status);
 
     close(client_context->fd);
     record_disconnect(client_context->ept, client_context->slot);
@@ -704,7 +707,7 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
     return;
   }
 
-  if (status == LOOP_READ && client_context->ept->type == PK_ENDPOINT_PUB_SERVER) {
+  if ((status & LOOP_READ) && client_context->ept->type == PK_ENDPOINT_PUB_SERVER) {
 
     piksi_log(LOG_WARNING, "discarding read data from pub server");
     discard_read_data(loop, client_context);
@@ -725,9 +728,9 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
 {
   ASSERT_TRACE(loop != NULL);
 
-  if (status != LOOP_SUCCESS) {
+  if (!(status & LOOP_READ) && status != LOOP_SUCCESS) {
 
-    if (status == LOOP_ERROR) {
+    if (status & LOOP_ERROR) {
       pk_log_anno(LOG_ERR,
                   "status: %s; error: %s",
                   pk_loop_describe_status(status),
