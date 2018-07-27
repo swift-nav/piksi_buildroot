@@ -14,6 +14,9 @@
 #include "piksiv3.dtsi"
 
 / {
+  #address-cells = <1>;
+  #size-cells = <1>;
+
   model = "Piksiv3 PROD Board";
   compatible = "xlnx,zynq-piksiv3-prod", "xlnx,zynq-7000";
 
@@ -47,6 +50,15 @@
     reg = <0xe0003000 0x1000>;
     view-port = <0x0170>;
     drv-vbus;
+  };
+
+  uart2: serial@80000000 {
+    status = "okay";
+    compatible = "xlnx,xps-uartlite-1.00.a";
+    reg = <0x80000000 0x10000>;
+    interrupt-parent = <&intc>;
+    interrupts = <0 54 1>;
+    port-number = <0>;
   };
 };
 
