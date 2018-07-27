@@ -7,11 +7,11 @@ SOURCES = \
 
 LIBS=-luv -lnanomsg -lsbp -lpiksi -lyaml -lcmph
 
-CFLAGS+=-O3 -ggdb3 -std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Wjump-misses-init -Werror -rdynamic -funwind-tables
+CFLAGS+=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Wjump-misses-init -Werror -rdynamic -funwind-tables -ggdb3 -O3
 
 ARFLAGS=rcs $(LTO_PLUGIN)
 
-OBJECTS = $(SOURCES:.c=.o)
+OBJECTS=$(SOURCES:.c=.o)
 
 CROSS=
 

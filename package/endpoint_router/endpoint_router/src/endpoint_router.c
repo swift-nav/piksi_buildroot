@@ -35,6 +35,8 @@
 #define MT message_metrics_table
 #define MR router_metrics
 
+static pk_metrics_t *router_metrics = NULL;
+
 PK_METRICS_TABLE(message_metrics_table, MI,
 
   PK_METRICS_ENTRY("message/count",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
@@ -67,14 +69,13 @@ static struct {
   .process_sbp = false,
 };
 
-static pk_metrics_t *router_metrics = NULL;
 static framer_t *framer_sbp = NULL;
 
 static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void *context);
 static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_t length);
 static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, const size_t length);
 
-endpoint_send_fn_t endpoint_send_fn;
+endpoint_send_fn_t endpoint_send_fn = NULL;
 
 static void usage(char *command)
 {
@@ -274,10 +275,10 @@ static void rule_process(forwarding_rule_t *forwarding_rule,
 
 static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, const size_t length)
 {
-  size_t buffer_index = 0;
+  assert( framer_sbp != NULL );
 
+  size_t buffer_index = 0;
   u32 frame_count = 0;
-  u32 leftover = 0;
 
   while (buffer_index < length) {
 
@@ -292,11 +293,11 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
 
     if (frame == NULL) break;
 
-    process_buffer(rule_cache, frame, frame_length);    
+    process_buffer(rule_cache, frame, frame_length);
     frame_count += 1;
   }
 
-  leftover = length - buffer_index;
+  u32 leftover = length - buffer_index;
 
   PK_METRICS_UPDATE(MR, MI.frame_count, PK_METRICS_VALUE(frame_count));
   PK_METRICS_UPDATE(MR, MI.frame_leftovers, PK_METRICS_VALUE(leftover));
@@ -304,9 +305,9 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
 
 static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_t length)
 {
-  static u8 match_buf[MAX_PREFIX_LEN];
+  size_t prefix_len = rule_cache->rule_prefixes->prefix_len;
 
-  if (length < rule_cache->rule_prefixes->prefix_len) {
+  if (length < prefix_len) {
     // No match, send to all default accept ports
     for (size_t idx = 0; idx < rule_cache->accept_ports_count; idx++) {
       endpoint_send_fn(rule_cache->accept_ports[idx], data, length);
@@ -314,13 +315,8 @@ static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_
     return;
   }
 
-  memset(match_buf, 0, MAX_PREFIX_LEN);
-  memcpy(match_buf, data, length);
-
-  size_t prefix_len = rule_cache->rule_prefixes->prefix_len;
-  uint32_t key = cmph_search(rule_cache->hash, (const char *)match_buf, prefix_len);
-
-  if (memcmp(rule_cache->cached_ports[key].prefix, match_buf, prefix_len) == 0) {
+  uint32_t key = cmph_search(rule_cache->hash, (const char *)data, prefix_len);
+  if (memcmp(rule_cache->cached_ports[key].prefix, data, prefix_len) == 0) {
     // Match, forward to list of rules
     for (size_t idx = 0; idx < rule_cache->cached_ports[key].count; idx++) {
       endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], data, length);
@@ -711,22 +707,23 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  if (options.process_sbp) {
+  const char *protocol_library_path = getenv(PROTOCOL_LIBRARY_PATH_ENV_NAME);
+  if (protocol_library_path == NULL) {
+    protocol_library_path = PROTOCOL_LIBRARY_PATH_DEFAULT;
+  }
 
-    const char *protocol_library_path = getenv(PROTOCOL_LIBRARY_PATH_ENV_NAME);
-    if (protocol_library_path == NULL) {
-      protocol_library_path = PROTOCOL_LIBRARY_PATH_DEFAULT;
-    }
+  if (protocols_import(protocol_library_path) != 0) {
+    syslog(LOG_ERR, "error importing protocols");
+    fprintf(stderr, "error importing protocols\n");
+    exit(EXIT_FAILURE);
+  }
 
-    if (protocols_import(protocol_library_path) != 0) {
-      syslog(LOG_ERR, "error importing protocols");
-      fprintf(stderr, "error importing protocols\n");
-      exit(EXIT_FAILURE);
-    }
+  framer_sbp = framer_create("sbp");
+  assert( framer_sbp != NULL );
 
-    // TODO: Clean-up
-    framer_sbp = framer_create("sbp");
-    assert( framer_sbp != NULL );
+  router_metrics = pk_metrics_setup("endpoint_router", options.name, MT, COUNT_OF(MT));
+  if (router_metrics == NULL) {
+    exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
   /* Create loop */
@@ -747,11 +744,6 @@ int main(int argc, char *argv[])
       exit(EXIT_FAILURE);
     }
     exit(cleanup(EXIT_SUCCESS, &loop, &router, &router_metrics));
-  }
-
-  router_metrics = pk_metrics_setup("endpoint_router", options.name, MT, COUNT_OF(MT));
-  if (router_metrics == NULL) {
-    exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
   void *handle =
@@ -778,6 +770,7 @@ static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_m
   pk_loop_destroy(loop_loc);
   pk_metrics_destroy(metrics_loc);
   logging_deinit();
-
+  if (framer_sbp != NULL)
+    framer_destroy(&framer_sbp);
   return result;
 }
