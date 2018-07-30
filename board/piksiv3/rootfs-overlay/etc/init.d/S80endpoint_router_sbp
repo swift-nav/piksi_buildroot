@@ -3,6 +3,7 @@
 name="endpoint_router_sbp"
 dir="/"
 user="rt_sbp"
+priority="-20"
 
 setup_permissions()
 {
