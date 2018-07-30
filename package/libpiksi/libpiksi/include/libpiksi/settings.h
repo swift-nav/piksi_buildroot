@@ -95,7 +95,7 @@ int setting_parse_setting_text(const u8 *msg,
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-settings_ctx_t * settings_create(void);
+settings_ctx_t * settings_create(pk_loop_t *loop);
 
 /**
  * @brief   Destroy a settings context.

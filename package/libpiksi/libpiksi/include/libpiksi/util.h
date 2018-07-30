@@ -72,6 +72,31 @@ bool device_is_duro(void);
 
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
+#define lambda(TheReturnType, ...)              \
+  __extension__                                 \
+  ({                                            \
+    TheReturnType __fn__ __VA_ARGS__            \
+      __fn__;                                   \
+  })
+
+#define UNSTAGE_CLEANUP(TheReturn, TheType)                         \
+  ({ TheType __unstage = TheReturn; TheReturn = NULL; __unstage; })
+
+#define ARRAY_OF_FIXED_BLOCKS(TheType, TheSize) \
+  TheType (*__unstage)[TheSize]
+
+#define UNSTAGE_CLEANUP_X(TheReturn, TypeNameDecl)              \
+  ({ TypeNameDecl = TheReturn; TheReturn = NULL; __unstage; })
+
+#define STAGE_CLEANUP(TheVar, CleanUpExpr)                \
+  void clean_up_ ## TheVar (int* _X_ ## TheVar) {         \
+    (void) _X_ ## TheVar;                                 \
+    CleanUpExpr;                                          \
+  };                                                      \
+  int _X_clean_up_ ## TheVar                              \
+  __attribute__((__cleanup__(clean_up_ ## TheVar))) = 0;  \
+  (void) _X_clean_up_ ## TheVar;                          \
+
 #ifdef __cplusplus
 }
 #endif

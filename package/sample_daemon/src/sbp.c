@@ -29,10 +29,11 @@ static struct {
   .settings_ctx = NULL
 };
 
-static void signal_cb(pk_loop_t *pk_loop, void *handle, void *context)
+static void signal_cb(pk_loop_t *pk_loop, void *handle, int status, void *context)
 {
   (void)handle;
   (void)context;
+  (void)status;
   piksi_log(LOG_DEBUG, "Received interrupt! Exiting...");
   pk_loop_stop(pk_loop);
 }
@@ -59,7 +60,7 @@ int sbp_init(void)
     goto failure;
   }
 
-  ctx.settings_ctx = settings_create();
+  ctx.settings_ctx = settings_create(ctx.loop);
   if (ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
     goto failure;

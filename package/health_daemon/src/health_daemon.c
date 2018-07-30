@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  health_ctx.settings_ctx = settings_create();
+  health_ctx.settings_ctx = settings_create(health_ctx.loop);
   if (health_ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
     status = EXIT_FAILURE;

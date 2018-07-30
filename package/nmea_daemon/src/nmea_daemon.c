@@ -46,10 +46,12 @@ static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void
 
 char buffer[MAX_BUFFER];
 
-static void nmea_reader_handler(pk_loop_t *loop, void *handle, void *context)
+static void nmea_reader_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
+  (void)status;
+
   nmea_ctx_t *ctx = (nmea_ctx_t *)context;
 
   if (pk_endpoint_receive(ctx->sub_ept, handle_frame_cb, ctx) != 0) {

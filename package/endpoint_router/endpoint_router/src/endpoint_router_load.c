@@ -15,8 +15,12 @@
 #include <yaml.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include "endpoint_router_load.h"
+
+// Override-able for unit testing
+endpoint_destroy_fn_t endpoint_destroy_fn;
 
 #define PROCESS_FN(name) int process_##name(yaml_event_t *event,              \
                                             yaml_parser_t *parser,            \
@@ -36,7 +40,7 @@ static PROCESS_FN(port);
 static PROCESS_FN(port_name);
 static PROCESS_FN(pub_addr);
 static PROCESS_FN(sub_addr);
-static PROCESS_FN(forwarding_rules);
+static PROCESS_FN(forwarding_rules_);
 static PROCESS_FN(forwarding_rule);
 static PROCESS_FN(dst_port);
 static PROCESS_FN(filters);
@@ -68,7 +72,7 @@ static expected_event_t port_events[] = {
   { YAML_SCALAR_EVENT, "name", process_port_name, true },
   { YAML_SCALAR_EVENT, "pub_addr", process_pub_addr, true },
   { YAML_SCALAR_EVENT, "sub_addr", process_sub_addr, true },
-  { YAML_SCALAR_EVENT, "forwarding_rules", process_forwarding_rules, true },
+  { YAML_SCALAR_EVENT, "forwarding_rules", process_forwarding_rules_, true },
   { YAML_MAPPING_END_EVENT, NULL, NULL, false },
   { YAML_NO_EVENT, NULL, NULL, false }
 };
@@ -201,7 +205,7 @@ error:
   return -1;
 }
 
-static port_t * current_port_get(router_t *router)
+static port_t * current_port_get(router_cfg_t *router)
 {
   port_t *port = router->ports_list;
   if (port == NULL) {
@@ -215,7 +219,7 @@ static port_t * current_port_get(router_t *router)
   return port;
 }
 
-static forwarding_rule_t * current_forwarding_rule_get(router_t *router)
+static forwarding_rule_t * current_forwarding_rule_get(router_cfg_t *router)
 {
   port_t *port = current_port_get(router);
   if (port == NULL) {
@@ -234,7 +238,7 @@ static forwarding_rule_t * current_forwarding_rule_get(router_t *router)
   return forwarding_rule;
 }
 
-static filter_t * current_filter_get(router_t *router)
+static filter_t * current_filter_get(router_cfg_t *router)
 {
   forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
   if (forwarding_rule == NULL) {
@@ -253,10 +257,16 @@ static filter_t * current_filter_get(router_t *router)
   return filter;
 }
 
+typedef void (*consume_str_fn_t)(port_t *p, char* s);
+
+#define MAKE_CONSUME_FN(FuncName, TheField)                   \
+  consume_str_fn_t FuncName =                                 \
+    lambda (void, (port_t *p, char *s) { p->TheField = s; }); \
+
 static int event_port_string(yaml_parser_t *parser, void *context,
-                             size_t offset)
+                             consume_str_fn_t consume_str_fn)
 {
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   char *str;
   if (event_scalar_value_get(parser, &str) != 0) {
@@ -268,21 +278,25 @@ static int event_port_string(yaml_parser_t *parser, void *context,
     return -1;
   }
 
-  *(char **)((char *)port + offset) = str;
+  consume_str_fn(port, str);
+
   return 0;
 }
 
-
 static PROCESS_FN(router)
 {
+  (void) event;
+
   debug_printf("process_router\n");
   return handle_expected_events(parser, router_events, context);
 }
 
 static PROCESS_FN(router_name)
 {
+  (void) event;
+
   debug_printf("process_router_name\n");
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   char *str;
   if (event_scalar_value_get(parser, &str) != 0) {
@@ -295,14 +309,18 @@ static PROCESS_FN(router_name)
 
 static PROCESS_FN(ports)
 {
+  (void) event;
+
   debug_printf("process_ports\n");
   return handle_expected_events(parser, ports_events, context);
 }
 
 static PROCESS_FN(port)
 {
+  (void) event;
+
   debug_printf("process_port\n");
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   port_t **p_next = &router->ports_list;
   while (*p_next != NULL) {
@@ -330,32 +348,41 @@ static PROCESS_FN(port)
 
 static PROCESS_FN(port_name)
 {
+  (void) event;
   debug_printf("process_port_name\n");
-  return event_port_string(parser, context, offsetof(port_t, name));
+  MAKE_CONSUME_FN(assign_name, name);
+  return event_port_string(parser, context, assign_name);
 }
 
 static PROCESS_FN(pub_addr)
 {
+  (void) event;
   debug_printf("process_pub_addr\n");
-  return event_port_string(parser, context, offsetof(port_t, pub_addr));
+  MAKE_CONSUME_FN(assign_pub_addr, pub_addr);
+  return event_port_string(parser, context, assign_pub_addr);
 }
 
 static PROCESS_FN(sub_addr)
 {
+  (void) event;
   debug_printf("process_sub_addr\n");
-  return event_port_string(parser, context, offsetof(port_t, sub_addr));
+  MAKE_CONSUME_FN(assign_sub_addr, sub_addr);
+  return event_port_string(parser, context, assign_sub_addr);
 }
 
-static PROCESS_FN(forwarding_rules)
+static PROCESS_FN(forwarding_rules_)
 {
+  (void) event;
   debug_printf("process_forwarding_rules\n");
   return handle_expected_events(parser, forwarding_rules_events, context);
 }
 
 static PROCESS_FN(forwarding_rule)
 {
+  (void) event;
+
   debug_printf("process_forwarding_rule\n");
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   port_t *port = current_port_get(router);
   if (port == NULL) {
@@ -386,8 +413,10 @@ static PROCESS_FN(forwarding_rule)
 
 static PROCESS_FN(dst_port)
 {
+  (void) event;
+
   debug_printf("process_dst_port\n");
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
   if (forwarding_rule == NULL) {
@@ -405,14 +434,18 @@ static PROCESS_FN(dst_port)
 
 static PROCESS_FN(filters)
 {
+  (void) event;
+
   debug_printf("process_filters\n");
   return handle_expected_events(parser, filters_events, context);
 }
 
 static PROCESS_FN(filter)
 {
+  (void) event;
+
   debug_printf("process_filter\n");
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
   if (forwarding_rule == NULL) {
@@ -442,8 +475,10 @@ static PROCESS_FN(filter)
 
 static PROCESS_FN(action)
 {
+  (void) event;
+
   debug_printf("process_action\n");
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   filter_t *filter = current_filter_get(router);
   if (filter == NULL) {
@@ -470,14 +505,19 @@ static PROCESS_FN(action)
 
 static PROCESS_FN(prefix)
 {
+  (void) event;
+
   debug_printf("process_prefix\n");
   return handle_expected_events(parser, prefix_events, context);
 }
 
 static PROCESS_FN(prefix_element)
 {
+  (void) event;
+  (void) parser;
+
   debug_printf("process_prefix_element\n");
-  router_t *router = (router_t *)context;
+  router_cfg_t *router = (router_cfg_t *)context;
 
   filter_t *filter = current_filter_get(router);
   if (filter == NULL) {
@@ -504,7 +544,7 @@ static PROCESS_FN(prefix_element)
   return 0;
 }
 
-static int dst_ports_set(router_t *router)
+static int dst_ports_set(router_cfg_t *router)
 {
   /* Iterate over ports */
   port_t *port;
@@ -538,10 +578,10 @@ static int dst_ports_set(router_t *router)
   return 0;
 }
 
-router_t * router_load(const char *filename)
+router_cfg_t * router_cfg_load(const char *filename)
 {
   FILE *f = NULL;
-  router_t *router = NULL;
+  router_cfg_t *router = NULL;
 
   yaml_parser_t parser;
   if (!yaml_parser_initialize(&parser)) {
@@ -555,13 +595,13 @@ router_t * router_load(const char *filename)
     goto error;
   }
 
-  router = (router_t *)malloc(sizeof(*router));
+  router = (router_cfg_t *)malloc(sizeof(*router));
   if (router == NULL) {
     printf("error allocating router\n");
     goto error;
   }
 
-  *router = (router_t) {
+  *router = (router_cfg_t) {
     .name = "",
     .ports_list = NULL
   };
@@ -590,8 +630,84 @@ error:
   }
 
   if (router != NULL) {
-    free(router);
+    router_cfg_teardown(&router);
   }
 
   return NULL;
+}
+
+static void filters_destroy(filter_t **filter_loc)
+{
+  if (filter_loc == NULL || *filter_loc == NULL) {
+    return;
+  }
+  filter_t *filter = *filter_loc;
+  filter_t *next = NULL;
+  while(filter != NULL) {
+    next = filter->next;
+    if (filter->data != NULL) free(filter->data);
+    free(filter);
+    filter = next;
+  }
+  *filter_loc = NULL;
+}
+
+static void forwarding_rules_destroy(forwarding_rule_t **forwarding_rule_loc)
+{
+  if (forwarding_rule_loc == NULL || *forwarding_rule_loc == NULL) {
+    return;
+  }
+  forwarding_rule_t *forwarding_rule = *forwarding_rule_loc;
+  forwarding_rule_t *next = NULL;
+  while(forwarding_rule != NULL) {
+    next = forwarding_rule->next;
+    if (forwarding_rule->dst_port_name != NULL
+        && forwarding_rule->dst_port_name[0] != '\0') {
+      free((void *)forwarding_rule->dst_port_name);
+    }
+    filters_destroy(&forwarding_rule->filters_list);
+    free(forwarding_rule);
+    forwarding_rule = next;
+  }
+  *forwarding_rule_loc = NULL;
+}
+
+static void ports_destroy(port_t **port_loc)
+{
+  if (port_loc == NULL || *port_loc == NULL) {
+    return;
+  }
+  port_t *port = *port_loc;
+  port_t *next = NULL;
+  while(port != NULL) {
+    next = port->next;
+    if (port->name != NULL && port->name[0] != '\0') {
+      free((void *)port->name);
+    }
+    if (port->pub_addr != NULL && port->pub_addr[0] != '\0') {
+      free((void *)port->pub_addr);
+    }
+    if (port->sub_addr != NULL && port->sub_addr[0] != '\0') {
+      free((void *)port->sub_addr);
+    }
+    endpoint_destroy_fn(&port->pub_ept);
+    endpoint_destroy_fn(&port->sub_ept);
+    forwarding_rules_destroy(&port->forwarding_rules_list);
+    free(port);
+    port = next;
+  }
+  free(port);
+  *port_loc = NULL;
+}
+
+void router_cfg_teardown(router_cfg_t **router_loc)
+{
+  if (router_loc == NULL || *router_loc == NULL) {
+    return;
+  }
+  router_cfg_t *router = *router_loc;
+  if (router->name != NULL) free((void *)router->name);
+  ports_destroy(&router->ports_list);
+  free(router);
+  *router_loc = NULL;
 }

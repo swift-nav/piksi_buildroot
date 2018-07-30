@@ -122,7 +122,7 @@ rebuild-changed: _rebuild_changed
 _rebuild_changed:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot \
-			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py | grep -v -E '(release_lockdown|piksi_ins|sample_daemon)') \
+			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py | grep -v -E '(llvm_v|release_lockdown|piksi_ins|sample_daemon)') \
 			O=output
 
 _print_db:

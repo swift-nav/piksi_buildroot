@@ -4,6 +4,7 @@ name="endpoint_adapter_rpmsg_piksi100"
 cmd="endpoint_adapter --name rpmsg_piksi100 --file /dev/rpmsg_piksi100 -p 'ipc:///var/run/sockets/firmware.sub' -s 'ipc:///var/run/sockets/firmware.pub'"
 dir="/"
 user="ad_r100"
+priority="-18"
 
 setup_permissions()
 {

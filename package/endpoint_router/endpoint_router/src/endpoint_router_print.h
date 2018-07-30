@@ -16,6 +16,14 @@
 #include "endpoint_router.h"
 #include <stdio.h>
 
-int router_print(FILE *f, const router_t *router);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int router_print(FILE *f, const router_cfg_t *router);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SWIFTNAV_ENDPOINT_ROUTER_PRINT_H */

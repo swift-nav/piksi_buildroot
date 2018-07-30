@@ -20,8 +20,7 @@ static int print_filter(FILE *f, const char *prefix, const filter_t *filter)
                                   "ACCEPT" : "REJECT";
   fprintf(f, "%s%s ", prefix, filter_action_str);
 
-  int i;
-  for (i = 0; i < filter->len; i++) {
+  for (size_t i = 0; i < filter->len; i++) {
     fprintf(f, "0x%02X ", filter->data[i]);
   }
 
@@ -69,7 +68,7 @@ static int print_port(FILE *f, const char *prefix, const port_t *port)
   return 0;
 }
 
-int router_print(FILE *f, const router_t *router)
+int router_print(FILE *f, const router_cfg_t *router)
 {
   const char *prefix = "";
 

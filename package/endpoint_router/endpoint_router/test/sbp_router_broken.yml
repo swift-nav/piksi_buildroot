@@ -1,0 +1,14 @@
+name: SBP_ROUTER
+ports:
+  - name: SBP_PORT_FIRMWARE
+    pub_addr: "tcp://127.0.0.1:43010"
+    sub_addr: "tcp://127.0.0.1:43011
+    forwarding_rules:
+      - dst_port: SBP_PORT_SETTINGS_DAEMON
+        filters:
+          - { action: ACCEPT, prefix: [0x01, 0x02, 0x03] } # Settings register
+          - { action: REJECT }
+
+  - name: SBP_PORT_SETTINGS_DAEMON
+    pub_addr: "tcp://127.0.0.1:43020"
+    sub_addr: "tcp://127.0.0.1:43021"

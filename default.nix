@@ -49,11 +49,13 @@ let
     sqlite.dev
     unzip
     utillinux
+    valgrind
     vim
     wget
     which
     xz
     zlib
+    valgrind
   ];
   multiPkgs = pkgs: with pkgs; [ ];
   runScript = "$SHELL";

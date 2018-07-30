@@ -23,6 +23,7 @@
 #define LIBPIKSI_ENDPOINT_H
 
 #include <libpiksi/common.h>
+#include <libpiksi/loop.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,6 +47,13 @@ typedef enum {
   PK_ENDPOINT_REP,
   PK_ENDPOINT_REQ
 } pk_endpoint_type;
+
+enum {
+  PKE_SUCCESS  =  0,
+  PKE_ERROR    = -1,
+  PKE_NOT_CONN = -2,
+  PKE_EAGAIN   = -3,
+};
 
 /**
  * @brief   Piksi Endpoint Receive Callback Signature
@@ -147,6 +155,12 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
  * @return                  Pointer to a const string buffer with description
  */
 const char * pk_endpoint_strerror(void);
+
+int pk_endpoint_accept(pk_endpoint_t *pk_ept);
+
+int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
+
+int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle);
 
 #ifdef __cplusplus
 }

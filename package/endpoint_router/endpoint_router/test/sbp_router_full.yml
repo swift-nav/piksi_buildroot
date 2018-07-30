@@ -1,8 +1,8 @@
 name: SBP_ROUTER
 ports:
   - name: SBP_PORT_FIRMWARE
-    pub_addr: "ipc:///var/run/sockets/firmware.pub"
-    sub_addr: "ipc:///var/run/sockets/firmware.sub"
+    pub_addr: "tcp://127.0.0.1:43010"
+    sub_addr: "tcp://127.0.0.1:43011"
     forwarding_rules:
       - dst_port: SBP_PORT_SETTINGS_DAEMON
         filters:
@@ -26,15 +26,11 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0xA8, 0x00] } # File read
           - { action: ACCEPT, prefix: [0x55, 0xA9, 0x00] } # File read dir
-          - { action: ACCEPT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: ACCEPT, prefix: [0x55, 0xAC, 0x00] } # File reamove
           - { action: ACCEPT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: REJECT }
       - dst_port: SBP_PORT_INTERNAL
         filters:
-          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
-          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
-          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
-          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: ACCEPT }
       - dst_port: SBP_PORT_SKYLARK
         filters:
@@ -51,8 +47,8 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
-    pub_addr: "ipc:///var/run/sockets/settings_daemon.pub"
-    sub_addr: "ipc:///var/run/sockets/settings_daemon.sub"
+    pub_addr: "tcp://127.0.0.1:43020"
+    sub_addr: "tcp://127.0.0.1:43021"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -69,24 +65,16 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_EXTERNAL
-    pub_addr: "ipc:///var/run/sockets/external.pub"
-    sub_addr: "ipc:///var/run/sockets/external.sub"
+    pub_addr: "tcp://127.0.0.1:43030"
+    sub_addr: "tcp://127.0.0.1:43031"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
-          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
-          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
-          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
-          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
           - { action: REJECT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
           - { action: ACCEPT }
       - dst_port: SBP_PORT_SETTINGS_DAEMON
         filters:
-          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
-          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
-          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
-          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
           - { action: REJECT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
           - { action: ACCEPT }
@@ -99,10 +87,6 @@ ports:
           - { action: REJECT }
       - dst_port: SBP_PORT_INTERNAL
         filters:
-          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
-          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
-          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
-          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
           - { action: ACCEPT }
       - dst_port: SBP_PORT_SETTINGS_CLIENT
         filters:
@@ -110,32 +94,32 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_FILEIO_FIRMWARE
-    pub_addr: "ipc:///var/run/sockets/fileio_firmware.pub"
-    sub_addr: "ipc:///var/run/sockets/fileio_firmware.sub"
+    pub_addr: "tcp://127.0.0.1:43040"
+    sub_addr: "tcp://127.0.0.1:43041"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
           - { action: ACCEPT }
 
   - name: SBP_PORT_FILEIO_EXTERNAL
-    pub_addr: "ipc:///var/run/sockets/fileio_external.pub"
-    sub_addr: "ipc:///var/run/sockets/fileio_external.sub"
+    pub_addr: "tcp://127.0.0.1:43050"
+    sub_addr: "tcp://127.0.0.1:43051"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
           - { action: ACCEPT }
 
   - name: SBP_PORT_INTERNAL
-    pub_addr: "ipc:///var/run/sockets/internal.pub"
-    sub_addr: "ipc:///var/run/sockets/internal.sub"
+    pub_addr: "tcp://127.0.0.1:43060"
+    sub_addr: "tcp://127.0.0.1:43061"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
           - { action: ACCEPT }
 
   - name: SBP_PORT_SETTINGS_CLIENT
-    pub_addr: "ipc:///var/run/sockets/settings_client.pub"
-    sub_addr: "ipc:///var/run/sockets/settings_client.sub"
+    pub_addr: "tcp://127.0.0.1:43070"
+    sub_addr: "tcp://127.0.0.1:43071"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
@@ -144,16 +128,14 @@ ports:
       - dst_port: SBP_PORT_SETTINGS_DAEMON
         filters:
           - { action: ACCEPT }
-      # As long as no receivers echo this message back, then this is not a loop!  This is were
-      #  we actually need a 'bus' style socket.
       - dst_port: SBP_PORT_SETTINGS_CLIENT
         filters:
           - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
           - { action: REJECT }
 
   - name: SBP_PORT_SKYLARK
-    pub_addr: "ipc:///var/run/sockets/skylark.pub"
-    sub_addr: "ipc:///var/run/sockets/skylark.sub"
+    pub_addr: "tcp://127.0.0.1:43080"
+    sub_addr: "tcp://127.0.0.1:43081"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -167,8 +149,8 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_NAV_DAEMON  # Entire Section Smoothpose Change**
-    pub_addr: "ipc:///var/run/sockets/nav_daemon.pub"
-    sub_addr: "ipc:///var/run/sockets/nav_daemon.sub"
+    pub_addr: "tcp://127.0.0.1:43090"
+    sub_addr: "tcp://127.0.0.1:43091"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
