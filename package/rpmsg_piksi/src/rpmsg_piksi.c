@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2016-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -39,8 +39,10 @@
 #define NUM_ENDPOINTS 3
 
 #define RPMSG_DATA_SIZE_MAX (512 - 16)
-#define RX_FIFO_SIZE (16384)
+#define RX_FIFO_SIZE (16*1024)
 #define TX_BUFF_SIZE (RPMSG_DATA_SIZE_MAX)
+
+#define MAX_BUF_SUBMIT (4096)
 
 #define IOCTL_CMD_GET_KFIFO_SIZE      1
 #define IOCTL_CMD_GET_AVAIL_DATA_SIZE 2
@@ -94,6 +96,7 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
   struct ept_params *ept_params = p_file->private_data;
   unsigned int size;
   ssize_t retval;
+  size_t offset = 0;
 
   /* Acquire TX / rpmsg lock */
   retval = mutex_lock_interruptible(&ept_params->tx_rpmsg_lock);
@@ -107,30 +110,43 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
     goto done_locked;
   }
 
-  if (len <= sizeof(ept_params->tx_buff)) {
-    size = len;
-  } else {
-    dev_err(ept_params->device, "rpmsg truncated (len = %d)\n", len);
-    size = sizeof(ept_params->tx_buff);
+  while (len > 0) {
+
+    if (len <= sizeof(ept_params->tx_buff)) {
+      size = len;
+    } else {
+      size = sizeof(ept_params->tx_buff);
+    }
+
+    if (offset + size > MAX_BUF_SUBMIT) {
+      break;
+    }
+
+    if (copy_from_user(ept_params->tx_buff, &ubuff[offset], size)) {
+      dev_err(ept_params->device, "User to kernel buff copy error.\n");
+      retval = -1;
+      goto done_locked;
+    }
+
+    /* TODO: support non-blocking write */
+    retval = rpmsg_sendto(ept_params->rpmsg_chnl, ept_params->tx_buff,
+                          size, ept_params->addr);
+
+    if (retval) {
+      dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n",
+              size, retval);
+      goto done_locked;
+    }
+
+    len -= size;
+    offset += size;
   }
 
-  if (copy_from_user(ept_params->tx_buff, ubuff, size)) {
-    dev_err(ept_params->device, "User to kernel buff copy error.\n");
-    retval = -1;
-    goto done_locked;
+  if (len != 0) {
+    dev_err(ept_params->device, "rpmsg truncated (len = %d)\n", offset);
   }
 
-  /* TODO: support non-blocking write */
-  retval = rpmsg_sendto(ept_params->rpmsg_chnl, ept_params->tx_buff,
-                        size, ept_params->addr);
-
-  if (retval) {
-    dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n",
-            size, retval);
-    goto done_locked;
-  }
-
-  retval = size;
+  retval = offset;
 
 done_locked:
   mutex_unlock(&ept_params->tx_rpmsg_lock);
