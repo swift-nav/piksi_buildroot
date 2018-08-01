@@ -4,17 +4,17 @@
 #
 ################################################################################
 
-HOST_LLVM_OBFUSCATOR_VERSION = v16
+HOST_LLVM_OBFUSCATOR_VERSION = v18
 HOST_LLVM_OBFUSCATOR_SOURCE = $(HOST_LLVM_OBFUSCATOR_VERSION)/llvm-obfuscator-arm-x86.txz
-HOST_LLVM_OBFUSCATOR_SITE = https://github.com/swift-nav/llvm-obfuscator-arm/releases/download/
+HOST_LLVM_OBFUSCATOR_SITE = https://github.com/swift-nav/llvm-obfuscator-arm/releases/download
 HOST_LLVM_OBFUSCATOR_ACTUAL_SOURCE_TARBALL = llvm-obfuscator-$(HOST_LLVM_OBFUSCATOR_VERSION).tar.xz
 
-TARBALL_SRC = $(DL_DIR)/$(shell basename $(HOST_LLVM_OBFUSCATOR_SOURCE))
-TARBALL_DST = $(DL_DIR)/$(HOST_LLVM_OBFUSCATOR_ACTUAL_SOURCE_TARBALL) 
+LLVM_OBF_TARBALL_SRC = $(DL_DIR)/$(shell basename $(HOST_LLVM_OBFUSCATOR_SOURCE))
+LLVM_OBF_TARBALL_DST = $(DL_DIR)/$(HOST_LLVM_OBFUSCATOR_ACTUAL_SOURCE_TARBALL) 
 
 define HOST_LLVM_OBFUSCATOR_PRE_EXTRACT_FIXUP
-	if ! [ -e $(TARBALL_DST) ] || [ $(TARBALL_SRC) -nt $(TARBALL_DST) ]; then \
-		mv -v $(TARBALL_SRC) $(TARBALL_DST); \
+	if ! [ -e $(LLVM_OBF_TARBALL_DST) ] || [ $(LLVM_OBF_TARBALL_SRC) -nt $(LLVM_OBF_TARBALL_DST) ]; then \
+		mv -v $(LLVM_OBF_TARBALL_SRC) $(LLVM_OBF_TARBALL_DST); \
 	fi
 	$(eval HOST_LLVM_OBFUSCATOR_SOURCE=$(HOST_LLVM_OBFUSCATOR_ACTUAL_SOURCE_TARBALL))
 endef

@@ -119,10 +119,13 @@ host-clean:
 rebuild-changed: export BUILD_TEMP=/tmp SINCE=$(SINCE)
 rebuild-changed: _rebuild_changed
 
+REBUILD_CHANGED_IGNORE := release_lockdown|piksi_ins|sample_daemon|llvm_o|llvm_v
+
 _rebuild_changed:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot \
-			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) scripts/changed_project_targets.py | grep -v -E '(release_lockdown|piksi_ins|sample_daemon)') \
+			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) \
+				scripts/changed_project_targets.py | grep -v -E '($(REBUILD_CHANGED_IGNORE))') \
 			O=output
 
 _print_db:
