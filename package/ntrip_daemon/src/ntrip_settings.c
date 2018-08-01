@@ -10,10 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <unistd.h>
 #include <errno.h>
+#include <unistd.h>
+
 #include <sys/stat.h>
+
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include "ntrip_settings.h"
 
@@ -99,8 +102,34 @@ static ntrip_process_t ntrip_processes[] = {
   { .execfn = ntrip_daemon_execfn },
 };
 
-static const int ntrip_processes_count =
-  sizeof(ntrip_processes)/sizeof(ntrip_processes[0]);
+static const size_t ntrip_processes_count = COUNT_OF(ntrip_processes);
+
+static void ntrip_stop_process(size_t i)
+{
+  ntrip_process_t *process = &ntrip_processes[i];
+
+  if (process->pid != 0) {
+    int ret = kill(process->pid, SIGTERM);
+    if (ret != 0) {
+      piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
+                process->pid, errno, strerror(errno));
+    }
+    sleep(1.0);
+    ret = kill(process->pid, SIGKILL);
+    if (ret != 0 && errno != ESRCH) {
+      piksi_log(LOG_ERR, "force kill pid %d error (%d) \"%s\"",
+                process->pid, errno, strerror(errno));
+    }
+    process->pid = 0;
+  }
+}
+
+void ntrip_stop_processes()
+{
+  for (size_t i = 0; i < ntrip_processes_count; i++) {
+    ntrip_stop_process(i); 
+  }
+}
 
 static int ntrip_notify(void *context)
 {
@@ -109,26 +138,11 @@ static int ntrip_notify(void *context)
   snprintf(ntrip_interval_s, sizeof(ntrip_interval_s), "%d", ntrip_interval);
   ntrip_rev1gga_s[0] = ntrip_rev1gga ? 'y' : 'n';
 
-  for (int i=0; i<ntrip_processes_count; i++) {
-    ntrip_process_t *process = &ntrip_processes[i];
+  for (size_t i = 0; i < ntrip_processes_count; i++) {
 
-    if (process->pid != 0) {
-      int ret = kill(process->pid, SIGTERM);
-      if (ret != 0) {
-        piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
-                  process->pid, errno, strerror(errno));
-      }
-      sleep(1.0);
-      ret = kill(process->pid, SIGKILL);
-      if (ret != 0 && errno != ESRCH) {
-        piksi_log(LOG_ERR, "force kill pid %d error (%d) \"%s\"",
-                  process->pid, errno, strerror(errno));
-      }
-      process->pid = 0;
-    }
+    ntrip_stop_process(i);
 
     // TODO: Remove the need for these by reading from control socket
-
     if (!ntrip_enabled || strcmp(ntrip_url, "") == 0) {
       system("echo 0 >/var/run/ntrip/enabled");
       continue;
@@ -141,6 +155,8 @@ static int ntrip_notify(void *context)
     } else {
       ntrip_argv = ntrip_debug ? ntrip_argv_debug : ntrip_argv_normal;
     }
+
+    ntrip_process_t *process = &ntrip_processes[i];
 
     process->pid = fork();
     if (process->pid == 0) {
@@ -195,7 +211,7 @@ void ntrip_init(settings_ctx_t *settings_ctx)
 
 bool ntrip_reconnect(void) {
 
-  for (int i=0; i<ntrip_processes_count; i++) {
+  for (size_t i = 0; i < ntrip_processes_count; i++) {
 
     ntrip_process_t *process = &ntrip_processes[i];
 

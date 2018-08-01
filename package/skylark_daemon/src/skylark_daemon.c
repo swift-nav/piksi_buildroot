@@ -13,13 +13,16 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <libnetwork.h>
-#include <libpiksi/logging.h>
-#include <libpiksi/util.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <unistd.h>
+
+#include <sys/wait.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/util.h>
+
+#include <libnetwork.h>
 
 #include "skylark_settings.h"
 
@@ -174,36 +177,10 @@ static void terminate_handler(int signum)
   libnetwork_shutdown();
 }
 
-static void reap_children()
-{
-  int errno_saved = errno;
-  int status;
-
-  pid_t child_pid;
-
-  while ((child_pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    if (WIFEXITED(status)) {
-      piksi_log(LOG_DEBUG, "%s: child (pid: %d) exit status: %d",
-                __FUNCTION__, child_pid, WEXITSTATUS(status));
-    } else if (WIFSIGNALED(status)) {
-      piksi_log(LOG_DEBUG, "%s: child (pid: %d) term signal: %d",
-                __FUNCTION__, child_pid, WTERMSIG(status));
-    } else if (WIFSTOPPED(status)) {
-      piksi_log(LOG_DEBUG, "%s: child (pid: %d) stop signal: %d",
-                __FUNCTION__, child_pid, WSTOPSIG(status));
-    } else {
-      piksi_log(LOG_DEBUG, "%s: child (pid: %d) unknown status: %d",
-                __FUNCTION__, child_pid, status);
-    }
-  }
-
-  errno = errno_saved;
-}
-
 static void sigchild_handler(int signum)
 {
   piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
-  reap_children();
+  reap_children(debug);
 }
 
 static void cycle_connection(int signum)
@@ -234,21 +211,6 @@ static bool configure_libnetwork(network_context_t* ctx, int fd, operating_mode 
 exit_error:
   piksi_log(LOG_ERR, "error configuring the libnetwork context: %d", status);
   return false;
-}
-
-static void setup_sigchild_handler()
-{
-  struct sigaction sigchild_sa;
-
-  sigchild_sa.sa_handler = sigchild_handler;
-  sigemptyset(&sigchild_sa.sa_mask);
-  sigchild_sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
-
-  if ((sigaction(SIGCHLD, &sigchild_sa, NULL) != 0))
-  {
-    piksi_log(LOG_ERR, "error setting up sigchild handler");
-    exit(-1);
-  }
 }
 
 static void setup_terminate_handler()
@@ -335,12 +297,12 @@ static void skylark_download_mode()
 static void settings_loop_terminate()
 {
   skylark_stop_processes();
-  reap_children();
+  reap_children(debug);
 }
 
 static void skylark_settings_loop(void)
 {
-  setup_sigchild_handler();
+  setup_sigchild_handler(sigchild_handler);
   settings_loop(SKYLARK_CONTROL_SOCK,
                 SKYLARK_CONTROL_FILE,
                 SKYLARK_CONTROL_COMMAND_RECONNECT,
