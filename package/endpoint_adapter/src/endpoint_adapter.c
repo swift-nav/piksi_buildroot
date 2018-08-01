@@ -91,6 +91,8 @@ static u64 last_metrics_flush = 0;
 
 static void do_metrics_flush(void);
 static void setup_metrics(const char* pubsub);
+static void pid_terminate(pid_t *pid, int signum);
+static void terminate_child_pids(int signum);
 
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer,
@@ -360,11 +362,7 @@ static int parse_options(int argc, char *argv[])
 
 static void terminate_handler(int signum)
 {
-  /* If this is the parent, send this signal to the entire process group */
-  if (getpid() == getpgid(0)) {
-    killpg(0, signum);
-  }
-
+  terminate_child_pids(signum);
   logging_deinit();
 
   /* Exit */
@@ -660,13 +658,20 @@ static int pid_wait_check(pid_t *pid, pid_t wait_pid)
   return -1;
 }
 
-static void pid_terminate(pid_t *pid)
+static void pid_terminate(pid_t *pid, int signum)
 {
   if (*pid > 0) {
-    if (kill(*pid, SIGTERM) != 0) {
+    if (kill(*pid, signum) != 0) {
       syslog(LOG_ERR, "error terminating pid %d", *pid);
     }
     *pid = -1;
+  }
+}
+
+static void terminate_child_pids(int signum)
+{
+  for (size_t i = 0; i < COUNT_OF(pids); i++) {
+    pid_terminate(pids[i], signum);
   }
 }
 
@@ -852,17 +857,12 @@ void io_loop_wait_one(void)
 
 void io_loop_terminate(void)
 {
-  int i;
-  for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
-    pid_terminate(pids[i]);
-  }
+  terminate_child_pids(SIGTERM);
 }
 
 int main(int argc, char *argv[])
 {
   logging_init(PROGRAM_NAME);
-
-  setpgid(0, 0); /* Set PGID = PID */
 
   const char *protocol_library_path = getenv(PROTOCOL_LIBRARY_PATH_ENV_NAME);
   if (protocol_library_path == NULL) {
