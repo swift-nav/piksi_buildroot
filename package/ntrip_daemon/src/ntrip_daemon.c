@@ -285,7 +285,8 @@ static int ntrip_settings_loop(void)
                        NTRIP_CONTROL_FILE,
                        NTRIP_CONTROL_COMMAND_RECONNECT,
                        ntrip_init,
-                       ntrip_reconnect) ? 0 : -1;
+                       ntrip_reconnect,
+                       NULL) ? 0 : -1;
 }
 
 int main(int argc, char *argv[])
