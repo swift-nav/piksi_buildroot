@@ -10,13 +10,16 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <libpiksi/logging.h>
 #include <libnetwork.h>
+#include <libpiksi/logging.h>
+#include <libpiksi/util.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "skylark_settings.h"
 
@@ -29,6 +32,8 @@
 
 #define MSG_GET_HEALTH_ERROR "Error requesting skylark connection HTTP response code: %d"
 #define MSG_GET_HEALTH_ERROR_LF (MSG_GET_HEALTH_ERROR "\n")
+
+static void setup_terminate_handler();
 
 static bool debug = false;
 static const char *fifo_file_path = NULL;
@@ -169,9 +174,41 @@ static void terminate_handler(int signum)
   libnetwork_shutdown();
 }
 
+static void reap_children()
+{
+  int errno_saved = errno;
+  int status;
+
+  pid_t child_pid;
+
+  while ((child_pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    if (WIFEXITED(status)) {
+      piksi_log(LOG_DEBUG, "%s: child (pid: %d) exit status: %d",
+                __FUNCTION__, child_pid, WEXITSTATUS(status));
+    } else if (WIFSIGNALED(status)) {
+      piksi_log(LOG_DEBUG, "%s: child (pid: %d) term signal: %d",
+                __FUNCTION__, child_pid, WTERMSIG(status));
+    } else if (WIFSTOPPED(status)) {
+      piksi_log(LOG_DEBUG, "%s: child (pid: %d) stop signal: %d",
+                __FUNCTION__, child_pid, WSTOPSIG(status));
+    } else {
+      piksi_log(LOG_DEBUG, "%s: child (pid: %d) unknown status: %d",
+                __FUNCTION__, child_pid, status);
+    }
+  }
+
+  errno = errno_saved;
+}
+
+static void sigchild_handler(int signum)
+{
+  piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
+  reap_children();
+}
+
 static void cycle_connection(int signum)
 {
-  piksi_log(LOG_DEBUG, "cycle_connection: received signal: %d", signum);
+  piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
   libnetwork_cycle_connection();
 }
 
@@ -199,21 +236,34 @@ exit_error:
   return false;
 }
 
+static void setup_sigchild_handler()
+{
+  struct sigaction sigchild_sa;
+
+  sigchild_sa.sa_handler = sigchild_handler;
+  sigemptyset(&sigchild_sa.sa_mask);
+  sigchild_sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+
+  if ((sigaction(SIGCHLD, &sigchild_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up sigchild handler");
+    exit(-1);
+  }
+}
+
 static void setup_terminate_handler()
 {
   /* Set up handler for signals which should terminate the program */
-  struct sigaction terminate_sa;
-  terminate_sa.sa_handler = terminate_handler;
-  sigemptyset(&terminate_sa.sa_mask);
-  terminate_sa.sa_flags = 0;
 
-  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGQUIT, &terminate_sa, NULL) != 0))
-  {
-    piksi_log(LOG_ERR, "error setting up terminate handler");
-    exit(-1);
-  }
+  if (signal(SIGINT, terminate_handler) == SIG_ERR) goto error;
+  if (signal(SIGTERM, terminate_handler) == SIG_ERR) goto error;
+  if (signal(SIGQUIT, terminate_handler) == SIG_ERR) goto error;
+
+  return;
+
+error:
+  piksi_log(LOG_ERR, "error setting up terminate handler: %s", strerror(errno));
+  exit(-1);
 }
 
 static void skylark_upload_mode()
@@ -282,13 +332,21 @@ static void skylark_download_mode()
   libnetwork_destroy(&network_context);
 }
 
+static void settings_loop_terminate()
+{
+  skylark_stop_processes();
+  reap_children();
+}
+
 static void skylark_settings_loop(void)
 {
+  setup_sigchild_handler();
   settings_loop(SKYLARK_CONTROL_SOCK,
                 SKYLARK_CONTROL_FILE,
                 SKYLARK_CONTROL_COMMAND_RECONNECT,
                 skylark_init,
-                skylark_reconnect_dl);
+                skylark_reconnect_dl,
+                settings_loop_terminate);
 }
 
 int main(int argc, char *argv[])
