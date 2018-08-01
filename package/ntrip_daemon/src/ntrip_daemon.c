@@ -18,6 +18,8 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
+#include <libpiksi/util.h>
+
 #include <libnetwork.h>
 
 #include "ntrip_settings.h"
@@ -279,14 +281,28 @@ static int ntrip_client_loop(void)
   return 0;
 }
 
+static void sigchild_handler(int signum)
+{
+  piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
+  reap_children(debug);
+}
+
+static void settings_loop_terminate()
+{
+  ntrip_stop_processes();
+  reap_children(debug);
+}
+
 static int ntrip_settings_loop(void)
 {
+  setup_sigchild_handler(sigchild_handler);
+
   return settings_loop(NTRIP_CONTROL_SOCK,
                        NTRIP_CONTROL_FILE,
                        NTRIP_CONTROL_COMMAND_RECONNECT,
                        ntrip_init,
                        ntrip_reconnect,
-                       NULL) ? 0 : -1;
+                       settings_loop_terminate) ? 0 : -1;
 }
 
 int main(int argc, char *argv[])
