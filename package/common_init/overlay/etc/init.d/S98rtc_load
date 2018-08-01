@@ -5,6 +5,7 @@ name="rtc_load"
 start()
 {
   modprobe rtc-m41t80
+  hwclock -s
 }
 
 stop()
