@@ -4,4 +4,4 @@ ntp_cfg="$1"; shift
 
 rm /etc/ntp.conf
 ln -sf "$ntp_cfg" /etc/ntp.conf
-monit restart ntpd
+/etc/init.d/S49ntp restart
