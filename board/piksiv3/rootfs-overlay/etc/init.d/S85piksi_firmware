@@ -17,7 +17,7 @@ detect_sbp_mode()
   local the_port=$1; shift
 
   cat $settings_ini  | tr $'\n' ' ' | \
-    grep -q "\[${the_port}\][^\[]*mode=SBP"
+    grep -qE "\[${the_port}\][^\[]*mode=SBP"
 }
 
 port_disabled()
@@ -32,7 +32,7 @@ port_disabled()
   # If any other mode, it's effectively "disabled" for this check, if it's
   #   not there, then the default is SBP and it's *NOT* disabled
   cat $settings_ini  | tr $'\n' ' ' | \
-    grep -q "\[${the_port}\][^\[]*mode="
+    grep -qE "\[${the_port}\][^\[]*mode="
 }
 
 service_up()
