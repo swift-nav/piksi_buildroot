@@ -46,6 +46,7 @@ echo "Performing upgrade..."
 # Killing realtime fw messages and USB logger
 /etc/init.d/S83endpoint_adapter_rpmsg_piksi100 stop
 /etc/init.d/S83standalone_file_logger stop
+printf "V" > /dev/watchdog
 upgrade_tool_output=$(upgrade_tool $FIRMWARE) 
 RETVAL=$?
 echo $upgrade_tool_output | sbp_log $LOGLEVEL
