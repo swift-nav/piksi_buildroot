@@ -1,3 +1,4 @@
+
 #!/bin/sh
 
 name="piksi_firmware" # required by template_command.inc.sh
@@ -60,7 +61,7 @@ wait_services()
 {
   local uart_wait_count=0
 
-  logi --sbp "Waiting on serial uarts..."
+  logi --kern "Waiting on serial uarts..."
   while ! services_up; do
 
     if [[ $uart_wait_count -ge $uart_wait_count_limit ]]; then
@@ -72,7 +73,7 @@ wait_services()
     sleep $uart_check_interval
     uart_wait_count=$(($uart_wait_count + 1))
   done
-  logi --sbp "Serial uarts up (or not configured for SBP"
+  logi --kern "Serial uarts up (or not configured for SBP"
 }
 
 start()
@@ -81,9 +82,9 @@ start()
 
   if [ -f "/lib/firmware/piksi_firmware.elf" ]; then
     modprobe zynq_remoteproc
-    logi --sbp "Remoteproc modprobe returned with status: $?"
+    logi --kern "Remoteproc modprobe returned with status: $?"
   else
-    loge "ERROR: firmware not found"
+    loge --kern "ERROR: firmware not found"
   fi
 }
 

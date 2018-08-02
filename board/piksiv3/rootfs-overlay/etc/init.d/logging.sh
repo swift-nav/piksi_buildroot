@@ -8,13 +8,16 @@ logger_stderr=/var/run/fifos/$log_tag.stderr
 log_base()
 {
   local send_sbp=
+  local send_kern=
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --sbp) send_sbp=y; shift;;
+      --kern) send_kern=y; shift;;
       *) break;;
     esac
   done
   [[ -z "$send_sbp" ]] || { echo $* | sbp_log --"${_log_level}"; }
+  [[ -z "$send_kern" ]] || { echo "$log_tag [${log_fac}.${_log_level}]: $*" | tee /dev/kmsg; }
   logger -t $log_tag -p ${log_fac}.${_log_level} $*;
 }
 
