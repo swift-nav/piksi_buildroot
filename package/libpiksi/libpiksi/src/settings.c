@@ -177,6 +177,8 @@ enum {
   SBP_WRITE_STATUS_SETTING_REJECTED,
 };
 
+static settings_term_fn settings_term = NULL;
+
 static const char * const bool_enum_names[] = {"False", "True", NULL};
 
 /* Forward Declarations */
@@ -1399,8 +1401,9 @@ static void signal_handler(pk_loop_t *loop, void *handle, void *context)
   (void)context;
   int signal_value = pk_loop_get_signal_from_handle(handle);
 
-  piksi_log(LOG_DEBUG, "Caught signal: %d", signal_value);
+  piksi_log(LOG_DEBUG, "%s: caught signal: %d", __FUNCTION__, signal_value);
 
+  if (settings_term != NULL) settings_term();
   pk_loop_stop(loop);
 }
 
@@ -1510,9 +1513,12 @@ bool settings_loop(const char* control_socket,
                    const char* control_socket_file,
                    const char* control_command,
                    register_settings_fn do_settings_register,
-                   handle_command_fn do_handle_command)
+                   handle_command_fn do_handle_command,
+                   settings_term_fn do_handle_term)
 {
   piksi_log(LOG_INFO, "Starting daemon mode for settings...");
+
+  settings_term = do_handle_term;
 
   pk_loop_t *loop = pk_loop_create();
   if (loop == NULL) {
@@ -1572,7 +1578,7 @@ settings_loop_cleanup:
 
 bool settings_loop_simple(register_settings_fn do_settings_register)
 {
-  return settings_loop(NULL, NULL, NULL, do_settings_register, NULL);
+  return settings_loop(NULL, NULL, NULL, do_settings_register, NULL, NULL);
 }
 
 int settings_loop_send_command(const char* target_description,

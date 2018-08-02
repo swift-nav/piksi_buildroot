@@ -12,8 +12,11 @@
 
 #include <unistd.h>
 #include <errno.h>
+
 #include <sys/stat.h>
+
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include "skylark_settings.h"
 
@@ -94,24 +97,35 @@ static skylark_process_t skylark_processes[] = {
   { .execfn = skylark_download_daemon_execfn },
 };
 
-static const int skylark_processes_count =
-  sizeof(skylark_processes)/sizeof(skylark_processes[0]);
+static const size_t skylark_processes_count = COUNT_OF(skylark_processes);
+
+static void skylark_stop_process(size_t i)
+{
+  skylark_process_t *process = &skylark_processes[i];
+  if (process->pid != 0) {
+    int ret = kill(process->pid, SIGTERM);
+    if (ret != 0) {
+      piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
+                process->pid, errno, strerror(errno));
+    }
+    process->pid = 0;
+  }
+}
+
+void skylark_stop_processes()
+{
+  for (size_t i = 0; i < skylark_processes_count; i++) {
+    skylark_stop_process(i);
+  }
+}
 
 static int skylark_notify(void *context)
 {
   (void)context;
 
-  for (int i=0; i<skylark_processes_count; i++) {
-    skylark_process_t *process = &skylark_processes[i];
+  for (size_t i = 0; i < skylark_processes_count; i++) {
 
-    if (process->pid != 0) {
-      int ret = kill(process->pid, SIGTERM);
-      if (ret != 0) {
-        piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
-                  process->pid, errno, strerror(errno));
-      }
-      process->pid = 0;
-    }
+    skylark_stop_process(i);
 
     if (!skylark_enabled) {
       system("echo 0 >/var/run/skylark/enabled");
@@ -120,7 +134,9 @@ static int skylark_notify(void *context)
 
     system("echo 1 >/var/run/skylark/enabled");
 
+    skylark_process_t *process = &skylark_processes[i];
     process->pid = fork();
+
     if (process->pid == 0) {
       process->execfn();
       piksi_log(LOG_ERR, "exec error (%d) \"%s\"", errno, strerror(errno));
@@ -133,7 +149,7 @@ static int skylark_notify(void *context)
 
 bool skylark_reconnect_dl(void)
 {
-  for (int i=0; i<skylark_processes_count; i++) {
+  for (size_t i = 0; i < skylark_processes_count; i++) {
 
     skylark_process_t *process = &skylark_processes[i];
 

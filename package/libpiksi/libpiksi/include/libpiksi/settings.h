@@ -45,6 +45,11 @@ enum {
 };
 
 /**
+ * @brief Called when a settings loop terminates (from an signal handler).
+ */
+typedef void (*settings_term_fn)(void);
+
+/**
  * @brief   Settings notify callback.
  * @details Signature of a user-provided callback function to be executed
  *          after a setting value is updated.
@@ -243,6 +248,8 @@ typedef bool (*handle_command_fn)();
  *                                 for this loop
  * @param[in] do_handle_command    Function that handles the control command
  *
+ * @param[in] do_handle_term       Function that is called 
+ *
  * @return                  Settings loop exit status
  * @retval 0                Successful exit
  * @retval -1               An error occurred
@@ -251,7 +258,8 @@ bool settings_loop(const char* control_socket,
                    const char* control_socket_file,
                    const char* control_command,
                    register_settings_fn do_register_settings,
-                   handle_command_fn do_handle_command);
+                   handle_command_fn do_handle_command,
+                   settings_term_fn do_handle_term);
 
 bool settings_loop_simple(register_settings_fn do_register_settings);
 
