@@ -60,6 +60,10 @@ int device_uuid_get(char *str, size_t str_size);
  */
 bool device_is_duro(void);
 
+void reap_children(bool debug);
+
+void setup_sigchild_handler(void (*handler)(int));
+
 #define SWFT_MAX(a,b) \
   ({ typeof (a) _a = (a); \
   typeof (b) _b = (b); \
