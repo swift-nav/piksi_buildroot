@@ -43,9 +43,7 @@ echo "New firmware image set detected: `ls $FIRMWARE`" | sbp_log $LOGLEVEL
 echo "New firmware image set detected: `ls $FIRMWARE`"
 echo "Performing upgrade..." |  sbp_log $LOGLEVEL
 echo "Performing upgrade..."
-# Killing realtime fw messages and USB logger
-/etc/init.d/S83endpoint_adapter_rpmsg_piksi100 stop
-/etc/init.d/S83standalone_file_logger stop
+# TODO: suppress any spammy output here from other daemons or pfwp  (unimplemented)
 upgrade_tool_output=$(upgrade_tool $FIRMWARE) 
 RETVAL=$?
 echo $upgrade_tool_output | sbp_log $LOGLEVEL
