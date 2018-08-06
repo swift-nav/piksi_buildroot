@@ -202,7 +202,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
 
   char finish_cmd[1024];
   size_t count = snprintf(finish_cmd, sizeof(finish_cmd),
-                          "for i in 1 2 3 4; do sbp_cmd_resp --sequence %u --status $1; done;",
+                          "sbp_cmd_resp --sequence %u --status $1",
                           msg->sequence);
   assert( count < sizeof(finish_cmd) );
 
