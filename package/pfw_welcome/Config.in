@@ -1,4 +1,10 @@
 config BR2_PACKAGE_PFW_WELCOME
+  # This has been disabled as of 1.6/2.0 to
+  # avoid blocking boot/watchdog disable when
+  # other processes are interacting with the
+  # messaging. May re-enable in future if it
+  # is clear what the package is attempting
+  # to acheive by blocking in the init script
   bool "pfw_welcome"
   select BR2_PACKAGE_LIBUV
   select BR2_PACKAGE_NANOMSG_CUSTOM
