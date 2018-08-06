@@ -4,6 +4,9 @@ name="piksi_firmware"
 
 settings_ini=/persistent/config.ini
 
+uart_wait_count_limit=20 # wait 2s
+uart_check_interval=0.1
+
 svc_path()
 {
   echo /var/run/ports_daemon/sv/${1}/supervise/stat
@@ -12,23 +15,21 @@ svc_path()
 detect_sbp_mode()
 {
   local the_port=$1; shift
-
-  cat $settings_ini  | tr $'\n' ' ' | \
-    grep -q "\[${the_port}\][^\]]*mode=SBP"
 }
 
 port_disabled()
 {
   local the_port=$1; shift
+  local port_mode="$(query_config --section $the_port --key mode)"
 
-  # If it's SBP mode, then it's enabled
-  if detect_sbp_mode $the_port; then
+  # If it's explicitly set to SBP mode, then it's not disabled, if it's empty
+  #   then the default is SBP and it's not disabled:
+  if [[ "$port_mode" == "SBP" ]] || [[ -z "$port_mode" ]]; then
     return 1
   fi
 
   # If any other mode, it's effectively "disabled" for this check
-  cat $settings_ini  | tr $'\n' ' ' | \
-    grep -q "\[${the_port}\][^\]]*mode="
+  return 0
 }
 
 service_up()
@@ -50,8 +51,18 @@ services_up()
 
 wait_services()
 {
+  local uart_wait_count=0
+
   while ! services_up; do
-    sleep 0.1;
+
+    if [[ $uart_wait_count -ge $uart_wait_count_limit ]]; then
+
+      echo "Timeout expired while waiting for UARTs" | sbp_log --err
+      break;
+    fi
+
+    sleep $uart_check_interval
+    uart_wait_count=$(($uart_wait_count + 1))
   done
 }
 
