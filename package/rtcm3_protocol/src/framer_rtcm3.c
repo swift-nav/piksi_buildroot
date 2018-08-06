@@ -21,9 +21,10 @@
 #define RTCM3_HEADER_LENGTH 3
 #define RTCM3_FOOTER_LENGTH 3
 #define RTCM3_FRAME_SIZE_MAX 1029
+#define RTCM3_BUFFER_SIZE (2*RTCM3_FRAME_SIZE_MAX)
 
 typedef struct {
-  uint8_t buffer[RTCM3_FRAME_SIZE_MAX];
+  uint8_t buffer[RTCM3_BUFFER_SIZE];
   uint32_t buffer_length;
   uint32_t refill_count;
   uint32_t remove_count;
@@ -131,7 +132,6 @@ uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
       if (count > available) {
         count = available;
       }
-
       memcpy(&s->buffer[s->buffer_length], &data[data_offset], count);
       s->buffer_length += count;
       data_offset += count;
