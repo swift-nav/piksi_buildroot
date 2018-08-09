@@ -112,7 +112,6 @@ void sbp_simulator_enabled_set(bool enabled)
 
 void sbp_base_obs_invalid(double timediff, void *context)
 {
-  (void)context;
   if (ctx.simulator_enabled) {
     return;
   }
@@ -128,7 +127,7 @@ void sbp_base_obs_invalid(double timediff, void *context)
   msg_command_req_t* sbp_command = (msg_command_req_t*)msg_buf;
   memcpy(sbp_command->command, ntrip_sanity_failed, command_len);
 
-  sbp_message_send(SBP_MSG_COMMAND_REQ, (u8)msg_len, (u8*)sbp_command, 0);
+  sbp_message_send(SBP_MSG_COMMAND_REQ, (u8)msg_len, (u8*)sbp_command, 0, context);
 }
 
 int sbp_run(void)
