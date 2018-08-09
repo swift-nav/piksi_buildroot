@@ -84,8 +84,10 @@ settings_ctx_t * sbp_get_settings_ctx(void)
   return ctx.settings_ctx;
 }
 
-void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id)
+void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id, void *context)
 {
+  (void)context;
+
   sbp_tx_ctx_t *tx_ctx = sbp_pubsub_tx_ctx_get(ctx.pubsub_ctx);
   if (tx_ctx == NULL) {
     return;
@@ -109,8 +111,10 @@ void sbp_simulator_enabled_set(bool enabled)
   ctx.simulator_enabled = enabled;
 }
 
-void sbp_base_obs_invalid(double timediff)
+void sbp_base_obs_invalid(double timediff, void *context)
 {
+  (void)context;
+
   if (ctx.simulator_enabled) {
     return;
   }

@@ -24,10 +24,10 @@ int sbp_init(void);
 void sbp_deinit(void);
 settings_ctx_t * sbp_get_settings_ctx(void);
 pk_loop_t * sbp_get_loop(void);
-void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id);
+void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id, void *context);
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);
 void sbp_simulator_enabled_set(bool enabled);
-void sbp_base_obs_invalid(double timediff);
+void sbp_base_obs_invalid(double timediff, void *context);
 int sbp_run(void);
 
 #endif /* SWIFTNAV_SBP_H */
