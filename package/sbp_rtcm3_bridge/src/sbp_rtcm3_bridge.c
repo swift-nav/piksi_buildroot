@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
   }
 
   /* Need to init state variable before we get SBP in */
-  rtcm2sbp_init(&state, sbp_message_send, sbp_base_obs_invalid);
+  rtcm2sbp_init(&state, sbp_message_send, sbp_base_obs_invalid, NULL);
 
   if (sbp_init() != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
