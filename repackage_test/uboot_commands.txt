@@ -1,0 +1,93 @@
+
+# update boot.bin
+
+setenv ram_buffer 0x0100000
+setenv flash_offset 0x0000000
+setenv flash_size 0x0040000
+setenv boot_name boot.bin
+
+usb start
+fatload usb 0:1 ${ram_buffer} ${boot_name}
+
+sf probe
+sf erase ${flash_offset} ${flash_size}
+sf write ${ram_buffer} ${flash_offset} ${flash_size}
+
+setenv ram_buffer 0x0100000; setenv flash_offset 0x0000000; setenv flash_size 0x0040000; usb start; fatload usb 0:1 ${ram_buffer} boot.bin; sf probe; sf erase ${flash_offset} ${flash_size}; sf write ${ram_buffer} ${flash_offset} ${flash_size}
+
+# update failsafe
+
+setenv ram_buffer 0x0100000
+setenv failsafe_size 0x0100000
+setenv header_size 0x0040000
+setenv failsafe_header_flash_offset 0x0100000
+setenv failsafe_spl_flash_offset 0x0200000
+setenv failsafe_images_flash_offset 0x3d00000
+setenv failsafe_name PiksiMulti-FAILSAFE-jdiamond.bin
+
+usb start
+fatload usb 0:1 ${ram_buffer} ${failsafe_name}
+
+sf probe
+sf erase ${failsafe_header_flash_offset} ${header_size}
+sf erase ${failsafe_spl_flash_offset} ${header_size}
+sf erase ${failsafe_images_flash_offset} ${failsafe_size}
+image_set write ${ram_buffer} ${failsafe_header_flash_offset} ${failsafe_spl_flash_offset} ${failsafe_images_flash_offset}
+
+
+# update prod
+
+setenv ram_buffer 0x0100000
+setenv image_size 0x1c00000
+setenv header_size 0x0040000
+setenv image_header_flash_offset 0x0180000
+setenv image_spl_flash_offset 0x0280000
+setenv image_images_flash_offset 0x0300000
+setenv image_name PiksiMulti-jdiamond.bin
+
+usb start
+fatload usb 0:1 ${ram_buffer} ${image_name}
+
+sf probe
+sf erase ${image_header_flash_offset} ${header_size}
+sf erase ${image_spl_flash_offset} ${header_size}
+sf erase ${image_images_flash_offset} ${image_size}
+image_set write ${ram_buffer} ${image_header_flash_offset} ${image_spl_flash_offset} ${image_images_flash_offset}
+
+
+
+###########
+
+setenv ram_buffer 0x0100000
+setenv fail_flash_offset 0xc0000
+setenv fail_flash_size 0x40
+
+mw.b ${ram_buffer} 0x00
+mw.b ${ram_buffer} 0xaa
+
+sf probe
+sf erase ${fail_flash_offset} +${fail_flash_size}
+sf write ${ram_buffer} ${fail_flash_offset} ${fail_flash_size}
+
+###########
+
+cat /proc/mtd | grep qspi-reserved-a | cut -d ':' -f1
+
+hexdump -C -n 1024 /dev/mtdblock2
+
+echo -n -e '\xaa\xaa\xaa\xaa' > byteFileForNow
+mtd_debug erase /dev/mtd2 0 0x40000
+mtd_debug write /dev/mtd2 0 4 byteFileForNow
+
+sf read 0x0100000 0x00C0000 0x40
+
+md 0x0100000 0x40
+nm.l 0x100000
+
+sf erase 0x00C0000 +64
+
+sf write 0x0100000 0x00C0000 0x40
+
+
+
+mtd_debug erase /dev/mtd3 0x80000 0x80000
