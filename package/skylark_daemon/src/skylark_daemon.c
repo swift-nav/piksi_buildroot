@@ -171,11 +171,9 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static void terminate_handler(int signum, siginfo_t *info, void *ucontext)
+static void terminate_handler(int signum)
 {
-  (void)ucontext;
-
-  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d, sender: %d", signum, info->si_pid);
+  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d", signum);
   libnetwork_shutdown();
 }
 
@@ -219,18 +217,15 @@ static void setup_terminate_handler()
 {
   /* Set up handler for signals which should terminate the program */
 
-  struct sigaction terminate_sa;
-  terminate_sa.sa_sigaction = terminate_handler;
-  sigemptyset(&terminate_sa.sa_mask);
-  terminate_sa.sa_flags = SA_SIGINFO;
+  if (signal(SIGINT, terminate_handler) == SIG_ERR) goto error;
+  if (signal(SIGTERM, terminate_handler) == SIG_ERR) goto error;
+  if (signal(SIGQUIT, terminate_handler) == SIG_ERR) goto error;
 
-  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGQUIT, &terminate_sa, NULL) != 0))
-  {
-    piksi_log(LOG_ERR, "error setting up terminate handler: %s", strerror(errno));
-    exit(-1);
-  }
+  return;
+
+error:
+  piksi_log(LOG_ERR, "error setting up terminate handler: %s", strerror(errno));
+  exit(-1);
 }
 
 static void skylark_upload_mode()

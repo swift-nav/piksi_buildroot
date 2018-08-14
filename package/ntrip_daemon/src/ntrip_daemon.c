@@ -184,11 +184,9 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static void terminate_handler(int signum, siginfo_t *info, void *ucontext)
+static void terminate_handler(int signum)
 {
-  (void)ucontext;
-
-  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d, sender: %d", signum, info->si_pid);
+  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d", signum);
   libnetwork_shutdown();
 }
 
@@ -250,9 +248,9 @@ static int ntrip_client_loop(void)
 
   /* Set up handler for signals which should terminate the program */
   struct sigaction terminate_sa;
-  terminate_sa.sa_sigaction = terminate_handler;
+  terminate_sa.sa_handler = terminate_handler;
   sigemptyset(&terminate_sa.sa_mask);
-  terminate_sa.sa_flags = SA_SIGINFO;
+  terminate_sa.sa_flags = 0;
 
   if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
       (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
@@ -285,9 +283,7 @@ static int ntrip_client_loop(void)
 
 static void sigchild_handler(int signum)
 {
-  (void) signum;
-
-  if (debug) piksi_log(LOG_DEBUG, "%s: received SIGCHILD", __FUNCTION__);
+  piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
   reap_children(debug);
 }
 

@@ -879,7 +879,7 @@ static void log_with_rate_limit(network_context_t* ctx, int priority, const char
 
 static void network_request(network_context_t* ctx, CURL *curl)
 {
-  char error_buf[CURL_ERROR_SIZE] = {0};
+  char error_buf[CURL_ERROR_SIZE];
 
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER,       error_buf);
   curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 15000L);
