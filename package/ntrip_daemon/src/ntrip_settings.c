@@ -131,7 +131,7 @@ void ntrip_record_exit(pid_t pid)
   for (size_t i = 0; i < ntrip_processes_count; i++) {
     ntrip_process_t *process = &ntrip_processes[i];
     if (process->pid != 0 && process->pid == pid) {
-      piksi_log(LOG_DEBUG, "known child process pid %d exitted", process->pid);
+      piksi_log(LOG_DEBUG, "known child process pid %d exited", process->pid);
       process->pid = 0;
       return;
     }
