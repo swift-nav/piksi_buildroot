@@ -60,7 +60,9 @@ int device_uuid_get(char *str, size_t str_size);
  */
 bool device_is_duro(void);
 
-void reap_children(bool debug);
+typedef void (*child_exit_fn_t)(pid_t pid);
+
+void reap_children(bool debug, child_exit_fn_t exit_handler);
 
 void setup_sigchild_handler(void (*handler)(int));
 

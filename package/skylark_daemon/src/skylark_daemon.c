@@ -181,8 +181,11 @@ static void terminate_handler(int signum, siginfo_t *info, void *ucontext)
 
 static void sigchild_handler(int signum)
 {
-  piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
-  reap_children(debug);
+  if (debug) {
+    piksi_log(LOG_DEBUG, "%s: received signal %s(%d)",
+              __FUNCTION__, signum == SIGCHLD ? "SIGCHLD " : "", signum);
+  }
+  reap_children(debug, skylark_record_exit);
 }
 
 static void cycle_connection(int signum)
@@ -302,7 +305,7 @@ static void skylark_download_mode()
 static void settings_loop_terminate()
 {
   skylark_stop_processes();
-  reap_children(debug);
+  reap_children(debug, NULL);
 }
 
 static void skylark_settings_loop(void)
