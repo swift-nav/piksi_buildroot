@@ -50,6 +50,11 @@ enum {
 typedef void (*settings_term_fn)(void);
 
 /**
+ * @brief Called when a child process exits.
+ */
+typedef void (*settings_child_fn)(void);
+
+/**
  * @brief   Settings notify callback.
  * @details Signature of a user-provided callback function to be executed
  *          after a setting value is updated.
@@ -259,7 +264,8 @@ bool settings_loop(const char* control_socket,
                    const char* control_command,
                    register_settings_fn do_register_settings,
                    handle_command_fn do_handle_command,
-                   settings_term_fn do_handle_term);
+                   settings_term_fn do_handle_term,
+                   settings_child_fn do_handle_child);
 
 bool settings_loop_simple(register_settings_fn do_register_settings);
 

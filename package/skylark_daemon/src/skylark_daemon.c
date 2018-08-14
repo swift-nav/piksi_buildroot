@@ -36,8 +36,6 @@
 #define MSG_GET_HEALTH_ERROR "Error requesting skylark connection HTTP response code: %d"
 #define MSG_GET_HEALTH_ERROR_LF (MSG_GET_HEALTH_ERROR "\n")
 
-static void setup_terminate_handler();
-
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
@@ -171,16 +169,19 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static void terminate_handler(int signum)
+static void network_terminate_handler(int signum, siginfo_t *info, void *ucontext)
 {
-  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d", signum);
+  (void) ucontext;
+
+  piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d",
+            __FUNCTION__, signum, info->si_pid);
+
   libnetwork_shutdown();
 }
 
-static void sigchild_handler(int signum)
+static void settings_loop_sigchild()
 {
-  piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
-  reap_children(debug);
+  reap_children(debug, skylark_record_exit);
 }
 
 static void cycle_connection(int signum)
@@ -213,21 +214,6 @@ exit_error:
   return false;
 }
 
-static void setup_terminate_handler()
-{
-  /* Set up handler for signals which should terminate the program */
-
-  if (signal(SIGINT, terminate_handler) == SIG_ERR) goto error;
-  if (signal(SIGTERM, terminate_handler) == SIG_ERR) goto error;
-  if (signal(SIGQUIT, terminate_handler) == SIG_ERR) goto error;
-
-  return;
-
-error:
-  piksi_log(LOG_ERR, "error setting up terminate handler: %s", strerror(errno));
-  exit(-1);
-}
-
 static void skylark_upload_mode()
 {
   int fd = open(fifo_file_path, O_RDONLY);
@@ -241,7 +227,9 @@ static void skylark_upload_mode()
     exit(EXIT_FAILURE);
   }
 
-  setup_terminate_handler();
+  setup_sigint_handler(network_terminate_handler);
+  setup_sigterm_handler(network_terminate_handler);
+
   skylark_upload(network_context);
 
   close(fd);
@@ -287,7 +275,9 @@ static void skylark_download_mode()
     exit(EXIT_FAILURE);
   }
 
-  setup_terminate_handler();
+  setup_sigint_handler(network_terminate_handler);
+  setup_sigterm_handler(network_terminate_handler);
+
   skylark_download(network_context);
 
   close(fd);
@@ -297,18 +287,18 @@ static void skylark_download_mode()
 static void settings_loop_terminate()
 {
   skylark_stop_processes();
-  reap_children(debug);
+  reap_children(debug, NULL);
 }
 
 static void skylark_settings_loop(void)
 {
-  setup_sigchild_handler(sigchild_handler);
   settings_loop(SKYLARK_CONTROL_SOCK,
                 SKYLARK_CONTROL_FILE,
                 SKYLARK_CONTROL_COMMAND_RECONNECT,
                 skylark_init,
                 skylark_reconnect_dl,
-                settings_loop_terminate);
+                settings_loop_terminate,
+                settings_loop_sigchild);
 }
 
 int main(int argc, char *argv[])

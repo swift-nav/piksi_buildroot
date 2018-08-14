@@ -91,10 +91,10 @@ static int skylark_download_adapter_execfn(void) {
 }
 
 static skylark_process_t skylark_processes[] = {
-  { .execfn = skylark_upload_daemon_execfn },
-  { .execfn = skylark_upload_adapter_execfn },
-  { .execfn = skylark_download_adapter_execfn },
-  { .execfn = skylark_download_daemon_execfn },
+  { .pid = 0, .execfn = skylark_upload_daemon_execfn },
+  { .pid = 0, .execfn = skylark_upload_adapter_execfn },
+  { .pid = 0, .execfn = skylark_download_adapter_execfn },
+  { .pid = 0, .execfn = skylark_download_daemon_execfn },
 };
 
 static const size_t skylark_processes_count = COUNT_OF(skylark_processes);
@@ -108,6 +108,7 @@ static void skylark_stop_process(size_t i)
       piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
                 process->pid, errno, strerror(errno));
     }
+    sleep(0.1); // allow us to receive sigchild
     process->pid = 0;
   }
 }
@@ -116,6 +117,18 @@ void skylark_stop_processes()
 {
   for (size_t i = 0; i < skylark_processes_count; i++) {
     skylark_stop_process(i);
+  }
+}
+
+void skylark_record_exit(pid_t pid)
+{
+  for (size_t i = 0; i < skylark_processes_count; i++) {
+    skylark_process_t *process = &skylark_processes[i];
+    if (process->pid != 0 && process->pid == pid) {
+      piksi_log(LOG_DEBUG, "known child process pid %d exited", process->pid);
+      process->pid = 0;
+      return;
+    }
   }
 }
 
