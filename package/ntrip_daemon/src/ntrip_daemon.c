@@ -285,16 +285,17 @@ static int ntrip_client_loop(void)
 
 static void sigchild_handler(int signum)
 {
-  (void) signum;
-
-  if (debug) piksi_log(LOG_DEBUG, "%s: received SIGCHILD", __FUNCTION__);
-  reap_children(debug);
+  if (debug) {
+    piksi_log(LOG_DEBUG, "%s: received signal %s(%d)",
+              __FUNCTION__, signum == SIGCHLD ? "SIGCHLD " : "", signum);
+  }
+  reap_children(debug, ntrip_record_exit);
 }
 
 static void settings_loop_terminate()
 {
   ntrip_stop_processes();
-  reap_children(debug);
+  reap_children(debug, NULL);
 }
 
 static int ntrip_settings_loop(void)

@@ -97,7 +97,7 @@ bool device_is_duro(void)
                  strlen(DEVICE_DURO_ID_STRING)) == 0);
 }
 
-void reap_children(bool debug)
+void reap_children(bool debug, child_exit_fn_t exit_handler)
 {
   int errno_saved = errno;
   int status;
@@ -105,17 +105,25 @@ void reap_children(bool debug)
   pid_t child_pid;
 
   while ((child_pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    if (debug) {
-      if (WIFEXITED(status)) {
+    if (WIFEXITED(status)) {
+      if (exit_handler != NULL) exit_handler(child_pid);
+      if (debug) {
         piksi_log(LOG_DEBUG, "%s: child (pid: %d) exit status: %d",
                   __FUNCTION__, child_pid, WEXITSTATUS(status));
-      } else if (WIFSIGNALED(status)) {
+      }
+    } else if (WIFSIGNALED(status)) {
+      if (exit_handler != NULL) exit_handler(child_pid);
+      if (debug) {
         piksi_log(LOG_DEBUG, "%s: child (pid: %d) term signal: %d",
                   __FUNCTION__, child_pid, WTERMSIG(status));
-      } else if (WIFSTOPPED(status)) {
+      }
+    } else if (WIFSTOPPED(status)) {
+      if (debug) {
         piksi_log(LOG_DEBUG, "%s: child (pid: %d) stop signal: %d",
                   __FUNCTION__, child_pid, WSTOPSIG(status));
-      } else {
+      }
+    } else {
+      if (debug) {
         piksi_log(LOG_DEBUG, "%s: child (pid: %d) unknown status: %d",
                   __FUNCTION__, child_pid, status);
       }
