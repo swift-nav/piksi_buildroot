@@ -11,8 +11,8 @@ setup_loggers
 
 settings_ini=/persistent/config.ini
 
-uart_wait_count_limit=20 # wait 2s
-uart_check_interval=0.1
+uart_wait_count_limit=200 # wait 200s
+uart_check_interval=1
 
 svc_path()
 {
