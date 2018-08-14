@@ -17,6 +17,5 @@
 
 void skylark_init(settings_ctx_t *settings_ctx);
 bool skylark_reconnect_dl(void);
-void skylark_stop_processes(void);
 
 #endif
