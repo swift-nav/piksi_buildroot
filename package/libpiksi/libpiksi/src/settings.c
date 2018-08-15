@@ -1396,12 +1396,16 @@ int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
   return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
+#include <uv.h>
+
 static void signal_handler(pk_loop_t *loop, void *handle, void *context)
 {
   (void)context;
   int signal_value = pk_loop_get_signal_from_handle(handle);
 
-  piksi_log(LOG_DEBUG, "%s: caught signal: %d", __FUNCTION__, signal_value);
+  uv_signal_t *uv_sig = (uv_signal_t *)handle;
+
+  piksi_log(LOG_DEBUG, "%s: caught signal: %d (sender: %d)", __FUNCTION__, signal_value, uv_sig->sender);
 
   if (settings_term != NULL) settings_term();
   pk_loop_stop(loop);
@@ -1412,11 +1416,10 @@ static void setup_signal_handlers(pk_loop_t *pk_loop)
   if (pk_loop_signal_handler_add(pk_loop, SIGINT, signal_handler, NULL) == NULL) {
     piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
   }
-/*
+
   if (pk_loop_signal_handler_add(pk_loop, SIGTERM, signal_handler, NULL) == NULL) {
     piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
   }
-*/
 }
 
 static int command_receive_callback(const u8 *data, const size_t length, void *context)

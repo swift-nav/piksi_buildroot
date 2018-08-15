@@ -49,7 +49,7 @@ typedef enum {
 static operating_mode op_mode = OP_MODE_NTRIP_CLIENT;
 
 static void settings_loop_terminate(void);
-static void settings_terminate_handler(int signum, siginfo_t *info, void *ucontext);
+//static void settings_terminate_handler(int signum, siginfo_t *info, void *ucontext);
 
 static void usage(char *command)
 {
@@ -186,7 +186,7 @@ static int parse_options(int argc, char *argv[])
 
   return 0;
 }
-
+#if 0
 static void settings_terminate_handler(int signum, siginfo_t *info, void *ucontext)
 {
   // TEMP/REMOVE-ME...
@@ -196,7 +196,7 @@ static void settings_terminate_handler(int signum, siginfo_t *info, void *uconte
   settings_loop_terminate();
   exit(EXIT_SUCCESS);
 }
-
+#endif
 static void terminate_handler(int signum, siginfo_t *info, void *ucontext)
 {
   (void)ucontext;
@@ -314,7 +314,7 @@ static void settings_loop_terminate(void)
 static int ntrip_settings_loop(void)
 {
   setup_sigchild_handler(sigchild_handler);
-
+#if 0
   /* TEMP/REMOVE-ME: Set up handler for signals which should terminate the program */
   struct sigaction terminate_sa;
   terminate_sa.sa_sigaction = settings_terminate_handler;
@@ -324,7 +324,7 @@ static int ntrip_settings_loop(void)
     piksi_log(LOG_ERR, "error setting up SIGTERM handler");
     return -1;
   }
-
+#endif
   return settings_loop(NTRIP_CONTROL_SOCK,
                        NTRIP_CONTROL_FILE,
                        NTRIP_CONTROL_COMMAND_RECONNECT,
