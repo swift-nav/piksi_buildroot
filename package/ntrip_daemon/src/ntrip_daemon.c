@@ -48,6 +48,9 @@ typedef enum {
 
 static operating_mode op_mode = OP_MODE_NTRIP_CLIENT;
 
+static void settings_loop_terminate(void);
+static void settings_terminate_handler(int signum, siginfo_t *info, void *ucontext);
+
 static void usage(char *command)
 {
   printf("Usage: %s\n", command);
@@ -184,6 +187,16 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static void settings_terminate_handler(int signum, siginfo_t *info, void *ucontext)
+{
+  // TEMP/REMOVE-ME...
+  (void)ucontext;
+  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d, sender: %d", signum, info->si_pid);
+  system("ps aux | logger");
+  settings_loop_terminate();
+  exit(EXIT_SUCCESS);
+}
+
 static void terminate_handler(int signum, siginfo_t *info, void *ucontext)
 {
   (void)ucontext;
@@ -292,7 +305,7 @@ static void sigchild_handler(int signum)
   reap_children(debug, ntrip_record_exit);
 }
 
-static void settings_loop_terminate()
+static void settings_loop_terminate(void)
 {
   ntrip_stop_processes();
   reap_children(debug, NULL);
@@ -301,6 +314,16 @@ static void settings_loop_terminate()
 static int ntrip_settings_loop(void)
 {
   setup_sigchild_handler(sigchild_handler);
+
+  /* TEMP/REMOVE-ME: Set up handler for signals which should terminate the program */
+  struct sigaction terminate_sa;
+  terminate_sa.sa_sigaction = settings_terminate_handler;
+  sigemptyset(&terminate_sa.sa_mask);
+  terminate_sa.sa_flags = SA_SIGINFO;
+  if (sigaction(SIGTERM, &terminate_sa, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting up SIGTERM handler");
+    return -1;
+  }
 
   return settings_loop(NTRIP_CONTROL_SOCK,
                        NTRIP_CONTROL_FILE,

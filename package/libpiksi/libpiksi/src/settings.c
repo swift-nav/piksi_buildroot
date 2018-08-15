@@ -1412,10 +1412,11 @@ static void setup_signal_handlers(pk_loop_t *pk_loop)
   if (pk_loop_signal_handler_add(pk_loop, SIGINT, signal_handler, NULL) == NULL) {
     piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
   }
-
+/*
   if (pk_loop_signal_handler_add(pk_loop, SIGTERM, signal_handler, NULL) == NULL) {
     piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
   }
+*/
 }
 
 static int command_receive_callback(const u8 *data, const size_t length, void *context)
