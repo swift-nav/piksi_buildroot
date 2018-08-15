@@ -1,9 +1,20 @@
 #!/bin/sh
 
+name="pfw_welcome" # required by template_command.inc.sh
+
+source /etc/init.d/common.sh
+
+log_tag=$name # required by logging.sh
+source /etc/init.d/logging.sh
+
+setup_loggers
+
 case "$1" in
   start)
   # run Piksi Firmware Welcome tool
+  logi --kern "Booting pfw_welcome"
   pfw_welcome
+  logi --kern "Finishing pfw_welcom: $?"
   ;;
   stop)
   ;;
