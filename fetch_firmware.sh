@@ -27,8 +27,8 @@ if [[ $(uname -a) == *NixOS* ]]; then
   export LD_LIBRARY_PATH=/lib:/usr/lib
 fi
 
-FW_VERSION=${1:-v2.0.0}
-NAP_VERSION=${2:-v2.0.0}
+FW_VERSION=${1:-v2.0.1}
+NAP_VERSION=${2:-v2.0.1}
 
 FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
