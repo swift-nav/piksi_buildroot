@@ -113,5 +113,5 @@ BR2_PACKAGE_PIKSI_INS=y
 BR2_PACKAGE_COMMON_INIT=y
 BR2_PACKAGE_LLVM_VANILLA=y
 BR2_CCACHE=y
-BR2_CCACHE_DIR=/piksi_buildroot/buildroot/output/ccache
+BR2_CCACHE_DIR="$(BR2_EXTERNAL_piksi_buildroot_PATH)/buildroot/output/ccache"
 BR2_CCACHE_INITIAL_SETUP=""

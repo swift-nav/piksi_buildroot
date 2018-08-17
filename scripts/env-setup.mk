@@ -38,3 +38,5 @@ BR2_HAS_PIKSI_INS := $(shell git ls-remote $(PIKSI_INS_REPO) &>/dev/null && echo
 endif
 
 export BR2_HAS_PIKSI_INS
+
+LAST_GIT_TAG := $(shell git describe --abbrev=0 --tags)

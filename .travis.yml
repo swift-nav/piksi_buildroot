@@ -46,6 +46,7 @@ matrix:
         - TRAVIS_TARGET=internal
       script:
         - make docker-setup
+        - make docker-pull-ccache || :
         - make docker-make-firmware
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-image 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
@@ -64,6 +65,7 @@ matrix:
         - TRAVIS_TARGET=release
       script:
         - make docker-setup
+        - make docker-pull-ccache || :
         - make docker-make-firmware
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-image-release-open 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
@@ -74,6 +76,8 @@ matrix:
         - ./scripts/generate_requirements.sh || travis_terminate 1
         - ./scripts/hitl_smoke_test.sh || travis_terminate 1
         - SLACK_CHANNEL=github ./scripts/comment.sh
+        - ./scripts/should_not_build_sdk.sh || make docker-ccache-archive
+        - ./scripts/should_not_build_sdk.sh || ./publish.sh piksi_br_${TRAVIS_TARGET}_ccache.tgz
       after_failure:
         - tail -n 500 build_${TRAVIS_TARGET}.out
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
@@ -82,13 +86,15 @@ matrix:
     - env:
         - TRAVIS_TARGET=host
       script:
-        - make firmware
         - make docker-setup
+        - make docker-host-pull-ccache
         - bash -c "while true; do sleep 1m; echo ...; done" &
         - set -o pipefail && make docker-make-host-image 2>&1 | tee -a build_${TRAVIS_TARGET}.out | grep --line-buffered '^>>>'
       after_success:
         - git fetch --tags --unshallow
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out
+        - ./scripts/should_not_build_sdk.sh || make host-ccache-archive
+        - ./scripts/should_not_build_sdk.sh || ./publish.sh piksi_br_${TRAVIS_TARGET}_ccache.tgz
       after_failure:
         - tail -n 500 build_${TRAVIS_TARGET}.out
         - PRODUCT_VERSION=v3 PRODUCT_REV=prod ./publish.sh build_${TRAVIS_TARGET}.out

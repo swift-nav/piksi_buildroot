@@ -77,6 +77,9 @@ image: config
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
 
+clean-ccache:
+	rm -rf buildroot/output/ccache/*
+
 clean:
 	find buildroot/output -mindepth 1 -maxdepth 1 \
 		\( ! -path buildroot/output/images -and ! -path buildroot/output/ccache \) \
@@ -172,6 +175,10 @@ docker-make-clean:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make clean
 
+docker-make-clean-ccache:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make clean-ccache
+
 docker-make-clean-volume:
 	docker volume rm $(DOCKER_BUILD_VOLUME)
 
@@ -241,5 +248,44 @@ sdk:
 	$(MAKE) -C buildroot force-uninstall-toolchain-wrappers
 	@echo '>>>' Creating SDK archive...
 	tar -cJf piksi_sdk.txz -C buildroot/output/host .
+
+define _pull_ccache
+	( DOWNLOAD_PBR_CCACHE=y PBR_TARGET=$(1) ./fetch_firmware.sh && \
+	  mkdir -p buildroot/$(2)/ccache && \
+	  tar -C buildroot/$(2)/ccache -xzf piksi_br_$(1)_ccache.tgz ) || \
+   echo "Warning: was not able to download ccache for $(LAST_GIT_TAG)"
+endef
+
+define _archive_ccache
+	tar -C buildroot/$(2)/ccache -czf piksi_br_$(1)_ccache.tgz .
+endef
+
+pull-ccache:
+	$(call _pull_ccache,release,output)
+
+docker-pull-ccache:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make pull-ccache
+
+host-pull-ccache:
+	$(call _pull_ccache,host,host_output)
+
+docker-host-pull-ccache:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make host-pull-ccache
+
+ccache-archive:
+	$(call _archive_ccache,release,output)
+
+docker-ccache-archive:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make ccache-archive
+
+host-ccache-archive:
+	$(call _archive_ccache,host,host_output)
+
+docker-host-ccache-archive:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make host-ccache-archive
 
 .PHONY: help
