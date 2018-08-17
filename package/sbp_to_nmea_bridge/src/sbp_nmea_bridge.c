@@ -30,6 +30,8 @@ bool nmea_debug = false;
 
 struct sbp_nmea_state state;
 
+static bool gga_enabled = false;
+static int gga_rate = 0;
 
 static void usage(char *command)
 {
@@ -68,21 +70,34 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static int notify_gga_enable_changed(void *context)
+{
+  (void)context;
+  set_gga_enabled(gga_enabled,state);
+  return 0;
+}
+
+static int notify_gga_rate_changed(void *context)
+{
+  (void)context;
+  set_gga_rate(gga_rate,state);
+  return 0;
+}
+
 static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void) context;
   (void) sender_id;
   (void) len;
-  msg_gps_time_t *time = (msg_gps_time_t*)msg;
+  msg_gps_time_t *gps_time = (msg_gps_time_t*)msg;
+  sbp2nmea_gps_time(gps_time,&state);
+}
 
-  if((time->flags & TIME_SOURCE_MASK) == NO_TIME) {
-    return;
-  }
-
-  gps_time_sec_t gps_time;
-  gps_time.tow = time->tow * 0.001;
-  gps_time.wn = time->wn;
-  rtcm2sbp_set_gps_time(&gps_time,&state);
+static void gps_time_reference_callback(u16 sender_id, u8 len, u8 msg[], void* context) {
+  (void) len;
+  (void) msg;
+  (void) context;
+  sbp2nmea_set_base_id(sender_id,&state);
 }
 
 static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
@@ -90,32 +105,44 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   (void) context;
   (void) sender_id;
   (void) len;
-  msg_utc_time_t *time = (msg_utc_time_t*)msg;
+  msg_utc_time_t *utc_time = (msg_utc_time_t*)msg;
+  sbp2nmea_utc_time(utc_time,&state);
+}
 
-  if((time->flags & TIME_SOURCE_MASK) == NO_TIME) {
-    return;
-  }
+static void age_corrections_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void) context;
+  (void) sender_id;
+  (void) len;
+  msg_age_corrections_t *age_corr = (msg_age_corrections_t*)msg;
+  sbp2nmea_age_corrections(age_corr,&state);
+}
 
-  /* work out the time of day in utc time */
-  u32 utc_tod = time->hours * 3600 + time->minutes * 60 + time->seconds;
+static void dops_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void) context;
+  (void) sender_id;
+  (void) len;
+  msg_dops_t *dops = (msg_age_corrections_t*)msg;
+  sbp2nmea_dops(dops,&state);
+}
 
-  // Check we aren't within 0.1ms of the whole second boundary and round up if we are
-  if (999999999 - time->ns < 1e6) {
-    utc_tod += 1;
-  }
+static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void) context;
+  (void) sender_id;
+  (void) len;
+  msg_pos_llh_t *pos_llh = (msg_pos_llh_t*)msg;
+  sbp2nmea_pos_llh(pos_llh,&state);
+}
 
-  /* work out the gps time of day */
-  u32 gps_tod = (time->tow  % 86400000) * 1e-3;
-
-  s8 leap_second;
-  /* if gps tod is smaller than utc tod we've crossed the day boundary during the leap second */
-  if (utc_tod < gps_tod) {
-    leap_second = gps_tod - utc_tod;
-  } else {
-    leap_second = gps_tod + 86400 - utc_tod;
-  }
-
-  rtcm2sbp_set_leap_second(leap_second,&state);
+static void vel_ned_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void) context;
+  (void) sender_id;
+  (void) len;
+  msg_vel_ned_t *vel_ned = (msg_vel_ned_t*)msg;
+  sbp2nmea_vel_ned(pos_llh,&state);
 }
 
 static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
@@ -159,24 +186,56 @@ int main(int argc, char *argv[])
     exit(cleanup(&nmea_sub, EXIT_FAILURE));
   }
 
-  if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
+  if (sbp_callback_register_rover(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
     exit(cleanup(&nmea_sub, EXIT_FAILURE));
   }
 
-  if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
+  if (sbp_callback_register_rover(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting UTC TIME callback");
+    return cleanup(&nmea_sub, EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register_rover(SBP_MSG_DOPS, dops_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting dops callback");
+    return cleanup(&nmea_sub, EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register_rover(SBP_MSG_AGE_CORRECTIONS, age_corrections_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting Age of Corrections callback");
+    return cleanup(&nmea_sub, EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register_rover(SBP_MSG_POS_LLH, pos_llh_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting pos llh callback");
+    return cleanup(&nmea_sub, EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register_rover(SBP_MSG_VEL_NED, vel_ned_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting vel NED callback");
+    return cleanup(&nmea_sub, EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register_reference(SBP_MSG_GPS_TIME, gps_time_reference_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting ref GPS TIME callback");
     return cleanup(&nmea_sub, EXIT_FAILURE);
   }
 
   settings_ctx = sbp_get_settings_ctx();
 
-  settings_add_watch(settings_ctx, "simulator", "enabled",
-                     &simulator_enabled_watch , sizeof(simulator_enabled_watch),
+  settings_add_watch(settings_ctx, "nmea", "gga_enabled",
+                     &gga_enabled , sizeof(gga_enabled),
                      SETTINGS_TYPE_BOOL,
-                     notify_simulator_enable_changed, NULL);
+                     notify_gga_enable_changed, NULL);
 
-  sbp_run();
+  settings_add_watch(settings_ctx, "nmea", "gga_rate",
+                                        &gga_rate , sizeof(gga_rate),
+                                        SETTINGS_TYPE_INT,
+                                        notify_gga_rate_changed, NULL);
+
+
+  sbp_run_rover();
+  sbp_run_reference();
 
   exit(cleanup(&nmea_sub, EXIT_SUCCESS));
 }
