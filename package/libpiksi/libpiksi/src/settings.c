@@ -177,7 +177,8 @@ enum {
   SBP_WRITE_STATUS_SETTING_REJECTED,
 };
 
-static settings_term_fn settings_term = NULL;
+static settings_term_fn settings_term_handler = NULL;
+static settings_child_fn settings_child_handler = NULL;
 
 static const char * const bool_enum_names[] = {"False", "True", NULL};
 
@@ -1407,8 +1408,18 @@ static void signal_handler(pk_loop_t *loop, void *handle, void *context)
 
   piksi_log(LOG_DEBUG, "%s: caught signal: %d (sender: %d)", __FUNCTION__, signal_value, uv_sig->sender);
 
-  if (settings_term != NULL) settings_term();
-  pk_loop_stop(loop);
+  if (signal_value == SIGINT || signal_value == SIGTERM) {
+    if (settings_term_handler != NULL) {
+      settings_term_handler();
+    }
+    pk_loop_stop(loop);
+  }
+
+  if (signal_value == SIGCHLD) {
+    if (settings_child_handler != NULL) {
+      settings_child_handler();
+    }
+  }
 }
 
 static void setup_signal_handlers(pk_loop_t *pk_loop)
@@ -1418,6 +1429,10 @@ static void setup_signal_handlers(pk_loop_t *pk_loop)
   }
 
   if (pk_loop_signal_handler_add(pk_loop, SIGTERM, signal_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
+  }
+
+  if (pk_loop_signal_handler_add(pk_loop, SIGCHLD, signal_handler, NULL) == NULL) {
     piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
   }
 }
@@ -1518,11 +1533,13 @@ bool settings_loop(const char* control_socket,
                    const char* control_command,
                    register_settings_fn do_settings_register,
                    handle_command_fn do_handle_command,
-                   settings_term_fn do_handle_term)
+                   settings_term_fn do_handle_term,
+                   settings_child_fn do_handle_child)
 {
   piksi_log(LOG_INFO, "Starting daemon mode for settings...");
 
-  settings_term = do_handle_term;
+  settings_term_handler = do_handle_term;
+  settings_child_handler = do_handle_child;
 
   pk_loop_t *loop = pk_loop_create();
   if (loop == NULL) {
@@ -1582,7 +1599,7 @@ settings_loop_cleanup:
 
 bool settings_loop_simple(register_settings_fn do_settings_register)
 {
-  return settings_loop(NULL, NULL, NULL, do_settings_register, NULL, NULL);
+  return settings_loop(NULL, NULL, NULL, do_settings_register, NULL, NULL, NULL);
 }
 
 int settings_loop_send_command(const char* target_description,

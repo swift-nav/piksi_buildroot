@@ -296,12 +296,8 @@ static int ntrip_client_loop(void)
   return 0;
 }
 
-static void sigchild_handler(int signum)
+static void settings_loop_sigchild()
 {
-  if (debug) {
-    piksi_log(LOG_DEBUG, "%s: received signal %s(%d)",
-              __FUNCTION__, signum == SIGCHLD ? "SIGCHLD " : "", signum);
-  }
   reap_children(debug, ntrip_record_exit);
 }
 
@@ -313,24 +309,13 @@ static void settings_loop_terminate(void)
 
 static int ntrip_settings_loop(void)
 {
-  setup_sigchild_handler(sigchild_handler);
-#if 0
-  /* TEMP/REMOVE-ME: Set up handler for signals which should terminate the program */
-  struct sigaction terminate_sa;
-  terminate_sa.sa_sigaction = settings_terminate_handler;
-  sigemptyset(&terminate_sa.sa_mask);
-  terminate_sa.sa_flags = SA_SIGINFO;
-  if (sigaction(SIGTERM, &terminate_sa, NULL) != 0) {
-    piksi_log(LOG_ERR, "error setting up SIGTERM handler");
-    return -1;
-  }
-#endif
   return settings_loop(NTRIP_CONTROL_SOCK,
                        NTRIP_CONTROL_FILE,
                        NTRIP_CONTROL_COMMAND_RECONNECT,
                        ntrip_init,
                        ntrip_reconnect,
-                       settings_loop_terminate) ? 0 : -1;
+                       settings_loop_terminate,
+                       settings_loop_sigchild) ? 0 : -1;
 }
 
 int main(int argc, char *argv[])
