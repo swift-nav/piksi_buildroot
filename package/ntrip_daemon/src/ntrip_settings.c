@@ -107,19 +107,24 @@ static const size_t ntrip_processes_count = COUNT_OF(ntrip_processes);
 static void ntrip_stop_process(size_t i)
 {
   ntrip_process_t *process = &ntrip_processes[i];
-
-  if (process->pid != 0) {
-    int ret = kill(process->pid, SIGTERM);
+  pid_t process_pid = process->pid;
+  if (process_pid != 0) {
+    piksi_log(LOG_DEBUG, "%s: senging SIGTERM to pid %d",
+              __FUNCTION__, process_pid);
+    int ret = kill(process_pid, SIGTERM);
     if (ret != 0) {
       piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
-                process->pid, errno, strerror(errno));
+                process_pid, errno, strerror(errno));
     }
     sleep(0.5);
-    if (process->pid != 0) {
-      ret = kill(process->pid, SIGKILL);
+    process_pid = process->pid;
+    if (process_pid != 0) {
+      piksi_log(LOG_WARNING, "%s: senging SIGKILL to pid %d",
+                __FUNCTION__, process_pid);
+      ret = kill(process_pid, SIGKILL);
       if (ret != 0 && errno != ESRCH) {
         piksi_log(LOG_ERR, "force kill pid %d error (%d) \"%s\"",
-                  process->pid, errno, strerror(errno));
+                  process_pid, errno, strerror(errno));
       }
     }
     process->pid = 0;
