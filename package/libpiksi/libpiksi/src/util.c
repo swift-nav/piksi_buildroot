@@ -10,10 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
@@ -94,3 +97,83 @@ bool device_is_duro(void)
                  strlen(DEVICE_DURO_ID_STRING)) == 0);
 }
 
+void reap_children(bool debug, child_exit_fn_t exit_handler)
+{
+  int errno_saved = errno;
+  int status;
+
+  pid_t child_pid;
+
+  while ((child_pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    if (WIFEXITED(status)) {
+      if (exit_handler != NULL) exit_handler(child_pid);
+      if (debug) {
+        piksi_log(LOG_DEBUG, "%s: child (pid: %d) exit status: %d",
+                  __FUNCTION__, child_pid, WEXITSTATUS(status));
+      }
+    } else if (WIFSIGNALED(status)) {
+      if (exit_handler != NULL) exit_handler(child_pid);
+      if (debug) {
+        piksi_log(LOG_DEBUG, "%s: child (pid: %d) term signal: %d",
+                  __FUNCTION__, child_pid, WTERMSIG(status));
+      }
+    } else if (WIFSTOPPED(status)) {
+      if (debug) {
+        piksi_log(LOG_DEBUG, "%s: child (pid: %d) stop signal: %d",
+                  __FUNCTION__, child_pid, WSTOPSIG(status));
+      }
+    } else {
+      if (debug) {
+        piksi_log(LOG_DEBUG, "%s: child (pid: %d) unknown status: %d",
+                  __FUNCTION__, child_pid, status);
+      }
+    }
+  }
+
+  errno = errno_saved;
+}
+
+void setup_sigchld_handler(void (*handler)(int))
+{
+  struct sigaction sigchild_sa;
+
+  sigchild_sa.sa_handler = handler;
+  sigemptyset(&sigchild_sa.sa_mask);
+  sigchild_sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+
+  if ((sigaction(SIGCHLD, &sigchild_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up SIGCHLD handler");
+    exit(-1);
+  }
+}
+
+void setup_sigint_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext))
+{
+  struct sigaction interrupt_sa;
+
+  interrupt_sa.sa_sigaction = handler;
+  sigemptyset(&interrupt_sa.sa_mask);
+  interrupt_sa.sa_flags = SA_SIGINFO;
+
+  if ((sigaction(SIGINT, &interrupt_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up SIGINT handler");
+    exit(-1);
+  }
+}
+
+void setup_sigterm_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext))
+{
+  struct sigaction terminate_sa;
+
+  terminate_sa.sa_sigaction = handler;
+  sigemptyset(&terminate_sa.sa_mask);
+  terminate_sa.sa_flags = SA_SIGINFO;
+
+  if ((sigaction(SIGTERM, &terminate_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up SIGTERM handler");
+    exit(-1);
+  }
+}

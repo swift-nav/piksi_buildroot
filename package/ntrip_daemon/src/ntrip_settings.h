@@ -17,5 +17,7 @@
 
 void ntrip_init(settings_ctx_t *settings_ctx);
 bool ntrip_reconnect(void);
+void ntrip_stop_processes(void);
+void ntrip_record_exit(pid_t pid);
 
 #endif

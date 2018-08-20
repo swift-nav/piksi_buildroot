@@ -10,10 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <unistd.h>
 #include <errno.h>
+#include <unistd.h>
+
 #include <sys/stat.h>
+
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include "ntrip_settings.h"
 
@@ -95,12 +98,57 @@ static int ntrip_adapter_execfn(void) {
 }
 
 static ntrip_process_t ntrip_processes[] = {
-  { .execfn = ntrip_adapter_execfn },
-  { .execfn = ntrip_daemon_execfn },
+  { .pid = 0, .execfn = ntrip_adapter_execfn },
+  { .pid = 0, .execfn = ntrip_daemon_execfn },
 };
 
-static const int ntrip_processes_count =
-  sizeof(ntrip_processes)/sizeof(ntrip_processes[0]);
+static const size_t ntrip_processes_count = COUNT_OF(ntrip_processes);
+
+static void ntrip_stop_process(size_t i)
+{
+  ntrip_process_t *process = &ntrip_processes[i];
+  pid_t process_pid = process->pid;
+  if (process_pid != 0) {
+    piksi_log(LOG_DEBUG, "%s: senging SIGTERM to pid %d",
+              __FUNCTION__, process_pid);
+    int ret = kill(process_pid, SIGTERM);
+    if (ret != 0) {
+      piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
+                process_pid, errno, strerror(errno));
+    }
+    sleep(0.5);
+    process_pid = process->pid;
+    if (process_pid != 0) {
+      piksi_log(LOG_WARNING, "%s: senging SIGKILL to pid %d",
+                __FUNCTION__, process_pid);
+      ret = kill(process_pid, SIGKILL);
+      if (ret != 0 && errno != ESRCH) {
+        piksi_log(LOG_ERR, "force kill pid %d error (%d) \"%s\"",
+                  process_pid, errno, strerror(errno));
+      }
+    }
+    process->pid = 0;
+  }
+}
+
+void ntrip_record_exit(pid_t pid)
+{
+  for (size_t i = 0; i < ntrip_processes_count; i++) {
+    ntrip_process_t *process = &ntrip_processes[i];
+    if (process->pid != 0 && process->pid == pid) {
+      piksi_log(LOG_DEBUG, "known child process pid %d exited", process->pid);
+      process->pid = 0;
+      return;
+    }
+  }
+}
+
+void ntrip_stop_processes()
+{
+  for (size_t i = 0; i < ntrip_processes_count; i++) {
+    ntrip_stop_process(i);
+  }
+}
 
 static int ntrip_notify(void *context)
 {
@@ -109,26 +157,11 @@ static int ntrip_notify(void *context)
   snprintf(ntrip_interval_s, sizeof(ntrip_interval_s), "%d", ntrip_interval);
   ntrip_rev1gga_s[0] = ntrip_rev1gga ? 'y' : 'n';
 
-  for (int i=0; i<ntrip_processes_count; i++) {
-    ntrip_process_t *process = &ntrip_processes[i];
+  for (size_t i = 0; i < ntrip_processes_count; i++) {
 
-    if (process->pid != 0) {
-      int ret = kill(process->pid, SIGTERM);
-      if (ret != 0) {
-        piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
-                  process->pid, errno, strerror(errno));
-      }
-      sleep(1.0);
-      ret = kill(process->pid, SIGKILL);
-      if (ret != 0 && errno != ESRCH) {
-        piksi_log(LOG_ERR, "force kill pid %d error (%d) \"%s\"",
-                  process->pid, errno, strerror(errno));
-      }
-      process->pid = 0;
-    }
+    ntrip_stop_process(i);
 
     // TODO: Remove the need for these by reading from control socket
-
     if (!ntrip_enabled || strcmp(ntrip_url, "") == 0) {
       system("echo 0 >/var/run/ntrip/enabled");
       continue;
@@ -141,6 +174,8 @@ static int ntrip_notify(void *context)
     } else {
       ntrip_argv = ntrip_debug ? ntrip_argv_debug : ntrip_argv_normal;
     }
+
+    ntrip_process_t *process = &ntrip_processes[i];
 
     process->pid = fork();
     if (process->pid == 0) {
@@ -155,6 +190,8 @@ static int ntrip_notify(void *context)
 
 void ntrip_init(settings_ctx_t *settings_ctx)
 {
+  piksi_log(LOG_DEBUG, "ntrip process count %zu", ntrip_processes_count);
+
   mkfifo(FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
   settings_register(settings_ctx, "ntrip", "enable",
@@ -195,7 +232,7 @@ void ntrip_init(settings_ctx_t *settings_ctx)
 
 bool ntrip_reconnect(void) {
 
-  for (int i=0; i<ntrip_processes_count; i++) {
+  for (size_t i = 0; i < ntrip_processes_count; i++) {
 
     ntrip_process_t *process = &ntrip_processes[i];
 

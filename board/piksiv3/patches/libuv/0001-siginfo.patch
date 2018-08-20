@@ -1,0 +1,61 @@
+diff -ru libuv-v1.19.1.orig/include/uv-unix.h libuv-v1.19.1/include/uv-unix.h
+--- libuv-v1.19.1.orig/include/uv-unix.h        2018-08-15 20:30:39.580770325 +0000
++++ libuv-v1.19.1/include/uv-unix.h     2018-08-15 20:32:57.527294369 +0000
+@@ -362,7 +362,8 @@
+   } tree_entry;                                                               \
+   /* Use two counters here so we don have to fiddle with atomics. */          \
+   unsigned int caught_signals;                                                \
+-  unsigned int dispatched_signals;
++  unsigned int dispatched_signals;                                            \
++  uv_pid_t sender;
+
+ #define UV_FS_EVENT_PRIVATE_FIELDS                                            \
+   uv_fs_event_cb cb;                                                          \
+diff -ru libuv-v1.19.1.orig/src/unix/signal.c libuv-v1.19.1/src/unix/signal.c
+--- libuv-v1.19.1.orig/src/unix/signal.c        2018-08-15 20:30:39.610770900 +0000
++++ libuv-v1.19.1/src/unix/signal.c     2018-08-15 20:40:14.614152724 +0000
+@@ -35,6 +35,7 @@
+ typedef struct {
+   uv_signal_t* handle;
+   int signum;
++  uv_pid_t sender;
+ } uv__signal_msg_t;
+
+ RB_HEAD(uv__signal_tree_s, uv_signal_s);
+@@ -169,7 +170,9 @@
+ }
+
+
+-static void uv__signal_handler(int signum) {
++static void uv__signal_handler(int signum, siginfo_t *info, void *ucontext) {
++  (void) ucontext;
++
+   uv__signal_msg_t msg;
+   uv_signal_t* handle;
+   int saved_errno;
+@@ -189,6 +192,7 @@
+
+     msg.signum = signum;
+     msg.handle = handle;
++    msg.sender = info->si_pid;
+
+     /* write() should be atomic for small data chunks, so the entire message
+      * should be written at once. In theory the pipe could become full, in
+@@ -218,8 +222,8 @@
+   memset(&sa, 0, sizeof(sa));
+   if (sigfillset(&sa.sa_mask))
+     abort();
+-  sa.sa_handler = uv__signal_handler;
+-  sa.sa_flags = SA_RESTART;
++  sa.sa_sigaction = uv__signal_handler;
++  sa.sa_flags = SA_RESTART|SA_SIGINFO;
+   if (oneshot)
+     sa.sa_flags |= SA_RESETHAND;
+
+@@ -456,6 +460,7 @@
+
+       if (msg->signum == handle->signum) {
+         assert(!(handle->flags & UV_CLOSING));
++        handle->sender = msg->sender;
+         handle->signal_cb(handle, handle->signum);
+       }
