@@ -133,7 +133,7 @@ void reap_children(bool debug, child_exit_fn_t exit_handler)
   errno = errno_saved;
 }
 
-void setup_sigchild_handler(void (*handler)(int))
+void setup_sigchld_handler(void (*handler)(int))
 {
   struct sigaction sigchild_sa;
 
@@ -143,7 +143,37 @@ void setup_sigchild_handler(void (*handler)(int))
 
   if ((sigaction(SIGCHLD, &sigchild_sa, NULL) != 0))
   {
-    piksi_log(LOG_ERR, "error setting up sigchild handler");
+    piksi_log(LOG_ERR, "error setting up SIGCHLD handler");
+    exit(-1);
+  }
+}
+
+void setup_sigint_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext))
+{
+  struct sigaction interrupt_sa;
+
+  interrupt_sa.sa_sigaction = handler;
+  sigemptyset(&interrupt_sa.sa_mask);
+  interrupt_sa.sa_flags = SA_SIGINFO;
+
+  if ((sigaction(SIGINT, &interrupt_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up SIGINT handler");
+    exit(-1);
+  }
+}
+
+void setup_sigterm_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext))
+{
+  struct sigaction terminate_sa;
+
+  terminate_sa.sa_sigaction = handler;
+  sigemptyset(&terminate_sa.sa_mask);
+  terminate_sa.sa_flags = SA_SIGINFO;
+
+  if ((sigaction(SIGTERM, &terminate_sa, NULL) != 0))
+  {
+    piksi_log(LOG_ERR, "error setting up SIGTERM handler");
     exit(-1);
   }
 }

@@ -36,8 +36,6 @@
 #define MSG_GET_HEALTH_ERROR "Error requesting skylark connection HTTP response code: %d"
 #define MSG_GET_HEALTH_ERROR_LF (MSG_GET_HEALTH_ERROR "\n")
 
-static void setup_terminate_handler();
-
 static bool debug = false;
 static const char *fifo_file_path = NULL;
 static const char *url = NULL;
@@ -171,11 +169,13 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static void terminate_handler(int signum, siginfo_t *info, void *ucontext)
+static void network_terminate_handler(int signum, siginfo_t *info, void *ucontext)
 {
-  (void)ucontext;
+  (void) ucontext;
 
-  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d, sender: %d", signum, info->si_pid);
+  piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d",
+            __FUNCTION__, signum, info->si_pid);
+
   libnetwork_shutdown();
 }
 
@@ -214,24 +214,6 @@ exit_error:
   return false;
 }
 
-static void setup_terminate_handler()
-{
-  /* Set up handler for signals which should terminate the program */
-
-  struct sigaction terminate_sa;
-  terminate_sa.sa_sigaction = terminate_handler;
-  sigemptyset(&terminate_sa.sa_mask);
-  terminate_sa.sa_flags = SA_SIGINFO;
-
-  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGQUIT, &terminate_sa, NULL) != 0))
-  {
-    piksi_log(LOG_ERR, "error setting up terminate handler: %s", strerror(errno));
-    exit(-1);
-  }
-}
-
 static void skylark_upload_mode()
 {
   int fd = open(fifo_file_path, O_RDONLY);
@@ -245,7 +227,9 @@ static void skylark_upload_mode()
     exit(EXIT_FAILURE);
   }
 
-  setup_terminate_handler();
+  setup_sigint_handler(network_terminate_handler);
+  setup_sigterm_handler(network_terminate_handler);
+
   skylark_upload(network_context);
 
   close(fd);
@@ -291,7 +275,9 @@ static void skylark_download_mode()
     exit(EXIT_FAILURE);
   }
 
-  setup_terminate_handler();
+  setup_sigint_handler(network_terminate_handler);
+  setup_sigterm_handler(network_terminate_handler);
+
   skylark_download(network_context);
 
   close(fd);

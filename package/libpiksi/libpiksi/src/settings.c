@@ -1397,44 +1397,34 @@ int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
   return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
-#include <uv.h>
+void signal_handler(int signum, siginfo_t *info, void *ucontext) {
 
-static void signal_handler(pk_loop_t *loop, void *handle, void *context)
-{
-  (void)context;
-  int signal_value = pk_loop_get_signal_from_handle(handle);
+  (void)ucontext;
 
-  uv_signal_t *uv_sig = (uv_signal_t *)handle;
+  if (signum == SIGINT || signum == SIGTERM) {
 
-  piksi_log(LOG_DEBUG, "%s: caught signal: %d (sender: %d)", __FUNCTION__, signal_value, uv_sig->sender);
+    piksi_log(LOG_DEBUG, "%s: caught signal: %d (sender: %d)",
+              __FUNCTION__, signum, info->si_pid);
 
-  if (signal_value == SIGINT || signal_value == SIGTERM) {
     if (settings_term_handler != NULL) {
       settings_term_handler();
     }
-    pk_loop_stop(loop);
-  }
 
-  if (signal_value == SIGCHLD) {
+    exit(EXIT_SUCCESS);
+
+  } else if (signum == SIGCHLD) {
+
     if (settings_child_handler != NULL) {
       settings_child_handler();
     }
   }
 }
 
-static void setup_signal_handlers(pk_loop_t *pk_loop)
+static void setup_signal_handlers()
 {
-  if (pk_loop_signal_handler_add(pk_loop, SIGINT, signal_handler, NULL) == NULL) {
-    piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
-  }
-
-  if (pk_loop_signal_handler_add(pk_loop, SIGTERM, signal_handler, NULL) == NULL) {
-    piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
-  }
-
-  if (pk_loop_signal_handler_add(pk_loop, SIGCHLD, signal_handler, NULL) == NULL) {
-    piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
-  }
+  setup_sigint_handler(signal_handler);
+  setup_sigterm_handler(signal_handler);
+  setup_sigchld_handler(signal_handler);
 }
 
 static int command_receive_callback(const u8 *data, const size_t length, void *context)
@@ -1546,7 +1536,7 @@ bool settings_loop(const char* control_socket,
     goto settings_loop_cleanup;
   }
   // Install our own signal handlers
-  setup_signal_handlers(loop);
+  setup_signal_handlers();
 
   pk_endpoint_t* rep_socket = NULL;
   control_command_t* cmd_info = NULL;

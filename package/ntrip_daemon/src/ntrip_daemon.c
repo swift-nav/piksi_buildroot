@@ -48,9 +48,6 @@ typedef enum {
 
 static operating_mode op_mode = OP_MODE_NTRIP_CLIENT;
 
-static void settings_loop_terminate(void);
-//static void settings_terminate_handler(int signum, siginfo_t *info, void *ucontext);
-
 static void usage(char *command)
 {
   printf("Usage: %s\n", command);
@@ -186,28 +183,18 @@ static int parse_options(int argc, char *argv[])
 
   return 0;
 }
-#if 0
-static void settings_terminate_handler(int signum, siginfo_t *info, void *ucontext)
-{
-  // TEMP/REMOVE-ME...
-  (void)ucontext;
-  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d, sender: %d", signum, info->si_pid);
-  system("ps aux | logger");
-  settings_loop_terminate();
-  exit(EXIT_SUCCESS);
-}
-#endif
-static void terminate_handler(int signum, siginfo_t *info, void *ucontext)
-{
-  (void)ucontext;
 
-  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d, sender: %d", signum, info->si_pid);
+static void network_terminate_handler(int signum, siginfo_t *info, void *ucontext)
+{
+  (void)ucontext;
+  piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d",
+            __FUNCTION__, signum, info->si_pid);
   libnetwork_shutdown();
 }
 
 static void cycle_connection(int signum)
 {
-  piksi_log(LOG_DEBUG, "cycle_connection: received signal: %d", signum);
+  piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
   libnetwork_cycle_connection();
 }
 
@@ -261,19 +248,8 @@ static int ntrip_client_loop(void)
     return -1;
   }
 
-  /* Set up handler for signals which should terminate the program */
-  struct sigaction terminate_sa;
-  terminate_sa.sa_sigaction = terminate_handler;
-  sigemptyset(&terminate_sa.sa_mask);
-  terminate_sa.sa_flags = SA_SIGINFO;
-
-  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGQUIT, &terminate_sa, NULL) != 0))
-  {
-    piksi_log(LOG_ERR, "error setting up terminate handler");
-    return -1;
-  }
+  setup_sigint_handler(network_terminate_handler);
+  setup_sigterm_handler(network_terminate_handler);
 
   struct sigaction cycle_conn_sa;
   cycle_conn_sa.sa_handler = cycle_connection;
