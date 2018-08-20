@@ -5,7 +5,7 @@
 #################################################################################
 
 NANOMSG_CUSTOM_VERSION = 1.1.4
-NANOMSG_CUSTOM_SITE = $(call github,nanomsg,nanomsg,$(NANOMSG_CUSTOM_VERSION))
+NANOMSG_CUSTOM_SITE = https://github.com/nanomsg/nanomsg/archive/1.1.4/nanomsg-1.1.4.tar.gz
 NANOMSG_CUSTOM_INSTALL_STAGING = YES
 NANOMSG_CUSTOM_LICENSE = MIT
 NANOMSG_CUSTOM_LICENSE_FILES = COPYING
