@@ -184,15 +184,17 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static void terminate_handler(int signum)
+static void network_terminate_handler(int signum, siginfo_t *info, void *ucontext)
 {
-  piksi_log(LOG_DEBUG, "terminate_handler: received signal: %d", signum);
+  (void)ucontext;
+  piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d",
+            __FUNCTION__, signum, info->si_pid);
   libnetwork_shutdown();
 }
 
 static void cycle_connection(int signum)
 {
-  piksi_log(LOG_DEBUG, "cycle_connection: received signal: %d", signum);
+  piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
   libnetwork_cycle_connection();
 }
 
@@ -246,19 +248,8 @@ static int ntrip_client_loop(void)
     return -1;
   }
 
-  /* Set up handler for signals which should terminate the program */
-  struct sigaction terminate_sa;
-  terminate_sa.sa_handler = terminate_handler;
-  sigemptyset(&terminate_sa.sa_mask);
-  terminate_sa.sa_flags = 0;
-
-  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGQUIT, &terminate_sa, NULL) != 0))
-  {
-    piksi_log(LOG_ERR, "error setting up terminate handler");
-    return -1;
-  }
+  setup_sigint_handler(network_terminate_handler);
+  setup_sigterm_handler(network_terminate_handler);
 
   struct sigaction cycle_conn_sa;
   cycle_conn_sa.sa_handler = cycle_connection;
@@ -281,28 +272,26 @@ static int ntrip_client_loop(void)
   return 0;
 }
 
-static void sigchild_handler(int signum)
+static void settings_loop_sigchild()
 {
-  piksi_log(LOG_DEBUG, "%s: received signal: %d", __FUNCTION__, signum);
-  reap_children(debug);
+  reap_children(debug, ntrip_record_exit);
 }
 
-static void settings_loop_terminate()
+static void settings_loop_terminate(void)
 {
   ntrip_stop_processes();
-  reap_children(debug);
+  reap_children(debug, NULL);
 }
 
 static int ntrip_settings_loop(void)
 {
-  setup_sigchild_handler(sigchild_handler);
-
   return settings_loop(NTRIP_CONTROL_SOCK,
                        NTRIP_CONTROL_FILE,
                        NTRIP_CONTROL_COMMAND_RECONNECT,
                        ntrip_init,
                        ntrip_reconnect,
-                       settings_loop_terminate) ? 0 : -1;
+                       settings_loop_terminate,
+                       settings_loop_sigchild) ? 0 : -1;
 }
 
 int main(int argc, char *argv[])

@@ -22,6 +22,8 @@
 #ifndef LIBPIKSI_UTIL_H
 #define LIBPIKSI_UTIL_H
 
+#include <signal.h> 
+
 #include <libpiksi/common.h>
 
 #ifdef __cplusplus
@@ -60,9 +62,13 @@ int device_uuid_get(char *str, size_t str_size);
  */
 bool device_is_duro(void);
 
-void reap_children(bool debug);
+typedef void (*child_exit_fn_t)(pid_t pid);
 
-void setup_sigchild_handler(void (*handler)(int));
+void reap_children(bool debug, child_exit_fn_t exit_handler);
+
+void setup_sigchld_handler(void (*handler)(int));
+void setup_sigint_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext));
+void setup_sigterm_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext));
 
 #define SWFT_MAX(a,b) \
   ({ typeof (a) _a = (a); \
