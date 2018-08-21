@@ -1397,7 +1397,7 @@ int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
   return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
-void signal_handler(int signum, siginfo_t *info, void *ucontext) {
+static void signal_handler(int signum, siginfo_t *info, void *ucontext) {
 
   (void)ucontext;
 
