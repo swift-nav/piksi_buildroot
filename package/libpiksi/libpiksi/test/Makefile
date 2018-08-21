@@ -7,7 +7,7 @@ SOURCES= \
 	test_reqrep_loop_integration.cc
 
 LIBS= \
-	-luv -lnanomsg -lpiksi -lsbp -ldl -lpthread -lgtest
+	-luv -lpiksi -lsbp -ldl -lpthread -lgtest
 
 CFLAGS=-ggdb3 -std=gnu++11 -z muldefs -I. -I../include -L../src
 

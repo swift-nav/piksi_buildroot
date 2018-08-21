@@ -8,7 +8,7 @@ ENDPOINT_ADAPTER_VERSION = 0.1
 ENDPOINT_ADAPTER_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/endpoint_adapter/src"
 ENDPOINT_ADAPTER_SITE_METHOD = local
-ENDPOINT_ADAPTER_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
+ENDPOINT_ADAPTER_DEPENDENCIES = libuv libsbp libpiksi
 
 ENDPOINT_ADAPTER_INSTALL_STAGING = YES
 

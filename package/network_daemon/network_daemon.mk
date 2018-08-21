@@ -8,7 +8,7 @@ NETWORK_DAEMON_VERSION = 0.1
 NETWORK_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/network_daemon"
 NETWORK_DAEMON_SITE_METHOD = local
-NETWORK_DAEMON_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
+NETWORK_DAEMON_DEPENDENCIES = libuv libsbp libpiksi
 
 define NETWORK_DAEMON_USERS
 	networkd -1 networkd -1 * - - -

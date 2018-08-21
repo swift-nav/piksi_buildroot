@@ -7,7 +7,7 @@
 ENDPOINT_ROUTER_VERSION = 0.1
 ENDPOINT_ROUTER_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/endpoint_router/endpoint_router"
 ENDPOINT_ROUTER_SITE_METHOD = local
-ENDPOINT_ROUTER_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi libyaml cmph
+ENDPOINT_ROUTER_DEPENDENCIES = libuv libsbp libpiksi libyaml cmph
 ENDPOINT_ROUTER_INSTALL_STAGING = YES
 
 ifeq    ($(BR2_BUILD_TESTS),y) ##
