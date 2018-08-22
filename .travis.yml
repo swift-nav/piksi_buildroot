@@ -12,8 +12,8 @@ branches:
     - /^v\d+\.\d+\.0-release$/
 
 before_install:
-  - ./scripts/travis.sh before_install
   - eval "$(ssh-agent -s)"
+  - ./scripts/travis.sh before_install
 after_script:
   - ./scripts/travis.sh after_script
   - ssh-agent -k
