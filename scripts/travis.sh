@@ -43,7 +43,7 @@ spawn_ticker()
 
 capture_build_log()
 {
-	tee -a  | grep --line-buffered '^>>>'
+	tee -a $BUILD_LOG | grep --line-buffered '^>>>'
 }
 
 ## Description: trigger other systems required while processing a PR build
