@@ -255,45 +255,45 @@ handle_sdk_after_failure_phase()
 handle_script_phase()
 {
   if [[ "${TRAVIS_TARGET}" == "release" ]]; then
-		handle_release_script_phase()
+		handle_release_script_phase
 	elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
-		handle_docker_script_phase()
+		handle_docker_script_phase
 	elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
-		handle_internal_script_phase()
+		handle_internal_script_phase
 	elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
-		handle_sdk_script_phase()
+		handle_sdk_script_phase
 	elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
-		handle_host_script_phase()
+		handle_host_script_phase
 	fi
 }
 
 handle_after_success_phase()
 {
   if [[ "${TRAVIS_TARGET}" == "release" ]]; then
-		handle_release_after_success_phase()
+		handle_release_after_success_phase
 	elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
-		handle_docker_after_success_phase()
+		handle_docker_after_success_phase
 	elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
-		handle_internal_after_success_phase()
+		handle_internal_after_success_phase
 	elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
-		handle_sdk_after_success_phase()
+		handle_sdk_after_success_phase
 	elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
-		handle_host_after_success_phase()
+		handle_host_after_success_phase
 	fi
 }
 
 handle_after_failure_phase()
 {
   if [[ "${TRAVIS_TARGET}" == "release" ]]; then
-		handle_release_after_failure_phase()
+		handle_release_after_failure_phase
 	elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
-		handle_docker_after_failure_phase()
+		handle_docker_after_failure_phase
 	elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
-		handle_internal_after_failure_phase()
+		handle_internal_after_failure_phase
 	elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
-		handle_sdk_after_failure_phase()
+		handle_sdk_after_failure_phase
 	elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
-		handle_host_after_failure_phase()
+		handle_host_after_failure_phase
 	fi
 }
 
