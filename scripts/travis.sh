@@ -33,7 +33,7 @@ validate_travis_target()
 }
 
 ticker_pid=
-trap '[[ -z "${ticker_pid}" ]] || kill "${ticker_pid}"' EXIT TERM INT
+trap '[[ -z "${ticker_pid}" ]] || kill "${ticker_pid}" || :' EXIT TERM INT
 
 spawn_ticker()
 {
