@@ -33,11 +33,13 @@ validate_travis_target()
 }
 
 ticker_pid=
-#trap '[[ -z "${ticker_pid}" ]] || kill "${ticker_pid}" || :' EXIT TERM INT
+trap '[[ -z "${ticker_pid}" ]] || kill "${ticker_pid}" || :' EXIT
+
+SLEEP_TIME=60
 
 spawn_ticker()
 {
-	( while true; do sleep 1m; echo ...; done ) &
+	( set +e; while true; do sleep $SLEEP_TIME; echo ...; done ) &
 	ticker_pid=$!
 }
 
