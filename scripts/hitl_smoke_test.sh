@@ -84,7 +84,7 @@ EOF
 done
 set -e
 
-$D/../publish.sh $PWD/metrics.yaml
+$D/publish.sh $PWD/metrics.yaml
 
 # Comment on the PR with links to the hitl-dashboard and gnss-analysis.
 hitl_links(){
