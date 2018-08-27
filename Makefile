@@ -264,28 +264,28 @@ pull-ccache:
 	$(call _pull_ccache,release,output)
 
 docker-pull-ccache:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make pull-ccache
 
 host-pull-ccache:
 	$(call _pull_ccache,host,host_output)
 
 docker-host-pull-ccache:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make host-pull-ccache
 
 ccache-archive:
 	$(call _archive_ccache,release,output)
 
 docker-ccache-archive:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make ccache-archive
 
 host-ccache-archive:
 	$(call _archive_ccache,host,host_output)
 
 docker-host-ccache-archive:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make host-ccache-archive
 
 .PHONY: help
