@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e -x -o pipefail
+set -e -o pipefail
 
 PHASE=$1; shift
 
