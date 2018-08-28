@@ -97,7 +97,7 @@ do_default_after_failure_actions()
   tail -n 500 $BUILD_LOG
 
   PRODUCT_VERSION=v3 PRODUCT_REV=prod \
-    ./publish.sh $BUILD_LOG
+    ./scripts/publish.sh $BUILD_LOG
 }
 
 #######################################################################
@@ -113,7 +113,7 @@ handle_docker_script_phase()
 handle_docker_after_success_phase()
 {
   PRODUCT_VERSION=v3 PRODUCT_REV=prod \
-    ./publish.sh $BUILD_LOG
+    ./scripts/publish.sh $BUILD_LOG
 }
 
 handle_docker_after_failure_phase()
@@ -141,7 +141,7 @@ handle_internal_script_phase()
 handle_internal_after_success_phase()
 {
   PRODUCT_VERSION=v3 PRODUCT_REV=prod \
-    ./publish.sh $(list_published_files)
+    ./scripts/publish.sh $(list_published_files)
 
   trigger_external_systems
 }
@@ -172,7 +172,7 @@ handle_release_script_phase()
 handle_release_after_success_phase()
 {
   PRODUCT_VERSION=v3 PRODUCT_REV=prod \
-    ./publish.sh $(list_published_files)
+    ./scripts/publish.sh $(list_published_files)
 }
 
 handle_release_after_failure_phase()
@@ -202,11 +202,11 @@ handle_host_after_success_phase()
   git fetch --tags --unshallow
 
   PRODUCT_VERSION=v3 PRODUCT_REV=prod \
-    ./publish.sh $(list_published_files)
+    ./scripts/publish.sh $(list_published_files)
 
   if ./scripts/should_build_sdk_and_ccache.sh; then
     make host-ccache-archive
-    ./publish.sh piksi_br_${TRAVIS_TARGET}_ccache.tgz
+    ./scripts/publish.sh piksi_br_${TRAVIS_TARGET}_ccache.tgz
   fi
 }
 
@@ -240,15 +240,15 @@ handle_sdk_script_phase()
 handle_sdk_after_success_phase()
 {
   PRODUCT_VERSION=v3 PRODUCT_REV=prod \
-    ./publish.sh $(list_published_files)
+    ./scripts/publish.sh $(list_published_files)
 
   if ./scripts/should_build_sdk_and_ccache.sh; then
 
     PRODUCT_VERSION=v3 PRODUCT_REV=prod \
-      ./publish.sh piksi_sdk.txz
+      ./scripts/publish.sh piksi_sdk.txz
 
     make docker-ccache-archive
-    ./publish.sh piksi_br_${TRAVIS_TARGET}_ccache.tgz
+    ./scripts/publish.sh piksi_br_${TRAVIS_TARGET}_ccache.tgz
   fi
 }
 
