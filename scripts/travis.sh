@@ -127,6 +127,8 @@ handle_docker_after_failure_phase()
 
 handle_internal_script_phase()
 {
+  export CCACHE_READONLY=1
+
   make docker-setup
   make docker-pull-ccache
   make docker-make-firmware
@@ -155,6 +157,8 @@ handle_internal_after_failure_phase()
 
 handle_release_script_phase()
 {
+  export CCACHE_READONLY=1
+
   make docker-setup
   make docker-make-firmware
   make docker-pull-ccache
@@ -186,6 +190,7 @@ handle_host_script_phase()
 
   if ! ./scripts/should_build_sdk_and_ccache.sh; then
     make docker-host-pull-ccache
+    export CCACHE_READONLY=1
   fi
 
   spawn_ticker
@@ -221,6 +226,7 @@ handle_sdk_script_phase()
 
   if ! ./scripts/should_build_sdk_and_ccache.sh; then
     make docker-pull-ccache
+    export CCACHE_READONLY=1
   fi
 
   spawn_ticker

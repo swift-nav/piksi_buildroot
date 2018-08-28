@@ -37,6 +37,7 @@ DOCKER_ENV_ARGS :=                                                            \
   -e BR2_CCACHE_DIR=$(CCACHE_DIR)                                             \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
   -e DISABLE_NIXOS_SUPPORT=$(DISABLE_NIXOS_SUPPORT)                           \
+  -e CCACHE_READONLY=$(CCACHE_READONLY)                                       \
   $(AWS_VARIABLES)                                                            \
   --user $(USER)                                                              \
 
