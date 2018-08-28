@@ -129,6 +129,7 @@ int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
+
 bool file_read_value(char *file_path)
 {
   /* Accommodate also the terminating null char fgets always adds */
@@ -138,6 +139,27 @@ bool file_read_value(char *file_path)
   }
 
   return ('1' == val_char[0]);
+}
+
+static int file_write_string(const char *filename, const char *str)
+{
+  FILE *fp = fopen(filename, "w");
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "error opening %s", filename);
+    return -1;
+  }
+
+  bool success = (fputs(str, fp) != NULL);
+
+  fclose(fp);
+
+  if (!success) {
+    piksi_log(LOG_ERR, "error reading %s", filename);
+    return -1;
+  }
+
+  return 0;
+
 }
 
 u16 sbp_sender_id_get(void)
