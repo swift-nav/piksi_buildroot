@@ -51,6 +51,26 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
+static int file_write_string(const char *filename, const char *str)
+{
+  FILE *fp = fopen(filename, "w");
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "error opening %s", filename);
+    return -1;
+  }
+
+  bool success = (fputs(str, fp) != NULL);
+
+  fclose(fp);
+
+  if (!success) {
+    piksi_log(LOG_ERR, "error reading %s", filename);
+    return -1;
+  }
+
+  return 0;
+}
+
 u16 sbp_sender_id_get(void)
 {
   u16 sbp_sender_id = SBP_SENDER_ID;
