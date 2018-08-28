@@ -5,7 +5,8 @@
 ################################################################################
 
 GRPC_VERSION = v1.12.0
-GRPC_SITE = $(call github,grpc,grpc,$(GRPC_VERSION))
+GRPC_SITE = https://github.com/grpc/grpc.git
+GRPC_SITE_METHOD = git
 GRPC_LICENSE = BSD-3-Clause
 GRPC_LICENSE_FILES = LICENSE
 
