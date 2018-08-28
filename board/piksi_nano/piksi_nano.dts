@@ -66,33 +66,12 @@
 	dc-supply = <&reg_gpio_dvfs>;
 };
 
-&clks {
-	/* ref_clk for micrel ethernet phy */
-	rmii_ref_clk: rmii_ref_clk_grp {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <25000000>;
-		clock-output-names = "rmii-ref";
-	};
-};
-
-&fec1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_enet1>;
-	phy-mode = "rmii";
-	phy-reset-gpios=<&gpio5 0 1>;
-	phy-reset-duration=<100>;
-	phy-reset-on-resume;
-	phy-handle = <&ethphy0>;
-	status = "okay";
-};
-
 &fec2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet2>;
 	phy-mode = "rmii";
 	phy-handle = <&ethphy1>;
-	phy-reset-gpios=<&gpio1 10 1>;
+	phy-reset-gpios=<&gpio3 3 1>;
 	phy-reset-duration=<100>;
 	phy-reset-on-resume;
 	status = "okay";
@@ -100,20 +79,9 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		ethphy0: ethernet-phy@1 {
+		ethphy1: ethernet-phy@0 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			micrel,rmii-reference-clock-select-25-mhz;
-			clocks = <&rmii_ref_clk>;
-			clock-names = "rmii-ref";
-			reg = <1>;
-		};
-
-		ethphy1: ethernet-phy@3 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			micrel,rmii-reference-clock-select-25-mhz;
-			clocks = <&rmii_ref_clk>;
-			clock-names = "rmii-ref";
-			reg = <3>;
+			reg = <0>;
 		};
 	};
 };
@@ -141,6 +109,7 @@
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1>;
+	fsl,uart-has-rtscts;
 	status = "okay";
 };
 
@@ -194,7 +163,7 @@
 	no-1-8-v;
 	keep-power-in-suspend;
 	enable-sdio-wakeup;
-	cd-gpios = <&gpio4 19 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&gpio5 3 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
 
@@ -258,7 +227,7 @@
 				MX6UL_PAD_ENET2_TX_DATA0__ENET2_TDATA00	0x1b0b0
 				MX6UL_PAD_ENET2_TX_DATA1__ENET2_TDATA01	0x1b0b0
 				MX6UL_PAD_ENET2_TX_CLK__ENET2_REF_CLK2	0x4001b031
-				MX6UL_PAD_JTAG_MOD__GPIO1_IO10		0x1b0b0
+				MX6UL_PAD_LCD_VSYNC__GPIO3_IO03		0x1b0b0
 			>;
 		};
 
@@ -273,7 +242,7 @@
 			fsl,pins = <
 				MX6UL_PAD_UART1_TX_DATA__UART1_DCE_TX	0x1b0b1
 				MX6UL_PAD_UART1_RX_DATA__UART1_DCE_RX	0x1b0b1
-        MX6UL_PAD_UART1_CTS_B__UART1_DCE_CTS	0x1b0b1
+				MX6UL_PAD_UART1_CTS_B__UART1_DCE_CTS	0x1b0b1
 				MX6UL_PAD_UART1_RTS_B__UART1_DCE_RTS	0x1b0b1
 			>;
 		};
@@ -299,7 +268,7 @@
     pinctrl_uart6: uart6grp {
 			fsl,pins = <
 				MX6UL_PAD_CSI_HSYNC__UART6_DTE_RTS 	0x1b0b1
-				MX6UL_PAD_CSI_MCLK__UART6_DTE_RX    0x1b0b1
+				MX6UL_PAD_CSI_MCLK__UART6_DTE_RX	0x1b0b1
 				MX6UL_PAD_CSI_PIXCLK__UART6_DTE_TX	0x1b0b1
 				MX6UL_PAD_CSI_VSYNC__UART6_DTE_CTS	0x1b0b1
 			>;
@@ -313,7 +282,7 @@
 				MX6UL_PAD_SD1_DATA1__USDHC1_DATA1	0x17059
 				MX6UL_PAD_SD1_DATA2__USDHC1_DATA2	0x17059
 				MX6UL_PAD_SD1_DATA3__USDHC1_DATA3	0x17059
-				MX6UL_PAD_CSI_VSYNC__GPIO4_IO19		0x1b0b1	/* SD card detect */
+				MX6UL_PAD_SNVS_TAMPER3__GPIO5_IO03	0x1b0b1	/* SD card detect */
 			>;
 		};
 
@@ -325,7 +294,7 @@
 				MX6UL_PAD_SD1_DATA1__USDHC1_DATA1	0x170b9
 				MX6UL_PAD_SD1_DATA2__USDHC1_DATA2	0x170b9
 				MX6UL_PAD_SD1_DATA3__USDHC1_DATA3	0x170b9
-				MX6UL_PAD_CSI_VSYNC__GPIO4_IO19		0x1b0b1	/* SD card detect */
+				MX6UL_PAD_SNVS_TAMPER3__GPIO5_IO03	0x1b0b1	/* SD card detect */
 			>;
 		};
 
@@ -337,7 +306,7 @@
 				MX6UL_PAD_SD1_DATA1__USDHC1_DATA1	0x170f9
 				MX6UL_PAD_SD1_DATA2__USDHC1_DATA2	0x170f9
 				MX6UL_PAD_SD1_DATA3__USDHC1_DATA3	0x170f9
-				MX6UL_PAD_CSI_VSYNC__GPIO4_IO19		0x1b0b1	/* SD card detect */
+				MX6UL_PAD_SNVS_TAMPER3__GPIO5_IO03	0x1b0b1	/* SD card detect */
 			>;
 		};
 
