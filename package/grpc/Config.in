@@ -7,7 +7,7 @@ config BR2_PACKAGE_GRPC
 	select BR2_PACKAGE_GTEST
 	select BR2_PACKAGE_GTEST_GMOCK
 	select BR2_PACKAGE_OPENSSL
-	select BR2_PACKAGE_PROTOBUF
+	select BR2_PACKAGE_PROTOBUF_CUSTOM
 	select BR2_PACKAGE_ZLIB
 	help
 	  gRPC is Google's protocol buffer based implementation of a

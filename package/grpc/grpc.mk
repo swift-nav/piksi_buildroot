@@ -10,9 +10,7 @@ GRPC_SITE_METHOD = git
 GRPC_LICENSE = BSD-3-Clause
 GRPC_LICENSE_FILES = LICENSE
 
-# Need a host protoc grpc plugin during the compilation
-GRPC_DEPENDENCIES = host-grpc gflags gtest c-ares openssl protobuf zlib
-HOST_GRPC_DEPENDENCIES = host-c-ares host-protobuf host-openssl
+GRPC_DEPENDENCIES = gflags gtest c-ares openssl protobuf_custom zlib
 
 GRPC_INSTALL_STAGING = YES
 
@@ -71,29 +69,6 @@ endef
 define GRPC_INSTALL_TARGET_CMDS
 	$(GRPC_MAKE_ENV) $(MAKE) $(GRPC_INSTALL_TARGET_OPTS) -C $(@D) \
 		$(GRPC_INSTALL_TARGETS)
-endef
-
-HOST_GRPC_MAKE_OPTS = \
-	CC="$(HOSTCC)" \
-	CXX="$(HOSTCXX)" \
-	LD="$(HOSTCC)" \
-	LDXX="$(HOSTCXX)" \
-	CPPLAGS="$(HOST_CPPFLAGS)" \
-	CFLAGS="$(HOST_CFLAGS)" \
-	CXXLAGS="$(HOST_CXXFLAGS)" \
-	LDFLAGS="$(HOST_LDFLAGS)" \
-	STRIP=/bin/true \
-	PROTOC="$(HOST_DIR)/usr/bin/protoc" \
-	prefix="$(HOST_DIR)"
-
-define HOST_GRPC_BUILD_CMDS
-	$(HOST_MAKE_ENV) $(MAKE) $(HOST_GRPC_MAKE_OPTS) -C $(@D) \
-		plugins
-endef
-
-define HOST_GRPC_INSTALL_CMDS
-	$(HOST_MAKE_ENV) $(MAKE) $(HOST_GRPC_MAKE_OPTS) -C $(@D) \
-		install-plugins
 endef
 
 $(eval $(generic-package))
