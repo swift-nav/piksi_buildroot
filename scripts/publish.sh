@@ -22,7 +22,7 @@ REPO="${PWD##*/}"
 BUCKET="${BUCKET:-swiftnav-artifacts}"
 PRS_BUCKET="${PRS_BUCKET:-swiftnav-artifacts-pull-requests}"
 
-BUILD_VERSION="$(git describe --tags --dirty --always)"
+BUILD_VERSION="${BUILD_VERSION:-$(git describe --tags --dirty --always)}"
 BUILD_PATH="$REPO/$BUILD_VERSION"
 if [[ ! -z "$PRODUCT_VERSION" ]]; then
     BUILD_PATH="$BUILD_PATH/$PRODUCT_VERSION"
@@ -44,10 +44,12 @@ for file in "$@"; do
     if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
         if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_TAG" == v* || "$TRAVIS_BRANCH" == v*-release ]]; then
             OBJECT="s3://$BUCKET/$KEY"
+            echo "Pushing to $OBJECT"
             aws s3 cp "$file" "$OBJECT"
         fi
     else
         OBJECT="s3://$PRS_BUCKET/$KEY"
+        echo "Pushing to $OBJECT"
         aws s3 cp "$file" "$OBJECT"
     fi
 done

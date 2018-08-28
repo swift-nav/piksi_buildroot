@@ -23,6 +23,8 @@ LOWER_USER = $(shell echo $(USER) | tr A-Z a-z)
 DOCKER_BUILD_VOLUME = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
 DOCKER_TAG = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
 
+CCACHE_DIR := /piksi_buildroot/buildroot/output/ccache
+
 DOCKER_ENV_ARGS :=                                                            \
   -e USER=$(USER)                                                             \
   -e GID=$(GID)                                                               \
@@ -32,8 +34,10 @@ DOCKER_ENV_ARGS :=                                                            \
   -e BR2_HAS_PIKSI_INS=$(BR2_HAS_PIKSI_INS)                                   \
   -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
   -e BR2_BUILD_RELEASE_PROTECTED=$(BR2_BUILD_RELEASE_PROTECTED)               \
+  -e BR2_CCACHE_DIR=$(CCACHE_DIR)                                             \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
   -e DISABLE_NIXOS_SUPPORT=$(DISABLE_NIXOS_SUPPORT)                           \
+  -e CCACHE_READONLY=$(CCACHE_READONLY)                                       \
   $(AWS_VARIABLES)                                                            \
   --user $(USER)                                                              \
 

@@ -54,4 +54,4 @@ target:
 test_result: $TRAVIS_TEST_RESULT
 tag: $TRAVIS_TAG
 " > $DESCRIPTION_FILE
-$D/../publish.sh $DESCRIPTION_FILE
+$D/publish.sh $DESCRIPTION_FILE

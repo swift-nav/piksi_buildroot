@@ -24,18 +24,23 @@ RUN \
       sudo \
       gdb-multiarch \
       awscli \
-      checkinstall \
       m4 \
       rsync \
       openssh-client \
+      ccache \
+      less \
+      procps \
+      python-setuptools \
+      python-pip \
+      file \
       && \
   pwd && mkdir -p cmake-build && cd cmake-build && \
   wget https://cmake.org/files/v3.10/cmake-3.10.1.tar.gz && \
   tar -xvzf cmake-3.10.1.tar.gz && \
   cd cmake-3.10.1 && ./configure && \
-  make -j4 && checkinstall -yD make install && \
-  apt-get -y --force-yes remove checkinstall && \
+  make -j4 install && \
   cd ../.. && rm -rf cmake-build && \
+  pip install --upgrade aws-google-auth && \ 
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
