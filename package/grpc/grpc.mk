@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-GRPC_VERSION = v1.11.1
+GRPC_VERSION = v1.12.0
 GRPC_SITE = $(call github,grpc,grpc,$(GRPC_VERSION))
 GRPC_LICENSE = BSD-3-Clause
 GRPC_LICENSE_FILES = LICENSE
