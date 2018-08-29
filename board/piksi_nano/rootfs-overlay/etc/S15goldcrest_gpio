@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# initialize factory data
+#
+
+export_gpio()
+{
+  echo $1 > /sys/class/gpio/export
+  echo out > /sys/class/gpio/gpio$1/direction
+  ln -s /sys/class/gpio/gpio$1/value $2
+}
+
+unexport_gpio()
+{
+  rm $2
+  echo $1 > /sys/class/gpio/unexport
+}
+
+case "$1" in
+  start)
+  export_gpio 85 /dev/gc_a_nstandby
+  export_gpio 75 /dev/gc_b_nstandby
+  ;;
+  stop)
+  unexport_gpio 85 /dev/gc_a_nstandby
+  unexport_gpio 75 /dev/gc_b_nstandby
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?
