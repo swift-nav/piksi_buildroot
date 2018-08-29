@@ -11,6 +11,7 @@
 /etc					d	755	0	0	-	-	-	-	-
 /persistent				d	755	0	0	-	-	-	-	-
 /data					d	755	0	0	-	-	-	-	-
+/update_data	d	755	0	0	-	-	-	-	-
 /root					d	700	0	0	-	-	-	-	-
 /var/www				d	755	33	33	-	-	-	-	-
 /etc/shadow				f	600	0	0	-	-	-	-	-
