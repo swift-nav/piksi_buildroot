@@ -92,7 +92,7 @@
 	pinctrl-0 = <&pinctrl_enet2>;
 	phy-mode = "rmii";
 	phy-handle = <&ethphy1>;
-	phy-reset-gpios=<&gpio1 10 1>;
+	phy-reset-gpios=<&gpio3 28 1>;
 	phy-reset-duration=<100>;
 	phy-reset-on-resume;
 	status = "okay";
@@ -108,12 +108,12 @@
 			reg = <1>;
 		};
 
-		ethphy1: ethernet-phy@3 {
+		ethphy1: ethernet-phy@0 {
 			compatible = "ethernet-phy-ieee802.3-c22";
 			micrel,rmii-reference-clock-select-25-mhz;
 			clocks = <&rmii_ref_clk>;
 			clock-names = "rmii-ref";
-			reg = <3>;
+			reg = <0>;
 		};
 	};
 };
@@ -259,7 +259,7 @@
 				MX6UL_PAD_ENET2_TX_DATA0__ENET2_TDATA00	0x1b0b0
 				MX6UL_PAD_ENET2_TX_DATA1__ENET2_TDATA01	0x1b0b0
 				MX6UL_PAD_ENET2_TX_CLK__ENET2_REF_CLK2	0x4001b031
-				MX6UL_PAD_JTAG_MOD__GPIO1_IO10		0x1b0b0
+				MX6UL_PAD_LCD_DATA23__GPIO3_IO28		0x1b0b0
 			>;
 		};
 
