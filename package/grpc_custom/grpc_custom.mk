@@ -18,12 +18,17 @@ GRPC_CUSTOM_MAKE_ENV = \
 	$(TARGET_MAKE_ENV) \
 	GRPC_CROSS_COMPILE="true" \
 	LDCONFIG=/bin/true \
+	HOST_CC="$(HOSTCC)" \
+	HOST_CXX="$(HOSTCXX)" \
+	HOST_LD="$(HOSTCC)" \
+	HOST_LDXX="$(HOSTCXX)" \
 	CC="$(TARGET_CC)" \
 	CXX="$(TARGET_CXX)" \
 	LD="$(TARGET_CC)" \
 	CFLAGS="$(TARGET_CFLAGS)" \
 	LDFLAGS="$(TARGET_LDFLAGS)" \
-	STRIP=/bin/true
+	STRIP=/bin/true \
+  V=1
 
 GRPC_CUSTOM_MAKE_OPTS = \
 	PROTOC="$(HOST_DIR)/usr/bin/protoc"
