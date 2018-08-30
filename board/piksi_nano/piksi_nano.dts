@@ -92,7 +92,7 @@
 	pinctrl-0 = <&pinctrl_enet2>;
 	phy-mode = "rmii";
 	phy-handle = <&ethphy1>;
-	phy-reset-gpios=<&gpio3 28 1>;
+	phy-reset-gpios=<&gpio3 3 1>;
 	phy-reset-duration=<100>;
 	phy-reset-on-resume;
 	status = "okay";
@@ -259,7 +259,7 @@
 				MX6UL_PAD_ENET2_TX_DATA0__ENET2_TDATA00	0x1b0b0
 				MX6UL_PAD_ENET2_TX_DATA1__ENET2_TDATA01	0x1b0b0
 				MX6UL_PAD_ENET2_TX_CLK__ENET2_REF_CLK2	0x4001b031
-				MX6UL_PAD_LCD_DATA23__GPIO3_IO28		0x1b0b0
+				MX6UL_PAD_LCD_VSYNC__GPIO3_IO03		0x1b0b0
 			>;
 		};
 
