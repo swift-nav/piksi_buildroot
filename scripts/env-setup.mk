@@ -1,3 +1,7 @@
+# File: env-setup.mk
+
+CCACHE_DIR := $(CURDIR)/buildroot/output/ccache
+
 BUILD_ENV_ARGS = \
   BR2_EXTERNAL=$(BR2_EXTERNAL) \
   BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF) \
@@ -7,7 +11,9 @@ BUILD_ENV_ARGS = \
   BR2_BUILD_PIKSI_INS_REF=$(BR2_BUILD_PIKSI_INS_REF) \
   BR2_BUILD_PIKSI_INS=$(BR2_BUILD_PIKSI_INS) \
   BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON) \
+  BR2_CCACHE_DIR=$(CCACHE_DIR) \
   HW_CONFIG=$(HW_CONFIG) \
+  CCACHE_READONLY=$(CCACHE_READONLY) \
 
 ifeq ("$(OS)","Windows_NT")
 USER := $(USERNAME)
@@ -33,3 +39,5 @@ BR2_HAS_PIKSI_INS := $(shell git ls-remote $(PIKSI_INS_REPO) &>/dev/null && echo
 endif
 
 export BR2_HAS_PIKSI_INS
+
+LAST_GIT_TAG := $(shell git describe --abbrev=0 --tags)

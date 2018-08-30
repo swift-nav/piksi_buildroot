@@ -15,5 +15,6 @@
 set -e
 
 D=$( (cd "$(dirname "$0")" || exit 1 >/dev/null; pwd -P) )
+
 GENERATE_REQUIREMENTS=y $D/../fetch_firmware.sh
-$D/../publish.sh $D/../requirements.yaml
+$D/publish.sh $D/../requirements.yaml
