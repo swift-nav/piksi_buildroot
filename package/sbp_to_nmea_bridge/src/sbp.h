@@ -21,14 +21,13 @@
 #define NO_TIME          0
 
 int sbp_init(void);
-void sbp_deinit_rover(void);
-void sbp_deinit_reference(void);
+void sbp_deinit(void);
 settings_ctx_t * sbp_get_settings_ctx(void);
-pk_loop_t * sbp_get_loop_rover(void);
-pk_loop_t * sbp_get_loop_reference(void);
-int sbp_callback_register_rover(u16 msg_type, sbp_msg_callback_t cb, void *context);
-int sbp_callback_register_reference(u16 msg_type, sbp_msg_callback_t cb, void *context);
-int sbp_run_rover(void);
-int sbp_run_reference(void);
+pk_loop_t * sbp_get_loop(void);
+void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id, void *context);
+int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);
+void sbp_simulator_enabled_set(bool enabled);
+void sbp_base_obs_invalid(double timediff, void *context);
+int sbp_run(void);
 
 #endif /* SWIFTNAV_SBP_H */

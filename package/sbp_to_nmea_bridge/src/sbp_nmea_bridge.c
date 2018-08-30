@@ -186,38 +186,33 @@ int main(int argc, char *argv[])
     exit(cleanup(&nmea_sub, EXIT_FAILURE));
   }
 
-  if (sbp_callback_register_rover(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
     exit(cleanup(&nmea_sub, EXIT_FAILURE));
   }
 
-  if (sbp_callback_register_rover(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting UTC TIME callback");
     return cleanup(&nmea_sub, EXIT_FAILURE);
   }
 
-  if (sbp_callback_register_rover(SBP_MSG_DOPS, dops_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_DOPS, dops_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting dops callback");
     return cleanup(&nmea_sub, EXIT_FAILURE);
   }
 
-  if (sbp_callback_register_rover(SBP_MSG_AGE_CORRECTIONS, age_corrections_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_AGE_CORRECTIONS, age_corrections_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting Age of Corrections callback");
     return cleanup(&nmea_sub, EXIT_FAILURE);
   }
 
-  if (sbp_callback_register_rover(SBP_MSG_POS_LLH, pos_llh_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_POS_LLH, pos_llh_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting pos llh callback");
     return cleanup(&nmea_sub, EXIT_FAILURE);
   }
 
-  if (sbp_callback_register_rover(SBP_MSG_VEL_NED, vel_ned_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_VEL_NED, vel_ned_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting vel NED callback");
-    return cleanup(&nmea_sub, EXIT_FAILURE);
-  }
-
-  if (sbp_callback_register_reference(SBP_MSG_GPS_TIME, gps_time_reference_callback, NULL) != 0) {
-    piksi_log(LOG_ERR, "error setting ref GPS TIME callback");
     return cleanup(&nmea_sub, EXIT_FAILURE);
   }
 
@@ -234,8 +229,7 @@ int main(int argc, char *argv[])
                                         notify_gga_rate_changed, NULL);
 
 
-  sbp_run_rover();
-  sbp_run_reference();
+  sbp_run();
 
   exit(cleanup(&nmea_sub, EXIT_SUCCESS));
 }
