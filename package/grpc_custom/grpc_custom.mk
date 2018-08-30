@@ -10,23 +10,22 @@ GRPC_CUSTOM_SITE_METHOD = git
 GRPC_CUSTOM_LICENSE = BSD-3-Clause
 GRPC_CUSTOM_LICENSE_FILES = LICENSE
 
-GRPC_CUSTOM_DEPENDENCIES = gflags gtest cares_custom openssl protobuf_custom zlib
+GRPC_CUSTOM_DEPENDENCIES = host-grpc gflags gtest cares_custom openssl protobuf_custom zlib
 HOST_GRPC_DEPENDENCIES = host-cares_custom host-protobuf_custom host-openssl
 
 GRPC_CUSTOM_INSTALL_STAGING = YES
 
 GRPC_CUSTOM_MAKE_ENV = \
-	$(TARGET_MAKE_ENV) \
-	LDCONFIG=/bin/true \
 	CC="$(TARGET_CC)" \
 	CXX="$(TARGET_CXX)" \
 	LD="$(TARGET_CC)" \
+	LDXX="$(TARGET_CXX)" \
 	CFLAGS="$(TARGET_CFLAGS)" \
 	LDFLAGS="$(TARGET_LDFLAGS)" \
-	STRIP=/bin/true \
-  V=1
+	STRIP="$(TARGET_STRIP)"
 
 GRPC_CUSTOM_MAKE_OPTS = \
+	LD_LIBRARY_PATH="$(STAGING_DIR)/usr/lib" \
 	PROTOC="$(HOST_DIR)/usr/bin/protoc"
 
 GRPC_CUSTOM_INSTALL_TARGET_OPTS = \
@@ -54,27 +53,22 @@ define GRPC_CUSTOM_INSTALL_TARGET_CMDS
 		$(GRPC_CUSTOM_INSTALL_TARGETS)
 endef
 
-HOST_GRPC_CUSTOM_MAKE_OPTS = \
+HOST_GRPC_CUSTOM_MAKE_ENV = \
 	$(HOST_MAKE_ENV) \
-	CC="$(HOSTCC)" \
-	CXX="$(HOSTCXX)" \
-	LD="$(HOSTCC)" \
-	LDXX="$(HOSTCXX)" \
-	CPPFLAGS="$(HOST_CPPFLAGS)" \
 	CFLAGS="$(HOST_CFLAGS)" \
-	CXXFLAGS="$(HOST_CXXFLAGS)" \
-	LDFLAGS="$(HOST_LDFLAGS)" \
-	STRIP=/bin/true \
-	PROTOC="$(HOST_DIR)/usr/bin/protoc" \
-	prefix="$(HOST_DIR)"
+	LDFLAGS="$(HOST_LDFLAGS)"
+
+HOST_GRPC_CUSTOM_MAKE_OPTS = \
+	LD_LIBRARY_PATH="$(HOST_DIR)/usr/lib" \
+	prefix="$(HOST_DIR)/usr"
 
 define HOST_GRPC_CUSTOM_BUILD_CMDS
-	$(HOST_MAKE_ENV) $(MAKE) $(HOST_GRPC_CUSTOM_MAKE_OPTS) -C $(@D) \
+	$(HOST_GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(HOST_GRPC_CUSTOM_MAKE_OPTS) -C $(@D) \
 		plugins
 endef
 
 define HOST_GRPC_CUSTOM_INSTALL_CMDS
-	$(HOST_MAKE_ENV) $(MAKE) $(HOST_GRPC_CUSTOM_MAKE_OPTS) -C $(@D) \
+	$(HOST_GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(HOST_GRPC_CUSTOM_MAKE_OPTS) -C $(@D) \
 		install-plugins
 endef
 
