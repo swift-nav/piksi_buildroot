@@ -30,8 +30,7 @@ bool nmea_debug = false;
 
 struct sbp_nmea_state state;
 
-static bool gga_enabled = false;
-static int gga_rate = 0;
+static int gpgga_rate;
 
 static void usage(char *command)
 {
@@ -39,6 +38,10 @@ static void usage(char *command)
 
   puts("\nMisc options");
   puts("\t--debug");
+}
+
+static void nmea_callback(uint8_t nmea_str[]){
+  /* Need to output nmea string here somehow */
 }
 
 static int parse_options(int argc, char *argv[])
@@ -70,17 +73,10 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static int notify_gga_enable_changed(void *context)
-{
-  (void)context;
-  set_gga_enabled(gga_enabled,state);
-  return 0;
-}
-
 static int notify_gga_rate_changed(void *context)
 {
   (void)context;
-  set_gga_rate(gga_rate,state);
+  sbp2nmea_gpgga_rate(gpgga_rate,state);
   return 0;
 }
 
@@ -162,7 +158,7 @@ int main(int argc, char *argv[])
   }
 
   /* Need to init state variable before we get SBP in */
-  sbp2nmea_init(&state);
+  sbp2nmea_init(&state,nmea_callback);
 
   if (sbp_init() != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
@@ -218,15 +214,10 @@ int main(int argc, char *argv[])
 
   settings_ctx = sbp_get_settings_ctx();
 
-  settings_add_watch(settings_ctx, "nmea", "gga_enabled",
-                     &gga_enabled , sizeof(gga_enabled),
-                     SETTINGS_TYPE_BOOL,
-                     notify_gga_enable_changed, NULL);
-
-  settings_add_watch(settings_ctx, "nmea", "gga_rate",
-                                        &gga_rate , sizeof(gga_rate),
+  settings_add_watch(settings_ctx, "nmea", "gpgga_rate",
+                                        &gpgga_rate , sizeof(gpgga_rate),
                                         SETTINGS_TYPE_INT,
-                                        notify_gga_rate_changed, NULL);
+                                        notify_gpgga_rate_changed, NULL);
 
 
   sbp_run();
