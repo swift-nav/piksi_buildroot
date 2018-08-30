@@ -15,5 +15,4 @@ CARES_CUSTOM_LICENSE = MIT
 # No standalone, use some source file
 CARES_CUSTOM_LICENSE_FILES = ares_mkquery.c
 
-$(eval $(autotools-package))
 $(eval $(host-autotools-package))
