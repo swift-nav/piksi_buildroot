@@ -17,8 +17,8 @@
 
 #include "sbp.h"
 
-#define SBP_SUB_ENDPOINT    "ipc:///var/run/sockets/external.pub"  /* SBP External Out */
-#define SBP_PUB_ENDPOINT    "ipc:///var/run/sockets/external.sub"  /* SBP External In */
+#define SBP_SUB_ENDPOINT    "ipc:///var/run/sockets/nmea_bridge.pub"  /* SBP External Out */
+#define SBP_PUB_ENDPOINT    "ipc:///var/run/sockets/nmea_bridge.sub"  /* SBP External In */
 
 static struct {
   pk_loop_t *loop;
