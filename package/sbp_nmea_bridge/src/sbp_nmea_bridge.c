@@ -24,11 +24,13 @@
 
 #define PROGRAM_NAME "sbp_nmea_bridge"
 
-#define NMEA_SUB_ENDPOINT  "ipc:///var/run/sockets/nmea_internal.pub"  /* NMEA Internal Out */
+#define NMEA_PUB_ENDPOINT  "ipc:///var/run/sockets/nmea_internal.sub"  /* NMEA Internal In */
 
 bool nmea_debug = false;
 
 struct sbp_nmea_state state;
+
+pk_endpoint_t *nmea_pub = NULL;
 
 static int gpgga_rate;
 
@@ -41,7 +43,10 @@ static void usage(char *command)
 }
 
 static void nmea_callback(uint8_t nmea_str[]){
-  /* Need to output nmea string here somehow */
+  size_t nmea_str_len = strlen((const char *)nmea_str);
+  if (pk_endpoint_send(nmea_pub, nmea_str, nmea_str_len) != 0) {
+    piksi_log(LOG_ERR, "Error sending nmea string to nmea_internal");
+  }
 }
 
 static int parse_options(int argc, char *argv[])
@@ -143,7 +148,7 @@ static void vel_ned_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   sbp2nmea_vel_ned(vel_ned, &state);
 }
 
-static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
+static int cleanup(int status);
 
 int main(int argc, char *argv[])
 {
@@ -162,6 +167,12 @@ int main(int argc, char *argv[])
 
   if (sbp_init() != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
+    exit(cleanup(EXIT_FAILURE));
+  }
+
+  nmea_pub = pk_endpoint_create(NMEA_PUB_ENDPOINT, PK_ENDPOINT_PUB);
+  if (nmea_pub == NULL) {
+    piksi_log(LOG_ERR, "error creating PUB socket");
     exit(cleanup(EXIT_FAILURE));
   }
 
@@ -208,9 +219,9 @@ int main(int argc, char *argv[])
   exit(cleanup(EXIT_SUCCESS));
 }
 
-static int cleanup(pk_endpoint_t **nmea_ept_loc, int status)
+static int cleanup(int status)
 {
-  pk_endpoint_destroy(nmea_ept_loc);
+  pk_endpoint_destroy(&nmea_pub);
   sbp_deinit();
   logging_deinit();
   return status;
