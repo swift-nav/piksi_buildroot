@@ -66,6 +66,7 @@ ports:
           - { action: REJECT }
       - dst_port: SBP_PORT_NMEA_BRIDGE
         filters:
+          - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # SBP_MSG_OBS
           - { action: ACCEPT, prefix: [0x55, 0x01, 0x02] } # MSG_GPS_TIME
           - { action: ACCEPT, prefix: [0x55, 0x01, 0x03] } # MSG_UTC_TIME
           - { action: ACCEPT, prefix: [0x55, 0x02, 0x08] } # MSG_DOPS
@@ -225,4 +226,3 @@ ports:
   - name: SBP_PORT_NMEA_BRIDGE
     pub_addr: "ipc:///var/run/sockets/nmea_bridge.pub"
     sub_addr: "ipc:///var/run/sockets/nmea_bridge.sub"
-

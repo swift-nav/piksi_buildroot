@@ -11,7 +11,7 @@ SBP_NMEA_BRIDGE_SITE_METHOD = local
 SBP_NMEA_BRIDGE_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi gnss_convertors
 
 define SBP_NMEA_BRIDGE_USERS
-	br_rtcm3 -1 br_rtcm3 -1 * - - -
+	br_nmea -1 br_nmea -1 * - - -
 endef
 
 define SBP_NMEA_BRIDGE_BUILD_CMDS_DEFAULT
