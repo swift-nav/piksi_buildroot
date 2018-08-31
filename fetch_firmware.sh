@@ -13,8 +13,6 @@
 # Script for downloading firmware and NAP binaries from S3 to be incorporated
 # into the Linux image.
 
-set -x
-
 ###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
 ###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
 ###### WARNING: FILE AUTOMATICALLY GENERATED, UPDATE M4 FILE TOO #######
@@ -30,9 +28,8 @@ if [[ $(uname -a) == *NixOS* ]]; then
 fi
 
 BR_VERSION=$(git describe --abbrev=0 --tags)
-
-FW_VERSION=${1:-v1.5.0-develop-2018082500}
-NAP_VERSION=${2:-v1.5.0-develop-2018082500}
+FW_VERSION=${1:-v1.5.0-develop-2018083120}
+NAP_VERSION=${2:-v1.5.0-develop-2018083120}
 
 CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
 FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
