@@ -200,9 +200,9 @@ static int logging_filesystem_notify(void* context)
 static int copy_system_logs_notify(void* context)
 {
   if (copy_system_logs_enable) {
-    system("COPY_SYS_LOGS=y /etc/init.d/S98copy_sys_logs start");
+    system("COPY_SYS_LOGS=y sudo /etc/init.d/S98copy_sys_logs start");
   } else {
-    system("COPY_SYS_LOGS= /etc/init.d/S98copy_sys_logs stop");
+    system("COPY_SYS_LOGS= sudo /etc/init.d/S98copy_sys_logs stop");
   }
 
   return 0;
