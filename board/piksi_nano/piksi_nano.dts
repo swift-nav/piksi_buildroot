@@ -66,27 +66,6 @@
 	dc-supply = <&reg_gpio_dvfs>;
 };
 
-&clks {
-	/* ref_clk for micrel ethernet phy */
-	rmii_ref_clk: rmii_ref_clk_grp {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <25000000>;
-		clock-output-names = "rmii-ref";
-	};
-};
-
-&fec1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_enet1>;
-	phy-mode = "rmii";
-	phy-reset-gpios=<&gpio5 0 1>;
-	phy-reset-duration=<100>;
-	phy-reset-on-resume;
-	phy-handle = <&ethphy0>;
-	status = "okay";
-};
-
 &fec2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet2>;
@@ -100,19 +79,8 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		ethphy0: ethernet-phy@1 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			micrel,rmii-reference-clock-select-25-mhz;
-			clocks = <&rmii_ref_clk>;
-			clock-names = "rmii-ref";
-			reg = <1>;
-		};
-
 		ethphy1: ethernet-phy@0 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			micrel,rmii-reference-clock-select-25-mhz;
-			clocks = <&rmii_ref_clk>;
-			clock-names = "rmii-ref";
 			reg = <0>;
 		};
 	};
