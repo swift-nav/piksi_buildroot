@@ -23,7 +23,7 @@ LOWER_USER = $(shell echo $(USER) | tr A-Z a-z)
 DOCKER_BUILD_VOLUME = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
 DOCKER_TAG = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
 
-CCACHE_DIR := piksi_buildroot/buildroot/output/ccache
+CCACHE_DIR := ($CURDIR)/buildroot/output/ccache
 
 DOCKER_ENV_ARGS :=                                                            \
   -e USER=$(USER)                                                             \
