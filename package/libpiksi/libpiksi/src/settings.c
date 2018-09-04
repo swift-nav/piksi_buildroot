@@ -1397,14 +1397,14 @@ int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
   return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
-static void signal_handler(int signum, siginfo_t *info, void *ucontext) {
+static void signal_handler_extended(int signum, siginfo_t *info, void *ucontext) {
 
   (void)ucontext;
 
   if (signum == SIGINT || signum == SIGTERM) {
 
     piksi_log(LOG_DEBUG, "%s: caught signal: %d (sender: %d)",
-              __FUNCTION__, signum, info->si_pid);
+              __FUNCTION__, signum, info == NULL ? "" : info->si_pid);
 
     if (settings_term_handler != NULL) {
       settings_term_handler();
@@ -1420,10 +1420,14 @@ static void signal_handler(int signum, siginfo_t *info, void *ucontext) {
   }
 }
 
+static void signal_handler(int signum) {
+  signal_handler_extended(signum, (siginfo_t *)NULL, NULL) {
+}
+
 static void setup_signal_handlers()
 {
-  setup_sigint_handler(signal_handler);
-  setup_sigterm_handler(signal_handler);
+  setup_sigint_handler(signal_handler_extended);
+  setup_sigterm_handler(signal_handler_extended);
   setup_sigchld_handler(signal_handler);
 }
 
