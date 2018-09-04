@@ -5,4 +5,10 @@ cmd="health_daemon"
 dir="/"
 user="healthd"
 
+setup_permissions() {
+  mkdir -p /var/run/health
+  echo '0' >> /var/run/health/gps_time_available
+  chown $user:$user /var/run/health/gps_time_available
+}
+
 source /etc/init.d/template_runsv.inc.sh

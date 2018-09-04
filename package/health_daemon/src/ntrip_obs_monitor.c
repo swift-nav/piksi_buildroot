@@ -23,12 +23,16 @@
  * \date 2018-06-13
  */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include <libsbp/sbp.h>
+#include <libsbp/navigation.h>
 #include <libsbp/observation.h>
 
 #include "health_monitor.h"
@@ -38,7 +42,12 @@
 #define SETTING_SECTION_NTRIP "ntrip"
 #define SETTING_NTRIP_ENABLE "enable"
 
-/* these are from fw private, consider moving to libpiski */
+#define GPS_TIME_FILE_NAME "/var/run/health/gps_time_available"
+
+#define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
+#define NO_TIME          0
+
+/* these are from fw private, consider moving to libpiksi */
 #define MSG_FORWARD_SENDER_ID (0u)
 
 #define NTRIP_OBS_ALERT_RATE_LIMIT (10000u)   /* ms */
@@ -95,12 +104,33 @@ static int sbp_msg_ntrip_obs_callback(health_monitor_t *monitor,
   (void)msg_;
   (void)ctx;
 
-  // reset timer on base obs received from firmware
+  /* reset timer on base obs received from firmware */
   if (sender_id == MSG_FORWARD_SENDER_ID) {
     ntrip_obs_ctx.timeout_counter = 0;
     return 0;
   }
-  return 1; // only reset if base obs found
+  return 1; /* only reset if base obs found */
+}
+
+/* This callback can be moved to other daemon if necessary */
+static void sbp_gps_time_cb(u16 sender_id, u8 len, u8 msg[], void *context) {
+  (void)sender_id;
+  (void)context;
+  (void)len;
+  static u16 sbp_sender_id = 0;
+
+  /* Read ID once */
+  if (sbp_sender_id == 0) {
+    sbp_sender_id = sbp_sender_id_get();
+  }
+
+  if (sbp_sender_id != sender_id) {
+    return;
+  }
+
+  const msg_gps_time_t *time = (msg_gps_time_t*)msg;
+  const bool has_time = (time->flags & TIME_SOURCE_MASK) != NO_TIME;
+  set_device_has_gps_time(has_time);
 }
 
 /**
@@ -113,14 +143,24 @@ static int ntrip_obs_timer_callback(health_monitor_t *monitor, void *context)
 {
   (void)monitor;
   (void)context;
-  if (ntrip_obs_ctx.ntrip_enabled) {
-      if (ntrip_obs_ctx.timeout_counter > max_timeout_count_before_warn) {
-        piksi_log(LOG_WARNING|LOG_SBP,
-                  "Reference NTRIP Observations Timeout - no observations received from base station within %d sec window. Check URL and mountpoint settings, or disable NTRIP to suppress this message.",
-                  NTRIP_OBS_ALERT_RATE_LIMIT / 1000);
-      } else {
-        ntrip_obs_ctx.timeout_counter++;
-      }
+
+  if (!ntrip_obs_ctx.ntrip_enabled) {
+    return 0;
+  }
+
+  if (!device_has_gps_time()) {
+    return 0;
+  }
+
+  if (ntrip_obs_ctx.timeout_counter > max_timeout_count_before_warn) {
+    piksi_log(LOG_WARNING|LOG_SBP,
+              "Reference NTRIP Observations Timeout - no observations "
+              "received from base station within %d sec window. Check URL "
+              "and mountpoint settings, or disable NTRIP to suppress this "
+              "message.",
+              NTRIP_OBS_ALERT_RATE_LIMIT / 1000);
+  } else {
+    ntrip_obs_ctx.timeout_counter++;
   }
 
   return 0;
@@ -152,6 +192,13 @@ int ntrip_obs_timeout_health_monitor_init(health_ctx_t *health_ctx)
                                        SETTINGS_TYPE_BOOL,
                                        notify_ntrip_enabled,
                                        NULL)
+      != 0) {
+    return -1;
+  }
+
+  if (health_monitor_register_message_handler(ntrip_obs_monitor,
+                                              SBP_MSG_GPS_TIME,
+                                              sbp_gps_time_cb)
       != 0) {
     return -1;
   }
