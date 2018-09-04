@@ -1403,8 +1403,13 @@ static void signal_handler_extended(int signum, siginfo_t *info, void *ucontext)
 
   if (signum == SIGINT || signum == SIGTERM) {
 
-    piksi_log(LOG_DEBUG, "%s: caught signal: %d (sender: %d)",
-              __FUNCTION__, signum, info == NULL ? "" : info->si_pid);
+    if (info == NULL) {
+      piksi_log(LOG_DEBUG, "%s: caught signal: %d",
+                __FUNCTION__, signum);
+    } else {
+      piksi_log(LOG_DEBUG, "%s: caught signal: %d (sender: %d)",
+                __FUNCTION__, signum, info->si_pid);
+    }
 
     if (settings_term_handler != NULL) {
       settings_term_handler();
@@ -1421,7 +1426,7 @@ static void signal_handler_extended(int signum, siginfo_t *info, void *ucontext)
 }
 
 static void signal_handler(int signum) {
-  signal_handler_extended(signum, (siginfo_t *)NULL, NULL) {
+  signal_handler_extended(signum, (siginfo_t *)NULL, NULL);
 }
 
 static void setup_signal_handlers()
