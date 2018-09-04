@@ -99,6 +99,7 @@ typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer,
                               size_t count);
 
 bool debug = false;
+static bool name_set = false;
 static io_mode_t io_mode = IO_INVALID;
 static endpoint_mode_t endpoint_mode = ENDPOINT_INVALID;
 static const char *framer_name = FRAMER_NONE_NAME;
@@ -218,6 +219,7 @@ static int parse_options(int argc, char *argv[])
 
       case OPT_ID_NAME: {
         port_name = optarg;
+        name_set = true;
       }
       break;
 
@@ -342,6 +344,12 @@ static int parse_options(int argc, char *argv[])
 
   if (endpoint_mode == ENDPOINT_INVALID) {
     fprintf(stderr, "endpoint address(es) not specified\n");
+    return -1;
+  }
+
+  if(name_set == false)
+  {
+    fprintf(stderr, "adapter name not set\n");
     return -1;
   }
 
