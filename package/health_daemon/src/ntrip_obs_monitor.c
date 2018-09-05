@@ -23,10 +23,8 @@
  * \date 2018-06-13
  */
 
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/file.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
