@@ -61,6 +61,16 @@ matrix:
       after_failure:
         - ./scripts/travis.sh after_failure
 
+    # Nano image build, for Starling-EVK
+    - env:
+        - TRAVIS_TARGET=nano
+      script:
+        - ./scripts/travis.sh script
+      after_success:
+        - ./scripts/travis.sh after_success
+      after_failure:
+        - ./scripts/travis.sh after_failure
+
     # Normal build + SDK sample app + piksi_ins_ref
     - env:
         - TRAVIS_TARGET=sdk

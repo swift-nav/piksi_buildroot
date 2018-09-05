@@ -120,6 +120,21 @@ host-image: host-config
 host-clean:
 	rm -rf buildroot/host_output
 
+nano-pkg-%: nano-config
+	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+		$(MAKE) -C buildroot $* O=nano_output
+
+nano-config:
+	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+		$(MAKE) -C buildroot O=nano_output piksi_nano_defconfig
+
+nano-image: nano-config
+	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+		$(MAKE) -C buildroot O=nano_output
+
+nano-clean:
+	rm -rf buildroot/nano_output
+
 rebuild-changed: export BUILD_TEMP=/tmp SINCE=$(SINCE)
 rebuild-changed: _rebuild_changed
 
@@ -196,6 +211,18 @@ docker-host-config:
 	docker run -e BR2_DISABLE_LTO=y $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make -C buildroot O=host_output host_defconfig
 
+docker-make-nano-image:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make nano-image
+
+docker-make-nano-clean:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make nano-clean
+
+docker-nano-config:
+	docker run -e BR2_DISABLE_LTO=y $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
+		make nano-config
+
 docker-config:
 	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make -C buildroot O=output piksiv3_defconfig
@@ -203,6 +230,10 @@ docker-config:
 docker-host-pkg-%: docker-host-config
 	docker run -e BR2_DISABLE_LTO=y $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make -C buildroot $* O=host_output
+
+docker-nano-pkg-%: docker-nano-config
+	docker run -e $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make -C buildroot $* O=nano_output
 
 docker-pkg-%: docker-config
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
