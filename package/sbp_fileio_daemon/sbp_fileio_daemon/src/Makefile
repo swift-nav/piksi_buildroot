@@ -1,13 +1,14 @@
 TARGET=sbp_fileio_daemon
 SOURCES= \
 	main.c \
-	sbp_fileio.c
+	sbp_fileio.c \
+	path_validator.c \
 
 LIBS=-luv -lnanomsg -lsbp -lpiksi
 
 ARFLAGS=rcs $(LTO_PLUGIN)
 
-CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Wjump-misses-init -Werror -fPIC
+CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Wjump-misses-init -Werror -fPIC -I.
 
 CROSS=
 

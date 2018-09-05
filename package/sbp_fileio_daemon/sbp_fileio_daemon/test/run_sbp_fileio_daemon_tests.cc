@@ -19,13 +19,15 @@
 
 #include <libpiksi/logging.h>
 
+#include "path_validator.h"
+
 #define PROGRAM_NAME "sbp_fileio_daemon_tests"
 
 class SbpFileioDaemonTests : public ::testing::Test { };
 
 TEST_F(SbpFileioDaemonTests, bacon) {
 
-  ASSERT_TRUE( false );
+  ASSERT_TRUE( path_validator_create() != NULL );
 }
 
 int main(int argc, char** argv) {
