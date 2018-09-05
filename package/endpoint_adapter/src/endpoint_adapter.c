@@ -347,7 +347,7 @@ static int parse_options(int argc, char *argv[])
     return -1;
   }
 
-  if(name_set == false)
+  if(!name_set)
   {
     fprintf(stderr, "adapter name not set\n");
     return -1;
