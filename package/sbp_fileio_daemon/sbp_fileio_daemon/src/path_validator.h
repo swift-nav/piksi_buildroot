@@ -23,11 +23,11 @@ typedef struct path_validator_s path_validator_t;
 
 path_validator_t *path_validator_create(void);
 
+void path_validator_destroy(path_validator_t **pctx);
+
 bool path_validator_check(path_validator_t *ctx, const char* path);
 
-void path_validator_allow_read(path_validator_t *ctx, const char* path);
-
-void path_validator_allow_write(path_validator_t *ctx, const char* path);
+void path_validator_allow_path(path_validator_t *ctx, const char* path);
 
 #ifdef __cplusplus
 }
