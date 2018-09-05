@@ -42,8 +42,6 @@
 #define SETTING_SECTION_NTRIP "ntrip"
 #define SETTING_NTRIP_ENABLE "enable"
 
-#define GPS_TIME_FILE_NAME "/var/run/health/gps_time_available"
-
 #define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
 #define NO_TIME          0
 
