@@ -1,7 +1,6 @@
 TARGET=sbp_settings_daemon
 SOURCES= \
 	main.c \
-	minIni/minIni.c \
 	settings.c \
 
 LIBS=-luv -lnanomsg -lsbp -lpiksi
