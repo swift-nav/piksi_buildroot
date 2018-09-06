@@ -41,11 +41,11 @@ GRPC_CUSTOM_MAKE_OPTS = \
 	LD_LIBRARY_PATH="$(STAGING_DIR)/usr/lib" \
 	PROTOC="$(HOST_DIR)/bin/protoc"
 
-GRPC_CUSTOM_INSTALL_TARGET_OPTS = \
-	prefix="$(TARGET_DIR)/usr"
-
 GRPC_CUSTOM_INSTALL_STAGING_OPTS = \
 	prefix="$(STAGING_DIR)/usr"
+
+GRPC_CUSTOM_INSTALL_TARGET_OPTS = \
+	prefix="$(TARGET_DIR)/usr"
 
 define GRPC_CUSTOM_BUILD_CMDS
 	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(GRPC_CUSTOM_MAKE_OPTS) -C $(@D) \
@@ -60,6 +60,7 @@ endef
 define GRPC_CUSTOM_INSTALL_TARGET_CMDS
 	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(GRPC_CUSTOM_INSTALL_TARGET_OPTS) -C $(@D) \
 		install-shared_c install-shared_cxx
+	ln -sf "$(TARGET_DIR)/usr/lib/libgrpc++_unsecure.so.1.12.0" "$(TARGET_DIR)/usr/lib/libgrpc++_unsecure.so.1"
 endef
 
 HOST_GRPC_CUSTOM_MAKE_ENV = \
