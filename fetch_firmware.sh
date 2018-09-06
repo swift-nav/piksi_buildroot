@@ -27,13 +27,17 @@ if [[ $(uname -a) == *NixOS* ]]; then
   export LD_LIBRARY_PATH=/lib:/usr/lib
 fi
 
-FW_VERSION=${1:-v2.0.2}
+FW_VERSION=${1:-v2.0.1-19-g1dcf0134}
 NAP_VERSION=${2:-v2.0.2}
 
-FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
+FW_S3_PATH=s3://swiftnav-artifacts-pull-requests/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
+
+fetch_with_auth() {
+  aws s3 cp "$@"
+}
 
 fetch() {
   aws s3 cp --no-sign-request "$@"
@@ -46,7 +50,7 @@ download_fw() {
   mkdir -p $FIRMWARE_DIR
 
   # Download piksi_firmware
-  fetch $FW_S3_PATH/piksi_firmware_v3_prod.stripped.elf \
+  fetch_with_auth $FW_S3_PATH/piksi_firmware_v3_prod.stripped.elf \
     $FIRMWARE_DIR/piksi_firmware.elf
 
   # Download piksi_fpga, try the prod variant first, then sdk variant
