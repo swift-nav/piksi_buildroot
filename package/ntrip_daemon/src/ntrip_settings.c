@@ -21,6 +21,7 @@
 #include "ntrip_settings.h"
 
 #define FIFO_FILE_PATH "/var/run/ntrip/fifo"
+#define NTRIP_ENABLED_FILE_PATH "/var/run/ntrip/enabled"
 
 static bool ntrip_enabled;
 static bool ntrip_debug;
@@ -150,9 +151,42 @@ void ntrip_stop_processes()
   }
 }
 
+/* Move to libpiksi as generic function */
+static bool file_read_value(char *file_path) {
+  bool val = false;
+
+  if (access(file_path, F_OK) == -1) {
+    /* File is not created yet, system is most likely still booting */
+    piksi_log(LOG_DEBUG, "%s doesn't exist", file_path);
+    return val;
+  }
+
+  FILE* fp = fopen(file_path, "r");
+  if (fp == NULL) {
+    piksi_log(LOG_WARNING|LOG_SBP,
+              "Failed to open %s: errno = %d",
+              file_path,
+              errno);
+    return val;
+  }
+
+  val = ('1' == fgetc(fp));
+  fclose(fp);
+
+  return val;
+}
+
 static int ntrip_notify(void *context)
 {
   (void)context;
+
+  /* If NTRIP was enabled before notify call and ntrip_enabled is still true,
+   * it means that user is trying to modify some other NTRIP related setting
+   * than ntrip_enabled -> reject and instruct. */
+  if (file_read_value(NTRIP_ENABLED_FILE_PATH) && ntrip_enabled) {
+    sbp_log(LOG_WARNING, "NTRIP must be disabled to modify settings");
+    return 1;
+  }
 
   snprintf(ntrip_interval_s, sizeof(ntrip_interval_s), "%d", ntrip_interval);
   ntrip_rev1gga_s[0] = ntrip_rev1gga ? 'y' : 'n';
@@ -161,13 +195,13 @@ static int ntrip_notify(void *context)
 
     ntrip_stop_process(i);
 
-    // TODO: Remove the need for these by reading from control socket
+    /* TODO: Remove the need for these by reading from control socket */
     if (!ntrip_enabled || strcmp(ntrip_url, "") == 0) {
-      system("echo 0 >/var/run/ntrip/enabled");
+      system("echo 0 >"NTRIP_ENABLED_FILE_PATH);
       continue;
     }
 
-    system("echo 1 >/var/run/ntrip/enabled");
+    system("echo 1 >"NTRIP_ENABLED_FILE_PATH);
 
     if (strcmp(ntrip_username, "") != 0 && strcmp(ntrip_password, "") != 0) {
       ntrip_argv = ntrip_debug ? ntrip_argv_username_debug : ntrip_argv_username;
