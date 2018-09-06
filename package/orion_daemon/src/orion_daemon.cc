@@ -74,9 +74,7 @@ void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *c
 
 static void writer(grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *streamer, Ctx *ctx) {
   sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), SBP_MSG_POS_LLH, pos_llh_callback, streamer, nullptr);
-
-  orion_proto::SbpFrame sbp_frame;
-  streamer->Write(sbp_frame);
+  pk_loop_run_simple(ctx->loop);
 }
 
 static void run_client(const std::string &port) {
