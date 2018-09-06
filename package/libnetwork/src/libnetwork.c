@@ -940,7 +940,7 @@ static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
     char header_buf[256] = {0};
 
     size_t c = snprintf(
-        header_buf,sizeof(header_buf), "Ntrip-GGA: %s", gga_string);
+        header_buf, sizeof(header_buf), "Ntrip-GGA: %s", gga_string);
     assert( c < sizeof(header_buf) );
 
     curl_slist_append(chunk, header_buf);
