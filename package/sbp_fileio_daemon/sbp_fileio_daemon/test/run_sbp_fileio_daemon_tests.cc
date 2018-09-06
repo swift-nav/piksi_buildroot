@@ -25,15 +25,22 @@
 
 class SbpFileioDaemonTests : public ::testing::Test { };
 
-TEST_F(SbpFileioDaemonTests, bacon)
+TEST_F(SbpFileioDaemonTests, basic)
 {
   path_validator_t *ctx = path_validator_create();
   ASSERT_TRUE( ctx != NULL );
 
-  path_validator_allow_path(ctx, "/data");
+  path_validator_allow_path(ctx, "/fake_data");
 
-  ASSERT_TRUE( path_validator_check(ctx, "/data/foobar") );
+  ASSERT_TRUE( path_validator_check(ctx, "/fake_data/foobar") );
   ASSERT_FALSE( path_validator_check(ctx, "/usr/bin/foobar") );
+
+  ASSERT_TRUE( path_validator_allowed_count(ctx) == 1 );
+
+  path_validator_allow_path(ctx, "/fake_persist/blah");
+  ASSERT_TRUE( path_validator_check(ctx, "/fake_persist/blah/blahblah.txt") );
+
+  ASSERT_TRUE( path_validator_allowed_count(ctx) == 2 );
 
   path_validator_destroy(&ctx);
 }

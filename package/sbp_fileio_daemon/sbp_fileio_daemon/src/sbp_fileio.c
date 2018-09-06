@@ -28,6 +28,8 @@
 #include <libsbp/file_io.h>
 
 #include "sbp_fileio.h"
+#include "path_validator.h"
+
 #include "fio_debug.h"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
@@ -44,7 +46,6 @@ enum {
   ALLOW_MTD_READ,
 };
 
-static bool validate_path(const char* path);
 static int allow_mtd_read(const char* path);
 static const char* filter_imageset_bin(const char* filename);
 
@@ -53,16 +54,18 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 
+path_validator_t *g_pv_ctx;
+
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
-void sbp_fileio_setup(const char *basedir,
+void sbp_fileio_setup(path_validator_t *pv_ctx,
                       bool allow_factory_mtd_,
                       bool allow_imageset_bin_,
                       sbp_rx_ctx_t *rx_ctx,
                       sbp_tx_ctx_t *tx_ctx)
 {
-  basedir_path = basedir;
+  g_pv_ctx = pv_ctx;
 
   allow_factory_mtd = allow_factory_mtd_;
   allow_imageset_bin = allow_imageset_bin_;
@@ -107,31 +110,6 @@ static const char* filter_imageset_bin(const char* filename)
   return path_buf;
 }
 
-static bool validate_path(const char* path)
-{
-  static char realpath_buf[PATH_MAX] = {0};
-  static struct stat s;
-
-  // Always null terminate so we know if realpath filled in the buffer
-  realpath_buf[0] = '\0';
-
-  char* resolved = realpath(path, realpath_buf);
-  int error = errno;
-
-  if (resolved != NULL)
-    return strstr(resolved, basedir_path) == resolved;
-
-  if (error == ENOENT && strstr(realpath_buf, basedir_path) == realpath_buf) {
-
-    // If the errno was "file not found", the prefix matches, and the parent
-    //   directory exists, then we allow this path.
-    char* parent_dir = dirname(realpath_buf);
-    return stat(parent_dir, &s) == 0;
-  }
-
-  return false;
-}
-
 /** File read callback.
  * Responds to a SBP_MSG_FILEIO_READ_REQ message.
  *
@@ -163,7 +141,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   int st = allow_mtd_read(msg->filename);
 
-  if (st == DENY_MTD_READ || (st == NO_MTD_READ && !validate_path(msg->filename))) {
+  if (st == DENY_MTD_READ || (st == NO_MTD_READ && !path_validator_check(g_pv_ctx, msg->filename))) {
     piksi_log(LOG_WARNING, "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...", msg->filename, basedir_path);
     readlen = 0;
   } else {
@@ -210,7 +188,7 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   FIO_LOG_DEBUG("read_dir request for '%s', seq=%u, off=%u",
                 msg->dirname, msg->sequence, msg->offset);
 
-  if (!validate_path(msg->dirname)) {
+  if (!path_validator_check(g_pv_ctx, msg->dirname)) {
     piksi_log(LOG_WARNING, "Received FILEIO_READ_DIR request for path (%s) outside base directory (%s), ignoring...", msg->dirname, basedir_path);
     len = 0;
 
@@ -256,7 +234,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
 
   FIO_LOG_DEBUG("remove request for '%s'", filename);
 
-  if (!validate_path(filename)) {
+  if (!path_validator_check(g_pv_ctx, filename)) {
     piksi_log(LOG_WARNING, "Received FILEIO_REMOVE request for path (%s) outside base directory (%s), ignoring...", filename, basedir_path);
     return;
   }
@@ -292,7 +270,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   }
 
   const char* filename = filter_imageset_bin(msg->filename);
-  if (!validate_path(filename)) {
+  if (!path_validator_check(g_pv_ctx, filename)) {
     piksi_log(LOG_WARNING, "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...", filename, basedir_path);
     return;
   }

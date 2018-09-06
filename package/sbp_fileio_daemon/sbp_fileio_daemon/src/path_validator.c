@@ -10,9 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <assert.h>
 #include <errno.h>
 #include <limits.h>
 #include <libgen.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -35,6 +37,7 @@ typedef LIST_HEAD(path_nodes_head, path_node) path_nodes_head_t;
 struct path_validator_s
 {
   path_nodes_head_t path_list;
+  size_t allowed_count;
 };
 
 path_validator_t *path_validator_create(void)
@@ -45,6 +48,7 @@ path_validator_t *path_validator_create(void)
     return NULL;
 
   LIST_INIT(&(ctx->path_list));
+  ctx->allowed_count = 0;
 
   return ctx;
 }
@@ -72,12 +76,26 @@ bool path_validator_check(path_validator_t *ctx, const char* path)
 
 void path_validator_allow_path(path_validator_t *ctx, const char* path)
 {
+  assert( path != NULL );
+
+  if (strlen(path) == 0) {
+
+    fprintf(stderr, "ERROR: directories allowed for SBP fileio must not be empty.\n");
+    exit(EXIT_FAILURE);
+  }
+
   path_node_t *node = malloc(sizeof(path_node_t));
   node->path[0] = '\0';
 
   strncpy(node->path, path, sizeof(node->path));
 
   LIST_INSERT_HEAD(&ctx->path_list, node, entries);
+  ctx->allowed_count++;
+}
+
+size_t path_validator_allowed_count(path_validator_t *ctx)
+{
+  return ctx->allowed_count;
 }
 
 static bool validate_path(const char* basedir_path, const char* path)
@@ -94,11 +112,14 @@ static bool validate_path(const char* basedir_path, const char* path)
   if (resolved != NULL)
     return strstr(resolved, basedir_path) == resolved;
 
-  if (error == ENOENT && strstr(realpath_buf, basedir_path) == realpath_buf) {
+  if (error == ENOENT && strstr(path, basedir_path) == path) {
+
+    static char dirname_buf[PATH_MAX] = {0};
+    strncpy(dirname_buf, path, sizeof(dirname_buf));
 
     // If the errno was "file not found", the prefix matches, and the parent
     //   directory exists, then we allow this path.
-    char* parent_dir = dirname(realpath_buf);
+    char* parent_dir = dirname(dirname_buf);
     return stat(parent_dir, &s) == 0;
   }
 

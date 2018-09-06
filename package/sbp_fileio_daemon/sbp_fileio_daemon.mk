@@ -35,12 +35,14 @@ define SBP_FILEIO_DAEMON_BUILD_CMDS
 endef
 
 define SBP_FILEIO_DAEMON_INSTALL_TARGET_CMDS_DEFAULT
-    $(INSTALL) -D -m 0755 $(@D)/sbp_fileio_daemon $(TARGET_DIR)/usr/bin
+    $(INSTALL) -D -m 0755 $(@D)/src/sbp_fileio_daemon $(TARGET_DIR)/usr/bin
 endef
 
 ifeq ($(BR2_BUILD_TESTS),y)
 define SBP_FILEIO_DAEMON_INSTALL_TARGET_CMDS_TESTS
 	$(INSTALL) -D -m 0755 $(@D)/test/run_sbp_fileio_daemon_tests $(TARGET_DIR)/usr/bin
+	sudo mkdir -p $(TARGET_DIR)/fake_data
+	sudo mkdir -p $(TARGET_DIR)/fake_persist/blah
 	sudo chroot $(TARGET_DIR) run_sbp_fileio_daemon_tests
 endef
 endif
