@@ -53,7 +53,8 @@ DOCKER_SETUP_ARGS :=                                                          \
 
 DOCKER_RUN_ARGS := \
   $(DOCKER_SETUP_ARGS) \
-  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images
+  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images \
+  -v $(CURDIR)/buildroot/nano_output/images:/piksi_buildroot/buildroot/nano_output/images
 
 ifneq ($(SSH_AUTH_SOCK),)
 DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
