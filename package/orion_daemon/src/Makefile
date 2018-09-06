@@ -1,15 +1,30 @@
 TARGET=orion_daemon
-SOURCES=orion_daemon.c orion_settings.c
-LIBS=-luv -lnanomsg -lsbp -lpiksi
-CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror
+SOURCES=orion_daemon.cc orion_client.pb.cc orion_client.grpc.pb.cc
+LIBS=-luv -lnanomsg -lsbp -lpiksi -lstdc++ -lprotobuf -lgrpc++_unsecure
+CFLAGS=-I. -std=c++11
 
 CROSS=
 
-CC=$(CROSS)gcc
+CC=$(CROSS)g++
 
-all:	$(TARGET)
-$(TARGET): $(SOURCES)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES) $(LIBS)
+OBJS=$(SOURCES:.cc=.o)
+
+PROTOC="$(HOST_DIR)/bin/protoc"
+GRPC_CPP_PLUGIN="$(HOST_DIR)/bin/grpc_cpp_plugin"
+
+all: $(TARGET)
+
+%.grpc.pb.cc: %.proto
+	$(PROTOC) --grpc_out=. --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN) $<
+
+%.pb.cc: %.proto
+	$(PROTOC) --cpp_out=. $<
+
+%.o: %.cc
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LIBS)
 
 clean:
-	rm -rf $(TARGET)
+	rm -rf $(TARGET) $(OBJS)
