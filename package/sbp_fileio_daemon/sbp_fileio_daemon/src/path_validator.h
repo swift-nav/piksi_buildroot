@@ -19,8 +19,14 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Opaque context for a path_validator.
+ */
 typedef struct path_validator_s path_validator_t;
 
+/**
+ * @brief Create a path validator, only fails if memory cannot be allocated.
+ */
 path_validator_t *path_validator_create(void);
 
 void path_validator_destroy(path_validator_t **pctx);

@@ -55,10 +55,19 @@ path_validator_t *path_validator_create(void)
 
 void path_validator_destroy(path_validator_t **pctx)
 {
-  if (*pctx != NULL) {
-    free(*pctx);
-    *pctx = NULL;
+  if (*pctx == NULL)
+    return;
+
+  path_node_t *node;
+
+  while (!LIST_EMPTY(&((*pctx)->path_list))) {
+    node = LIST_FIRST(&((*pctx)->path_list));
+    LIST_REMOVE(node, entries);
+    free(node);
   }
+
+  free(*pctx);
+  *pctx = NULL;
 }
 
 bool path_validator_check(path_validator_t *ctx, const char* path)
