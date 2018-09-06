@@ -130,7 +130,7 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART,
+    .restart = RESTART,
     .first_start = true,
   },
   {
@@ -141,7 +141,7 @@ static port_config_t port_configs[] = {
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
-    .restart = DO_NOT_RESTART,
+    .restart = RESTART,
     .first_start = true,
   },
   {
