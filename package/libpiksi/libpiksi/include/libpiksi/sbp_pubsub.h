@@ -27,6 +27,10 @@
 #include <libpiksi/sbp_rx.h>
 #include <libpiksi/sbp_tx.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @struct  sbp_pubsub_ctx_t
  *
@@ -84,6 +88,10 @@ sbp_tx_ctx_t * sbp_pubsub_tx_ctx_get(sbp_pubsub_ctx_t *ctx);
  * @return                  Pointer to the SBP RX context.
  */
 sbp_rx_ctx_t * sbp_pubsub_rx_ctx_get(sbp_pubsub_ctx_t *ctx);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* LIBPIKSI_SBP_PUBSUB_H */
 
