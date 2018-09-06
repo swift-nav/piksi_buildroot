@@ -1,6 +1,10 @@
 syntax = "proto3";
 
-package orion_client_proto;
+package orion_proto;
+
+// Empty type.
+message Empty {
+}
 
 // UUID type.
 message Uuid {
@@ -34,6 +38,7 @@ message SbpFrame {
 }
 
 // Corrections service.
-service Corrections {
+service CorrectionGenerator {
+  rpc check_health(Empty) returns (Empty) {}
   rpc stream_input_output(stream SbpFrame) returns (stream SbpFrame) {}
 }

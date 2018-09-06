@@ -11,18 +11,19 @@
  */
 
 
-#include "orion_client.grpc.pb.h"
+#include "orion.grpc.pb.h"
 #include <grpcpp/create_channel.h>
 
 void run_client(const std::string &port) {
   auto chan = grpc::CreateChannel(port, grpc::InsecureChannelCredentials());
-  auto stub(orion_client_proto::Corrections::NewStub(chan));
+  auto stub(orion_proto::CorrectionGenerator::NewStub(chan));
   grpc::ClientContext context;
   auto streamer(stub->stream_input_output(&context));
-  orion_client_proto::SbpFrame input;
-  orion_client_proto::SbpFrame output;
+  orion_proto::SbpFrame input;
+  orion_proto::SbpFrame output;
   printf("XXXXXX start\n");
-  streamer->Write(output);
+  int  ok = streamer->Write(output);
+  printf("XXXXX write %d\n", ok);
   while (streamer->Read(&input)) {
     printf("XXXXXX got something\n");
     streamer->Write(output);
