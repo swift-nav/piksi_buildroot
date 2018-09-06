@@ -30,7 +30,6 @@
 #include <libpiksi/util.h>
 
 #include <libsbp/sbp.h>
-#include <libsbp/navigation.h>
 #include <libsbp/observation.h>
 
 #include "health_monitor.h"
@@ -39,9 +38,6 @@
 
 #define SETTING_SECTION_NTRIP "ntrip"
 #define SETTING_NTRIP_ENABLE "enable"
-
-#define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
-#define NO_TIME          0
 
 /* these are from fw private, consider moving to libpiksi */
 #define MSG_FORWARD_SENDER_ID (0u)
@@ -108,27 +104,6 @@ static int sbp_msg_ntrip_obs_callback(health_monitor_t *monitor,
   return 1; /* only reset if base obs found */
 }
 
-/* This callback can be moved to other daemon if necessary */
-static void sbp_gps_time_cb(u16 sender_id, u8 len, u8 msg[], void *context) {
-  (void)sender_id;
-  (void)context;
-  (void)len;
-  static u16 sbp_sender_id = 0;
-
-  /* Read ID once */
-  if (sbp_sender_id == 0) {
-    sbp_sender_id = sbp_sender_id_get();
-  }
-
-  if (sbp_sender_id != sender_id) {
-    return;
-  }
-
-  const msg_gps_time_t *time = (msg_gps_time_t*)msg;
-  const bool has_time = (time->flags & TIME_SOURCE_MASK) != NO_TIME;
-  set_device_has_gps_time(has_time);
-}
-
 /**
  * \brief ntrip_obs_timer_callback - handler for ntrip_obs_monitor timeouts
  * \param monitor: health monitor associated with this callback
@@ -188,13 +163,6 @@ int ntrip_obs_timeout_health_monitor_init(health_ctx_t *health_ctx)
                                        SETTINGS_TYPE_BOOL,
                                        notify_ntrip_enabled,
                                        NULL)
-      != 0) {
-    return -1;
-  }
-
-  if (health_monitor_register_message_handler(ntrip_obs_monitor,
-                                              SBP_MSG_GPS_TIME,
-                                              sbp_gps_time_cb)
       != 0) {
     return -1;
   }

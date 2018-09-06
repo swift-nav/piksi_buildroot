@@ -32,6 +32,7 @@
 #include "glo_bias_monitor.h"
 #include "skylark_monitor.h"
 #include "ntrip_obs_monitor.h"
+#include "gnss_time_monitor.h"
 
 #define PROGRAM_NAME "health_daemon"
 
@@ -82,7 +83,9 @@ static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
   { skylark_monitor_init,
     skylark_monitor_deinit },
   { ntrip_obs_timeout_health_monitor_init,
-    ntrip_obs_timeout_health_monitor_deinit }
+    ntrip_obs_timeout_health_monitor_deinit },
+  { gnss_time_health_monitor_init,
+    gnss_time_health_monitor_deinit }
 };
 static size_t health_monitor_init_pairs_n =
   (sizeof(health_monitor_init_pairs) / sizeof(health_monitor_init_fn_pair_t));
