@@ -14,7 +14,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -116,21 +115,12 @@ void set_device_has_gps_time(bool has_time) {
       return;
     }
 
-    if (flock(fileno(fp), LOCK_EX) != 0) {
-      piksi_log(LOG_WARNING|LOG_SBP, "Failed to lock %s", GPS_TIME_FILE_PATH);
-      fclose(fp);
-      return;
-    }
-
     char buffer[] = { (has_time ? '1' : '0'), '\n' };
+
     if (fwrite(buffer, sizeof(char), sizeof(buffer), fp) != sizeof(buffer)) {
       piksi_log(LOG_WARNING|LOG_SBP, "Failed to write %s", GPS_TIME_FILE_PATH);
     } else {
       file_updated = true;
-    }
-
-    if (flock(fileno(fp), LOCK_UN) != 0) {
-      piksi_log(LOG_WARNING|LOG_SBP, "Failed to unlock %s", GPS_TIME_FILE_PATH);
     }
 
     fclose(fp);
@@ -165,17 +155,7 @@ bool device_has_gps_time(void) {
     return has_time;
   }
 
-  if (flock(fileno(fp), LOCK_EX) != 0) {
-    piksi_log(LOG_WARNING|LOG_SBP, "Failed to lock %s", GPS_TIME_FILE_PATH);
-    fclose(fp);
-    return has_time;
-  }
-
   has_time = ('1' == fgetc(fp));
-
-  if (flock(fileno(fp), LOCK_UN) != 0) {
-    piksi_log(LOG_WARNING|LOG_SBP, "Failed to unlock %s", GPS_TIME_FILE_PATH);
-  }
 
   fclose(fp);
 
