@@ -40,6 +40,8 @@
 #define DEVICE_DURO_EEPROM_PATH "/cfg/duro_eeprom"
 #define DEVICE_DURO_MAX_CONTENTS_SIZE (128u)
 #define DEVICE_DURO_ID_STRING "DUROV0"
+#define POSEDAEMON_FILE_PATH "/usr/bin/PoseDaemon"
+#define SMOOTHPOSE_LICENSE_FILE_PATH "/persistent/licenses/smoothpose_license.json"
 
 #define PROC_UPTIME_FILE_PATH  "/proc/uptime"
 #define UPTIME_READ_MAX_LENGTH (64u)
@@ -122,6 +124,12 @@ bool device_is_duro(void)
                  strlen(DEVICE_DURO_ID_STRING)) == 0);
 }
 
+static bool device_has_ins(void)
+{
+  return (access(POSEDAEMON_FILE_PATH, F_OK) != -1 &&
+          access(SMOOTHPOSE_LICENSE_FILE_PATH, F_OK) != -1);
+}
+
 int hw_version_string_get(char *hw_version_string, size_t size)
 {
   char raw_hw_ver_string[DEVICE_HARDWARE_VERSION_MAX_LENGTH];
@@ -195,7 +203,11 @@ int hw_variant_string_get(char *hw_variant_string, size_t size)
   const char *s = NULL;
 
   if (device_is_duro()) {
-    s = "Duro";
+    if (device_has_ins()) {
+      s = "Duro Inertial";
+    } else {
+      s = "Duro";
+    }
   } else {
     s = "Multi";
   }
@@ -212,13 +224,9 @@ int product_id_string_get(char *product_id_string, size_t size)
 {
   const char *s = NULL;
 
-  if (device_is_duro()) {
-    s = "Duro";
-  } else {
-    s = "Multi";
-  }
-
-  int written = snprintf(product_id_string, size, "Piksi %s", s);
+  int written = snprintf(product_id_string, size, "%s%s",
+                         device_is_duro() ? "Duro" : "Piksi Multi",
+                         device_has_ins() ? " Inertial" : "");
   if (written < 0) {
     piksi_log(LOG_ERR, "Error writing product id string to buffer");
     return -1;
