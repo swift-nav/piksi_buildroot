@@ -1,5 +1,5 @@
 TARGET=orion_daemon
-SOURCES=orion_daemon.cc orion.pb.cc orion.grpc.pb.cc
+SOURCES=orion.pb.cc orion.grpc.pb.cc orion_daemon.cc
 LIBS=-luv -lnanomsg -lsbp -lpiksi -lstdc++ -lprotobuf -lgrpc++_unsecure -lpthread -lpiksi
 CFLAGS=-I. -std=c++14
 
