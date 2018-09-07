@@ -99,7 +99,11 @@ static void run_client(const std::string &port) {
 
 int main(int argc, char *argv[])
 {
-  run_client(argc == 1 ? CORRECTION_GENERATOR_PORT : argv[1]);
+  if (argc == 2 && argv[2] != "--settings") {
+    return 0;
+  }
+
+  run_client(argc == 2 ? argv[1] : CORRECTION_GENERATOR_PORT);
 
   return 0;
 }
