@@ -25,9 +25,9 @@
 
 static const char *CORRECTION_GENERATOR_PORT = "correction-generator-ser-QLOUI52-1037726248.us-west-2.elb.amazonaws.com:9000";
 
-static const char *PUB_ENDPOINT = "ipc:///var/run/sockets/skylark.pub";
+static const char *PUB_ENDPOINT = "ipc:///var/run/sockets/skylark.sub";
 
-static const char *SUB_ENDPOINT = "ipc:///var/run/sockets/skylark.sub";
+static const char *SUB_ENDPOINT = "ipc:///var/run/sockets/skylark.pub";
 
 struct Ctx {
   pk_loop_t *loop{nullptr};
@@ -99,10 +99,7 @@ static void run_client(const std::string &port) {
 
 int main(int argc, char *argv[])
 {
-  (void)argc;
-  (void)argv;
-
-  run_client(CORRECTION_GENERATOR_PORT);
+  run_client(argc == 1 ? CORRECTION_GENERATOR_PORT : argv[1]);
 
   return 0;
 }
