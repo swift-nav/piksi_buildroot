@@ -238,6 +238,10 @@ handle_nano_script_phase()
 
 handle_nano_after_success_phase()
 {
+  # Make buildroot ignore our output directory so we aren't flagged as dirty
+  echo "nano_output" >> buildroot/.gitignore
+  (cd buildroot; git update-index --assume-unchanged .gitignore)
+
   PRODUCT_VERSION=nano PRODUCT_REV=evt0 \
     ./scripts/publish.sh $(list_published_files)
 }
