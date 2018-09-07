@@ -33,6 +33,8 @@ static char ntrip_interval_s[16];
 static bool ntrip_rev1gga = false;
 static char ntrip_rev1gga_s[] = "n";
 
+static bool ntrip_settings_initialized = false;
+
 static char *ntrip_argv_normal[] = {
   "ntrip_daemon",
   "--file", FIFO_FILE_PATH,
@@ -151,23 +153,12 @@ void ntrip_stop_processes()
   }
 }
 
-static int ntrip_notify(void *context)
+static void ntrip_start_processes()
 {
-  (void)context;
-
-  /* If NTRIP was enabled before notify call and ntrip_enabled is still true,
-   * it means that user is trying to modify some other NTRIP related setting
-   * than ntrip_enabled -> reject and instruct. */
-  if (ntrip_enabled && file_read_value(NTRIP_ENABLED_FILE_PATH)) {
-    sbp_log(LOG_WARNING, "NTRIP must be disabled to modify settings");
-    return 1;
-  }
-
   snprintf(ntrip_interval_s, sizeof(ntrip_interval_s), "%d", ntrip_interval);
   ntrip_rev1gga_s[0] = ntrip_rev1gga ? 'y' : 'n';
 
   for (size_t i = 0; i < ntrip_processes_count; i++) {
-
     ntrip_stop_process(i);
 
     /* TODO: Remove the need for these by reading from control socket */
@@ -189,15 +180,42 @@ static int ntrip_notify(void *context)
     process->pid = fork();
     if (process->pid == 0) {
       process->execfn();
-      piksi_log(LOG_ERR, "exec error (%d) \"%s\"", errno, strerror(errno));
+      piksi_log(
+          LOG_ERR|LOG_SBP, "exec error (%d) \"%s\"", errno, strerror(errno));
       exit(EXIT_FAILURE);
     }
+  }
+}
+
+static int ntrip_notify_generic(void *context)
+{
+  (void)context;
+
+  /* ntrip_settings_inititalized prevents false warning when notify function
+   * is triggered by read from persintent config file during boot */
+  if (ntrip_enabled && ntrip_settings_initialized) {
+    sbp_log(LOG_WARNING, "NTRIP must be disabled to modify settings");
+    return 1;
   }
 
   return 0;
 }
 
-void ntrip_init(settings_ctx_t *settings_ctx)
+static int ntrip_notify_enable(void *context)
+{
+  (void)context;
+
+  /* Check if initialization is in process and this notify function was
+   * triggered by read from persintent config file during boot. If this is the
+   * case, other settings might not be ready yet. */
+  if (ntrip_settings_initialized) {
+    ntrip_start_processes();
+  }
+
+  return 0;
+}
+
+void ntrip_settings_init(settings_ctx_t *settings_ctx)
 {
   piksi_log(LOG_DEBUG, "ntrip process count %zu", ntrip_processes_count);
 
@@ -206,37 +224,51 @@ void ntrip_init(settings_ctx_t *settings_ctx)
   settings_register(settings_ctx, "ntrip", "enable",
                     &ntrip_enabled, sizeof(ntrip_enabled),
                     SETTINGS_TYPE_BOOL,
-                    ntrip_notify, NULL);
+                    ntrip_notify_enable, NULL);
 
   settings_register(settings_ctx, "ntrip", "debug",
                     &ntrip_debug, sizeof(ntrip_debug),
                     SETTINGS_TYPE_BOOL,
-                    ntrip_notify, NULL);
+                    ntrip_notify_generic, NULL);
 
   settings_register(settings_ctx, "ntrip", "username",
                     &ntrip_username, sizeof(ntrip_username),
                     SETTINGS_TYPE_STRING,
-                    ntrip_notify, NULL);
+                    ntrip_notify_generic, NULL);
 
   settings_register(settings_ctx, "ntrip", "password",
                     &ntrip_password, sizeof(ntrip_password),
                     SETTINGS_TYPE_STRING,
-                    ntrip_notify, NULL);
+                    ntrip_notify_generic, NULL);
 
   settings_register(settings_ctx, "ntrip", "url",
                     &ntrip_url, sizeof(ntrip_url),
                     SETTINGS_TYPE_STRING,
-                    ntrip_notify, NULL);
+                    ntrip_notify_generic, NULL);
 
   settings_register(settings_ctx, "ntrip", "gga_out_interval",
                     &ntrip_interval, sizeof(ntrip_interval),
                     SETTINGS_TYPE_INT,
-                    ntrip_notify, NULL);
+                    ntrip_notify_generic, NULL);
 
   settings_register(settings_ctx, "ntrip", "gga_out_rev1",
                     &ntrip_rev1gga, sizeof(ntrip_rev1gga),
                     SETTINGS_TYPE_BOOL,
-                    ntrip_notify, NULL);
+                    ntrip_notify_generic, NULL);
+
+  ntrip_settings_initialized = true;
+
+  /* Settings ready, start processes accordingly.
+   *
+   * This explicit call and initialization checking could be avoided if
+   * ntrip.enable is registered as the last one in the ntrip settings group.
+   * Meaning ntrip.enable reads as false while other settings would be
+   * registered and possibly read from the persistent config during boot.
+   * 
+   * This alternative approach has the downside that it will show ntrip.enable
+   * as the last setting in the ntrip settings goup on console affecting end
+   * user experience. */
+  ntrip_start_processes();
 }
 
 bool ntrip_reconnect(void) {
