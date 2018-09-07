@@ -43,6 +43,11 @@
 /** Maximum length of url string */
 #define LIBNETWORK_URL_MAX_LENGTH (4096L)
 
+#define NTRIP_INIT_TIMEOUT_S (200L)
+#define NTRIP_INIT_RETRY_COOLDOWN_US (200000L)
+#define NTRIP_INIT_RETRY_COUNT_MAX \
+    (NTRIP_INIT_RETRY_COOLDOWN_US / NTRIP_INIT_TIMEOUT_S)
+
 /** How large to configure the recv buffer to avoid excessive buffering. */
 const long RECV_BUFFER_SIZE = 4096L;
 /** Max number of callbacks from CURLOPT_XFERINFOFUNCTION before we attempt to
@@ -928,14 +933,20 @@ static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
   chunk = curl_slist_append(chunk, "Ntrip-Version: Ntrip/2.0");
   chunk = curl_slist_append(chunk, "Expect:");
 
+  int retries = 0;
+  while (!device_has_gps_time() && NTRIP_INIT_RETRY_COUNT_MAX > retries++) {
+    usleep(NTRIP_INIT_RETRY_COOLDOWN_US);
+  }
+  piksi_log(LOG_DEBUG|LOG_SBP, "ntrip_init: device has gps time");
+
   char gga_string[128] = {0};
   size_t gga_len = fetch_gga_buffer(ctx, gga_string, sizeof(gga_string) - 1);
 
   if (gga_len > 0) {
-
     char header_buf[256] = {0};
 
-    size_t c = snprintf(header_buf, sizeof(header_buf), "Ntrip-GGA: %s", gga_string);
+    size_t c = snprintf(
+        header_buf, sizeof(header_buf), "Ntrip-GGA: %s", gga_string);
     assert( c < sizeof(header_buf) );
 
     curl_slist_append(chunk, header_buf);

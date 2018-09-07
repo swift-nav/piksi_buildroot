@@ -62,6 +62,21 @@ int device_uuid_get(char *str, size_t str_size);
  */
 bool device_is_duro(void);
 
+/**
+ * @brief   Determine if device has GPS time
+ * @details Returns true or false
+ *
+ * @return  True if system has GPS time, false otherwise
+ */
+bool device_has_gps_time(void);
+
+/**
+ * @brief   Set resource indicating if device has GPS time
+ * @details Write variable to /var/run/health/gps_time_available
+ *
+ */
+void set_device_has_gps_time(bool has_time);
+
 typedef void (*child_exit_fn_t)(pid_t pid);
 
 void reap_children(bool debug, child_exit_fn_t exit_handler);

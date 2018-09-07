@@ -31,6 +31,8 @@
 #define PROC_UPTIME_FILE_PATH   "/proc/uptime"
 #define UPTIME_READ_MAX_LENGTH (64u)
 
+#define GPS_TIME_FILE_PATH "/var/run/health/gps_time_available"
+
 static int file_read_string(const char *filename, char *str, size_t str_size)
 {
   FILE *fp = fopen(filename, "r");
@@ -95,6 +97,69 @@ bool device_is_duro(void)
   return (memcmp(duro_eeprom_sig,
                  DEVICE_DURO_ID_STRING,
                  strlen(DEVICE_DURO_ID_STRING)) == 0);
+}
+
+void set_device_has_gps_time(bool has_time) {
+  static bool had_time = false;
+  bool file_updated = false;
+
+  /* React only if the state changes */
+  if (has_time != had_time) {
+    FILE* fp = fopen(GPS_TIME_FILE_PATH, "w");
+
+    if (fp == NULL) {
+      piksi_log(LOG_WARNING|LOG_SBP,
+                "Failed to open %s: errno = %d",
+                GPS_TIME_FILE_PATH,
+                errno);
+      return;
+    }
+
+    char buffer[] = { (has_time ? '1' : '0'), '\n' };
+
+    if (fwrite(buffer, sizeof(char), sizeof(buffer), fp) != sizeof(buffer)) {
+      piksi_log(LOG_WARNING|LOG_SBP, "Failed to write %s", GPS_TIME_FILE_PATH);
+    } else {
+      file_updated = true;
+    }
+
+    fclose(fp);
+  }
+
+  /* Keep the file and local variable in sync */
+  if (file_updated) {
+    had_time = has_time;
+    piksi_log(LOG_DEBUG|LOG_SBP,
+              "%s updated with value %u",
+              GPS_TIME_FILE_PATH,
+              has_time);
+  }
+}
+
+bool device_has_gps_time(void) {
+  bool has_time = false;
+
+  if (access(GPS_TIME_FILE_PATH, F_OK) == -1) {
+    /* File is not created yet, system is most likely still booting */
+    piksi_log(LOG_DEBUG, "%s doesn't exist", GPS_TIME_FILE_PATH);
+    return has_time;
+  }
+
+  FILE* fp = fopen(GPS_TIME_FILE_PATH, "r");
+
+  if (fp == NULL) {
+    piksi_log(LOG_WARNING|LOG_SBP,
+              "Failed to open %s: errno = %d",
+              GPS_TIME_FILE_PATH,
+              errno);
+    return has_time;
+  }
+
+  has_time = ('1' == fgetc(fp));
+
+  fclose(fp);
+
+  return has_time;
 }
 
 void reap_children(bool debug, child_exit_fn_t exit_handler)
