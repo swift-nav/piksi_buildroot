@@ -192,7 +192,7 @@ static int ntrip_notify_generic(void *context)
   (void)context;
 
   /* ntrip_settings_inititalized prevents false warning when notify function
-   * is triggered by read from persintent config file during boot */
+   * is triggered by read from persistent config file during boot */
   if (ntrip_enabled && ntrip_settings_initialized) {
     sbp_log(LOG_WARNING, "NTRIP must be disabled to modify settings");
     return 1;
@@ -206,7 +206,7 @@ static int ntrip_notify_enable(void *context)
   (void)context;
 
   /* Check if initialization is in process and this notify function was
-   * triggered by read from persintent config file during boot. If this is the
+   * triggered by read from persistent config file during boot. If this is the
    * case, other settings might not be ready yet. */
   if (ntrip_settings_initialized) {
     ntrip_start_processes();
