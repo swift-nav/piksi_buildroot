@@ -77,6 +77,8 @@ bool device_has_gps_time(void);
  */
 void set_device_has_gps_time(bool has_time);
 
+bool file_read_value(char *file_path);
+
 typedef void (*child_exit_fn_t)(pid_t pid);
 
 void reap_children(bool debug, child_exit_fn_t exit_handler);
