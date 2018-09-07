@@ -50,6 +50,12 @@ sudo find /root -type f -exec chmod g+rw {} \;
 [ -d "/piksi_buildroot/buildroot/output/images" ] && \
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/output/images"
 
+[ -d "/piksi_buildroot/buildroot/nano_output" ] && \
+  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/nano_output"
+
+[ -d "/piksi_buildroot/buildroot/nano_output/images" ] && \
+  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/nano_output/images"
+
 sudo --preserve-env --user="$USER" --shell -- "$@"
 err_code=$?
 

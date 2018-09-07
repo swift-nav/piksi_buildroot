@@ -26,6 +26,8 @@ validate_travis_target()
     :
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     :
+  elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
+    :
   else
     echo "ERROR: unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}" >&2
     exit 1
@@ -87,6 +89,9 @@ list_published_files()
     : # Just push build log
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     : # Just push build log
+  elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
+    files="${files} \
+      buildroot/nano_output/images/sdcard.img"
   fi
 
   echo "$files"
@@ -232,6 +237,37 @@ handle_host_after_failure_phase()
 }
 
 #######################################################################
+# Nano/Starling-EVK build variant #####################################
+#######################################################################
+
+handle_nano_script_phase()
+{
+  export CCACHE_READONLY=1
+
+  make docker-setup
+  make docker-pull-ccache
+
+  spawn_ticker
+
+  make docker-make-nano-image 2>&1 | capture_build_log
+}
+
+handle_nano_after_success_phase()
+{
+  # Make buildroot ignore our output directory so we aren't flagged as dirty
+  echo "nano_output" >> buildroot/.gitignore
+  (cd buildroot; git update-index --assume-unchanged .gitignore)
+
+  PRODUCT_VERSION=nano PRODUCT_REV=evt0 \
+    ./scripts/publish.sh $(list_published_files)
+}
+
+handle_nano_after_failure_phase()
+{
+  do_default_after_failure_actions
+}
+
+#######################################################################
 # SDK build variant ###################################################
 #######################################################################
 
@@ -289,6 +325,8 @@ handle_script_phase()
     handle_sdk_script_phase
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     handle_host_script_phase
+  elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
+    handle_nano_script_phase
   fi
 }
 
@@ -304,6 +342,8 @@ handle_after_success_phase()
     handle_sdk_after_success_phase
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     handle_host_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
+    handle_nano_after_success_phase
   fi
 }
 
@@ -319,6 +359,8 @@ handle_after_failure_phase()
     handle_sdk_after_failure_phase
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     handle_host_after_failure_phase
+  elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
+    handle_nano_after_failure_phase
   fi
 }
 
