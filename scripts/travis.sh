@@ -197,6 +197,22 @@ handle_host_script_phase()
   make docker-make-host-image 2>&1 | capture_build_log
 }
 
+ccache_variant()
+{
+  if [[ "${TRAVIS_TARGET}" == "release" ]]; then
+    echo "release"
+  elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
+    echo "ERROR: invalid build variant for ccache" >&2
+    exit 1
+  elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
+    echo "release"
+  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+    echo "release"
+  elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
+    echo "host"
+  fi
+}
+
 handle_host_after_success_phase()
 {
   git fetch --tags --unshallow
@@ -206,7 +222,7 @@ handle_host_after_success_phase()
 
   if ./scripts/should_build_sdk_and_ccache.sh; then
     make host-ccache-archive
-    ./scripts/publish.sh piksi_br_${TRAVIS_TARGET}_ccache.tgz
+    ./scripts/publish.sh piksi_br_$(ccache_variant)_ccache.tgz
   fi
 }
 
@@ -308,7 +324,7 @@ handle_after_failure_phase()
 
 handle_before_install_phase()
 {
-  ./scripts/check_for_s3_cred.sh || travis_terminate 1
+  ./scripts/check_for_s3_cred.sh || exit 1
 
    openssl aes-256-cbc \
     -K $encrypted_09ba210c188e_key \
@@ -338,7 +354,7 @@ validate_travis_target
 if [[ "$PHASE" == "script" ]]; then
   handle_script_phase
 elif [[ "$PHASE" == "after_success" ]]; then
-  handle_after_success_phase || travis_terminate 1
+  handle_after_success_phase || exit 1
 elif [[ "$PHASE" == "after_failure" ]]; then
   handle_after_failure_phase
 elif [[ "$PHASE" == "before_install" ]]; then
