@@ -60,6 +60,7 @@ endef
 define GRPC_CUSTOM_INSTALL_TARGET_CMDS
 	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(GRPC_CUSTOM_INSTALL_TARGET_OPTS) -C $(@D) \
 		install-shared_c install-shared_cxx
+	ln -sf libgrpc++_unsecure.so.1.12.0 "$(TARGET_DIR)/usr/lib/libgrpc++_unsecure.so.1"
 endef
 
 HOST_GRPC_CUSTOM_MAKE_ENV = \
