@@ -36,6 +36,8 @@ bool path_validator_check(path_validator_t *ctx, const char* path);
 void path_validator_allow_path(path_validator_t *ctx, const char* path);
 size_t path_validator_allowed_count(path_validator_t *ctx);
 
+const char* path_validator_base_paths(path_validator_t *ctx);
+
 #ifdef __cplusplus
 }
 #endif

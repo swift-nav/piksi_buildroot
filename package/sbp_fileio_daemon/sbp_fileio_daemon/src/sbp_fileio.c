@@ -34,7 +34,6 @@
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
-static const char* basedir_path = NULL;
 static bool allow_factory_mtd = false;
 static bool allow_imageset_bin = false;
 
@@ -103,8 +102,7 @@ static const char* filter_imageset_bin(const char* filename)
 
   size_t printed = snprintf(path_buf,
                             sizeof(path_buf),
-                            "%s/%s",
-                            basedir_path,
+                            "/data/%s",
                             IMAGESET_BIN_NAME);
   assert( printed < sizeof(path_buf) );
   return path_buf;
@@ -142,7 +140,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   int st = allow_mtd_read(msg->filename);
 
   if (st == DENY_MTD_READ || (st == NO_MTD_READ && !path_validator_check(g_pv_ctx, msg->filename))) {
-    piksi_log(LOG_WARNING, "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...", msg->filename, basedir_path);
+    piksi_log(LOG_WARNING, "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...", msg->filename, path_validator_base_paths(g_pv_ctx));
     readlen = 0;
   } else {
     int f = open(msg->filename, O_RDONLY);
@@ -189,7 +187,9 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
                 msg->dirname, msg->sequence, msg->offset);
 
   if (!path_validator_check(g_pv_ctx, msg->dirname)) {
-    piksi_log(LOG_WARNING, "Received FILEIO_READ_DIR request for path (%s) outside base directory (%s), ignoring...", msg->dirname, basedir_path);
+    piksi_log(LOG_WARNING, "Received FILEIO_READ_DIR request for path (%s) "
+			"outside base directory (%s), ignoring...",
+			msg->dirname, path_validator_base_paths(g_pv_ctx));
     len = 0;
 
   } else {
@@ -235,7 +235,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
   FIO_LOG_DEBUG("remove request for '%s'", filename);
 
   if (!path_validator_check(g_pv_ctx, filename)) {
-    piksi_log(LOG_WARNING, "Received FILEIO_REMOVE request for path (%s) outside base directory (%s), ignoring...", filename, basedir_path);
+    piksi_log(LOG_WARNING, "Received FILEIO_REMOVE request for path (%s) outside base directory (%s), ignoring...", filename, path_validator_base_paths(g_pv_ctx));
     return;
   }
 
@@ -271,7 +271,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   const char* filename = filter_imageset_bin(msg->filename);
   if (!path_validator_check(g_pv_ctx, filename)) {
-    piksi_log(LOG_WARNING, "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...", filename, basedir_path);
+    piksi_log(LOG_WARNING, "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...", filename, path_validator_base_paths(g_pv_ctx));
     return;
   }
 

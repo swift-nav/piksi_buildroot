@@ -20,6 +20,7 @@
 #include <libpiksi/logging.h>
 
 #include "path_validator.h"
+#include "fio_debug.h"
 
 #define PROGRAM_NAME "sbp_fileio_daemon_tests"
 
@@ -30,22 +31,33 @@ TEST_F(SbpFileioDaemonTests, basic)
   path_validator_t *ctx = path_validator_create();
   ASSERT_TRUE( ctx != NULL );
 
-  path_validator_allow_path(ctx, "/fake_data");
+  path_validator_allow_path(ctx, "/fake_data/");
+
+  ASSERT_TRUE( path_validator_check(ctx, "/fake_data/") );
 
   ASSERT_TRUE( path_validator_check(ctx, "/fake_data/foobar") );
   ASSERT_FALSE( path_validator_check(ctx, "/usr/bin/foobar") );
 
   ASSERT_TRUE( path_validator_allowed_count(ctx) == 1 );
 
-  path_validator_allow_path(ctx, "/fake_persist/blah");
+  path_validator_allow_path(ctx, "/fake_persist/blah/");
   ASSERT_TRUE( path_validator_check(ctx, "/fake_persist/blah/blahblah.txt") );
 
+  ASSERT_TRUE( path_validator_check(ctx, "fake_persist/blah/blahblah.txt") );
+
   ASSERT_TRUE( path_validator_allowed_count(ctx) == 2 );
+
+	const char* base_paths = path_validator_base_paths(ctx);
+	fprintf(stderr, "base_paths: %s\n", base_paths);
+
+	ASSERT_TRUE( strcmp(base_paths, "/fake_persist/blah/,/fake_data/") == 0 );
 
   path_validator_destroy(&ctx);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
+	fio_debug = true;
 
   ::testing::InitGoogleTest(&argc, argv);
 
