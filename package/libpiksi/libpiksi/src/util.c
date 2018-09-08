@@ -109,15 +109,14 @@ int device_uuid_get(char *str, size_t str_size)
 
 bool device_is_duro(void)
 {
-  char duro_eeprom_sig[sizeof(DEVICE_DURO_ID_STRING)];
+  char duro_eeprom_sig[DEVICE_DURO_MAX_CONTENTS_SIZE];
 
-  int fd = open(DEVICE_DURO_EEPROM_PATH, O_RDONLY);
-  if (fd < 0) {
-    piksi_log(LOG_WARNING, "Failed to open DURO eeprom path");
+  if (file_read_string(DEVICE_DURO_EEPROM_PATH,
+                       duro_eeprom_sig,
+                       sizeof(duro_eeprom_sig)) != 0) {
+    piksi_log(LOG_WARNING, "Failed to read DURO eeprom contents");
     return false;
   }
-  read(fd, duro_eeprom_sig, sizeof(DEVICE_DURO_ID_STRING));
-  close(fd);
 
   return (memcmp(duro_eeprom_sig,
                  DEVICE_DURO_ID_STRING,
