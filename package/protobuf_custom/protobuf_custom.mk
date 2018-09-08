@@ -7,7 +7,7 @@
 # When bumping this package, make sure to also verify if the
 # python-protobuf package still works, as they share the same
 # version/site variables.
-PROTOBUF_CUSTOM_VERSION = 3.6.0
+PROTOBUF_CUSTOM_VERSION = 3.5.1
 PROTOBUF_CUSTOM_SOURCE = protobuf-cpp-$(PROTOBUF_CUSTOM_VERSION).tar.gz
 PROTOBUF_CUSTOM_SITE = https://github.com/google/protobuf/releases/download/v$(PROTOBUF_CUSTOM_VERSION)
 PROTOBUF_CUSTOM_LICENSE = BSD-3-Clause
