@@ -288,7 +288,7 @@ static int ntrip_settings_loop(void)
   return settings_loop(NTRIP_CONTROL_SOCK,
                        NTRIP_CONTROL_FILE,
                        NTRIP_CONTROL_COMMAND_RECONNECT,
-                       ntrip_init,
+                       ntrip_settings_init,
                        ntrip_reconnect,
                        settings_loop_terminate,
                        settings_loop_sigchild) ? 0 : -1;

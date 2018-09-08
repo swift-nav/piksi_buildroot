@@ -53,6 +53,16 @@ static int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
+bool file_read_value(char *file_path) {
+  /* Accommodate also the terminating null char fgets always adds */
+  char val_char[2];
+  if (file_read_string(file_path, val_char, sizeof(val_char)) != 0) {
+    return false;
+  }
+
+  return ('1' == val_char[0]);
+}
+
 u16 sbp_sender_id_get(void)
 {
   u16 sbp_sender_id = SBP_SENDER_ID;
@@ -137,29 +147,13 @@ void set_device_has_gps_time(bool has_time) {
 }
 
 bool device_has_gps_time(void) {
-  bool has_time = false;
-
   if (access(GPS_TIME_FILE_PATH, F_OK) == -1) {
     /* File is not created yet, system is most likely still booting */
     piksi_log(LOG_DEBUG, "%s doesn't exist", GPS_TIME_FILE_PATH);
-    return has_time;
+    return false;
   }
 
-  FILE* fp = fopen(GPS_TIME_FILE_PATH, "r");
-
-  if (fp == NULL) {
-    piksi_log(LOG_WARNING|LOG_SBP,
-              "Failed to open %s: errno = %d",
-              GPS_TIME_FILE_PATH,
-              errno);
-    return has_time;
-  }
-
-  has_time = ('1' == fgetc(fp));
-
-  fclose(fp);
-
-  return has_time;
+  return file_read_value(GPS_TIME_FILE_PATH);
 }
 
 void reap_children(bool debug, child_exit_fn_t exit_handler)
