@@ -18,29 +18,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  
  # These are automatically computed variables.
  # There shouldn't be any need to change anything from now on.
-@@ -776,7 +776,7 @@
- 
- CPPFLAGS := -Ithird_party/googletest/googletest/include -Ithird_party/googletest/googlemock/include $(CPPFLAGS)
- 
--PROTOC_PLUGINS_ALL = $(BINDIR)/$(CONFIG)/grpc_cpp_plugin $(BINDIR)/$(CONFIG)/grpc_csharp_plugin $(BINDIR)/$(CONFIG)/grpc_node_plugin $(BINDIR)/$(CONFIG)/grpc_objective_c_plugin $(BINDIR)/$(CONFIG)/grpc_php_plugin $(BINDIR)/$(CONFIG)/grpc_python_plugin $(BINDIR)/$(CONFIG)/grpc_ruby_plugin
-+PROTOC_PLUGINS_ALL = $(BINDIR)/$(CONFIG)/grpc_cpp_plugin
- PROTOC_PLUGINS_DIR = $(BINDIR)/$(CONFIG)
- 
- ifeq ($(HAS_SYSTEM_PROTOBUF),true)
-@@ -1144,12 +1144,6 @@
- grpc_alts_credentials_options_test: $(BINDIR)/$(CONFIG)/grpc_alts_credentials_options_test
- grpc_cli: $(BINDIR)/$(CONFIG)/grpc_cli
- grpc_cpp_plugin: $(BINDIR)/$(CONFIG)/grpc_cpp_plugin
--grpc_csharp_plugin: $(BINDIR)/$(CONFIG)/grpc_csharp_plugin
--grpc_node_plugin: $(BINDIR)/$(CONFIG)/grpc_node_plugin
--grpc_objective_c_plugin: $(BINDIR)/$(CONFIG)/grpc_objective_c_plugin
--grpc_php_plugin: $(BINDIR)/$(CONFIG)/grpc_php_plugin
--grpc_python_plugin: $(BINDIR)/$(CONFIG)/grpc_python_plugin
--grpc_ruby_plugin: $(BINDIR)/$(CONFIG)/grpc_ruby_plugin
- grpc_tool_test: $(BINDIR)/$(CONFIG)/grpc_tool_test
- grpclb_api_test: $(BINDIR)/$(CONFIG)/grpclb_api_test
- grpclb_end2end_test: $(BINDIR)/$(CONFIG)/grpclb_end2end_test
-@@ -2895,7 +2889,7 @@
+@@ -2895,7 +2895,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libaddress_sorting$(SHARED_VERSION_CORE)-dll.a $(prefix)/lib/libaddress_sorting.a
  else ifneq ($(SYSTEM),Darwin)
@@ -49,7 +27,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)address_sorting$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(prefix)/lib/libaddress_sorting.so
  endif
  	$(E) "[INSTALL] Installing $(SHARED_PREFIX)gpr$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE)"
-@@ -2904,7 +2898,7 @@
+@@ -2904,7 +2904,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgpr$(SHARED_VERSION_CORE)-dll.a $(prefix)/lib/libgpr.a
  else ifneq ($(SYSTEM),Darwin)
@@ -58,7 +36,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)gpr$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(prefix)/lib/libgpr.so
  endif
  	$(E) "[INSTALL] Installing $(SHARED_PREFIX)grpc$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE)"
-@@ -2913,7 +2907,7 @@
+@@ -2913,7 +2913,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgrpc$(SHARED_VERSION_CORE)-dll.a $(prefix)/lib/libgrpc.a
  else ifneq ($(SYSTEM),Darwin)
@@ -67,7 +45,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(prefix)/lib/libgrpc.so
  endif
  	$(E) "[INSTALL] Installing $(SHARED_PREFIX)grpc_cronet$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE)"
-@@ -2922,7 +2916,7 @@
+@@ -2922,7 +2922,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgrpc_cronet$(SHARED_VERSION_CORE)-dll.a $(prefix)/lib/libgrpc_cronet.a
  else ifneq ($(SYSTEM),Darwin)
@@ -76,7 +54,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc_cronet$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(prefix)/lib/libgrpc_cronet.so
  endif
  	$(E) "[INSTALL] Installing $(SHARED_PREFIX)grpc_unsecure$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE)"
-@@ -2931,7 +2925,7 @@
+@@ -2931,7 +2931,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgrpc_unsecure$(SHARED_VERSION_CORE)-dll.a $(prefix)/lib/libgrpc_unsecure.a
  else ifneq ($(SYSTEM),Darwin)
@@ -85,7 +63,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc_unsecure$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(prefix)/lib/libgrpc_unsecure.so
  endif
  ifneq ($(SYSTEM),MINGW32)
-@@ -2948,7 +2942,7 @@
+@@ -2948,7 +2948,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgrpc++$(SHARED_VERSION_CPP)-dll.a $(prefix)/lib/libgrpc++.a
  else ifneq ($(SYSTEM),Darwin)
@@ -94,7 +72,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc++$(SHARED_VERSION_CPP).$(SHARED_EXT_CPP) $(prefix)/lib/libgrpc++.so
  endif
  	$(E) "[INSTALL] Installing $(SHARED_PREFIX)grpc++_cronet$(SHARED_VERSION_CPP).$(SHARED_EXT_CPP)"
-@@ -2957,7 +2951,7 @@
+@@ -2957,7 +2957,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgrpc++_cronet$(SHARED_VERSION_CPP)-dll.a $(prefix)/lib/libgrpc++_cronet.a
  else ifneq ($(SYSTEM),Darwin)
@@ -103,7 +81,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc++_cronet$(SHARED_VERSION_CPP).$(SHARED_EXT_CPP) $(prefix)/lib/libgrpc++_cronet.so
  endif
  	$(E) "[INSTALL] Installing $(SHARED_PREFIX)grpc++_error_details$(SHARED_VERSION_CPP).$(SHARED_EXT_CPP)"
-@@ -2966,7 +2960,7 @@
+@@ -2966,7 +2966,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgrpc++_error_details$(SHARED_VERSION_CPP)-dll.a $(prefix)/lib/libgrpc++_error_details.a
  else ifneq ($(SYSTEM),Darwin)
@@ -112,7 +90,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc++_error_details$(SHARED_VERSION_CPP).$(SHARED_EXT_CPP) $(prefix)/lib/libgrpc++_error_details.so
  endif
  	$(E) "[INSTALL] Installing $(SHARED_PREFIX)grpc++_reflection$(SHARED_VERSION_CPP).$(SHARED_EXT_CPP)"
-@@ -2975,7 +2969,7 @@
+@@ -2975,7 +2975,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgrpc++_reflection$(SHARED_VERSION_CPP)-dll.a $(prefix)/lib/libgrpc++_reflection.a
  else ifneq ($(SYSTEM),Darwin)
@@ -121,7 +99,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc++_reflection$(SHARED_VERSION_CPP).$(SHARED_EXT_CPP) $(prefix)/lib/libgrpc++_reflection.so
  endif
  	$(E) "[INSTALL] Installing $(SHARED_PREFIX)grpc++_unsecure$(SHARED_VERSION_CPP).$(SHARED_EXT_CPP)"
-@@ -2984,7 +2978,7 @@
+@@ -2984,7 +2984,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgrpc++_unsecure$(SHARED_VERSION_CPP)-dll.a $(prefix)/lib/libgrpc++_unsecure.a
  else ifneq ($(SYSTEM),Darwin)
@@ -130,7 +108,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc++_unsecure$(SHARED_VERSION_CPP).$(SHARED_EXT_CPP) $(prefix)/lib/libgrpc++_unsecure.so
  endif
  ifneq ($(SYSTEM),MINGW32)
-@@ -3001,7 +2995,7 @@
+@@ -3001,7 +3001,7 @@
  ifeq ($(SYSTEM),MINGW32)
  	$(Q) $(INSTALL) $(LIBDIR)/$(CONFIG)/libgrpc_csharp_ext$(SHARED_VERSION_CSHARP)-dll.a $(prefix)/lib/libgrpc_csharp_ext.a
  else ifneq ($(SYSTEM),Darwin)
@@ -139,26 +117,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc_csharp_ext$(SHARED_VERSION_CSHARP).$(SHARED_EXT_CSHARP) $(prefix)/lib/libgrpc_csharp_ext.so
  endif
  ifneq ($(SYSTEM),MINGW32)
-@@ -3015,18 +3009,6 @@
- 	$(E) "[INSTALL] Installing grpc protoc plugins"
- 	$(Q) $(INSTALL) -d $(prefix)/bin
- 	$(Q) $(INSTALL) $(BINDIR)/$(CONFIG)/grpc_cpp_plugin $(prefix)/bin/grpc_cpp_plugin
--	$(Q) $(INSTALL) -d $(prefix)/bin
--	$(Q) $(INSTALL) $(BINDIR)/$(CONFIG)/grpc_csharp_plugin $(prefix)/bin/grpc_csharp_plugin
--	$(Q) $(INSTALL) -d $(prefix)/bin
--	$(Q) $(INSTALL) $(BINDIR)/$(CONFIG)/grpc_node_plugin $(prefix)/bin/grpc_node_plugin
--	$(Q) $(INSTALL) -d $(prefix)/bin
--	$(Q) $(INSTALL) $(BINDIR)/$(CONFIG)/grpc_objective_c_plugin $(prefix)/bin/grpc_objective_c_plugin
--	$(Q) $(INSTALL) -d $(prefix)/bin
--	$(Q) $(INSTALL) $(BINDIR)/$(CONFIG)/grpc_php_plugin $(prefix)/bin/grpc_php_plugin
--	$(Q) $(INSTALL) -d $(prefix)/bin
--	$(Q) $(INSTALL) $(BINDIR)/$(CONFIG)/grpc_python_plugin $(prefix)/bin/grpc_python_plugin
--	$(Q) $(INSTALL) -d $(prefix)/bin
--	$(Q) $(INSTALL) $(BINDIR)/$(CONFIG)/grpc_ruby_plugin $(prefix)/bin/grpc_ruby_plugin
- 
- install-grpc-cli: grpc_cli
- 	$(E) "[INSTALL] Installing grpc cli"
-@@ -3091,8 +3073,8 @@
+@@ -3091,8 +3091,8 @@
  ifeq ($(SYSTEM),Darwin)
  	$(Q) $(LD) $(LDFLAGS) -L$(LIBDIR)/$(CONFIG) -install_name $(SHARED_PREFIX)address_sorting$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) -dynamiclib -o $(LIBDIR)/$(CONFIG)/libaddress_sorting$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBADDRESS_SORTING_OBJS) $(ZLIB_MERGE_LIBS) $(CARES_MERGE_LIBS) $(ADDRESS_SORTING_MERGE_LIBS) $(LDLIBS)
  else
@@ -169,7 +128,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)address_sorting$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBDIR)/$(CONFIG)/libaddress_sorting$(SHARED_VERSION_CORE).so
  endif
  endif
-@@ -3241,8 +3223,8 @@
+@@ -3241,8 +3241,8 @@
  ifeq ($(SYSTEM),Darwin)
  	$(Q) $(LD) $(LDFLAGS) -L$(LIBDIR)/$(CONFIG) -install_name $(SHARED_PREFIX)gpr$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) -dynamiclib -o $(LIBDIR)/$(CONFIG)/libgpr$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBGPR_OBJS) $(ZLIB_MERGE_LIBS) $(CARES_MERGE_LIBS) $(ADDRESS_SORTING_MERGE_LIBS) $(LDLIBS)
  else
@@ -180,7 +139,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)gpr$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBDIR)/$(CONFIG)/libgpr$(SHARED_VERSION_CORE).so
  endif
  endif
-@@ -3656,8 +3638,8 @@
+@@ -3656,8 +3656,8 @@
  ifeq ($(SYSTEM),Darwin)
  	$(Q) $(LD) $(LDFLAGS) -L$(LIBDIR)/$(CONFIG) -install_name $(SHARED_PREFIX)grpc$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) -dynamiclib -o $(LIBDIR)/$(CONFIG)/libgrpc$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBGRPC_OBJS) $(LIBDIR)/$(CONFIG)/libgpr.a $(OPENSSL_MERGE_LIBS) $(LDLIBS_SECURE) $(ZLIB_MERGE_LIBS) $(CARES_MERGE_LIBS) $(ADDRESS_SORTING_MERGE_LIBS) $(LDLIBS)
  else
@@ -191,7 +150,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBDIR)/$(CONFIG)/libgrpc$(SHARED_VERSION_CORE).so
  endif
  endif
-@@ -4015,8 +3997,8 @@
+@@ -4015,8 +4015,8 @@
  ifeq ($(SYSTEM),Darwin)
  	$(Q) $(LD) $(LDFLAGS) -L$(LIBDIR)/$(CONFIG) -install_name $(SHARED_PREFIX)grpc_cronet$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) -dynamiclib -o $(LIBDIR)/$(CONFIG)/libgrpc_cronet$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBGRPC_CRONET_OBJS) $(LIBDIR)/$(CONFIG)/libgpr.a $(OPENSSL_MERGE_LIBS) $(LDLIBS_SECURE) $(ZLIB_MERGE_LIBS) $(CARES_MERGE_LIBS) $(ADDRESS_SORTING_MERGE_LIBS) $(LDLIBS)
  else
@@ -202,7 +161,7 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc_cronet$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBDIR)/$(CONFIG)/libgrpc_cronet$(SHARED_VERSION_CORE).so
  endif
  endif
-@@ -4911,8 +4893,8 @@
+@@ -4911,8 +4911,8 @@
  ifeq ($(SYSTEM),Darwin)
  	$(Q) $(LD) $(LDFLAGS) -L$(LIBDIR)/$(CONFIG) -install_name $(SHARED_PREFIX)grpc_unsecure$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) -dynamiclib -o $(LIBDIR)/$(CONFIG)/libgrpc_unsecure$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBGRPC_UNSECURE_OBJS) $(LIBDIR)/$(CONFIG)/libgpr.a $(ZLIB_MERGE_LIBS) $(CARES_MERGE_LIBS) $(ADDRESS_SORTING_MERGE_LIBS) $(LDLIBS)
  else
@@ -213,209 +172,3 @@ diff -ur grpc_custom-v1.12.0/Makefile grpc_custom-v1.12.0.new/Makefile
  	$(Q) ln -sf $(SHARED_PREFIX)grpc_unsecure$(SHARED_VERSION_CORE).$(SHARED_EXT_CORE) $(LIBDIR)/$(CONFIG)/libgrpc_unsecure$(SHARED_VERSION_CORE).so
  endif
  endif
-@@ -6843,12 +6825,6 @@
- 
- LIBGRPC_PLUGIN_SUPPORT_SRC = \
-     src/compiler/cpp_generator.cc \
--    src/compiler/csharp_generator.cc \
--    src/compiler/node_generator.cc \
--    src/compiler/objective_c_generator.cc \
--    src/compiler/php_generator.cc \
--    src/compiler/python_generator.cc \
--    src/compiler/ruby_generator.cc \
- 
- PUBLIC_HEADERS_CXX += \
-     include/grpc++/impl/codegen/config_protobuf.h \
-@@ -17297,192 +17273,6 @@
- endif
- 
- 
--GRPC_CSHARP_PLUGIN_SRC = \
--    src/compiler/csharp_plugin.cc \
--
--GRPC_CSHARP_PLUGIN_OBJS = $(addprefix $(OBJDIR)/$(CONFIG)/, $(addsuffix .o, $(basename $(GRPC_CSHARP_PLUGIN_SRC))))
--
--
--
--ifeq ($(NO_PROTOBUF),true)
--
--# You can't build the protoc plugins or protobuf-enabled targets if you don't have protobuf 3.5.0+.
--
--$(BINDIR)/$(CONFIG)/grpc_csharp_plugin: protobuf_dep_error
--
--else
--
--$(BINDIR)/$(CONFIG)/grpc_csharp_plugin: $(PROTOBUF_DEP) $(GRPC_CSHARP_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--	$(E) "[HOSTLD]  Linking $@"
--	$(Q) mkdir -p `dirname $@`
--	$(Q) $(HOST_LDXX) $(HOST_LDFLAGS) $(GRPC_CSHARP_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a $(HOST_LDLIBSXX) $(HOST_LDLIBS_PROTOC) $(HOST_LDLIBS) $(HOST_LDLIBS_PROTOC) -o $(BINDIR)/$(CONFIG)/grpc_csharp_plugin
--
--endif
--
--$(OBJDIR)/$(CONFIG)/src/compiler/csharp_plugin.o:  $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--
--deps_grpc_csharp_plugin: $(GRPC_CSHARP_PLUGIN_OBJS:.o=.dep)
--
--ifneq ($(NO_DEPS),true)
---include $(GRPC_CSHARP_PLUGIN_OBJS:.o=.dep)
--endif
--
--
--GRPC_NODE_PLUGIN_SRC = \
--    src/compiler/node_plugin.cc \
--
--GRPC_NODE_PLUGIN_OBJS = $(addprefix $(OBJDIR)/$(CONFIG)/, $(addsuffix .o, $(basename $(GRPC_NODE_PLUGIN_SRC))))
--
--
--
--ifeq ($(NO_PROTOBUF),true)
--
--# You can't build the protoc plugins or protobuf-enabled targets if you don't have protobuf 3.5.0+.
--
--$(BINDIR)/$(CONFIG)/grpc_node_plugin: protobuf_dep_error
--
--else
--
--$(BINDIR)/$(CONFIG)/grpc_node_plugin: $(PROTOBUF_DEP) $(GRPC_NODE_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--	$(E) "[HOSTLD]  Linking $@"
--	$(Q) mkdir -p `dirname $@`
--	$(Q) $(HOST_LDXX) $(HOST_LDFLAGS) $(GRPC_NODE_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a $(HOST_LDLIBSXX) $(HOST_LDLIBS_PROTOC) $(HOST_LDLIBS) $(HOST_LDLIBS_PROTOC) -o $(BINDIR)/$(CONFIG)/grpc_node_plugin
--
--endif
--
--$(OBJDIR)/$(CONFIG)/src/compiler/node_plugin.o:  $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--
--deps_grpc_node_plugin: $(GRPC_NODE_PLUGIN_OBJS:.o=.dep)
--
--ifneq ($(NO_DEPS),true)
---include $(GRPC_NODE_PLUGIN_OBJS:.o=.dep)
--endif
--
--
--GRPC_OBJECTIVE_C_PLUGIN_SRC = \
--    src/compiler/objective_c_plugin.cc \
--
--GRPC_OBJECTIVE_C_PLUGIN_OBJS = $(addprefix $(OBJDIR)/$(CONFIG)/, $(addsuffix .o, $(basename $(GRPC_OBJECTIVE_C_PLUGIN_SRC))))
--
--
--
--ifeq ($(NO_PROTOBUF),true)
--
--# You can't build the protoc plugins or protobuf-enabled targets if you don't have protobuf 3.5.0+.
--
--$(BINDIR)/$(CONFIG)/grpc_objective_c_plugin: protobuf_dep_error
--
--else
--
--$(BINDIR)/$(CONFIG)/grpc_objective_c_plugin: $(PROTOBUF_DEP) $(GRPC_OBJECTIVE_C_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--	$(E) "[HOSTLD]  Linking $@"
--	$(Q) mkdir -p `dirname $@`
--	$(Q) $(HOST_LDXX) $(HOST_LDFLAGS) $(GRPC_OBJECTIVE_C_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a $(HOST_LDLIBSXX) $(HOST_LDLIBS_PROTOC) $(HOST_LDLIBS) $(HOST_LDLIBS_PROTOC) -o $(BINDIR)/$(CONFIG)/grpc_objective_c_plugin
--
--endif
--
--$(OBJDIR)/$(CONFIG)/src/compiler/objective_c_plugin.o:  $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--
--deps_grpc_objective_c_plugin: $(GRPC_OBJECTIVE_C_PLUGIN_OBJS:.o=.dep)
--
--ifneq ($(NO_DEPS),true)
---include $(GRPC_OBJECTIVE_C_PLUGIN_OBJS:.o=.dep)
--endif
--
--
--GRPC_PHP_PLUGIN_SRC = \
--    src/compiler/php_plugin.cc \
--
--GRPC_PHP_PLUGIN_OBJS = $(addprefix $(OBJDIR)/$(CONFIG)/, $(addsuffix .o, $(basename $(GRPC_PHP_PLUGIN_SRC))))
--
--
--
--ifeq ($(NO_PROTOBUF),true)
--
--# You can't build the protoc plugins or protobuf-enabled targets if you don't have protobuf 3.5.0+.
--
--$(BINDIR)/$(CONFIG)/grpc_php_plugin: protobuf_dep_error
--
--else
--
--$(BINDIR)/$(CONFIG)/grpc_php_plugin: $(PROTOBUF_DEP) $(GRPC_PHP_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--	$(E) "[HOSTLD]  Linking $@"
--	$(Q) mkdir -p `dirname $@`
--	$(Q) $(HOST_LDXX) $(HOST_LDFLAGS) $(GRPC_PHP_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a $(HOST_LDLIBSXX) $(HOST_LDLIBS_PROTOC) $(HOST_LDLIBS) $(HOST_LDLIBS_PROTOC) -o $(BINDIR)/$(CONFIG)/grpc_php_plugin
--
--endif
--
--$(OBJDIR)/$(CONFIG)/src/compiler/php_plugin.o:  $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--
--deps_grpc_php_plugin: $(GRPC_PHP_PLUGIN_OBJS:.o=.dep)
--
--ifneq ($(NO_DEPS),true)
---include $(GRPC_PHP_PLUGIN_OBJS:.o=.dep)
--endif
--
--
--GRPC_PYTHON_PLUGIN_SRC = \
--    src/compiler/python_plugin.cc \
--
--GRPC_PYTHON_PLUGIN_OBJS = $(addprefix $(OBJDIR)/$(CONFIG)/, $(addsuffix .o, $(basename $(GRPC_PYTHON_PLUGIN_SRC))))
--
--
--
--ifeq ($(NO_PROTOBUF),true)
--
--# You can't build the protoc plugins or protobuf-enabled targets if you don't have protobuf 3.5.0+.
--
--$(BINDIR)/$(CONFIG)/grpc_python_plugin: protobuf_dep_error
--
--else
--
--$(BINDIR)/$(CONFIG)/grpc_python_plugin: $(PROTOBUF_DEP) $(GRPC_PYTHON_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--	$(E) "[HOSTLD]  Linking $@"
--	$(Q) mkdir -p `dirname $@`
--	$(Q) $(HOST_LDXX) $(HOST_LDFLAGS) $(GRPC_PYTHON_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a $(HOST_LDLIBSXX) $(HOST_LDLIBS_PROTOC) $(HOST_LDLIBS) $(HOST_LDLIBS_PROTOC) -o $(BINDIR)/$(CONFIG)/grpc_python_plugin
--
--endif
--
--$(OBJDIR)/$(CONFIG)/src/compiler/python_plugin.o:  $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--
--deps_grpc_python_plugin: $(GRPC_PYTHON_PLUGIN_OBJS:.o=.dep)
--
--ifneq ($(NO_DEPS),true)
---include $(GRPC_PYTHON_PLUGIN_OBJS:.o=.dep)
--endif
--
--
--GRPC_RUBY_PLUGIN_SRC = \
--    src/compiler/ruby_plugin.cc \
--
--GRPC_RUBY_PLUGIN_OBJS = $(addprefix $(OBJDIR)/$(CONFIG)/, $(addsuffix .o, $(basename $(GRPC_RUBY_PLUGIN_SRC))))
--
--
--
--ifeq ($(NO_PROTOBUF),true)
--
--# You can't build the protoc plugins or protobuf-enabled targets if you don't have protobuf 3.5.0+.
--
--$(BINDIR)/$(CONFIG)/grpc_ruby_plugin: protobuf_dep_error
--
--else
--
--$(BINDIR)/$(CONFIG)/grpc_ruby_plugin: $(PROTOBUF_DEP) $(GRPC_RUBY_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--	$(E) "[HOSTLD]  Linking $@"
--	$(Q) mkdir -p `dirname $@`
--	$(Q) $(HOST_LDXX) $(HOST_LDFLAGS) $(GRPC_RUBY_PLUGIN_OBJS) $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a $(HOST_LDLIBSXX) $(HOST_LDLIBS_PROTOC) $(HOST_LDLIBS) $(HOST_LDLIBS_PROTOC) -o $(BINDIR)/$(CONFIG)/grpc_ruby_plugin
--
--endif
--
--$(OBJDIR)/$(CONFIG)/src/compiler/ruby_plugin.o:  $(LIBDIR)/$(CONFIG)/libgrpc_plugin_support.a
--
--deps_grpc_ruby_plugin: $(GRPC_RUBY_PLUGIN_OBJS:.o=.dep)
--
--ifneq ($(NO_DEPS),true)
---include $(GRPC_RUBY_PLUGIN_OBJS:.o=.dep)
--endif
--
--
- GRPC_TOOL_TEST_SRC = \
-     $(GENDIR)/src/proto/grpc/testing/echo.pb.cc $(GENDIR)/src/proto/grpc/testing/echo.grpc.pb.cc \
-     $(GENDIR)/src/proto/grpc/testing/echo_messages.pb.cc $(GENDIR)/src/proto/grpc/testing/echo_messages.grpc.pb.cc \
