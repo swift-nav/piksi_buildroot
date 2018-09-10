@@ -300,7 +300,7 @@ handle_sdk_after_success_phase()
       ./scripts/publish.sh piksi_sdk.txz
 
     make docker-ccache-archive
-    ./scripts/publish.sh piksi_br_${TRAVIS_TARGET}_ccache.tgz
+    ./scripts/publish.sh piksi_br_$(ccache_variant)_ccache.tgz
   fi
 }
 
