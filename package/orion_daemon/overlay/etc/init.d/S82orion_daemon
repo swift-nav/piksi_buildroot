@@ -1,0 +1,26 @@
+#!/bin/sh
+
+name="orion_daemon"
+cmd="orion_daemon --settings"
+dir="/"
+user="oriond"
+
+setup_permissions() {
+
+  mkdir -p /var/run/orion/control
+  touch /var/run/orion/control/socket
+  chown $user:$user /var/run/orion/control/socket
+
+  # Sticky bit is set so that orion_daemon can create it's
+  #   control socket but (and allow others to write to it)
+  #   but not delete the control socket.
+  chmod 1775 /var/run/orion/control
+
+  touch /var/run/orion/enabled
+  chown $user:$user /var/run/orion/enabled
+  chmod 0644 /var/run/orion/enabled
+
+  chown -R $user:$user /var/run/orion
+}
+
+source /etc/init.d/template_process.inc.sh

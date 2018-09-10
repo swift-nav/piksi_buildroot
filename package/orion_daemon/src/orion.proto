@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package orion_proto;
+
+// Empty type.
+message Empty {
+}
+
+// UUID type.
+message Uuid {
+  bytes payload = 1;
+}
+
+// Timestamp type.
+message Timestamp {
+  int64 seconds = 1;
+  int32 nanoseconds = 2;
+}
+
+// Common Header
+message Header {
+  Timestamp timestamp = 1;
+  Uuid service_uid = 2;
+  Uuid message_uid = 3;
+}
+
+// SBP Frame representation.
+message SbpFrame {
+  message Metadata {
+  }
+
+  Header header = 1;
+  Metadata metadata = 2;
+  uint32 type = 3;
+  uint32 sender = 4;
+  uint32 length = 5;
+  bytes payload = 6;
+}
+
+// Corrections service.
+service CorrectionGenerator {
+  rpc check_health(Empty) returns (Empty) {}
+  rpc stream_input_output(stream SbpFrame) returns (stream SbpFrame) {}
+}
