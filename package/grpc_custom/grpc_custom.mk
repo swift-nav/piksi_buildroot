@@ -47,9 +47,9 @@ GRPC_CUSTOM_INSTALL_TARGET_OPTS = \
 GRPC_CUSTOM_INSTALL_STAGING_OPTS = \
 	prefix="$(STAGING_DIR)/usr"
 
-GRPC_CUSTOM_BUILD_TARGETS = static
-GRPC_CUSTOM_STAGING_TARGETS = install-headers install-static_c install-static_cxx
-GRPC_CUSTOM_INSTALL_TARGETS = install-static_c install-static_cxx
+GRPC_CUSTOM_BUILD_TARGETS = shared
+GRPC_CUSTOM_STAGING_TARGETS = install-headers install-shared_c install-shared_cxx
+GRPC_CUSTOM_INSTALL_TARGETS = install-shared_c install-shared_cxx
 
 define GRPC_CUSTOM_BUILD_CMDS
 	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(GRPC_CUSTOM_MAKE_OPTS) -C $(@D) \
