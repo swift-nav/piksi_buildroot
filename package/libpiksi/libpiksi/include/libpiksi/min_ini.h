@@ -16,10 +16,10 @@
  *
  *  Version: $Id: minIni.h 44 2012-01-04 15:52:56Z thiadmer.riemersma@gmail.com $
  */
-#ifndef LIBPIKSI_MININI_H
-#define LIBPIKSI_MININI_H
+#ifndef LIBPIKSI_MIN_INI_H
+#define LIBPIKSI_MIN_INI_H
 
-#include <libpiksi/minGlue.h>
+#include <libpiksi/min_ini_glue.h>
 
 #if (defined _UNICODE || defined __UNICODE__ || defined UNICODE) && !defined MININI_ANSI
   #include <tchar.h>
@@ -149,4 +149,4 @@ int  ini_browse(INI_CALLBACK Callback, const void *UserData, const mTCHAR *Filen
 #endif /* __WXWINDOWS__ */
 #endif /* __cplusplus */
 
-#endif /* LIBPIKSI_MININI_H */
+#endif /* LIBPIKSI_MIN_INI_H */

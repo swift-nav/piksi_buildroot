@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <libpiksi/minIni.h>
+#include <libpiksi/min_ini.h>
 
 #define SETTINGS_FILE "/persistent/config.ini"
 #define BUFSIZE 256

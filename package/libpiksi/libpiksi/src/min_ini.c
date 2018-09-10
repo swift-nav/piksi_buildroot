@@ -32,7 +32,7 @@
 #endif
 
 #define MININI_IMPLEMENTATION
-#include <libpiksi/minIni.h>
+#include <libpiksi/min_ini.h>
 #if defined NDEBUG
   #define assert(e)
 #else

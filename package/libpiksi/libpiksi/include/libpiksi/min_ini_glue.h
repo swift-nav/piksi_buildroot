@@ -9,8 +9,8 @@
  */
 
 /* map required file I/O types and functions to the standard C library */
-#ifndef LIBPIKSI_MINGLUE_H
-#define LIBPIKSI_MINGLUE_H
+#ifndef LIBPIKSI_MIN_INI_GLUE_H
+#define LIBPIKSI_MIN_INI_GLUE_H
 #include <stdio.h>
 
 #define INI_FILETYPE                  FILE*

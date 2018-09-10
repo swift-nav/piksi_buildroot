@@ -18,7 +18,7 @@
 #include <assert.h>
 #include <unistd.h>
 
-#include <libpiksi/minIni.h>
+#include <libpiksi/min_ini.h>
 
 #include "settings.h"
 
