@@ -9,6 +9,14 @@ ports:
         filters:
           - { action: ACCEPT }
 
+  - name: NMEA_PORT_INTERNAL
+    pub_addr: "ipc:///var/run/sockets/nmea_internal.pub"
+    sub_addr: "ipc:///var/run/sockets/nmea_internal.sub"
+    forwarding_rules:
+      - dst_port: NMEA_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT }
+
   - name: NMEA_PORT_EXTERNAL
     pub_addr: "ipc:///var/run/sockets/nmea_external.pub" # /tmp/tmp.44030"
     sub_addr: "ipc:///var/run/sockets/nmea_external.sub" # /tmp/tmp.44031"
