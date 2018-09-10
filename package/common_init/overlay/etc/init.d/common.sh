@@ -22,9 +22,34 @@ configure_dir_resource()
   local path=$1; shift
   local perm=$1; shift
 
+  configure_dir_resource2 $user $user $path $perm
+}
+
+configure_dir_resource2()
+{
+  local user=$1; shift
+  local group=$1; shift
+  local path=$1; shift
+  local perm=$1; shift
+
   mkdir -p $path
-  chown $user:$user $path
+  chown $user:$group $path
   chmod $perm $path
+}
+
+configure_dir_resource_rec()
+{
+  local user=$1; shift
+  local path=$1; shift
+  local dir_perm=$1; shift
+  local file_perm=$1; shift
+
+  configure_dir_resource2 $user $user $path $dir_perm
+
+  find $path -type d -exec chmod $dir_perm {} \;
+  find $path -type f -exec chmod $file_perm {} \;
+
+  find $path -exec chown $user:$user {} \;
 }
 
 configure_file_resource()
@@ -33,8 +58,18 @@ configure_file_resource()
   local path=$1; shift
   local perm=$1; shift
 
+  configure_file_resource2 $user $user $path $dir_perm
+}
+
+configure_file_resource2()
+{
+  local user=$1; shift
+  local group=$1; shift
+  local path=$1; shift
+  local perm=$1; shift
+
   touch $path
-  chown $user:$user $path
+  chown $user:$group $path
   chmod $perm $path
 }
 

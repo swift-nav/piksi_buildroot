@@ -15,8 +15,7 @@ ifeq ($(BR2_BUILD_TESTS),y)
 endif
 
 define SBP_FILEIO_DAEMON_USERS
-	fio_fw -1 fio_fw -1 * - - -
-	fio_ex -1 fio_ex -1 * - - -
+	fileio -1 fileio -1 * - - -
 endef
 
 define SBP_FILEIO_DAEMON_BUILD_CMDS_DEFAULT
