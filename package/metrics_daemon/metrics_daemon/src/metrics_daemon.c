@@ -19,8 +19,9 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
-
+#include "metrics_daemon.h"
 #define PROGRAM_NAME "metrics_daemon"
+
 
 #define METRICS_ROOT_DIRECTORY "/var/log/metrics"
 #define METRICS_OUTPUT_FILENAME "/var/log/metrics.json"
@@ -28,7 +29,7 @@
 #define METRICS_USAGE_UPDATE_INTERVAL_MS (10000u)
 
 const char *metrics_path = METRICS_ROOT_DIRECTORY;
-
+//struct json_object *  loop_through_folder_name(const char * process_path, const char * root, unsigned int root_len, struct json_object * json_root);
 #define MAX_FOLDER_NAME_LENGTH 64
 static json_object *jobj_root;
 static json_object *jobjCur;
@@ -55,7 +56,7 @@ static void write_json_to_file(struct json_object * root, const char * file_path
 /**
  * @brief static function that returns file name from path
  *
- * @param str         file path in ASCII
+ * @param  str        file path in ASCII
  * @return file_name  file name
  */
 static char * extract_filename(const char *str)
@@ -95,7 +96,7 @@ static char * extract_filename(const char *str)
  * @param json_root    root of the json object tree
  * @return json object node that needs to be updated
  */
-static struct json_object *  loop_through_folder_name(const char * process_path, const char * root, unsigned int root_len, struct json_object * json_root)
+struct json_object *  loop_through_folder_name(const char * process_path, const char * root, unsigned int root_len, struct json_object * json_root)
 {
     char     ch = '/';
     const char   *pdest = NULL;
@@ -105,36 +106,34 @@ static struct json_object *  loop_through_folder_name(const char * process_path,
     while(pdest!=NULL)
     {
         pdest++;
-        if(pdest[0]=='.')   // skip the '.' on the file name
+        if (pdest[0]=='.')   // skip the '.' on the file name
             pdest++;
         char * pdest2 = strchr(pdest, ch);   // search the second slash
-        if(pdest2!=NULL)
+        if (pdest2!=NULL)
         {
             unsigned int strlen;
-            if(pdest2<=pdest)               // defensive code
+            if (pdest2<=pdest)               // defensive code
                 return json_current;
             else
                 strlen = (unsigned)(pdest2-pdest);    // cast to unsigned since the negative and zero case is handled by the if statement
-            if(!found_root &&strncmp(pdest,root,root_len)==0)   // search the root first
+            if (!found_root &&strncmp(pdest,root,root_len)==0)   // search the root first
             {
                 found_root = true;
                 pdest--;
                 continue;
             }
-            if(found_root)
+            if (found_root)
             {
                 bool found_target = false;
                 json_object_object_foreach(json_current, key, val) {        // for each subfolder, search the name as key in json tree
-                    char tempStr[80];
-                    memcpy(&tempStr[0], (pdest), strlen);
-                    if(strncmp((pdest),key,strlen-1)==0)        // if find the folder name, continue on the loop with the new current node
+                    if (strncmp((pdest),key,strlen-1)==0)        // if find the folder name, continue on the loop with the new current node
                     {
                         json_current = val;
                         found_target = true;
                         break;
                     }
                 }
-                if(!found_target)               // if couldn't find target on the tree, return current node to add new node
+                if (!found_target)               // if couldn't find target on the tree, return current node to add new node
                     return json_current;
             }
         }
@@ -154,13 +153,13 @@ static struct json_object *  loop_through_folder_name(const char * process_path,
  */
 static int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
 {
-    if(first_folder == true)     // skip the root since it is handled by main()
+    if (first_folder == true)     // skip the root since it is handled by main()
     {
         first_folder = false;
         return 0;
     }
     char * bname = extract_filename(fpath);
-    if(bname == NULL)
+    if (bname == NULL)
     {
         piksi_log(LOG_ERR, "FTW: invalid file name\n");  // For now, only support file and forlder
         return -1;
@@ -172,14 +171,14 @@ static int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
         {
             bool file_entry_exist = false;
             json_object_object_foreach(jobj_Cur, key, val) {
-                if(strcmp(bname,key)==0)
+                if (strcmp(bname,key)==0)
                 {
                     file_entry_exist = true;
                     jobjCur = val;
                     break;
                 }
             }
-            if(!file_entry_exist)                 // if it is a folder and it doesn't exist in json tree, add a new folder, do nothing otherwise
+            if (!file_entry_exist)                 // if it is a folder and it doesn't exist in json tree, add a new folder, do nothing otherwise
             {
                 json_object *jnewobj = json_object_new_object();     // Create a new object here to set the name of folder
                 json_object_object_add(jobj_Cur,bname, jnewobj);
@@ -193,7 +192,7 @@ static int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
             char buf[64];
             long file_len_long = sb->st_size-1;
             int file_len = (int)(sb->st_size-1);
-            if(file_len<64 && file_len_long >=0)
+            if (file_len<64 && file_len_long >=0)
             {
                 fread(&buf[0],(unsigned int)file_len,1,fp);
             } else{
@@ -202,14 +201,14 @@ static int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
             fclose(fp);
             bool file_entry_exist = false;
             json_object_object_foreach(jobj_Cur, key, val) {
-                if(strcmp(bname,key)==0)
+                if (strcmp(bname,key)==0)
                 {
                     file_entry_exist = true;
                     json_object_set_string_len(val,&buf[0],file_len);     // if file exist, update
                     break;
                 }
             }
-            if(!file_entry_exist)     // add a new node if it doesn't exist
+            if (!file_entry_exist)     // add a new node if it doesn't exist
             {
                 json_object_object_add(jobj_Cur,bname, json_object_new_string_len(&buf[0],file_len));
             }
@@ -226,6 +225,7 @@ static int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
     free(bname);  // free the file name allocated under loop_through_folder_name()
     return 0;
 }
+
 /**
  * @brief function that write json to file
  *
