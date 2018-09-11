@@ -8,6 +8,11 @@
 
 source /etc/init.d/common.sh
 
+[[ -n "$name" ]] || {
+  echo "Error: the 'name' variable must not be empty" >&2
+  exit 1
+}
+
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
 
