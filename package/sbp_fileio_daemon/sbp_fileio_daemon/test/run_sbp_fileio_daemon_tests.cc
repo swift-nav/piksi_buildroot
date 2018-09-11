@@ -28,7 +28,7 @@ class SbpFileioDaemonTests : public ::testing::Test { };
 
 TEST_F(SbpFileioDaemonTests, basic)
 {
-  path_validator_t *ctx = path_validator_create();
+  path_validator_t *ctx = path_validator_create(NULL);
   ASSERT_TRUE( ctx != NULL );
 
   path_validator_allow_path(ctx, "/fake_data/");
@@ -47,17 +47,48 @@ TEST_F(SbpFileioDaemonTests, basic)
 
   ASSERT_TRUE( path_validator_allowed_count(ctx) == 2 );
 
-	const char* base_paths = path_validator_base_paths(ctx);
-	fprintf(stderr, "base_paths: %s\n", base_paths);
+  const char* base_paths = path_validator_base_paths(ctx);
+  fprintf(stderr, "base_paths: %s\n", base_paths);
 
-	ASSERT_TRUE( strcmp(base_paths, "/fake_persist/blah/,/fake_data/") == 0 );
+  ASSERT_TRUE( strcmp(base_paths, "/fake_persist/blah/,/fake_data/") == 0 );
+
+  path_validator_destroy(&ctx);
+}
+
+TEST_F(SbpFileioDaemonTests, overflow)
+{
+  path_validator_cfg_t cfg = (path_validator_cfg_t) { .print_buf_size = 54 };
+  path_validator_t *ctx = path_validator_create(&cfg);
+
+  ASSERT_TRUE( ctx != NULL );
+
+  path_validator_allow_path(ctx, "/fake_data/");         //   11 + 1 (path plus comma)
+  path_validator_allow_path(ctx, "/fake_persist/blah/"); //   19 + 1 (path plus comma)
+  path_validator_allow_path(ctx, "/also_fake/");         //   11     (path)
+                                                         //      + 1 (null)
+                                                         // = 44 bytes
+
+  const char* base_paths = path_validator_base_paths(ctx);
+  fprintf(stderr, "base_paths: %s\n", base_paths);
+
+  ASSERT_TRUE( path_validator_allowed_count(ctx) == 3 );
+  ASSERT_TRUE( strcmp(base_paths, "/also_fake/,/fake_persist/blah/,/fake_data/") == 0 );
+
+  path_validator_allow_path(ctx, "/another_fake_path/");
+  ASSERT_TRUE( path_validator_allowed_count(ctx) == 4 );
+
+  base_paths = path_validator_base_paths(ctx);
+  fprintf(stderr, "base_paths: %s\n", base_paths);
+
+  // Paths that don't fit will be truncated
+  ASSERT_TRUE( strcmp(base_paths, "/another_fake_path/,/also_fake/,...") == 0 );
 
   path_validator_destroy(&ctx);
 }
 
 int main(int argc, char** argv)
 {
-	fio_debug = true;
+  fio_debug = true;
 
   ::testing::InitGoogleTest(&argc, argv);
 

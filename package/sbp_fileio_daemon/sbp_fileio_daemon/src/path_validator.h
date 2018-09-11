@@ -25,13 +25,23 @@ extern "C" {
 typedef struct path_validator_s path_validator_t;
 
 /**
+ * @brief Configuration struct for `path_validator_create`
+ */
+typedef struct {
+  size_t print_buf_size; /**< The size of the print buffer in bytes. */
+} path_validator_cfg_t;
+
+/**
  * @brief Create a path validator, only fails if memory cannot be allocated.
  *
  * @details The path_validator object is used to validate a list of paths that
  *   are allowed for some operation, in the case of the fileio daemon, these
  *   paths that are allowed for read/write/list/etc.
+ *
+ * @param cfg Configuration for the path_validator object, if NULL, default
+ *    values will be used.  Pointer not owned, may be ephemeral.
  */
-path_validator_t *path_validator_create();
+path_validator_t *path_validator_create(path_validator_cfg_t *cfg);
 
 /**
  * @brief Destroys a path validator object and frees all memory associated.

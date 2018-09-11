@@ -39,14 +39,20 @@ typedef LIST_HEAD(path_nodes_head, path_node) path_nodes_head_t;
 
 struct path_validator_s
 {
-  char base_paths[4096];
+  char *base_paths;
+  size_t base_paths_size;
   path_nodes_head_t path_list;
   size_t allowed_count;
 };
 
-path_validator_t *path_validator_create(void)
+path_validator_t *path_validator_create(path_validator_cfg_t *cfg)
 {
   path_validator_t *ctx = malloc(sizeof(path_validator_t));
+
+  size_t print_buf_size = cfg == NULL ? 4096 : cfg->print_buf_size;
+
+  ctx->base_paths = malloc(print_buf_size);
+  ctx->base_paths_size = print_buf_size;
 
   if (ctx == NULL)
     return NULL;
@@ -59,7 +65,7 @@ path_validator_t *path_validator_create(void)
 
 void path_validator_destroy(path_validator_t **pctx)
 {
-  if (*pctx == NULL)
+  if (pctx == NULL || *pctx == NULL)
     return;
 
   path_node_t *node;
@@ -70,7 +76,9 @@ void path_validator_destroy(path_validator_t **pctx)
     free(node);
   }
 
+  free((*pctx)->base_paths);
   free(*pctx);
+
   *pctx = NULL;
 }
 
@@ -113,13 +121,17 @@ size_t path_validator_allowed_count(path_validator_t *ctx)
 const char* path_validator_base_paths(path_validator_t *ctx)
 {
   path_node_t *node = NULL;
-  size_t base_paths_remaining = sizeof(ctx->base_paths);
+  size_t base_paths_remaining = ctx->base_paths_size;
 
   char *base_paths = ctx->base_paths;
   memset(base_paths, 0, base_paths_remaining);
 
-  // Reduce by 1 to ensure we have a null terminator
-  base_paths_remaining -= 1;
+  char *elided_indicator = "...,";
+  size_t elided_bytes = strlen(elided_indicator) + 1;
+
+  // Reserve space so that (when needed) we can insert the elided indicator
+  base_paths_remaining -= elided_bytes;
+  assert( base_paths_remaining > 0 );
 
   LIST_FOREACH(node, &ctx->path_list, entries) {
 
@@ -128,28 +140,19 @@ const char* path_validator_base_paths(path_validator_t *ctx)
 
     FIO_LOG_DEBUG("node->path: %s", node->path);
 
-    char* end = stpncpy(base_paths, node->path, base_paths_remaining);
-    if (end[0] != '\0') break;
+    int count = snprintf(base_paths, base_paths_remaining, "%s,", node->path);
+    if (count < 0 || count >= (int)base_paths_remaining) {
+      count = snprintf(base_paths, elided_bytes, "%s", elided_indicator);
+      assert( count == (int)strlen(elided_indicator) );
+      break;
+    }
 
-    size_t step = (end - base_paths);
-
-    base_paths_remaining -= step;
-    base_paths += step;
-
-    char* end2 = stpncpy(base_paths, ",", base_paths_remaining);
-    if (end2[0] != '\0') break;
-
-    step = (end2 - base_paths);
-
-    base_paths_remaining -= step;
-    base_paths += step;
+    base_paths_remaining -= count;
+    base_paths += count;
   }
 
-  if (base_paths_remaining != 0) {
-    // Truncate the final ','
-    size_t base_paths_size = sizeof(ctx->base_paths) - base_paths_remaining;
-    ctx->base_paths[base_paths_size - 2] = '\0';
-  }
+  char *last_comma = strrchr(ctx->base_paths, ',');
+  if (last_comma != NULL) *last_comma = '\0';
 
   return ctx->base_paths;
 }

@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
   int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
 
-  g_pv_ctx = path_validator_create();
+  g_pv_ctx = path_validator_create(NULL);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
