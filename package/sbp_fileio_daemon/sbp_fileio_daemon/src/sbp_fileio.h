@@ -16,7 +16,9 @@
 #include <libpiksi/sbp_rx.h>
 #include <libpiksi/sbp_tx.h>
 
-void sbp_fileio_setup(const char *basedir,
+#include "path_validator.h"
+
+void sbp_fileio_setup(path_validator_t *pv_ctx,
                       bool allow_factory_mtd,
                       bool allow_imageset_bin,
                       sbp_rx_ctx_t *rx_ctx,

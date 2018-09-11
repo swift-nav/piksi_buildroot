@@ -10,9 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <assert.h>
+#include <getopt.h>
+
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/logging.h>
-#include <getopt.h>
 
 #include "sbp_fileio.h"
 #include "fio_debug.h"
@@ -23,7 +25,7 @@ bool fio_debug = false;
 
 static const char *pub_endpoint = NULL;
 static const char *sub_endpoint = NULL;
-static const char *basedir_path = NULL;
+static path_validator_t *g_pv_ctx = NULL;
 
 static bool allow_factory_mtd  = false;
 static bool allow_imageset_bin = false;
@@ -48,6 +50,9 @@ static void usage(char *command)
 
 static int parse_options(int argc, char *argv[])
 {
+  // Used in --basedir option processing
+  assert( g_pv_ctx != NULL );
+
   const struct option long_opts[] = {
     {"pub",      required_argument, 0, 'p'},
     {"sub",      required_argument, 0, 's'},
@@ -76,7 +81,10 @@ static int parse_options(int argc, char *argv[])
       break;
 
       case 'b': {
-        basedir_path = optarg;
+        if (!path_validator_allow_path(g_pv_ctx, optarg)) {
+          fprintf(stderr, "Error: failed to allow path with --basedir\n");
+          return -1;
+        }
       }
       break;
 
@@ -109,12 +117,12 @@ static int parse_options(int argc, char *argv[])
   }
 
   if ((pub_endpoint == NULL) || (sub_endpoint == NULL)) {
-    printf("Endpoints not specified\n");
+    fprintf(stderr, "Endpoints not specified\n");
     return -1;
   }
 
-  if ((basedir_path == NULL) || (strlen(basedir_path) == 0)) {
-    printf("Base directory path must be specified and non-empty.\n");
+  if (path_validator_allowed_count(g_pv_ctx) == 0) {
+    fprintf(stderr, "Base directory path(s) must be specified and non-empty.\n");
     return -1;
   }
 
@@ -128,6 +136,8 @@ int main(int argc, char *argv[])
 
   int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
+
+  g_pv_ctx = path_validator_create(NULL);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
@@ -154,7 +164,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  sbp_fileio_setup(basedir_path,
+  sbp_fileio_setup(g_pv_ctx,
                    allow_factory_mtd,
                    allow_imageset_bin,
                    sbp_pubsub_rx_ctx_get(ctx),
@@ -167,6 +177,7 @@ int main(int argc, char *argv[])
 cleanup:
   sbp_pubsub_destroy(&ctx);
   pk_loop_destroy(&loop);
+  path_validator_destroy(&g_pv_ctx);
   logging_deinit();
   exit(ret);
 }

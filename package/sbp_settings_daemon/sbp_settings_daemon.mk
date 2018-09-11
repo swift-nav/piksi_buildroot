@@ -11,7 +11,7 @@ SBP_SETTINGS_DAEMON_SITE_METHOD = local
 SBP_SETTINGS_DAEMON_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
 
 define SBP_SETTINGS_DAEMON_USERS
-	configd -1 configd -1 * - - -
+	configd -1 fileio -1 * - - -
 endef
 
 ifeq ($(BR2_BUILD_TESTS),y)

@@ -8,6 +8,11 @@
 
 source /etc/init.d/common.sh
 
+[[ -n "$name" ]] || {
+  echo "Error: the 'name' variable must not be empty" >&2
+  exit 1
+}
+
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
 
@@ -31,11 +36,15 @@ _setup_svdir()
     priority=0
   fi
 
+  if [[ -z "$group" ]]; then
+    group=$user
+  fi
+
   echo "#!/bin/ash"                                            > "/etc/sv/${name}/run"
   echo "cd ${dir}"                                            >> "/etc/sv/${name}/run"
   echo "echo Starting ${name}... \\"                          >> "/etc/sv/${name}/run"
   echo "  | logger -t ${tag} -p ${fac}.info"                  >> "/etc/sv/${name}/run"
-  echo "exec nice -n $priority chpst -u $user:$user $cmd \\"  >> "/etc/sv/${name}/run"
+  echo "exec nice -n $priority chpst -u $user:$group $cmd \\" >> "/etc/sv/${name}/run"
   echo "  1>>${stdout_log} \\"                                >> "/etc/sv/${name}/run"
   echo "  2>>${stderr_log}"                                   >> "/etc/sv/${name}/run"
 

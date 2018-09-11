@@ -6,12 +6,12 @@ MTD_FILE="/factory/mtd"
 name="sbp_fileio_daemon_firmware"
 cmd="sbp_fileio_daemon -p 'ipc:///var/run/sockets/fileio_firmware.sub' -s 'ipc:///var/run/sockets/fileio_firmware.pub' --basedir $NDB_DIR --mtd"
 dir="/"
-user="fio_fw"
+user="fileio"
 
 setup_permissions()
 {
   configure_file_resource $user $MTD_FILE 0640
-  configure_dir_resource $user $NDB_DIR 0700
+  configure_dir_resource_rec $user $NDB_DIR 0755 0644
 }
 
 source /etc/init.d/template_runsv.inc.sh
