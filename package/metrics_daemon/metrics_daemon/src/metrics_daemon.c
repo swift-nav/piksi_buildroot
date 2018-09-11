@@ -32,7 +32,7 @@ const char *metrics_path = METRICS_ROOT_DIRECTORY;
 //struct json_object *  loop_through_folder_name(const char * process_path, const char * root, unsigned int root_len, struct json_object * json_root);
 #define MAX_FOLDER_NAME_LENGTH 64
 static json_object *jobj_root;
-static json_object *jobjCur;
+static json_object *jobj_cur;
 static char * root_name;
 static unsigned int root_length;
 static bool first_folder;
@@ -174,7 +174,7 @@ static int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
                 if (strcmp(bname,key)==0)
                 {
                     file_entry_exist = true;
-                    jobjCur = val;
+                    jobj_cur = val;
                     break;
                 }
             }
@@ -309,11 +309,11 @@ int main(int argc, char *argv[])
         return cleanup(&loop, EXIT_FAILURE);
     }
     jobj_root = json_object_new_object();
-    jobjCur = json_object_new_object();
+    jobj_cur = json_object_new_object();
     char * bname = extract_filename(path);   // for the file name, clearn it up in cleanup
     root_length = sizeof(root_name);
     root_name = bname;
-    json_object_object_add(jobj_root,bname, jobjCur);
+    json_object_object_add(jobj_root,bname, jobj_cur);
     loop = pk_loop_create();
     if (loop == NULL) {
         return cleanup(&loop, EXIT_FAILURE);
