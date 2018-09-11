@@ -10,9 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <assert.h>
+#include <getopt.h>
+
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/logging.h>
-#include <getopt.h>
 
 #include "sbp_fileio.h"
 #include "fio_debug.h"
@@ -48,6 +50,9 @@ static void usage(char *command)
 
 static int parse_options(int argc, char *argv[])
 {
+  // Used in --basedir option processing
+  assert( g_pv_ctx != NULL );
+
   const struct option long_opts[] = {
     {"pub",      required_argument, 0, 'p'},
     {"sub",      required_argument, 0, 's'},
@@ -76,7 +81,10 @@ static int parse_options(int argc, char *argv[])
       break;
 
       case 'b': {
-        path_validator_allow_path(g_pv_ctx, optarg);
+        if (!path_validator_allow_path(g_pv_ctx, optarg)) {
+          fprintf(stderr, "Error: failed to allow path with --basedir\n");
+          return -1;
+        }
       }
       break;
 
@@ -169,6 +177,7 @@ int main(int argc, char *argv[])
 cleanup:
   sbp_pubsub_destroy(&ctx);
   pk_loop_destroy(&loop);
+  path_validator_destroy(&g_pv_ctx);
   logging_deinit();
   exit(ret);
 }

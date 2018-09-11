@@ -70,8 +70,11 @@ bool path_validator_check(path_validator_t *ctx, const char* path);
  *
  * @details The `path` parameter is copied to an internal buffer, and added to
  *   a list owned by the `path_validator` object.
+ *
+ * @return true if the path could be added, false otherwise (which usually
+ *   indicates a lack of sufficient memory).
  */
-void path_validator_allow_path(path_validator_t *ctx, const char* path);
+bool path_validator_allow_path(path_validator_t *ctx, const char* path);
 
 /**
  * @brief Count of the number of allowed path prefixes.

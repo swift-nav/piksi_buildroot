@@ -94,7 +94,7 @@ bool path_validator_check(path_validator_t *ctx, const char* path)
   return false;
 }
 
-void path_validator_allow_path(path_validator_t *ctx, const char* path)
+bool path_validator_allow_path(path_validator_t *ctx, const char* path)
 {
   assert( path != NULL );
 
@@ -107,10 +107,14 @@ void path_validator_allow_path(path_validator_t *ctx, const char* path)
   path_node_t *node = malloc(sizeof(path_node_t));
   node->path[0] = '\0';
 
-  strncpy(node->path, path, sizeof(node->path));
+  int count = snprintf(node->path, sizeof(node->path), "%s", path);
+  if (count < 0 || count >= (int)sizeof(node->path))
+    return false;
 
   LIST_INSERT_HEAD(&ctx->path_list, node, entries);
   ctx->allowed_count++;
+
+  return true;
 }
 
 size_t path_validator_allowed_count(path_validator_t *ctx)
@@ -157,26 +161,34 @@ const char* path_validator_base_paths(path_validator_t *ctx)
   return ctx->base_paths;
 }
 
+#define CHECK_PATH_BUFFER(TheCount, TheBuf) \
+  if (TheCount >= (int)sizeof(TheBuf)) { \
+    piksi_log(LOG_ERR, "%s path buffer overflow (%s:%d)", \
+              __FUNCTION__, __FILE__, __LINE__); \
+    return false; \
+  }
+
 static bool validate_path(const char* basedir_path, const char* path)
 {
   FIO_LOG_DEBUG("Checking path: %s against base dir: %s", path, basedir_path);
 
   char basedir_buf[PATH_MAX] = {0};
-  strncpy(basedir_buf, basedir_path, sizeof(basedir_buf));
+  int count = snprintf(basedir_buf, sizeof(basedir_buf), "%s", basedir_path);
+
+  CHECK_PATH_BUFFER(count, basedir_buf);
 
   if (basedir_buf[strlen(basedir_buf) - 1] == '/')
     basedir_buf[strlen(basedir_buf) - 1] = '\0';
 
-  char _path_buf[PATH_MAX] = {0};
-  char* path_buf = _path_buf;
+  char path_buf[PATH_MAX] = {0};
 
   if (path[0] != '/') {
-    path_buf[0] = '/';
-    path_buf += 1;
+    count = snprintf(path_buf, sizeof(path_buf), "/%s", path);
+  } else {
+    count = snprintf(path_buf, sizeof(path_buf), "%s", path);
   }
 
-  strncpy(path_buf, path, sizeof(_path_buf) - 1);
-  path_buf = _path_buf;
+  CHECK_PATH_BUFFER(count, path_buf);
 
   FIO_LOG_DEBUG("Checking path: %s against base dir: %s", path_buf, basedir_path);
 
@@ -198,7 +210,9 @@ static bool validate_path(const char* basedir_path, const char* path)
   if (error == ENOENT && strstr(path_buf, basedir_path) == path_buf) {
 
     char dirname_buf[PATH_MAX] = {0};
-    strncpy(dirname_buf, path_buf, sizeof(dirname_buf));
+    count = snprintf(dirname_buf, sizeof(dirname_buf), "%s", path_buf);
+
+    CHECK_PATH_BUFFER(count, path_buf);
 
     // If the errno was "file not found", the prefix matches, and the parent
     //   directory exists, then we allow this path.
@@ -210,3 +224,5 @@ static bool validate_path(const char* basedir_path, const char* path)
 
   return false;
 }
+
+#undef CHECK_PATH_BUFFER
