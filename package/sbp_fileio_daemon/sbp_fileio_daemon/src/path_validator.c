@@ -39,7 +39,7 @@ typedef LIST_HEAD(path_nodes_head, path_node) path_nodes_head_t;
 
 struct path_validator_s
 {
-	char base_paths[4096];
+  char base_paths[4096];
   path_nodes_head_t path_list;
   size_t allowed_count;
 };
@@ -113,69 +113,69 @@ size_t path_validator_allowed_count(path_validator_t *ctx)
 const char* path_validator_base_paths(path_validator_t *ctx)
 {
   path_node_t *node = NULL;
-	size_t base_paths_remaining = sizeof(ctx->base_paths);
+  size_t base_paths_remaining = sizeof(ctx->base_paths);
 
-	char *base_paths = ctx->base_paths;
-	memset(base_paths, 0, base_paths_remaining);
+  char *base_paths = ctx->base_paths;
+  memset(base_paths, 0, base_paths_remaining);
 
-	// Reduce by 1 to ensure we have a null terminator
-	base_paths_remaining -= 1;
+  // Reduce by 1 to ensure we have a null terminator
+  base_paths_remaining -= 1;
 
   LIST_FOREACH(node, &ctx->path_list, entries) {
 
-		if (base_paths_remaining == 0)
-			break;
+    if (base_paths_remaining == 0)
+      break;
 
-		FIO_LOG_DEBUG("node->path: %s", node->path);
+    FIO_LOG_DEBUG("node->path: %s", node->path);
 
-		char* end = stpncpy(base_paths, node->path, base_paths_remaining);
-		if (end[0] != '\0') break;
+    char* end = stpncpy(base_paths, node->path, base_paths_remaining);
+    if (end[0] != '\0') break;
 
-		size_t step = (end - base_paths);
+    size_t step = (end - base_paths);
 
-		base_paths_remaining -= step;
-		base_paths += step;
+    base_paths_remaining -= step;
+    base_paths += step;
 
-		char* end2 = stpncpy(base_paths, ",", base_paths_remaining);
-		if (end2[0] != '\0') break;
+    char* end2 = stpncpy(base_paths, ",", base_paths_remaining);
+    if (end2[0] != '\0') break;
 
-		step = (end2 - base_paths);
+    step = (end2 - base_paths);
 
-		base_paths_remaining -= step;
-		base_paths += step;
+    base_paths_remaining -= step;
+    base_paths += step;
   }
 
-	if (base_paths_remaining != 0) {
-		// Truncate the final ','
-		size_t base_paths_size = sizeof(ctx->base_paths) - base_paths_remaining;
-		ctx->base_paths[base_paths_size - 2] = '\0';
-	}
+  if (base_paths_remaining != 0) {
+    // Truncate the final ','
+    size_t base_paths_size = sizeof(ctx->base_paths) - base_paths_remaining;
+    ctx->base_paths[base_paths_size - 2] = '\0';
+  }
 
-	return ctx->base_paths;
+  return ctx->base_paths;
 }
 
 static bool validate_path(const char* basedir_path, const char* path)
 {
-	FIO_LOG_DEBUG("Checking path: %s against base dir: %s", path, basedir_path);
+  FIO_LOG_DEBUG("Checking path: %s against base dir: %s", path, basedir_path);
 
-	char basedir_buf[PATH_MAX] = {0};
-	strncpy(basedir_buf, basedir_path, sizeof(basedir_buf));
+  char basedir_buf[PATH_MAX] = {0};
+  strncpy(basedir_buf, basedir_path, sizeof(basedir_buf));
 
-	if (basedir_buf[strlen(basedir_buf) - 1] == '/')
-		basedir_buf[strlen(basedir_buf) - 1] = '\0';
+  if (basedir_buf[strlen(basedir_buf) - 1] == '/')
+    basedir_buf[strlen(basedir_buf) - 1] = '\0';
 
-	char _path_buf[PATH_MAX] = {0};
-	char* path_buf = _path_buf;
+  char _path_buf[PATH_MAX] = {0};
+  char* path_buf = _path_buf;
 
-	if (path[0] != '/') {
-		path_buf[0] = '/';
-		path_buf += 1;
-	}
+  if (path[0] != '/') {
+    path_buf[0] = '/';
+    path_buf += 1;
+  }
 
-	strncpy(path_buf, path, sizeof(_path_buf) - 1);
-	path_buf = _path_buf;
+  strncpy(path_buf, path, sizeof(_path_buf) - 1);
+  path_buf = _path_buf;
 
-	FIO_LOG_DEBUG("Checking path: %s against base dir: %s", path_buf, basedir_path);
+  FIO_LOG_DEBUG("Checking path: %s against base dir: %s", path_buf, basedir_path);
 
   char realpath_buf[PATH_MAX] = {0};
   struct stat s;
@@ -186,11 +186,11 @@ static bool validate_path(const char* basedir_path, const char* path)
   char* resolved = realpath(path_buf, realpath_buf);
   int error = errno;
 
-	FIO_LOG_DEBUG("Resolved path: %s", resolved);
+  FIO_LOG_DEBUG("Resolved path: %s", resolved);
 
   if (resolved != NULL) {
     return strstr(resolved, basedir_buf) == resolved;
-	}
+  }
 
   if (error == ENOENT && strstr(path_buf, basedir_path) == path_buf) {
 
@@ -201,7 +201,7 @@ static bool validate_path(const char* basedir_path, const char* path)
     //   directory exists, then we allow this path.
     char* parent_dir = dirname(dirname_buf);
 
-		FIO_LOG_DEBUG("Parent dir: %s", dirname_buf);
+    FIO_LOG_DEBUG("Parent dir: %s", dirname_buf);
     return stat(parent_dir, &s) == 0;
   }
 
