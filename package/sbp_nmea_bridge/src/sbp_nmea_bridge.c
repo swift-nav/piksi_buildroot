@@ -265,37 +265,37 @@ int main(int argc, char *argv[])
 
   settings_ctx = sbp_get_settings_ctx();
 
-  settings_register(settings_ctx, "nmea", "gpgga_rate",
+  settings_register(settings_ctx, "nmea", "gpgga_msg_rate",
                     &gpgga_rate , sizeof(gpgga_rate),
                     SETTINGS_TYPE_INT,
                     notify_gpgga_rate_changed, NULL);
 
-  settings_register(settings_ctx, "nmea", "gprmc_rate",
+  settings_register(settings_ctx, "nmea", "gprmc_msg_rate",
                     &gprmc_rate , sizeof(gprmc_rate),
                     SETTINGS_TYPE_INT,
                     notify_gprmc_rate_changed, NULL);
 
-  settings_register(settings_ctx, "nmea", "gpvtg_rate",
+  settings_register(settings_ctx, "nmea", "gpvtg_msg_rate",
                     &gpvtg_rate , sizeof(gpvtg_rate),
                     SETTINGS_TYPE_INT,
                     notify_gpvtg_rate_changed, NULL);
 
-  settings_register(settings_ctx, "nmea", "gphdt_rate",
+  settings_register(settings_ctx, "nmea", "gphdt_msg_rate",
                     &gphdt_rate , sizeof(gphdt_rate),
                     SETTINGS_TYPE_INT,
                     notify_gphdt_rate_changed, NULL);
 
-  settings_register(settings_ctx, "nmea", "gpgll_rate",
+  settings_register(settings_ctx, "nmea", "gpgll_msg_rate",
                     &gpgll_rate, sizeof(gpgll_rate),
                     SETTINGS_TYPE_INT,
                     notify_gpgll_rate_changed, NULL);
 
-  settings_register(settings_ctx, "nmea", "gpzda_rate",
+  settings_register(settings_ctx, "nmea", "gpzda_msg_rate",
                     &gpzda_rate, sizeof(gphdt_rate),
                     SETTINGS_TYPE_INT,
                     notify_gpzda_rate_changed, NULL);
 
- settings_register(settings_ctx, "nmea", "gsa_rate",
+ settings_register(settings_ctx, "nmea", "gsa_msg_rate",
                    &gsa_rate, sizeof(gsa_rate),
                    SETTINGS_TYPE_INT,
                    notify_gsa_rate_changed, NULL);
