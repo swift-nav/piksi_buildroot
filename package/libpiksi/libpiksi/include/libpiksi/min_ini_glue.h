@@ -9,6 +9,8 @@
  */
 
 /* map required file I/O types and functions to the standard C library */
+#ifndef LIBPIKSI_MIN_INI_GLUE_H
+#define LIBPIKSI_MIN_INI_GLUE_H
 #include <stdio.h>
 
 #define INI_FILETYPE                  FILE*
@@ -28,3 +30,4 @@
 #define INI_REAL                      float
 #define ini_ftoa(string,value)        sprintf((string),"%f",(value))
 #define ini_atof(string)              (INI_REAL)strtod((string),NULL)
+#endif /* LIBPIKSI_MINGLUE_H */

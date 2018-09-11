@@ -5,8 +5,7 @@ SOURCES= \
 
 LIBS= \
 	-luv -lnanomsg -lsbp -lpiksi -ldl -lpthread -lgtest \
-	../src/settings.o \
-	../src/minIni/minIni.o
+	../src/settings.o
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src
 

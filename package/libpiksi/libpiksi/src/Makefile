@@ -17,6 +17,7 @@ SOURCES=\
   framer_none.c \
   filter_none.c \
   protocols.c \
+  min_ini.c \
 
 ARFLAGS=rcs $(LTO_PLUGIN)
 CFLAGS+=-std=gnu11 -fPIC -I../include -O3
