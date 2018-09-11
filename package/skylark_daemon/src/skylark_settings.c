@@ -193,10 +193,10 @@ void skylark_init(settings_ctx_t *settings_ctx)
 
   mkfifo(DOWNLOAD_FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-  settings_register(settings_ctx, "skylark", "enable",
-                    &skylark_enabled, sizeof(skylark_enabled),
-                    SETTINGS_TYPE_BOOL,
-                    skylark_notify, NULL);
+  settings_add_watch(settings_ctx, "skylark", "enable",
+                     &skylark_enabled, sizeof(skylark_enabled),
+                     SETTINGS_TYPE_BOOL,
+                     skylark_notify, NULL);
 
   settings_register(settings_ctx, "skylark", "url",
                     &skylark_url, sizeof(skylark_url),
