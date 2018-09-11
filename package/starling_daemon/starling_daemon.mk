@@ -12,13 +12,13 @@ STARLING_DAEMON_SITE_METHOD = local
 STARLING_DAEMON_DEPENDENCIES = libuv libsbp libpiksi
 
 # KEVIN NEEDS HELP
-define SAMPLE_DAEMON_INSTALL_TARGET_CMDS
+define STARLING_DAEMON_INSTALL_TARGET_CMDS
 	$(INSTALL) *.so /usr/lib/
 	$(INSTALL) piksi-multi-linux-starling /usr/bin
 endef
 
 # KEVIN NEEDS HELP
-define SAMPLE_DAEMON_BUILD_CMDS
+define STARLING_DAEMON_BUILD_CMDS
 	${STARLING_DAEMON_SITE}/fetch_and_extract_tarball_from_github_releases.sh
 endef
 
