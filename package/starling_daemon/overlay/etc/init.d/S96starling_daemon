@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="starling_daemon"
+cmd="piksi-multi-linux-starling"
+dir="/"
+user=""
+
+source /etc/init.d/template_runsv.inc.sh
