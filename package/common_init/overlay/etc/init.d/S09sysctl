@@ -8,5 +8,3 @@ chmod 1777 /var/run/sockets
 mkdir -p /var/log/metrics
 chmod 1777 /var/log/metrics
 echo "denyinterfaces eth0" >> /etc/dhcpcd.conf
-
-ifconfig eth0 10.1.23.154 network 255.255.252.0
