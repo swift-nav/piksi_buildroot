@@ -3,11 +3,30 @@
 # initialize config data
 #
 
-case "$1" in
-  start)
+log_tag=cfginit
+
+source /etc/init.d/common.sh
+source /etc/init.d/logging.sh
+
+DURO_EEPROM_PATH="/sys/devices/soc0/amba/e0005000.i2c/i2c-1/1-0050/eeprom"
+DURO_EEPROM_CFG_PATH="/cfg/duro_eeprom"
+EEPROM_RETRY_DELAY=0.15 # seconds
+
+setup_loggers
+
+init_cfg_folder()
+{
   mkdir -p /cfg
+}
+
+init_sender_id_file()
+{
   SBP_SENDER_ID_HEX=`cat /factory/uuid | tail -c 4`
   printf "%u" "0x$SBP_SENDER_ID_HEX" > /cfg/sbp_sender_id
+}
+
+init_uuid_file()
+{
   # Roll your own formatted device UUID
   UUID_P0=`cat /factory/uuid | cut -c1-8`
   UUID_P1=`cat /factory/uuid | cut -c9-12`
@@ -15,6 +34,37 @@ case "$1" in
   UUID_P3=`cat /factory/uuid | cut -c17-20`
   UUID_P4=`cat /factory/uuid | cut -c21-32`
   printf "%s-%s-%s-%s-%s" "$UUID_P0" "$UUID_P1" "$UUID_P2" "$UUID_P3" "$UUID_P4" > /cfg/device_uuid
+}
+
+try_eeprom_copy()
+{
+  dd if=$DURO_EEPROM_PATH bs=1 count=6 of=$DURO_EEPROM_CFG_PATH &>/dev/null
+}
+
+copy_duro_eeprom()
+{
+  local retries=5
+  if [ -f "$DURO_EEPROM_PATH" ]; then
+    while [ $retries -ge 0 ]; do
+      if try_eeprom_copy; then
+        chmod 0644 "$DURO_EEPROM_CFG_PATH"
+        break;
+      fi
+      loge "Failed to copy Duro EEPROM, ${retries} retries left..."
+      retries=$(($retries-1))
+      sleep $EEPROM_RETRY_DELAY
+    done
+  else
+    logw "No 'Duro' EEPROM path present on this device..."
+  fi
+}
+
+case "$1" in
+  start)
+  init_cfg_folder
+  init_sender_id_file
+  init_uuid_file
+  copy_duro_eeprom
   ;;
   stop)
   ;;

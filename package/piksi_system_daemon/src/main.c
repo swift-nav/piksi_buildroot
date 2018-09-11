@@ -347,22 +347,60 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
   }
 }
 
-static void hardware_variant_settings_setup(settings_ctx_t *settings_ctx)
+static void hardware_info_settings_setup(settings_ctx_t *settings_ctx)
 {
-  static char *hardware_variant = "";
-  if (device_is_duro()) {
-    hardware_variant = "Duro";
-  } else {
-    hardware_variant = "Multi";
+  static char info_string[STR_BUFFER_SIZE] = {0};
+
+  if (hw_version_string_get(info_string, sizeof(info_string)) != 0) {
+    piksi_log(LOG_WARNING, "Failed to get hw_version for system_info registration");
   }
-  if (settings_register_readonly(settings_ctx,
-                                 "system_info",
-                                 "hw_variant",
-                                 hardware_variant,
-                                 strlen(hardware_variant) + 1,
-                                 SETTINGS_TYPE_STRING)
-      != 0) {
-    piksi_log(LOG_WARNING, "Failed to register hardware_variant in system_info");
+  else if (settings_register_readonly(settings_ctx,
+                                      "system_info",
+                                      "hw_version",
+                                      info_string,
+                                      strlen(info_string) + 1,
+                                      SETTINGS_TYPE_STRING)
+           != 0) {
+    piksi_log(LOG_WARNING, "Failed to register hw_version in system_info");
+  }
+
+  if (hw_revision_string_get(info_string, sizeof(info_string)) != 0) {
+    piksi_log(LOG_WARNING, "Failed to get hw_revision for system_info registration");
+  }
+  else if (settings_register_readonly(settings_ctx,
+                                      "system_info",
+                                      "hw_revision",
+                                      info_string,
+                                      strlen(info_string) + 1,
+                                      SETTINGS_TYPE_STRING)
+           != 0) {
+    piksi_log(LOG_WARNING, "Failed to register hw_revision in system_info");
+  }
+
+  if (hw_variant_string_get(info_string, sizeof(info_string)) != 0) {
+    piksi_log(LOG_WARNING, "Failed to get hw_variant for system_info registration");
+  }
+  else if (settings_register_readonly(settings_ctx,
+                                      "system_info",
+                                      "hw_variant",
+                                      info_string,
+                                      strlen(info_string) + 1,
+                                      SETTINGS_TYPE_STRING)
+           != 0) {
+    piksi_log(LOG_WARNING, "Failed to register hw_variant in system_info");
+  }
+
+  if (product_id_string_get(info_string, sizeof(info_string)) != 0) {
+    piksi_log(LOG_WARNING, "Failed to get product_id for system_info registration");
+  }
+  else if (settings_register_readonly(settings_ctx,
+                                      "system_info",
+                                      "product_id",
+                                      info_string,
+                                      strlen(info_string) + 1,
+                                      SETTINGS_TYPE_STRING)
+           != 0) {
+    piksi_log(LOG_WARNING, "Failed to register product_id in system_info");
   }
 }
 
@@ -546,7 +584,7 @@ int main(void)
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
   img_tbl_settings_setup(settings_ctx);
-  hardware_variant_settings_setup(settings_ctx);
+  hardware_info_settings_setup(settings_ctx);
   sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_COMMAND_REQ, sbp_command, pubsub_ctx, NULL);
   sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),

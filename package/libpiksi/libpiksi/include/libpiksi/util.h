@@ -22,7 +22,7 @@
 #ifndef LIBPIKSI_UTIL_H
 #define LIBPIKSI_UTIL_H
 
-#include <signal.h> 
+#include <signal.h>
 
 #include <libpiksi/common.h>
 
@@ -61,6 +61,46 @@ int device_uuid_get(char *str, size_t str_size);
  * @return  True if the current system is a Duro
  */
 bool device_is_duro(void);
+
+/**
+ * @brief   Get the hardware version string.
+ * @details Represents the major and minor version for the device.
+ *
+ * @return                  The operation result.
+ * @retval 0                The value was returned successfully.
+ * @retval -1               An error occurred.
+ */
+int hw_version_string_get(char *hw_version_string, size_t size);
+
+/**
+ * @brief   Get the hardware revision string.
+ * @details Represents the name of the device hardware revision.
+ *
+ * @return                  The operation result.
+ * @retval 0                The value was returned successfully.
+ * @retval -1               An error occurred.
+ */
+int hw_revision_string_get(char *hw_revision_string, size_t size);
+
+/**
+ * @brief   Get the hardware variant string.
+ * @details Represents the variant of device for the given hardware revision.
+ *
+ * @return                  The operation result.
+ * @retval 0                The value was returned successfully.
+ * @retval -1               An error occurred.
+ */
+int hw_variant_string_get(char *hw_variant_string, size_t size);
+
+/**
+ * @brief   Get the product id.
+ * @details Customer facing product name.
+ *
+ * @return                  The operation result.
+ * @retval 0                The value was returned successfully.
+ * @retval -1               An error occurred.
+ */
+int product_id_string_get(char *product_id_string, size_t size);
 
 /**
  * @brief   Determine if device has GPS time

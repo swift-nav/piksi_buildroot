@@ -21,14 +21,29 @@
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 
+/* from pfwp init.c */
+#define IMAGE_HARDWARE_INVALID 0xffffffff
+#define IMAGE_HARDWARE_UNKNOWN 0x00000000
+#define IMAGE_HARDWARE_V3_MICROZED 0x00000001
+#define IMAGE_HARDWARE_V3_EVT1 0x00000011
+#define IMAGE_HARDWARE_V3_EVT2 0x00000012
+#define IMAGE_HARDWARE_V3_PROD 0x00000013
+
 #define SBP_SENDER_ID_FILE_PATH "/cfg/sbp_sender_id"
 #define DEVICE_UUID_FILE_PATH   "/cfg/device_uuid"
+
+#define DEVICE_HARDWARE_REVISION_FILE_PATH  "/factory/hardware"
+#define DEVICE_HARDWARE_REVISION_MAX_LENGTH (64u)
+#define DEVICE_HARDWARE_VERSION_FILE_PATH   "/factory/hardware_version"
+#define DEVICE_HARDWARE_VERSION_MAX_LENGTH  (64u)
 
 #define DEVICE_DURO_EEPROM_PATH "/cfg/duro_eeprom"
 #define DEVICE_DURO_MAX_CONTENTS_SIZE (128u)
 #define DEVICE_DURO_ID_STRING "DUROV0"
+#define POSEDAEMON_FILE_PATH "/usr/bin/PoseDaemon"
+#define SMOOTHPOSE_LICENSE_FILE_PATH "/persistent/licenses/smoothpose_license.json"
 
-#define PROC_UPTIME_FILE_PATH   "/proc/uptime"
+#define PROC_UPTIME_FILE_PATH  "/proc/uptime"
 #define UPTIME_READ_MAX_LENGTH (64u)
 
 #define GPS_TIME_FILE_PATH "/var/run/health/gps_time_available"
@@ -94,19 +109,140 @@ int device_uuid_get(char *str, size_t str_size)
 
 bool device_is_duro(void)
 {
-  char duro_eeprom_sig[sizeof(DEVICE_DURO_ID_STRING)];
+  char duro_eeprom_sig[DEVICE_DURO_MAX_CONTENTS_SIZE];
 
-  int fd = open(DEVICE_DURO_EEPROM_PATH, O_RDONLY);
-  if (fd < 0) {
-    piksi_log(LOG_WARNING, "Failed to open DURO eeprom path");
+  if (file_read_string(DEVICE_DURO_EEPROM_PATH,
+                       duro_eeprom_sig,
+                       sizeof(duro_eeprom_sig)) != 0) {
+    piksi_log(LOG_WARNING, "Failed to read DURO eeprom contents");
     return false;
   }
-  read(fd, duro_eeprom_sig, sizeof(DEVICE_DURO_ID_STRING));
-  close(fd);
 
   return (memcmp(duro_eeprom_sig,
                  DEVICE_DURO_ID_STRING,
                  strlen(DEVICE_DURO_ID_STRING)) == 0);
+}
+
+static bool device_has_ins(void)
+{
+  return (access(POSEDAEMON_FILE_PATH, F_OK) != -1 &&
+          access(SMOOTHPOSE_LICENSE_FILE_PATH, F_OK) != -1);
+}
+
+int hw_version_string_get(char *hw_version_string, size_t size)
+{
+  char raw_hw_ver_string[DEVICE_HARDWARE_VERSION_MAX_LENGTH];
+  u64 hw_version = 0;
+  if (file_read_string(DEVICE_HARDWARE_VERSION_FILE_PATH, raw_hw_ver_string,
+                       sizeof(raw_hw_ver_string)) == 0) {
+    hw_version = (u64)strtod(raw_hw_ver_string, NULL);
+    if (hw_version == 0 && errno == EINVAL) {
+      piksi_log(LOG_ERR, "Error converting hardware version string: EINVAL");
+      return -1;
+    }
+  } else {
+    piksi_log(LOG_ERR, "Error reading hardware version string (buffer size: %d)", sizeof(raw_hw_ver_string));
+    return -1;
+  }
+  u16 major_ver = hw_version >> 16;
+  u16 minor_ver = hw_version & 0xFFFF;
+  int written = snprintf(hw_version_string, size, "%d.%d", major_ver, minor_ver);
+  if (written < 0) {
+    piksi_log(LOG_ERR, "Error writing hardware version string to buffer");
+    return -1;
+  }
+  if (written >= size) {
+    piksi_log(LOG_ERR, "Hardware version string truncated when writing to buffer (size of intended string: %d)", written);
+    return -1;
+  }
+  return 0;
+}
+
+int hw_revision_string_get(char *hw_revision_string, size_t size)
+{
+  const char *s = NULL;
+
+  char raw_hw_rev_string[DEVICE_HARDWARE_REVISION_MAX_LENGTH];
+  u16 hw_revision = 0;
+  if (file_read_string(DEVICE_HARDWARE_REVISION_FILE_PATH, raw_hw_rev_string,
+                       sizeof(raw_hw_rev_string)) == 0) {
+    hw_revision = (u16)strtod(raw_hw_rev_string, NULL);
+    if (hw_revision  == 0 && errno == EINVAL) {
+      piksi_log(LOG_ERR, "Error converting hardware revision string: EINVAL");
+      return -1;
+    }
+  } else {
+    piksi_log(LOG_ERR, "Error reading hardware revision string (buffer size: %d)", sizeof(raw_hw_rev_string));
+    return -1;
+  }
+
+  switch (hw_revision) {
+    case IMAGE_HARDWARE_UNKNOWN:
+      s = "Unknown";
+      break;
+    case IMAGE_HARDWARE_V3_MICROZED:
+      s = "Piksi Multi MicroZed";
+      break;
+    case IMAGE_HARDWARE_V3_EVT1:
+      s = "Piksi Multi EVT1";
+      break;
+    case IMAGE_HARDWARE_V3_EVT2:
+      s = "Piksi Multi EVT2";
+      break;
+    case IMAGE_HARDWARE_V3_PROD:
+      s = "Piksi Multi";
+      break;
+    default:
+      s = "Invalid";
+      break;
+  }
+
+  if (strlen(s) >= size) {
+    piksi_log(LOG_ERR, "Hardware revision string too large for buffer (size of intended string: %d)", strlen(s));
+    return -1;
+  }
+  strncpy(hw_revision_string, s, size);
+  return 0;
+}
+
+int hw_variant_string_get(char *hw_variant_string, size_t size)
+{
+  const char *s = NULL;
+
+  if (device_is_duro()) {
+    if (device_has_ins()) {
+      s = "Duro Inertial";
+    } else {
+      s = "Duro";
+    }
+  } else {
+    s = "Multi";
+  }
+
+  if (strlen(s) >= size) {
+    piksi_log(LOG_ERR, "Hardware variant string too large for buffer (size of intended string: %d)", strlen(s));
+    return -1;
+  }
+  strncpy(hw_variant_string, s, size);
+  return 0;
+}
+
+int product_id_string_get(char *product_id_string, size_t size)
+{
+  const char *s = NULL;
+
+  int written = snprintf(product_id_string, size, "%s%s",
+                         device_is_duro() ? "Duro" : "Piksi Multi",
+                         device_has_ins() ? " Inertial" : "");
+  if (written < 0) {
+    piksi_log(LOG_ERR, "Error writing product id string to buffer");
+    return -1;
+  }
+  if (written >= size) {
+    piksi_log(LOG_ERR, "Product id string truncated when writing to buffer (size of intended string: %d)", written);
+    return -1;
+  }
+  return 0;
 }
 
 void set_device_has_gps_time(bool has_time) {
