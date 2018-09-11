@@ -1,13 +1,12 @@
 ################################################################################
 #
-# librtcm
+# libswiftnav
 #
 ################################################################################
 
-LIBRTCM_VERSION = v0.2.30
-LIBRTCM_SITE = https://github.com/swift-nav/librtcm
-LIBRTCM_SITE_METHOD = git
-LIBRTCM_INSTALL_STAGING = YES
-LIBRTCM_SUBDIR = c
+LIBSWIFTNAV_VERSION = v0.1.2
+LIBSWIFTNAV_SITE = https://github.com/swift-nav/libswiftnav
+LIBSWIFTNAV_SITE_METHOD = git
+LIBSWIFTNAV_INSTALL_STAGING = YES
 
 $(eval $(cmake-package))

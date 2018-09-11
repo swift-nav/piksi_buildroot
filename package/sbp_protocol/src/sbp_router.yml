@@ -49,6 +49,16 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x01, 0x09] } # MSG_IMU_AUX  **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x03, 0x09] } # MSG_ODOMETRY **Smoothpose Change**
           - { action: REJECT }
+      - dst_port: SBP_PORT_NMEA_BRIDGE
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # MSG_OBS
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH
+          - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED
+          - { action: ACCEPT, prefix: [0x55, 0x02, 0x01] } # MSG_GPS_TIME
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0x01] } # MSG_UTC_TIME
+          - { action: ACCEPT, prefix: [0x55, 0x08, 0x02] } # MSG_DOPS
+          - { action: ACCEPT, prefix: [0x55, 0x10, 0x02] } # MSG_AGE_CORRECTIONS
+          - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
     pub_addr: "ipc:///var/run/sockets/settings_daemon.pub"
@@ -108,6 +118,10 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
           - { action: REJECT }
+      - dst_port: SBP_PORT_NMEA_BRIDGE
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # SBP_MSG_OBS
+          - { action: REJECT }
 
   - name: SBP_PORT_FILEIO_FIRMWARE
     pub_addr: "ipc:///var/run/sockets/fileio_firmware.pub"
@@ -165,6 +179,10 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x84, 0x00] } # SBP_MSG_EPHEMERIS_SBAS
           - { action: ACCEPT, prefix: [0x55, 0x75, 0x00] } # SBP_MSG_GLO_BIASES
           - { action: REJECT }
+      - dst_port: SBP_PORT_NMEA_BRIDGE
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # SBP_MSG_OBS
+          - { action: REJECT }
 
   - name: SBP_PORT_NAV_DAEMON  # Entire Section Smoothpose Change**
     pub_addr: "ipc:///var/run/sockets/nav_daemon.pub"
@@ -186,3 +204,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x22, 0x02] } # MSG_ANGULAR_RATE  **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x01, 0x04] } # MSG_LOG           **Smoothpose Change**
           - { action: REJECT }
+
+  - name: SBP_PORT_NMEA_BRIDGE
+    pub_addr: "ipc:///var/run/sockets/nmea_bridge.pub"
+    sub_addr: "ipc:///var/run/sockets/nmea_bridge.sub"
