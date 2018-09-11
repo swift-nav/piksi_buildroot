@@ -136,6 +136,10 @@ int hw_version_string_get(char *hw_version_string, size_t size)
   if (file_read_string(DEVICE_HARDWARE_VERSION_FILE_PATH, raw_hw_ver_string,
                        sizeof(raw_hw_ver_string)) == 0) {
     hw_version = (u64)strtod(raw_hw_ver_string, NULL);
+    if (hw_version == 0 && errno == EINVAL) {
+      piksi_log(LOG_ERR, "Error converting hardware version string: EINVAL");
+      return -1;
+    }
   } else {
     piksi_log(LOG_ERR, "Error reading hardware version string (buffer size: %d)", sizeof(raw_hw_ver_string));
     return -1;
@@ -163,6 +167,10 @@ int hw_revision_string_get(char *hw_revision_string, size_t size)
   if (file_read_string(DEVICE_HARDWARE_REVISION_FILE_PATH, raw_hw_rev_string,
                        sizeof(raw_hw_rev_string)) == 0) {
     hw_revision = (u16)strtod(raw_hw_rev_string, NULL);
+    if (hw_revision  == 0 && errno == EINVAL) {
+      piksi_log(LOG_ERR, "Error converting hardware revision string: EINVAL");
+      return -1;
+    }
   } else {
     piksi_log(LOG_ERR, "Error reading hardware revision string (buffer size: %d)", sizeof(raw_hw_rev_string));
     return -1;
@@ -193,7 +201,7 @@ int hw_revision_string_get(char *hw_revision_string, size_t size)
     piksi_log(LOG_ERR, "Hardware revision string too large for buffer (size of intended string: %d)", strlen(s));
     return -1;
   }
-  strcpy(hw_revision_string, s);
+  strncpy(hw_revision_string, s, size);
   return 0;
 }
 
@@ -215,7 +223,7 @@ int hw_variant_string_get(char *hw_variant_string, size_t size)
     piksi_log(LOG_ERR, "Hardware variant string too large for buffer (size of intended string: %d)", strlen(s));
     return -1;
   }
-  strcpy(hw_variant_string, s);
+  strncpy(hw_variant_string, s, size);
   return 0;
 }
 
