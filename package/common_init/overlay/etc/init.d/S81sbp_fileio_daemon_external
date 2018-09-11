@@ -11,7 +11,6 @@ name="sbp_fileio_daemon_external"
 cmd="sbp_fileio_daemon \
 -p 'ipc:///var/run/sockets/fileio_external.sub' \
 -s 'ipc:///var/run/sockets/fileio_external.pub' \
---debug \
 --basedir $FILEIO_DIR \
 --basedir $PERSIST_DIR \
 --basedir $MEDIA_DIR \
