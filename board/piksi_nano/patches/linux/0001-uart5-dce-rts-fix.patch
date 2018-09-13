@@ -1,0 +1,13 @@
+diff --git a/arch/arm/boot/dts/imx6ul-pinfunc.h b/arch/arm/boot/dts/imx6ul-pinfunc.h
+index 0034eeb..10cad19 100644
+--- a/arch/arm/boot/dts/imx6ul-pinfunc.h
++++ b/arch/arm/boot/dts/imx6ul-pinfunc.h
+@@ -891,7 +891,7 @@
+ #define MX6UL_PAD_CSI_DATA02__EIM_AD02			0x01ec 0x0478 0x0000 4 0
+ #define MX6UL_PAD_CSI_DATA02__GPIO4_IO23		0x01ec 0x0478 0x0000 5 0
+ #define MX6UL_PAD_CSI_DATA02__SAI1_RX_SYNC		0x01ec 0x0478 0x0000 6 0
+-#define MX6UL_PAD_CSI_DATA02__UART5_DCE_RTS		0x01ec 0x0478 0x0640 8 5
++#define MX6UL_PAD_CSI_DATA02__UART5_DCE_RTS		0x01ec 0x0478 0x0640 8 7
+ #define MX6UL_PAD_CSI_DATA02__UART5_DTE_CTS		0x01ec 0x0478 0x0000 8 0
+ #define MX6UL_PAD_CSI_DATA03__CSI_DATA05		0x01f0 0x047c 0x04cc 0 0
+ #define MX6UL_PAD_CSI_DATA03__USDHC2_DATA3		0x01f0 0x047c 0x0688 1 0
