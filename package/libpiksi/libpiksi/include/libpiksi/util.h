@@ -22,7 +22,9 @@
 #ifndef LIBPIKSI_UTIL_H
 #define LIBPIKSI_UTIL_H
 
+#include <errno.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include <libpiksi/common.h>
 
@@ -53,6 +55,8 @@ u64 system_uptime_ms_get(void);
  * @retval -1               An error occurred.
  */
 int device_uuid_get(char *str, size_t str_size);
+
+int device_fw_version_get(char *str, size_t str_size);
 
 /**
  * @brief   Determine if the current system is Duro
@@ -118,6 +122,17 @@ bool device_has_gps_time(void);
 void set_device_has_gps_time(bool has_time);
 
 /**
+ * @brief   Read a string from file
+ * @details Reads characters from a file and stores them as a C string into str
+ *          until (str_size-1) characters have been read or either a newline or
+ *          the end-of-file is reached, whichever happens first. Str shall be
+ *          null terminated.
+ *
+ * @return  0 when success
+ */
+int file_read_string(const char *filename, char *str, size_t str_size);
+
+/**
  * @brief   Read status from file
  * @details File system holds multiple files indicating if some feature/state
  *          is available. This function offers simple way to fetch this status.
@@ -133,6 +148,66 @@ void reap_children(bool debug, child_exit_fn_t exit_handler);
 void setup_sigchld_handler(void (*handler)(int));
 void setup_sigint_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext));
 void setup_sigterm_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext));
+
+typedef struct sigwait_params_s {
+  sigset_t waitset;
+  siginfo_t info;
+  struct timespec timeout;
+} sigwait_params_t;
+
+/**
+ * @brief   Wrapper for sigtimedwait setup actions
+ * @details Initializes the signal set and timeout struct
+ *
+ * @return  0 if success
+ */
+int setup_sigtimedwait(sigwait_params_t *params, int sig, time_t tv_sec);
+
+/**
+ * @brief   Update the timeout value
+ *
+ * @return  0 if success
+ */
+int update_sigtimedwait(sigwait_params_t *params, time_t tv_sec);
+
+/**
+ * @brief   Wrapper for sigtimedwait
+ * @details Sleep until timeout is reached or signal received
+ *
+ * @return  0 if signal was received, 1 if timeout was reached
+ */
+int do_sigtimedwait(sigwait_params_t *params);
+
+/**
+ * @brief   Check if file descriptor is file
+ * @details lseek will fail with ESPIPE fd is associated with a pipe, socket or
+ *          FIFO.
+ *
+ * @return  True if file, false otherwise
+ */
+bool is_file(int fd);
+
+/**
+ * @brief   Start a child process and record its output
+ * @details Forks a child process and redirect its stdin from the input file
+ *          and its stdout to provided output buffer. Call blocks until the
+ *          output buffer is full or child process stdout gives EOF.
+ *
+ * @param[in]  input_file   Input file to map as child process stdin
+ * @param[in]  cmd          Command to run within child process
+ * @param[in]  cmd          Command arguments, list shall be NULL terminated,
+ *                          see execvp manual
+ * @param[out] output       Output buffer
+ * @param[out] output_len   Output buffer length
+ *
+ * @return                  The operation result.
+ * @retval 0                Success
+ */
+int run_with_stdin_file(const char *input_file,
+                        const char *cmd,
+                        char *const argv[],
+                        char *output,
+                        size_t output_len);
 
 #define SWFT_MAX(a, b)  \
   ({                    \

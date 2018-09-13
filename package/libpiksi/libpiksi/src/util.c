@@ -31,6 +31,7 @@
 
 #define SBP_SENDER_ID_FILE_PATH "/cfg/sbp_sender_id"
 #define DEVICE_UUID_FILE_PATH "/cfg/device_uuid"
+#define DEVICE_FW_VERSION_FILE_PATH "/img_tbl/boot/name"
 
 #define DEVICE_HARDWARE_REVISION_FILE_PATH "/factory/hardware"
 #define DEVICE_HARDWARE_REVISION_MAX_LENGTH (64u)
@@ -50,7 +51,10 @@
 
 #define GPS_TIME_FILE_PATH "/var/run/health/gps_time_available"
 
-static int file_read_string(const char *filename, char *str, size_t str_size)
+#define PIPE_READ_SIDE 0
+#define PIPE_WRITE_SIDE 1
+
+int file_read_string(const char *filename, char *str, size_t str_size)
 {
   FILE *fp = fopen(filename, "r");
   if (fp == NULL) {
@@ -107,6 +111,11 @@ u64 system_uptime_ms_get(void)
 int device_uuid_get(char *str, size_t str_size)
 {
   return file_read_string(DEVICE_UUID_FILE_PATH, str, str_size);
+}
+
+int device_fw_version_get(char *str, size_t str_size)
+{
+  return file_read_string(DEVICE_FW_VERSION_FILE_PATH, str, str_size);
 }
 
 bool device_is_duro(void)
@@ -388,4 +397,122 @@ void setup_sigterm_handler(void (*handler)(int signum, siginfo_t *info, void *uc
     piksi_log(LOG_ERR, "error setting up SIGTERM handler");
     exit(-1);
   }
+}
+
+int setup_sigtimedwait(sigwait_params_t *params, int sig, time_t tv_sec)
+{
+  sigemptyset(&params->waitset);
+  sigaddset(&params->waitset, sig);
+  sigprocmask(SIG_BLOCK, &params->waitset, NULL);
+
+  update_sigtimedwait(params, tv_sec);
+
+  return 0;
+}
+
+int update_sigtimedwait(sigwait_params_t *params, time_t tv_sec)
+{
+  params->timeout.tv_sec = tv_sec;
+  params->timeout.tv_nsec = 0;
+
+  return 0;
+}
+
+int do_sigtimedwait(sigwait_params_t *params)
+{
+  int ret = sigtimedwait(&params->waitset, &params->info, &params->timeout);
+
+  if (-1 == ret && EAGAIN == errno) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+bool is_file(int fd)
+{
+  errno = 0;
+  int ret = lseek(fd, 0, SEEK_CUR);
+  return !(-1 == ret && errno == ESPIPE);
+}
+
+int run_with_stdin_file(const char *input_file,
+                        const char *cmd,
+                        char *const argv[],
+                        char *output,
+                        size_t output_len)
+{
+  int stdout_pipe[2];
+
+  if (pipe(stdout_pipe)) {
+    return 1;
+  }
+
+  int pid = fork();
+
+  /* Parent */
+  if (pid > 0) {
+    close(stdout_pipe[PIPE_WRITE_SIDE]);
+
+    size_t total = 0;
+    while (output_len > total) {
+      ssize_t ret = read(stdout_pipe[PIPE_READ_SIDE], output + total, output_len - total);
+
+      if (ret > 0) {
+        total += ret;
+      } else {
+        break;
+      }
+    }
+
+    /* Guarantee null terminated output */
+    if (total >= output_len) {
+      output[output_len - 1] = 0;
+    } else {
+      output[total] = 0;
+    }
+
+    close(stdout_pipe[PIPE_READ_SIDE]);
+
+    return 0;
+  } else if (pid == -1) {
+    return 1;
+  }
+
+  /* Child */
+  int fd = -1;
+
+  if (input_file) {
+    fd = open(input_file, O_RDONLY);
+
+    if (fd = -1) {
+      exit(EXIT_FAILURE);
+    }
+
+    if (dup2(fd, STDIN_FILENO) < 0) {
+      close(fd);
+      exit(EXIT_FAILURE);
+    }
+
+    close(fd);
+  }
+
+  fd = dup2(stdout_pipe[PIPE_WRITE_SIDE], STDOUT_FILENO);
+  if (fd < 0) {
+    piksi_log(LOG_ERR | LOG_SBP, "dup2");
+    exit(EXIT_FAILURE);
+  }
+
+  close(stdout_pipe[PIPE_READ_SIDE]);
+
+  execvp(cmd, argv);
+  piksi_log(LOG_ERR | LOG_SBP,
+            "%s: execvp: errno: %s (%s:%d)\n",
+            __FUNCTION__,
+            strerror(errno),
+            __FILE__,
+            __LINE__);
+
+  exit(EXIT_FAILURE);
+  __builtin_unreachable();
 }
