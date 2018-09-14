@@ -19,7 +19,7 @@ source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/piksi_system_daemon/Config.in
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/sbp_cli/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/image_table_tool/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/sbp_fileio_daemon/Config.in"
-source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/sbp_rtcm3_bridge/Config.in"
+source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/rtcm3_to_sbp_bridge/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/standalone_file_logger/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/libpiksi/Config.in"
 source "$BR2_EXTERNAL_piksi_buildroot_PATH/package/libnetwork/Config.in"

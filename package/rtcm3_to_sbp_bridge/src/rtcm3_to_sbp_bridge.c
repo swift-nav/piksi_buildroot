@@ -22,7 +22,7 @@
 #include <rtcm3_sbp.h>
 #include "sbp.h"
 
-#define PROGRAM_NAME "sbp_rtcm3_bridge"
+#define PROGRAM_NAME "rtcm3_to_sbp_bridge"
 
 #define RTCM3_SUB_ENDPOINT  "ipc:///var/run/sockets/rtcm3_internal.pub"  /* RTCM3 Internal Out */
 

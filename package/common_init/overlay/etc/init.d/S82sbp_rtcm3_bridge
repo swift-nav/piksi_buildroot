@@ -1,9 +1,9 @@
 #!/bin/sh
 
-name="sbp_rtcm3_bridge"
-cmd="sbp_rtcm3_bridge"
+name="rtcm3_to_sbp_bridge"
+cmd="rtcm3_to_sbp_bridge"
 dir="/"
-user="br_rtcm3"
+user="br_rtcm3sbp"
 
 source /etc/init.d/template_runsv.inc.sh
 
