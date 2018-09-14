@@ -14,7 +14,7 @@ PROTOBUF_CUSTOM_LICENSE = BSD-3-Clause
 PROTOBUF_CUSTOM_LICENSE_FILES = LICENSE
 
 # N.B. Need to use host protoc during cross compilation.
-PROTOBUF_CUSTOM_DEPENDENCIES = host-protobuf
+PROTOBUF_CUSTOM_DEPENDENCIES = host-protobuf_custom
 PROTOBUF_CUSTOM_CONF_OPTS = --with-protoc=$(HOST_DIR)/bin/protoc
 
 ifeq ($(BR2_TOOLCHAIN_HAS_LIBATOMIC),y)
