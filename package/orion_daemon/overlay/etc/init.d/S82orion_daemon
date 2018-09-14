@@ -1,7 +1,7 @@
 #!/bin/sh
 
 name="orion_daemon"
-cmd="orion_daemon --settings"
+cmd="orion_daemon"
 dir="/"
 user="oriond"
 

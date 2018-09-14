@@ -29,22 +29,20 @@ static const char *PUB_ENDPOINT = "ipc:///var/run/sockets/skylark.sub";
 
 static const char *SUB_ENDPOINT = "ipc:///var/run/sockets/skylark.pub";
 
-struct Ctx {
-  pk_loop_t *loop{nullptr};
-  sbp_pubsub_ctx_t *pubsub_ctx{nullptr};
-
+class SbpCtx {
+public:
   bool setup() {
-    loop = pk_loop_create();
-    if (loop == nullptr) {
+    loop_ = pk_loop_create();
+    if (loop_ == nullptr) {
       return false;
     }
 
-    pubsub_ctx = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
-    if (pubsub_ctx == nullptr) {
+    pubsub_ = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
+    if (pubsub_ == nullptr) {
       return false;
     }
 
-    if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(pubsub_ctx), loop) != 0) {
+    if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(pubsub_), loop_) != 0) {
       return false;
     }
 
@@ -52,17 +50,30 @@ struct Ctx {
   }
 
   void teardown() {
-    if (loop != nullptr) {
-      pk_loop_destroy(&loop);
+    if (loop_ != nullptr) {
+      pk_loop_destroy(&loop_);
     }
 
-    if (pubsub_ctx != nullptr) {
-      sbp_pubsub_destroy(&pubsub_ctx);
+    if (pubsub_ != nullptr) {
+      sbp_pubsub_destroy(&pubsub_);
     }
   }
+
+  void recv(uint16_t type, sbp_msg_callback_t callback, void *context) {
+    sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_), type, callback, context, nullptr);
+    pk_loop_run_simple(loop_);
+  }
+
+  void send(const orion_proto::SbpFrame &sbp_frame) {
+    sbp_tx_send(sbp_pubsub_tx_ctx_get(pubsub_), sbp_frame.type(), sbp_frame.length(), const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(sbp_frame.payload().data())));
+  }
+
+private:
+  pk_loop_t *loop_{nullptr};
+  sbp_pubsub_ctx_t *pubsub_{nullptr};
 };
 
-void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context) {
+static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context) {
   auto streamer = static_cast<grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *>(context);
   orion_proto::SbpFrame sbp_frame;
   sbp_frame.set_type(SBP_MSG_POS_LLH);
@@ -72,38 +83,33 @@ void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *c
   streamer->Write(sbp_frame);
 }
 
-static void writer(grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *streamer, Ctx *ctx) {
-  sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), SBP_MSG_POS_LLH, pos_llh_callback, streamer, nullptr);
-  pk_loop_run_simple(ctx->loop);
+static void writer(grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *streamer, SbpCtx *sbp_ctx) {
+  sbp_ctx->recv(SBP_MSG_POS_LLH, pos_llh_callback, streamer);
 }
 
-static void run_client(const std::string &port) {
-  auto chan = grpc::CreateChannel(port, grpc::InsecureChannelCredentials());
-  auto stub(orion_proto::CorrectionGenerator::NewStub(chan));
-  grpc::ClientContext context;
-  auto streamer(stub->stream_input_output(&context));
+static void run() {
+  SbpCtx sbp_ctx;
+  if (sbp_ctx.setup()) {
+    auto chan = grpc::CreateChannel(CORRECTION_GENERATOR_PORT, grpc::InsecureChannelCredentials());
+    auto stub(orion_proto::CorrectionGenerator::NewStub(chan));
+    grpc::ClientContext context;
+    auto streamer(stub->stream_input_output(&context));
 
-  Ctx ctx;
-  ctx.setup();
-  auto thread = std::thread(&writer, streamer.get(), &ctx);
+    auto thread = std::thread(&writer, streamer.get(), &sbp_ctx);
 
-  orion_proto::SbpFrame sbp_frame;
-  while (streamer->Read(&sbp_frame)) {
-    sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx.pubsub_ctx), sbp_frame.type(), sbp_frame.length(), const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(sbp_frame.payload().data())));
+    orion_proto::SbpFrame sbp_frame;
+    while (streamer->Read(&sbp_frame)) {
+      sbp_ctx.send(sbp_frame);
+    }
+
+    thread.join();
+    streamer->Finish();
   }
-  streamer->Finish();
-
-  thread.join();
-  ctx.teardown();
+  sbp_ctx.teardown();
 }
 
-int main(int argc, char *argv[])
-{
-  if (argc == 2 && argv[2] != "--settings") {
-    return 0;
+int main(int argc, char *argv[]) {
+  while (true) {
+    run();
   }
-
-  run_client(argc == 2 ? argv[1] : CORRECTION_GENERATOR_PORT);
-
-  return 0;
 }
