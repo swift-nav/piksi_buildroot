@@ -43,17 +43,9 @@ static std::condition_variable condition;
 
 static std::mutex mutex;
 
-static void settings_callback(void *context) {
-  assert(context == nullptr);
-  std::unique_lock<std::mutex> lock{mutex};
-  enabled = enable && strlen(port) != 0;
-  changed = true;
-  condition.notify_one();
-}
-
 static bool active() {
   std::unique_lock<std::mutex> lock{mutex};
-  condition_.wait(lock, [] { return enabled; });
+  condition.wait(lock, [] { return enabled; });
   changed = false;
   return true;
 }
@@ -61,6 +53,15 @@ static bool active() {
 static bool inactive() {
   std::unique_lock<std::mutex> lock{mutex};
   return changed || !enabled;
+}
+
+static int settings_callback(void *context) {
+  assert(context == nullptr);
+  std::unique_lock<std::mutex> lock{mutex};
+  enabled = enable && strlen(port) != 0;
+  changed = true;
+  condition.notify_one();
+  return 0;
 }
 
 static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context) {
@@ -93,7 +94,7 @@ public:
     pk_loop_stop(loop_);
   }
 
-private:
+protected:
   pk_loop_t *loop_;
 };
 
@@ -154,7 +155,7 @@ int main(int argc, char *argv[]) {
       auto streamer(stub->stream_input_output(&context));
 
       SbpCtx sbp_ctx;
-      if (sbp_ctx.setup(streamer)) {
+      if (sbp_ctx.setup(streamer.get())) {
         auto sbp_thread = std::thread(&SbpCtx::run, &sbp_ctx);
 
         orion_proto::SbpFrame sbp_frame;
