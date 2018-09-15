@@ -22,6 +22,7 @@
 #include <libpiksi/logging.h>
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
+#include <libpiksi/settings.h>
 
 static const char *CORRECTION_GENERATOR_PORT = "correction-generator-ser-QLOUI52-1037726248.us-west-2.elb.amazonaws.com:9000";
 
@@ -61,16 +62,62 @@ public:
 
   void recv(uint16_t type, sbp_msg_callback_t callback, void *context) {
     sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_), type, callback, context, nullptr);
-    pk_loop_run_simple(loop_);
   }
 
   void send(const orion_proto::SbpFrame &sbp_frame) {
     sbp_tx_send(sbp_pubsub_tx_ctx_get(pubsub_), sbp_frame.type(), sbp_frame.length(), const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(sbp_frame.payload().data())));
   }
 
+  void run() {
+    pk_loop_run_simple(loop_);
+  }
+
 private:
   pk_loop_t *loop_{nullptr};
   sbp_pubsub_ctx_t *pubsub_{nullptr};
+};
+
+class SettingsCtx {
+public:
+  bool setup() {
+    loop_ = pk_loop_create();
+    if (loop_ == nullptr) {
+      return false;
+    }
+
+    settings_ = settings_create();
+    if (settings_ == nullptr) {
+      return false;
+    }
+
+    if (settings_attach(settings_, loop_) != 0) {
+      return false;
+    }
+
+    return true;
+  }
+
+  void teardown() {
+    if (loop_ != nullptr) {
+      pk_loop_destroy(&loop_);
+    }
+
+    if (settings_ != nullptr) {
+      settings_destroy(&settings_);
+    }
+  }
+
+  void record(const char *section, const char *name, void *var, size_t length, settings_type_t type, settings_notify_fn callback) {
+    settings_register(settings_, section, name, var, length, type, callback, nullptr);
+  }
+
+  void run() {
+    pk_loop_run_simple(loop_);
+  }
+
+private:
+  pk_loop_t *loop_{nullptr};
+  settings_ctx_t *settings_;
 };
 
 static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context) {
@@ -85,6 +132,7 @@ static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, 
 
 static void writer(grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *streamer, SbpCtx *sbp_ctx) {
   sbp_ctx->recv(SBP_MSG_POS_LLH, pos_llh_callback, streamer);
+  sbp_ctx->run();
 }
 
 static void run() {
