@@ -24,103 +24,22 @@
 #include <libsbp/sbp.h>
 #include <libpiksi/settings.h>
 
-static const char *CORRECTION_GENERATOR_PORT = "correction-generator-ser-QLOUI52-1037726248.us-west-2.elb.amazonaws.com:9000";
-
 static const char *PUB_ENDPOINT = "ipc:///var/run/sockets/skylark.sub";
 
 static const char *SUB_ENDPOINT = "ipc:///var/run/sockets/skylark.pub";
 
-class SbpCtx {
-public:
-  bool setup() {
-    loop_ = pk_loop_create();
-    if (loop_ == nullptr) {
-      return false;
-    }
+static char port[256] = "";
 
-    pubsub_ = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
-    if (pubsub_ == nullptr) {
-      return false;
-    }
+static bool enable = false;
 
-    if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(pubsub_), loop_) != 0) {
-      return false;
-    }
+static bool enabled = false;
 
-    return true;
-  }
+static std::condition_variable condition;
 
-  void teardown() {
-    if (loop_ != nullptr) {
-      pk_loop_destroy(&loop_);
-    }
-
-    if (pubsub_ != nullptr) {
-      sbp_pubsub_destroy(&pubsub_);
-    }
-  }
-
-  void recv(uint16_t type, sbp_msg_callback_t callback, void *context) {
-    sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_), type, callback, context, nullptr);
-  }
-
-  void send(const orion_proto::SbpFrame &sbp_frame) {
-    sbp_tx_send(sbp_pubsub_tx_ctx_get(pubsub_), sbp_frame.type(), sbp_frame.length(), const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(sbp_frame.payload().data())));
-  }
-
-  void run() {
-    pk_loop_run_simple(loop_);
-  }
-
-private:
-  pk_loop_t *loop_{nullptr};
-  sbp_pubsub_ctx_t *pubsub_{nullptr};
-};
-
-class SettingsCtx {
-public:
-  bool setup() {
-    loop_ = pk_loop_create();
-    if (loop_ == nullptr) {
-      return false;
-    }
-
-    settings_ = settings_create();
-    if (settings_ == nullptr) {
-      return false;
-    }
-
-    if (settings_attach(settings_, loop_) != 0) {
-      return false;
-    }
-
-    return true;
-  }
-
-  void teardown() {
-    if (loop_ != nullptr) {
-      pk_loop_destroy(&loop_);
-    }
-
-    if (settings_ != nullptr) {
-      settings_destroy(&settings_);
-    }
-  }
-
-  void record(const char *section, const char *name, void *var, size_t length, settings_type_t type, settings_notify_fn callback) {
-    settings_register(settings_, section, name, var, length, type, callback, nullptr);
-  }
-
-  void run() {
-    pk_loop_run_simple(loop_);
-  }
-
-private:
-  pk_loop_t *loop_{nullptr};
-  settings_ctx_t *settings_;
-};
+static std::mutex mutex;
 
 static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context) {
+  assert(context != nullptr);
   auto streamer = static_cast<grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *>(context);
   orion_proto::SbpFrame sbp_frame;
   sbp_frame.set_type(SBP_MSG_POS_LLH);
@@ -130,34 +49,119 @@ static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, 
   streamer->Write(sbp_frame);
 }
 
-static void writer(grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *streamer, SbpCtx *sbp_ctx) {
-  sbp_ctx->recv(SBP_MSG_POS_LLH, pos_llh_callback, streamer);
-  sbp_ctx->run();
+static void settings_callback(void *context) {
+  assert(context == nullptr);
+  std::unique_lock<std::mutex> lock{mutex};
+  enabled = enable && strlen(port) != 0;
+  condition.notify_one();
 }
 
-static void run() {
-  SbpCtx sbp_ctx;
-  if (sbp_ctx.setup()) {
-    auto chan = grpc::CreateChannel(CORRECTION_GENERATOR_PORT, grpc::InsecureChannelCredentials());
-    auto stub(orion_proto::CorrectionGenerator::NewStub(chan));
-    grpc::ClientContext context;
-    auto streamer(stub->stream_input_output(&context));
+static bool active() {
+  std::unique_lock<std::mutex> lock{mutex};
+  condition_.wait(lock, [] { return enabled; });
+  return enabled;
+}
 
-    auto thread = std::thread(&writer, streamer.get(), &sbp_ctx);
+static bool inactive() {
+  std::unique_lock<std::mutex> lock{mutex};
+  return !enabled;
+}
 
-    orion_proto::SbpFrame sbp_frame;
-    while (streamer->Read(&sbp_frame)) {
-      sbp_ctx.send(sbp_frame);
-    }
-
-    thread.join();
-    streamer->Finish();
+class Ctx {
+public:
+  Ctx()
+    : loop_(pk_loop_create()) {
+    assert(loop_ != nullptr);
   }
-  sbp_ctx.teardown();
-}
+
+  ~Ctx() {
+    pk_loop_destroy(&loop_);
+  }
+
+  bool run() {
+    return pk_loop_run_simple(loop_) == 0;
+  }
+
+  void stop() {
+    pk_loop_stop(loop_);
+  }
+
+private:
+  pk_loop_t *loop_;
+};
+
+class SbpCtx : public Ctx {
+public:
+  SbpCtx()
+    : pubsub_(sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT)) {
+    assert(pubsub_ != nullptr);
+  }
+
+  ~SbpCtx() {
+    sbp_pubsub_destroy(&pubsub_);
+  }
+
+  bool setup(void *context) {
+    return sbp_rx_attach(sbp_pubsub_rx_ctx_get(pubsub_), loop_) == 0 &&
+      sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_), SBP_MSG_POS_LLH, pos_llh_callback, context, nullptr) == 0;
+  }
+
+  bool send(const orion_proto::SbpFrame &sbp_frame) {
+    return sbp_tx_send(sbp_pubsub_tx_ctx_get(pubsub_), sbp_frame.type(), sbp_frame.length(), const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(sbp_frame.payload().data()))) == 0;
+  }
+
+private:
+  sbp_pubsub_ctx_t *pubsub_;
+};
+
+class SettingsCtx : public Ctx {
+public:
+  SettingsCtx()
+    : settings_(settings_create()) {
+    assert(settings_ != nullptr);
+  }
+
+  ~SettingsCtx() {
+    settings_destroy(&settings_);
+  }
+
+  bool setup() {
+    return settings_attach(settings_, loop_) == 0 &&
+      settings_register(settings_, "orion", "enable", &enable, sizeof(enable), SETTINGS_TYPE_BOOL, settings_callback, nullptr) == 0 &&
+      settings_register(settings_, "orion", "port", &port, sizeof(port), SETTINGS_TYPE_STRING, settings_callback, nullptr) == 0;
+  }
+
+private:
+  settings_ctx_t *settings_;
+};
 
 int main(int argc, char *argv[]) {
-  while (true) {
-    run();
+  SettingsCtx settings_ctx;
+  if (settings_ctx.setup()) {
+    auto settings_thread = std::thread(&SettingsCtx::run, &settings_ctx);
+
+    while (active()) {
+      auto chan = grpc::CreateChannel(port, grpc::InsecureChannelCredentials());
+      auto stub(orion_proto::CorrectionGenerator::NewStub(chan));
+      grpc::ClientContext context;
+      auto streamer(stub->stream_input_output(&context));
+
+      SbpCtx sbp_ctx;
+      if (sbp_ctx.setup(streamer)) {
+        auto sbp_thread = std::thread(&SbpCtx::run, &sbp_ctx);
+
+        orion_proto::SbpFrame sbp_frame;
+        while (!inactive() && streamer->Read(&sbp_frame)) {
+          sbp_ctx.send(sbp_frame);
+        }
+
+        sbp_ctx.stop();
+        sbp_thread.join();
+      }
+
+      streamer->Finish();
+    }
+
+    settings_thread.join();
   }
 }
