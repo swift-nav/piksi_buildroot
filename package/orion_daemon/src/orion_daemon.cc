@@ -55,7 +55,7 @@ static bool active() {
   std::unique_lock<std::mutex> lock{mutex};
   condition_.wait(lock, [] { return enabled; });
   changed = false;
-  return enabled;
+  return true;
 }
 
 static bool inactive() {
