@@ -13,6 +13,9 @@
 
 #include "orion.grpc.pb.h"
 #include <grpcpp/create_channel.h>
+#include <condition_variable>
+#include <mutex>
+#include <cassert>
 #include <cstdlib>
 #include <thread>
 #include <chrono>
@@ -34,9 +37,31 @@ static bool enable = false;
 
 static bool enabled = false;
 
+static bool changed = false;
+
 static std::condition_variable condition;
 
 static std::mutex mutex;
+
+static void settings_callback(void *context) {
+  assert(context == nullptr);
+  std::unique_lock<std::mutex> lock{mutex};
+  enabled = enable && strlen(port) != 0;
+  changed = true;
+  condition.notify_one();
+}
+
+static bool active() {
+  std::unique_lock<std::mutex> lock{mutex};
+  condition_.wait(lock, [] { return enabled; });
+  changed = false;
+  return enabled;
+}
+
+static bool inactive() {
+  std::unique_lock<std::mutex> lock{mutex};
+  return changed || !enabled;
+}
 
 static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context) {
   assert(context != nullptr);
@@ -47,24 +72,6 @@ static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, 
   sbp_frame.set_length(length);
   sbp_frame.set_payload(payload, length);
   streamer->Write(sbp_frame);
-}
-
-static void settings_callback(void *context) {
-  assert(context == nullptr);
-  std::unique_lock<std::mutex> lock{mutex};
-  enabled = enable && strlen(port) != 0;
-  condition.notify_one();
-}
-
-static bool active() {
-  std::unique_lock<std::mutex> lock{mutex};
-  condition_.wait(lock, [] { return enabled; });
-  return enabled;
-}
-
-static bool inactive() {
-  std::unique_lock<std::mutex> lock{mutex};
-  return !enabled;
 }
 
 class Ctx {
@@ -90,6 +97,27 @@ private:
   pk_loop_t *loop_;
 };
 
+class SettingsCtx : public Ctx {
+public:
+  SettingsCtx()
+    : settings_(settings_create()) {
+    assert(settings_ != nullptr);
+  }
+
+  ~SettingsCtx() {
+    settings_destroy(&settings_);
+  }
+
+  bool setup() {
+    return settings_attach(settings_, loop_) == 0 &&
+      settings_register(settings_, "orion", "enable", &enable, sizeof(enable), SETTINGS_TYPE_BOOL, settings_callback, nullptr) == 0 &&
+      settings_register(settings_, "orion", "port", &port, sizeof(port), SETTINGS_TYPE_STRING, settings_callback, nullptr) == 0;
+  }
+
+private:
+  settings_ctx_t *settings_;
+};
+
 class SbpCtx : public Ctx {
 public:
   SbpCtx()
@@ -112,27 +140,6 @@ public:
 
 private:
   sbp_pubsub_ctx_t *pubsub_;
-};
-
-class SettingsCtx : public Ctx {
-public:
-  SettingsCtx()
-    : settings_(settings_create()) {
-    assert(settings_ != nullptr);
-  }
-
-  ~SettingsCtx() {
-    settings_destroy(&settings_);
-  }
-
-  bool setup() {
-    return settings_attach(settings_, loop_) == 0 &&
-      settings_register(settings_, "orion", "enable", &enable, sizeof(enable), SETTINGS_TYPE_BOOL, settings_callback, nullptr) == 0 &&
-      settings_register(settings_, "orion", "port", &port, sizeof(port), SETTINGS_TYPE_STRING, settings_callback, nullptr) == 0;
-  }
-
-private:
-  settings_ctx_t *settings_;
 };
 
 int main(int argc, char *argv[]) {
