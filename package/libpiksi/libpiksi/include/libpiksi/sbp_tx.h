@@ -26,6 +26,10 @@
 
 #include <libpiksi/endpoint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @struct  sbp_tx_ctx_t
  *
@@ -89,6 +93,10 @@ int sbp_tx_send_from(sbp_tx_ctx_t *ctx,
                      u8 len,
                      u8 *payload,
                      u16 sbp_sender_id);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* LIBPIKSI_SBP_TX_H */
 
