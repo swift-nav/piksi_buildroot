@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
+ * Copyright (C) 2018 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -10,22 +10,22 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-#include "orion.grpc.pb.h"
-#include <grpcpp/create_channel.h>
 #include <condition_variable>
 #include <mutex>
 #include <cassert>
 #include <cstdlib>
 #include <thread>
-#include <chrono>
 #include <unistd.h>
-#include <libpiksi/sbp_pubsub.h>
-#include <libpiksi/loop.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/loop.h>
+#include <libpiksi/sbp_pubsub.h>
+#include <libpiksi/settings.h>
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
-#include <libpiksi/settings.h>
+#include <grpcpp/create_channel.h>
+#include "orion.grpc.pb.h"
+
+static const char *PROGRAM_NAME = "orion_daemon";
 
 static const char *PUB_ENDPOINT = "ipc:///var/run/sockets/skylark.sub";
 
@@ -60,7 +60,7 @@ static int settings_callback(void *context) {
   std::unique_lock<std::mutex> lock{mutex};
   enabled = enable && strlen(port) != 0;
   changed = true;
-  condition.notify_one();
+  condition.notify_all();
   return 0;
 }
 
@@ -144,11 +144,19 @@ private:
 };
 
 int main(int argc, char *argv[]) {
+  logging_init(PROGRAM_NAME);
+
+  piksi_log(LOG_INFO|LOG_SBP, "Daemon started");
+
   SettingsCtx settings_ctx;
   if (settings_ctx.setup()) {
+    piksi_log(LOG_INFO|LOG_SBP, "Settings setup");
+
     auto settings_thread = std::thread(&SettingsCtx::run, &settings_ctx);
 
     while (active()) {
+      piksi_log(LOG_INFO|LOG_SBP, "Daemon active %s", port);
+
       auto chan = grpc::CreateChannel(port, grpc::InsecureChannelCredentials());
       auto stub(orion_proto::CorrectionGenerator::NewStub(chan));
       grpc::ClientContext context;
@@ -156,6 +164,8 @@ int main(int argc, char *argv[]) {
 
       SbpCtx sbp_ctx;
       if (sbp_ctx.setup(streamer.get())) {
+        piksi_log(LOG_INFO|LOG_SBP, "Sbp setup");
+
         auto sbp_thread = std::thread(&SbpCtx::run, &sbp_ctx);
 
         orion_proto::SbpFrame sbp_frame;
@@ -163,13 +173,16 @@ int main(int argc, char *argv[]) {
           sbp_ctx.send(sbp_frame);
         }
 
+        piksi_log(LOG_INFO|LOG_SBP, "Daemon inactive");
+
         sbp_ctx.stop();
         sbp_thread.join();
       }
-
-      streamer->Finish();
     }
 
+    assert(false);
     settings_thread.join();
   }
+
+  exit(EXIT_SUCCESS);
 }
