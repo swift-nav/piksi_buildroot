@@ -24,7 +24,9 @@ $(eval $(cmake-package))
 
 else
 
+ifeq      ($(BR2_BUILD_PIKSI_INS),y)
 $(info >>> *** WARNING: Piksi INS was enabled, but access to project failed! ***)
+endif
 
 PIKSI_INS_VERSION = 1.0
 PIKSI_INS_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/empty"
