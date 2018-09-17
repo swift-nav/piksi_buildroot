@@ -19,6 +19,7 @@ PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_INSTALL_STAGING = YES
 PIKSI_INS_INSTALL_TARGET = YES
 PIKSI_INS_DEPENDENCIES = libuv libsbp libpiksi eigen
+BR2_ROOTFS_OVERLAY += "${PIKSI_INS_SITE}/overlay"
 
 $(eval $(cmake-package))
 
