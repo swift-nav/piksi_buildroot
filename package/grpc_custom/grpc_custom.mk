@@ -5,8 +5,7 @@
 ################################################################################
 
 GRPC_CUSTOM_VERSION = v1.12.0
-GRPC_CUSTOM_SITE = https://github.com/grpc/grpc.git
-GRPC_CUSTOM_SITE_METHOD = git
+GRPC_CUSTOM_SITE = $(call github,grpc,grpc,$(GRPC_CUSTOM_VERSION))
 GRPC_CUSTOM_LICENSE = BSD-3-Clause
 GRPC_CUSTOM_LICENSE_FILES = LICENSE
 
