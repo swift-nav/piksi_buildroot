@@ -5,6 +5,8 @@
 #ifndef PIKSI_BUILDROOT_METRICS_DAEMON_H
 #define PIKSI_BUILDROOT_METRICS_DAEMON_H
 
-
-struct json_object *  loop_through_folder_name(const char * process_path, const char * root, unsigned int root_len, struct json_object * json_root);
+extern "C" {
+int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
+json_object *init_json_object(const char * path);
+}
 #endif //PIKSI_BUILDROOT_METRICS_DAEMON_H
