@@ -31,6 +31,7 @@ PIKSI_INS_VERSION = 1.0
 PIKSI_INS_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/empty"
 PIKSI_INS_SITE_METHOD = local
 PIKSI_INS_DEPENDENCIES =
+BR2_ROOTFS_OVERLAY += "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/overlay"
 
 $(eval $(generic-package))
 
