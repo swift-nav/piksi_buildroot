@@ -17,6 +17,7 @@
 #include <json-c/json.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
+#include <libpiksi/util.h>
 
 #define PROGRAM_NAME "metrics_daemon"
 
@@ -44,9 +45,7 @@ json_object *init_json_object(const char * path);
  */
 static void write_json_to_file(struct json_object *root, const char *file_path)
 {
-  FILE *fp = fopen(file_path, "a");
-  fprintf(fp, "%s\n", json_object_to_json_string(root));
-  fclose(fp);
+  file_write_string(file_path, json_object_to_json_string(root));
 }
 
 /**

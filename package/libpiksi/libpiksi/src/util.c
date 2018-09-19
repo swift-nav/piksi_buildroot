@@ -141,7 +141,7 @@ bool file_read_value(char *file_path)
   return ('1' == val_char[0]);
 }
 
-static int file_write_string(const char *filename, const char *str)
+int file_write_string(const char *filename, const char *str)
 {
   FILE *fp = fopen(filename, "w");
   if (fp == NULL) {
