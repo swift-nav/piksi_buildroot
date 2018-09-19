@@ -13,13 +13,13 @@ endif # ! ($(BR2_BUILD_RELEASE_PROTECTED),y)
 
 $(info >>> Piksi INS is enabled, packaging with current image)
 
-PIKSI_INS_VERSION = v2.1.1 # Version 2.1 branch on September 10th, 2018
+PIKSI_INS_VERSION = v2.1.4 # Version 2.1 branch on September 10th, 2018
 PIKSI_INS_SITE = git@github.com:carnegieroboticsllc/piksi_ins.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_INSTALL_STAGING = YES
 PIKSI_INS_INSTALL_TARGET = YES
 PIKSI_INS_DEPENDENCIES = libuv libsbp libpiksi eigen
-BR2_ROOTFS_OVERLAY += "${PIKSI_INS_SITE}/overlay"
+BR2_ROOTFS_OVERLAY += "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/overlay"
 
 $(eval $(cmake-package))
 
