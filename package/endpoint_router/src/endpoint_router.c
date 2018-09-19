@@ -35,6 +35,7 @@
 #define MT message_metrics_table
 #define MR router_metrics
 
+// clang-format off
 PK_METRICS_TABLE(message_metrics_table, MI,
 
   PK_METRICS_ENTRY("message/count",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
@@ -52,6 +53,7 @@ PK_METRICS_TABLE(message_metrics_table, MI,
   PK_METRICS_ENTRY("frame/count",      "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
   PK_METRICS_ENTRY("frame/leftover",   "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers)
  )
+// clang-format on
 
 static struct {
   const char *filename;
@@ -94,14 +96,16 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_SBP,
   };
 
+  // clang-format off
   const struct option long_opts[] = {
     {"file",      required_argument, 0, 'f'},
     {"name",      required_argument, 0, OPT_ID_NAME},
     {"print",     no_argument,       0, OPT_ID_PRINT},
     {"debug",     no_argument,       0, OPT_ID_DEBUG},
     {"sbp",       no_argument,       0, OPT_ID_SBP},
-    {0, 0, 0, 0}
+    {0, 0, 0, 0},
   };
+  // clang-format on
 
   int c;
   int opt_index;
@@ -337,7 +341,7 @@ static void process_buffer_via_framer(port_t *port, const u8 *data, const size_t
 
     if (frame == NULL) break;
 
-    process_buffer(port, frame, frame_length);    
+    process_buffer(port, frame, frame_length);
     frame_count += 1;
   }
 

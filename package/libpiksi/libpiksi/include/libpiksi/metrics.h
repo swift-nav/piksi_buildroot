@@ -15,7 +15,7 @@
  * @brief   Piksi Metrics API.
  *
  * @defgroup    metrics Piksi Metrics
- * @addtogroup  metrics 
+ * @addtogroup  metrics
  * @{
  */
 
@@ -30,6 +30,7 @@ extern "C" {
 
 typedef struct pk_metrics_s pk_metrics_t;
 
+// clang-format off
 typedef enum {
   METRICS_STATUS_SILENT_FAIL   = -6,
   METRICS_STATUS_INVALID_INDEX = -5,
@@ -39,6 +40,7 @@ typedef enum {
   METRICS_STATUS_NO_SLOTS      = -1,
   METRICS_STATUS_SUCCESS       =  0,
 } pk_metrics_status_t;
+// clang-format on
 
 typedef enum {
   METRICS_TYPE_UNKNOWN = 0,
@@ -155,6 +157,7 @@ pk_metrics_value_t pk_metrics_updater_assign(pk_metrics_type_t type,
 
 const char* pk_metrics_status_text(pk_metrics_status_t status);
 
+// clang-format off
 #define NARGS_SEQ(_1, _2, _3, _4, _5, _6, _7, _8, _9, N, ...) N
 #define NARGS(...) NARGS_SEQ(__VA_ARGS__, 9, 8, 7, 6, 5, 4, 3, 2, 1)
 
@@ -186,6 +189,7 @@ _DEF_METRICS_CONV_FUNC(time, pk_metrics_time_t)
            double:            pk_metrics_f64,                 \
            pk_metrics_time_t: pk_metrics_time                 \
            )(TheValue)
+  // clang-format on
 
 #ifdef __cplusplus
 }

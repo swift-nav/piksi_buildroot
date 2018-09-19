@@ -56,6 +56,7 @@ typedef struct {
   char wl[256];
 } port_whitelist_config_t;
 
+// clang-format off
 static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   [PORT_UART0] = {
     .name = "uart0",
@@ -428,6 +429,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgHeartbeat               65535 */
   }
 };
+// clang-format on
 
 int whitelist_notify(void *context)
 {

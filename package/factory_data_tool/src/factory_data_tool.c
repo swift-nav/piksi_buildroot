@@ -17,6 +17,7 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+// clang-format off
 static const struct {
   uint32_t hardware;
   const char *name;
@@ -27,6 +28,7 @@ static const struct {
   { IMAGE_HARDWARE_V3_EVT2,       "v3_evt2"       },
   { IMAGE_HARDWARE_V3_PROD,       "v3_prod"       },
 };
+// clang-format on
 
 static const factory_data_t * factory_data_get(void)
 {

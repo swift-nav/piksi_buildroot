@@ -33,7 +33,7 @@ enum {
 static const char *const response_strs[] = {
   [RESPONSE_OK] = "OK\r\n",
   [RESPONSE_ERROR] = "ERROR\r\n",
-  NULL
+  NULL,
 };
 
 /* Read a string from the modem, expected to end in one of the strings in
@@ -162,7 +162,7 @@ enum modem_type cell_modem_probe(const char *dev)
     {"AT+CGMM", "Model"},
     {"AT+CGMR", "Revision"},
     {"AT+CGSN", "Serial Number"},
-    {NULL, NULL}
+    {NULL, NULL},
   };
   for (struct command *c = commands; c->cmd; c++) {
     char r[20];

@@ -61,7 +61,7 @@ int framer_interface_register(const char *name,
     .create = create,
     .destroy = destroy,
     .process = process,
-    .next = NULL
+    .next = NULL,
   };
 
   if (interface->name == NULL) {
@@ -107,7 +107,7 @@ framer_t * framer_create(const char *name)
 
   *framer = (framer_t) {
     .state = interface->create(),
-    .interface = interface
+    .interface = interface,
   };
 
   if (framer->state == NULL) {

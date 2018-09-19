@@ -26,7 +26,7 @@ static struct {
 } ctx = {
   .loop = NULL,
   .pubsub_ctx = NULL,
-  .settings_ctx = NULL
+  .settings_ctx = NULL,
 };
 
 static void signal_cb(pk_loop_t *pk_loop, void *handle, void *context)

@@ -20,9 +20,11 @@
 
 #include "skylark_settings.h"
 
+// clang-format off
 #define UPLOAD_FIFO_FILE_PATH   "/var/run/skylark/upload"
 #define DOWNLOAD_FIFO_FILE_PATH "/var/run/skylark/download"
 #define SKYLARK_URL             "https://broker.skylark.swiftnav.com"
+// clang-format on
 
 static bool skylark_enabled;
 static char skylark_url[256];

@@ -26,7 +26,7 @@ enum port {
   PORT_WHITESPACE,
   PORT_VALID,
   PORT_EMPTY,
-  PORT_MAX
+  PORT_MAX,
 };
 
 typedef struct {

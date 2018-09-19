@@ -53,7 +53,7 @@ typedef enum {
 
 typedef enum {
   DO_NOT_RESTART,
-  RESTART
+  RESTART,
 } restart_type_t;
 
 typedef union {
@@ -269,7 +269,7 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
-  }
+  },
 };
 
 static int mode_to_protocol_index(u8 mode)
@@ -286,6 +286,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
 {
   char cmd[512];
 
+  // clang-format off
   runit_config_t cfg = (runit_config_t){
     .service_dir  = RUNIT_SERVICE_DIR,
     .service_name = port_config->name,
@@ -293,6 +294,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
     .custom_down  = NULL,
     .restart      = port_config->restart,
   };
+  // clang-format on
 
   if (!updating_mode && port_config->first_start) {
     // Wait for mode settings to be updated before launching the port, the

@@ -49,6 +49,7 @@
 
 static pk_metrics_t* MR = NULL;
 
+// clang-format off
 PK_METRICS_TABLE(MT, MI,
 
   PK_METRICS_ENTRY("read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, read_count),
@@ -61,6 +62,7 @@ PK_METRICS_TABLE(MT, MI,
   PK_METRICS_ENTRY("write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, write_size_average,
                    M_AVERAGE_OF(MI,         write_size_total, write_count))
 )
+// clang-format on
 
 typedef enum {
   IO_INVALID,
@@ -69,7 +71,7 @@ typedef enum {
   IO_TCP_LISTEN,
   IO_TCP_CONNECT,
   IO_UDP_LISTEN,
-  IO_UDP_CONNECT
+  IO_UDP_CONNECT,
 } io_mode_t;
 
 typedef enum {
@@ -184,6 +186,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_OUTQ,
   };
 
+  // clang-format off
   const struct option long_opts[] = {
     {"pub",               required_argument, 0, 'p'},
     {"sub",               required_argument, 0, 's'},
@@ -203,7 +206,8 @@ static int parse_options(int argc, char *argv[])
     {"debug",             no_argument,       0, OPT_ID_DEBUG},
     {"nonblock",          no_argument,       0, OPT_ID_NONBLOCK},
     {"outq",              required_argument, 0, OPT_ID_OUTQ},
-    {0, 0, 0, 0}
+    {0, 0, 0, 0},
+    // clang-format on
   };
 
   int c;
@@ -398,7 +402,7 @@ static int handle_init(handle_t *handle, pk_endpoint_t *pk_ept,
     .read_fd = read_fd,
     .write_fd = write_fd,
     .framer = framer_create(framer_name),
-    .filter = filter_create(filter_name, filter_config)
+    .filter = filter_create(filter_name, filter_config),
   };
 
   if ((handle->framer == NULL) || (handle->filter == NULL)) {
@@ -681,7 +685,7 @@ static void terminate_child_pids(int signum)
   }
 }
 
-static void do_metrics_flush(void) 
+static void do_metrics_flush(void)
 {
   if (pk_metrics_gettime().ns - last_metrics_flush < one_second_ns) {
     return;
@@ -700,7 +704,7 @@ static void do_metrics_flush(void)
   pk_metrics_reset(MR, MI.write_count);
   pk_metrics_reset(MR, MI.write_size_total);
   pk_metrics_reset(MR, MI.write_size_average);
-} 
+}
 
 static void setup_metrics(const char* pubsub) {
 

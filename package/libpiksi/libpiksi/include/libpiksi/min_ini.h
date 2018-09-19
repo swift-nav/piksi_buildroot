@@ -18,6 +18,7 @@
  */
 #ifndef LIBPIKSI_MIN_INI_H
 #define LIBPIKSI_MIN_INI_H
+// clang-format off
 
 #include <libpiksi/min_ini_glue.h>
 
@@ -149,4 +150,5 @@ int  ini_browse(INI_CALLBACK Callback, const void *UserData, const mTCHAR *Filen
 #endif /* __WXWINDOWS__ */
 #endif /* __cplusplus */
 
+// clang-format on
 #endif /* LIBPIKSI_MIN_INI_H */

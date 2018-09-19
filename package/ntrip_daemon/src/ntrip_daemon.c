@@ -86,6 +86,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_MODE_RECONNECT,
   };
 
+  // clang-format off
   const struct option long_opts[] = {
     {"ntrip",     no_argument,       0, OPT_ID_MODE_NTRIP},
     {"settings",  no_argument,       0, OPT_ID_MODE_SETTINGS},
@@ -99,6 +100,7 @@ static int parse_options(int argc, char *argv[])
     {"debug",     no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
+  // clang-format on
 
   char* endptr;
   int intarg;

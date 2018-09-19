@@ -85,6 +85,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_GET_HEALTH,
   };
 
+  // clang-format off
   const struct option long_opts[] = {
     {"upload",             no_argument,       0, OPT_ID_UPLOAD},
     {"download",           no_argument,       0, OPT_ID_DOWNLOAD},
@@ -97,6 +98,7 @@ static int parse_options(int argc, char *argv[])
     {"debug",              no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
+  // clang-format on
 
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {

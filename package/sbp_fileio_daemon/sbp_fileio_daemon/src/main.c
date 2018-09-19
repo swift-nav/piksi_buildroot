@@ -53,6 +53,7 @@ static int parse_options(int argc, char *argv[])
   // Used in --basedir option processing
   assert( g_pv_ctx != NULL );
 
+  // clang-format off
   const struct option long_opts[] = {
     {"pub",      required_argument, 0, 'p'},
     {"sub",      required_argument, 0, 's'},
@@ -63,6 +64,7 @@ static int parse_options(int argc, char *argv[])
     {"help",     no_argument,       0, 'h'},
     {0, 0, 0, 0}
   };
+  // clang-format on
 
   int c;
   int opt_index;

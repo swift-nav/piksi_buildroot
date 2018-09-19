@@ -206,6 +206,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
                           msg->sequence);
   assert( count < sizeof(finish_cmd) );
 
+  // clang-format off
 #ifdef DEBUG_PIKSI_SYSTEM_DAEMON
   piksi_log(LOG_DEBUG, "%s: update_tool command sequence: %u, command string: %s",
             __FUNCTION__, msg->sequence, finish_cmd);
@@ -218,6 +219,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void* context)
     .finish_command = finish_cmd,
     .restart        = false,
   };
+  // clang-format on
 
   start_runit_service(&cfg);
 }
@@ -492,11 +494,13 @@ static int network_polling_notify(void *context)
     }
   }
 
+  // clang-format off
   struct { const char* filename; const char* value; } settings_value_files[3] = {
     [0].filename = NETWORK_POLLING_PERIOD_FILE,       [0].value = formatters[0].buf,
     [1].filename = NETWORK_POLLING_RETRY_PERIOD_FILE, [1].value = formatters[1].buf,
     [2].filename = ENABLE_PING_LOGGING_FILE,          [2].value = formatters[2].buf,
   };
+  // clang-format on
 
   for (size_t x = 0; x < COUNT_OF(settings_value_files); x++) {
     FILE* fp = fopen(settings_value_files[x].filename, "w");
