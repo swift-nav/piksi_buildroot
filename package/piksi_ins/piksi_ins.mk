@@ -13,6 +13,10 @@ endif # ! ($(BR2_BUILD_RELEASE_PROTECTED),y)
 
 $(info >>> Piksi INS is enabled, packaging with current image)
 
+define PIKSI_INS_USERS
+	piksi_ins -1 piksi_ins -1 * - - -
+endef
+
 PIKSI_INS_VERSION = v2.1.4 # Version 2.1 branch on September 10th, 2018
 PIKSI_INS_SITE = git@github.com:carnegieroboticsllc/piksi_ins.git
 PIKSI_INS_SITE_METHOD = git
