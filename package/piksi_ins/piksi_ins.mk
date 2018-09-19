@@ -5,10 +5,11 @@
 #############################################################
 
 ifeq      ($(BR2_HAS_PIKSI_INS),y)
+
 ifneq     ($(BR2_BUILD_RELEASE_PROTECTED),y)
-
 $(info >>> *** WARNING: Piksi INS was enabled, but image is not protected! ***)
-
+$(info >>> *** WARNING: Piksi INS was enabled, but image is not protected! ***)
+$(info >>> *** WARNING: Piksi INS was enabled, but image is not protected! ***)
 endif # ! ($(BR2_BUILD_RELEASE_PROTECTED),y)
 
 $(info >>> Piksi INS is enabled, packaging with current image)
@@ -22,17 +23,20 @@ PIKSI_INS_DEPENDENCIES = libuv libsbp libpiksi eigen
 
 $(eval $(cmake-package))
 
-else
-
-ifeq      ($(BR2_BUILD_PIKSI_INS),y)
-$(info >>> *** WARNING: Piksi INS was enabled, but access to project failed! ***)
-endif
+else #    ($(BR2_HAS_PIKSI_INS),y)
 
 PIKSI_INS_VERSION = 1.0
 PIKSI_INS_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/empty"
 PIKSI_INS_SITE_METHOD = local
 PIKSI_INS_DEPENDENCIES =
 
+ifeq      ($(BR2_BUILD_PIKSI_INS),y)
+define PIKSI_INS_BUILD_CMDS
+	echo >>> *** ERROR: Piksi INS was enabled, but access to project failed! ***
+	exit 1
+endef
+endif
+
 $(eval $(generic-package))
 
-endif # ($(BR2_HAS_PIKSI_INS),y)
+endif #   ($(BR2_HAS_PIKSI_INS),y)

@@ -50,7 +50,7 @@ endef
 
 define _release_ins_build
 	[ -z "$(BR2_BUILD_PIKSI_INS)" ] || \
-		$(BUILD_ENV_ARGS) \
+		$(BUILD_ENV_ARGS) BR2_BUILD_PIKSI_INS=y \
 			$(MAKE) pkg-piksi_ins-rebuild
 endef
 
@@ -62,12 +62,10 @@ image-release-protected: export BR2_BUILD_RELEASE_PROTECTED=y
 image-release-protected: config
 	$(call _release_build,$(_release_ins_build))
 
-image-release-ins: export BR2_BUILD_PIKSI_INS=y
 image-release-ins:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) image-release-protected
 
-image: export BR2_BUILD_PIKSI_INS=y
 image: config
 	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
 		$(MAKE) rel-lockdown-clean

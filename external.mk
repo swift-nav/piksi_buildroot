@@ -13,3 +13,7 @@ else
 include $(BR2_EXTERNAL_piksi_buildroot_PATH)/scripts/lto.mk
 
 endif
+
+ifneq ($(BR2_BUILD_PIKSI_INS),y)
+BR2_PACKAGE_PIKSI_INS=n
+endif
