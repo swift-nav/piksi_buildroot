@@ -61,7 +61,7 @@ int filter_interface_register(const char *name,
     .create = create,
     .destroy = destroy,
     .process = process,
-    .next = NULL
+    .next = NULL,
   };
 
   if (interface->name == NULL) {

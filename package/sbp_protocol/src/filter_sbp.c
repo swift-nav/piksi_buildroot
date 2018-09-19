@@ -22,10 +22,12 @@
 #include <libsbp/sbp.h>
 #include <syslog.h>
 
+// clang-format off
 #define SBP_MSG_TYPE_OFFSET 1
 #define SBP_MSG_SIZE_MIN    6
 
 #define RULES_COUNT_INIT  256
+// clang-format on
 
 typedef struct {
   uint16_t type;

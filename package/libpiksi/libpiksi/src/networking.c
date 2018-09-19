@@ -145,7 +145,7 @@ void query_network_state(msg_network_state_resp_t *interfaces, u8 interfaces_n, 
   struct fill_network_state_s fill_data = {
     .interfaces = interfaces,
     .interfaces_size = interfaces_n,
-    .interfaces_count = returned_interfaces
+    .interfaces_count = returned_interfaces,
   };
   *returned_interfaces = 0;
   map_network_interfaces(fill_network_state_struct, (void *)&fill_data);

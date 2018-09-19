@@ -30,10 +30,12 @@ struct setting {
 
 extern "C" void settings_register(struct setting *setting);
 
+// clang-format off
 static setting setting_empty_uart0 = {
   /* section = */ "uart0", /* name = */ "enabled_sbp_messages", /* type  = */ "",
   /* value   = */   "",    /* next = */ NULL,                   /* dirty = */ false,
 };
+// clang-format on
 
 class SbpSettingsDaemonTests : public ::testing::Test { };
 

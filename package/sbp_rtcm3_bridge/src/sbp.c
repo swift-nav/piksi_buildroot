@@ -29,7 +29,7 @@ static struct {
   .loop = NULL,
   .pubsub_ctx = NULL,
   .settings_ctx = NULL,
-  .simulator_enabled = false
+  .simulator_enabled = false,
 };
 
 int sbp_init(void)

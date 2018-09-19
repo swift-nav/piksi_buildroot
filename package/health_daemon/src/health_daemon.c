@@ -70,7 +70,7 @@ static health_ctx_t health_ctx = {
   .health_debug = false,
   .loop = NULL,
   .sbp_ctx = NULL,
-  .settings_ctx = NULL
+  .settings_ctx = NULL,
 };
 
 static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
@@ -85,7 +85,7 @@ static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
   { ntrip_obs_timeout_health_monitor_init,
     ntrip_obs_timeout_health_monitor_deinit },
   { gnss_time_health_monitor_init,
-    gnss_time_health_monitor_deinit }
+    gnss_time_health_monitor_deinit },
 };
 static size_t health_monitor_init_pairs_n =
   (sizeof(health_monitor_init_pairs) / sizeof(health_monitor_init_fn_pair_t));

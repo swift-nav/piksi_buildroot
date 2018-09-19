@@ -48,6 +48,7 @@ typedef enum {
   NETWORK_TYPE_SKYLARK_DOWNLOAD, /**< Context for a skylark download session */
 } network_type_t;
 
+// clang-format off
 /**
  * @brief   Error type
  */
@@ -61,6 +62,7 @@ typedef enum {
   NETWORK_STATUS_READ_ERROR         = -7, /** < There was an error reading from a FIFO */
   NETWORK_STATUS_SUCCESS            =  0,  /** < The operation was successful          */
 } network_status_t;
+// clang-format on
 
 /**
  * @brief Create a context for a libnetwork session

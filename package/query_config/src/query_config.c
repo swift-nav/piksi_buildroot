@@ -48,12 +48,14 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_KEY,
   };
 
+  // clang-format off
   const struct option long_opts[] = {
     {"file",      required_argument, 0, OPT_ID_FILE},
     {"section",   required_argument, 0, OPT_ID_SECTION},
     {"key",       required_argument, 0, OPT_ID_KEY},
     {0, 0, 0, 0},
   };
+  // clang-format on
 
   int opt;
 

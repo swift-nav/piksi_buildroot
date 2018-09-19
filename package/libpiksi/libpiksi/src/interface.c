@@ -236,13 +236,13 @@ static char *get_name(char name[IF_NAMESIZE], char *p)
 static const char *const ss_fmt[] = {
   "%n%llu%u%u%u%u%n%n%n%llu%u%u%u%u%u",
   "%llu%llu%u%u%u%u%n%n%llu%llu%u%u%u%u%u",
-  "%llu%llu%u%u%u%u%u%u%llu%llu%u%u%u%u%u%u"
+  "%llu%llu%u%u%u%u%u%u%llu%llu%u%u%u%u%u%u",
 };
 #else
 static const char *const ss_fmt[] = {
   "%n%llu%lu%lu%lu%lu%n%n%n%llu%lu%lu%lu%lu%lu",
   "%llu%llu%lu%lu%lu%lu%n%n%llu%llu%lu%lu%lu%lu%lu",
-  "%llu%llu%lu%lu%lu%lu%lu%lu%llu%llu%lu%lu%lu%lu%lu%lu"
+  "%llu%llu%lu%lu%lu%lu%lu%lu%llu%llu%lu%lu%lu%lu%lu%lu",
 };
 #endif
 

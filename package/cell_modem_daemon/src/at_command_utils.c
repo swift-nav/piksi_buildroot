@@ -293,7 +293,7 @@ static s8 modem_signal_strength_to_dbm(u32 signal_raw)
 
 // Splits the difference from above
 static const float error_to_percent_lookup[] = {
-  0.2f, 0.3f, 0.6f, 1.2f, 2.4f, 4.8f, 9.6f, 12.8f
+  0.2f, 0.3f, 0.6f, 1.2f, 2.4f, 4.8f, 9.6f, 12.8f,
 };
 
 static float modem_error_rate_to_percent(u32 error_raw)

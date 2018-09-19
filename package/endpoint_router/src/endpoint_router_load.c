@@ -54,14 +54,14 @@ static expected_event_t router_events[] = {
   { YAML_MAPPING_END_EVENT, NULL, NULL, false },
   { YAML_DOCUMENT_END_EVENT, NULL, NULL, false },
   { YAML_STREAM_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false }
+  { YAML_NO_EVENT, NULL, NULL, false },
 };
 
 static expected_event_t ports_events[] = {
   { YAML_SEQUENCE_START_EVENT, NULL, NULL, false },
   { YAML_MAPPING_START_EVENT, NULL, process_port, true },
   { YAML_SEQUENCE_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false }
+  { YAML_NO_EVENT, NULL, NULL, false },
 };
 
 static expected_event_t port_events[] = {
@@ -70,42 +70,42 @@ static expected_event_t port_events[] = {
   { YAML_SCALAR_EVENT, "sub_addr", process_sub_addr, true },
   { YAML_SCALAR_EVENT, "forwarding_rules", process_forwarding_rules, true },
   { YAML_MAPPING_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false }
+  { YAML_NO_EVENT, NULL, NULL, false },
 };
 
 static expected_event_t forwarding_rules_events[] = {
   { YAML_SEQUENCE_START_EVENT, NULL, NULL, false },
   { YAML_MAPPING_START_EVENT, NULL, process_forwarding_rule, true },
   { YAML_SEQUENCE_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false }
+  { YAML_NO_EVENT, NULL, NULL, false },
 };
 
 static expected_event_t forwarding_rule_events[] = {
   { YAML_SCALAR_EVENT, "dst_port", process_dst_port, true },
   { YAML_SCALAR_EVENT, "filters", process_filters, true },
   { YAML_MAPPING_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false }
+  { YAML_NO_EVENT, NULL, NULL, false },
 };
 
 static expected_event_t filters_events[] = {
   { YAML_SEQUENCE_START_EVENT, NULL, NULL, false },
   { YAML_MAPPING_START_EVENT, NULL, process_filter, true },
   { YAML_SEQUENCE_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false }
+  { YAML_NO_EVENT, NULL, NULL, false },
 };
 
 static expected_event_t filter_events[] = {
   { YAML_SCALAR_EVENT, "action", process_action, true },
   { YAML_SCALAR_EVENT, "prefix", process_prefix, true },
   { YAML_MAPPING_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false }
+  { YAML_NO_EVENT, NULL, NULL, false },
 };
 
 static expected_event_t prefix_events[] = {
   { YAML_SEQUENCE_START_EVENT, NULL, NULL, false },
   { YAML_SCALAR_EVENT, NULL, process_prefix_element, true },
   { YAML_SEQUENCE_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false }
+  { YAML_NO_EVENT, NULL, NULL, false },
 };
 
 static int event_scalar_value_get(yaml_parser_t *parser, char **str)
@@ -321,7 +321,7 @@ static PROCESS_FN(port)
     .pub_ept = NULL,
     .sub_ept = NULL,
     .forwarding_rules_list = NULL,
-    .next = NULL
+    .next = NULL,
   };
 
   *p_next = port;
@@ -377,7 +377,7 @@ static PROCESS_FN(forwarding_rule)
     .dst_port_name = "",
     .dst_port = NULL,
     .filters_list = NULL,
-    .next = NULL
+    .next = NULL,
   };
 
   *p_next = forwarding_rule;
@@ -433,7 +433,7 @@ static PROCESS_FN(filter)
     .action = FILTER_ACTION_REJECT,
     .data = NULL,
     .len = 0,
-    .next = NULL
+    .next = NULL,
   };
 
   *p_next = filter;
@@ -563,7 +563,7 @@ router_t * router_load(const char *filename)
 
   *router = (router_t) {
     .name = "",
-    .ports_list = NULL
+    .ports_list = NULL,
   };
 
   yaml_parser_set_input_file(&parser, f);

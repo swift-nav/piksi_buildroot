@@ -21,9 +21,11 @@
 
 #include <libsbp/sbp.h>
 
+// clang-format off
 #ifndef SIZET_MAX
 #   define SIZET_MAX  ((size_t)(ssize_t)(-1))
 #   define SSIZET_MAX  ((ssize_t)(((size_t)1<<(8*sizeof(ssize_t)-1))-1))
 #endif
+// clang-format on
 
 #endif /* LIBPIKSI_COMMON_H */

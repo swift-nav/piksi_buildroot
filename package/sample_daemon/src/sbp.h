@@ -16,8 +16,10 @@
 #include <libsbp/sbp.h>
 #include <libpiksi/settings.h>
 
+// clang-format off
 #define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
 #define NO_TIME          0
+// clang-format on
 
 int sbp_init(void);
 void sbp_deinit(void);

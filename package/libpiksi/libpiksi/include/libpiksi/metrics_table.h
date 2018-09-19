@@ -12,6 +12,7 @@
 
 #ifndef LIBPIKSI_METRICS_TABLE_H
 #define LIBPIKSI_METRICS_TABLE_H
+// clang-format off
 
 #include <libpiksi/metrics_foreach.h>
 
@@ -71,4 +72,5 @@
 #define M_AVERAGE_OF(SymTable, Sym1, Sym2) \
   &((pk_metrics_average_t) { .index_of_num = & SymTable . Sym1, .index_of_dom = & SymTable . Sym2 })
 
+// clang-format on
 #endif//LIBPIKSI_METRICS_TABLE_H

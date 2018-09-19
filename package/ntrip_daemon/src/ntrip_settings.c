@@ -35,6 +35,7 @@ static char ntrip_rev1gga_s[] = "n";
 
 static bool ntrip_settings_initialized = false;
 
+// clang-format off
 static char *ntrip_argv_normal[] = {
   "ntrip_daemon",
   "--file", FIFO_FILE_PATH,
@@ -76,6 +77,7 @@ static char *ntrip_argv_username_debug[] = {
   "--rev1gga", ntrip_rev1gga_s,
   NULL,
 };
+// clang-format on
 
 static char** ntrip_argv = ntrip_argv_normal;
 
@@ -89,6 +91,7 @@ static int ntrip_daemon_execfn(void) {
 }
 
 static int ntrip_adapter_execfn(void) {
+  // clang-format off
   char *argv[] = {
     "endpoint_adapter",
     "--name", "ntrip_daemon",
@@ -97,6 +100,7 @@ static int ntrip_adapter_execfn(void) {
     "-p", "ipc:///var/run/sockets/rtcm3_external.sub",
     NULL,
   };
+  // clang-format on
 
   return execvp(argv[0], argv);
 }
@@ -222,6 +226,7 @@ void ntrip_settings_init(settings_ctx_t *settings_ctx)
 
   mkfifo(FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
+  // clang-format off
   settings_register(settings_ctx, "ntrip", "enable",
                     &ntrip_enabled, sizeof(ntrip_enabled),
                     SETTINGS_TYPE_BOOL,
@@ -258,6 +263,7 @@ void ntrip_settings_init(settings_ctx_t *settings_ctx)
                     ntrip_notify_generic, NULL);
 
   ntrip_settings_initialized = true;
+  // clang-format on
 
   /* Settings ready, start processes accordingly.
    *
@@ -265,7 +271,7 @@ void ntrip_settings_init(settings_ctx_t *settings_ctx)
    * ntrip.enable is registered as the last one in the ntrip settings group.
    * Meaning ntrip.enable reads as false while other settings would be
    * registered and possibly read from the persistent config during boot.
-   * 
+   *
    * This alternative approach has the downside that it will show ntrip.enable
    * as the last setting in the ntrip settings goup on console affecting end
    * user experience. */

@@ -82,6 +82,7 @@ typedef struct {
 
 } fifo_info_t;
 
+// clang-format off
 struct network_context_s {
 
   network_type_t type;         /**< The type of the network session */
@@ -123,6 +124,7 @@ struct network_context_s {
 
   bool gga_rev1;               /**< Should we use rev1 style GGA sentence? */
 };
+// clang-format on
 
 struct context_node {
   network_context_t context;
@@ -133,6 +135,7 @@ typedef LIST_HEAD(context_nodes_head, context_node) context_nodes_head_t;
 
 context_nodes_head_t context_nodes_head = LIST_HEAD_INITIALIZER(context_nodes_head);
 
+// clang-format off
 static network_context_t empty_context = {
   .type = NETWORK_TYPE_INVALID,
   .fd = -1,
@@ -168,6 +171,7 @@ static network_context_t empty_context = {
   .gga_error_count = 0,
   .gga_rev1 = false,
 };
+// clang-format on
 
 #define NMEA_GGA_FILE "/var/run/nmea/GGA"
 
@@ -886,6 +890,7 @@ static void network_request(network_context_t* ctx, CURL *curl)
 {
   char error_buf[CURL_ERROR_SIZE];
 
+  // clang-format off
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER,       error_buf);
   curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 15000L);
   curl_easy_setopt(curl, CURLOPT_DNS_CACHE_TIMEOUT, 0L);
@@ -895,6 +900,7 @@ static void network_request(network_context_t* ctx, CURL *curl)
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPINTVL,     5L);
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPIDLE,      20L);
   curl_easy_setopt(curl, CURLOPT_BUFFERSIZE,        RECV_BUFFER_SIZE);
+  // clang-format on
 
   while (true) {
 
@@ -1000,10 +1006,12 @@ void ntrip_download(network_context_t *ctx)
 
   if (ctx->gga_xfer_secs > 0) {
 
+    // clang-format off
     curl_easy_setopt(curl, CURLOPT_UPLOAD,           1L);
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST,    "GET");
     curl_easy_setopt(curl, CURLOPT_READFUNCTION,     network_upload_write);
     curl_easy_setopt(curl, CURLOPT_READDATA,         ctx);
+    // clang-format on
 
     chunk = curl_slist_append(chunk, "Transfer-Encoding:");
 
@@ -1024,6 +1032,7 @@ void ntrip_download(network_context_t *ctx)
     }
   }
 
+  // clang-format off
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
@@ -1033,6 +1042,7 @@ void ntrip_download(network_context_t *ctx)
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
+  // clang-format on
 
   network_request(ctx, curl);
 
@@ -1050,6 +1060,7 @@ void skylark_download(network_context_t *ctx)
   struct curl_slist *chunk = skylark_init(curl);
   chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
 
+  // clang-format off
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
@@ -1059,6 +1070,7 @@ void skylark_download(network_context_t *ctx)
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
+  // clang-format on
 
   network_request(ctx, curl);
 
@@ -1077,6 +1089,7 @@ void skylark_upload(network_context_t* ctx)
   chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
   chunk = curl_slist_append(chunk, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
 
+  // clang-format off
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_PUT,              1L);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
@@ -1087,6 +1100,7 @@ void skylark_upload(network_context_t* ctx)
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
+  // clang-format on
 
   network_request(ctx, curl);
 

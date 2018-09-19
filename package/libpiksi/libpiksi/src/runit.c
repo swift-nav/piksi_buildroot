@@ -18,6 +18,7 @@
 #include <libpiksi/runit.h>
 #include <libpiksi/logging.h>
 
+//// clang-format off
 //#define DEBUG_RUNIT
 #ifdef DEBUG_RUNIT
 #define RUNIT_DEBUG_LOG(ThePattern, ...) \
@@ -42,6 +43,7 @@
 #define CHECKED_SPRINTF(TheDest, TheSize, ThePattern, ...) {  \
     int count = snprintf(TheDest, TheSize, ThePattern, ## __VA_ARGS__); \
     assert((size_t)count < TheSize); }
+// clang-format on
 
 int start_runit_service(runit_config_t *cfg)
 {

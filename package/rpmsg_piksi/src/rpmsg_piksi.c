@@ -44,14 +44,16 @@
 
 #define MAX_BUF_SUBMIT (4096)
 
+// clang-format off
 #define IOCTL_CMD_GET_KFIFO_SIZE      1
 #define IOCTL_CMD_GET_AVAIL_DATA_SIZE 2
 #define IOCTL_CMD_GET_FREE_BUFF_SIZE  3
+// clang-format on
 
 static const u32 endpoint_addr_config[NUM_ENDPOINTS] = {
   100,
   101,
-  102
+  102,
 };
 
 struct ept_params {

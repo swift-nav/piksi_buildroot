@@ -55,11 +55,13 @@ static int parse_options(int argc, char *argv[])
 {
   enum { OPT_ID_SERIAL_PORT = 1, OPT_ID_AT_COMMAND = 2 };
 
+  // clang-format off
   const struct option long_opts[] = {
     { "serial-port", required_argument, 0, OPT_ID_SERIAL_PORT },
     { "at-command", required_argument, 0, OPT_ID_AT_COMMAND },
     { 0, 0, 0, 0 },
   };
+  // clang-format on
 
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {

@@ -653,7 +653,7 @@ static setting_data_t * setting_create_setting(settings_ctx_t *ctx, const char *
     .notify_context = notify_context,
     .readonly = readonly,
     .watchonly = watchonly,
-    .next = NULL
+    .next = NULL,
   };
 
   if ((setting_data->section == NULL) ||
@@ -1516,7 +1516,7 @@ static bool configure_control_socket(pk_loop_t* loop,
   **ctrl_command_info = (control_command_t){
     .cmd_ept = *rep_socket,
     .command = control_command,
-    .handler = do_handle_command
+    .handler = do_handle_command,
   };
 
   if (pk_loop_endpoint_reader_add(loop, *rep_socket, control_handler, *ctrl_command_info) == NULL) {
