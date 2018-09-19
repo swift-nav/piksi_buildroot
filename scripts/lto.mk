@@ -47,7 +47,7 @@ define toolchain-external-post
 	$(info *******************************)
 	$(info *** Installing LTO wrappers ***)
 	$(info *******************************)
-        $(info * TOOLCHAIN_EXTERNAL_PREFIX: $(TOOLCHAIN_EXTERNAL_PREFIX))
+	$(info * TOOLCHAIN_EXTERNAL_PREFIX: $(TOOLCHAIN_EXTERNAL_PREFIX))
 	$(Q)ln -sf $(TOOLCHAIN_EXTERNAL_CROSS)gcc-ar \
 	  $(HOST_DIR)/usr/bin/$(TOOLCHAIN_EXTERNAL_PREFIX)-ar
 	$(Q)ln -sf $(TOOLCHAIN_EXTERNAL_CROSS)gcc-nm \
