@@ -66,14 +66,21 @@ image-release-ins:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) image-release-protected
 
-image: config
+define _internal_build
 	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
 		$(MAKE) rel-lockdown-clean
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) dev-tools-clean dev-tools-build
-	$(_release_ins_build)
+	$(1)
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
+endef
+
+image-internal: config
+	$(call _internal_build,$(_release_ins_build))
+
+image: config
+	$(call _internal_build,:)
 
 clean-ccache:
 	rm -rf buildroot/output/ccache/*
@@ -171,6 +178,10 @@ docker-rebuild-changed:
 docker-make-image:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make image
+
+docker-make-image-internal:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make image-internal
 
 docker-make-image-release-open:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \

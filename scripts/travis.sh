@@ -140,7 +140,7 @@ handle_internal_script_phase()
 
   spawn_ticker
 
-  make docker-make-image 2>&1 | capture_build_log
+  make docker-make-image-internal 2>&1 | capture_build_log
 }
 
 handle_internal_after_success_phase()
