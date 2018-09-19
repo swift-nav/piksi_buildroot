@@ -5,8 +5,7 @@
 ################################################################################
 
 GRPC_CUSTOM_VERSION = v1.12.0
-GRPC_CUSTOM_SITE = https://github.com/grpc/grpc.git
-GRPC_CUSTOM_SITE_METHOD = git
+GRPC_CUSTOM_SITE = $(call github,grpc,grpc,$(GRPC_CUSTOM_VERSION))
 GRPC_CUSTOM_LICENSE = BSD-3-Clause
 GRPC_CUSTOM_LICENSE_FILES = LICENSE
 
@@ -22,7 +21,7 @@ GRPC_CUSTOM_MAKE_ENV = \
 	LDXX="$(TARGET_CXX)" \
 	STRIP="$(TARGET_STRIP)" \
 	PROTOC="$(HOST_DIR)/bin/protoc" \
-	PATH="$(HOST_DIR)/bin:$(PATH)" \
+	PATH="$(HOST_DIR)/bin:$(BR_PATH)" \
 	GRPC_CROSS_COMPILE=true \
 	GRPC_CROSS_LDOPTS="$(TARGET_LDFLAGS)" \
 	GRPC_CROSS_AROPTS="$(LTO_PLUGIN)" \
@@ -37,28 +36,18 @@ GRPC_CUSTOM_MAKE_ENV = \
 	HOST_CXXFLAGS="$(HOST_CXXFLAGS)" \
 	HOST_LDFLAGS="$(HOST_LDFLAGS)"
 
-GRPC_CUSTOM_MAKE_OPTS = \
-	LD_LIBRARY_PATH="$(STAGING_DIR)/usr/lib" \
-	PROTOC="$(HOST_DIR)/bin/protoc"
-
-GRPC_CUSTOM_INSTALL_TARGET_OPTS = \
-	prefix="$(TARGET_DIR)/usr"
-
-GRPC_CUSTOM_INSTALL_STAGING_OPTS = \
-	prefix="$(STAGING_DIR)/usr"
-
 define GRPC_CUSTOM_BUILD_CMDS
-	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(GRPC_CUSTOM_MAKE_OPTS) -C $(@D) \
-		shared_c shared_cxx
+	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) -C $(@D) PROTOC="$(HOST_DIR)/bin/protoc" \
+		shared
 endef
 
 define GRPC_CUSTOM_INSTALL_STAGING_CMDS
-	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(GRPC_CUSTOM_INSTALL_STAGING_OPTS) -C $(@D) \
+	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) -C $(@D) prefix="$(STAGING_DIR)/usr" \
 		install-headers install-shared_c install-shared_cxx
 endef
 
 define GRPC_CUSTOM_INSTALL_TARGET_CMDS
-	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(GRPC_CUSTOM_INSTALL_TARGET_OPTS) -C $(@D) \
+	$(GRPC_CUSTOM_MAKE_ENV) $(MAKE) -C $(@D) prefix="$(TARGET_DIR)/usr" \
 		install-shared_c install-shared_cxx
 endef
 
@@ -67,17 +56,13 @@ HOST_GRPC_CUSTOM_MAKE_ENV = \
 	CFLAGS="$(HOST_CFLAGS)" \
 	LDFLAGS="$(HOST_LDFLAGS)"
 
-HOST_GRPC_CUSTOM_MAKE_OPTS = \
-	LD_LIBRARY_PATH="$(HOST_DIR)/usr/lib" \
-	prefix="$(HOST_DIR)/usr"
-
 define HOST_GRPC_CUSTOM_BUILD_CMDS
-	$(HOST_GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(HOST_GRPC_CUSTOM_MAKE_OPTS) -C $(@D) \
+	$(HOST_GRPC_CUSTOM_MAKE_ENV) $(MAKE) -C $(@D) prefix=$(HOST_DIR) \
 		plugins
 endef
 
 define HOST_GRPC_CUSTOM_INSTALL_CMDS
-	$(HOST_GRPC_CUSTOM_MAKE_ENV) $(MAKE) $(HOST_GRPC_CUSTOM_MAKE_OPTS) -C $(@D) \
+	$(HOST_GRPC_CUSTOM_MAKE_ENV) $(MAKE) -C $(@D) prefix=$(HOST_DIR) \
 		install-plugins
 endef
 
