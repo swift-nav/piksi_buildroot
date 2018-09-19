@@ -12,6 +12,7 @@
 
 #include <assert.h>
 #include <getopt.h>
+#include <gnss-converters/sbp_nmea.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libsbp/navigation.h>
@@ -20,7 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sbp_nmea.h>
 #include "sbp.h"
 
 #define PROGRAM_NAME "sbp_nmea_bridge"
