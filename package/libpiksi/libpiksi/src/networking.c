@@ -45,7 +45,7 @@ static void map_network_interfaces(interface_map_fn_t map_fn, void *userdata)
   freeifaddrs(ifaddr);
 }
 
-static int count_set_bits(const u8* data, size_t num_bytes)
+static int count_set_bits(const u8 *data, size_t num_bytes)
 {
   int count = 0;
   for (int i = 0; i < num_bytes; i++) {
@@ -78,23 +78,22 @@ static s32 fill_network_state_struct(struct ifaddrs *ifa, void *userdata)
   if (ifa->ifa_name == NULL) {
     return 0;
   }
-  if(strlen(ifa->ifa_name) >= sizeof(interfaces[0].interface_name)) {
+  if (strlen(ifa->ifa_name) >= sizeof(interfaces[0].interface_name)) {
     piksi_log(LOG_WARNING, "Network State: skipping ifa_name that is too long - %s", ifa->ifa_name);
     return 0;
   }
 
-  //check if this is the first entry with this interface name
+  // check if this is the first entry with this interface name
   msg_network_state_resp_t *cur_iface = NULL;
-  for (int i = 0; i < interfaces_size; i++)
-  {
-    //reached the end of the list so add a new entry
+  for (int i = 0; i < interfaces_size; i++) {
+    // reached the end of the list so add a new entry
     if (strlen(interfaces[i].interface_name) == 0) {
       cur_iface = &interfaces[i];
       strcpy(cur_iface->interface_name, ifa->ifa_name);
       (*interfaces_count)++;
       break;
     }
-    //found the entry in the list so add new info to that entry
+    // found the entry in the list so add new info to that entry
     if (strcmp(interfaces[i].interface_name, ifa->ifa_name) == 0) {
       cur_iface = &interfaces[i];
       break;
@@ -104,43 +103,42 @@ static s32 fill_network_state_struct(struct ifaddrs *ifa, void *userdata)
     return 0;
   }
 
-  switch (ifa->ifa_addr->sa_family)
-  {
-    case AF_INET:
-    {
-      const size_t IP4_SIZE = sizeof(cur_iface->ipv4_address);
-      memcpy(cur_iface->ipv4_address,
-          &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr.s_addr, IP4_SIZE);
-      u8* mask_bytes = (u8*)&((struct sockaddr_in*)ifa->ifa_netmask)->sin_addr.s_addr;
-      cur_iface->ipv4_mask_size = count_set_bits(mask_bytes, IP4_SIZE);
-      cur_iface->flags = ifa->ifa_flags;
-    } break;
-    case AF_INET6:
-    {
-      const size_t IP6_SIZE = sizeof(cur_iface->ipv6_address);
-      memcpy(cur_iface->ipv6_address,
-          &((struct sockaddr_in6*)ifa->ifa_addr)->sin6_addr.s6_addr, IP6_SIZE);
-      u8* mask_bytes = (u8*)&((struct sockaddr_in6*)ifa->ifa_netmask)->sin6_addr.s6_addr;
-      cur_iface->ipv6_mask_size = count_set_bits(mask_bytes, IP6_SIZE);
-    } break;
-    case AF_PACKET:
-    {
-      if (ifa->ifa_data != NULL) {
-        struct rtnl_link_stats *stats = ifa->ifa_data;
-        cur_iface->rx_bytes = stats->rx_bytes;
-        cur_iface->tx_bytes = stats->tx_bytes;
-      }
-    } break;
-    default:
-    {
-      // nothing to do here
-    } break;
+  switch (ifa->ifa_addr->sa_family) {
+  case AF_INET: {
+    const size_t IP4_SIZE = sizeof(cur_iface->ipv4_address);
+    memcpy(cur_iface->ipv4_address,
+           &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr,
+           IP4_SIZE);
+    u8 *mask_bytes = (u8 *)&((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr.s_addr;
+    cur_iface->ipv4_mask_size = count_set_bits(mask_bytes, IP4_SIZE);
+    cur_iface->flags = ifa->ifa_flags;
+  } break;
+  case AF_INET6: {
+    const size_t IP6_SIZE = sizeof(cur_iface->ipv6_address);
+    memcpy(cur_iface->ipv6_address,
+           &((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr.s6_addr,
+           IP6_SIZE);
+    u8 *mask_bytes = (u8 *)&((struct sockaddr_in6 *)ifa->ifa_netmask)->sin6_addr.s6_addr;
+    cur_iface->ipv6_mask_size = count_set_bits(mask_bytes, IP6_SIZE);
+  } break;
+  case AF_PACKET: {
+    if (ifa->ifa_data != NULL) {
+      struct rtnl_link_stats *stats = ifa->ifa_data;
+      cur_iface->rx_bytes = stats->rx_bytes;
+      cur_iface->tx_bytes = stats->tx_bytes;
+    }
+  } break;
+  default: {
+    // nothing to do here
+  } break;
   }
 
   return 0;
 }
 
-void query_network_state(msg_network_state_resp_t *interfaces, u8 interfaces_n, u8 *returned_interfaces)
+void query_network_state(msg_network_state_resp_t *interfaces,
+                         u8 interfaces_n,
+                         u8 *returned_interfaces)
 {
   struct fill_network_state_s fill_data = {
     .interfaces = interfaces,
@@ -212,9 +210,9 @@ void query_network_usage(network_usage_t *usage_entries, u8 usage_entries_n, u8 
   if (ifa_list == NULL) {
     return;
   }
-  if(interface_list_read_interfaces(ifa_list) != 0) {
+  if (interface_list_read_interfaces(ifa_list) != 0) {
     piksi_log(LOG_WARNING,
-        "Error occured during interface read, some or all interfaces may not have been read");
+              "Error occured during interface read, some or all interfaces may not have been read");
   }
 
   for (ifa = interface_list_head(ifa_list); ifa; ifa = interface_next(ifa)) {
@@ -232,4 +230,3 @@ void query_network_usage(network_usage_t *usage_entries, u8 usage_entries_n, u8 
   }
   interface_list_destroy(&ifa_list);
 }
-

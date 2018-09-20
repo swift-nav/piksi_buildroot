@@ -75,7 +75,7 @@ static u8 max_timeout_count_before_reset =
 static struct glo_obs_ctx_s {
   bool glonass_enabled;
   u8 timeout_counter;
-} glo_obs_ctx = { .glonass_enabled = false, .timeout_counter = 0 };
+} glo_obs_ctx = {.glonass_enabled = false, .timeout_counter = 0};
 
 /**
  * \brief notify_glonass_enabled - notify from watch
@@ -101,10 +101,8 @@ static int notify_glonass_enabled(void *context)
  */
 static bool check_obs_msg_for_glo_obs(u8 *msg, u8 len)
 {
-  u8 obs_in_msg =
-    (u8)(len - sizeof(observation_header_t)) / sizeof(packed_obs_content_t);
-  packed_obs_content_t *obs =
-    (packed_obs_content_t *)(msg + sizeof(observation_header_t));
+  u8 obs_in_msg = (u8)(len - sizeof(observation_header_t)) / sizeof(packed_obs_content_t);
+  packed_obs_content_t *obs = (packed_obs_content_t *)(msg + sizeof(observation_header_t));
 
   for (u8 i = 0; i < obs_in_msg; i++) {
     sbp_gnss_signal_t sid = obs[i].sid;

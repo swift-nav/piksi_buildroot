@@ -27,7 +27,7 @@ static const char *pub_endpoint = NULL;
 static const char *sub_endpoint = NULL;
 static path_validator_t *g_pv_ctx = NULL;
 
-static bool allow_factory_mtd  = false;
+static bool allow_factory_mtd = false;
 static bool allow_imageset_bin = false;
 static bool print_usage = false;
 
@@ -51,7 +51,7 @@ static void usage(char *command)
 static int parse_options(int argc, char *argv[])
 {
   // Used in --basedir option processing
-  assert( g_pv_ctx != NULL );
+  assert(g_pv_ctx != NULL);
 
   // clang-format off
   const struct option long_opts[] = {
@@ -68,53 +68,44 @@ static int parse_options(int argc, char *argv[])
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "p:s:b:midh",
-                          long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "p:s:b:midh", long_opts, &opt_index)) != -1) {
     switch (c) {
 
-      case 'p': {
-        pub_endpoint = optarg;
-      }
-      break;
+    case 'p': {
+      pub_endpoint = optarg;
+    } break;
 
-      case 's': {
-        sub_endpoint = optarg;
-      }
-      break;
+    case 's': {
+      sub_endpoint = optarg;
+    } break;
 
-      case 'b': {
-        if (!path_validator_allow_path(g_pv_ctx, optarg)) {
-          fprintf(stderr, "Error: failed to allow path with --basedir\n");
-          return -1;
-        }
-      }
-      break;
-
-      case 'm': {
-        allow_factory_mtd = true;
-      }
-      break;
-
-      case 'i': {
-        allow_imageset_bin = true;
-      }
-      break;
-
-      case 'h': {
-        print_usage = true;
-      }
-      break;
-
-      case 'd': {
-        fio_debug = true;
-      }
-      break;
-
-      default: {
-        printf("invalid option\n");
+    case 'b': {
+      if (!path_validator_allow_path(g_pv_ctx, optarg)) {
+        fprintf(stderr, "Error: failed to allow path with --basedir\n");
         return -1;
       }
-      break;
+    } break;
+
+    case 'm': {
+      allow_factory_mtd = true;
+    } break;
+
+    case 'i': {
+      allow_imageset_bin = true;
+    } break;
+
+    case 'h': {
+      print_usage = true;
+    } break;
+
+    case 'd': {
+      fio_debug = true;
+    } break;
+
+    default: {
+      printf("invalid option\n");
+      return -1;
+    } break;
     }
   }
 

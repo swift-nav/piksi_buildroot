@@ -62,10 +62,8 @@ int main(int argc, char *argv[])
   /* Delay for long enough for socket thread to sort itself out */
   usleep(100000);
 
-  while (fgets(msg->text,
-               SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text),
-               stdin)) {
-    sbp_tx_send(ctx, SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (u8*)msg);
+  while (fgets(msg->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text), stdin)) {
+    sbp_tx_send(ctx, SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (u8 *)msg);
   }
 
   sbp_tx_destroy(&ctx);

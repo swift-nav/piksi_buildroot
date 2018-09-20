@@ -23,7 +23,7 @@
 
 int sbp_init(void);
 void sbp_deinit(void);
-settings_ctx_t * sbp_get_settings_ctx(void);
+settings_ctx_t *sbp_get_settings_ctx(void);
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);
 int sbp_run(void);
 

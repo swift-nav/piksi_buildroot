@@ -32,11 +32,10 @@ struct filter_s {
 
 static filter_interface_t *filter_interface_list = NULL;
 
-static filter_interface_t * filter_interface_lookup(const char *name)
+static filter_interface_t *filter_interface_lookup(const char *name)
 {
   filter_interface_t *interface;
-  for (interface = filter_interface_list; interface != NULL;
-       interface = interface->next) {
+  for (interface = filter_interface_list; interface != NULL; interface = interface->next) {
     if (strcasecmp(name, interface->name) == 0) {
       return interface;
     }
@@ -49,14 +48,13 @@ int filter_interface_register(const char *name,
                               filter_destroy_fn_t destroy,
                               filter_process_fn_t process)
 {
-  filter_interface_t *interface = (filter_interface_t *)
-                                      malloc(sizeof(*interface));
+  filter_interface_t *interface = (filter_interface_t *)malloc(sizeof(*interface));
   if (interface == NULL) {
     syslog(LOG_ERR, "error allocating filter interface");
     return -1;
   }
 
-  *interface = (filter_interface_t) {
+  *interface = (filter_interface_t){
     .name = strdup(name),
     .create = create,
     .destroy = destroy,
@@ -90,7 +88,7 @@ int filter_interface_valid(const char *name)
   return 0;
 }
 
-filter_t * filter_create(const char *name, const char *filename)
+filter_t *filter_create(const char *name, const char *filename)
 {
   /* Look up interface */
   filter_interface_t *interface = filter_interface_lookup(name);
@@ -105,10 +103,7 @@ filter_t * filter_create(const char *name, const char *filename)
     return NULL;
   }
 
-  *filter = (filter_t) {
-    .state = interface->create(filename),
-    .interface = interface
-  };
+  *filter = (filter_t){.state = interface->create(filename), .interface = interface};
 
   if (filter->state == NULL) {
     syslog(LOG_ERR, "error creating filter");

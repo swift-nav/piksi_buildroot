@@ -15,10 +15,14 @@
 
 extern bool fio_debug;
 
-#define FIO_LOG_DEBUG(MsgPattern, ...)                                  \
-  if (fio_debug) {                                                      \
-    piksi_log(LOG_DEBUG, ("%s: " MsgPattern " (%s:%d)"),                \
-              __FUNCTION__, ## __VA_ARGS__, __FILE__, __LINE__);        \
+#define FIO_LOG_DEBUG(MsgPattern, ...)        \
+  if (fio_debug) {                            \
+    piksi_log(LOG_DEBUG,                      \
+              ("%s: " MsgPattern " (%s:%d)"), \
+              __FUNCTION__,                   \
+              ##__VA_ARGS__,                  \
+              __FILE__,                       \
+              __LINE__);                      \
   }
 
 #endif

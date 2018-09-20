@@ -24,7 +24,7 @@
 
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
-#define RTCM3_SUB_ENDPOINT  "ipc:///var/run/sockets/rtcm3_internal.pub"  /* RTCM3 Internal Out */
+#define RTCM3_SUB_ENDPOINT "ipc:///var/run/sockets/rtcm3_internal.pub" /* RTCM3 Internal Out */
 
 bool rtcm3_debug = false;
 
@@ -44,8 +44,12 @@ static void rtcm3_reader_handler(pk_loop_t *loop, void *handle, void *context)
   (void)handle;
   pk_endpoint_t *rtcm_sub_ept = (pk_endpoint_t *)context;
   if (pk_endpoint_receive(rtcm_sub_ept, rtcm2sbp_decode_frame_shim, &state) != 0) {
-    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s",
-              __FUNCTION__, "pk_endpoint_receive", __FILE__, __LINE__,
+    piksi_log(LOG_ERR,
+              "%s: error in %s (%s:%d): %s",
+              __FUNCTION__,
+              "pk_endpoint_receive",
+              __FILE__,
+              __LINE__,
               pk_endpoint_strerror());
   }
 }
@@ -65,23 +69,21 @@ static int parse_options(int argc, char *argv[])
   };
 
   const struct option long_opts[] = {
-    {"debug", no_argument,       0, OPT_ID_DEBUG},
+    {"debug", no_argument, 0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
 
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
-      case OPT_ID_DEBUG: {
-        rtcm3_debug = true;
-      }
-        break;
+    case OPT_ID_DEBUG: {
+      rtcm3_debug = true;
+    } break;
 
-      default: {
-        puts("Invalid option");
-        return -1;
-      }
-        break;
+    default: {
+      puts("Invalid option");
+      return -1;
+    } break;
     }
   }
   return 0;
@@ -89,29 +91,29 @@ static int parse_options(int argc, char *argv[])
 
 static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) context;
-  (void) sender_id;
-  (void) len;
-  msg_gps_time_t *time = (msg_gps_time_t*)msg;
+  (void)context;
+  (void)sender_id;
+  (void)len;
+  msg_gps_time_t *time = (msg_gps_time_t *)msg;
 
-  if((time->flags & TIME_SOURCE_MASK) == NO_TIME) {
+  if ((time->flags & TIME_SOURCE_MASK) == NO_TIME) {
     return;
   }
 
   gps_time_sec_t gps_time;
   gps_time.tow = time->tow * 0.001;
   gps_time.wn = time->wn;
-  rtcm2sbp_set_gps_time(&gps_time,&state);
+  rtcm2sbp_set_gps_time(&gps_time, &state);
 }
 
 static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) context;
-  (void) sender_id;
-  (void) len;
-  msg_utc_time_t *time = (msg_utc_time_t*)msg;
+  (void)context;
+  (void)sender_id;
+  (void)len;
+  msg_utc_time_t *time = (msg_utc_time_t *)msg;
 
-  if((time->flags & TIME_SOURCE_MASK) == NO_TIME) {
+  if ((time->flags & TIME_SOURCE_MASK) == NO_TIME) {
     return;
   }
 
@@ -124,7 +126,7 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   }
 
   /* work out the gps time of day */
-  u32 gps_tod = (time->tow  % 86400000) * 1e-3;
+  u32 gps_tod = (time->tow % 86400000) * 1e-3;
 
   s8 leap_second;
   /* if gps tod is smaller than utc tod we've crossed the day boundary during the leap second */
@@ -134,15 +136,15 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
     leap_second = gps_tod + 86400 - utc_tod;
   }
 
-  rtcm2sbp_set_leap_second(leap_second,&state);
+  rtcm2sbp_set_leap_second(leap_second, &state);
 }
 
 static void ephemeris_glo_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) context;
-  (void) sender_id;
-  (void) len;
-  msg_ephemeris_glo_t *e = (msg_ephemeris_glo_t*)msg;
+  (void)context;
+  (void)sender_id;
+  (void)len;
+  msg_ephemeris_glo_t *e = (msg_ephemeris_glo_t *)msg;
 
   /* extract just the FCN field */
   rtcm2sbp_set_glo_fcn(e->common.sid, e->fcn, &state);
@@ -190,8 +192,7 @@ int main(int argc, char *argv[])
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  if (pk_loop_endpoint_reader_add(loop, rtcm3_sub, rtcm3_reader_handler, rtcm3_sub)
-      == NULL) {
+  if (pk_loop_endpoint_reader_add(loop, rtcm3_sub, rtcm3_reader_handler, rtcm3_sub) == NULL) {
     piksi_log(LOG_ERR, "error adding reader");
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
@@ -217,10 +218,14 @@ int main(int argc, char *argv[])
 
   settings_ctx = sbp_get_settings_ctx();
 
-  settings_add_watch(settings_ctx, "simulator", "enabled",
-                     &simulator_enabled_watch , sizeof(simulator_enabled_watch),
+  settings_add_watch(settings_ctx,
+                     "simulator",
+                     "enabled",
+                     &simulator_enabled_watch,
+                     sizeof(simulator_enabled_watch),
                      SETTINGS_TYPE_BOOL,
-                     notify_simulator_enable_changed, NULL);
+                     notify_simulator_enable_changed,
+                     NULL);
 
   sbp_run();
 

@@ -28,7 +28,7 @@
 #include "udp_socket.h"
 
 void open_udp_broadcast_socket(udp_broadcast_context *udp_context,
-                               const char* broadcast_hostname,
+                               const char *broadcast_hostname,
                                int broadcast_port)
 {
   // set up the socket
@@ -48,10 +48,10 @@ void open_udp_broadcast_socket(udp_broadcast_context *udp_context,
   sock_in.sin_family = AF_INET;
 
   // bind socket, set permissions
-  int status = bind(sock, (struct sockaddr *) &sock_in, sizeof(sock_in));
+  int status = bind(sock, (struct sockaddr *)&sock_in, sizeof(sock_in));
 
   if (status != 0) {
-    sbp_log(LOG_ERR,"bind failed = %d\n", status);
+    sbp_log(LOG_ERR, "bind failed = %d\n", status);
     return;
   }
 
@@ -87,7 +87,7 @@ void open_udp_broadcast_socket(udp_broadcast_context *udp_context,
   memcpy(&addr, resolutions->ai_addr, resolutions->ai_addrlen);
 
   if (resolutions->ai_family == AF_INET) {
-    ((struct sockaddr_in*)&addr)->sin_port = htons(broadcast_port);
+    ((struct sockaddr_in *)&addr)->sin_port = htons(broadcast_port);
   } else if (resolutions->ai_family == AF_INET6) {
     sbp_log(LOG_ERR, "IPv6 is not supported");
     return;
@@ -118,12 +118,11 @@ void close_udp_broadcast_socket(udp_broadcast_context *udp_context)
   udp_context->sock = -1;
 }
 
-u32 udp_write_callback(u8* buf, u32 len, void *context)
+u32 udp_write_callback(u8 *buf, u32 len, void *context)
 {
-  udp_broadcast_context *udp_context = (udp_broadcast_context*) context;
+  udp_broadcast_context *udp_context = (udp_broadcast_context *)context;
 
-  if (udp_context->buffer_length >= sizeof(udp_context->buffer))
-    return 0;
+  if (udp_context->buffer_length >= sizeof(udp_context->buffer)) return 0;
 
   memcpy(udp_context->buffer + udp_context->buffer_length, buf, len);
   udp_context->buffer_length += len;
@@ -136,8 +135,8 @@ void udp_flush_buffer(udp_broadcast_context *udp_context)
   int res = sendto(udp_context->sock,
                    udp_context->buffer,
                    udp_context->buffer_length,
-                   /*flags = */0,
-                   (const struct sockaddr*)&udp_context->sock_in,
+                   /*flags = */ 0,
+                   (const struct sockaddr *)&udp_context->sock_in,
                    udp_context->sock_in_len);
 
   if (res < 0) {

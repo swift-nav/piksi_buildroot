@@ -73,4 +73,4 @@
   &((pk_metrics_average_t) { .index_of_num = & SymTable . Sym1, .index_of_dom = & SymTable . Sym2 })
 
 // clang-format on
-#endif//LIBPIKSI_METRICS_TABLE_H
+#endif // LIBPIKSI_METRICS_TABLE_H

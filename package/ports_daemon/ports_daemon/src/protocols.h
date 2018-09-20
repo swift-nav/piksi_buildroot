@@ -17,8 +17,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-typedef int (*port_adapter_opts_get_fn_t)(char *buf, size_t buf_size,
-                                          const char *port_name);
+typedef int (*port_adapter_opts_get_fn_t)(char *buf, size_t buf_size, const char *port_name);
 
 typedef struct {
   const char *name;
@@ -28,6 +27,6 @@ typedef struct {
 
 int protocols_import(const char *path);
 int protocols_count_get(void);
-const protocol_t * protocols_get(int index);
+const protocol_t *protocols_get(int index);
 
 #endif /* SWIFTNAV_PROTOCOLS_H */

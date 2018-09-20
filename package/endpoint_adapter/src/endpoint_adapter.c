@@ -33,7 +33,7 @@
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
-#define READ_BUFFER_SIZE (64*1024)
+#define READ_BUFFER_SIZE (64 * 1024)
 #define REP_TIMEOUT_DEFAULT_ms 10000
 #define STARTUP_DELAY_DEFAULT_ms 0
 #define ENDPOINT_RESTART_RETRY_COUNT 3
@@ -47,7 +47,7 @@
 #define MT metrics_table
 #define MR metrics_ref
 
-static pk_metrics_t* MR = NULL;
+static pk_metrics_t *MR = NULL;
 
 // clang-format off
 PK_METRICS_TABLE(MT, MI,
@@ -92,13 +92,12 @@ static const u64 one_second_ns = 1e9;
 static u64 last_metrics_flush = 0;
 
 static void do_metrics_flush(void);
-static void setup_metrics(const char* pubsub);
+static void setup_metrics(const char *pubsub);
 static void pid_terminate(pid_t *pid, int signum);
 static void terminate_child_pids(int signum);
 
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
-typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer,
-                              size_t count);
+typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer, size_t count);
 
 bool debug = false;
 static io_mode_t io_mode = IO_INVALID;
@@ -212,130 +211,110 @@ static int parse_options(int argc, char *argv[])
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "p:s:r:y:f:",
-                          long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "p:s:r:y:f:", long_opts, &opt_index)) != -1) {
     switch (c) {
-      case OPT_ID_STDIO: {
-        io_mode = IO_STDIO;
-      }
-      break;
+    case OPT_ID_STDIO: {
+      io_mode = IO_STDIO;
+    } break;
 
-      case OPT_ID_NAME: {
-        port_name = optarg;
-      }
-      break;
+    case OPT_ID_NAME: {
+      port_name = optarg;
+    } break;
 
-      case OPT_ID_FILE: {
-        io_mode = IO_FILE;
-        char* rp = realpath(optarg, file_path);
-        if (rp == NULL) {
-          fprintf(stderr, "realpath returned error: %s\n", strerror(errno));
-        }
-        debug_printf("--file: %s (realpath: %s)\n", (char *)optarg, file_path);
+    case OPT_ID_FILE: {
+      io_mode = IO_FILE;
+      char *rp = realpath(optarg, file_path);
+      if (rp == NULL) {
+        fprintf(stderr, "realpath returned error: %s\n", strerror(errno));
       }
-      break;
+      debug_printf("--file: %s (realpath: %s)\n", (char *)optarg, file_path);
+    } break;
 
-      case OPT_ID_TCP_LISTEN: {
-        io_mode = IO_TCP_LISTEN;
-        tcp_listen_port = strtol(optarg, NULL, 10);
-      }
-      break;
+    case OPT_ID_TCP_LISTEN: {
+      io_mode = IO_TCP_LISTEN;
+      tcp_listen_port = strtol(optarg, NULL, 10);
+    } break;
 
-      case OPT_ID_TCP_CONNECT: {
-        io_mode = IO_TCP_CONNECT;
-        tcp_connect_addr = optarg;
-      }
-      break;
+    case OPT_ID_TCP_CONNECT: {
+      io_mode = IO_TCP_CONNECT;
+      tcp_connect_addr = optarg;
+    } break;
 
-      case OPT_ID_UDP_LISTEN: {
-        io_mode = IO_UDP_LISTEN;
-        udp_listen_port = strtol(optarg, NULL, 10);
-      }
-      break;
+    case OPT_ID_UDP_LISTEN: {
+      io_mode = IO_UDP_LISTEN;
+      udp_listen_port = strtol(optarg, NULL, 10);
+    } break;
 
-      case OPT_ID_UDP_CONNECT: {
-        io_mode = IO_UDP_CONNECT;
-        udp_connect_addr = optarg;
-      }
-      break;
+    case OPT_ID_UDP_CONNECT: {
+      io_mode = IO_UDP_CONNECT;
+      udp_connect_addr = optarg;
+    } break;
 
-      case OPT_ID_STARTUP_DELAY: {
-        startup_delay_ms = strtol(optarg, NULL, 10);
-      }
-      break;
+    case OPT_ID_STARTUP_DELAY: {
+      startup_delay_ms = strtol(optarg, NULL, 10);
+    } break;
 
-      case OPT_ID_FILTER_IN: {
-        if (filter_interface_valid(optarg) == 0) {
-          filter_in_name = optarg;
-        } else {
-          fprintf(stderr, "invalid input filter\n");
-          return -1;
-        }
-      }
-      break;
-
-      case OPT_ID_FILTER_OUT: {
-        if (filter_interface_valid(optarg) == 0) {
-          filter_out_name = optarg;
-        } else {
-          fprintf(stderr, "invalid output filter\n");
-          return -1;
-        }
-      }
-      break;
-
-      case OPT_ID_FILTER_IN_CONFIG: {
-        filter_in_config = optarg;
-      }
-      break;
-
-      case OPT_ID_FILTER_OUT_CONFIG: {
-        filter_out_config = optarg;
-      }
-      break;
-
-      case OPT_ID_DEBUG: {
-        debug = true;
-      }
-      break;
-
-      case OPT_ID_NONBLOCK: {
-        nonblock = true;
-      }
-      break;
-
-      case OPT_ID_OUTQ: {
-        outq = strtol(optarg, NULL, 10);
-      }
-      break;
-
-      case 'p': {
-        endpoint_mode = ENDPOINT_PUBSUB;
-        pub_addr = optarg;
-      }
-      break;
-
-      case 's': {
-        endpoint_mode = ENDPOINT_PUBSUB;
-        sub_addr = optarg;
-      }
-      break;
-
-      case 'f': {
-        if (framer_interface_valid(optarg) == 0) {
-          framer_name = optarg;
-        } else {
-          fprintf(stderr, "invalid framer\n");
-          return -1;
-        }
-      }
-      break;
-
-      default: {
-        fprintf(stderr, "invalid option\n");
+    case OPT_ID_FILTER_IN: {
+      if (filter_interface_valid(optarg) == 0) {
+        filter_in_name = optarg;
+      } else {
+        fprintf(stderr, "invalid input filter\n");
         return -1;
       }
-      break;
+    } break;
+
+    case OPT_ID_FILTER_OUT: {
+      if (filter_interface_valid(optarg) == 0) {
+        filter_out_name = optarg;
+      } else {
+        fprintf(stderr, "invalid output filter\n");
+        return -1;
+      }
+    } break;
+
+    case OPT_ID_FILTER_IN_CONFIG: {
+      filter_in_config = optarg;
+    } break;
+
+    case OPT_ID_FILTER_OUT_CONFIG: {
+      filter_out_config = optarg;
+    } break;
+
+    case OPT_ID_DEBUG: {
+      debug = true;
+    } break;
+
+    case OPT_ID_NONBLOCK: {
+      nonblock = true;
+    } break;
+
+    case OPT_ID_OUTQ: {
+      outq = strtol(optarg, NULL, 10);
+    } break;
+
+    case 'p': {
+      endpoint_mode = ENDPOINT_PUBSUB;
+      pub_addr = optarg;
+    } break;
+
+    case 's': {
+      endpoint_mode = ENDPOINT_PUBSUB;
+      sub_addr = optarg;
+    } break;
+
+    case 'f': {
+      if (framer_interface_valid(optarg) == 0) {
+        framer_name = optarg;
+      } else {
+        fprintf(stderr, "invalid framer\n");
+        return -1;
+      }
+    } break;
+
+    default: {
+      fprintf(stderr, "invalid option\n");
+      return -1;
+    } break;
     }
   }
 
@@ -349,20 +328,17 @@ static int parse_options(int argc, char *argv[])
     return -1;
   }
 
-  if(port_name == NULL)
-  {
+  if (port_name == NULL) {
     fprintf(stderr, "adapter name not set\n");
     return -1;
   }
 
-  if ((strcasecmp(filter_in_name, FILTER_NONE_NAME) == 0) !=
-      (filter_in_config == NULL)) {
+  if ((strcasecmp(filter_in_name, FILTER_NONE_NAME) == 0) != (filter_in_config == NULL)) {
     fprintf(stderr, "invalid input filter settings\n");
     return -1;
   }
 
-  if ((strcasecmp(filter_out_name, FILTER_NONE_NAME) == 0) !=
-      (filter_out_config == NULL)) {
+  if ((strcasecmp(filter_out_name, FILTER_NONE_NAME) == 0) != (filter_out_config == NULL)) {
     fprintf(stderr, "invalid output filter settings\n");
     return -1;
   }
@@ -392,12 +368,15 @@ static void handle_deinit(handle_t *handle)
   }
 }
 
-static int handle_init(handle_t *handle, pk_endpoint_t *pk_ept,
-                       int read_fd, int write_fd,
-                       const char *framer_name, const char *filter_name,
+static int handle_init(handle_t *handle,
+                       pk_endpoint_t *pk_ept,
+                       int read_fd,
+                       int write_fd,
+                       const char *framer_name,
+                       const char *filter_name,
                        const char *filter_config)
 {
-  *handle = (handle_t) {
+  *handle = (handle_t){
     .pk_ept = pk_ept,
     .read_fd = read_fd,
     .write_fd = write_fd,
@@ -413,24 +392,21 @@ static int handle_init(handle_t *handle, pk_endpoint_t *pk_ept,
   return 0;
 }
 
-static pk_endpoint_t * pk_endpoint_start(int type)
+static pk_endpoint_t *pk_endpoint_start(int type)
 {
   const char *addr = NULL;
   switch (type) {
-    case PK_ENDPOINT_PUB: {
-      addr = pub_addr;
-    }
-    break;
+  case PK_ENDPOINT_PUB: {
+    addr = pub_addr;
+  } break;
 
-    case PK_ENDPOINT_SUB: {
-      addr = sub_addr;
-    }
-    break;
+  case PK_ENDPOINT_SUB: {
+    addr = sub_addr;
+  } break;
 
-    default: {
-      syslog(LOG_ERR, "unknown endpoint type");
-    }
-    break;
+  default: {
+    syslog(LOG_ERR, "unknown endpoint type");
+  } break;
   }
 
   pk_endpoint_t *pk_ept = pk_endpoint_create(addr, type);
@@ -516,7 +492,7 @@ static ssize_t handle_read(handle_t *handle, void *buffer, size_t count)
 static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 {
   PK_METRICS_UPDATE(MR, MI.write_count);
-  PK_METRICS_UPDATE(MR, MI.write_size_total, PK_METRICS_VALUE((u32) count));
+  PK_METRICS_UPDATE(MR, MI.write_size_total, PK_METRICS_VALUE((u32)count));
 
   if (handle->pk_ept != NULL) {
     if (pk_endpoint_send(handle->pk_ept, (u8 *)buffer, count) != 0) {
@@ -528,14 +504,12 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
   }
 }
 
-static ssize_t handle_write_all(handle_t *handle,
-                                const void *buffer, size_t count)
+static ssize_t handle_write_all(handle_t *handle, const void *buffer, size_t count)
 {
   uint32_t buffer_index = 0;
   while (buffer_index < count) {
-    ssize_t write_count = handle_write(handle,
-                                       &((uint8_t *)buffer)[buffer_index],
-                                       count - buffer_index);
+    ssize_t write_count =
+      handle_write(handle, &((uint8_t *)buffer)[buffer_index], count - buffer_index);
     if (write_count < 0) {
       return write_count;
     }
@@ -545,7 +519,8 @@ static ssize_t handle_write_all(handle_t *handle,
 }
 
 static ssize_t handle_write_one_via_framer(handle_t *handle,
-                                           const void *buffer, size_t count,
+                                           const void *buffer,
+                                           size_t count,
                                            size_t *frames_written)
 {
   /* Pass data through framer */
@@ -554,11 +529,11 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
   while (1) {
     const uint8_t *frame;
     uint32_t frame_length;
-    buffer_index +=
-        framer_process(handle->framer,
-                       &((uint8_t *)buffer)[buffer_index],
-                       count - buffer_index,
-                       &frame, &frame_length);
+    buffer_index += framer_process(handle->framer,
+                                   &((uint8_t *)buffer)[buffer_index],
+                                   count - buffer_index,
+                                   &frame,
+                                   &frame_length);
     if (frame == NULL) {
       return buffer_index;
     }
@@ -586,18 +561,18 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
 }
 
 static ssize_t handle_write_all_via_framer(handle_t *handle,
-                                           const void *buffer, size_t count,
+                                           const void *buffer,
+                                           size_t count,
                                            size_t *frames_written)
 {
   *frames_written = 0;
   uint32_t buffer_index = 0;
   while (1) {
     size_t frames;
-    ssize_t write_count =
-        handle_write_one_via_framer(handle,
-                                    &((uint8_t *)buffer)[buffer_index],
-                                    count - buffer_index,
-                                    &frames);
+    ssize_t write_count = handle_write_one_via_framer(handle,
+                                                      &((uint8_t *)buffer)[buffer_index],
+                                                      count - buffer_index,
+                                                      &frames);
     if (write_count < 0) {
       return write_count;
     }
@@ -625,28 +600,24 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     static uint8_t buffer[READ_BUFFER_SIZE];
     ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
     if (read_count <= 0) {
-      debug_printf("read_count %d errno %s (%d)\n",
-          read_count, strerror(errno), errno);
+      debug_printf("read_count %d errno %s (%d)\n", read_count, strerror(errno), errno);
       break;
     }
 
-    PK_METRICS_UPDATE(MR, MI.read_size_total, PK_METRICS_VALUE((u32) read_count));
+    PK_METRICS_UPDATE(MR, MI.read_size_total, PK_METRICS_VALUE((u32)read_count));
 
     /* Write to write_handle via framer */
     size_t frames_written;
-    ssize_t write_count = handle_write_all_via_framer(write_handle,
-                                                      buffer, read_count,
-                                                      &frames_written);
+    ssize_t write_count =
+      handle_write_all_via_framer(write_handle, buffer, read_count, &frames_written);
     if (write_count < 0) {
-      debug_printf("write_count %d errno %s (%d)\n",
-          write_count, strerror(errno), errno);
+      debug_printf("write_count %d errno %s (%d)\n", write_count, strerror(errno), errno);
       break;
     }
 
     if (write_count != read_count) {
       syslog(LOG_ERR, "warning: write_count != read_count");
-      debug_printf("write_count != read_count %d %d\n",
-          write_count, read_count);
+      debug_printf("write_count != read_count %d %d\n", write_count, read_count);
       PK_METRICS_UPDATE(MR, MI.mismatch);
     }
 
@@ -706,13 +677,14 @@ static void do_metrics_flush(void)
   pk_metrics_reset(MR, MI.write_size_average);
 }
 
-static void setup_metrics(const char* pubsub) {
+static void setup_metrics(const char *pubsub)
+{
 
   char suffix[128];
   size_t count = snprintf(suffix, sizeof(suffix), "%s_%s", port_name, pubsub);
-  assert( count < sizeof(suffix) );
+  assert(count < sizeof(suffix));
 
-  assert( MR == NULL );
+  assert(MR == NULL);
 
   MR = pk_metrics_setup("endpoint_adapter", suffix, MT, COUNT_OF(MT));
 
@@ -732,93 +704,96 @@ void io_loop_start(int read_fd, int write_fd)
     fcntl(write_fd, F_SETFL, &arg);
   }
   switch (endpoint_mode) {
-    case ENDPOINT_PUBSUB: {
-      if (pub_addr != NULL && read_fd != -1) {
-        debug_printf("Forking for pub\n");
-        pid_t pid = fork();
-        if (pid == 0) {
-          setup_metrics("pub");
-          /* child process */
-          pk_endpoint_t *pub = pk_endpoint_start(PK_ENDPOINT_PUB);
-          if (pub == NULL) {
-            debug_printf("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
-            exit(EXIT_FAILURE);
-          }
-
-          /* Read from fd, write to pub */
-          handle_t pub_handle;
-          if (handle_init(&pub_handle, pub, -1, -1, framer_name,
-                          filter_in_name, filter_in_config) != 0) {
-            debug_printf("handle_init for pub returned error\n");
-            exit(EXIT_FAILURE);
-          }
-
-          handle_t fd_handle;
-          if (handle_init(&fd_handle, NULL, read_fd, -1, FRAMER_NONE_NAME,
-                          FILTER_NONE_NAME, NULL) != 0) {
-            debug_printf("handle_init for read_fd returned error\n");
-            exit(EXIT_FAILURE);
-          }
-
-          io_loop_pubsub(&fd_handle, &pub_handle);
-          pk_endpoint_destroy(&pub);
-          assert(pub == NULL);
-          handle_deinit(&pub_handle);
-          handle_deinit(&fd_handle);
-          pk_metrics_destroy(&MR);
-          debug_printf("Exiting from pub fork\n");
-          exit(EXIT_SUCCESS);
-        } else {
-          /* parent process */
-          pub_pid = pid;
+  case ENDPOINT_PUBSUB: {
+    if (pub_addr != NULL && read_fd != -1) {
+      debug_printf("Forking for pub\n");
+      pid_t pid = fork();
+      if (pid == 0) {
+        setup_metrics("pub");
+        /* child process */
+        pk_endpoint_t *pub = pk_endpoint_start(PK_ENDPOINT_PUB);
+        if (pub == NULL) {
+          debug_printf("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
+          exit(EXIT_FAILURE);
         }
-      }
 
-      if (sub_addr != NULL && write_fd != -1) {
-        debug_printf("Forking for sub\n");
-        pid_t pid = fork();
-        if (pid == 0) {
-          setup_metrics("sub");
-          /* child process */
-          pk_endpoint_t *sub = pk_endpoint_start(PK_ENDPOINT_SUB);
-          if (sub == NULL) {
-            debug_printf("pk_endpoint_start(PK_ENDPOINT_SUB) returned NULL\n");
-            exit(EXIT_FAILURE);
-          }
-
-          /* Read from sub, write to fd */
-          handle_t sub_handle;
-          if (handle_init(&sub_handle, sub, -1, -1, FRAMER_NONE_NAME,
-                          FILTER_NONE_NAME, NULL) != 0) {
-            debug_printf("handle_init for sub returned error\n");
-            exit(EXIT_FAILURE);
-          }
-
-          handle_t fd_handle;
-          if (handle_init(&fd_handle, NULL, -1, write_fd, FRAMER_NONE_NAME,
-                          filter_out_name, filter_out_config) != 0) {
-            debug_printf("handle_init for write_fd returned error\n");
-            exit(EXIT_FAILURE);
-          }
-
-          io_loop_pubsub(&sub_handle, &fd_handle);
-          pk_endpoint_destroy(&sub);
-          assert(sub == NULL);
-          handle_deinit(&sub_handle);
-          handle_deinit(&fd_handle);
-          debug_printf("Exiting from sub fork\n");
-          exit(EXIT_SUCCESS);
-        } else {
-          /* parent process */
-          sub_pid = pid;
+        /* Read from fd, write to pub */
+        handle_t pub_handle;
+        if (handle_init(&pub_handle, pub, -1, -1, framer_name, filter_in_name, filter_in_config)
+            != 0) {
+          debug_printf("handle_init for pub returned error\n");
+          exit(EXIT_FAILURE);
         }
-      }
 
+        handle_t fd_handle;
+        if (handle_init(&fd_handle, NULL, read_fd, -1, FRAMER_NONE_NAME, FILTER_NONE_NAME, NULL)
+            != 0) {
+          debug_printf("handle_init for read_fd returned error\n");
+          exit(EXIT_FAILURE);
+        }
+
+        io_loop_pubsub(&fd_handle, &pub_handle);
+        pk_endpoint_destroy(&pub);
+        assert(pub == NULL);
+        handle_deinit(&pub_handle);
+        handle_deinit(&fd_handle);
+        pk_metrics_destroy(&MR);
+        debug_printf("Exiting from pub fork\n");
+        exit(EXIT_SUCCESS);
+      } else {
+        /* parent process */
+        pub_pid = pid;
+      }
     }
-    break;
 
-    default:
-      break;
+    if (sub_addr != NULL && write_fd != -1) {
+      debug_printf("Forking for sub\n");
+      pid_t pid = fork();
+      if (pid == 0) {
+        setup_metrics("sub");
+        /* child process */
+        pk_endpoint_t *sub = pk_endpoint_start(PK_ENDPOINT_SUB);
+        if (sub == NULL) {
+          debug_printf("pk_endpoint_start(PK_ENDPOINT_SUB) returned NULL\n");
+          exit(EXIT_FAILURE);
+        }
+
+        /* Read from sub, write to fd */
+        handle_t sub_handle;
+        if (handle_init(&sub_handle, sub, -1, -1, FRAMER_NONE_NAME, FILTER_NONE_NAME, NULL) != 0) {
+          debug_printf("handle_init for sub returned error\n");
+          exit(EXIT_FAILURE);
+        }
+
+        handle_t fd_handle;
+        if (handle_init(&fd_handle,
+                        NULL,
+                        -1,
+                        write_fd,
+                        FRAMER_NONE_NAME,
+                        filter_out_name,
+                        filter_out_config)
+            != 0) {
+          debug_printf("handle_init for write_fd returned error\n");
+          exit(EXIT_FAILURE);
+        }
+
+        io_loop_pubsub(&sub_handle, &fd_handle);
+        pk_endpoint_destroy(&sub);
+        assert(sub == NULL);
+        handle_deinit(&sub_handle);
+        handle_deinit(&fd_handle);
+        debug_printf("Exiting from sub fork\n");
+        exit(EXIT_SUCCESS);
+      } else {
+        /* parent process */
+        sub_pid = pid;
+      }
+    }
+
+  } break;
+
+  default: break;
   }
 }
 
@@ -901,9 +876,9 @@ int main(int argc, char *argv[])
   terminate_sa.sa_handler = terminate_handler;
   sigemptyset(&terminate_sa.sa_mask);
   terminate_sa.sa_flags = 0;
-  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGTERM, &terminate_sa, NULL) != 0) ||
-      (sigaction(SIGQUIT, &terminate_sa, NULL) != 0)) {
+  if ((sigaction(SIGINT, &terminate_sa, NULL) != 0)
+      || (sigaction(SIGTERM, &terminate_sa, NULL) != 0)
+      || (sigaction(SIGQUIT, &terminate_sa, NULL) != 0)) {
     syslog(LOG_ERR, "error setting up terminate handler");
     exit(EXIT_FAILURE);
   }
@@ -911,44 +886,37 @@ int main(int argc, char *argv[])
   int ret = 0;
 
   switch (io_mode) {
-    case IO_STDIO: {
-      extern int stdio_loop(void);
-      ret = stdio_loop();
-    }
-    break;
+  case IO_STDIO: {
+    extern int stdio_loop(void);
+    ret = stdio_loop();
+  } break;
 
-    case IO_FILE: {
-      extern int file_loop(const char *file_path, int need_read, int need_write);
-      ret = file_loop(file_path, pub_addr ? 1 : 0, sub_addr ? 1 : 0);
-    }
-    break;
+  case IO_FILE: {
+    extern int file_loop(const char *file_path, int need_read, int need_write);
+    ret = file_loop(file_path, pub_addr ? 1 : 0, sub_addr ? 1 : 0);
+  } break;
 
-    case IO_TCP_LISTEN: {
-      extern int tcp_listen_loop(int port);
-      ret = tcp_listen_loop(tcp_listen_port);
-    }
-    break;
+  case IO_TCP_LISTEN: {
+    extern int tcp_listen_loop(int port);
+    ret = tcp_listen_loop(tcp_listen_port);
+  } break;
 
-    case IO_TCP_CONNECT: {
-      extern int tcp_connect_loop(const char *addr);
-      ret = tcp_connect_loop(tcp_connect_addr);
-    }
-    break;
+  case IO_TCP_CONNECT: {
+    extern int tcp_connect_loop(const char *addr);
+    ret = tcp_connect_loop(tcp_connect_addr);
+  } break;
 
-    case IO_UDP_LISTEN: {
-      extern int udp_listen_loop(int port);
-      ret = udp_listen_loop(udp_listen_port);
-    }
-    break;
+  case IO_UDP_LISTEN: {
+    extern int udp_listen_loop(int port);
+    ret = udp_listen_loop(udp_listen_port);
+  } break;
 
-    case IO_UDP_CONNECT: {
-      extern int udp_connect_loop(const char *addr);
-      ret = udp_connect_loop(udp_connect_addr);
-    }
-    break;
+  case IO_UDP_CONNECT: {
+    extern int udp_connect_loop(const char *addr);
+    ret = udp_connect_loop(udp_connect_addr);
+  } break;
 
-    default:
-      break;
+  default: break;
   }
 
   raise(SIGINT);

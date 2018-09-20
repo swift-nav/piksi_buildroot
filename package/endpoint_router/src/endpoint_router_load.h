@@ -15,6 +15,6 @@
 
 #include "endpoint_router.h"
 
-router_t * router_load(const char *filename);
+router_t *router_load(const char *filename);
 
 #endif /* SWIFTNAV_ENDPOINT_ROUTER_LOAD_H */

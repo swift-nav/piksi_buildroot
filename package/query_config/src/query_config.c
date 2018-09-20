@@ -22,9 +22,9 @@
 #define BUFSIZE 256
 
 static struct {
-  const char* filename;
-  const char* section;
-  const char* key;
+  const char *filename;
+  const char *section;
+  const char *key;
 } options = {
   .filename = NULL,
   .section = NULL,
@@ -62,24 +62,33 @@ static int parse_options(int argc, char *argv[])
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
 
-      case OPT_ID_FILE:    { options.filename = optarg; } break;
-      case OPT_ID_SECTION: { options.section = optarg;  } break;
-      case OPT_ID_KEY:     { options.key = optarg;      } break;
+    case OPT_ID_FILE: {
+      options.filename = optarg;
+    } break;
+    case OPT_ID_SECTION: {
+      options.section = optarg;
+    } break;
+    case OPT_ID_KEY: {
+      options.key = optarg;
+    } break;
 
-      default:             { puts("Invalid option");    } return -1;
+    default: {
+      puts("Invalid option");
+    }
+      return -1;
     }
   }
 
-  if (options.filename == NULL)  {
+  if (options.filename == NULL) {
     options.filename = SETTINGS_FILE;
   }
 
-  if (options.section == NULL)  {
+  if (options.section == NULL) {
     puts("Missing section name");
     return -1;
   }
 
-  if (options.key == NULL)  {
+  if (options.key == NULL) {
     puts("Missing key name");
     return -1;
   }
@@ -87,7 +96,8 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
@@ -96,7 +106,7 @@ int main(int argc, char *argv[]) {
 
   int status = EXIT_SUCCESS;
 
-  const char* default_value = "{2F9D26FF-F64C-4F9F-94FE-AE9F57758835}";
+  const char *default_value = "{2F9D26FF-F64C-4F9F-94FE-AE9F57758835}";
   char buf[BUFSIZE];
 
   ini_gets(options.section, options.key, default_value, buf, sizeof(buf), options.filename);
@@ -109,4 +119,3 @@ int main(int argc, char *argv[]) {
 
   return status;
 }
-

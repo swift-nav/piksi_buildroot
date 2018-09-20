@@ -34,58 +34,76 @@ typedef struct {
   int pid;
 } skylark_process_t;
 
-static char *get_skylark_url(void) {
+static char *get_skylark_url(void)
+{
   return strcmp(skylark_url, "") == 0 ? SKYLARK_URL : skylark_url;
 }
 
-static int skylark_upload_daemon_execfn(void) {
+static int skylark_upload_daemon_execfn(void)
+{
   char *url = get_skylark_url();
   char *argv[] = {
     "skylark_daemon",
     "--upload",
     "--no-error-reporting",
-    "--file", UPLOAD_FIFO_FILE_PATH,
-    "--url", url,
+    "--file",
+    UPLOAD_FIFO_FILE_PATH,
+    "--url",
+    url,
     NULL,
   };
 
   return execvp(argv[0], argv);
 }
 
-static int skylark_upload_adapter_execfn(void) {
+static int skylark_upload_adapter_execfn(void)
+{
   char *argv[] = {
     "endpoint_adapter",
-    "--name", "skylark_upload",
-    "--file", UPLOAD_FIFO_FILE_PATH,
-    "-s", "ipc:///var/run/sockets/skylark.pub",
-    "--filter-out", "sbp",
-    "--filter-out-config", "/etc/skylark_upload_filter_out_config",
+    "--name",
+    "skylark_upload",
+    "--file",
+    UPLOAD_FIFO_FILE_PATH,
+    "-s",
+    "ipc:///var/run/sockets/skylark.pub",
+    "--filter-out",
+    "sbp",
+    "--filter-out-config",
+    "/etc/skylark_upload_filter_out_config",
     NULL,
   };
 
   return execvp(argv[0], argv);
 }
 
-static int skylark_download_daemon_execfn(void) {
+static int skylark_download_daemon_execfn(void)
+{
   char *url = get_skylark_url();
   char *argv[] = {
     "skylark_daemon",
     "--download",
-    "--file", DOWNLOAD_FIFO_FILE_PATH,
-    "--url", url,
+    "--file",
+    DOWNLOAD_FIFO_FILE_PATH,
+    "--url",
+    url,
     NULL,
   };
 
   return execvp(argv[0], argv);
 }
 
-static int skylark_download_adapter_execfn(void) {
+static int skylark_download_adapter_execfn(void)
+{
   char *argv[] = {
     "endpoint_adapter",
-    "--name", "skylark_download",
-    "-f", "sbp",
-    "--file", DOWNLOAD_FIFO_FILE_PATH,
-    "-p", "ipc:///var/run/sockets/skylark.sub",
+    "--name",
+    "skylark_download",
+    "-f",
+    "sbp",
+    "--file",
+    DOWNLOAD_FIFO_FILE_PATH,
+    "-p",
+    "ipc:///var/run/sockets/skylark.sub",
     NULL,
   };
 
@@ -93,10 +111,10 @@ static int skylark_download_adapter_execfn(void) {
 }
 
 static skylark_process_t skylark_processes[] = {
-  { .pid = 0, .execfn = skylark_upload_daemon_execfn },
-  { .pid = 0, .execfn = skylark_upload_adapter_execfn },
-  { .pid = 0, .execfn = skylark_download_adapter_execfn },
-  { .pid = 0, .execfn = skylark_download_daemon_execfn },
+  {.pid = 0, .execfn = skylark_upload_daemon_execfn},
+  {.pid = 0, .execfn = skylark_upload_adapter_execfn},
+  {.pid = 0, .execfn = skylark_download_adapter_execfn},
+  {.pid = 0, .execfn = skylark_download_daemon_execfn},
 };
 
 static const size_t skylark_processes_count = COUNT_OF(skylark_processes);
@@ -107,8 +125,7 @@ static void skylark_stop_process(size_t i)
   if (process->pid != 0) {
     int ret = kill(process->pid, SIGTERM);
     if (ret != 0) {
-      piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
-                process->pid, errno, strerror(errno));
+      piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"", process->pid, errno, strerror(errno));
     }
     sleep(0.1); // allow us to receive sigchild
     process->pid = 0;
@@ -171,15 +188,20 @@ bool skylark_reconnect_dl(void)
     if (process->execfn == skylark_download_daemon_execfn) {
 
       if (process->pid == 0) {
-        piksi_log(LOG_ERR, "Asked to tell skylark_daemon to reconnect (in download mode), but it isn't running");
+        piksi_log(
+          LOG_ERR,
+          "Asked to tell skylark_daemon to reconnect (in download mode), but it isn't running");
         return false;
       }
 
       int ret = kill(process->pid, SIGUSR1);
 
       if (ret != 0) {
-        piksi_log(LOG_ERR, "skylark_reconnect_dl: kill (SIGUSR1) pid %d error (%d) \"%s\"",
-                  process->pid, errno, strerror(errno));
+        piksi_log(LOG_ERR,
+                  "skylark_reconnect_dl: kill (SIGUSR1) pid %d error (%d) \"%s\"",
+                  process->pid,
+                  errno,
+                  strerror(errno));
 
         return false;
       }
@@ -195,13 +217,21 @@ void skylark_init(settings_ctx_t *settings_ctx)
 
   mkfifo(DOWNLOAD_FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-  settings_add_watch(settings_ctx, "skylark", "enable",
-                     &skylark_enabled, sizeof(skylark_enabled),
+  settings_add_watch(settings_ctx,
+                     "skylark",
+                     "enable",
+                     &skylark_enabled,
+                     sizeof(skylark_enabled),
                      SETTINGS_TYPE_BOOL,
-                     skylark_notify, NULL);
+                     skylark_notify,
+                     NULL);
 
-  settings_register(settings_ctx, "skylark", "url",
-                    &skylark_url, sizeof(skylark_url),
+  settings_register(settings_ctx,
+                    "skylark",
+                    "url",
+                    &skylark_url,
+                    sizeof(skylark_url),
                     SETTINGS_TYPE_STRING,
-                    skylark_notify, NULL);
+                    skylark_notify,
+                    NULL);
 }

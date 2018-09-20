@@ -101,24 +101,21 @@ static void send_cell_modem_status(struct cell_modem_ctx_s *cell_modem_ctx)
 {
   s8 signal_strength = 0;
   float error_rate = 0.0;
-  if (at_command_report_signal_quality(cell_modem_ctx->port, &signal_strength, &error_rate) != 0)
-  {
+  if (at_command_report_signal_quality(cell_modem_ctx->port, &signal_strength, &error_rate) != 0) {
     // failed to parse command
     return;
   }
-  msg_cell_modem_status_t cell_status_msg = {
-    .signal_strength = signal_strength,
-    .signal_error_rate = error_rate
-  };
+  msg_cell_modem_status_t cell_status_msg = {.signal_strength = signal_strength,
+                                             .signal_error_rate = error_rate};
   size_t message_length = sizeof(msg_cell_modem_status_t);
   if (message_length > SBP_FRAMING_MAX_PAYLOAD_SIZE) {
     piksi_log(LOG_ERR, "Cell Modem Status surpassing SBP frame size");
     return;
   } else {
     sbp_tx_send(sbp_pubsub_tx_ctx_get(cell_modem_ctx->sbp_ctx),
-                    SBP_MSG_CELL_MODEM_STATUS,
-                    (u8)(0xFF & message_length),
-                    (u8 *)&cell_status_msg);
+                SBP_MSG_CELL_MODEM_STATUS,
+                (u8)(0xFF & message_length),
+                (u8 *)&cell_status_msg);
   }
 }
 
@@ -148,7 +145,7 @@ int main(int argc, char *argv[])
   settings_ctx_t *settings_ctx = NULL;
   sbp_pubsub_ctx_t *ctx = NULL;
   at_serial_port_t *port = NULL;
-  struct cell_modem_ctx_s cell_modem_ctx = { .sbp_ctx = NULL, .port = NULL };
+  struct cell_modem_ctx_s cell_modem_ctx = {.sbp_ctx = NULL, .port = NULL};
 
   logging_init(PROGRAM_NAME);
 

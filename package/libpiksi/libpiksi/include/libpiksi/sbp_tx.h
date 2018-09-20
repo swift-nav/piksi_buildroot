@@ -47,7 +47,7 @@ typedef struct sbp_tx_ctx_s sbp_tx_ctx_t;
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-sbp_tx_ctx_t * sbp_tx_create(const char *endpoint);
+sbp_tx_ctx_t *sbp_tx_create(const char *endpoint);
 
 /**
  * @brief   Destroy an SBP TX context.
@@ -88,11 +88,7 @@ int sbp_tx_send(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload);
  * @retval 0                The SBP message was sent successfully.
  * @retval -1               An error occurred.
  */
-int sbp_tx_send_from(sbp_tx_ctx_t *ctx,
-                     u16 msg_type,
-                     u8 len,
-                     u8 *payload,
-                     u16 sbp_sender_id);
+int sbp_tx_send_from(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload, u16 sbp_sender_id);
 
 #ifdef __cplusplus
 } // extern "C"

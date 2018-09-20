@@ -64,13 +64,11 @@ static int parse_options(int argc, char *argv[])
       status = (s32)strtol(optarg, NULL, 10);
       status_set = true;
       break;
-    default:
-      return -1;
+    default: return -1;
     }
   }
 
-  if (!sequence_set || !status_set)
-    return -1;
+  if (!sequence_set || !status_set) return -1;
 
   return 0;
 }
@@ -95,10 +93,9 @@ int main(int argc, char *argv[])
     .code = status,
   };
 
-  piksi_log(LOG_INFO, "sending command status: %d, sequence id: %u",
-            status, sequence);
+  piksi_log(LOG_INFO, "sending command status: %d, sequence id: %u", status, sequence);
 
-  sbp_tx_send(ctx, SBP_MSG_COMMAND_RESP, sizeof(resp), (void*)&resp);
+  sbp_tx_send(ctx, SBP_MSG_COMMAND_RESP, sizeof(resp), (void *)&resp);
 
   sbp_tx_destroy(&ctx);
   logging_deinit();

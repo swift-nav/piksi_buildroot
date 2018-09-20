@@ -32,11 +32,10 @@ struct framer_s {
 
 static framer_interface_t *framer_interface_list = NULL;
 
-static framer_interface_t * framer_interface_lookup(const char *name)
+static framer_interface_t *framer_interface_lookup(const char *name)
 {
   framer_interface_t *interface;
-  for (interface = framer_interface_list; interface != NULL;
-       interface = interface->next) {
+  for (interface = framer_interface_list; interface != NULL; interface = interface->next) {
     if (strcasecmp(name, interface->name) == 0) {
       return interface;
     }
@@ -49,14 +48,13 @@ int framer_interface_register(const char *name,
                               framer_destroy_fn_t destroy,
                               framer_process_fn_t process)
 {
-  framer_interface_t *interface = (framer_interface_t *)
-                                      malloc(sizeof(*interface));
+  framer_interface_t *interface = (framer_interface_t *)malloc(sizeof(*interface));
   if (interface == NULL) {
     syslog(LOG_ERR, "error allocating framer interface");
     return -1;
   }
 
-  *interface = (framer_interface_t) {
+  *interface = (framer_interface_t){
     .name = strdup(name),
     .create = create,
     .destroy = destroy,
@@ -90,7 +88,7 @@ int framer_interface_valid(const char *name)
   return 0;
 }
 
-framer_t * framer_create(const char *name)
+framer_t *framer_create(const char *name)
 {
   /* Look up interface */
   framer_interface_t *interface = framer_interface_lookup(name);
@@ -105,7 +103,7 @@ framer_t * framer_create(const char *name)
     return NULL;
   }
 
-  *framer = (framer_t) {
+  *framer = (framer_t){
     .state = interface->create(),
     .interface = interface,
   };
@@ -128,10 +126,10 @@ void framer_destroy(framer_t **framer)
 }
 
 uint32_t framer_process(framer_t *framer,
-                        const uint8_t *data, uint32_t data_length,
-                        const uint8_t **frame, uint32_t *frame_length)
+                        const uint8_t *data,
+                        uint32_t data_length,
+                        const uint8_t **frame,
+                        uint32_t *frame_length)
 {
-  return framer->interface->process(framer->state, data, data_length,
-                                    frame, frame_length);
+  return framer->interface->process(framer->state, data, data_length, frame, frame_length);
 }
-

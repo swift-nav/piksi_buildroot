@@ -22,15 +22,15 @@
 #include <libpiksi/endpoint.h>
 #include <libpiksi/loop.h>
 
-#define PROGRAM_NAME      "nmea_daemon"
+#define PROGRAM_NAME "nmea_daemon"
 
-#define NMEA_PUB_ENDPOINT "ipc:///var/run/sockets/nmea_external.pub"  /* NMEA Pub */
+#define NMEA_PUB_ENDPOINT "ipc:///var/run/sockets/nmea_external.pub" /* NMEA Pub */
 
-#define BASE_DIRECTORY    "/var/run/nmea"
+#define BASE_DIRECTORY "/var/run/nmea"
 
-#define NO_FIX_GGA        "$GPGGA,,,,,,0,,,,M,,M,,*66"
+#define NO_FIX_GGA "$GPGGA,,,,,,0,,,,M,,M,,*66"
 
-const char* const NMEA_GGA_OUTPUT_PATH = BASE_DIRECTORY "/GGA";
+const char *const NMEA_GGA_OUTPUT_PATH = BASE_DIRECTORY "/GGA";
 
 bool nmea_debug = false;
 
@@ -73,17 +73,17 @@ static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void
 
   {
     // Bounds check: MAX_BUFFER-1 so we can always null terminate the string
-    if (frame_length == 0 || frame_length > (MAX_BUFFER-1)) {
+    if (frame_length == 0 || frame_length > (MAX_BUFFER - 1)) {
       sbp_log(LOG_ERR, "invalid frame size: %lu", frame_length);
       ctx->result = EXIT_FAILURE;
       return -1;
     }
 
-    memcpy(buffer, frame_data, MAX_BUFFER-1);
+    memcpy(buffer, frame_data, MAX_BUFFER - 1);
     buffer[frame_length] = '\0';
   }
 
-  if(strstr(buffer, "GGA") == NULL) {
+  if (strstr(buffer, "GGA") == NULL) {
     if (nmea_debug) {
       piksi_log(LOG_DEBUG, "ignoring non-GGA message");
     }
@@ -105,7 +105,7 @@ static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void
     return -1;
   }
 
-  FILE* fp = fdopen(fd_temp, "w+");
+  FILE *fp = fdopen(fd_temp, "w+");
 
   if (strstr(buffer, "\r\n") != NULL) {
     fprintf(fp, "%s", buffer);
@@ -137,19 +137,15 @@ static int parse_options(int argc, char *argv[])
   };
 
   const struct option long_opts[] = {
-    {"debug", no_argument,       0, OPT_ID_DEBUG},
+    {"debug", no_argument, 0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
 
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
-      case OPT_ID_DEBUG:
-        nmea_debug = true;
-        break;
-      default:
-        puts("Invalid option");
-        return -1;
+    case OPT_ID_DEBUG: nmea_debug = true; break;
+    default: puts("Invalid option"); return -1;
     }
   }
   return 0;
@@ -159,7 +155,7 @@ static int cleanup(int result, nmea_ctx_t *ctx);
 
 int main(int argc, char *argv[])
 {
-  nmea_ctx_t ctx = { .sub_ept = NULL, .loop = NULL , .result = EXIT_SUCCESS };
+  nmea_ctx_t ctx = {.sub_ept = NULL, .loop = NULL, .result = EXIT_SUCCESS};
 
   logging_init(PROGRAM_NAME);
 
@@ -181,20 +177,17 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  if (pk_loop_endpoint_reader_add(ctx.loop,
-                                  ctx.sub_ept,
-                                  nmea_reader_handler,
-                                  &ctx) == NULL) {
+  if (pk_loop_endpoint_reader_add(ctx.loop, ctx.sub_ept, nmea_reader_handler, &ctx) == NULL) {
     piksi_log(LOG_ERR, "error registering reader");
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  FILE* fp = fopen(NMEA_GGA_OUTPUT_PATH, "w");
+  FILE *fp = fopen(NMEA_GGA_OUTPUT_PATH, "w");
   if (fp != NULL) {
     fprintf(fp, "%s\r\n", NO_FIX_GGA);
     fclose(fp);
   } else {
-    piksi_log(LOG_SBP|LOG_ERR, "unable to open '%s'");
+    piksi_log(LOG_SBP | LOG_ERR, "unable to open '%s'");
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
 

@@ -34,7 +34,7 @@ typedef struct {
   uint8_t send_buffer[SBP_MSG_LEN_MAX];
 } framer_sbp_state_t;
 
-static u32 sbp_read(u8 *buff, u32 n, void* context)
+static u32 sbp_read(u8 *buff, u32 n, void *context)
 {
   sbp_io_context_t *c = (sbp_io_context_t *)context;
 
@@ -48,7 +48,7 @@ static u32 sbp_read(u8 *buff, u32 n, void* context)
   return count;
 }
 
-static u32 sbp_write(u8 *buff, u32 n, void* context)
+static u32 sbp_write(u8 *buff, u32 n, void *context)
 {
   sbp_io_context_t *c = (sbp_io_context_t *)context;
 
@@ -62,7 +62,7 @@ static u32 sbp_write(u8 *buff, u32 n, void* context)
   return count;
 }
 
-void * framer_create(void)
+void *framer_create(void)
 {
   framer_sbp_state_t *s = (framer_sbp_state_t *)malloc(sizeof(*s));
   if (s == NULL) {
@@ -79,8 +79,11 @@ void framer_destroy(void **state)
   *state = NULL;
 }
 
-uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
-                        const uint8_t **frame, uint32_t *frame_length)
+uint32_t framer_process(void *state,
+                        const uint8_t *data,
+                        uint32_t data_length,
+                        const uint8_t **frame,
+                        uint32_t *frame_length)
 {
   framer_sbp_state_t *s = (framer_sbp_state_t *)state;
 
@@ -100,11 +103,13 @@ uint32_t framer_process(void *state, const uint8_t *data, uint32_t data_length,
       c.write_offset = 0;
 
       if (sbp_send_message(&s->sbp_state,
-                           s->sbp_state.msg_type, s->sbp_state.sender_id,
-                           s->sbp_state.msg_len, s->sbp_state.msg_buff,
-                           sbp_write) == SBP_OK) {
-        *frame = s->send_buffer,
-        *frame_length = c.write_offset;
+                           s->sbp_state.msg_type,
+                           s->sbp_state.sender_id,
+                           s->sbp_state.msg_len,
+                           s->sbp_state.msg_buff,
+                           sbp_write)
+          == SBP_OK) {
+        *frame = s->send_buffer, *frame_length = c.write_offset;
         return c.read_offset;
       } else {
         syslog(LOG_ERR, "SBP send error");

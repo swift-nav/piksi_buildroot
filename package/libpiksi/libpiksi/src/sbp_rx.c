@@ -57,8 +57,8 @@ sbp_rx_ctx_t *sbp_rx_create(const char *endpoint)
     goto failure;
   }
 
-  ctx->pk_ept  = pk_endpoint_create(endpoint, PK_ENDPOINT_SUB);
-  if (ctx->pk_ept  == NULL) {
+  ctx->pk_ept = pk_endpoint_create(endpoint, PK_ENDPOINT_SUB);
+  if (ctx->pk_ept == NULL) {
     piksi_log(LOG_ERR, "error creating SUB endpoint for rx ctx");
     goto failure;
   }
@@ -103,10 +103,8 @@ int sbp_rx_attach(sbp_rx_ctx_t *ctx, pk_loop_t *pk_loop)
   assert(ctx != NULL);
   assert(pk_loop != NULL);
 
-  ctx->reader_handle = pk_loop_endpoint_reader_add(pk_loop,
-                                                   ctx->pk_ept,
-                                                   rx_ctx_reader_loop_callback,
-                                                   ctx);
+  ctx->reader_handle =
+    pk_loop_endpoint_reader_add(pk_loop, ctx->pk_ept, rx_ctx_reader_loop_callback, ctx);
   if (ctx->reader_handle == NULL) {
     piksi_log(LOG_ERR, "error adding rx_ctx reader to loop");
     return -1;
@@ -145,8 +143,7 @@ int sbp_rx_callback_register(sbp_rx_ctx_t *ctx,
     return -1;
   }
 
-  if (sbp_register_callback(&ctx->sbp_state, msg_type, cb, context, n)
-      != SBP_OK) {
+  if (sbp_register_callback(&ctx->sbp_state, msg_type, cb, context, n) != SBP_OK) {
     piksi_log(LOG_ERR, "error registering SBP callback");
     free(n);
     return -1;

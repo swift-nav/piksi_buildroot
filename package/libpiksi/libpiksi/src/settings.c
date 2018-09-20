@@ -90,14 +90,12 @@
 
 typedef struct {
   pk_endpoint_t *cmd_ept;
-  const char* command;
+  const char *command;
   handle_command_fn handler;
 } control_command_t;
 
-typedef int (*to_string_fn)(const void *priv, char *str, int slen,
-                            const void *blob, int blen);
-typedef bool (*from_string_fn)(const void *priv, void *blob, int blen,
-                               const char *str);
+typedef int (*to_string_fn)(const void *priv, char *str, int slen, const void *blob, int blen);
+typedef bool (*from_string_fn)(const void *priv, void *blob, int blen, const char *str);
 typedef int (*format_type_fn)(const void *priv, char *str, int slen);
 
 /**
@@ -180,58 +178,47 @@ enum {
 static settings_term_fn settings_term_handler = NULL;
 static settings_child_fn settings_child_handler = NULL;
 
-static const char * const bool_enum_names[] = {"False", "True", NULL};
+static const char *const bool_enum_names[] = {"False", "True", NULL};
 
 /* Forward Declarations */
 static int settings_register_read_resp_callback(settings_ctx_t *ctx);
 static int settings_deregister_read_resp_callback(settings_ctx_t *ctx);
 
-static int float_to_string(const void *priv, char *str, int slen,
-                           const void *blob, int blen)
+static int float_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)priv;
 
   switch (blen) {
-  case 4:
-    return snprintf(str, slen, "%.12g", (double)*(float*)blob);
-  case 8:
-    return snprintf(str, slen, "%.12g", *(double*)blob);
+  case 4: return snprintf(str, slen, "%.12g", (double)*(float *)blob);
+  case 8: return snprintf(str, slen, "%.12g", *(double *)blob);
   }
   return -1;
 }
 
-static bool float_from_string(const void *priv, void *blob, int blen,
-                              const char *str)
+static bool float_from_string(const void *priv, void *blob, int blen, const char *str)
 {
   (void)priv;
 
   switch (blen) {
-  case 4:
-    return sscanf(str, "%g", (float*)blob) == 1;
-  case 8:
-    return sscanf(str, "%lg", (double*)blob) == 1;
+  case 4: return sscanf(str, "%g", (float *)blob) == 1;
+  case 8: return sscanf(str, "%lg", (double *)blob) == 1;
   }
   return false;
 }
 
-static int int_to_string(const void *priv, char *str, int slen,
-                         const void *blob, int blen)
+static int int_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)priv;
 
   switch (blen) {
-  case 1:
-    return snprintf(str, slen, "%hhd", *(s8*)blob);
-  case 2:
-    return snprintf(str, slen, "%hd", *(s16*)blob);
-  case 4:
-    return snprintf(str, slen, "%ld", *(s32*)blob);
+  case 1: return snprintf(str, slen, "%hhd", *(s8 *)blob);
+  case 2: return snprintf(str, slen, "%hd", *(s16 *)blob);
+  case 4: return snprintf(str, slen, "%ld", *(s32 *)blob);
   }
   return -1;
 }
 
-static bool int_from_string(const void *priv, void *blob, int blen,
-                            const char *str)
+static bool int_from_string(const void *priv, void *blob, int blen, const char *str)
 {
   (void)priv;
 
@@ -240,21 +227,18 @@ static bool int_from_string(const void *priv, void *blob, int blen,
     s16 tmp;
     /* Newlib's crappy sscanf doesn't understand %hhd */
     if (sscanf(str, "%hd", &tmp) == 1) {
-      *(s8*)blob = tmp;
+      *(s8 *)blob = tmp;
       return true;
     }
     return false;
   }
-  case 2:
-    return sscanf(str, "%hd", (s16*)blob) == 1;
-  case 4:
-    return sscanf(str, "%ld", (s32*)blob) == 1;
+  case 2: return sscanf(str, "%hd", (s16 *)blob) == 1;
+  case 4: return sscanf(str, "%ld", (s32 *)blob) == 1;
   }
   return false;
 }
 
-static int str_to_string(const void *priv, char *str, int slen,
-                         const void *blob, int blen)
+static int str_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)priv;
   (void)blen;
@@ -262,8 +246,7 @@ static int str_to_string(const void *priv, char *str, int slen,
   return snprintf(str, slen, "%s", blob);
 }
 
-static bool str_from_string(const void *priv, void *blob, int blen,
-                            const char *str)
+static bool str_from_string(const void *priv, void *blob, int blen, const char *str)
 {
   (void)priv;
 
@@ -275,22 +258,20 @@ static bool str_from_string(const void *priv, void *blob, int blen,
   return true;
 }
 
-static int enum_to_string(const void *priv, char *str, int slen,
-                          const void *blob, int blen)
+static int enum_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)blen;
 
-  const char * const *enum_names = priv;
-  int index = *(u8*)blob;
+  const char *const *enum_names = priv;
+  int index = *(u8 *)blob;
   return snprintf(str, slen, "%s", enum_names[index]);
 }
 
-static bool enum_from_string(const void *priv, void *blob, int blen,
-                             const char *str)
+static bool enum_from_string(const void *priv, void *blob, int blen, const char *str)
 {
   (void)blen;
 
-  const char * const *enum_names = priv;
+  const char *const *enum_names = priv;
   int i;
 
   for (i = 0; enum_names[i] && (strcmp(str, enum_names[i]) != 0); i++) {
@@ -301,7 +282,7 @@ static bool enum_from_string(const void *priv, void *blob, int blen,
     return false;
   }
 
-  *(u8*)blob = i;
+  *(u8 *)blob = i;
 
   return true;
 }
@@ -319,7 +300,7 @@ static int enum_format_type(const void *priv, char *str, int slen)
   n += l;
 
   /* Print enum names separated by commas */
-  for (const char * const *enum_names = priv; *enum_names; enum_names++) {
+  for (const char *const *enum_names = priv; *enum_names; enum_names++) {
     if (n < slen) {
       l = snprintf(&str[n], slen - n, "%s,", *enum_names);
       if (l < 0) {
@@ -383,7 +364,9 @@ static int message_data_get(setting_data_t *setting_data, char *buf, int blen)
 
   /* Value */
   l = setting_data->type_data->to_string(setting_data->type_data->priv,
-                                         &buf[n], blen - n, setting_data->var,
+                                         &buf[n],
+                                         blen - n,
+                                         setting_data->var,
                                          setting_data->var_len);
   if ((l < 0) || (l >= blen - n)) {
     return -1;
@@ -392,8 +375,7 @@ static int message_data_get(setting_data_t *setting_data, char *buf, int blen)
 
   /* Type information */
   if (setting_data->type_data->format_type != NULL) {
-    l = setting_data->type_data->format_type(setting_data->type_data->priv,
-                                             &buf[n], blen - n);
+    l = setting_data->type_data->format_type(setting_data->type_data->priv, &buf[n], blen - n);
     if ((l < 0) || (l >= blen - n)) {
       return -1;
     }
@@ -409,7 +391,7 @@ static int message_data_get(setting_data_t *setting_data, char *buf, int blen)
  * @param type: type struct to be matched
  * @return the setting type entry if a match is found, otherwise NULL
  */
-static type_data_t * type_data_lookup(settings_ctx_t *ctx, settings_type_t type)
+static type_data_t *type_data_lookup(settings_ctx_t *ctx, settings_type_t type)
 {
   type_data_t *type_data = ctx->type_data_list;
   for (int i = 0; i < type && type_data != NULL; i++) {
@@ -425,14 +407,13 @@ static type_data_t * type_data_lookup(settings_ctx_t *ctx, settings_type_t type)
  * @param name: setting name string to match
  * @return the setting type entry if a match is found, otherwise NULL
  */
-static setting_data_t * setting_data_lookup(settings_ctx_t *ctx,
-                                            const char *section,
-                                            const char *name)
+static setting_data_t *setting_data_lookup(settings_ctx_t *ctx,
+                                           const char *section,
+                                           const char *name)
 {
   setting_data_t *setting_data = ctx->setting_data_list;
   while (setting_data != NULL) {
-    if ((strcmp(setting_data->section, section) == 0) &&
-        (strcmp(setting_data->name, name) == 0)) {
+    if ((strcmp(setting_data->section, section) == 0) && (strcmp(setting_data->name, name) == 0)) {
       break;
     }
     setting_data = setting_data->next;
@@ -440,8 +421,7 @@ static setting_data_t * setting_data_lookup(settings_ctx_t *ctx,
   return setting_data;
 }
 
-static void setting_data_list_insert(settings_ctx_t *ctx,
-                                     setting_data_t *setting_data)
+static void setting_data_list_insert(settings_ctx_t *ctx, setting_data_t *setting_data)
 {
   if (ctx->setting_data_list == NULL) {
     ctx->setting_data_list = setting_data;
@@ -449,8 +429,8 @@ static void setting_data_list_insert(settings_ctx_t *ctx,
     setting_data_t *s;
     /* Find last element in the same section */
     for (s = ctx->setting_data_list; s->next != NULL; s = s->next) {
-      if ((strcmp(s->section, setting_data->section) == 0) &&
-          (strcmp(s->next->section, setting_data->section) != 0)) {
+      if ((strcmp(s->section, setting_data->section) == 0)
+          && (strcmp(s->next->section, setting_data->section) != 0)) {
         break;
       }
     }
@@ -491,8 +471,8 @@ static void compare_check(settings_ctx_t *ctx, const u8 *data, u8 data_len)
     return;
   }
 
-  if ((data_len >= r->compare_data_len) &&
-      (memcmp(data, r->compare_data, r->compare_data_len) == 0)) {
+  if ((data_len >= r->compare_data_len)
+      && (memcmp(data, r->compare_data, r->compare_data_len) == 0)) {
     r->match = true;
     r->pending = false;
     sbp_rx_reader_interrupt(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx));
@@ -533,9 +513,12 @@ static bool compare_match(settings_ctx_t *ctx)
  * @param type: type enum that is used to identify this type
  * @return
  */
-static int type_register(settings_ctx_t *ctx, to_string_fn to_string,
-                         from_string_fn from_string, format_type_fn format_type,
-                         const void *priv, settings_type_t *type)
+static int type_register(settings_ctx_t *ctx,
+                         to_string_fn to_string,
+                         from_string_fn from_string,
+                         format_type_fn format_type,
+                         const void *priv,
+                         settings_type_t *type)
 {
   type_data_t *type_data = (type_data_t *)malloc(sizeof(*type_data));
   if (type_data == NULL) {
@@ -543,13 +526,11 @@ static int type_register(settings_ctx_t *ctx, to_string_fn to_string,
     return -1;
   }
 
-  *type_data = (type_data_t) {
-    .to_string = to_string,
-    .from_string = from_string,
-    .format_type = format_type,
-    .priv = priv,
-    .next = NULL
-  };
+  *type_data = (type_data_t){.to_string = to_string,
+                             .from_string = from_string,
+                             .format_type = format_type,
+                             .priv = priv,
+                             .next = NULL};
 
   /* Add to list */
   settings_type_t next_type = 0;
@@ -591,8 +572,7 @@ static void setting_data_members_destroy(setting_data_t *setting_data)
  * @param ctx: settings context
  * @param setting_data: setting to remove
  */
-static void setting_data_list_remove(settings_ctx_t *ctx,
-                                     setting_data_t **setting_data)
+static void setting_data_list_remove(settings_ctx_t *ctx, setting_data_t **setting_data)
 {
   if (ctx->setting_data_list != NULL) {
     setting_data_t *s;
@@ -622,10 +602,16 @@ static void setting_data_list_remove(settings_ctx_t *ctx,
  * @param watchonly: set to true to indicate a non-owned setting watch
  * @return the newly created setting, NULL if failed
  */
-static setting_data_t * setting_create_setting(settings_ctx_t *ctx, const char *section,
-                                               const char *name, void *var, size_t var_len,
-                                               settings_type_t type, settings_notify_fn notify,
-                                               void *notify_context, bool readonly, bool watchonly)
+static setting_data_t *setting_create_setting(settings_ctx_t *ctx,
+                                              const char *section,
+                                              const char *name,
+                                              void *var,
+                                              size_t var_len,
+                                              settings_type_t type,
+                                              settings_notify_fn notify,
+                                              void *notify_context,
+                                              bool readonly,
+                                              bool watchonly)
 {
   /* Look up type data */
   type_data_t *type_data = type_data_lookup(ctx, type);
@@ -635,14 +621,13 @@ static setting_data_t * setting_create_setting(settings_ctx_t *ctx, const char *
   }
 
   /* Set up setting data */
-  setting_data_t *setting_data = (setting_data_t *)
-                                     malloc(sizeof(*setting_data));
+  setting_data_t *setting_data = (setting_data_t *)malloc(sizeof(*setting_data));
   if (setting_data == NULL) {
     piksi_log(LOG_ERR, "error allocating setting data");
     return NULL;
   }
 
-  *setting_data = (setting_data_t) {
+  *setting_data = (setting_data_t){
     .section = strdup(section),
     .name = strdup(name),
     .var = var,
@@ -656,9 +641,8 @@ static setting_data_t * setting_create_setting(settings_ctx_t *ctx, const char *
     .next = NULL,
   };
 
-  if ((setting_data->section == NULL) ||
-      (setting_data->name == NULL) ||
-      (setting_data->var_copy == NULL)) {
+  if ((setting_data->section == NULL) || (setting_data->name == NULL)
+      || (setting_data->var_copy == NULL)) {
     piksi_log(LOG_ERR, "error allocating setting data members");
     setting_data_members_destroy(setting_data);
     free(setting_data);
@@ -816,14 +800,14 @@ static int setting_read_watched_value(settings_ctx_t *ctx, setting_data_t *setti
     return -1;
   }
 
-  result =  setting_perform_request_reply_from(ctx,
-                                               SBP_MSG_SETTINGS_READ_REQ,
-                                               msg,
-                                               msg_len,
-                                               msg_len,
-                                               WATCH_INIT_TIMEOUT_MS,
-                                               WATCH_INIT_TRIES,
-                                               SBP_SENDER_ID);
+  result = setting_perform_request_reply_from(ctx,
+                                              SBP_MSG_SETTINGS_READ_REQ,
+                                              msg,
+                                              msg_len,
+                                              msg_len,
+                                              WATCH_INIT_TIMEOUT_MS,
+                                              WATCH_INIT_TRIES,
+                                              SBP_SENDER_ID);
 
   settings_deregister_read_resp_callback(ctx);
   return result;
@@ -835,7 +819,7 @@ int setting_parse_setting_text(const u8 *msg,
                                const char **name,
                                const char **value)
 {
-  const char **result_holders[] = { section, name, value };
+  const char **result_holders[] = {section, name, value};
   u8 start = 0;
   u8 end = 0;
   for (u8 i = 0; i < sizeof(result_holders) / sizeof(*result_holders); i++) {
@@ -903,9 +887,9 @@ static void setting_update_value(setting_data_t *setting_data, const char *value
     /* Store copy and update value */
     memcpy(setting_data->var_copy, setting_data->var, setting_data->var_len);
     if (!setting_data->type_data->from_string(setting_data->type_data->priv,
-          setting_data->var,
-          setting_data->var_len,
-          value)) {
+                                              setting_data->var,
+                                              setting_data->var_len,
+                                              value)) {
       /* Revert value if conversion fails */
       memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
       *write_result = SBP_WRITE_STATUS_VALUE_REJECTED;
@@ -934,7 +918,10 @@ static int setting_send_write_response(settings_ctx_t *ctx,
                                        u8 len)
 {
   if (sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-        SBP_MSG_SETTINGS_WRITE_RESP, len, (u8 *)write_response) != 0) {
+                  SBP_MSG_SETTINGS_WRITE_RESP,
+                  len,
+                  (u8 *)write_response)
+      != 0) {
     piksi_log(LOG_ERR, "error sending settings write response");
     return -1;
   }
@@ -953,7 +940,10 @@ static int setting_send_read_response(settings_ctx_t *ctx,
                                       u8 len)
 {
   if (sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-        SBP_MSG_SETTINGS_READ_RESP, len, (u8 *)read_response) != 0) {
+                  SBP_MSG_SETTINGS_READ_RESP,
+                  len,
+                  (u8 *)read_response)
+      != 0) {
     piksi_log(LOG_ERR, "error sending settings read response");
     return -1;
   }
@@ -963,8 +953,7 @@ static int setting_send_read_response(settings_ctx_t *ctx,
 /**
  * @brief settings_write_callback - callback for SBP_MSG_SETTINGS_WRITE
  */
-static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
-                                    void* context)
+static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   settings_ctx_t *ctx = (settings_ctx_t *)context;
 
@@ -1005,9 +994,8 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
   msg_settings_write_resp_t *write_response = (msg_settings_write_resp_t *)resp;
   write_response->status = write_result;
   resp_len += sizeof(write_response->status);
-  int l = setting_format_setting(setting_data,
-                                 write_response->setting,
-                                 SBP_PAYLOAD_SIZE_MAX - resp_len);
+  int l =
+    setting_format_setting(setting_data, write_response->setting, SBP_PAYLOAD_SIZE_MAX - resp_len);
   if (l < 0) {
     return;
   }
@@ -1016,9 +1004,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
   setting_send_write_response(ctx, write_response, resp_len);
 }
 
-static int settings_update_watch_only(settings_ctx_t *ctx,
-                                       u8 *msg,
-                                       u8 len)
+static int settings_update_watch_only(settings_ctx_t *ctx, u8 *msg, u8 len)
 {
   /* Extract parameters from message:
    * 3 null terminated strings: section, setting and value
@@ -1052,8 +1038,7 @@ static int settings_update_watch_only(settings_ctx_t *ctx,
 /**
  * @brief settings_read_resp_callback - callback for SBP_MSG_SETTINGS_READ_RESP
  */
-static void settings_read_resp_callback(u16 sender_id, u8 len, u8 msg[],
-                                         void* context)
+static void settings_read_resp_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   settings_ctx_t *ctx = (settings_ctx_t *)context;
   msg_settings_read_resp_t *read_response = (msg_settings_read_resp_t *)msg;
@@ -1061,9 +1046,7 @@ static void settings_read_resp_callback(u16 sender_id, u8 len, u8 msg[],
   /* Check for a response to a pending request */
   compare_check(ctx, read_response->setting, len);
 
-  if (settings_update_watch_only(ctx,
-                                 read_response->setting,
-                                 len) != 0) {
+  if (settings_update_watch_only(ctx, read_response->setting, len) != 0) {
     piksi_log(LOG_WARNING, "error in settings read response message");
   }
 }
@@ -1071,8 +1054,7 @@ static void settings_read_resp_callback(u16 sender_id, u8 len, u8 msg[],
 /**
  * @brief settings_write_resp_callback - callback for SBP_MSG_SETTINGS_WRITE_RESP
  */
-static void settings_write_resp_callback(u16 sender_id, u8 len, u8 msg[],
-                                         void* context)
+static void settings_write_resp_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   settings_ctx_t *ctx = (settings_ctx_t *)context;
   msg_settings_write_resp_t *write_response = (msg_settings_write_resp_t *)msg;
@@ -1080,9 +1062,8 @@ static void settings_write_resp_callback(u16 sender_id, u8 len, u8 msg[],
   /* Check for a response to a pending request */
   compare_check(ctx, write_response->setting, len - sizeof(write_response->status));
 
-  if (settings_update_watch_only(ctx,
-                                 write_response->setting,
-                                 len - sizeof(write_response->status)) != 0) {
+  if (settings_update_watch_only(ctx, write_response->setting, len - sizeof(write_response->status))
+      != 0) {
     piksi_log(LOG_WARNING, "error in settings read response message");
   }
 }
@@ -1097,7 +1078,10 @@ static int settings_register_write_callback(settings_ctx_t *ctx)
   if (!ctx->write_callback_registered) {
     if (sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
                                  SBP_MSG_SETTINGS_WRITE,
-                                 settings_write_callback, ctx, NULL) != 0) {
+                                 settings_write_callback,
+                                 ctx,
+                                 NULL)
+        != 0) {
       piksi_log(LOG_ERR, "error registering settings write callback");
       return -1;
     } else {
@@ -1117,7 +1101,10 @@ static int settings_register_read_resp_callback(settings_ctx_t *ctx)
   if (!ctx->read_resp_callback_registered) {
     if (sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
                                  SBP_MSG_SETTINGS_READ_RESP,
-                                 settings_read_resp_callback, ctx, &ctx->read_resp_cb_node) != 0) {
+                                 settings_read_resp_callback,
+                                 ctx,
+                                 &ctx->read_resp_cb_node)
+        != 0) {
       piksi_log(LOG_ERR, "error registering settings read resp callback");
       return -1;
     } else {
@@ -1128,15 +1115,16 @@ static int settings_register_read_resp_callback(settings_ctx_t *ctx)
 }
 
 /**
- * @brief settings_deregister_read_resp_callback - deregister callback for SBP_MSG_SETTINGS_READ_RESP
+ * @brief settings_deregister_read_resp_callback - deregister callback for
+ * SBP_MSG_SETTINGS_READ_RESP
  * @param ctx: settings context
  * @return zero on success, -1 if deregistration failed
  */
 static int settings_deregister_read_resp_callback(settings_ctx_t *ctx)
 {
   if (ctx->read_resp_callback_registered) {
-    if (sbp_rx_callback_remove(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
-                               &ctx->read_resp_cb_node) != 0) {
+    if (sbp_rx_callback_remove(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), &ctx->read_resp_cb_node)
+        != 0) {
       piksi_log(LOG_ERR, "error deregistering settings read resp callback");
       return -1;
     } else {
@@ -1156,7 +1144,10 @@ static int settings_register_write_resp_callback(settings_ctx_t *ctx)
   if (!ctx->write_resp_callback_registered) {
     if (sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx),
                                  SBP_MSG_SETTINGS_WRITE_RESP,
-                                 settings_write_resp_callback, ctx, NULL) != 0) {
+                                 settings_write_resp_callback,
+                                 ctx,
+                                 NULL)
+        != 0) {
       piksi_log(LOG_ERR, "error registering settings write resp callback");
       return -1;
     } else {
@@ -1207,7 +1198,7 @@ static void destroy(settings_ctx_t **ctx)
   *ctx = NULL;
 }
 
-settings_ctx_t * settings_create(void)
+settings_ctx_t *settings_create(void)
 {
   settings_ctx_t *ctx = (settings_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
@@ -1245,29 +1236,26 @@ settings_ctx_t * settings_create(void)
   /* Register standard types */
   settings_type_t type;
 
-  if (type_register(ctx, int_to_string, int_from_string, NULL,
-                    NULL, &type) != 0) {
+  if (type_register(ctx, int_to_string, int_from_string, NULL, NULL, &type) != 0) {
     destroy(&ctx);
     return ctx;
   }
   assert(type == SETTINGS_TYPE_INT);
 
-  if (type_register(ctx, float_to_string, float_from_string, NULL,
-                    NULL, &type) != 0) {
+  if (type_register(ctx, float_to_string, float_from_string, NULL, NULL, &type) != 0) {
     destroy(&ctx);
     return ctx;
   }
   assert(type == SETTINGS_TYPE_FLOAT);
 
-  if (type_register(ctx, str_to_string, str_from_string, NULL,
-                    NULL, &type) != 0) {
+  if (type_register(ctx, str_to_string, str_from_string, NULL, NULL, &type) != 0) {
     destroy(&ctx);
     return ctx;
   }
   assert(type == SETTINGS_TYPE_STRING);
 
-  if (type_register(ctx, enum_to_string, enum_from_string, enum_format_type,
-                    bool_enum_names, &type) != 0) {
+  if (type_register(ctx, enum_to_string, enum_from_string, enum_format_type, bool_enum_names, &type)
+      != 0) {
     destroy(&ctx);
     return ctx;
   }
@@ -1286,15 +1274,14 @@ void settings_destroy(settings_ctx_t **ctx)
 }
 
 int settings_type_register_enum(settings_ctx_t *ctx,
-                                const char * const enum_names[],
+                                const char *const enum_names[],
                                 settings_type_t *type)
 {
   assert(ctx != NULL);
   assert(enum_names != NULL);
   assert(type != NULL);
 
-  return type_register(ctx, enum_to_string, enum_from_string, enum_format_type,
-                       enum_names, type);
+  return type_register(ctx, enum_to_string, enum_from_string, enum_format_type, enum_names, type);
 }
 
 /**
@@ -1316,10 +1303,15 @@ int settings_type_register_enum(settings_ctx_t *ctx,
  * @return zero on success, -1 if the addition of the setting has failed
  */
 static int settings_add_setting(settings_ctx_t *ctx,
-                                const char *section, const char *name,
-                                void *var, size_t var_len, settings_type_t type,
-                                settings_notify_fn notify, void *notify_context,
-                                bool readonly, bool watchonly)
+                                const char *section,
+                                const char *name,
+                                void *var,
+                                size_t var_len,
+                                settings_type_t type,
+                                settings_notify_fn notify,
+                                void *notify_context,
+                                bool readonly,
+                                bool watchonly)
 {
   assert(ctx != NULL);
   assert(section != NULL);
@@ -1331,10 +1323,16 @@ static int settings_add_setting(settings_ctx_t *ctx,
     return -1;
   }
 
-  setting_data_t *setting_data = setting_create_setting(ctx, section, name,
-                                                        var, var_len, type,
-                                                        notify, notify_context,
-                                                        readonly, watchonly);
+  setting_data_t *setting_data = setting_create_setting(ctx,
+                                                        section,
+                                                        name,
+                                                        var,
+                                                        var_len,
+                                                        type,
+                                                        notify,
+                                                        notify_context,
+                                                        readonly,
+                                                        watchonly);
   if (setting_data == NULL) {
     piksi_log(LOG_ERR, "error creating setting data");
     return -1;
@@ -1363,30 +1361,65 @@ static int settings_add_setting(settings_ctx_t *ctx,
   return 0;
 }
 
-int settings_register(settings_ctx_t *ctx, const char *section,
-                      const char *name, void *var, size_t var_len,
-                      settings_type_t type, settings_notify_fn notify,
+int settings_register(settings_ctx_t *ctx,
+                      const char *section,
+                      const char *name,
+                      void *var,
+                      size_t var_len,
+                      settings_type_t type,
+                      settings_notify_fn notify,
                       void *notify_context)
 {
-  return settings_add_setting(ctx, section, name, var, var_len, type,
-                              notify, notify_context, false, false);
+  return settings_add_setting(ctx,
+                              section,
+                              name,
+                              var,
+                              var_len,
+                              type,
+                              notify,
+                              notify_context,
+                              false,
+                              false);
 }
 
-int settings_register_readonly(settings_ctx_t *ctx, const char *section,
-                               const char *name, const void *var,
-                               size_t var_len, settings_type_t type)
+int settings_register_readonly(settings_ctx_t *ctx,
+                               const char *section,
+                               const char *name,
+                               const void *var,
+                               size_t var_len,
+                               settings_type_t type)
 {
-  return settings_add_setting(ctx, section, name, (void *)var, var_len, type,
-                             NULL, NULL, true, false);
+  return settings_add_setting(ctx,
+                              section,
+                              name,
+                              (void *)var,
+                              var_len,
+                              type,
+                              NULL,
+                              NULL,
+                              true,
+                              false);
 }
 
-int settings_add_watch(settings_ctx_t *ctx, const char *section,
-                       const char *name, void *var, size_t var_len,
-                       settings_type_t type, settings_notify_fn notify,
+int settings_add_watch(settings_ctx_t *ctx,
+                       const char *section,
+                       const char *name,
+                       void *var,
+                       size_t var_len,
+                       settings_type_t type,
+                       settings_notify_fn notify,
                        void *notify_context)
 {
-  return settings_add_setting(ctx, section, name, var, var_len, type,
-                              notify, notify_context, false, true);
+  return settings_add_setting(ctx,
+                              section,
+                              name,
+                              var,
+                              var_len,
+                              type,
+                              notify,
+                              notify_context,
+                              false,
+                              true);
 }
 
 int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
@@ -1397,18 +1430,21 @@ int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
   return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
-static void signal_handler_extended(int signum, siginfo_t *info, void *ucontext) {
+static void signal_handler_extended(int signum, siginfo_t *info, void *ucontext)
+{
 
   (void)ucontext;
 
   if (signum == SIGINT || signum == SIGTERM) {
 
     if (info == NULL) {
-      piksi_log(LOG_DEBUG, "%s: caught signal: %d",
-                __FUNCTION__, signum);
+      piksi_log(LOG_DEBUG, "%s: caught signal: %d", __FUNCTION__, signum);
     } else {
-      piksi_log(LOG_DEBUG, "%s: caught signal: %d (sender: %d)",
-                __FUNCTION__, signum, info->si_pid);
+      piksi_log(LOG_DEBUG,
+                "%s: caught signal: %d (sender: %d)",
+                __FUNCTION__,
+                signum,
+                info->si_pid);
     }
 
     if (settings_term_handler != NULL) {
@@ -1425,7 +1461,8 @@ static void signal_handler_extended(int signum, siginfo_t *info, void *ucontext)
   }
 }
 
-static void signal_handler(int signum) {
+static void signal_handler(int signum)
+{
   signal_handler_extended(signum, (siginfo_t *)NULL, NULL);
 }
 
@@ -1451,12 +1488,16 @@ static int command_receive_callback(const u8 *data, const size_t length, void *c
 
 static void control_handler(pk_loop_t *loop, void *handle, void *context)
 {
-  control_command_t* cmd_info = (control_command_t*)context;
+  control_command_t *cmd_info = (control_command_t *)context;
 
   u8 data = 0;
   if (pk_endpoint_receive(cmd_info->cmd_ept, command_receive_callback, &data) != 0) {
-    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s",
-              __FUNCTION__, "pk_endpoint_receive", __FILE__, __LINE__,
+    piksi_log(LOG_ERR,
+              "%s: error in %s (%s:%d): %s",
+              __FUNCTION__,
+              "pk_endpoint_receive",
+              __FILE__,
+              __LINE__,
               pk_endpoint_strerror());
     return;
   }
@@ -1471,18 +1512,19 @@ static void control_handler(pk_loop_t *loop, void *handle, void *context)
   pk_endpoint_send(cmd_info->cmd_ept, &result, 1);
 }
 
-static bool configure_control_socket(pk_loop_t* loop,
-                                     const char* control_socket,
-                                     const char* control_socket_file,
-                                     const char* control_command,
+static bool configure_control_socket(pk_loop_t *loop,
+                                     const char *control_socket,
+                                     const char *control_socket_file,
+                                     const char *control_command,
                                      handle_command_fn do_handle_command,
-                                     pk_endpoint_t** rep_socket,
-                                     control_command_t** ctrl_command_info)
+                                     pk_endpoint_t **rep_socket,
+                                     control_command_t **ctrl_command_info)
 {
-  #define CHECK_PRECONDITION(X) if (!(X)) { \
-    piksi_log(LOG_ERR, "Precondition check failed: %s (%s:%d)", \
-              __STRING(X), __FILE__, __LINE__);                 \
-    return false; }
+#define CHECK_PRECONDITION(X)                                                                     \
+  if (!(X)) {                                                                                     \
+    piksi_log(LOG_ERR, "Precondition check failed: %s (%s:%d)", __STRING(X), __FILE__, __LINE__); \
+    return false;                                                                                 \
+  }
 
   CHECK_PRECONDITION(loop != NULL);
   CHECK_PRECONDITION(control_socket != NULL);
@@ -1498,16 +1540,14 @@ static bool configure_control_socket(pk_loop_t* loop,
 
   int rc = chmod(control_socket_file, 0777);
   if (rc != 0) {
-    piksi_log(LOG_ERR, "Error configuring IPC pipe permissions: %s",
-              strerror(errno));
+    piksi_log(LOG_ERR, "Error configuring IPC pipe permissions: %s", strerror(errno));
     return false;
   }
 
   *rep_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REP);
   if (*rep_socket == NULL) {
-    const char* err_msg = pk_endpoint_strerror();
-    piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s",
-              control_socket, err_msg);
+    const char *err_msg = pk_endpoint_strerror();
+    piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s", control_socket, err_msg);
     return false;
   }
 
@@ -1527,9 +1567,9 @@ static bool configure_control_socket(pk_loop_t* loop,
   return true;
 }
 
-bool settings_loop(const char* control_socket,
-                   const char* control_socket_file,
-                   const char* control_command,
+bool settings_loop(const char *control_socket,
+                   const char *control_socket_file,
+                   const char *control_command,
                    register_settings_fn do_settings_register,
                    handle_command_fn do_handle_command,
                    settings_term_fn do_handle_term,
@@ -1547,8 +1587,8 @@ bool settings_loop(const char* control_socket,
   // Install our own signal handlers
   setup_signal_handlers();
 
-  pk_endpoint_t* rep_socket = NULL;
-  control_command_t* cmd_info = NULL;
+  pk_endpoint_t *rep_socket = NULL;
+  control_command_t *cmd_info = NULL;
 
   bool ret = true;
 
@@ -1567,14 +1607,13 @@ bool settings_loop(const char* control_socket,
   do_settings_register(settings_ctx);
 
   if (control_socket != NULL) {
-    bool control_sock_configured =
-      configure_control_socket(loop,
-                               control_socket,
-                               control_socket_file,
-                               control_command,
-                               do_handle_command,
-                               &rep_socket,
-                               &cmd_info);
+    bool control_sock_configured = configure_control_socket(loop,
+                                                            control_socket,
+                                                            control_socket_file,
+                                                            control_command,
+                                                            do_handle_command,
+                                                            &rep_socket,
+                                                            &cmd_info);
     if (!control_sock_configured) {
       ret = false;
       goto settings_loop_cleanup;
@@ -1584,11 +1623,9 @@ bool settings_loop(const char* control_socket,
   pk_loop_run_simple(loop);
 
 settings_loop_cleanup:
-  if (rep_socket != NULL)
-    pk_endpoint_destroy(&rep_socket);
+  if (rep_socket != NULL) pk_endpoint_destroy(&rep_socket);
 
-  if (cmd_info != NULL)
-    free(cmd_info);
+  if (cmd_info != NULL) free(cmd_info);
 
   settings_destroy(&settings_ctx);
   pk_loop_destroy(&loop);
@@ -1601,17 +1638,21 @@ bool settings_loop_simple(register_settings_fn do_settings_register)
   return settings_loop(NULL, NULL, NULL, do_settings_register, NULL, NULL, NULL);
 }
 
-int settings_loop_send_command(const char* target_description,
-                               const char* command,
-                               const char* command_description,
-                               const char* control_socket)
+int settings_loop_send_command(const char *target_description,
+                               const char *command,
+                               const char *command_description,
+                               const char *control_socket)
 {
-# define CHECK_PK_EPT_ERR(COND, FUNC) \
-  if (COND) { \
-    piksi_log(LOG_ERR, "%s: error in %s (%s:%d): %s", \
-              __FUNCTION__, __STRING(FUNC), __FILE__, __LINE__, \
-              pk_endpoint_strerror()); \
-    return -1; \
+#define CHECK_PK_EPT_ERR(COND, FUNC)         \
+  if (COND) {                                \
+    piksi_log(LOG_ERR,                       \
+              "%s: error in %s (%s:%d): %s", \
+              __FUNCTION__,                  \
+              __STRING(FUNC),                \
+              __FILE__,                      \
+              __LINE__,                      \
+              pk_endpoint_strerror());       \
+    return -1;                               \
   }
 
 #define CMD_INFO_MSG "Sending '%s' command to %s..."
@@ -1619,7 +1660,7 @@ int settings_loop_send_command(const char* target_description,
   piksi_log(LOG_INFO, CMD_INFO_MSG, command_description, target_description);
   printf(CMD_INFO_MSG "\n", command_description, target_description);
 
-  pk_endpoint_t* req_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REQ);
+  pk_endpoint_t *req_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REQ);
   CHECK_PK_EPT_ERR(req_socket == NULL, pk_endpoint_create);
 
   int ret = pk_endpoint_send(req_socket, command, strlen(command));
@@ -1629,7 +1670,7 @@ int settings_loop_send_command(const char* target_description,
   ret = pk_endpoint_receive(req_socket, command_receive_callback, &result);
   CHECK_PK_EPT_ERR(ret != 0, pk_endpoint_receive);
 
-# define CMD_RESULT_MSG "Result of '%s' command: %hhu"
+#define CMD_RESULT_MSG "Result of '%s' command: %hhu"
 
   piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, result);
   printf(CMD_RESULT_MSG "\n", command_description, result);
@@ -1638,8 +1679,7 @@ int settings_loop_send_command(const char* target_description,
 
   return 0;
 
-# undef CMD_RESULT_MSG
-# undef CHECK_PK_EPT_ERR
-# undef CMD_INFO_MSG
+#undef CMD_RESULT_MSG
+#undef CHECK_PK_EPT_ERR
+#undef CMD_INFO_MSG
 }
-

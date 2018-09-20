@@ -56,8 +56,7 @@ int health_monitor_register_message_handler(health_monitor_t *monitor,
   if (monitor == NULL || callback == NULL) {
     return -1;
   }
-  sbp_pubsub_ctx_t *sbp_ctx =
-    health_context_get_sbp_ctx(monitor->health_ctx);
+  sbp_pubsub_ctx_t *sbp_ctx = health_context_get_sbp_ctx(monitor->health_ctx);
   if (sbp_ctx == NULL) {
     return -1;
   }
@@ -67,8 +66,7 @@ int health_monitor_register_message_handler(health_monitor_t *monitor,
     return -1;
   }
 
-  if (sbp_rx_callback_register(rx_ctx, msg_type, callback, monitor, NULL)
-      != 0) {
+  if (sbp_rx_callback_register(rx_ctx, msg_type, callback, monitor, NULL) != 0) {
     return -1;
   }
 
@@ -87,22 +85,20 @@ int health_monitor_add_setting_watch(health_monitor_t *monitor,
                                      settings_notify_fn notify,
                                      void *notify_context)
 {
-  return settings_add_watch(
-    health_context_get_settings_ctx(monitor->health_ctx),
-    section,
-    name,
-    var,
-    var_len,
-    type,
-    notify,
-    notify_context);
+  return settings_add_watch(health_context_get_settings_ctx(monitor->health_ctx),
+                            section,
+                            name,
+                            var,
+                            var_len,
+                            type,
+                            notify,
+                            notify_context);
 }
 
 /*
  * Call Monitor Message Callback
  */
-static void
-health_monitor_message_callback(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void health_monitor_message_callback(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
   int result = 0;
   health_monitor_t *monitor = (health_monitor_t *)ctx;
@@ -124,7 +120,7 @@ health_monitor_message_callback(u16 sender_id, u8 len, u8 msg[], void *ctx)
 /*
  * Call Monitor Timer Callback
  */
-static void health_monitor_timer_callback(pk_loop_t *loop, void * timer_handle, void *context)
+static void health_monitor_timer_callback(pk_loop_t *loop, void *timer_handle, void *context)
 {
   (void)loop;
   (void)timer_handle;
@@ -177,8 +173,9 @@ int health_monitor_init(health_monitor_t *monitor,
   monitor->msg_type = msg_type;
   monitor->msg_cb = msg_cb;
   if (monitor->msg_type != 0) {
-    if (health_monitor_register_message_handler(
-          monitor, monitor->msg_type, health_monitor_message_callback)
+    if (health_monitor_register_message_handler(monitor,
+                                                monitor->msg_type,
+                                                health_monitor_message_callback)
         != 0) {
       return -1;
     }
@@ -192,8 +189,8 @@ int health_monitor_init(health_monitor_t *monitor,
     }
 
     /* Use proxy callback for timer returns */
-    monitor->timer_handle = pk_loop_timer_add(
-      monitor->loop, timer_period, health_monitor_timer_callback, monitor);
+    monitor->timer_handle =
+      pk_loop_timer_add(monitor->loop, timer_period, health_monitor_timer_callback, monitor);
     if (monitor->timer_handle == NULL) {
       return -1;
     }

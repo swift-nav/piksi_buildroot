@@ -74,18 +74,12 @@ static health_ctx_t health_ctx = {
 };
 
 static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
-  { baseline_threshold_health_monitor_init,
-    baseline_threshold_health_monitor_deinit },
-  { glo_obs_timeout_health_monitor_init,
-    glo_obs_timeout_health_monitor_deinit },
-  { glo_bias_timeout_health_monitor_init,
-    glo_bias_timeout_health_monitor_deinit },
-  { skylark_monitor_init,
-    skylark_monitor_deinit },
-  { ntrip_obs_timeout_health_monitor_init,
-    ntrip_obs_timeout_health_monitor_deinit },
-  { gnss_time_health_monitor_init,
-    gnss_time_health_monitor_deinit },
+  {baseline_threshold_health_monitor_init, baseline_threshold_health_monitor_deinit},
+  {glo_obs_timeout_health_monitor_init, glo_obs_timeout_health_monitor_deinit},
+  {glo_bias_timeout_health_monitor_init, glo_bias_timeout_health_monitor_deinit},
+  {skylark_monitor_init, skylark_monitor_deinit},
+  {ntrip_obs_timeout_health_monitor_init, ntrip_obs_timeout_health_monitor_deinit},
+  {gnss_time_health_monitor_init, gnss_time_health_monitor_deinit},
 };
 static size_t health_monitor_init_pairs_n =
   (sizeof(health_monitor_init_pairs) / sizeof(health_monitor_init_fn_pair_t));
@@ -103,8 +97,8 @@ static int parse_options(int argc, char *argv[])
   enum { OPT_ID_DEBUG = 1 };
 
   const struct option long_opts[] = {
-    { "debug", no_argument, 0, OPT_ID_DEBUG },
-    { 0, 0, 0, 0 },
+    {"debug", no_argument, 0, OPT_ID_DEBUG},
+    {0, 0, 0, 0},
   };
 
   int opt;
@@ -141,8 +135,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  health_ctx.sbp_ctx =
-    sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  health_ctx.sbp_ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (health_ctx.sbp_ctx == NULL) {
     status = EXIT_FAILURE;
     goto cleanup;

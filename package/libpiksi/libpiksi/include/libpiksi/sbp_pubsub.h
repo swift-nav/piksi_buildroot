@@ -54,8 +54,7 @@ typedef struct sbp_pubsub_ctx_s sbp_pubsub_ctx_t;
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-sbp_pubsub_ctx_t *sbp_pubsub_create(const char *pub_ept,
-                                    const char *sub_ept);
+sbp_pubsub_ctx_t *sbp_pubsub_create(const char *pub_ept, const char *sub_ept);
 
 /**
  * @brief   Destroy an SBP PUB/SUB context.
@@ -76,7 +75,7 @@ void sbp_pubsub_destroy(sbp_pubsub_ctx_t **ctx_loc);
  *
  * @return                  Pointer to the SBP TX context.
  */
-sbp_tx_ctx_t * sbp_pubsub_tx_ctx_get(sbp_pubsub_ctx_t *ctx);
+sbp_tx_ctx_t *sbp_pubsub_tx_ctx_get(sbp_pubsub_ctx_t *ctx);
 
 /**
  * @brief   Retrieve the SBP RX context.
@@ -87,7 +86,7 @@ sbp_tx_ctx_t * sbp_pubsub_tx_ctx_get(sbp_pubsub_ctx_t *ctx);
  *
  * @return                  Pointer to the SBP RX context.
  */
-sbp_rx_ctx_t * sbp_pubsub_rx_ctx_get(sbp_pubsub_ctx_t *ctx);
+sbp_rx_ctx_t *sbp_pubsub_rx_ctx_get(sbp_pubsub_ctx_t *ctx);
 
 #ifdef __cplusplus
 } // extern "C"

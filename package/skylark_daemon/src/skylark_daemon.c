@@ -104,56 +104,46 @@ static int parse_options(int argc, char *argv[])
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
 
-      case OPT_ID_UPLOAD: {
-        op_mode = OP_MODE_UPLOAD;
-      }
-      break;
+    case OPT_ID_UPLOAD: {
+      op_mode = OP_MODE_UPLOAD;
+    } break;
 
-      case OPT_ID_DOWNLOAD: {
-        op_mode = OP_MODE_DOWNLOAD;
-      }
-      break;
+    case OPT_ID_DOWNLOAD: {
+      op_mode = OP_MODE_DOWNLOAD;
+    } break;
 
-      case OPT_ID_SETTINGS: {
-        op_mode = OP_MODE_SETTINGS;
-      }
-      break;
+    case OPT_ID_SETTINGS: {
+      op_mode = OP_MODE_SETTINGS;
+    } break;
 
-      case OPT_ID_RECONNECT_DL: {
-        op_mode = OP_MODE_RECONNECT_DL;
-      }
-      break;
+    case OPT_ID_RECONNECT_DL: {
+      op_mode = OP_MODE_RECONNECT_DL;
+    } break;
 
-      case OPT_ID_FILE: {
-        fifo_file_path = optarg;
-      }
-      break;
+    case OPT_ID_FILE: {
+      fifo_file_path = optarg;
+    } break;
 
-      case OPT_ID_URL: {
-        url = optarg;
-      }
-      break;
+    case OPT_ID_URL: {
+      url = optarg;
+    } break;
 
-      case OPT_ID_DEBUG: {
-        debug = true;
-      }
-      break;
+    case OPT_ID_DEBUG: {
+      debug = true;
+    } break;
 
-      case OPT_ID_NO_ERROR_REPORTING: {
-        no_error_reporting = true;
-      }
-      break;
+    case OPT_ID_NO_ERROR_REPORTING: {
+      no_error_reporting = true;
+    } break;
 
-      case OPT_ID_GET_HEALTH: {
-        op_mode = OP_MODE_GET_HEALTH;
-      }
-      break;
+    case OPT_ID_GET_HEALTH: {
+      op_mode = OP_MODE_GET_HEALTH;
+    } break;
 
-      default: {
-        puts("Invalid option");
-        return -1;
-      }
-      break;
+    default: {
+      puts("Invalid option");
+      return -1;
+    } break;
     }
   }
 
@@ -173,10 +163,9 @@ static int parse_options(int argc, char *argv[])
 
 static void network_terminate_handler(int signum, siginfo_t *info, void *ucontext)
 {
-  (void) ucontext;
+  (void)ucontext;
 
-  piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d",
-            __FUNCTION__, signum, info->si_pid);
+  piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d", __FUNCTION__, signum, info->si_pid);
 
   libnetwork_shutdown();
 }
@@ -192,17 +181,16 @@ static void cycle_connection(int signum)
   libnetwork_cycle_connection();
 }
 
-static bool configure_libnetwork(network_context_t* ctx, int fd, operating_mode mode)
+static bool configure_libnetwork(network_context_t *ctx, int fd, operating_mode mode)
 {
   network_status_t status = NETWORK_STATUS_SUCCESS;
 
-  if ((status = libnetwork_set_url(ctx, url)) != NETWORK_STATUS_SUCCESS)
-    goto exit_error;
-  if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS)
-    goto exit_error;
-  if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
-    goto exit_error;
-  if (mode == OP_MODE_DOWNLOAD && (status = libnetwork_configure_control(ctx, SKYLARK_CONTROL_PAIR)) != NETWORK_STATUS_SUCCESS)
+  if ((status = libnetwork_set_url(ctx, url)) != NETWORK_STATUS_SUCCESS) goto exit_error;
+  if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS) goto exit_error;
+  if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS) goto exit_error;
+  if (mode == OP_MODE_DOWNLOAD
+      && (status = libnetwork_configure_control(ctx, SKYLARK_CONTROL_PAIR))
+           != NETWORK_STATUS_SUCCESS)
     goto exit_error;
 
   if (no_error_reporting) {
@@ -224,8 +212,8 @@ static void skylark_upload_mode()
     exit(EXIT_FAILURE);
   }
 
-  network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_UPLOAD);
-  if(!configure_libnetwork(network_context, fd, OP_MODE_UPLOAD)) {
+  network_context_t *network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_UPLOAD);
+  if (!configure_libnetwork(network_context, fd, OP_MODE_UPLOAD)) {
     exit(EXIT_FAILURE);
   }
 
@@ -261,9 +249,9 @@ static void skylark_download_mode()
     exit(EXIT_FAILURE);
   }
 
-  network_context_t* network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_DOWNLOAD);
+  network_context_t *network_context = libnetwork_create(NETWORK_TYPE_SKYLARK_DOWNLOAD);
 
-  if(!configure_libnetwork(network_context, fd, OP_MODE_DOWNLOAD)) {
+  if (!configure_libnetwork(network_context, fd, OP_MODE_DOWNLOAD)) {
     exit(EXIT_FAILURE);
   }
 
@@ -314,19 +302,11 @@ int main(int argc, char *argv[])
 
   int exit_status = EXIT_SUCCESS;
 
-  switch(op_mode) {
-  case OP_MODE_DOWNLOAD:
-    skylark_download_mode();
-    break;
-  case OP_MODE_SETTINGS:
-    skylark_settings_loop();
-    break;
-  case OP_MODE_UPLOAD:
-    skylark_upload_mode();
-    break;
-  case OP_MODE_GET_HEALTH:
-    exit_status = skylark_request_health();
-    break;
+  switch (op_mode) {
+  case OP_MODE_DOWNLOAD: skylark_download_mode(); break;
+  case OP_MODE_SETTINGS: skylark_settings_loop(); break;
+  case OP_MODE_UPLOAD: skylark_upload_mode(); break;
+  case OP_MODE_GET_HEALTH: exit_status = skylark_request_health(); break;
   case OP_MODE_RECONNECT_DL:
     settings_loop_send_command("Skylark upload client",
                                SKYLARK_CONTROL_COMMAND_RECONNECT,
@@ -334,14 +314,13 @@ int main(int argc, char *argv[])
                                SKYLARK_CONTROL_SOCK);
     break;
   case OP_MODE_NONE:
-  default:
-    {
-      const char* error_msg = "No operating mode selected";
-      piksi_log(LOG_ERR, error_msg);
-      fprintf(stderr, "%s\n", error_msg);
-      usage(argv[0]);
-      exit(EXIT_FAILURE);
-    }
+  default: {
+    const char *error_msg = "No operating mode selected";
+    piksi_log(LOG_ERR, error_msg);
+    fprintf(stderr, "%s\n", error_msg);
+    usage(argv[0]);
+    exit(EXIT_FAILURE);
+  }
   }
 
   logging_deinit();

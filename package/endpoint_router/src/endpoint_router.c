@@ -109,40 +109,33 @@ static int parse_options(int argc, char *argv[])
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "f:",
-                          long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "f:", long_opts, &opt_index)) != -1) {
     switch (c) {
 
-      case 'f': {
-        options.filename = optarg;
-      }
-      break;
+    case 'f': {
+      options.filename = optarg;
+    } break;
 
-      case OPT_ID_PRINT: {
-        options.print = true;
-      }
-      break;
+    case OPT_ID_PRINT: {
+      options.print = true;
+    } break;
 
-      case OPT_ID_NAME: {
-        options.name = optarg;
-      }
-      break;
+    case OPT_ID_NAME: {
+      options.name = optarg;
+    } break;
 
-      case OPT_ID_DEBUG: {
-        options.debug = true;
-      }
-      break;
+    case OPT_ID_DEBUG: {
+      options.debug = true;
+    } break;
 
-      case OPT_ID_SBP: {
-        options.process_sbp = true;
-      }
-      break;
+    case OPT_ID_SBP: {
+      options.process_sbp = true;
+    } break;
 
-      default: {
-        printf("invalid option\n");
-        return -1;
-      }
-      break;
+    default: {
+      printf("invalid option\n");
+      return -1;
+    } break;
     }
   }
 
@@ -166,7 +159,7 @@ static void filters_destroy(filter_t **filter_loc)
   }
   filter_t *filter = *filter_loc;
   filter_t *next = NULL;
-  while(filter != NULL) {
+  while (filter != NULL) {
     next = filter->next;
     if (filter->data != NULL) free(filter->data);
     free(filter);
@@ -182,10 +175,9 @@ static void forwarding_rules_destroy(forwarding_rule_t **forwarding_rule_loc)
   }
   forwarding_rule_t *forwarding_rule = *forwarding_rule_loc;
   forwarding_rule_t *next = NULL;
-  while(forwarding_rule != NULL) {
+  while (forwarding_rule != NULL) {
     next = forwarding_rule->next;
-    if (forwarding_rule->dst_port_name != NULL
-        && forwarding_rule->dst_port_name[0] != '\0') {
+    if (forwarding_rule->dst_port_name != NULL && forwarding_rule->dst_port_name[0] != '\0') {
       free((void *)forwarding_rule->dst_port_name);
     }
     filters_destroy(&forwarding_rule->filters_list);
@@ -202,7 +194,7 @@ static void ports_destroy(port_t **port_loc)
   }
   port_t *port = *port_loc;
   port_t *next = NULL;
-  while(port != NULL) {
+  while (port != NULL) {
     next = port->next;
     if (port->name != NULL && port->name[0] != '\0') {
       free((void *)port->name);
@@ -274,31 +266,25 @@ static void filter_match_process(forwarding_rule_t *forwarding_rule,
                                  size_t length)
 {
   switch (filter->action) {
-    case FILTER_ACTION_ACCEPT: {
-      pk_endpoint_send(forwarding_rule->dst_port->pub_ept, data, length);
-    }
-    break;
+  case FILTER_ACTION_ACCEPT: {
+    pk_endpoint_send(forwarding_rule->dst_port->pub_ept, data, length);
+  } break;
 
-    case FILTER_ACTION_REJECT: {
+  case FILTER_ACTION_REJECT: {
 
-    }
-    break;
+  } break;
 
-    default: {
-      piksi_log(LOG_ERR, "invalid filter action\n");
-    }
-    break;
+  default: {
+    piksi_log(LOG_ERR, "invalid filter action\n");
+  } break;
   }
 }
 
-static void rule_process(forwarding_rule_t *forwarding_rule,
-                         const u8 *data,
-                         size_t length)
+static void rule_process(forwarding_rule_t *forwarding_rule, const u8 *data, size_t length)
 {
   /* Iterate over filters for this rule */
   filter_t *filter;
-  for (filter = forwarding_rule->filters_list; filter != NULL;
-       filter = filter->next) {
+  for (filter = forwarding_rule->filters_list; filter != NULL; filter = filter->next) {
 
     bool match = false;
 
@@ -306,8 +292,7 @@ static void rule_process(forwarding_rule_t *forwarding_rule,
     if (filter->len == 0) {
       match = true;
     } else if (data != NULL) {
-      if ((length >= filter->len) &&
-          (memcmp(data, filter->data, filter->len) == 0)) {
+      if ((length >= filter->len) && (memcmp(data, filter->data, filter->len) == 0)) {
         match = true;
       }
     }
@@ -334,10 +319,7 @@ static void process_buffer_via_framer(port_t *port, const u8 *data, const size_t
     uint32_t frame_length;
 
     buffer_index +=
-        framer_process(framer_sbp,
-                       &data[buffer_index],
-                       length - buffer_index,
-                       &frame, &frame_length);
+      framer_process(framer_sbp, &data[buffer_index], length - buffer_index, &frame, &frame_length);
 
     if (frame == NULL) break;
 
@@ -368,7 +350,7 @@ static int reader_fn(const u8 *data, const size_t length, void *context)
   PK_METRICS_UPDATE(router_metrics, MI.count);
   PK_METRICS_UPDATE(router_metrics, MI.wakeups_message_count);
 
-  PK_METRICS_UPDATE(router_metrics, MI.size_total, PK_METRICS_VALUE((u32) length));
+  PK_METRICS_UPDATE(router_metrics, MI.size_total, PK_METRICS_VALUE((u32)length));
 
   if (options.process_sbp) {
     process_buffer_via_framer(port, data, length);
@@ -474,7 +456,7 @@ int main(int argc, char *argv[])
 
     // TODO: Clean-up
     framer_sbp = framer_create("sbp");
-    assert( framer_sbp != NULL );
+    assert(framer_sbp != NULL);
   }
 
   /* Load router from config file */
@@ -507,13 +489,9 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  void *handle =
-    pk_loop_timer_add(loop,
-                      1000,
-                      loop_1s_metrics,
-                      NULL);
+  void *handle = pk_loop_timer_add(loop, 1000, loop_1s_metrics, NULL);
 
-  assert( handle != NULL );
+  assert(handle != NULL);
 
   /* Add router to loop */
   if (router_attach(router, loop) != 0) {
@@ -525,7 +503,10 @@ int main(int argc, char *argv[])
   exit(cleanup(EXIT_SUCCESS, &loop, &router, &router_metrics));
 }
 
-static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_metrics_t **metrics_loc)
+static int cleanup(int result,
+                   pk_loop_t **loop_loc,
+                   router_t **router_loc,
+                   pk_metrics_t **metrics_loc)
 {
   router_teardown(router_loc);
   pk_loop_destroy(loop_loc);
