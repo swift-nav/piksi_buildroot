@@ -42,6 +42,8 @@
 #define DEVICE_DURO_ID_STRING "DUROV0"
 #define POSEDAEMON_FILE_PATH "/usr/bin/PoseDaemon"
 #define SMOOTHPOSE_LICENSE_FILE_PATH "/persistent/licenses/smoothpose_license.json"
+#define DEVICE_DURO_EEPROM_RETRY_INTERVAL_MS 250
+#define DEVICE_DURO_EEPROM_RETRY_TIMES 6
 
 #define PROC_UPTIME_FILE_PATH  "/proc/uptime"
 #define UPTIME_READ_MAX_LENGTH (64u)
@@ -110,7 +112,14 @@ int device_uuid_get(char *str, size_t str_size)
 bool device_is_duro(void)
 {
   char duro_eeprom_sig[DEVICE_DURO_MAX_CONTENTS_SIZE];
-
+  /* DEVICE_DURO_EEPROM_PATH will be created by S18 whether
+   * there is EEPROM or not */
+  for (int i; i < DEVICE_DURO_EEPROM_RETRY_TIMES; i++) {
+	 if(access(DEVICE_DURO_EEPROM_PATH, F_OK) == 0) {
+		 break;
+	 }
+	 usleep(DEVICE_DURO_EEPROM_RETRY_INTERVAL_MS * 1000);
+  }
   if (file_read_string(DEVICE_DURO_EEPROM_PATH,
                        duro_eeprom_sig,
                        sizeof(duro_eeprom_sig)) != 0) {
