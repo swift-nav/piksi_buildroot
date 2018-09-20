@@ -28,10 +28,10 @@ if [[ $(uname -a) == *NixOS* ]]; then
 fi
 
 FW_VERSION=${1:-v2.0.2}
-NAP_VERSION=${2:-v2.0.2}
+NAP_VERSION=${2:-v2.1.2-1-gc777730}
 
 FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
-NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
+NAP_S3_PATH=s3://swiftnav-artifacts-pull-requests/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
 
