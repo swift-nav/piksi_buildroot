@@ -3,7 +3,7 @@
 name="PoseDaemon"
 cmd="PoseDaemon"
 dir="/"
-user="piksi_ins"
+user=""
 
 LICENSES_DIR=/persistent/licenses
 
