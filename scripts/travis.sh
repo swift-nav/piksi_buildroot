@@ -74,11 +74,12 @@ list_published_files()
   local files=$BUILD_LOG
 
   if [[ "${TRAVIS_TARGET}" == "release" ]]; then
-    # Only push "release" (not locked down), and the encrypted image (which
-    #   should include INS support).
+    # Only push "release" (locked down, encrypted, includes INS), and the 
+    #   unencrypted/unprotected image (locked down, not encrypted, and does
+    #   not include INS support).
     files="${files} \
       buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin \
-      buildroot/output/images/piksiv3_prod/PiksiMulti-PROTECTED-v*.bin"
+      buildroot/output/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin"
   elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
     : # Just push build log
   elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
