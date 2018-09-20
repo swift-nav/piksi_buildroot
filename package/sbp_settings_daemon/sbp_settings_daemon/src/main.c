@@ -38,8 +38,7 @@ int main(void)
     goto settings_cleanup;
   }
 
-  settings_setup(sbp_pubsub_rx_ctx_get(ctx),
-                 sbp_pubsub_tx_ctx_get(ctx));
+  settings_setup(sbp_pubsub_rx_ctx_get(ctx), sbp_pubsub_tx_ctx_get(ctx));
 
   pk_loop_run_simple(loop);
 

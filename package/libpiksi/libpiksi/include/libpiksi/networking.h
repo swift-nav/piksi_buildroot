@@ -31,7 +31,9 @@
  * @param interfaces_n: size of container
  * @param returned_interfaces_n: number of slots filled with interface information
  */
-void query_network_state(msg_network_state_resp_t *interfaces, u8 interfaces_n, u8 *returned_interfaces);
+void query_network_state(msg_network_state_resp_t *interfaces,
+                         u8 interfaces_n,
+                         u8 *returned_interfaces);
 
 /**
  * @brief Query system for network usage

@@ -44,25 +44,24 @@ static const char *const response_strs[] = {
 static ssize_t modem_read(int fd, char *buf, size_t len, const char *const *responses)
 {
   ssize_t n = 0;
-  assert( len < SSIZET_MAX );
+  assert(len < SSIZET_MAX);
   ssize_t slen = (ssize_t)len;
   fd_set fds;
   struct timeval timeout = {.tv_sec = 0, .tv_usec = 100000};
   do {
     FD_ZERO(&fds);
     FD_SET(fd, &fds);
-    if (select(fd+1, &fds, NULL, NULL, &timeout) < 0)
-      return -2;
+    if (select(fd + 1, &fds, NULL, NULL, &timeout) < 0) return -2;
     if (!FD_ISSET(fd, &fds)) {
       return -1;
     }
     ssize_t r = read(fd, buf + n, (size_t)(slen - n - 1));
     if (r < 0) {
-        return -3;
+      return -3;
     }
     n += r;
     buf[n] = 0;
-    for(ssize_t i = 0; responses[i]; i++) {
+    for (ssize_t i = 0; responses[i]; i++) {
       ssize_t rlen = (ssize_t)strlen(responses[i]);
       if ((n >= rlen) && (strcmp(buf + n - rlen, responses[i]) == 0)) {
         buf[n - rlen] = 0;
@@ -86,12 +85,10 @@ static int cell_modem_command(int fd, const char *cmd, char *response, size_t le
 
   /* Read full response */
   char buf[256] = {0};
-  if (modem_read(fd, buf, sizeof(buf), response_strs) != RESPONSE_OK)
-    return -1;
+  if (modem_read(fd, buf, sizeof(buf), response_strs) != RESPONSE_OK) return -1;
 
   /* Check command echo */
-  if (strncmp(buf, cmd, strlen(cmd)) != 0)
-    return -2;
+  if (strncmp(buf, cmd, strlen(cmd)) != 0) return -2;
 
   /* Pull out response */
   if (response) {
@@ -140,8 +137,7 @@ enum modem_type cell_modem_probe(const char *dev)
 
   /* Probe modem for a single AT response with retries */
   int retries = 5;
-  while (1)
-  {
+  while (1) {
     char r[20];
     if (cell_modem_command(fd, "AT", r, sizeof(r)) == 0) {
       piksi_log(LOG_INFO, "Got valid modem AT response on %s", dev);
@@ -170,7 +166,7 @@ enum modem_type cell_modem_probe(const char *dev)
       close(fd);
       return MODEM_TYPE_INVALID;
     }
-    piksi_log(LOG_INFO|LOG_SBP, "Modem %s: %s", c->display, r);
+    piksi_log(LOG_INFO | LOG_SBP, "Modem %s: %s", c->display, r);
   }
 
   /* Check for GSM/CDMA: Try GSM 'AT+CGDCONT?', ignore the response,

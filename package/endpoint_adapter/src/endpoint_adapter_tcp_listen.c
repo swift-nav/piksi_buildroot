@@ -63,8 +63,7 @@ static void server_loop(int server_fd)
 
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
-    int client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
-                           &client_addr_len);
+    int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len);
 
     if (client_fd >= 0) {
       int wfd = dup(client_fd);

@@ -433,12 +433,11 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
 
 int whitelist_notify(void *context)
 {
-  port_whitelist_config_t *port_whitelist_config_ =
-      (port_whitelist_config_t *)context;
+  port_whitelist_config_t *port_whitelist_config_ = (port_whitelist_config_t *)context;
 
   char *c = port_whitelist_config_->wl;
   unsigned tmp;
-  enum {PARSE_ID, PARSE_AFTER_ID, PARSE_DIV, PARSE_AFTER_DIV} state = PARSE_ID;
+  enum { PARSE_ID, PARSE_AFTER_ID, PARSE_DIV, PARSE_AFTER_DIV } state = PARSE_ID;
   struct {
     unsigned id;
     unsigned div;
@@ -460,12 +459,11 @@ int whitelist_notify(void *context)
         break;
       case PARSE_DIV:
         state = PARSE_AFTER_DIV;
-        whitelist[entries-1].div = tmp;
+        whitelist[entries - 1].div = tmp;
         break;
       case PARSE_AFTER_DIV:
       case PARSE_AFTER_ID:
-      default:
-        return -1;
+      default: return -1;
       }
       break;
 
@@ -490,13 +488,16 @@ int whitelist_notify(void *context)
       break;
 
     /* Ignore whitespace */
-    case ' ': case '\t': case '\n': case '\r': case '\v':
+    case ' ':
+    case '\t':
+    case '\n':
+    case '\r':
+    case '\v':
       c++;
       break;
 
     /* Invalid token, parse error */
-    default:
-      return -1;
+    default: return -1;
     }
   }
 
@@ -519,9 +520,14 @@ int whitelist_notify(void *context)
 int whitelists_init(settings_ctx_t *settings_ctx)
 {
   for (int i = 0; i < PORT_MAX; i++) {
-    int rc = settings_register(settings_ctx, port_whitelist_config[i].name, "enabled_sbp_messages",
-                               port_whitelist_config[i].wl, sizeof(port_whitelist_config[i].wl),
-                               SETTINGS_TYPE_STRING, whitelist_notify, &port_whitelist_config[i]);
+    int rc = settings_register(settings_ctx,
+                               port_whitelist_config[i].name,
+                               "enabled_sbp_messages",
+                               port_whitelist_config[i].wl,
+                               sizeof(port_whitelist_config[i].wl),
+                               SETTINGS_TYPE_STRING,
+                               whitelist_notify,
+                               &port_whitelist_config[i]);
     if (rc != 0) {
       return rc;
     }

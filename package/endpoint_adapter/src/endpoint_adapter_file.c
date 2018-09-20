@@ -29,7 +29,9 @@ static int is_pipe(const char *file_path)
 int file_loop(const char *file_path, int need_read, int need_write)
 {
   debug_printf("entered file_loop %s, need_read %d need write %d\n",
-      file_path, need_read, need_write);
+               file_path,
+               need_read,
+               need_write);
 
   int fd_read = -1, fd_write = -1;
   int b_pipe = is_pipe(file_path);

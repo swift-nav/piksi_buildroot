@@ -17,8 +17,8 @@
 
 #include "sbp.h"
 
-#define SBP_SUB_ENDPOINT    "ipc:///var/run/sockets/nmea_bridge.pub"  /* SBP External Out */
-#define SBP_PUB_ENDPOINT    "ipc:///var/run/sockets/nmea_bridge.sub"  /* SBP External In */
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/nmea_bridge.pub" /* SBP External Out */
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/nmea_bridge.sub" /* SBP External In */
 
 static struct {
   pk_loop_t *loop;
@@ -69,12 +69,18 @@ failure:
 
 void sbp_deinit(void)
 {
-  if (ctx.loop != NULL) { pk_loop_destroy(&ctx.loop); }
-  if (ctx.pubsub_ctx != NULL) { sbp_pubsub_destroy(&ctx.pubsub_ctx); }
-  if (ctx.settings_ctx != NULL) { settings_destroy(&ctx.settings_ctx); }
+  if (ctx.loop != NULL) {
+    pk_loop_destroy(&ctx.loop);
+  }
+  if (ctx.pubsub_ctx != NULL) {
+    sbp_pubsub_destroy(&ctx.pubsub_ctx);
+  }
+  if (ctx.settings_ctx != NULL) {
+    settings_destroy(&ctx.settings_ctx);
+  }
 }
 
-settings_ctx_t * sbp_get_settings_ctx(void)
+settings_ctx_t *sbp_get_settings_ctx(void)
 {
   return ctx.settings_ctx;
 }
@@ -93,4 +99,3 @@ int sbp_run(void)
 {
   return pk_loop_run_simple(ctx.loop);
 }
-

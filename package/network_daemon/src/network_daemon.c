@@ -25,8 +25,8 @@
 
 #define PROGRAM_NAME "network_daemon"
 
-#define SBP_SUB_ENDPOINT    "ipc:///var/run/sockets/internal.pub"  /* SBP Internal Out */
-#define SBP_PUB_ENDPOINT    "ipc:///var/run/sockets/internal.sub"  /* SBP Internal In */
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP Internal Out */
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP Internal In */
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE (255u)
 #define SBP_MAX_NETWORK_INTERFACES (10u)
@@ -44,9 +44,7 @@ static void usage(char *command)
 
 static int parse_options(int argc, char *argv[])
 {
-  enum {
-    OPT_ID_INTERFACE = 1
-  };
+  enum { OPT_ID_INTERFACE = 1 };
 
   const struct option long_opts[] = {
     {"interface", required_argument, 0, OPT_ID_INTERFACE},
@@ -56,16 +54,14 @@ static int parse_options(int argc, char *argv[])
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
-      case OPT_ID_INTERFACE: {
-        interface = (u8*)optarg;
-      }
-      break;
+    case OPT_ID_INTERFACE: {
+      interface = (u8 *)optarg;
+    } break;
 
-      default: {
-        puts("Invalid option");
-        return -1;
-      }
-      break;
+    default: {
+      puts("Invalid option");
+      return -1;
+    } break;
     }
   }
 
@@ -90,14 +86,14 @@ static void send_network_usage_update(sbp_pubsub_ctx_t *pubsub_ctx)
   if (total_interfaces > 0) {
     msg_network_bandwidth_usage_t *bandwidth_msg = (msg_network_bandwidth_usage_t *)usage_entries;
     size_t message_length = sizeof(network_usage_t) * total_interfaces;
-    if (message_length > SBP_FRAMING_MAX_PAYLOAD_SIZE ) {
+    if (message_length > SBP_FRAMING_MAX_PAYLOAD_SIZE) {
       piksi_log(LOG_ERR, "Network usage structs surpassing SBP frame size");
       return;
     } else {
       sbp_tx_send(sbp_pubsub_tx_ctx_get(pubsub_ctx),
-                      SBP_MSG_NETWORK_BANDWIDTH_USAGE,
-                      (u8)(0xFF & message_length),
-                      (u8*)bandwidth_msg);
+                  SBP_MSG_NETWORK_BANDWIDTH_USAGE,
+                  (u8)(0xFF & message_length),
+                  (u8 *)bandwidth_msg);
     }
   }
 }
@@ -125,9 +121,7 @@ static void signal_handler(pk_loop_t *pk_loop, void *handle, void *context)
   pk_loop_stop(pk_loop);
 }
 
-static int cleanup(pk_loop_t **pk_loop_loc,
-                   sbp_pubsub_ctx_t **pubsub_ctx_loc,
-                   int status);
+static int cleanup(pk_loop_t **pk_loop_loc, sbp_pubsub_ctx_t **pubsub_ctx_loc, int status);
 
 int main(int argc, char *argv[])
 {
@@ -170,9 +164,8 @@ int main(int argc, char *argv[])
   return cleanup(&loop, &ctx, EXIT_SUCCESS);
 }
 
-static int cleanup(pk_loop_t **pk_loop_loc,
-                   sbp_pubsub_ctx_t **pubsub_ctx_loc,
-                   int status) {
+static int cleanup(pk_loop_t **pk_loop_loc, sbp_pubsub_ctx_t **pubsub_ctx_loc, int status)
+{
   pk_loop_destroy(pk_loop_loc);
   sbp_pubsub_destroy(pubsub_ctx_loc);
   logging_deinit();

@@ -28,7 +28,7 @@
 #include "path_validator.h"
 #include "fio_debug.h"
 
-static bool validate_path(const char* basedir_path, const char* path);
+static bool validate_path(const char *basedir_path, const char *path);
 
 typedef struct path_node {
   char path[PATH_MAX];
@@ -37,8 +37,7 @@ typedef struct path_node {
 
 typedef LIST_HEAD(path_nodes_head, path_node) path_nodes_head_t;
 
-struct path_validator_s
-{
+struct path_validator_s {
   char *base_paths;
   size_t base_paths_size;
   path_nodes_head_t path_list;
@@ -54,8 +53,7 @@ path_validator_t *path_validator_create(path_validator_cfg_t *cfg)
   ctx->base_paths = malloc(print_buf_size);
   ctx->base_paths_size = print_buf_size;
 
-  if (ctx == NULL)
-    return NULL;
+  if (ctx == NULL) return NULL;
 
   LIST_INIT(&(ctx->path_list));
   ctx->allowed_count = 0;
@@ -65,8 +63,7 @@ path_validator_t *path_validator_create(path_validator_cfg_t *cfg)
 
 void path_validator_destroy(path_validator_t **pctx)
 {
-  if (pctx == NULL || *pctx == NULL)
-    return;
+  if (pctx == NULL || *pctx == NULL) return;
 
   path_node_t *node;
 
@@ -82,21 +79,21 @@ void path_validator_destroy(path_validator_t **pctx)
   *pctx = NULL;
 }
 
-bool path_validator_check(path_validator_t *ctx, const char* path)
+bool path_validator_check(path_validator_t *ctx, const char *path)
 {
   path_node_t *node;
 
-  LIST_FOREACH(node, &ctx->path_list, entries) {
-    if(validate_path(node->path, path))
-      return true;
+  LIST_FOREACH(node, &ctx->path_list, entries)
+  {
+    if (validate_path(node->path, path)) return true;
   }
 
   return false;
 }
 
-bool path_validator_allow_path(path_validator_t *ctx, const char* path)
+bool path_validator_allow_path(path_validator_t *ctx, const char *path)
 {
-  assert( path != NULL );
+  assert(path != NULL);
 
   if (strlen(path) == 0) {
 
@@ -108,8 +105,7 @@ bool path_validator_allow_path(path_validator_t *ctx, const char* path)
   node->path[0] = '\0';
 
   int count = snprintf(node->path, sizeof(node->path), "%s", path);
-  if (count < 0 || count >= (int)sizeof(node->path))
-    return false;
+  if (count < 0 || count >= (int)sizeof(node->path)) return false;
 
   LIST_INSERT_HEAD(&ctx->path_list, node, entries);
   ctx->allowed_count++;
@@ -122,7 +118,7 @@ size_t path_validator_allowed_count(path_validator_t *ctx)
   return ctx->allowed_count;
 }
 
-const char* path_validator_base_paths(path_validator_t *ctx)
+const char *path_validator_base_paths(path_validator_t *ctx)
 {
   path_node_t *node = NULL;
   size_t base_paths_remaining = ctx->base_paths_size;
@@ -135,19 +131,19 @@ const char* path_validator_base_paths(path_validator_t *ctx)
 
   // Reserve space so that (when needed) we can insert the elided indicator
   base_paths_remaining -= elided_bytes;
-  assert( base_paths_remaining > 0 );
+  assert(base_paths_remaining > 0);
 
-  LIST_FOREACH(node, &ctx->path_list, entries) {
+  LIST_FOREACH(node, &ctx->path_list, entries)
+  {
 
-    if (base_paths_remaining == 0)
-      break;
+    if (base_paths_remaining == 0) break;
 
     FIO_LOG_DEBUG("node->path: %s", node->path);
 
     int count = snprintf(base_paths, base_paths_remaining, "%s,", node->path);
     if (count < 0 || count >= (int)base_paths_remaining) {
       count = snprintf(base_paths, elided_bytes, "%s", elided_indicator);
-      assert( count == (int)strlen(elided_indicator) );
+      assert(count == (int)strlen(elided_indicator));
       break;
     }
 
@@ -161,14 +157,13 @@ const char* path_validator_base_paths(path_validator_t *ctx)
   return ctx->base_paths;
 }
 
-#define CHECK_PATH_BUFFER(TheCount, TheBuf) \
-  if (TheCount >= (int)sizeof(TheBuf)) { \
-    piksi_log(LOG_ERR, "%s path buffer overflow (%s:%d)", \
-              __FUNCTION__, __FILE__, __LINE__); \
-    return false; \
+#define CHECK_PATH_BUFFER(TheCount, TheBuf)                                                  \
+  if (TheCount >= (int)sizeof(TheBuf)) {                                                     \
+    piksi_log(LOG_ERR, "%s path buffer overflow (%s:%d)", __FUNCTION__, __FILE__, __LINE__); \
+    return false;                                                                            \
   }
 
-static bool validate_path(const char* basedir_path, const char* path)
+static bool validate_path(const char *basedir_path, const char *path)
 {
   FIO_LOG_DEBUG("Checking path: %s against base dir: %s", path, basedir_path);
 
@@ -177,8 +172,7 @@ static bool validate_path(const char* basedir_path, const char* path)
 
   CHECK_PATH_BUFFER(count, basedir_buf);
 
-  if (basedir_buf[strlen(basedir_buf) - 1] == '/')
-    basedir_buf[strlen(basedir_buf) - 1] = '\0';
+  if (basedir_buf[strlen(basedir_buf) - 1] == '/') basedir_buf[strlen(basedir_buf) - 1] = '\0';
 
   char path_buf[PATH_MAX] = {0};
 
@@ -198,7 +192,7 @@ static bool validate_path(const char* basedir_path, const char* path)
   // Always null terminate so we know if realpath filled in the buffer
   realpath_buf[0] = '\0';
 
-  char* resolved = realpath(path_buf, realpath_buf);
+  char *resolved = realpath(path_buf, realpath_buf);
   int error = errno;
 
   FIO_LOG_DEBUG("Resolved path: %s", resolved);
@@ -216,7 +210,7 @@ static bool validate_path(const char* basedir_path, const char* path)
 
     // If the errno was "file not found", the prefix matches, and the parent
     //   directory exists, then we allow this path.
-    char* parent_dir = dirname(dirname_buf);
+    char *parent_dir = dirname(dirname_buf);
 
     FIO_LOG_DEBUG("Parent dir: %s", dirname_buf);
     return stat(parent_dir, &s) == 0;

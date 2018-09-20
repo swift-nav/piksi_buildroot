@@ -14,8 +14,7 @@
 
 #define CONNECT_RETRY_TIME_s 10
 
-typedef enum
-{
+typedef enum {
   SUCCESS,
   PARSE_FAILURE,
   RESOLVE_FAILURE,
@@ -51,9 +50,9 @@ static process_addr_t process_addr(const char *addr, struct sockaddr *s_addr, so
   *s_addr_len = resolutions->ai_addrlen;
 
   if (resolutions->ai_family == AF_INET) {
-    ((struct sockaddr_in*)s_addr)->sin_port = htons(port);
+    ((struct sockaddr_in *)s_addr)->sin_port = htons(port);
   } else if (resolutions->ai_family == AF_INET6) {
-    ((struct sockaddr_in6*)s_addr)->sin6_port = htons(port);
+    ((struct sockaddr_in6 *)s_addr)->sin6_port = htons(port);
   } else {
     syslog(LOG_ERR, "unknown address family returned from name resolution");
     return OTHER_ERROR;
@@ -129,7 +128,7 @@ int tcp_connect_loop(const char *addr)
 
   while (1) {
 
-    process_addr_t res = process_addr(addr, (struct sockaddr *) &s_addr, &s_addr_len);
+    process_addr_t res = process_addr(addr, (struct sockaddr *)&s_addr, &s_addr_len);
 
     if (res == RESOLVE_FAILURE) {
       sleep(CONNECT_RETRY_TIME_s);
@@ -138,7 +137,7 @@ int tcp_connect_loop(const char *addr)
       return 1;
     }
 
-    int fd = socket_create((struct sockaddr *) &s_addr, s_addr_len);
+    int fd = socket_create((struct sockaddr *)&s_addr, s_addr_len);
     if (fd < 0) {
       debug_printf("error connecting TCP socket\n");
       sleep(CONNECT_RETRY_TIME_s);

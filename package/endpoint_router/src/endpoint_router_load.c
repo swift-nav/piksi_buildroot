@@ -18,9 +18,8 @@
 
 #include "endpoint_router_load.h"
 
-#define PROCESS_FN(name) int process_##name(yaml_event_t *event,              \
-                                            yaml_parser_t *parser,            \
-                                            void *context)
+#define PROCESS_FN(name) \
+  int process_##name(yaml_event_t *event, yaml_parser_t *parser, void *context)
 
 typedef struct {
   yaml_event_type_t event_type;
@@ -46,66 +45,66 @@ static PROCESS_FN(prefix);
 static PROCESS_FN(prefix_element);
 
 static expected_event_t router_events[] = {
-  { YAML_STREAM_START_EVENT, NULL, NULL, false },
-  { YAML_DOCUMENT_START_EVENT, NULL, NULL, false },
-  { YAML_MAPPING_START_EVENT, NULL, NULL, false },
-  { YAML_SCALAR_EVENT, "name", process_router_name, true },
-  { YAML_SCALAR_EVENT, "ports", process_ports, true },
-  { YAML_MAPPING_END_EVENT, NULL, NULL, false },
-  { YAML_DOCUMENT_END_EVENT, NULL, NULL, false },
-  { YAML_STREAM_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false },
+  {YAML_STREAM_START_EVENT, NULL, NULL, false},
+  {YAML_DOCUMENT_START_EVENT, NULL, NULL, false},
+  {YAML_MAPPING_START_EVENT, NULL, NULL, false},
+  {YAML_SCALAR_EVENT, "name", process_router_name, true},
+  {YAML_SCALAR_EVENT, "ports", process_ports, true},
+  {YAML_MAPPING_END_EVENT, NULL, NULL, false},
+  {YAML_DOCUMENT_END_EVENT, NULL, NULL, false},
+  {YAML_STREAM_END_EVENT, NULL, NULL, false},
+  {YAML_NO_EVENT, NULL, NULL, false},
 };
 
 static expected_event_t ports_events[] = {
-  { YAML_SEQUENCE_START_EVENT, NULL, NULL, false },
-  { YAML_MAPPING_START_EVENT, NULL, process_port, true },
-  { YAML_SEQUENCE_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false },
+  {YAML_SEQUENCE_START_EVENT, NULL, NULL, false},
+  {YAML_MAPPING_START_EVENT, NULL, process_port, true},
+  {YAML_SEQUENCE_END_EVENT, NULL, NULL, false},
+  {YAML_NO_EVENT, NULL, NULL, false},
 };
 
 static expected_event_t port_events[] = {
-  { YAML_SCALAR_EVENT, "name", process_port_name, true },
-  { YAML_SCALAR_EVENT, "pub_addr", process_pub_addr, true },
-  { YAML_SCALAR_EVENT, "sub_addr", process_sub_addr, true },
-  { YAML_SCALAR_EVENT, "forwarding_rules", process_forwarding_rules, true },
-  { YAML_MAPPING_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false },
+  {YAML_SCALAR_EVENT, "name", process_port_name, true},
+  {YAML_SCALAR_EVENT, "pub_addr", process_pub_addr, true},
+  {YAML_SCALAR_EVENT, "sub_addr", process_sub_addr, true},
+  {YAML_SCALAR_EVENT, "forwarding_rules", process_forwarding_rules, true},
+  {YAML_MAPPING_END_EVENT, NULL, NULL, false},
+  {YAML_NO_EVENT, NULL, NULL, false},
 };
 
 static expected_event_t forwarding_rules_events[] = {
-  { YAML_SEQUENCE_START_EVENT, NULL, NULL, false },
-  { YAML_MAPPING_START_EVENT, NULL, process_forwarding_rule, true },
-  { YAML_SEQUENCE_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false },
+  {YAML_SEQUENCE_START_EVENT, NULL, NULL, false},
+  {YAML_MAPPING_START_EVENT, NULL, process_forwarding_rule, true},
+  {YAML_SEQUENCE_END_EVENT, NULL, NULL, false},
+  {YAML_NO_EVENT, NULL, NULL, false},
 };
 
 static expected_event_t forwarding_rule_events[] = {
-  { YAML_SCALAR_EVENT, "dst_port", process_dst_port, true },
-  { YAML_SCALAR_EVENT, "filters", process_filters, true },
-  { YAML_MAPPING_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false },
+  {YAML_SCALAR_EVENT, "dst_port", process_dst_port, true},
+  {YAML_SCALAR_EVENT, "filters", process_filters, true},
+  {YAML_MAPPING_END_EVENT, NULL, NULL, false},
+  {YAML_NO_EVENT, NULL, NULL, false},
 };
 
 static expected_event_t filters_events[] = {
-  { YAML_SEQUENCE_START_EVENT, NULL, NULL, false },
-  { YAML_MAPPING_START_EVENT, NULL, process_filter, true },
-  { YAML_SEQUENCE_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false },
+  {YAML_SEQUENCE_START_EVENT, NULL, NULL, false},
+  {YAML_MAPPING_START_EVENT, NULL, process_filter, true},
+  {YAML_SEQUENCE_END_EVENT, NULL, NULL, false},
+  {YAML_NO_EVENT, NULL, NULL, false},
 };
 
 static expected_event_t filter_events[] = {
-  { YAML_SCALAR_EVENT, "action", process_action, true },
-  { YAML_SCALAR_EVENT, "prefix", process_prefix, true },
-  { YAML_MAPPING_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false },
+  {YAML_SCALAR_EVENT, "action", process_action, true},
+  {YAML_SCALAR_EVENT, "prefix", process_prefix, true},
+  {YAML_MAPPING_END_EVENT, NULL, NULL, false},
+  {YAML_NO_EVENT, NULL, NULL, false},
 };
 
 static expected_event_t prefix_events[] = {
-  { YAML_SEQUENCE_START_EVENT, NULL, NULL, false },
-  { YAML_SCALAR_EVENT, NULL, process_prefix_element, true },
-  { YAML_SEQUENCE_END_EVENT, NULL, NULL, false },
-  { YAML_NO_EVENT, NULL, NULL, false },
+  {YAML_SEQUENCE_START_EVENT, NULL, NULL, false},
+  {YAML_SCALAR_EVENT, NULL, process_prefix_element, true},
+  {YAML_SEQUENCE_END_EVENT, NULL, NULL, false},
+  {YAML_NO_EVENT, NULL, NULL, false},
 };
 
 static int event_scalar_value_get(yaml_parser_t *parser, char **str)
@@ -126,17 +125,14 @@ static int event_scalar_value_get(yaml_parser_t *parser, char **str)
   return ret;
 }
 
-static int expected_event_match(const yaml_event_t *event,
-                                const expected_event_t *expected_event)
+static int expected_event_match(const yaml_event_t *event, const expected_event_t *expected_event)
 {
   if (event->type != expected_event->event_type) {
     return -1;
   }
 
-  if ((expected_event->event_type == YAML_SCALAR_EVENT) &&
-      (expected_event->scalar_value != NULL)) {
-    if (strcasecmp((char *)event->data.scalar.value,
-                   expected_event->scalar_value) != 0) {
+  if ((expected_event->event_type == YAML_SCALAR_EVENT) && (expected_event->scalar_value != NULL)) {
+    if (strcasecmp((char *)event->data.scalar.value, expected_event->scalar_value) != 0) {
       return -1;
     }
   }
@@ -201,7 +197,7 @@ error:
   return -1;
 }
 
-static port_t * current_port_get(router_t *router)
+static port_t *current_port_get(router_t *router)
 {
   port_t *port = router->ports_list;
   if (port == NULL) {
@@ -215,7 +211,7 @@ static port_t * current_port_get(router_t *router)
   return port;
 }
 
-static forwarding_rule_t * current_forwarding_rule_get(router_t *router)
+static forwarding_rule_t *current_forwarding_rule_get(router_t *router)
 {
   port_t *port = current_port_get(router);
   if (port == NULL) {
@@ -234,7 +230,7 @@ static forwarding_rule_t * current_forwarding_rule_get(router_t *router)
   return forwarding_rule;
 }
 
-static filter_t * current_filter_get(router_t *router)
+static filter_t *current_filter_get(router_t *router)
 {
   forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
   if (forwarding_rule == NULL) {
@@ -253,8 +249,7 @@ static filter_t * current_filter_get(router_t *router)
   return filter;
 }
 
-static int event_port_string(yaml_parser_t *parser, void *context,
-                             size_t offset)
+static int event_port_string(yaml_parser_t *parser, void *context, size_t offset)
 {
   router_t *router = (router_t *)context;
 
@@ -314,7 +309,7 @@ static PROCESS_FN(port)
     return -1;
   }
 
-  *port = (port_t) {
+  *port = (port_t){
     .name = "",
     .pub_addr = "",
     .sub_addr = "",
@@ -367,13 +362,12 @@ static PROCESS_FN(forwarding_rule)
     p_next = &(*p_next)->next;
   }
 
-  forwarding_rule_t *forwarding_rule = (forwarding_rule_t *)
-                                           malloc(sizeof(*forwarding_rule));
+  forwarding_rule_t *forwarding_rule = (forwarding_rule_t *)malloc(sizeof(*forwarding_rule));
   if (forwarding_rule == NULL) {
     return -1;
   }
 
-  *forwarding_rule = (forwarding_rule_t) {
+  *forwarding_rule = (forwarding_rule_t){
     .dst_port_name = "",
     .dst_port = NULL,
     .filters_list = NULL,
@@ -429,7 +423,7 @@ static PROCESS_FN(filter)
     return -1;
   }
 
-  *filter = (filter_t) {
+  *filter = (filter_t){
     .action = FILTER_ACTION_REJECT,
     .data = NULL,
     .len = 0,
@@ -518,8 +512,7 @@ static int dst_ports_set(router_t *router)
       /* Search for matching destination port name */
       bool found = false;
       port_t *dst_port;
-      for (dst_port = router->ports_list; dst_port != NULL;
-           dst_port = dst_port->next) {
+      for (dst_port = router->ports_list; dst_port != NULL; dst_port = dst_port->next) {
 
         if (strcasecmp(forwarding_rule->dst_port_name, dst_port->name) == 0) {
           forwarding_rule->dst_port = dst_port;
@@ -538,7 +531,7 @@ static int dst_ports_set(router_t *router)
   return 0;
 }
 
-router_t * router_load(const char *filename)
+router_t *router_load(const char *filename)
 {
   FILE *f = NULL;
   router_t *router = NULL;
@@ -561,7 +554,7 @@ router_t * router_load(const char *filename)
     goto error;
   }
 
-  *router = (router_t) {
+  *router = (router_t){
     .name = "",
     .ports_list = NULL,
   };

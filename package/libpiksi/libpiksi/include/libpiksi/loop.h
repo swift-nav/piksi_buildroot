@@ -50,7 +50,7 @@ typedef void (*pk_loop_cb)(pk_loop_t *loop, void *handle, void *context);
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-pk_loop_t * pk_loop_create(void);
+pk_loop_t *pk_loop_create(void);
 
 /**
  * @brief   Destroy a Piksi loop context
@@ -85,10 +85,10 @@ int pk_loop_get_signal_from_handle(void *handle);
  *
  * @return                  Signal handle if added successfully, otherwise NULL
  */
-void * pk_loop_signal_handler_add(pk_loop_t *pk_loop,
-                                  int signal,
-                                  pk_loop_cb callback,
-                                  void *context);
+void *pk_loop_signal_handler_add(pk_loop_t *pk_loop,
+                                 int signal,
+                                 pk_loop_cb callback,
+                                 void *context);
 
 /**
  * @brief   Add a timer
@@ -101,10 +101,7 @@ void * pk_loop_signal_handler_add(pk_loop_t *pk_loop,
  *
  * @return                  Timer handle if added successfully, otherwise NULL
  */
-void * pk_loop_timer_add(pk_loop_t *pk_loop,
-                         u64 period_ms,
-                         pk_loop_cb callback,
-                         void *context);
+void *pk_loop_timer_add(pk_loop_t *pk_loop, u64 period_ms, pk_loop_cb callback, void *context);
 
 /**
  * @brief   Reset a timer
@@ -129,10 +126,10 @@ int pk_loop_timer_reset(void *handle);
  *
  * @return                  Reader handle if added successfully, otherwise NULL
  */
-void * pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
-                                   pk_endpoint_t *pk_ept,
-                                   pk_loop_cb callback,
-                                   void *context);
+void *pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
+                                  pk_endpoint_t *pk_ept,
+                                  pk_loop_cb callback,
+                                  void *context);
 
 /**
  * @brief   Add a poll handle for a given file descriptor
@@ -145,10 +142,7 @@ void * pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
  *
  * @return                  Poll handle if added successfully, otherwise NULL
  */
-void * pk_loop_poll_add(pk_loop_t *pk_loop,
-                        int fd,
-                        pk_loop_cb callback,
-                        void *context);
+void *pk_loop_poll_add(pk_loop_t *pk_loop, int fd, pk_loop_cb callback, void *context);
 
 /**
  * @brief   Remove a callback handle

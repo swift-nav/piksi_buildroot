@@ -35,15 +35,17 @@ typedef struct {
 } port_whitelist_config_t;
 
 static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
-  { "whitespace", " \t\n\r\v" },
-  { "valid", "72,74" },
-  { "empty", "" },
+  {"whitespace", " \t\n\r\v"},
+  {"valid", "72,74"},
+  {"empty", ""},
 };
 
 // The fixture for testing class RotatingLogger.
-class PortsDaemonTests : public ::testing::Test { };
+class PortsDaemonTests : public ::testing::Test {
+};
 
-TEST_F(PortsDaemonTests, Whitelist_whitespace) {
+TEST_F(PortsDaemonTests, Whitelist_whitespace)
+{
 
   system("rm -f /etc/filter_out_config/whitespace");
 
@@ -55,7 +57,8 @@ TEST_F(PortsDaemonTests, Whitelist_whitespace) {
   ASSERT_STREQ("", str.c_str());
 }
 
-TEST_F(PortsDaemonTests, Whitelist_valid) {
+TEST_F(PortsDaemonTests, Whitelist_valid)
+{
 
   system("rm -f /etc/filter_out_config/valid");
 
@@ -67,7 +70,8 @@ TEST_F(PortsDaemonTests, Whitelist_valid) {
   ASSERT_STREQ("48 1\n4a 1\n", str.c_str());
 }
 
-TEST_F(PortsDaemonTests, Whitelist_empty) {
+TEST_F(PortsDaemonTests, Whitelist_empty)
+{
 
   system("rm -f /etc/filter_out_config/valid");
   system("rm -f /etc/filter_out_config/empty");
@@ -81,7 +85,8 @@ TEST_F(PortsDaemonTests, Whitelist_empty) {
   ASSERT_STREQ("", str.c_str());
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
   system("mkdir -p /etc/filter_out_config");
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

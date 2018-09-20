@@ -21,7 +21,8 @@ const char *setting_name = "NMEA OUT";
 
 int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
 {
-  return snprintf(buf, buf_size,
+  return snprintf(buf,
+                  buf_size,
                   "-p 'ipc:///var/run/sockets/nmea_external.sub' "
                   "-s 'ipc:///var/run/sockets/nmea_external.pub'",
                   port_name);

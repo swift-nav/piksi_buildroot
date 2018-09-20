@@ -102,7 +102,7 @@ static int parse_options(int argc, char *argv[])
   };
   // clang-format on
 
-  char* endptr;
+  char *endptr;
   int intarg;
 
   int opt;
@@ -110,66 +110,55 @@ static int parse_options(int argc, char *argv[])
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
 
-      case OPT_ID_MODE_NTRIP: {
-        op_mode = OP_MODE_NTRIP_CLIENT;
-      }
-      break;
+    case OPT_ID_MODE_NTRIP: {
+      op_mode = OP_MODE_NTRIP_CLIENT;
+    } break;
 
-      case OPT_ID_MODE_SETTINGS: {
-        op_mode = OP_MODE_SETTINGS_DAEMON;
-      }
-      break;
+    case OPT_ID_MODE_SETTINGS: {
+      op_mode = OP_MODE_SETTINGS_DAEMON;
+    } break;
 
-      case OPT_ID_MODE_RECONNECT: {
-        op_mode = OP_MODE_REQ_RECONNECT;
-      }
-      break;
+    case OPT_ID_MODE_RECONNECT: {
+      op_mode = OP_MODE_REQ_RECONNECT;
+    } break;
 
-      case OPT_ID_FILE: {
-        fifo_file_path = optarg;
-      }
-      break;
+    case OPT_ID_FILE: {
+      fifo_file_path = optarg;
+    } break;
 
-      case OPT_ID_USERNAME: {
-        username = optarg;
-      }
-      break;
+    case OPT_ID_USERNAME: {
+      username = optarg;
+    } break;
 
-      case OPT_ID_PASSWORD: {
-        password = optarg;
-      }
-      break;
+    case OPT_ID_PASSWORD: {
+      password = optarg;
+    } break;
 
-      case OPT_ID_URL: {
-        url = optarg;
-      }
-      break;
+    case OPT_ID_URL: {
+      url = optarg;
+    } break;
 
-      case OPT_ID_DEBUG: {
-        debug = true;
-      }
-      break;
+    case OPT_ID_DEBUG: {
+      debug = true;
+    } break;
 
-      case OPT_ID_REV1GGA: {
-        rev1gga = *optarg == 'y';
-      }
-      break;
+    case OPT_ID_REV1GGA: {
+      rev1gga = *optarg == 'y';
+    } break;
 
-      case OPT_ID_INTERVAL: {
-          intarg = strtol(optarg, &endptr, 10);
-          if (!(*optarg != '\0' && *endptr == '\0')) {
-            printf("Invalid option\n");
-            return -1;
-          }
-          gga_xfer_secs = intarg;
-        }
-        break;
-
-      default: {
-        puts("Invalid option");
+    case OPT_ID_INTERVAL: {
+      intarg = strtol(optarg, &endptr, 10);
+      if (!(*optarg != '\0' && *endptr == '\0')) {
+        printf("Invalid option\n");
         return -1;
       }
-      break;
+      gga_xfer_secs = intarg;
+    } break;
+
+    default: {
+      puts("Invalid option");
+      return -1;
+    } break;
     }
   }
 
@@ -189,8 +178,7 @@ static int parse_options(int argc, char *argv[])
 static void network_terminate_handler(int signum, siginfo_t *info, void *ucontext)
 {
   (void)ucontext;
-  piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d",
-            __FUNCTION__, signum, info->si_pid);
+  piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d", __FUNCTION__, signum, info->si_pid);
   libnetwork_shutdown();
 }
 
@@ -200,7 +188,7 @@ static void cycle_connection(int signum)
   libnetwork_cycle_connection();
 }
 
-static bool configure_libnetwork(network_context_t* ctx, int fd)
+static bool configure_libnetwork(network_context_t *ctx, int fd)
 {
   network_status_t status = NETWORK_STATUS_SUCCESS;
 
@@ -212,14 +200,10 @@ static bool configure_libnetwork(network_context_t* ctx, int fd)
     if ((status = libnetwork_set_password(ctx, password)) != NETWORK_STATUS_SUCCESS)
       goto exit_error;
   }
-  if ((status = libnetwork_set_url(ctx, url)) != NETWORK_STATUS_SUCCESS)
-    goto exit_error;
-  if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS)
-    goto exit_error;
-  if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS)
-    goto exit_error;
-  if ((status = libnetwork_set_gga_upload_interval(ctx, gga_xfer_secs))
-      != NETWORK_STATUS_SUCCESS)
+  if ((status = libnetwork_set_url(ctx, url)) != NETWORK_STATUS_SUCCESS) goto exit_error;
+  if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS) goto exit_error;
+  if ((status = libnetwork_set_debug(ctx, debug)) != NETWORK_STATUS_SUCCESS) goto exit_error;
+  if ((status = libnetwork_set_gga_upload_interval(ctx, gga_xfer_secs)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
   if ((status = libnetwork_set_gga_upload_rev1(ctx, rev1gga)) != NETWORK_STATUS_SUCCESS)
     goto exit_error;
@@ -235,7 +219,7 @@ static int ntrip_client_loop(void)
 {
   piksi_log(LOG_INFO, "Starting NTRIP client connection...");
 
-  int print_gga_xfer_secs = (int) gga_xfer_secs;
+  int print_gga_xfer_secs = (int)gga_xfer_secs;
   piksi_log(LOG_INFO, "GGA upload interval: %d seconds", print_gga_xfer_secs);
 
   int fd = open(fifo_file_path, O_WRONLY);
@@ -244,9 +228,9 @@ static int ntrip_client_loop(void)
     return -1;
   }
 
-  network_context_t* network_context = libnetwork_create(NETWORK_TYPE_NTRIP_DOWNLOAD);
+  network_context_t *network_context = libnetwork_create(NETWORK_TYPE_NTRIP_DOWNLOAD);
 
-  if(!configure_libnetwork(network_context, fd)) {
+  if (!configure_libnetwork(network_context, fd)) {
     return -1;
   }
 
@@ -258,8 +242,7 @@ static int ntrip_client_loop(void)
   sigemptyset(&cycle_conn_sa.sa_mask);
   cycle_conn_sa.sa_flags = 0;
 
-  if ((sigaction(SIGUSR1, &cycle_conn_sa, NULL) != 0))
-  {
+  if ((sigaction(SIGUSR1, &cycle_conn_sa, NULL) != 0)) {
     piksi_log(LOG_ERR, "error setting up SIGUSR1 handler");
     return -1;
   }
@@ -293,7 +276,9 @@ static int ntrip_settings_loop(void)
                        ntrip_settings_init,
                        ntrip_reconnect,
                        settings_loop_terminate,
-                       settings_loop_sigchild) ? 0 : -1;
+                       settings_loop_sigchild)
+           ? 0
+           : -1;
 }
 
 int main(int argc, char *argv[])
@@ -307,27 +292,21 @@ int main(int argc, char *argv[])
 
   int ret = 0;
 
-  switch(op_mode) {
-  case OP_MODE_NTRIP_CLIENT:
-    ret = ntrip_client_loop();
-    break;
-  case OP_MODE_SETTINGS_DAEMON:
-    ret = ntrip_settings_loop();
-    break;
+  switch (op_mode) {
+  case OP_MODE_NTRIP_CLIENT: ret = ntrip_client_loop(); break;
+  case OP_MODE_SETTINGS_DAEMON: ret = ntrip_settings_loop(); break;
   case OP_MODE_REQ_RECONNECT:
     ret = settings_loop_send_command("NTRIP client",
                                      NTRIP_CONTROL_COMMAND_RECONNECT,
                                      "reconnect",
                                      NTRIP_CONTROL_SOCK);
     break;
-  default:
-    assert(false);
+  default: assert(false);
   }
 
   logging_deinit();
 
-  if (ret != 0)
-    exit(EXIT_FAILURE);
+  if (ret != 0) exit(EXIT_FAILURE);
 
   exit(EXIT_SUCCESS);
 }

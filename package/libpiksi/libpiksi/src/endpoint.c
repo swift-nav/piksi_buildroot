@@ -35,7 +35,7 @@ struct pk_endpoint_s {
 
 #define IPC_PREFIX "ipc://"
 
-pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
+pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
 {
   assert(endpoint != NULL);
 
@@ -49,67 +49,55 @@ pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   pk_ept->nn_sock = -1;
   pk_ept->eid = -1;
   bool do_bind = false;
-  switch (pk_ept->type)
-  {
-  case PK_ENDPOINT_PUB_SERVER:
-    do_bind = true;
-  case PK_ENDPOINT_PUB:
-  {
+  switch (pk_ept->type) {
+  case PK_ENDPOINT_PUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_PUB: {
     pk_ept->nn_sock = nn_socket(AF_SP, NN_PUB);
     if (pk_ept->nn_sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK PUB socket: %s",
-                         pk_endpoint_strerror());
+      piksi_log(LOG_ERR, "error creating PK PUB socket: %s", pk_endpoint_strerror());
       goto failure;
     }
   } break;
-  case PK_ENDPOINT_SUB_SERVER:
-    do_bind = true;
-  case PK_ENDPOINT_SUB:
-  {
+  case PK_ENDPOINT_SUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_SUB: {
     pk_ept->nn_sock = nn_socket(AF_SP, NN_SUB);
     if (pk_ept->nn_sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK SUB socket: %s",
-                         pk_endpoint_strerror());
+      piksi_log(LOG_ERR, "error creating PK SUB socket: %s", pk_endpoint_strerror());
       goto failure;
     }
     if (nn_setsockopt(pk_ept->nn_sock, NN_SUB, NN_SUB_SUBSCRIBE, "", 0) != 0) {
-      piksi_log(LOG_ERR, "error assigning subscribe setting: %s",
-                         pk_endpoint_strerror());
+      piksi_log(LOG_ERR, "error assigning subscribe setting: %s", pk_endpoint_strerror());
       goto failure;
     }
   } break;
-  case PK_ENDPOINT_REQ:
-  {
+  case PK_ENDPOINT_REQ: {
     pk_ept->nn_sock = nn_socket(AF_SP, NN_REQ);
     if (pk_ept->nn_sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK REQ socket: %s",
-                         pk_endpoint_strerror());
+      piksi_log(LOG_ERR, "error creating PK REQ socket: %s", pk_endpoint_strerror());
       goto failure;
     }
   } break;
-  case PK_ENDPOINT_REP:
-  {
+  case PK_ENDPOINT_REP: {
     do_bind = true;
     pk_ept->nn_sock = nn_socket(AF_SP, NN_REP);
     if (pk_ept->nn_sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK REP socket: %s",
-                         pk_endpoint_strerror());
+      piksi_log(LOG_ERR, "error creating PK REP socket: %s", pk_endpoint_strerror());
       goto failure;
     }
   } break;
-  default:
-  {
+  default: {
     piksi_log(LOG_ERR, "Unsupported endpoint type");
     goto failure;
   } break;
   } // end of switch
 
-  pk_ept->eid = do_bind ? nn_bind(pk_ept->nn_sock, endpoint)
-                        : nn_connect(pk_ept->nn_sock, endpoint);
+  pk_ept->eid =
+    do_bind ? nn_bind(pk_ept->nn_sock, endpoint) : nn_connect(pk_ept->nn_sock, endpoint);
   if (pk_ept->eid < 0) {
-    piksi_log(LOG_ERR, "Failed to %s socket: %s",
-                       do_bind ? "bind" : "connect",
-                       pk_endpoint_strerror());
+    piksi_log(LOG_ERR,
+              "Failed to %s socket: %s",
+              do_bind ? "bind" : "connect",
+              pk_endpoint_strerror());
     goto failure;
   }
 
@@ -193,7 +181,10 @@ int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
  * @retval 0                Receive operation was successful.
  * @retval -1               An error occurred.
  */
-static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept, void *buffer_loc, size_t *length_loc, bool nonblocking)
+static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept,
+                                      void *buffer_loc,
+                                      size_t *length_loc,
+                                      bool nonblocking)
 {
   assert(pk_ept != NULL);
   assert(pk_ept->type != PK_ENDPOINT_PUB || pk_ept->type != PK_ENDPOINT_PUB_SERVER);
@@ -220,7 +211,7 @@ static int pk_endpoint_receive_nn_msg(pk_endpoint_t *pk_ept, void *buffer_loc, s
     }
   }
 
-  *length_loc = (size_t) length;
+  *length_loc = (size_t)length;
   return 0;
 }
 
@@ -290,7 +281,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   }
 }
 
-const char * pk_endpoint_strerror(void)
+const char *pk_endpoint_strerror(void)
 {
   return nn_strerror(errno);
 }

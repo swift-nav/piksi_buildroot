@@ -37,9 +37,11 @@ static setting setting_empty_uart0 = {
 };
 // clang-format on
 
-class SbpSettingsDaemonTests : public ::testing::Test { };
+class SbpSettingsDaemonTests : public ::testing::Test {
+};
 
-TEST_F(SbpSettingsDaemonTests, empty_ini_field) {
+TEST_F(SbpSettingsDaemonTests, empty_ini_field)
+{
 
   system("rm -rf /persistent");
   system("mkdir /persistent");
@@ -52,11 +54,12 @@ TEST_F(SbpSettingsDaemonTests, empty_ini_field) {
 
   settings_register(&setting_empty_uart0);
 
-  ASSERT_TRUE( setting_empty_uart0.dirty );
-  ASSERT_STREQ( "", setting_empty_uart0.value );
+  ASSERT_TRUE(setting_empty_uart0.dirty);
+  ASSERT_STREQ("", setting_empty_uart0.value);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

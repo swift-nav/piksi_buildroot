@@ -33,22 +33,22 @@ struct interface_list_s {
   interface_t *tail;
 };
 
-const interface_t * interface_next(const interface_t *ifa)
+const interface_t *interface_next(const interface_t *ifa)
 {
   return ifa->next;
 }
 
-const interface_t * interface_prev(const interface_t *ifa)
+const interface_t *interface_prev(const interface_t *ifa)
 {
   return ifa->prev;
 }
 
-const char * interface_name(const interface_t *ifa)
+const char *interface_name(const interface_t *ifa)
 {
   return ifa->name;
 }
 
-const struct user_net_device_stats * interface_stats(const interface_t *ifa)
+const struct user_net_device_stats *interface_stats(const interface_t *ifa)
 {
   return &ifa->stats;
 }
@@ -59,7 +59,7 @@ static void interface_list_init(interface_list_t *ifa_list)
   ifa_list->tail = NULL;
 }
 
-interface_list_t * interface_list_create(void)
+interface_list_t *interface_list_create(void)
 {
   interface_list_t *ifa_list = NULL;
   ifa_list = (interface_list_t *)malloc(sizeof(interface_list_t));
@@ -85,16 +85,17 @@ void interface_list_destroy(interface_list_t **ifa_list_loc)
   *ifa_list_loc = NULL;
 }
 
-interface_t * interface_list_head(interface_list_t *ifa_list) {
+interface_t *interface_list_head(interface_list_t *ifa_list)
+{
   return ifa_list->head;
 }
 
-interface_t * interface_list_tail(interface_list_t *ifa_list) {
+interface_t *interface_list_tail(interface_list_t *ifa_list)
+{
   return ifa_list->tail;
 }
 
-static interface_t * interface_list_add(interface_list_t *ifa_list,
-                                        char *ifa_name)
+static interface_t *interface_list_add(interface_list_t *ifa_list, char *ifa_name)
 {
   interface_t *ifa;
   interface_t *new;
@@ -124,7 +125,7 @@ static interface_t * interface_list_add(interface_list_t *ifa_list,
   if (ifa == NULL) {
     if (ifa_list->head == NULL) {
       ifa_list->tail = new; // was empty list
-    } else { // old head linked to new
+    } else {                // old head linked to new
       new->next = ifa_list->head;
       ifa_list->head->prev = new;
     }
@@ -133,7 +134,7 @@ static interface_t * interface_list_add(interface_list_t *ifa_list,
     new->prev = ifa;
     if (ifa->next == NULL) {
       ifa_list->tail = new; // existing is tail
-    } else { // existing has next
+    } else {                // existing has next
       new->next = ifa->next;
       ifa->next->prev = new;
     }
@@ -199,8 +200,7 @@ static char *get_name(char name[IF_NAMESIZE], char *p)
   nameend = namestart = skip_whitespace(p);
 
   for (;;) {
-    if ((nameend - namestart) >= IF_NAMESIZE)
-      break; /* interface name too large - return "" */
+    if ((nameend - namestart) >= IF_NAMESIZE) break; /* interface name too large - return "" */
     if (*nameend == ':') {
       memcpy(name, namestart, nameend - namestart);
       name[nameend - namestart] = '\0';
@@ -267,8 +267,7 @@ static void get_dev_fields(char *bp, interface_t *ife, int procnetdev_vsn)
          &ife->stats.tx_fifo_errors,
          &ife->stats.collisions,
          &ife->stats.tx_carrier_errors,
-         &ife->stats.tx_compressed
-  );
+         &ife->stats.tx_compressed);
 
   if (procnetdev_vsn <= 1) {
     if (procnetdev_vsn == 0) {
@@ -283,10 +282,8 @@ static void get_dev_fields(char *bp, interface_t *ife, int procnetdev_vsn)
 
 static int procnetdev_version(char *buf)
 {
-  if (strstr(buf, "compressed"))
-    return 2;
-  if (strstr(buf, "bytes"))
-    return 1;
+  if (strstr(buf, "compressed")) return 2;
+  if (strstr(buf, "bytes")) return 1;
   return 0;
 }
 /* end of busybox util section */

@@ -28,11 +28,15 @@
 #define SKYLARK_REP_FIFO_NAME "/var/run/skylark/control/dl.resp"
 
 typedef struct {
-  const char* req_fifo_name;
-  const char* rep_fifo_name;
+  const char *req_fifo_name;
+  const char *rep_fifo_name;
 } control_pair_t;
 
-#define SKYLARK_CONTROL_PAIR (control_pair_t){ SKYLARK_REQ_FIFO_NAME, SKYLARK_REP_FIFO_NAME }
+#define SKYLARK_CONTROL_PAIR                     \
+  (control_pair_t)                               \
+  {                                              \
+    SKYLARK_REQ_FIFO_NAME, SKYLARK_REP_FIFO_NAME \
+  }
 
 #define CONTROL_COMMAND_STATUS "s"
 
@@ -71,7 +75,7 @@ typedef enum {
  *
  * @return                  The network_context_t that was created, NULL on error.
  */
-network_context_t* libnetwork_create(network_type_t type);
+network_context_t *libnetwork_create(network_type_t type);
 
 /**
  * @brief   Destroy a libnetwork context.
@@ -88,44 +92,45 @@ void libnetwork_destroy(network_context_t **ctx);
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_fd(network_context_t* context, int fd);
+network_status_t libnetwork_set_fd(network_context_t *context, int fd);
 
 /**
  * @brief Set the username for this context
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_username(network_context_t* context, const char* username);
+network_status_t libnetwork_set_username(network_context_t *context, const char *username);
 
 /**
  * @brief Set the password for this context
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_password(network_context_t* context, const char* password);
+network_status_t libnetwork_set_password(network_context_t *context, const char *password);
 
 /**
  * @brief Set the url for this context
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_url(network_context_t* context, const char* url);
+network_status_t libnetwork_set_url(network_context_t *context, const char *url);
 
 /**
  * @brief Set the debug flag for this context
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_debug(network_context_t* context, bool debug);
+network_status_t libnetwork_set_debug(network_context_t *context, bool debug);
 
 /**
- * @brief Set the NTRIP GGA upload frequency for this context, this is only valid for session created with type LIBNETWORK_NTRIP_DOWNLOAD
+ * @brief Set the NTRIP GGA upload frequency for this context, this is only valid for session
+ * created with type LIBNETWORK_NTRIP_DOWNLOAD
  *
  * @param[in] gga_interval   The GGA upload interval in seconds.
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_gga_upload_interval(network_context_t* context, int gga_interval);
+network_status_t libnetwork_set_gga_upload_interval(network_context_t *context, int gga_interval);
 
 /**
  * @brief Set the NTRIP GGA upload style to NTRIP 1.0
@@ -134,7 +139,7 @@ network_status_t libnetwork_set_gga_upload_interval(network_context_t* context, 
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_gga_upload_rev1(network_context_t* context, bool use_rev1);
+network_status_t libnetwork_set_gga_upload_rev1(network_context_t *context, bool use_rev1);
 
 /**
  * @brief   Download from ntrip.

@@ -41,13 +41,12 @@
 #define RGB_TO_RGB_LED_COMPONENT(_r, _g, _b, _c) \
   (LED_MAX * sqrtf((float)(_c) / ((_r) + (_g) + (_b))))
 
-#define RGB_TO_RGB_LED(_r, _g, _b)                 \
-  (((_r) == 0) && ((_g) == 0) && ((_b) == 0))      \
-      ? (rgb_led_state_t){.r = 0, .g = 0, .b = 0}  \
-      : (rgb_led_state_t) {                        \
-    .r = RGB_TO_RGB_LED_COMPONENT(_r, _g, _b, _r), \
-    .g = RGB_TO_RGB_LED_COMPONENT(_r, _g, _b, _g), \
-    .b = RGB_TO_RGB_LED_COMPONENT(_r, _g, _b, _b)  \
+#define RGB_TO_RGB_LED(_r, _g, _b)                                                                \
+  (((_r) == 0) && ((_g) == 0) && ((_b) == 0)) ? (rgb_led_state_t){.r = 0, .g = 0, .b = 0}         \
+                                              : (rgb_led_state_t)                                 \
+  {                                                                                               \
+    .r = RGB_TO_RGB_LED_COMPONENT(_r, _g, _b, _r), .g = RGB_TO_RGB_LED_COMPONENT(_r, _g, _b, _g), \
+    .b = RGB_TO_RGB_LED_COMPONENT(_r, _g, _b, _b)                                                 \
   }
 
 #define LED_COLOR_OFF RGB_TO_RGB_LED(0, 0, 0)
@@ -101,11 +100,12 @@ typedef struct {
 static int network_available_fd;
 static const char *network_available;
 
-static u32 elapsed_ms(const struct timespec *then) {
+static u32 elapsed_ms(const struct timespec *then)
+{
   struct timespec now;
   clock_gettime(CLOCK_MONOTONIC, &now);
-  return (now.tv_sec * 1000 + now.tv_nsec / 1000000) -
-         (then->tv_sec * 1000 + then->tv_nsec / 1000000);
+  return (now.tv_sec * 1000 + now.tv_nsec / 1000000)
+         - (then->tv_sec * 1000 + then->tv_nsec / 1000000);
 }
 
 /** Update LED blink state.
@@ -114,25 +114,16 @@ static u32 elapsed_ms(const struct timespec *then) {
  *
  * \return bool, true for ON, false for OFF.
  */
-static bool blinker_update(blinker_state_t *b) {
+static bool blinker_update(blinker_state_t *b)
+{
   u16 period_ms;
 
   switch (b->mode) {
-    case LED_OFF:
-      return false;
-      break;
-    case LED_ON:
-      return true;
-      break;
-    case LED_BLINK_SLOW:
-      period_ms = SLOW_BLINK_PERIOD_MS;
-      break;
-    case LED_BLINK_FAST:
-      period_ms = FAST_BLINK_PERIOD_MS;
-      break;
-    default:
-      assert(!"Unknown mode.");
-      break;
+  case LED_OFF: return false; break;
+  case LED_ON: return true; break;
+  case LED_BLINK_SLOW: period_ms = SLOW_BLINK_PERIOD_MS; break;
+  case LED_BLINK_FAST: period_ms = FAST_BLINK_PERIOD_MS; break;
+  default: assert(!"Unknown mode."); break;
   }
 
   u32 elapsed = elapsed_ms(&b->state_change);
@@ -151,8 +142,7 @@ static bool blinker_update(blinker_state_t *b) {
  * \param[out] dev_state: Device state reference
  * \param[in] state: Firmware solution state
  */
-static void update_pos_state_invalid_spp(device_state_t *dev_state,
-                                         struct soln_state *state)
+static void update_pos_state_invalid_spp(device_state_t *dev_state, struct soln_state *state)
 {
   if (state->sats >= 4) {
     dev_state->pos_state = POS_TRK_AT_LEAST_FOUR;
@@ -168,8 +158,7 @@ static void update_pos_state_invalid_spp(device_state_t *dev_state,
  * \param[out] dev_state: Device state reference
  * \param[in] state: Firmware solution state
  */
-static void update_pos_state(device_state_t *dev_state,
-                             struct soln_state *state)
+static void update_pos_state(device_state_t *dev_state, struct soln_state *state)
 {
   u32 elapsed = elapsed_ms(&state->spp.systime);
 
@@ -177,10 +166,9 @@ static void update_pos_state(device_state_t *dev_state,
     update_pos_state_invalid_spp(dev_state, state);
   } else {
     switch (state->spp.mode) {
-    case SPP_MODE_DEAD_RECK:
-    {
+    case SPP_MODE_DEAD_RECK: {
       if (state->spp.ins_mode == INS_MODE_NONE) {
-        //piksi_log(LOG_ERR,
+        // piksi_log(LOG_ERR,
         //          "POS LED State Error: spp dead reckoning without ins used.");
       }
       dev_state->pos_state = POS_INS_DEAD_RECK;
@@ -189,21 +177,18 @@ static void update_pos_state(device_state_t *dev_state,
     case SPP_MODE_FLOAT:
     case SPP_MODE_DGNSS:
     case SPP_MODE_SBAS:
-    case SPP_MODE_SPP:
-    {
+    case SPP_MODE_SPP: {
       if (state->spp.ins_mode == INS_MODE_INS_USED) {
         dev_state->pos_state = POS_INS_GNSS;
       } else {
         dev_state->pos_state = POS_GNSS;
       }
     } break;
-    case SPP_MODE_INVALID:
-    {
+    case SPP_MODE_INVALID: {
       update_pos_state_invalid_spp(dev_state, state);
     } break;
-    default:
-    {
-      //piksi_log(LOG_ERR,
+    default: {
+      // piksi_log(LOG_ERR,
       //          "POS LED State Error: Unknown mode %d.", state->spp.mode);
       dev_state->pos_state = POS_NO_SIGNAL;
     } break;
@@ -215,7 +200,8 @@ static void update_pos_state(device_state_t *dev_state,
  *  Will set dev_state with the current state for the LINK LED
  * \param[out] dev_state: Device state reference
  */
-static void update_link_state(device_state_t *dev_state) {
+static void update_link_state(device_state_t *dev_state)
+{
   if (network_available && (*network_available == '1')) {
     dev_state->link_state = LINK_NETWORK_AVAILABLE;
   } else {
@@ -228,7 +214,8 @@ static void update_link_state(device_state_t *dev_state) {
  * \param[out] dev_state: Device state reference
  * \param[in] base_obs_msg_counter: current count of base observations received
  */
-static void update_obs_state(device_state_t *dev_state, u8 base_obs_msg_counter) {
+static void update_obs_state(device_state_t *dev_state, u8 base_obs_msg_counter)
+{
   static u8 last_base_obs_msg_counter = 0;
 
   if (base_obs_msg_counter != last_base_obs_msg_counter) {
@@ -244,30 +231,27 @@ static void update_obs_state(device_state_t *dev_state, u8 base_obs_msg_counter)
  * \param[out] dev_state: Device state reference
  * \param[in] state: Firmware solution state
  */
-static void update_mode_state(device_state_t *dev_state, struct soln_state *state) {
+static void update_mode_state(device_state_t *dev_state, struct soln_state *state)
+{
   u32 elapsed = elapsed_ms(&state->dgnss.systime);
 
   if (elapsed >= LED_MODE_TIMEOUT_MS) {
     dev_state->mode_state = MODE_NO_RTK;
   } else {
     switch (state->dgnss.mode) {
-    case DGNSS_MODE_FIXED:
-    {
+    case DGNSS_MODE_FIXED: {
       dev_state->mode_state = MODE_RTK_FIXED;
     } break;
-    case DGNSS_MODE_FLOAT:
-    {
+    case DGNSS_MODE_FLOAT: {
       dev_state->mode_state = MODE_RTK_FLOAT;
     } break;
     case DGNSS_MODE_DGNSS:
-    case DGNSS_MODE_INVALID:
-    {
+    case DGNSS_MODE_INVALID: {
       dev_state->mode_state = MODE_NO_RTK;
     } break;
     case DGNSS_MODE_RESERVED:
-    default:
-    {
-      //piksi_log(LOG_ERR,
+    default: {
+      // piksi_log(LOG_ERR,
       //          "Mode LED State Error: Unknown mode %d.", state->dgnss.mode);
       dev_state->mode_state = MODE_NO_RTK;
     } break;
@@ -279,7 +263,8 @@ static void update_mode_state(device_state_t *dev_state, struct soln_state *stat
  *  under each state.
  * \param[out] dev_state: Device state reference
  */
-static void get_device_state(device_state_t *dev_state) {
+static void get_device_state(device_state_t *dev_state)
+{
   struct soln_state state;
   firmware_state_get(&state);
 
@@ -299,33 +284,27 @@ static void get_device_state(device_state_t *dev_state) {
  * \param[in] dev_state   Current device state.
  *
  */
-static void handle_pos(rgb_led_state_t *s, device_state_t *dev_state) {
+static void handle_pos(rgb_led_state_t *s, device_state_t *dev_state)
+{
   static blinker_state_t blinker_state;
   rgb_led_state_t active_pos_color = LED_COLOR_ORANGE;
 
   switch (dev_state->pos_state) {
-  case POS_NO_SIGNAL:
-  {
+  case POS_NO_SIGNAL: {
     blinker_state.mode = LED_OFF;
   } break;
-  case POS_ANTENNA:
-  {
+  case POS_ANTENNA: {
     blinker_state.mode = LED_BLINK_SLOW;
   } break;
-  case POS_INS_DEAD_RECK:
-    active_pos_color = LED_COLOR_PURPLE;
-  case POS_TRK_AT_LEAST_FOUR:
-  {
+  case POS_INS_DEAD_RECK: active_pos_color = LED_COLOR_PURPLE;
+  case POS_TRK_AT_LEAST_FOUR: {
     blinker_state.mode = LED_BLINK_FAST;
   } break;
-  case POS_INS_GNSS:
-    active_pos_color = LED_COLOR_PURPLE;
-  case POS_GNSS:
-  {
+  case POS_INS_GNSS: active_pos_color = LED_COLOR_PURPLE;
+  case POS_GNSS: {
     blinker_state.mode = LED_ON;
   } break;
-  default:
-  {
+  default: {
     assert(!"Unknown mode");
   } break;
   }
@@ -339,7 +318,8 @@ static void handle_pos(rgb_led_state_t *s, device_state_t *dev_state) {
  * \param[in,out] s   Current LED state.
  *
  */
-static void handle_link(rgb_led_state_t *s, device_state_t *dev_state) {
+static void handle_link(rgb_led_state_t *s, device_state_t *dev_state)
+{
   static bool on_off = false;
 
   if (dev_state->obs_state == OBS_EVENT) {
@@ -361,28 +341,22 @@ static void handle_link(rgb_led_state_t *s, device_state_t *dev_state) {
  * \param[in] dev_state   Current device state.
  *
  */
-static void handle_mode(rgb_led_state_t *s, device_state_t *dev_state) {
+static void handle_mode(rgb_led_state_t *s, device_state_t *dev_state)
+{
   static blinker_state_t blinker_state;
 
   switch (dev_state->mode_state) {
-    case MODE_NO_RTK:
-      blinker_state.mode = LED_OFF;
-      break;
-    case MODE_RTK_FLOAT:
-      blinker_state.mode = LED_BLINK_SLOW;
-      break;
-    case MODE_RTK_FIXED:
-      blinker_state.mode = LED_ON;
-      break;
-    default:
-      assert(!"Unknown mode");
-      break;
+  case MODE_NO_RTK: blinker_state.mode = LED_OFF; break;
+  case MODE_RTK_FLOAT: blinker_state.mode = LED_BLINK_SLOW; break;
+  case MODE_RTK_FIXED: blinker_state.mode = LED_ON; break;
+  default: assert(!"Unknown mode"); break;
   }
 
   *s = blinker_update(&blinker_state) ? LED_COLOR_BLUE : LED_COLOR_OFF;
 }
 
-static void * manage_led_thread(void *arg) {
+static void *manage_led_thread(void *arg)
+{
   bool is_duro = (bool)arg;
 
   while (!firmware_state_heartbeat_seen())
@@ -395,8 +369,7 @@ static void * manage_led_thread(void *arg) {
       init_states[i].led = i;
       init_states[i].brightness = 255;
     }
-    led_adp8866_leds_set(init_states,
-                         sizeof(init_states) / sizeof(init_states[0]));
+    led_adp8866_leds_set(init_states, sizeof(init_states) / sizeof(init_states[0]));
     sleep(2);
   }
 
@@ -412,31 +385,31 @@ static void * manage_led_thread(void *arg) {
     rgb_led_state_t mode_state;
     handle_mode(&mode_state, &dev_state);
 
-    led_adp8866_led_state_t led_states[] = {
-        {.led = LED_POS_R, .brightness = pos_state.r},
-        {.led = LED_POS_G, .brightness = pos_state.g},
-        {.led = LED_POS_B, .brightness = pos_state.b},
-        {.led = LED_LINK_R, .brightness = link_state.r},
-        {.led = LED_LINK_G, .brightness = link_state.g},
-        {.led = LED_LINK_B, .brightness = link_state.b},
-        {.led = LED_MODE_R, .brightness = mode_state.r},
-        {.led = LED_MODE_G, .brightness = mode_state.g},
-        {.led = LED_MODE_B, .brightness = mode_state.b}};
-    led_adp8866_leds_set(led_states,
-                         sizeof(led_states) / sizeof(led_states[0]));
+    led_adp8866_led_state_t led_states[] = {{.led = LED_POS_R, .brightness = pos_state.r},
+                                            {.led = LED_POS_G, .brightness = pos_state.g},
+                                            {.led = LED_POS_B, .brightness = pos_state.b},
+                                            {.led = LED_LINK_R, .brightness = link_state.r},
+                                            {.led = LED_LINK_G, .brightness = link_state.g},
+                                            {.led = LED_LINK_B, .brightness = link_state.b},
+                                            {.led = LED_MODE_R, .brightness = mode_state.r},
+                                            {.led = LED_MODE_G, .brightness = mode_state.g},
+                                            {.led = LED_MODE_B, .brightness = mode_state.b}};
+    led_adp8866_leds_set(led_states, sizeof(led_states) / sizeof(led_states[0]));
     usleep(MANAGE_LED_THREAD_PERIOD_MS * 1000);
   }
   return NULL;
 }
 
-void sigbus_handler(int signum) {
+void sigbus_handler(int signum)
+{
   /* Just don't crash if the file is empty */
   lseek(network_available_fd, 0, SEEK_SET);
   write(network_available_fd, "0", 1);
 }
 
-void manage_led_setup(bool is_duro) {
-  const char* network_available_path = "/var/run/piksi_sys/network_available";
+void manage_led_setup(bool is_duro)
+{
+  const char *network_available_path = "/var/run/piksi_sys/network_available";
   network_available_fd = open(network_available_path, O_CREAT | O_RDONLY, 0644);
   if (network_available_fd < 0) {
     piksi_log(LOG_ERR, "failed to open file: %s", network_available_path);
@@ -445,5 +418,5 @@ void manage_led_setup(bool is_duro) {
   network_available = mmap(NULL, 4, PROT_READ, MAP_SHARED, network_available_fd, 0);
   signal(SIGBUS, sigbus_handler);
   pthread_t thread;
-  pthread_create(&thread, NULL, manage_led_thread, (void*)is_duro);
+  pthread_create(&thread, NULL, manage_led_thread, (void *)is_duro);
 }

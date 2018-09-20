@@ -14,14 +14,14 @@
 #define _SWIFT_CELL_MODEM_INOTIFY_H
 
 typedef struct inotify_ctx_s inotify_ctx_t;
-inotify_ctx_t * inotify_ctx_create(const char *path,
-                                   int inotify_init_flags,
-                                   uint32_t inotify_watch_flags,
-                                   pk_loop_t *loop);
+inotify_ctx_t *inotify_ctx_create(const char *path,
+                                  int inotify_init_flags,
+                                  uint32_t inotify_watch_flags,
+                                  pk_loop_t *loop);
 void inotify_ctx_destroy(inotify_ctx_t **ctx_loc);
-bool cell_modem_tty_exists(const char* path);
+bool cell_modem_tty_exists(const char *path);
 int cell_modem_scan_for_modem(inotify_ctx_t *ctx);
 void cell_modem_set_dev_to_invalid(inotify_ctx_t *ctx);
-inotify_ctx_t * async_wait_for_tty(pk_loop_t *loop);
+inotify_ctx_t *async_wait_for_tty(pk_loop_t *loop);
 
-#endif//_SWIFT_CELL_MODEM_INOTIFY_H
+#endif //_SWIFT_CELL_MODEM_INOTIFY_H

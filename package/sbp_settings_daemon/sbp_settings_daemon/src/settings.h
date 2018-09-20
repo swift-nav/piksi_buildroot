@@ -19,5 +19,4 @@
 void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx);
 void settings_reset_defaults(void);
 
-#endif  /* SWIFTNAV_SETTINGS_H */
-
+#endif /* SWIFTNAV_SETTINGS_H */

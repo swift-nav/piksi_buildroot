@@ -25,7 +25,7 @@
 #include "framer_none.h"
 #include "filter_none.h"
 
-#define DLSYM_CAST(var) (*(void **) &(var))
+#define DLSYM_CAST(var) (*(void **)&(var))
 
 static int import_framer(const char *protocol_name, void *handle)
 {
@@ -47,8 +47,7 @@ static int import_framer(const char *protocol_name, void *handle)
     return -1;
   }
 
-  return framer_interface_register(protocol_name, create_fn,
-                                   destroy_fn, process_fn);
+  return framer_interface_register(protocol_name, create_fn, destroy_fn, process_fn);
 }
 
 static int import_filter(const char *protocol_name, void *handle)
@@ -71,11 +70,10 @@ static int import_filter(const char *protocol_name, void *handle)
     return -1;
   }
 
-  return filter_interface_register(protocol_name, create_fn,
-                                   destroy_fn, process_fn);
+  return filter_interface_register(protocol_name, create_fn, destroy_fn, process_fn);
 }
 
-static const char * import_name(void *handle)
+static const char *import_name(void *handle)
 {
   const char **protocol_name;
   DLSYM_CAST(protocol_name) = dlsym(handle, "protocol_name");
@@ -113,16 +111,20 @@ error:
 int protocols_import(const char *path)
 {
   /* Register "none" protocol */
-  if (framer_interface_register("none", framer_none_create,
+  if (framer_interface_register("none",
+                                framer_none_create,
                                 framer_none_destroy,
-                                framer_none_process) != 0) {
+                                framer_none_process)
+      != 0) {
     syslog(LOG_ERR, "error registering none framer");
     return -1;
   }
 
-  if (filter_interface_register("none", filter_none_create,
+  if (filter_interface_register("none",
+                                filter_none_create,
                                 filter_none_destroy,
-                                filter_none_process) != 0) {
+                                filter_none_process)
+      != 0) {
     syslog(LOG_ERR, "error registering none filter");
     return -1;
   }
@@ -134,8 +136,7 @@ int protocols_import(const char *path)
   }
 
   struct dirent *dirent;
-  while ((dirent = readdir(dir)) != NULL)
-  {
+  while ((dirent = readdir(dir)) != NULL) {
     if (dirent->d_type != DT_REG) {
       continue;
     }

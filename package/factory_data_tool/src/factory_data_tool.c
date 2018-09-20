@@ -30,7 +30,7 @@ static const struct {
 };
 // clang-format on
 
-static const factory_data_t * factory_data_get(void)
+static const factory_data_t *factory_data_get(void)
 {
   /* open file */
   int fd = open("/factory/mtd", O_RDONLY);
@@ -40,16 +40,14 @@ static const factory_data_t * factory_data_get(void)
   }
 
   /* allocate buffer to hold header */
-  factory_data_t *factory_data =
-      (factory_data_t *)malloc(sizeof(factory_data_t));
+  factory_data_t *factory_data = (factory_data_t *)malloc(sizeof(factory_data_t));
   if (factory_data == NULL) {
     printf("error allocating buffer for factory data header\n");
     return NULL;
   }
 
   /* read header */
-  if (read(fd, factory_data, sizeof(factory_data_t)) !=
-          sizeof(factory_data_t)) {
+  if (read(fd, factory_data, sizeof(factory_data_t)) != sizeof(factory_data_t)) {
     printf("error reading /factory/mtd\n");
     return NULL;
   }
@@ -62,18 +60,15 @@ static const factory_data_t * factory_data_get(void)
 
   /* reallocate buffer to hold header + body */
   uint32_t factory_data_body_size = factory_data_body_size_get(factory_data);
-  uint32_t factory_data_size = sizeof(factory_data_t) +
-                               factory_data_body_size;
-  factory_data = (factory_data_t *)realloc((void *)factory_data,
-                                           factory_data_size);
+  uint32_t factory_data_size = sizeof(factory_data_t) + factory_data_body_size;
+  factory_data = (factory_data_t *)realloc((void *)factory_data, factory_data_size);
   if (factory_data == NULL) {
     printf("error allocating buffer for factory data\n");
     return NULL;
   }
 
   /* read body */
-  if (read(fd, &factory_data->body[0], factory_data_body_size) !=
-          factory_data_body_size) {
+  if (read(fd, &factory_data->body[0], factory_data_body_size) != factory_data_body_size) {
     printf("error reading /factory/mtd\n");
     return NULL;
   }
@@ -104,16 +99,14 @@ static char nibble_to_char(uint8_t nibble)
 static void print_hex_string(char *str, const uint8_t *data, uint32_t data_size)
 {
   int i;
-  for (i=0; i<data_size; i++) {
-    str[2*i + 0] = nibble_to_char((data[data_size - 1 - i] >> 4) & 0xf);
-    str[2*i + 1] = nibble_to_char((data[data_size - 1 - i] >> 0) & 0xf);
+  for (i = 0; i < data_size; i++) {
+    str[2 * i + 0] = nibble_to_char((data[data_size - 1 - i] >> 4) & 0xf);
+    str[2 * i + 1] = nibble_to_char((data[data_size - 1 - i] >> 0) & 0xf);
   }
-  str[2*i] = 0;
+  str[2 * i] = 0;
 }
 
-static int factory_file_write_bin(const char *filename,
-                                  const uint8_t *data,
-                                  size_t data_len)
+static int factory_file_write_bin(const char *filename, const uint8_t *data, size_t data_len)
 {
   /* generate file path */
   char filepath[256];
@@ -172,7 +165,7 @@ int main(int argc, char *argv[])
     factory_file_write_u32("hardware", hardware);
 
     int i;
-    for (i=0; i<ARRAY_SIZE(image_hardware_strings); i++) {
+    for (i = 0; i < ARRAY_SIZE(image_hardware_strings); i++) {
       if (image_hardware_strings[i].hardware == hardware) {
         factory_file_write("hardware_name", image_hardware_strings[i].name);
         break;
@@ -203,8 +196,7 @@ int main(int argc, char *argv[])
 
   uint8_t mac_address[6];
   if (factory_data_mac_address_get(factory_data, mac_address) == 0) {
-    factory_file_write_hex_string("mac_address",
-                                   mac_address, sizeof(mac_address));
+    factory_file_write_hex_string("mac_address", mac_address, sizeof(mac_address));
   }
 
   uint32_t hardware_version;

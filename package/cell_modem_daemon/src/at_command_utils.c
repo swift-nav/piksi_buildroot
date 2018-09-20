@@ -101,8 +101,7 @@ static void configure_port(int fd)
 at_serial_port_t *at_serial_port_create(const char *port_name)
 {
   at_serial_port_t *port = NULL;
-  if (port_name != NULL && port_name[0] != '\0'
-      && strlen(port_name) < sizeof(port->port_name)) {
+  if (port_name != NULL && port_name[0] != '\0' && strlen(port_name) < sizeof(port->port_name)) {
     port = (at_serial_port_t *)malloc(sizeof(struct at_serial_port_s));
     if (port != NULL) {
       memset(port, 0, sizeof(struct at_serial_port_s));
@@ -155,10 +154,8 @@ void at_serial_port_destroy(at_serial_port_t **port_loc)
 at_serial_port_command_t *at_serial_port_command_create(const char *command)
 {
   at_serial_port_command_t *at_command = NULL;
-  if (command != NULL && command[0] != '\0'
-      && strlen(command) < sizeof(at_command->command)) {
-    at_command = (at_serial_port_command_t *)malloc(
-      sizeof(struct at_serial_port_command_s));
+  if (command != NULL && command[0] != '\0' && strlen(command) < sizeof(at_command->command)) {
+    at_command = (at_serial_port_command_t *)malloc(sizeof(struct at_serial_port_command_s));
     if (at_command != NULL) {
       memset(at_command, 0, sizeof(struct at_serial_port_command_s));
       strcpy(at_command->command, command);
@@ -177,9 +174,8 @@ void at_serial_port_command_destroy(at_serial_port_command_t **at_command_loc)
   }
 }
 
-static void
-at_serial_port_wait_command_response(at_serial_port_t *port,
-                                     at_serial_port_command_t *at_command)
+static void at_serial_port_wait_command_response(at_serial_port_t *port,
+                                                 at_serial_port_command_t *at_command)
 {
   char *sob = at_command->result;
   char *current = sob;
@@ -187,8 +183,7 @@ at_serial_port_wait_command_response(at_serial_port_t *port,
   int num_read = 0;
 
   /* read characters into our string buffer until we get a CR or NL */
-  while ((num_read = (int)read(port->fd, current, (size_t)(eob - current) - 1))
-         > 0) {
+  while ((num_read = (int)read(port->fd, current, (size_t)(eob - current) - 1)) > 0) {
     current += num_read;
     if (current[-1] == '\n' || current[-1] == '\r') {
       /* null terminate the string and see if we got an OK response */
@@ -209,8 +204,7 @@ at_serial_port_wait_command_response(at_serial_port_t *port,
   at_command->result_length = (size_t)(current - at_command->result);
 }
 
-int at_serial_port_execute_command(at_serial_port_t *port,
-                                   at_serial_port_command_t *at_command)
+int at_serial_port_execute_command(at_serial_port_t *port, at_serial_port_command_t *at_command)
 {
   int ret = 0;
   at_serial_port_open(port);
@@ -224,21 +218,20 @@ int at_serial_port_execute_command(at_serial_port_t *port,
 
   if (n != (int)strlen(at_command->command) + 1) {
     piksi_log(LOG_ERR,
-        "Unable to write command '%s' to port '%s'",
-        at_command->command,
-        port->port_name);
+              "Unable to write command '%s' to port '%s'",
+              at_command->command,
+              port->port_name);
     ret = -1;
     goto cleanup;
   }
 
   at_serial_port_wait_command_response(port, at_command);
   if (!at_command->complete) {
-    piksi_log(
-        LOG_ERR,
-        "Unable to resolve result of command '%s' to port '%s'. %d characters returned",
-        at_command->command,
-        port->port_name,
-        at_command->result_length);
+    piksi_log(LOG_ERR,
+              "Unable to resolve result of command '%s' to port '%s'. %d characters returned",
+              at_command->command,
+              port->port_name,
+              at_command->result_length);
     ret = -1;
     goto cleanup;
   }
@@ -274,10 +267,10 @@ const char *at_serial_port_command_result(at_serial_port_command_t *at_command)
  *  99 - not known or not detectable
  */
 static const s8 signal_to_dbm_lookup[] = {
-  -113, // zero case
-  -111, -109, -107, -105, -103, -101, -99, -97, -95, -93,  // 1 - 30 cases
-  -91,  -89,  -87,  -85,  -83,  -81,  -79,  -77, -75, -73,
-  -71, -69,  -67,  -65,  -63,  -61,  -59,  -57,  -55, -53,
+  -113,                                                   // zero case
+  -111, -109, -107, -105, -103, -101, -99, -97, -95, -93, // 1 - 30 cases
+  -91,  -89,  -87,  -85,  -83,  -81,  -79, -77, -75, -73,
+  -71,  -69,  -67,  -65,  -63,  -61,  -59, -57, -55, -53,
   -51 // 31 case
 };
 
@@ -293,7 +286,14 @@ static s8 modem_signal_strength_to_dbm(u32 signal_raw)
 
 // Splits the difference from above
 static const float error_to_percent_lookup[] = {
-  0.2f, 0.3f, 0.6f, 1.2f, 2.4f, 4.8f, 9.6f, 12.8f,
+  0.2f,
+  0.3f,
+  0.6f,
+  1.2f,
+  2.4f,
+  4.8f,
+  9.6f,
+  12.8f,
 };
 
 static float modem_error_rate_to_percent(u32 error_raw)
@@ -307,22 +307,15 @@ static float modem_error_rate_to_percent(u32 error_raw)
 }
 
 // This block should be refactored
-int at_command_report_signal_quality(at_serial_port_t *port,
-                                     s8 *signal_strength,
-                                     float *error_rate)
+int at_command_report_signal_quality(at_serial_port_t *port, s8 *signal_strength, float *error_rate)
 {
   int ret = 0;
   const char *at_prefix = AT_COMMAND_PREFIX;
   const char *base_command = AT_COMMAND_CSQ;
   char command_buffer[AT_COMMAND_BUFFER_STACK_MAX];
-  snprintf(command_buffer,
-      sizeof(command_buffer),
-      "%s%s",
-      at_prefix,
-      base_command);
+  snprintf(command_buffer, sizeof(command_buffer), "%s%s", at_prefix, base_command);
 
-  at_serial_port_command_t *at_command =
-    at_serial_port_command_create(command_buffer);
+  at_serial_port_command_t *at_command = at_serial_port_command_create(command_buffer);
   if (at_command == NULL) {
     return -1;
   }

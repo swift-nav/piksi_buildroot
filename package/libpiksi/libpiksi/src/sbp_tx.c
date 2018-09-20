@@ -48,7 +48,7 @@ static int send_buffer_flush(sbp_tx_ctx_t *ctx)
   return result;
 }
 
-sbp_tx_ctx_t * sbp_tx_create(const char *endpoint)
+sbp_tx_ctx_t *sbp_tx_create(const char *endpoint)
 {
   assert(endpoint != NULL);
 
@@ -94,14 +94,13 @@ int sbp_tx_send(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload)
   return sbp_tx_send_from(ctx, msg_type, len, payload, ctx->sender_id);
 }
 
-int sbp_tx_send_from(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len,
-                         u8 *payload, u16 sbp_sender_id)
+int sbp_tx_send_from(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload, u16 sbp_sender_id)
 {
   assert(ctx != NULL);
 
   send_buffer_reset(ctx);
-  if (sbp_send_message(&ctx->sbp_state, msg_type, sbp_sender_id, len, payload,
-                       send_buffer_write) != SBP_OK) {
+  if (sbp_send_message(&ctx->sbp_state, msg_type, sbp_sender_id, len, payload, send_buffer_write)
+      != SBP_OK) {
     piksi_log(LOG_ERR, "error sending SBP message");
     return -1;
   }

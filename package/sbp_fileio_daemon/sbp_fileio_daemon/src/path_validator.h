@@ -63,7 +63,7 @@ void path_validator_destroy(path_validator_t **pctx);
  *   Input paths must already exist (or their parent directories must exist) for
  *   the path to be considered allowed.
  */
-bool path_validator_check(path_validator_t *ctx, const char* path);
+bool path_validator_check(path_validator_t *ctx, const char *path);
 
 /**
  * @brief Add a path prefix to the list of allowed path prefixes.
@@ -74,7 +74,7 @@ bool path_validator_check(path_validator_t *ctx, const char* path);
  * @return true if the path could be added, false otherwise (which usually
  *   indicates a lack of sufficient memory).
  */
-bool path_validator_allow_path(path_validator_t *ctx, const char* path);
+bool path_validator_allow_path(path_validator_t *ctx, const char *path);
 
 /**
  * @brief Count of the number of allowed path prefixes.
@@ -88,10 +88,10 @@ size_t path_validator_allowed_count(path_validator_t *ctx);
  *   the function will truncate the string if the list of paths does not fit.
  *   The buffer returned is owned by the path_validator object.
  */
-const char* path_validator_base_paths(path_validator_t *ctx);
+const char *path_validator_base_paths(path_validator_t *ctx);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif//SWIFTNAV_PATH_VALIDATOR_H
+#endif // SWIFTNAV_PATH_VALIDATOR_H

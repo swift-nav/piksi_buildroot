@@ -17,8 +17,8 @@
 
 #include "sbp.h"
 
-#define SBP_SUB_ENDPOINT    "ipc:///var/run/sockets/external.pub"  /* SBP External Out */
-#define SBP_PUB_ENDPOINT    "ipc:///var/run/sockets/external.sub"  /* SBP External In */
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
 
 static struct {
   pk_loop_t *loop;
@@ -69,17 +69,23 @@ failure:
 
 void sbp_deinit(void)
 {
-  if (ctx.loop != NULL) { pk_loop_destroy(&ctx.loop); }
-  if (ctx.pubsub_ctx != NULL) { sbp_pubsub_destroy(&ctx.pubsub_ctx); }
-  if (ctx.settings_ctx != NULL) { settings_destroy(&ctx.settings_ctx); }
+  if (ctx.loop != NULL) {
+    pk_loop_destroy(&ctx.loop);
+  }
+  if (ctx.pubsub_ctx != NULL) {
+    sbp_pubsub_destroy(&ctx.pubsub_ctx);
+  }
+  if (ctx.settings_ctx != NULL) {
+    settings_destroy(&ctx.settings_ctx);
+  }
 }
 
-pk_loop_t * sbp_get_loop(void)
+pk_loop_t *sbp_get_loop(void)
 {
   return ctx.loop;
 }
 
-settings_ctx_t * sbp_get_settings_ctx(void)
+settings_ctx_t *sbp_get_settings_ctx(void)
 {
   return ctx.settings_ctx;
 }
@@ -116,7 +122,9 @@ void sbp_base_obs_invalid(double timediff, void *context)
     return;
   }
 
-  piksi_log(LOG_WARNING, "received indication that base obs. are invalid, time difference: %f", timediff);
+  piksi_log(LOG_WARNING,
+            "received indication that base obs. are invalid, time difference: %f",
+            timediff);
 
   static const char ntrip_sanity_failed[] = "ntrip_daemon --reconnect";
   static const size_t command_len = sizeof(ntrip_sanity_failed) - sizeof(ntrip_sanity_failed[0]);
@@ -124,14 +132,13 @@ void sbp_base_obs_invalid(double timediff, void *context)
   u8 msg_buf[sizeof(msg_command_req_t) + command_len];
   int msg_len = sizeof(msg_buf);
 
-  msg_command_req_t* sbp_command = (msg_command_req_t*)msg_buf;
+  msg_command_req_t *sbp_command = (msg_command_req_t *)msg_buf;
   memcpy(sbp_command->command, ntrip_sanity_failed, command_len);
 
-  sbp_message_send(SBP_MSG_COMMAND_REQ, (u8)msg_len, (u8*)sbp_command, 0, context);
+  sbp_message_send(SBP_MSG_COMMAND_REQ, (u8)msg_len, (u8 *)sbp_command, 0, context);
 }
 
 int sbp_run(void)
 {
   return pk_loop_run_simple(ctx.loop);
 }
-

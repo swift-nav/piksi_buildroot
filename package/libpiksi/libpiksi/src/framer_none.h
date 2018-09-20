@@ -16,10 +16,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-void * framer_none_create(void);
+void *framer_none_create(void);
 void framer_none_destroy(void **state);
 uint32_t framer_none_process(void *state,
-                             const uint8_t *data, uint32_t data_length,
-                             const uint8_t **frame, uint32_t *frame_length);
+                             const uint8_t *data,
+                             uint32_t data_length,
+                             const uint8_t **frame,
+                             uint32_t *frame_length);
 
 #endif /* SWIFTNAV_FRAMER_NONE_H */

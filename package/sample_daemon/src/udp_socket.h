@@ -23,12 +23,12 @@ typedef struct {
 } udp_broadcast_context;
 
 void open_udp_broadcast_socket(udp_broadcast_context *udp_context,
-                               const char* broadcast_hostname,
+                               const char *broadcast_hostname,
                                int broadcast_port);
 
 void close_udp_broadcast_socket(udp_broadcast_context *udp_context);
 
-u32 udp_write_callback(u8* buf, u32 len, void *context);
+u32 udp_write_callback(u8 *buf, u32 len, void *context);
 void udp_flush_buffer(udp_broadcast_context *udp_context);
 
-#endif//_SWIFT_UDP_SOCKET_H
+#endif //_SWIFT_UDP_SOCKET_H

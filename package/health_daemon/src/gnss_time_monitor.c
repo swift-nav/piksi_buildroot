@@ -34,7 +34,7 @@
 #define GNSS_TIME_ALERT_RATE_MS 60000
 
 #define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
-#define NO_TIME          0
+#define NO_TIME 0
 
 /**
  * \brief Private context for the gnss obs health monitor
@@ -46,7 +46,7 @@ static health_monitor_t *gnss_time_monitor;
  */
 static struct gnss_time_ctx_s {
   u16 sbp_sender_id;
-} gnss_time_ctx = { .sbp_sender_id = 0 };
+} gnss_time_ctx = {.sbp_sender_id = 0};
 
 /**
  * \brief sbp_msg_ntrip_obs_callback - handler for obs sbp messages
@@ -61,7 +61,8 @@ static int sbp_msg_gps_time_cb(health_monitor_t *monitor,
                                u16 sender_id,
                                u8 len,
                                u8 msg[],
-                               void *ctx) {
+                               void *ctx)
+{
   (void)monitor;
   (void)len;
   (void)ctx;
@@ -70,7 +71,7 @@ static int sbp_msg_gps_time_cb(health_monitor_t *monitor,
     return 1;
   }
 
-  const msg_gps_time_t *time = (msg_gps_time_t*)msg;
+  const msg_gps_time_t *time = (msg_gps_time_t *)msg;
   const bool has_time = (time->flags & TIME_SOURCE_MASK) != NO_TIME;
   set_device_has_gps_time(has_time);
 
@@ -88,8 +89,7 @@ static int gps_time_timer_cb(health_monitor_t *monitor, void *context)
   (void)monitor;
   (void)context;
 
-  piksi_log(
-      LOG_DEBUG, "No MSG_GPS_TIME in %d seconds", GNSS_TIME_ALERT_RATE_MS);
+  piksi_log(LOG_DEBUG, "No MSG_GPS_TIME in %d seconds", GNSS_TIME_ALERT_RATE_MS);
 
   return 0;
 }

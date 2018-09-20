@@ -47,10 +47,10 @@ typedef struct inotify_ctx_s {
 
 static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, void *context);
 
-inotify_ctx_t * inotify_ctx_create(const char *path,
-                                   int inotify_init_flags,
-                                   uint32_t inotify_watch_flags,
-                                   pk_loop_t *loop)
+inotify_ctx_t *inotify_ctx_create(const char *path,
+                                  int inotify_init_flags,
+                                  uint32_t inotify_watch_flags,
+                                  pk_loop_t *loop)
 {
   inotify_ctx_t *ctx = calloc(1, sizeof(inotify_ctx_t));
   if (ctx == NULL) {
@@ -86,7 +86,7 @@ failure:
 void inotify_ctx_destroy(inotify_ctx_t **ctx_loc)
 {
   if (ctx_loc == NULL || *ctx_loc == NULL) {
-   return;
+    return;
   }
   inotify_ctx_t *ctx = *ctx_loc;
   if (ctx->inotify_fd >= 0) {
@@ -102,7 +102,8 @@ void inotify_ctx_destroy(inotify_ctx_t **ctx_loc)
   *ctx_loc = NULL;
 }
 
-bool cell_modem_tty_exists(const char* path) {
+bool cell_modem_tty_exists(const char *path)
+{
 
   char full_path[PATH_MAX];
   snprintf(full_path, sizeof(full_path), "/dev/%s", path);
@@ -122,9 +123,7 @@ static int update_dev_from_probe(inotify_ctx_t *ctx, char *dev)
     return 1;
   }
   if (!cell_modem_tty_exists(dev)) {
-    piksi_log(LOG_WARNING,
-              "Update dev tty does not exist: '%s'",
-              dev);
+    piksi_log(LOG_WARNING, "Update dev tty does not exist: '%s'", dev);
     return 1;
   }
   char *dev_override = cell_modem_get_dev_override();
@@ -137,9 +136,7 @@ static int update_dev_from_probe(inotify_ctx_t *ctx, char *dev)
     cell_modem_set_dev(ctx->cell_modem_dev, ctx->modem_type);
     return 0;
   } else if (dev_override != NULL && strcmp(dev_override, dev) == 0) {
-    piksi_log(LOG_WARNING,
-              "Override device failed probe: %s",
-              dev);
+    piksi_log(LOG_WARNING, "Override device failed probe: %s", dev);
     return -1;
   }
   return 1;
@@ -181,12 +178,12 @@ int cell_modem_scan_for_modem(inotify_ctx_t *ctx)
 
 static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, void *context)
 {
-  (void) loop;
-  (void) poll_handle;
+  (void)loop;
+  (void)poll_handle;
 
-  inotify_ctx_t *ctx = (inotify_ctx_t*) context;
+  inotify_ctx_t *ctx = (inotify_ctx_t *)context;
 
-  char buf[BUF_LEN] __attribute__ ((aligned(__alignof__(struct inotify_event))));
+  char buf[BUF_LEN] __attribute__((aligned(__alignof__(struct inotify_event))));
   ssize_t count = read(ctx->inotify_fd, buf, BUF_LEN);
 
   if (count == 0) {
@@ -197,11 +194,11 @@ static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, void *context)
     piksi_log(LOG_ERR, "inotify other error");
   }
 
-  for (char* p = buf; p < buf + count; ) {
+  for (char *p = buf; p < buf + count;) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
-    struct inotify_event *event = (struct inotify_event *) p;
+    struct inotify_event *event = (struct inotify_event *)p;
 #pragma GCC diagnostic pop
 
     if (event->mask & IN_CREATE) {
@@ -214,8 +211,7 @@ static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, void *context)
       }
     } else if (event->mask & IN_DELETE) {
       piksi_log(LOG_DEBUG, "got notification that '%s' was deleted", event->name);
-      if ((ctx->cell_modem_dev != NULL) &&
-          (strcmp(ctx->cell_modem_dev, event->name) == 0)) {
+      if ((ctx->cell_modem_dev != NULL) && (strcmp(ctx->cell_modem_dev, event->name) == 0)) {
         cell_modem_set_dev_to_invalid(ctx);
       }
     } else {
@@ -226,12 +222,9 @@ static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, void *context)
   }
 }
 
-inotify_ctx_t * async_wait_for_tty(pk_loop_t *loop)
+inotify_ctx_t *async_wait_for_tty(pk_loop_t *loop)
 {
-  inotify_ctx_t *ctx = inotify_ctx_create("/dev",
-                                          IN_NONBLOCK,
-                                          IN_CREATE | IN_DELETE,
-                                          loop);
+  inotify_ctx_t *ctx = inotify_ctx_create("/dev", IN_NONBLOCK, IN_CREATE | IN_DELETE, loop);
   if (ctx == NULL) {
     piksi_log(LOG_DEBUG, "inotify ctx create failed");
     goto fail;
@@ -239,10 +232,7 @@ inotify_ctx_t * async_wait_for_tty(pk_loop_t *loop)
 
   if (cell_modem_scan_for_modem(ctx) != 0) {
     piksi_log(LOG_DEBUG, "inital modem scan failed, waiting to retry");
-    pk_loop_timer_add(loop,
-                      OVERRIDE_RETRY_TIMER_PERIOD,
-                      override_probe_retry,
-                      ctx);
+    pk_loop_timer_add(loop, OVERRIDE_RETRY_TIMER_PERIOD, override_probe_retry, ctx);
   }
 
   return ctx;

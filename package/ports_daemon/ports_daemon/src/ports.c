@@ -75,46 +75,41 @@ typedef union {
   } udp_client_data;
 } opts_data_t;
 
-typedef int (*opts_get_fn_t)(char *buf, size_t buf_size,
-                             const opts_data_t *opts_data);
+typedef int (*opts_get_fn_t)(char *buf, size_t buf_size, const opts_data_t *opts_data);
 
 #define RUNIT_SERVICE_DIR "/var/run/ports_daemon/sv"
 
-static int opts_get_tcp_server(char *buf, size_t buf_size,
-                               const opts_data_t *opts_data)
+static int opts_get_tcp_server(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
   uint32_t port = opts_data->tcp_server_data.port;
   return snprintf(buf, buf_size, "--name %s --tcp-l %u", opts_data->tcp_server_data.name, port);
 }
 
-static int opts_get_tcp_client(char *buf, size_t buf_size,
-                               const opts_data_t *opts_data)
+static int opts_get_tcp_client(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
   const char *address = opts_data->tcp_client_data.address;
   return snprintf(buf, buf_size, "--name %s --tcp-c %s", opts_data->tcp_client_data.name, address);
 }
 
-static int opts_get_udp_server(char *buf, size_t buf_size,
-                               const opts_data_t *opts_data)
+static int opts_get_udp_server(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
   uint32_t port = opts_data->udp_server_data.port;
   return snprintf(buf, buf_size, "--name %s --udp-l %u", opts_data->udp_server_data.name, port);
 }
 
-static int opts_get_udp_client(char *buf, size_t buf_size,
-                               const opts_data_t *opts_data)
+static int opts_get_udp_client(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
   const char *address = opts_data->udp_client_data.address;
   return snprintf(buf, buf_size, "--name %s --udp-c %s", opts_data->udp_client_data.name, address);
 }
 
 typedef struct {
-  const char * const name;
-  const char * const opts;
+  const char *const name;
+  const char *const opts;
   const opts_get_fn_t opts_get;
   opts_data_t opts_data;
   const port_type_t type;
-  const char * const mode_name_default;
+  const char *const mode_name_default;
   u8 mode;
   pid_t adapter_pid; /* May be cleared by SIGCHLD handler */
   restart_type_t restart;
@@ -157,7 +152,8 @@ static port_config_t port_configs[] = {
   },
   {
     .name = FIXED_SBP_USB_PORT_NAME,
-    .opts = "--name " FIXED_SBP_USB_PORT_NAME " --file /dev/tty.usb2 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
+    .opts = "--name " FIXED_SBP_USB_PORT_NAME
+            " --file /dev/tty.usb2 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
     .opts_get = NULL,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
@@ -327,17 +323,14 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
 
   /* Prepare the command used to launch endpoint_adapter. */
   char mode_opts[256] = {0};
-  protocol->port_adapter_opts_get(mode_opts, sizeof(mode_opts),
-                                  port_config->name);
+  protocol->port_adapter_opts_get(mode_opts, sizeof(mode_opts), port_config->name);
 
   char opts[256] = {0};
   if (port_config->opts_get != NULL) {
     port_config->opts_get(opts, sizeof(opts), &port_config->opts_data);
   }
 
-  snprintf(cmd, sizeof(cmd),
-           "endpoint_adapter %s %s %s",
-           port_config->opts, opts, mode_opts);
+  snprintf(cmd, sizeof(cmd), "endpoint_adapter %s %s %s", port_config->opts, opts, mode_opts);
 
   piksi_log(LOG_DEBUG, "Starting endpoint_adapter: %s", cmd);
 
@@ -378,49 +371,65 @@ static int setting_mode_register(settings_ctx_t *settings_ctx,
                                  settings_type_t settings_type,
                                  port_config_t *port_config)
 {
-  return settings_register(settings_ctx, port_config->name, "mode",
-                           &port_config->mode, sizeof(port_config->mode),
-                           settings_type, setting_mode_notify,
+  return settings_register(settings_ctx,
+                           port_config->name,
+                           "mode",
+                           &port_config->mode,
+                           sizeof(port_config->mode),
+                           settings_type,
+                           setting_mode_notify,
                            port_config);
 }
 
 static int setting_tcp_server_port_register(settings_ctx_t *settings_ctx,
                                             port_config_t *port_config)
 {
-  return settings_register(settings_ctx, port_config->name, "port",
+  return settings_register(settings_ctx,
+                           port_config->name,
+                           "port",
                            &port_config->opts_data.tcp_server_data.port,
                            sizeof(&port_config->opts_data.tcp_server_data.port),
-                           SETTINGS_TYPE_INT, setting_tcp_server_port_notify,
+                           SETTINGS_TYPE_INT,
+                           setting_tcp_server_port_notify,
                            port_config);
 }
 
 static int setting_tcp_client_address_register(settings_ctx_t *settings_ctx,
                                                port_config_t *port_config)
 {
-  return settings_register(settings_ctx, port_config->name, "address",
+  return settings_register(settings_ctx,
+                           port_config->name,
+                           "address",
                            port_config->opts_data.tcp_client_data.address,
                            sizeof(port_config->opts_data.tcp_client_data.address),
-                           SETTINGS_TYPE_STRING, setting_tcp_client_address_notify,
+                           SETTINGS_TYPE_STRING,
+                           setting_tcp_client_address_notify,
                            port_config);
 }
 
 static int setting_udp_server_port_register(settings_ctx_t *settings_ctx,
                                             port_config_t *port_config)
 {
-  return settings_register(settings_ctx, port_config->name, "port",
+  return settings_register(settings_ctx,
+                           port_config->name,
+                           "port",
                            &port_config->opts_data.udp_server_data.port,
                            sizeof(&port_config->opts_data.udp_server_data.port),
-                           SETTINGS_TYPE_INT, setting_udp_server_port_notify,
+                           SETTINGS_TYPE_INT,
+                           setting_udp_server_port_notify,
                            port_config);
 }
 
 static int setting_udp_client_address_register(settings_ctx_t *settings_ctx,
                                                port_config_t *port_config)
 {
-  return settings_register(settings_ctx, port_config->name, "address",
+  return settings_register(settings_ctx,
+                           port_config->name,
+                           "address",
                            port_config->opts_data.udp_client_data.address,
                            sizeof(port_config->opts_data.udp_client_data.address),
-                           SETTINGS_TYPE_STRING, setting_udp_client_address_notify,
+                           SETTINGS_TYPE_STRING,
+                           setting_udp_client_address_notify,
                            port_config);
 }
 
@@ -429,8 +438,7 @@ static int mode_enum_names_get(const char ***mode_enum_names)
   int protocols_count = protocols_count_get();
 
   const char **enum_names =
-      (const char **)malloc((1 + protocol_index_to_mode(protocols_count)) *
-                            sizeof(*enum_names));
+    (const char **)malloc((1 + protocol_index_to_mode(protocols_count)) * sizeof(*enum_names));
   if (enum_names == NULL) {
     return -1;
   }
@@ -496,8 +504,7 @@ int ports_init(settings_ctx_t *settings_ctx)
 
   /* Register settings types */
   settings_type_t settings_type_mode;
-  settings_type_register_enum(settings_ctx, mode_enum_names,
-                              &settings_type_mode);
+  settings_type_register_enum(settings_ctx, mode_enum_names, &settings_type_mode);
 
   /* Register settings */
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {

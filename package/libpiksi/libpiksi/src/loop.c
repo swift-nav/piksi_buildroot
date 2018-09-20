@@ -49,7 +49,7 @@ static void pk_loop_callback_context_destroy(pk_callback_ctx_t **cb_ctx_loc);
  * @param data: Optional user data to pass into callback
  * @return a newly created callback context or NULL if allocation failed
  */
-static pk_callback_ctx_t * pk_loop_callback_context_create(pk_loop_cb callback, void *data)
+static pk_callback_ctx_t *pk_loop_callback_context_create(pk_loop_cb callback, void *data)
 {
   pk_callback_ctx_t *cb_ctx = (pk_callback_ctx_t *)malloc(sizeof(pk_callback_ctx_t));
   if (cb_ctx == NULL) {
@@ -111,7 +111,7 @@ failure:
  * @param handle: handle to get loop from
  * @return Piksi loop context
  */
-static pk_loop_t * pk_loop_from_uv_handle(uv_handle_t *handle)
+static pk_loop_t *pk_loop_from_uv_handle(uv_handle_t *handle)
 {
   return uv_loop_get_data(uv_handle_get_loop(handle));
 }
@@ -121,12 +121,12 @@ static pk_loop_t * pk_loop_from_uv_handle(uv_handle_t *handle)
  * @param handle: handle to get context from
  * @return Loop Callback context
  */
-static pk_callback_ctx_t * pk_callback_context_from_uv_handle(uv_handle_t *handle)
+static pk_callback_ctx_t *pk_callback_context_from_uv_handle(uv_handle_t *handle)
 {
   return uv_handle_get_data(handle);
 }
 
-pk_loop_t * pk_loop_create(void)
+pk_loop_t *pk_loop_create(void)
 {
   pk_loop_t *pk_loop = (pk_loop_t *)malloc(sizeof(pk_loop_t));
   if (pk_loop == NULL) {
@@ -226,7 +226,7 @@ static void pk_loop_destroy_uv_loop(uv_loop_t *uv_loop)
   // call destroy on all handles in the loop
   uv_walk(uv_loop, loop_destroy_callback, NULL);
   // run loop to finish handle cleanup, is 'alive' until last handle removed
-  while(uv_loop_alive(uv_loop)) {
+  while (uv_loop_alive(uv_loop)) {
     if (uv_run(uv_loop, UV_RUN_NOWAIT) == 0) {
       break;
     }
@@ -263,7 +263,8 @@ int pk_loop_get_signal_from_handle(void *handle)
  * @param signal: signal handle
  * @param signum: signal that triggered this callback
  */
-static void signal_handler(uv_signal_t *signal, int signum) {
+static void signal_handler(uv_signal_t *signal, int signum)
+{
   uv_handle_t *handle = (uv_handle_t *)signal;
   pk_loop_t *loop = pk_loop_from_uv_handle(handle);
   pk_callback_ctx_t *cb_ctx = pk_callback_context_from_uv_handle(handle);
@@ -274,10 +275,7 @@ static void signal_handler(uv_signal_t *signal, int signum) {
   }
 }
 
-void * pk_loop_signal_handler_add(pk_loop_t *pk_loop,
-                                  int signal,
-                                  pk_loop_cb callback,
-                                  void *context)
+void *pk_loop_signal_handler_add(pk_loop_t *pk_loop, int signal, pk_loop_cb callback, void *context)
 {
   assert(pk_loop != NULL);
 
@@ -313,7 +311,7 @@ failure:
  * @brief timer_handler - wrapping callback for uv_timer_t
  * @param timer: timer handle
  */
-static void timer_handler(uv_timer_t* timer)
+static void timer_handler(uv_timer_t *timer)
 {
   uv_handle_t *handle = (uv_handle_t *)timer;
   pk_loop_t *loop = pk_loop_from_uv_handle(handle);
@@ -324,10 +322,7 @@ static void timer_handler(uv_timer_t* timer)
   }
 }
 
-void * pk_loop_timer_add(pk_loop_t *pk_loop,
-                         u64 period_ms,
-                         pk_loop_cb callback,
-                         void *context)
+void *pk_loop_timer_add(pk_loop_t *pk_loop, u64 period_ms, pk_loop_cb callback, void *context)
 {
   assert(pk_loop != NULL);
 
@@ -368,7 +363,7 @@ int pk_loop_timer_reset(void *handle)
     return -1;
   }
 
-  if(uv_timer_again((uv_timer_t *)handle) != 0) {
+  if (uv_timer_again((uv_timer_t *)handle) != 0) {
     piksi_log(LOG_ERR, "Could not reset timer");
     return -1;
   }
@@ -402,25 +397,19 @@ static void uv_loop_poll_handler(uv_poll_t *poller, int status, int events)
   }
 }
 
-void * pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
-                                   pk_endpoint_t *pk_ept,
-                                   pk_loop_cb callback,
-                                   void *context)
+void *pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
+                                  pk_endpoint_t *pk_ept,
+                                  pk_loop_cb callback,
+                                  void *context)
 {
   assert(pk_loop != NULL);
   assert(pk_ept != NULL);
   assert(callback != NULL);
 
-  return pk_loop_poll_add(pk_loop,
-                          pk_endpoint_poll_handle_get(pk_ept),
-                          callback,
-                          context);
+  return pk_loop_poll_add(pk_loop, pk_endpoint_poll_handle_get(pk_ept), callback, context);
 }
 
-void * pk_loop_poll_add(pk_loop_t *pk_loop,
-                        int fd,
-                        pk_loop_cb callback,
-                        void *context)
+void *pk_loop_poll_add(pk_loop_t *pk_loop, int fd, pk_loop_cb callback, void *context)
 {
   assert(pk_loop != NULL);
   assert(fd >= 0);

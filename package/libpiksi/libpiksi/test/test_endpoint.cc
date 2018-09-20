@@ -18,7 +18,8 @@
 
 extern "C" bool pk_endpoint_test(void);
 
-TEST_F(LibpiksiTests, endpointTests) {
+TEST_F(LibpiksiTests, endpointTests)
+{
   pk_endpoint_t *ept = nullptr;
 
   /* create with invalid inputs */
@@ -61,6 +62,4 @@ TEST_F(LibpiksiTests, endpointTests) {
     pk_endpoint_destroy(&ept);
     ASSERT_EQ(ept, nullptr);
   }
-
 }
-

@@ -62,7 +62,7 @@ typedef int (*pk_endpoint_receive_cb)(const u8 *data, const size_t length, void 
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-pk_endpoint_t * pk_endpoint_create(const char *endpoint, pk_endpoint_type type);
+pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type);
 
 /**
  * @brief   Destroy a Piksi Endpoint context
@@ -146,7 +146,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
  *
  * @return                  Pointer to a const string buffer with description
  */
-const char * pk_endpoint_strerror(void);
+const char *pk_endpoint_strerror(void);
 
 #ifdef __cplusplus
 }

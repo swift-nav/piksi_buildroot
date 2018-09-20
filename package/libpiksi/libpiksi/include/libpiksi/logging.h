@@ -88,12 +88,12 @@ void piksi_vlog(int priority, const char *format, va_list ap);
 void sbp_log(int priority, const char *msg_text, ...);
 
 /**
-  * @brief   Send a log message over SBP
-  *
-  * @param[in] priority      Priority level as defined in <syslog.h>.
-  * @param[in] msg_text      The log message text to send.
-  * @param[in] ap            variable argument list for printf().
-  */
+ * @brief   Send a log message over SBP
+ *
+ * @param[in] priority      Priority level as defined in <syslog.h>.
+ * @param[in] msg_text      The log message text to send.
+ * @param[in] ap            variable argument list for printf().
+ */
 void sbp_vlog(int priority, const char *msg_text, va_list ap);
 
 #ifdef __cplusplus
