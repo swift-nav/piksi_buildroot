@@ -584,12 +584,12 @@ int main(void)
                                SBP_MSG_RESET_DEP, reset_callback, NULL, NULL);
 
   img_tbl_settings_setup(settings_ctx);
-  hardware_info_settings_setup(settings_ctx);
   sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_COMMAND_REQ, sbp_command, pubsub_ctx, NULL);
   sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                                SBP_MSG_NETWORK_STATE_REQ, sbp_network_req,
                                pubsub_ctx, NULL);
+  hardware_info_settings_setup(settings_ctx);
 
   pk_loop_run_simple(loop);
 
