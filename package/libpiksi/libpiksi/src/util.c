@@ -159,7 +159,6 @@ int file_write_string(const char *filename, const char *str)
   }
 
   return 0;
-
 }
 
 u16 sbp_sender_id_get(void)

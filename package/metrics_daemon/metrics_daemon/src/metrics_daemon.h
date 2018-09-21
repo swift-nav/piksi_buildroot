@@ -7,6 +7,6 @@
 
 extern "C" {
 int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
-json_object *init_json_object(const char * path);
+json_object *init_json_object(const char *path);
 }
-#endif //PIKSI_BUILDROOT_METRICS_DAEMON_H
+#endif // PIKSI_BUILDROOT_METRICS_DAEMON_H
