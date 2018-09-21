@@ -225,8 +225,8 @@ static int ota_sha256sum(const char *expected)
 
   if (ret) {
     piksi_log(LOG_ERR, "SHA256 mismatch");
-    piksi_log(LOG_ERR, "%s", sha);
-    piksi_log(LOG_ERR, "%s", expected);
+    piksi_log(LOG_ERR, "SHA256 actual  : %s", sha);
+    piksi_log(LOG_ERR, "SHA256 expected: %s", expected);
   }
 
   return ret;
