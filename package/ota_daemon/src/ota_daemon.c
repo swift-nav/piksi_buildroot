@@ -43,10 +43,13 @@
 #define OTA_TIMEOUT_JITTER_PERCENTAGE (15)
 #define OTA_TIMEOUT_JITTER_MAX (100 + OTA_TIMEOUT_JITTER_PERCENTAGE)
 #define OTA_TIMEOUT_JITTER_MIN (100 - OTA_TIMEOUT_JITTER_PERCENTAGE)
-#define OTA_TIMEOUT_JITTER                                                                   \
-  ((rand() % (OTA_TIMEOUT_JITTER_MAX + 1 - OTA_TIMEOUT_JITTER_MIN) + OTA_TIMEOUT_JITTER_MIN) \
-   / 100.f)
-#define OTA_TIMEOUT_S round(OTA_TIMEOUT_AVG_S *OTA_TIMEOUT_JITTER)
+
+static inline int ota_timout_s(void)
+{
+  int jitter = rand() % (OTA_TIMEOUT_JITTER_MAX + 1 - OTA_TIMEOUT_JITTER_MIN);
+  int jitter_scaled = (jitter + OTA_TIMEOUT_JITTER_MIN) / 100.f;
+  return round(OTA_TIMEOUT_AVG_S * jitter_scaled);
+}
 
 /* Timeout before first try, give some time for network connection init */
 #define OTA_INITIAL_TIMEOUT_S (60)
@@ -418,7 +421,7 @@ static int ota_client_loop(void)
 
   while (!libnetwork_shutdown_signaled(nw_ctx) && run_sigtimedwait(&params)) {
     /* Update timeout jitter */
-    update_sigtimedwait(&params, OTA_TIMEOUT_S);
+    update_sigtimedwait(&params, ota_timout_s());
 
     piksi_log(LOG_INFO, "Checking FW update, next timeout %d s...", params.timeout.tv_sec);
 
