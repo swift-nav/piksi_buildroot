@@ -32,6 +32,7 @@
 #include <libsbp/observation.h>
 
 #include <swiftnav/signal.h>
+#include <swiftnav/single_epoch_solver.h>
 
 #include "health_monitor.h"
 
@@ -43,8 +44,6 @@
 
 #define BASE_NUM_SATS_SAMPLE_RATE (10000u)      /* ms */
 #define BASE_NUM_SATS_ALERT_RATE_LIMIT (30000u) /* ms */
-
-#define BASE_NUM_SATS_MIN (5u)
 
 /**
  * \brief Private context for the glo obs health monitor
@@ -60,14 +59,14 @@ static u8 max_timeout_count_before_warn =
  * \brief Private global data for base num sats callbacks
  */
 static struct base_num_sats_ctx_s {
-  gnss_signal_t unique_sids[BASE_NUM_SATS_MIN];
+  gnss_signal_t unique_sids[MIN_SATS_FOR_PVT];
   u8 num_sats;
   u8 timeout_counter;
 } base_num_sats_ctx = {0};
 
 static bool base_num_sats_below_threshold(void)
 {
-  return (base_num_sats_ctx.num_sats < BASE_NUM_SATS_MIN);
+  return (base_num_sats_ctx.num_sats < MIN_SATS_FOR_PVT);
 }
 
 static void base_num_sats_reset(void)
@@ -172,7 +171,7 @@ static int base_num_sats_timer_callback(health_monitor_t *monitor, void *context
       sbp_log(
         LOG_WARNING,
         "Reference Number of Satellites low - less that %d unique satellites received from base station within %d sec window.",
-        BASE_NUM_SATS_MIN,
+        MIN_SATS_FOR_PVT,
         BASE_NUM_SATS_ALERT_RATE_LIMIT / 1000);
     } else {
       base_num_sats_timeout_counter_increment();
