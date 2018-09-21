@@ -13,7 +13,7 @@ let
     bzip2
     cacert
     ccache
-    clang_38
+    clang
     clang-tools
     cmake
     coreutils
