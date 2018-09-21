@@ -185,6 +185,23 @@ static void trim_crlf(char *buf, size_t *byte_count) __attribute__((nonnull(1)))
 static void log_with_rate_limit(network_context_t *ctx, int priority, const char *format, ...)
   __attribute__((nonnull(1, 3)));
 
+const char *libnetwork_status_text(network_status_t status)
+{
+  // clang-format off
+  switch (status) {
+  case NETWORK_STATUS_INVALID_SETTING:    return "Setting is invalid for this type";
+  case NETWORK_STATUS_URL_TOO_LARGE:      return "URL specified is too large";
+  case NETWORK_STATUS_USERNAME_TOO_LARGE: return "Username specified is too large";
+  case NETWORK_STATUS_PASSWORD_TOO_LARGE: return "Password specified is too large";
+  case NETWORK_STATUS_FIFO_ERROR:         return "There was an error creating a FIFO";
+  case NETWORK_STATUS_WRITE_ERROR:        return "There was an error writing to a FIFO";
+  case NETWORK_STATUS_READ_ERROR:         return "There was an error reading from a FIFO";
+  case NETWORK_STATUS_SUCCESS:            return "Operation was successful";
+  default: return "<unknown>";
+  }
+  // clang-format on
+}
+
 void libnetwork_shutdown(network_type_t type)
 {
   context_node_t *node;

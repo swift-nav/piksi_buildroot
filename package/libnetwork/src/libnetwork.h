@@ -70,6 +70,8 @@ typedef enum {
 } network_status_t;
 // clang-format on
 
+const char *libnetwork_status_text(network_status_t status);
+
 /**
  * @brief Create a context for a libnetwork session
  *

@@ -156,23 +156,23 @@ static int configure_libnetwork(network_context_t *ctx, int fd, const char *url)
   network_status_t status = NETWORK_STATUS_SUCCESS;
 
   if ((status = libnetwork_set_url(ctx, url)) != NETWORK_STATUS_SUCCESS) {
-    piksi_log(LOG_ERR | LOG_SBP, "Failed configuring libnetwork url: %d", status);
+    piksi_log(LOG_ERR, libnetwork_status_text(status));
     return 1;
   }
 
   if ((status = libnetwork_set_fd(ctx, fd)) != NETWORK_STATUS_SUCCESS) {
-    piksi_log(LOG_ERR | LOG_SBP, "Failed configuring libnetwork fd: %d", status);
+    piksi_log(LOG_ERR, libnetwork_status_text(status));
     return 1;
   }
 
   if ((status = libnetwork_set_debug(ctx, opt_debug)) != NETWORK_STATUS_SUCCESS) {
-    piksi_log(LOG_ERR | LOG_SBP, "Failed configuring libnetwork debug: %d", status);
+    piksi_log(LOG_ERR, libnetwork_status_text(status));
     return 1;
   }
 
   status = libnetwork_set_continuous(ctx, false);
   if (status != NETWORK_STATUS_SUCCESS) {
-    piksi_log(LOG_ERR | LOG_SBP, "Failed configuring libnetwork continuous fd: %d", status);
+    piksi_log(LOG_ERR, libnetwork_status_text(status));
     return 1;
   }
 
