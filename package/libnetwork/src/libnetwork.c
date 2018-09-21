@@ -1188,7 +1188,7 @@ void ota_enquire(network_context_t *ctx)
   char fw_hdr_buf[64];
   device_fw_version_get(fw_buf, sizeof(fw_buf));
   count = snprintf(fw_hdr_buf, sizeof(fw_hdr_buf), "Current-Version: %s", fw_buf);
-  assert((size_t)count < sizeof(uuid_hdr_buf));
+  assert((size_t)count < sizeof(fw_hdr_buf));
 
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, uuid_hdr_buf);
