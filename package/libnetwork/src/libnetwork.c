@@ -952,7 +952,7 @@ static void log_with_rate_limit(network_context_t *ctx, int priority, const char
 
 static void network_request(network_context_t *ctx, CURL *curl)
 {
-  char error_buf[CURL_ERROR_SIZE];
+  char error_buf[CURL_ERROR_SIZE] = {0};
 
   // clang-format off
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER,       error_buf);
