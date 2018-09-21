@@ -897,14 +897,14 @@ static CURL *network_setup(network_context_t *ctx)
 
   CURLcode code = curl_global_init(CURL_GLOBAL_ALL);
   if (code != CURLE_OK) {
-    piksi_log(LOG_ERR, "global init %d", code);
+    piksi_log(LOG_ERR, "network_setup global init error %d", code);
     return NULL;
   }
 
   CURL *curl = curl_easy_init();
 
   if (curl == NULL) {
-    piksi_log(LOG_ERR, "init");
+    piksi_log(LOG_ERR, "network_setup cURL easy init failed");
     curl_global_cleanup();
     return NULL;
   }
