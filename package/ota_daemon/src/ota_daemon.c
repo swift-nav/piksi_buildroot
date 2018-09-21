@@ -70,8 +70,8 @@ typedef struct ota_version_s {
 } ota_version_t;
 
 static ota_op_mode_t op_mode = OP_MODE_COUNT;
-
 static const char *opt_url = NULL;
+static bool opt_debug = false;
 
 static bool ota_enabled = false;
 
@@ -85,28 +85,34 @@ static void usage(char *command)
 
   puts("\nOTA mode options");
   puts("\t--url        <OTA endpoint URL>");
+
+  puts("\nGeneral options");
+  puts("\t--debug");
 }
 
 static int parse_options(int argc, char *argv[])
 {
   enum {
-    OPT_ID_MODE_OTA = 1,
+    OPT_ID_DEBUG = 1,
+    OPT_ID_MODE_OTA,
     OPT_ID_MODE_SETTINGS,
     OPT_ID_URL,
   };
 
+  // clang-format off
   const struct option long_opts[] = {
-    {"ota", no_argument, 0, OPT_ID_MODE_OTA},
-    {"settings", no_argument, 0, OPT_ID_MODE_SETTINGS},
-    {"url", optional_argument, 0, OPT_ID_URL},
+    {"debug",     no_argument,        0, OPT_ID_DEBUG},
+    {"ota",       no_argument,        0, OPT_ID_MODE_OTA},
+    {"settings",  no_argument,        0, OPT_ID_MODE_SETTINGS},
+    {"url",       optional_argument,  0, OPT_ID_URL},
     {0, 0, 0, 0},
   };
+  // clang-format on
 
   int opt;
 
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
-
     case OPT_ID_MODE_OTA: {
       op_mode = OP_MODE_OTA_CLIENT;
     } break;
@@ -117,6 +123,10 @@ static int parse_options(int argc, char *argv[])
 
     case OPT_ID_URL: {
       opt_url = optarg;
+    } break;
+
+    case OPT_ID_DEBUG: {
+      opt_debug = true;
     } break;
 
     default: {
@@ -155,7 +165,7 @@ static int configure_libnetwork(network_context_t *ctx, int fd, const char *url)
     return 1;
   }
 
-  if ((status = libnetwork_set_debug(ctx, false)) != NETWORK_STATUS_SUCCESS) {
+  if ((status = libnetwork_set_debug(ctx, opt_debug)) != NETWORK_STATUS_SUCCESS) {
     piksi_log(LOG_ERR | LOG_SBP, "Failed configuring libnetwork debug: %d", status);
     return 1;
   }
