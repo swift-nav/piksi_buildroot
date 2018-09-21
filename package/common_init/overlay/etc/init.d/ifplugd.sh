@@ -28,7 +28,6 @@ run_ifplugd()
   local opts=
 
   opts="$opts -I "             # Don't exit on nonzero exit code from script
-  opts="$opts -a "             # Don't up interface at each link probe
   opts="$opts -q "             # Don't run "down" script on exit
   opts="$opts -p "             # Don't run "up" script on start-up
   opts="$opts -n "             # Don't daemonize
