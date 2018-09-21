@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -515,4 +516,24 @@ int run_with_stdin_file(const char *input_file,
 
   exit(EXIT_FAILURE);
   __builtin_unreachable();
+}
+
+bool str_digits_only(const char *str)
+{
+  if (str == NULL) {
+    return false;
+  }
+
+  /* Empty string */
+  if (!(*str)) {
+    return false;
+  }
+
+  while (*str) {
+    if (isdigit(*str++) == 0) {
+      return false;
+    }
+  }
+
+  return true;
 }

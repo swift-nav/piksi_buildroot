@@ -210,6 +210,15 @@ int run_with_stdin_file(const char *input_file,
                         char *output,
                         size_t output_size);
 
+/**
+ * @brief   Check if string contains only digits
+ * @details Empty string ("\0") and NULL are considered non-digits-only.
+ *          A string with leading zeros is considered as a valid digits-only.
+ *
+ * @return  True if only digits in str
+ */
+bool str_digits_only(const char *str);
+
 #define SWFT_MAX(a, b)  \
   ({                    \
     typeof(a) _a = (a); \

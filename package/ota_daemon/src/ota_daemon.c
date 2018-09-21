@@ -232,10 +232,9 @@ static int ota_sha256sum(const char *expected)
   return ret;
 }
 
-/* TODO: check that token includes only digits */
 #define CHECK_TOKEN(version)                                 \
   do {                                                       \
-    if (token) {                                             \
+    if (token && str_digits_only(token)) {                   \
       version = atoi(token);                                 \
     } else {                                                 \
       piksi_log(LOG_ERR, "Invalid version string: %s", str); \
