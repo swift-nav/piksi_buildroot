@@ -176,12 +176,13 @@ int update_sigtimedwait(sigwait_params_t *params, time_t tv_sec);
  *
  * @return  0 if signal was received, 1 if timeout was reached
  */
-int do_sigtimedwait(sigwait_params_t *params);
+int run_sigtimedwait(sigwait_params_t *params);
 
 /**
  * @brief   Check if file descriptor is file
- * @details lseek will fail with ESPIPE fd is associated with a pipe, socket or
- *          FIFO.
+ * @details This function is useful for avoiding operations that fail on
+ *          non-file FDs, for example, lseek will fail with ESPIPE if the FD
+ *          is associated with a pipe, socket or FIFO.
  *
  * @return  True if file, false otherwise
  */
@@ -193,21 +194,21 @@ bool is_file(int fd);
  *          and its stdout to provided output buffer. Call blocks until the
  *          output buffer is full or child process stdout gives EOF.
  *
- * @param[in]  input_file   Input file to map as child process stdin
- * @param[in]  cmd          Command to run within child process
- * @param[in]  cmd          Command arguments, list shall be NULL terminated,
- *                          see execvp manual
- * @param[out] output       Output buffer
- * @param[out] output_len   Output buffer length
+ * @param[in]    input_file   Input file to map as child process stdin
+ * @param[in]    cmd          Command to run within child process
+ * @param[in]    cmd          Command arguments, list shall be NULL terminated,
+ *                            see execvp manual
+ * @param[inout] output       Output buffer
+ * @param[in]    output_size  Output buffer size
  *
- * @return                  The operation result.
- * @retval 0                Success
+ * @return                    The operation result.
+ * @retval 0                  Success
  */
 int run_with_stdin_file(const char *input_file,
                         const char *cmd,
                         char *const argv[],
                         char *output,
-                        size_t output_len);
+                        size_t output_size);
 
 #define SWFT_MAX(a, b)  \
   ({                    \

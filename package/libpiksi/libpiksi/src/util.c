@@ -418,7 +418,7 @@ int update_sigtimedwait(sigwait_params_t *params, time_t tv_sec)
   return 0;
 }
 
-int do_sigtimedwait(sigwait_params_t *params)
+int run_sigtimedwait(sigwait_params_t *params)
 {
   int ret = sigtimedwait(&params->waitset, &params->info, &params->timeout);
 
@@ -440,7 +440,7 @@ int run_with_stdin_file(const char *input_file,
                         const char *cmd,
                         char *const argv[],
                         char *output,
-                        size_t output_len)
+                        size_t output_size)
 {
   int stdout_pipe[2];
 
@@ -455,8 +455,8 @@ int run_with_stdin_file(const char *input_file,
     close(stdout_pipe[PIPE_WRITE_SIDE]);
 
     size_t total = 0;
-    while (output_len > total) {
-      ssize_t ret = read(stdout_pipe[PIPE_READ_SIDE], output + total, output_len - total);
+    while (output_size > total) {
+      ssize_t ret = read(stdout_pipe[PIPE_READ_SIDE], output + total, output_size - total);
 
       if (ret > 0) {
         total += ret;
@@ -466,8 +466,8 @@ int run_with_stdin_file(const char *input_file,
     }
 
     /* Guarantee null terminated output */
-    if (total >= output_len) {
-      output[output_len - 1] = 0;
+    if (total >= output_size) {
+      output[output_size - 1] = 0;
     } else {
       output[total] = 0;
     }

@@ -416,7 +416,7 @@ static int ota_client_loop(void)
   int fd_resp = -1;
   int fd_img = -1;
 
-  while (!libnetwork_shutdown_signaled(nw_ctx) && do_sigtimedwait(&params)) {
+  while (!libnetwork_shutdown_signaled(nw_ctx) && run_sigtimedwait(&params)) {
     /* Update timeout jitter */
     update_sigtimedwait(&params, OTA_TIMEOUT_S);
 
