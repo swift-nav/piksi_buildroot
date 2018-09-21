@@ -8,10 +8,11 @@ if [ -z "$CLANG_FORMAT_BINARY" ] ; then
   exit 1
 fi
 CLANG_FORMAT_VERSION=$($CLANG_FORMAT_BINARY --version)
-if [[ "$CLANG_FORMAT_VERSION" == *"5.0.1"* ]]; then
+if [[ "$CLANG_FORMAT_VERSION" == *"5.0"* ]]; then
   echo "Formatting C/C++ Sources with $CLANG_FORMAT_VERSION"
 else
-  echo "Incorrect formatter version ($CLANG_FORMAT_VERSION), expected 5.0.1"
+  echo "Incorrect formatter version ($CLANG_FORMAT_VERSION), expected 5.0"
+  exit 1
 fi
 
 FIND_COMMAND=$(command -v find)
