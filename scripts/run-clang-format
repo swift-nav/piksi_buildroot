@@ -7,6 +7,12 @@ if [ -z "$CLANG_FORMAT_BINARY" ] ; then
   echo "Failed to find clang-format binary in path: $PATH"
   exit 1
 fi
+CLANG_FORMAT_VERSION=$($CLANG_FORMAT_BINARY --version)
+if [[ "$CLANG_FORMAT_VERSION" == *"5.0.1"* ]]; then
+  echo "Formatting C/C++ Sources with $CLANG_FORMAT_VERSION"
+else
+  echo "Incorrect formatter version ($CLANG_FORMAT_VERSION), expected 5.0.1"
+fi
 
 FIND_COMMAND=$(command -v find)
 FIND_BASE_DIR="package"
