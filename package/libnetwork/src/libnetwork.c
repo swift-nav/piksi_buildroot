@@ -515,7 +515,7 @@ static size_t network_download_write(char *buf, size_t size, size_t n, void *dat
     }
 
     if (ctx->debug) {
-      piksi_log(LOG_DEBUG | LOG_SBP, "write bytes (%d) %d", size * n, ret);
+      piksi_log(LOG_DEBUG, "write bytes (%d) %d", size * n, ret);
     }
 
     return ret;

@@ -519,7 +519,7 @@ int run_with_stdin_file(const char *input_file,
 
   fd = dup2(stdout_pipe[PIPE_WRITE_SIDE], STDOUT_FILENO);
   if (fd < 0) {
-    piksi_log(LOG_ERR | LOG_SBP, "dup2");
+    piksi_log(LOG_ERR, "%s: dup2 failed", __FUNCTION__);
     exit(EXIT_FAILURE);
   }
 
