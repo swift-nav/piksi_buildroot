@@ -91,6 +91,7 @@ static int ntrip_daemon_execfn(void) {
 static int ntrip_adapter_execfn(void) {
   char *argv[] = {
     "endpoint_adapter",
+    "--name", "ntrip_daemon",
     "-f", "rtcm3",
     "--file", FIFO_FILE_PATH,
     "-p", "ipc:///var/run/sockets/rtcm3_external.sub",

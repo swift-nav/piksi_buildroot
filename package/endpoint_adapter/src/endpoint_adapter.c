@@ -112,7 +112,7 @@ static int outq;
 
 static const char *pub_addr = NULL;
 static const char *sub_addr = NULL;
-static const char *port_name = "<unknown>";
+static const char *port_name = NULL;
 static char file_path[PATH_MAX] = "";
 static int tcp_listen_port = -1;
 static const char *tcp_connect_addr = NULL;
@@ -342,6 +342,12 @@ static int parse_options(int argc, char *argv[])
 
   if (endpoint_mode == ENDPOINT_INVALID) {
     fprintf(stderr, "endpoint address(es) not specified\n");
+    return -1;
+  }
+
+  if(port_name == NULL)
+  {
+    fprintf(stderr, "adapter name not set\n");
     return -1;
   }
 

@@ -1,0 +1,21 @@
+#!/bin/sh
+
+name="PoseDaemon"
+cmd="PoseDaemon"
+dir="/"
+user="piksi_ins"
+
+LICENSES_DIR=/persistent/licenses
+
+DIR_PERM=0755
+FILE_PERM=0644
+
+setup_permissions()
+{
+  # /persistent directory is setup by file_io_daemon
+  # piksi_ins daemon creates licenses directory since it is the
+  # only process that needs it presentently
+  configure_dir_resource_rec fileio "$LICENSES_DIR" "$DIR_PERM" "$FILE_PERM"
+}
+
+source /etc/init.d/template_process.inc.sh
