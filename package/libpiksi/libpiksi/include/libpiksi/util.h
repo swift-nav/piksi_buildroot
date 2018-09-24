@@ -136,7 +136,7 @@ void set_device_has_gps_time(bool has_time);
  *          the end-of-file is reached, whichever happens first. Str shall be
  *          null terminated. If buffer is too small and the string is truncated,
  *          a warning shall be issued but result considered as a success.
- * 
+ *
  *          Buffer shall be zero initialized before reading the string.
  *
  * @return  0 when success

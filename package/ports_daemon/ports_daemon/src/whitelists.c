@@ -492,7 +492,9 @@ int whitelist_notify(void *context)
     case '\t':
     case '\n':
     case '\r':
-    case '\v': c++; break;
+    case '\v':
+      c++;
+      break;
 
     /* Invalid token, parse error */
     default: return -1;
