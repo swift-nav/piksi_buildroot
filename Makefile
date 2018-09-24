@@ -55,6 +55,12 @@ define _release_ins_build
 			$(MAKE) pkg-piksi_ins-rebuild
 endef
 
+define _starling_daemon_build
+	[ -z "$(BR2_BUILD_STARLING_DAEMON)" ] || \
+		$(BUILD_ENV_ARGS) \
+			$(MAKE) pkg-starling_daemon-rebuild
+endef
+
 image-release-open: export BR2_BUILD_RELEASE_OPEN=y
 image-release-open: config
 	$(call _release_build,:)
@@ -68,6 +74,7 @@ image-release-ins:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) image-release-protected
 
+image: export BR2_BUILD_STARLING_DAEMON=y
 image: export BR2_BUILD_PIKSI_INS=y
 image: config
 	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
@@ -75,6 +82,7 @@ image: config
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) dev-tools-clean dev-tools-build
 	$(_release_ins_build)
+	$(_starling_daemon_build)
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
 
