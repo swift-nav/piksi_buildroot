@@ -28,7 +28,7 @@ fi
 
 echo "reset2defaults.txt file found on flashdrive.  Resetting Piksi to default settings" | sbp_log $LOGLEVEL
 echo "reset2defaults.txt file found on flashdrive.  Resetting Piksi to default settings" 
-rm -rf /persistent/*
+rm /persistent/config.ini
 rm $RESETFILE
 echo "Rebooting Piksi." | sbp_log $LOGLEVEL
 echo "Rebooting Piksi." 
