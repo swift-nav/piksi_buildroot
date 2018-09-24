@@ -326,25 +326,25 @@ static int ota_version_check(const char *offered)
   return ret;
 }
 
-static int ota_parse_response(ota_resp_t *parsed_resp)
+static bool ota_parse_response(ota_resp_t *parsed_resp)
 {
   /* Read and mmap the json file */
   int fd = open(OTA_RESPONSE_FILE_PATH, O_RDONLY);
   if (fd == -1) {
-    return 1;
+    return false;
   }
 
   struct stat sb = {0};
 
   if (fstat(fd, &sb) == -1) {
     close(fd);
-    return 1;
+    return false;
   }
 
   void *fmap = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
   close(fd);
   if (fmap == MAP_FAILED) {
-    return 1;
+    return false;
   }
 
   /* Parse json into a json_object struct */
@@ -371,25 +371,25 @@ static int ota_parse_response(ota_resp_t *parsed_resp)
   /* Cleanup objects when done */
   json_object_object_del(fjson, "");
 
-  return 0;
+  return true;
 }
 
-static int ota_create_files(int *fd_resp, int *fd_img)
+static bool ota_create_files(int *fd_resp, int *fd_img)
 {
   /* Create empty files */
   *fd_resp = open(OTA_RESPONSE_FILE_PATH, O_CREAT | O_WRONLY | O_TRUNC, 0644);
   if (*fd_resp < 0) {
     piksi_log(LOG_ERR | LOG_SBP, "fd error (%d) \"%s\"", errno, strerror(errno));
-    return 1;
+    return false;
   }
 
   *fd_img = open(OTA_IMAGE_FILE_PATH, O_CREAT | O_WRONLY | O_TRUNC, 0644);
   if (*fd_img < 0) {
     piksi_log(LOG_ERR | LOG_SBP, "fd error (%d) \"%s\"", errno, strerror(errno));
-    return 1;
+    return false;
   }
 
-  return 0;
+  return true;
 }
 
 static void ota_close_files(int *fd_resp, int *fd_img)
@@ -405,9 +405,9 @@ static void ota_close_files(int *fd_resp, int *fd_img)
   }
 }
 
-static int ota_client_loop(void)
+static bool ota_client_loop(void)
 {
-  int ret = 0;
+  bool ret = true;
 
   setup_sigterm_handler(ota_sig_handler);
   setup_sigint_handler(ota_sig_handler);
@@ -429,20 +429,20 @@ static int ota_client_loop(void)
 
     piksi_log(LOG_INFO, "Checking FW update, next timeout %d s...", params.timeout.tv_sec);
 
-    if (ota_create_files(&fd_resp, &fd_img)) {
-      ret = 1;
+    if (!ota_create_files(&fd_resp, &fd_img)) {
+      ret = false;
       break;
     }
 
     if (configure_libnetwork(nw_ctx, fd_resp, opt_url)) {
-      ret = 1;
+      ret = false;
       break;
     }
 
     ota_enquire(nw_ctx);
 
     ota_resp_t parsed_resp = {0};
-    if (ota_parse_response(&parsed_resp)) {
+    if (!ota_parse_response(&parsed_resp)) {
       ota_close_files(&fd_resp, &fd_img);
       continue;
     }
@@ -453,7 +453,7 @@ static int ota_client_loop(void)
     }
 
     if (configure_libnetwork(nw_ctx, fd_img, parsed_resp.url)) {
-      ret = 1;
+      ret = false;
       break;
     }
 
@@ -516,18 +516,18 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  int ret = 1;
+  bool ret = false;
 
   switch (op_mode) {
   case OP_MODE_OTA_CLIENT: ret = ota_client_loop(); break;
   case OP_MODE_SETTINGS_DAEMON: ret = settings_loop_simple(ota_settings); break;
   case OP_MODE_COUNT:
-  default: ret = 1;
+  default: ret = false;
   }
 
   logging_deinit();
 
-  if (ret != 0) {
+  if (!ret) {
     exit(EXIT_FAILURE);
   }
 
