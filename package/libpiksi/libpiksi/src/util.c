@@ -88,7 +88,7 @@ int file_read_string(const char *filename, char *str, size_t str_size)
   fclose(fp);
 
   if (truncated) {
-    piksi_log(LOG_WARNING, "%s: str was truncated", __FUNCTION__, filename);
+    piksi_log(LOG_WARNING, "%s: str was truncated", __FUNCTION__);
   }
 
   return 0;
