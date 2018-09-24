@@ -47,7 +47,7 @@
 static inline int ota_timout_s(void)
 {
   int jitter = rand() % (OTA_TIMEOUT_JITTER_MAX + 1 - OTA_TIMEOUT_JITTER_MIN);
-  int jitter_scaled = (jitter + OTA_TIMEOUT_JITTER_MIN) / 100.f;
+  float jitter_scaled = (jitter + OTA_TIMEOUT_JITTER_MIN) / 100.f;
   return round(OTA_TIMEOUT_AVG_S * jitter_scaled);
 }
 
