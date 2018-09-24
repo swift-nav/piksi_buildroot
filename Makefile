@@ -1,5 +1,6 @@
 include scripts/set-shell.mk
 include scripts/env-setup.mk
+include scripts/aws-setup.mk
 
 BR2_EXTERNAL := $(CURDIR)
 
