@@ -32,6 +32,7 @@
 #include <libsbp/observation.h>
 
 #include <swiftnav/signal.h>
+#include <swiftnav/sid_set.h>
 #include <swiftnav/single_epoch_solver.h>
 
 #include "health_monitor.h"
@@ -59,36 +60,23 @@ static u8 max_timeout_count_before_warn =
  * \brief Private global data for base num sats callbacks
  */
 static struct base_num_sats_ctx_s {
-  gnss_signal_t unique_sids[MIN_SATS_FOR_PVT];
-  u8 num_sats;
+  gnss_sid_set_t sid_set;
   u8 timeout_counter;
 } base_num_sats_ctx = {0};
 
 static bool base_num_sats_below_threshold(void)
 {
-  return (base_num_sats_ctx.num_sats < MIN_SATS_FOR_PVT);
+  return (sid_set_get_sat_count(&base_num_sats_ctx.sid_set) < MIN_SATS_FOR_PVT);
 }
 
 static void base_num_sats_reset(void)
 {
-  memset(base_num_sats_ctx.unique_sids, 0, sizeof(base_num_sats_ctx.unique_sids));
-  base_num_sats_ctx.num_sats = 0;
+  sid_set_init(&base_num_sats_ctx.sid_set);
 }
 
 static void base_num_sats_ingest_sid(const gnss_signal_t sid)
 {
-  // Don't need to check unless we're below the threshold
-  if (!base_num_sats_below_threshold()) return;
-
-  for (int i = 0; i < base_num_sats_ctx.num_sats; i++) {
-    if (sid_compare(sid, base_num_sats_ctx.unique_sids[i]) == 0) {
-      // We've found a duplicate, so ignore
-      return;
-    }
-  }
-
-  // Not found in current set, so add and increment num_sats
-  base_num_sats_ctx.unique_sids[base_num_sats_ctx.num_sats++] = sid;
+  sid_set_add(&base_num_sats_ctx.sid_set, sid);
 }
 
 static void base_num_sats_timeout_counter_increment(void)
