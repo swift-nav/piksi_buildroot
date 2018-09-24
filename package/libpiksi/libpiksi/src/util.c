@@ -494,6 +494,8 @@ int run_with_stdin_file(const char *input_file,
 
     close(stdout_pipe[PIPE_READ_SIDE]);
 
+    wait(NULL);
+
     return 0;
   } else if (pid == -1) {
     return 1;
