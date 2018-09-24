@@ -57,19 +57,38 @@
 
 int file_read_string(const char *filename, char *str, size_t str_size)
 {
-  FILE *fp = fopen(filename, "r");
-  if (fp == NULL) {
-    piksi_log(LOG_ERR, "error opening %s", filename);
+  if (filename == NULL) {
+    piksi_log(LOG_ERR, "%s: filename is NULL", __FUNCTION__);
     return -1;
   }
 
-  bool success = (fgets(str, str_size, fp) != NULL);
+  if (str == NULL) {
+    piksi_log(LOG_ERR, "%s: str is NULL", __FUNCTION__);
+    return -1;
+  }
+
+  memset(str, 0, str_size);
+
+  FILE *fp = fopen(filename, "r");
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "%s: error opening %s", __FUNCTION__, filename);
+    return -1;
+  }
+
+  if (fgets(str, str_size, fp) == NULL) {
+    fclose(fp);
+    piksi_log(LOG_ERR, "%s: error reading %s", __FUNCTION__, filename);
+    return -1;
+  }
+
+  size_t len = strlen(str);
+  /* EOF not reached AND no newline at the str end */
+  bool truncated = !feof(stdin) && (len != 0 && str[len-1] != '\n');
 
   fclose(fp);
 
-  if (!success) {
-    piksi_log(LOG_ERR, "error reading %s", filename);
-    return -1;
+  if (truncated) {
+    piksi_log(LOG_WARNING, "%s: str was truncated", __FUNCTION__, filename);
   }
 
   return 0;
