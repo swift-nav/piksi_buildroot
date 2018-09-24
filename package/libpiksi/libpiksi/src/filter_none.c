@@ -18,7 +18,7 @@ typedef struct {
   void *dummy;
 } filter_none_state_t;
 
-void * filter_none_create(const char *filename)
+void *filter_none_create(const char *filename)
 {
   filter_none_state_t *s = (filter_none_state_t *)malloc(sizeof(*s));
   if (s == NULL) {

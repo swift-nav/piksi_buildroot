@@ -45,13 +45,13 @@ enum {
   ALLOW_MTD_READ,
 };
 
-static int allow_mtd_read(const char* path);
-static const char* filter_imageset_bin(const char* filename);
+static int allow_mtd_read(const char *path);
+static const char *filter_imageset_bin(const char *filename);
 
-static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context);
-static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
-static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context);
-static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context);
+static void read_cb(u16 sender_id, u8 len, u8 msg[], void *context);
+static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void *context);
+static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context);
+static void write_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 
 path_validator_t *g_pv_ctx;
 
@@ -69,42 +69,32 @@ void sbp_fileio_setup(path_validator_t *pv_ctx,
   allow_factory_mtd = allow_factory_mtd_;
   allow_imageset_bin = allow_imageset_bin_;
 
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ,
-                           read_cb, tx_ctx, NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ,
-                           read_dir_cb, tx_ctx, NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE,
-                           remove_cb, tx_ctx, NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ,
-                           write_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ, read_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ, read_dir_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE, remove_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ, write_cb, tx_ctx, NULL);
 }
 
-static int allow_mtd_read(const char* path)
+static int allow_mtd_read(const char *path)
 {
   // TODO/DAEMON-USERS: Replace this with an SBP message (give firmware a handle
   //    to read here instead of allowing the read).
 
-  if (strcmp(path, "/factory/mtd") != 0)
-    return NO_MTD_READ;
+  if (strcmp(path, "/factory/mtd") != 0) return NO_MTD_READ;
 
   return allow_factory_mtd ? ALLOW_MTD_READ : DENY_MTD_READ;
 }
 
-static const char* filter_imageset_bin(const char* filename)
+static const char *filter_imageset_bin(const char *filename)
 {
-  if (!allow_imageset_bin)
-    return filename;
+  if (!allow_imageset_bin) return filename;
 
-  if (strcmp(filename, IMAGESET_BIN_NAME) != 0)
-    return filename;
+  if (strcmp(filename, IMAGESET_BIN_NAME) != 0) return filename;
 
   static char path_buf[PATH_MAX];
 
-  size_t printed = snprintf(path_buf,
-                            sizeof(path_buf),
-                            "/data/%s",
-                            IMAGESET_BIN_NAME);
-  assert( printed < sizeof(path_buf) );
+  size_t printed = snprintf(path_buf, sizeof(path_buf), "/data/%s", IMAGESET_BIN_NAME);
+  assert(printed < sizeof(path_buf));
   return path_buf;
 }
 
@@ -134,25 +124,26 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   reply = alloca(sizeof(msg_fileio_read_resp_t) + readlen);
   reply->sequence = msg->sequence;
 
-  FIO_LOG_DEBUG("read request for '%s', seq=%u, off=%u",
-                msg->filename, msg->sequence, msg->offset);
+  FIO_LOG_DEBUG("read request for '%s', seq=%u, off=%u", msg->filename, msg->sequence, msg->offset);
 
   int st = allow_mtd_read(msg->filename);
 
-  if (st == DENY_MTD_READ || (st == NO_MTD_READ && !path_validator_check(g_pv_ctx, msg->filename))) {
-    piksi_log(LOG_WARNING, "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...", msg->filename, path_validator_base_paths(g_pv_ctx));
+  if (st == DENY_MTD_READ
+      || (st == NO_MTD_READ && !path_validator_check(g_pv_ctx, msg->filename))) {
+    piksi_log(LOG_WARNING,
+              "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...",
+              msg->filename,
+              path_validator_base_paths(g_pv_ctx));
     readlen = 0;
   } else {
     int f = open(msg->filename, O_RDONLY);
     lseek(f, msg->offset, SEEK_SET);
     readlen = read(f, &reply->contents, readlen);
-    if (readlen < 0)
-      readlen = 0;
+    if (readlen < 0) readlen = 0;
     close(f);
   }
 
-  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP,
-              sizeof(*reply) + readlen, (u8*)reply);
+  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP, sizeof(*reply) + readlen, (u8 *)reply);
 }
 
 /** Directory listing callback.
@@ -184,12 +175,16 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   reply->sequence = msg->sequence;
 
   FIO_LOG_DEBUG("read_dir request for '%s', seq=%u, off=%u",
-                msg->dirname, msg->sequence, msg->offset);
+                msg->dirname,
+                msg->sequence,
+                msg->offset);
 
   if (!path_validator_check(g_pv_ctx, msg->dirname)) {
-    piksi_log(LOG_WARNING, "Received FILEIO_READ_DIR request for path (%s) "
-			"outside base directory (%s), ignoring...",
-			msg->dirname, path_validator_base_paths(g_pv_ctx));
+    piksi_log(LOG_WARNING,
+              "Received FILEIO_READ_DIR request for path (%s) "
+              "outside base directory (%s), ignoring...",
+              msg->dirname,
+              path_validator_base_paths(g_pv_ctx));
     len = 0;
 
   } else {
@@ -201,17 +196,15 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     len = 0;
     size_t max_len = SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply);
     while ((dirent = readdir(dir))) {
-      if (strlen(dirent->d_name) > (max_len - len - 1))
-        break;
-      strcpy((char*)reply->contents + len, dirent->d_name);
+      if (strlen(dirent->d_name) > (max_len - len - 1)) break;
+      strcpy((char *)reply->contents + len, dirent->d_name);
       len += strlen(dirent->d_name) + 1;
     }
 
     closedir(dir);
   }
 
-  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_DIR_RESP,
-              sizeof(*reply) + len, (u8*)reply);
+  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_DIR_RESP, sizeof(*reply) + len, (u8 *)reply);
 }
 
 /* Remove file callback.
@@ -230,12 +223,16 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
   /* Add a null termination to filename */
   msg[len] = 0;
 
-  const char* filename = filter_imageset_bin((char*)msg);
+  const char *filename = filter_imageset_bin((char *)msg);
 
   FIO_LOG_DEBUG("remove request for '%s'", filename);
 
   if (!path_validator_check(g_pv_ctx, filename)) {
-    piksi_log(LOG_WARNING, "Received FILEIO_REMOVE request for path (%s) outside base directory (%s), ignoring...", filename, path_validator_base_paths(g_pv_ctx));
+    piksi_log(
+      LOG_WARNING,
+      "Received FILEIO_REMOVE request for path (%s) outside base directory (%s), ignoring...",
+      filename,
+      path_validator_base_paths(g_pv_ctx));
     return;
   }
 
@@ -260,18 +257,24 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   int write_count = -1;
 
   FIO_LOG_DEBUG("write request for '%s', seq=%u, off=%u",
-                msg->filename, msg->sequence, msg->offset);
+                msg->filename,
+                msg->sequence,
+                msg->offset);
 
-  if ((len <= sizeof(*msg) + 2) ||
-      (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg)) ==
-                              SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
+  if ((len <= sizeof(*msg) + 2)
+      || (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))
+          == SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
     piksi_log(LOG_WARNING, "Invalid fileio write message!");
     return;
   }
 
-  const char* filename = filter_imageset_bin(msg->filename);
+  const char *filename = filter_imageset_bin(msg->filename);
   if (!path_validator_check(g_pv_ctx, filename)) {
-    piksi_log(LOG_WARNING, "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...", filename, path_validator_base_paths(g_pv_ctx));
+    piksi_log(
+      LOG_WARNING,
+      "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...",
+      filename,
+      path_validator_base_paths(g_pv_ctx));
     return;
   }
 
@@ -282,21 +285,16 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
   if (lseek(f, msg->offset, SEEK_SET) != (off_t)msg->offset) {
-    piksi_log(LOG_ERR,
-              "Error seeking to offset %d in %s for write",
-              msg->offset,
-              filename);
+    piksi_log(LOG_ERR, "Error seeking to offset %d in %s for write", msg->offset, filename);
     goto cleanup;
   }
   write_count = len - headerlen;
   if (write(f, msg_ + headerlen, write_count) != write_count) {
-    piksi_log(
-      LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
+    piksi_log(LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
     goto cleanup;
   }
 
-  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP,
-              sizeof(reply), (u8*)&reply);
+  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
 
 cleanup:
   close(f);

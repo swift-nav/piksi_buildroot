@@ -6,7 +6,7 @@
 
 BUILD_VARIANT=$(call qstrip,$(subst _defconfig,,$(notdir $(BR2_DEFCONFIG))))
 
-UPGRADE_TOOL_VERSION = v1.5.0-develop-2018091422
+UPGRADE_TOOL_VERSION = v2.2.1
 UPGRADE_TOOL_S3 = s3://swiftnav-artifacts/piksi_upgrade_tool/$(UPGRADE_TOOL_VERSION)/$(BUILD_VARIANT)/piksi_upgrade_tool.tgz
 UPGRADE_TOOL_SOURCE = s3-piksi_upgrade_tool-$(UPGRADE_TOOL_VERSION).tgz
 UPGRADE_TOOL_SITE = $(DL_DIR)

@@ -76,9 +76,8 @@ void sbp_log(int priority, const char *msg_text, ...)
 
 void sbp_vlog(int priority, const char *msg_text, va_list ap)
 {
-  const char *log_args[NUM_LOG_LEVELS] = {"emerg", "alert", "crit",
-                                          "error", "warn", "notice",
-                                          "info", "debug"};
+  const char *log_args[NUM_LOG_LEVELS] =
+    {"emerg", "alert", "crit", "error", "warn", "notice", "info", "debug"};
 
   if (priority < 0 || priority >= NUM_LOG_LEVELS) {
     priority = LOG_INFO;
@@ -86,7 +85,7 @@ void sbp_vlog(int priority, const char *msg_text, va_list ap)
 
   char cmd_buf[256];
   snprintf(cmd_buf, sizeof(cmd_buf), "sbp_log --%s", log_args[priority]);
-  FILE *output = popen (cmd_buf, "w");
+  FILE *output = popen(cmd_buf, "w");
 
   if (output == 0) {
     piksi_log(LOG_ERR, "couldn't call sbp_log.");
@@ -102,11 +101,11 @@ void sbp_vlog(int priority, const char *msg_text, va_list ap)
 
   fputs(msg_buf, output);
 
-  if (ferror (output) != 0) {
+  if (ferror(output) != 0) {
     piksi_log(LOG_ERR, "output to sbp_log failed.");
   }
 
-  if (pclose (output) != 0) {
+  if (pclose(output) != 0) {
     piksi_log(LOG_ERR, "couldn't close sbp_log call.");
     return;
   }

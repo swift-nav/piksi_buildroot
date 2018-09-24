@@ -18,7 +18,7 @@
 
 typedef struct framer_s framer_t;
 
-typedef void * (*framer_create_fn_t)(void);
+typedef void *(*framer_create_fn_t)(void);
 typedef void (*framer_destroy_fn_t)(void **state);
 typedef uint32_t (*framer_process_fn_t)(void *state,
                                         const uint8_t *data,
@@ -32,10 +32,12 @@ int framer_interface_register(const char *name,
                               framer_process_fn_t process);
 int framer_interface_valid(const char *name);
 
-framer_t * framer_create(const char *name);
+framer_t *framer_create(const char *name);
 void framer_destroy(framer_t **framer);
 uint32_t framer_process(framer_t *framer,
-                        const uint8_t *data, uint32_t data_length,
-                        const uint8_t **frame, uint32_t *frame_length);
+                        const uint8_t *data,
+                        uint32_t data_length,
+                        const uint8_t **frame,
+                        uint32_t *frame_length);
 
 #endif /* SWIFTNAV_FRAMER_H */

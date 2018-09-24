@@ -53,32 +53,27 @@ static int parse_options(int argc, char *argv[])
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
 
-      case OPT_ID_DEBUG: {
-        debug = true;
-      }
-      break;
+    case OPT_ID_DEBUG: {
+      debug = true;
+    } break;
 
-      default: {
-        puts("Invalid option");
-        return -1;
-      }
-      break;
+    default: {
+      puts("Invalid option");
+      return -1;
+    } break;
     }
   }
 
   return 0;
 }
 
-static void settings_init(settings_ctx_t* s)
+static void settings_init(settings_ctx_t *s)
 {
-  if (whitelists_init(s) != 0)
-    exit(EXIT_FAILURE);
+  if (whitelists_init(s) != 0) exit(EXIT_FAILURE);
 
-  if (ports_init(s) != 0)
-    exit(EXIT_FAILURE);
+  if (ports_init(s) != 0) exit(EXIT_FAILURE);
 
-  if (serial_init(s) != 0)
-    exit(EXIT_FAILURE);
+  if (serial_init(s) != 0) exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])
@@ -101,8 +96,7 @@ int main(int argc, char *argv[])
 
   logging_deinit();
 
-  if (!ret)
-    exit(EXIT_FAILURE);
+  if (!ret) exit(EXIT_FAILURE);
 
   exit(EXIT_SUCCESS);
 }

@@ -15,7 +15,7 @@
  * @brief   Piksi Metrics API.
  *
  * @defgroup    metrics Piksi Metrics
- * @addtogroup  metrics 
+ * @addtogroup  metrics
  * @{
  */
 
@@ -30,6 +30,7 @@ extern "C" {
 
 typedef struct pk_metrics_s pk_metrics_t;
 
+// clang-format off
 typedef enum {
   METRICS_STATUS_SILENT_FAIL   = -6,
   METRICS_STATUS_INVALID_INDEX = -5,
@@ -39,6 +40,7 @@ typedef enum {
   METRICS_STATUS_NO_SLOTS      = -1,
   METRICS_STATUS_SUCCESS       =  0,
 } pk_metrics_status_t;
+// clang-format on
 
 typedef enum {
   METRICS_TYPE_UNKNOWN = 0,
@@ -50,7 +52,9 @@ typedef enum {
   METRICS_TYPE_TIME,
 } pk_metrics_type_t;
 
-typedef struct { u64 ns; } pk_metrics_time_t;
+typedef struct {
+  u64 ns;
+} pk_metrics_time_t;
 
 typedef union pk_metrics_value_s {
   s32 s32;
@@ -67,16 +71,16 @@ typedef struct {
   void *context;
 } pk_metrics_update_t;
 
-typedef pk_metrics_value_t (* pk_metrics_updater_fn_t)(pk_metrics_type_t type,
-                                                       pk_metrics_value_t current_value,
-                                                       pk_metrics_update_t update);
+typedef pk_metrics_value_t (*pk_metrics_updater_fn_t)(pk_metrics_type_t type,
+                                                      pk_metrics_value_t current_value,
+                                                      pk_metrics_update_t update);
 
-typedef pk_metrics_value_t (* pk_metrics_reset_fn_t)(pk_metrics_type_t type,
-                                                     pk_metrics_value_t initial);
+typedef pk_metrics_value_t (*pk_metrics_reset_fn_t)(pk_metrics_type_t type,
+                                                    pk_metrics_value_t initial);
 
 typedef struct {
-  const char* folder;
-  const char* name;
+  const char *folder;
+  const char *name;
   pk_metrics_type_t type;
   pk_metrics_updater_fn_t updater;
   pk_metrics_reset_fn_t reseter;
@@ -89,10 +93,10 @@ typedef struct {
   ssize_t *index_of_dom;
 } pk_metrics_average_t;
 
-pk_metrics_t * _pk_metrics_create(void);
+pk_metrics_t *_pk_metrics_create(void);
 
-pk_metrics_t* pk_metrics_setup(const char* metrics_base_name,
-                               const char* metrics_suffix,
+pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
+                               const char *metrics_suffix,
                                _pk_metrics_table_entry_t metrics_table[],
                                size_t entry_count);
 
@@ -102,32 +106,24 @@ void pk_metrics_flush(const pk_metrics_t *metrics);
 
 pk_metrics_time_t pk_metrics_gettime();
 
-pk_metrics_value_t pk_metrics_reset_default(pk_metrics_type_t type,
-                                            pk_metrics_value_t initial);
+pk_metrics_value_t pk_metrics_reset_default(pk_metrics_type_t type, pk_metrics_value_t initial);
 
-pk_metrics_value_t pk_metrics_reset_time(pk_metrics_type_t type,
-                                         pk_metrics_value_t initial);
+pk_metrics_value_t pk_metrics_reset_time(pk_metrics_type_t type, pk_metrics_value_t initial);
 
 ssize_t pk_metrics_add(pk_metrics_t *metrics,
-                       const char* path,
-                       const char* name,
+                       const char *path,
+                       const char *name,
                        pk_metrics_type_t type,
                        pk_metrics_value_t initial_value,
                        pk_metrics_updater_fn_t updater_fn,
                        pk_metrics_reset_fn_t reset_fn,
-                       void* context);
+                       void *context);
 
-int _pk_metrics_update(pk_metrics_t *metrics,
-                       size_t metric_index,
-                       int nargs,
-                       ...);
+int _pk_metrics_update(pk_metrics_t *metrics, size_t metric_index, int nargs, ...);
 
-int pk_metrics_reset(pk_metrics_t *metrics,
-                     size_t metric_index);
+int pk_metrics_reset(pk_metrics_t *metrics, size_t metric_index);
 
-int pk_metrics_read(pk_metrics_t *metrics,
-                    size_t metric_index,
-                    pk_metrics_value_t *value);
+int pk_metrics_read(pk_metrics_t *metrics, size_t metric_index, pk_metrics_value_t *value);
 
 pk_metrics_value_t pk_metrics_updater_sum(pk_metrics_type_t type,
                                           pk_metrics_value_t current_value,
@@ -153,8 +149,9 @@ pk_metrics_value_t pk_metrics_updater_assign(pk_metrics_type_t type,
                                              pk_metrics_value_t current_value,
                                              pk_metrics_update_t update);
 
-const char* pk_metrics_status_text(pk_metrics_status_t status);
+const char *pk_metrics_status_text(pk_metrics_status_t status);
 
+// clang-format off
 #define NARGS_SEQ(_1, _2, _3, _4, _5, _6, _7, _8, _9, N, ...) N
 #define NARGS(...) NARGS_SEQ(__VA_ARGS__, 9, 8, 7, 6, 5, 4, 3, 2, 1)
 
@@ -186,6 +183,7 @@ _DEF_METRICS_CONV_FUNC(time, pk_metrics_time_t)
            double:            pk_metrics_f64,                 \
            pk_metrics_time_t: pk_metrics_time                 \
            )(TheValue)
+// clang-format on
 
 #ifdef __cplusplus
 }

@@ -16,8 +16,7 @@
 
 static int print_filter(FILE *f, const char *prefix, const filter_t *filter)
 {
-  const char *filter_action_str = filter->action == FILTER_ACTION_ACCEPT ?
-                                  "ACCEPT" : "REJECT";
+  const char *filter_action_str = filter->action == FILTER_ACTION_ACCEPT ? "ACCEPT" : "REJECT";
   fprintf(f, "%s%s ", prefix, filter_action_str);
 
   int i;
@@ -30,7 +29,8 @@ static int print_filter(FILE *f, const char *prefix, const filter_t *filter)
 }
 
 
-static int print_forwarding_rule(FILE *f, const char *prefix,
+static int print_forwarding_rule(FILE *f,
+                                 const char *prefix,
                                  const forwarding_rule_t *forwarding_rule)
 {
   fprintf(f, "%sdst_port: %s\n", prefix, forwarding_rule->dst_port_name);
@@ -40,8 +40,7 @@ static int print_forwarding_rule(FILE *f, const char *prefix,
   snprintf(prefix_new, sizeof(prefix_new), "%s\t", prefix);
 
   const filter_t *filter;
-  for (filter = forwarding_rule->filters_list; filter != NULL;
-       filter = filter->next) {
+  for (filter = forwarding_rule->filters_list; filter != NULL; filter = filter->next) {
     if (print_filter(f, prefix_new, filter) != 0) {
       return -1;
     }

@@ -59,7 +59,7 @@ static u8 max_timeout_count_before_warn =
 static struct ntrip_obs_ctx_s {
   bool ntrip_enabled;
   u8 timeout_counter;
-} ntrip_obs_ctx = { .ntrip_enabled = false, .timeout_counter = 0 };
+} ntrip_obs_ctx = {.ntrip_enabled = false, .timeout_counter = 0};
 
 /**
  * \brief notify_ntrip_enabled - notify from watch
@@ -69,7 +69,9 @@ static struct ntrip_obs_ctx_s {
 static int notify_ntrip_enabled(void *context)
 {
   (void)context;
-  piksi_log(LOG_DEBUG, "NTRIP Health Monitor Setting Callback! ntrip en: %d", ntrip_obs_ctx.ntrip_enabled);
+  piksi_log(LOG_DEBUG,
+            "NTRIP Health Monitor Setting Callback! ntrip en: %d",
+            ntrip_obs_ctx.ntrip_enabled);
   if (ntrip_obs_ctx.ntrip_enabled) {
     ntrip_obs_ctx.timeout_counter = 0;
   }
@@ -124,7 +126,7 @@ static int ntrip_obs_timer_callback(health_monitor_t *monitor, void *context)
   }
 
   if (ntrip_obs_ctx.timeout_counter > max_timeout_count_before_warn) {
-    piksi_log(LOG_WARNING|LOG_SBP,
+    piksi_log(LOG_WARNING | LOG_SBP,
               "Reference NTRIP Observations Timeout - no observations "
               "received from base station within %d sec window. Check URL "
               "and mountpoint settings, or disable NTRIP to suppress this "

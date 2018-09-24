@@ -32,8 +32,7 @@ typedef int (*health_msg_callback_t)(health_monitor_t *monitor,
                                      u8 msg[],
                                      void *context);
 
-typedef int (*health_timer_callback_t)(health_monitor_t *monitor,
-                                       void *context);
+typedef int (*health_timer_callback_t)(health_monitor_t *monitor, void *context);
 
 /*
  * Set Timer Resolution in ms (Global Value)
@@ -62,8 +61,7 @@ int health_monitor_register_message_handler(health_monitor_t *monitor,
 /*
  * Register a callback to handle settings changes
  */
-int health_monitor_register_setting_handler(health_monitor_t *monitor,
-                                            sbp_msg_callback_t callback);
+int health_monitor_register_setting_handler(health_monitor_t *monitor, sbp_msg_callback_t callback);
 
 /*
  * Register a callback to handle settings changes

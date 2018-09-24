@@ -19,6 +19,7 @@
  *
  *  Version: $Id: minIni.c 45 2012-05-14 11:53:09Z thiadmer.riemersma $
  */
+// clang-format off
 
 #pragma GCC diagnostic ignored "-Wchar-subscripts"
 
@@ -831,3 +832,5 @@ int ini_putf(const TCHAR *Section, const TCHAR *Key, INI_REAL Value, const TCHAR
 }
 #endif /* INI_REAL */
 #endif /* !INI_READONLY */
+
+// clang-format on

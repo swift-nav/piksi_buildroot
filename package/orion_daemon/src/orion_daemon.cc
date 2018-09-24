@@ -43,19 +43,22 @@ static std::condition_variable condition;
 
 static std::mutex mutex;
 
-static bool active() {
+static bool active()
+{
   std::unique_lock<std::mutex> lock{mutex};
   condition.wait(lock, [] { return enabled; });
   changed = false;
   return true;
 }
 
-static bool inactive() {
+static bool inactive()
+{
   std::unique_lock<std::mutex> lock{mutex};
   return changed || !enabled;
 }
 
-static int settings_callback(void *context) {
+static int settings_callback(void *context)
+{
   assert(context == nullptr);
   std::unique_lock<std::mutex> lock{mutex};
   enabled = enable && strlen(port) != 0;
@@ -64,9 +67,11 @@ static int settings_callback(void *context) {
   return 0;
 }
 
-static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context) {
+static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context)
+{
   assert(context != nullptr);
-  auto streamer = static_cast<grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *>(context);
+  auto streamer =
+    static_cast<grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *>(context);
   orion_proto::SbpFrame sbp_frame;
   sbp_frame.set_type(SBP_MSG_POS_LLH);
   sbp_frame.set_sender(sender);
@@ -76,86 +81,121 @@ static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, 
 }
 
 class Ctx {
-public:
-  Ctx()
-    : loop_(pk_loop_create()) {
+ public:
+  Ctx() : loop_(pk_loop_create())
+  {
     assert(loop_ != nullptr);
   }
 
-  ~Ctx() {
+  ~Ctx()
+  {
     pk_loop_destroy(&loop_);
   }
 
-  bool run() {
+  bool run()
+  {
     return pk_loop_run_simple(loop_) == 0;
   }
 
-  void stop() {
+  void stop()
+  {
     pk_loop_stop(loop_);
   }
 
-protected:
+ protected:
   pk_loop_t *loop_;
 };
 
 class SettingsCtx : public Ctx {
-public:
-  SettingsCtx()
-    : settings_(settings_create()) {
+ public:
+  SettingsCtx() : settings_(settings_create())
+  {
     assert(settings_ != nullptr);
   }
 
-  ~SettingsCtx() {
+  ~SettingsCtx()
+  {
     settings_destroy(&settings_);
   }
 
-  bool setup() {
-    return settings_attach(settings_, loop_) == 0 &&
-      settings_register(settings_, "orion", "enable", &enable, sizeof(enable), SETTINGS_TYPE_BOOL, settings_callback, nullptr) == 0 &&
-      settings_register(settings_, "orion", "port", &port, sizeof(port), SETTINGS_TYPE_STRING, settings_callback, nullptr) == 0;
+  bool setup()
+  {
+    return settings_attach(settings_, loop_) == 0
+           && settings_register(settings_,
+                                "orion",
+                                "enable",
+                                &enable,
+                                sizeof(enable),
+                                SETTINGS_TYPE_BOOL,
+                                settings_callback,
+                                nullptr)
+                == 0
+           && settings_register(settings_,
+                                "orion",
+                                "port",
+                                &port,
+                                sizeof(port),
+                                SETTINGS_TYPE_STRING,
+                                settings_callback,
+                                nullptr)
+                == 0;
   }
 
-private:
+ private:
   settings_ctx_t *settings_;
 };
 
 class SbpCtx : public Ctx {
-public:
-  SbpCtx()
-    : pubsub_(sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT)) {
+ public:
+  SbpCtx() : pubsub_(sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT))
+  {
     assert(pubsub_ != nullptr);
   }
 
-  ~SbpCtx() {
+  ~SbpCtx()
+  {
     sbp_pubsub_destroy(&pubsub_);
   }
 
-  bool setup(void *context) {
-    return sbp_rx_attach(sbp_pubsub_rx_ctx_get(pubsub_), loop_) == 0 &&
-      sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_), SBP_MSG_POS_LLH, pos_llh_callback, context, nullptr) == 0;
+  bool setup(void *context)
+  {
+    return sbp_rx_attach(sbp_pubsub_rx_ctx_get(pubsub_), loop_) == 0
+           && sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_),
+                                       SBP_MSG_POS_LLH,
+                                       pos_llh_callback,
+                                       context,
+                                       nullptr)
+                == 0;
   }
 
-  bool send(const orion_proto::SbpFrame &sbp_frame) {
-    return sbp_tx_send(sbp_pubsub_tx_ctx_get(pubsub_), sbp_frame.type(), sbp_frame.length(), const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(sbp_frame.payload().data()))) == 0;
+  bool send(const orion_proto::SbpFrame &sbp_frame)
+  {
+    return sbp_tx_send(sbp_pubsub_tx_ctx_get(pubsub_),
+                       sbp_frame.type(),
+                       sbp_frame.length(),
+                       const_cast<uint8_t *>(
+                         reinterpret_cast<const uint8_t *>(sbp_frame.payload().data())))
+           == 0;
   }
 
-private:
+ private:
   sbp_pubsub_ctx_t *pubsub_;
 };
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   logging_init(PROGRAM_NAME);
 
-  piksi_log(LOG_INFO|LOG_SBP, "Daemon started");
+  piksi_log(LOG_INFO | LOG_SBP, "Daemon started");
 
   SettingsCtx settings_ctx;
   if (settings_ctx.setup()) {
-    piksi_log(LOG_INFO|LOG_SBP, "Settings setup");
+    piksi_log(LOG_INFO | LOG_SBP, "Settings setup");
 
     auto settings_thread = std::thread(&SettingsCtx::run, &settings_ctx);
 
     while (active()) {
-      piksi_log(LOG_INFO|LOG_SBP, "Daemon active %s", port);
+      piksi_log(LOG_INFO | LOG_SBP, "Daemon active %s", port);
 
       auto chan = grpc::CreateChannel(port, grpc::InsecureChannelCredentials());
       auto stub(orion_proto::CorrectionGenerator::NewStub(chan));
@@ -164,7 +204,7 @@ int main(int argc, char *argv[]) {
 
       SbpCtx sbp_ctx;
       if (sbp_ctx.setup(streamer.get())) {
-        piksi_log(LOG_INFO|LOG_SBP, "Sbp setup");
+        piksi_log(LOG_INFO | LOG_SBP, "Sbp setup");
 
         auto sbp_thread = std::thread(&SbpCtx::run, &sbp_ctx);
 
@@ -173,7 +213,7 @@ int main(int argc, char *argv[]) {
           sbp_ctx.send(sbp_frame);
         }
 
-        piksi_log(LOG_INFO|LOG_SBP, "Daemon inactive");
+        piksi_log(LOG_INFO | LOG_SBP, "Daemon inactive");
 
         sbp_ctx.stop();
         sbp_thread.join();

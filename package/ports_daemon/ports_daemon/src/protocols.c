@@ -18,7 +18,7 @@
 #include <limits.h>
 #include <dlfcn.h>
 
-#define DLSYM_CAST(var) (*(void **) &(var))
+#define DLSYM_CAST(var) (*(void **)&(var))
 
 typedef struct protocol_list_element_s {
   protocol_t protocol;
@@ -27,7 +27,7 @@ typedef struct protocol_list_element_s {
 
 static protocol_list_element_t *protocol_list = NULL;
 
-static const char * import_string(void *handle, const char *sym)
+static const char *import_string(void *handle, const char *sym)
 {
   const char **str;
   DLSYM_CAST(str) = dlsym(handle, sym);
@@ -66,14 +66,10 @@ static int import(const char *filename)
     goto error;
   }
 
-  *e = (protocol_list_element_t) {
-    .protocol = {
-      .name = protocol_name,
-      .setting_name = setting_name,
-      .port_adapter_opts_get = port_adapter_opts_get
-    },
-    .next = NULL
-  };
+  *e = (protocol_list_element_t){.protocol = {.name = protocol_name,
+                                              .setting_name = setting_name,
+                                              .port_adapter_opts_get = port_adapter_opts_get},
+                                 .next = NULL};
 
   /* Add to list */
   protocol_list_element_t **p_next = &protocol_list;
@@ -99,8 +95,7 @@ int protocols_import(const char *path)
   }
 
   struct dirent *dirent;
-  while ((dirent = readdir(dir)) != NULL)
-  {
+  while ((dirent = readdir(dir)) != NULL) {
     if (dirent->d_type != DT_REG) {
       continue;
     }
@@ -127,7 +122,7 @@ int protocols_count_get(void)
   return count;
 }
 
-const protocol_t * protocols_get(int index)
+const protocol_t *protocols_get(int index)
 {
   int offset = 0;
   protocol_list_element_t *e;

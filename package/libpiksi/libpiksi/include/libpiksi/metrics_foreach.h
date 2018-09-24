@@ -12,6 +12,7 @@
 
 #ifndef LIBPIKSI_METRICS_FOREACH_H
 #define LIBPIKSI_METRICS_FOREACH_H
+// clang-format off
 
 // *** WARNING: AVERT YOUR EYES... DO NOT LOOK FURTHER ***
 // *** WARNING: AVERT YOUR EYES... DO NOT LOOK FURTHER ***
@@ -55,8 +56,8 @@
 #define _M_FOREACH_30(Context, TheMacro, x, ...)   TheMacro(Context, x) _M_FOREACH_29(Context, TheMacro, __VA_ARGS__)
 
 #define _M_FOREACH_NARG(...) _M_FOREACH_NARG_(__VA_ARGS__, _M_FOREACH_RSEQ_N())
-#define _M_FOREACH_NARG_(...) _M_FOREACH_ARG_N(__VA_ARGS__) 
-#define _M_FOREACH_ARG_N(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, N, ...) N 
+#define _M_FOREACH_NARG_(...) _M_FOREACH_ARG_N(__VA_ARGS__)
+#define _M_FOREACH_ARG_N(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, N, ...) N
 #define _M_FOREACH_RSEQ_N() 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 
 #define _M_CONCAT(arg1, arg2)   _M_CONCAT1(arg1, arg2)
@@ -66,4 +67,5 @@
 #define _M_FOREACH_(N, Context, TheMacro, ...) _M_CONCAT(_M_FOREACH_, N)(Context, TheMacro, __VA_ARGS__)
 #define _M_FOREACH(Context, TheMacro, ...) _M_FOREACH_(_M_FOREACH_NARG(__VA_ARGS__), Context, TheMacro, __VA_ARGS__)
 
+// clang-format on
 #endif

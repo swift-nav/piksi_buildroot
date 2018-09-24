@@ -25,4 +25,3 @@ void sbp_fileio_setup(path_validator_t *pv_ctx,
                       sbp_tx_ctx_t *tx_ctx);
 
 #endif
-

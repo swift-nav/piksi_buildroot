@@ -18,7 +18,7 @@ typedef struct {
   void *dummy;
 } framer_none_state_t;
 
-void * framer_none_create(void)
+void *framer_none_create(void)
 {
   framer_none_state_t *s = (framer_none_state_t *)malloc(sizeof(*s));
   if (s == NULL) {
@@ -35,8 +35,10 @@ void framer_none_destroy(void **state)
 }
 
 uint32_t framer_none_process(void *state,
-                             const uint8_t *data, uint32_t data_length,
-                             const uint8_t **frame, uint32_t *frame_length)
+                             const uint8_t *data,
+                             uint32_t data_length,
+                             const uint8_t **frame,
+                             uint32_t *frame_length)
 {
   *frame = data_length > 0 ? data : NULL;
   *frame_length = data_length;

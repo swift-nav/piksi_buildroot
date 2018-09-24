@@ -27,7 +27,6 @@ typedef struct {
 void led_adp8866_init(bool is_duro);
 
 bool led_adp8866_led_set(const led_adp8866_led_state_t *led_state);
-bool led_adp8866_leds_set(const led_adp8866_led_state_t *led_states,
-                          uint32_t led_states_count);
+bool led_adp8866_leds_set(const led_adp8866_led_state_t *led_states, uint32_t led_states_count);
 
 #endif /* SWIFTNAV_LED_ADP8866_H */

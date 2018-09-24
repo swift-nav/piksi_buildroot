@@ -24,7 +24,7 @@ struct recv_ctx_s {
   int recvd;
 };
 
-#define SIMPLE_RECV_MSG  "I'm a message"
+#define SIMPLE_RECV_MSG "I'm a message"
 #define SIMPLE_RECV_SIZE (100u)
 static int test_simple_recv_cb(const u8 *data, const size_t length, void *context)
 {
@@ -76,10 +76,10 @@ TEST_F(PubsubLoopIntegrationTests, pubsubLoopIntegrationTest)
   pub_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_PUB);
   ASSERT_NE(pub_ept, nullptr);
 
-  struct snd_ctx_s snd_ctx = { .ept = pub_ept, .sent = 0 };
+  struct snd_ctx_s snd_ctx = {.ept = pub_ept, .sent = 0};
   ASSERT_NE(pk_loop_timer_add(loop, 100, test_timeout_cb, &snd_ctx), nullptr);
 
-  struct recv_ctx_s recv_ctx = { .ept = sub_ept, .recvd = 0 };
+  struct recv_ctx_s recv_ctx = {.ept = sub_ept, .recvd = 0};
   ASSERT_NE(pk_loop_endpoint_reader_add(loop, recv_ctx.ept, test_poll_cb, &recv_ctx), nullptr);
 
   pk_loop_run_simple_with_timeout(loop, 2000);
@@ -87,4 +87,3 @@ TEST_F(PubsubLoopIntegrationTests, pubsubLoopIntegrationTest)
   ASSERT_GT(recv_ctx.recvd, 0);
   ASSERT_GE(snd_ctx.sent, recv_ctx.recvd);
 }
-

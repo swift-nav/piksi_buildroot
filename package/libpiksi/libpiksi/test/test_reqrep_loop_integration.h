@@ -18,17 +18,19 @@
 #include <libpiksi/endpoint.h>
 
 class ReqrepLoopIntegrationTests : public ::testing::Test {
-  protected:
-    virtual void SetUp() {
-      loop = nullptr;
-      req_ept = nullptr;
-      rep_ept = nullptr;
-    }
-    virtual void TearDown() {
-      pk_endpoint_destroy(&req_ept);
-      pk_endpoint_destroy(&rep_ept);
-      pk_loop_destroy(&loop);
-    }
+ protected:
+  virtual void SetUp()
+  {
+    loop = nullptr;
+    req_ept = nullptr;
+    rep_ept = nullptr;
+  }
+  virtual void TearDown()
+  {
+    pk_endpoint_destroy(&req_ept);
+    pk_endpoint_destroy(&rep_ept);
+    pk_loop_destroy(&loop);
+  }
 
   pk_loop_t *loop;
   pk_endpoint_t *req_ept;

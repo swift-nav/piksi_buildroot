@@ -38,10 +38,10 @@ typedef int settings_type_t;
  * @brief   Standard settings type definitions.
  */
 enum {
-  SETTINGS_TYPE_INT,      /**< Integer. 8, 16, or 32 bits.                   */
-  SETTINGS_TYPE_FLOAT,    /**< Float. Single or double precision.            */
-  SETTINGS_TYPE_STRING,   /**< String.                                       */
-  SETTINGS_TYPE_BOOL      /**< Boolean.                                      */
+  SETTINGS_TYPE_INT,    /**< Integer. 8, 16, or 32 bits.                   */
+  SETTINGS_TYPE_FLOAT,  /**< Float. Single or double precision.            */
+  SETTINGS_TYPE_STRING, /**< String.                                       */
+  SETTINGS_TYPE_BOOL    /**< Boolean.                                      */
 };
 
 /**
@@ -105,7 +105,7 @@ int setting_parse_setting_text(const u8 *msg,
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-settings_ctx_t * settings_create(void);
+settings_ctx_t *settings_create(void);
 
 /**
  * @brief   Destroy a settings context.
@@ -131,7 +131,7 @@ void settings_destroy(settings_ctx_t **ctx);
  * @retval -1               An error occurred.
  */
 int settings_type_register_enum(settings_ctx_t *ctx,
-                                const char * const enum_names[],
+                                const char *const enum_names[],
                                 settings_type_t *type);
 
 /**
@@ -156,9 +156,13 @@ int settings_type_register_enum(settings_ctx_t *ctx,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_register(settings_ctx_t *ctx, const char *section,
-                      const char *name, void *var, size_t var_len,
-                      settings_type_t type, settings_notify_fn notify,
+int settings_register(settings_ctx_t *ctx,
+                      const char *section,
+                      const char *name,
+                      void *var,
+                      size_t var_len,
+                      settings_type_t type,
+                      settings_notify_fn notify,
                       void *notify_context);
 
 /**
@@ -177,9 +181,12 @@ int settings_register(settings_ctx_t *ctx, const char *section,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_register_readonly(settings_ctx_t *ctx, const char *section,
-                               const char *name, const void *var,
-                               size_t var_len, settings_type_t type);
+int settings_register_readonly(settings_ctx_t *ctx,
+                               const char *section,
+                               const char *name,
+                               const void *var,
+                               size_t var_len,
+                               settings_type_t type);
 
 /**
  * @brief   Create and add a watch only setting.
@@ -200,9 +207,13 @@ int settings_register_readonly(settings_ctx_t *ctx, const char *section,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_add_watch(settings_ctx_t *ctx, const char *section,
-                       const char *name, void *var, size_t var_len,
-                       settings_type_t type, settings_notify_fn notify,
+int settings_add_watch(settings_ctx_t *ctx,
+                       const char *section,
+                       const char *name,
+                       void *var,
+                       size_t var_len,
+                       settings_type_t type,
+                       settings_notify_fn notify,
                        void *notify_context);
 
 /**
@@ -253,15 +264,15 @@ typedef bool (*handle_command_fn)();
  *                                 for this loop
  * @param[in] do_handle_command    Function that handles the control command
  *
- * @param[in] do_handle_term       Function that is called 
+ * @param[in] do_handle_term       Function that is called
  *
  * @return                  Settings loop exit status
  * @retval 0                Successful exit
  * @retval -1               An error occurred
  */
-bool settings_loop(const char* control_socket,
-                   const char* control_socket_file,
-                   const char* control_command,
+bool settings_loop(const char *control_socket,
+                   const char *control_socket_file,
+                   const char *control_command,
                    register_settings_fn do_register_settings,
                    handle_command_fn do_handle_command,
                    settings_term_fn do_handle_term,
@@ -283,10 +294,10 @@ bool settings_loop_simple(register_settings_fn do_register_settings);
  * @return                  Result of the command, value depends on
  *                          the command invoked.
  */
-int settings_loop_send_command(const char* target_description,
-                               const char* command,
-                               const char* command_description,
-                               const char* control_socket);
+int settings_loop_send_command(const char *target_description,
+                               const char *command,
+                               const char *command_description,
+                               const char *control_socket);
 
 #ifdef __cplusplus
 }

@@ -32,24 +32,36 @@
 
 #include "serial.h"
 
-static const char * const baudrate_enum_names[] = {
-  "1200", "2400", "4800", "9600",
-  "19200", "38400", "57600", "115200",
-  "230400", "460800", "921600", NULL
-};
+static const char *const baudrate_enum_names[] = {"1200",
+                                                  "2400",
+                                                  "4800",
+                                                  "9600",
+                                                  "19200",
+                                                  "38400",
+                                                  "57600",
+                                                  "115200",
+                                                  "230400",
+                                                  "460800",
+                                                  "921600",
+                                                  NULL};
 enum {
-  BAUDRATE_1200, BAUDRATE_2400, BAUDRATE_4800, BAUDRATE_9600,
-  BAUDRATE_19200, BAUDRATE_38400, BAUDRATE_57600, BAUDRATE_115200,
-  BAUDRATE_230400, BAUDRATE_460800, BAUDRATE_921600
+  BAUDRATE_1200,
+  BAUDRATE_2400,
+  BAUDRATE_4800,
+  BAUDRATE_9600,
+  BAUDRATE_19200,
+  BAUDRATE_38400,
+  BAUDRATE_57600,
+  BAUDRATE_115200,
+  BAUDRATE_230400,
+  BAUDRATE_460800,
+  BAUDRATE_921600
 };
-static const u32 baudrate_val_table[] = {
-  B1200, B2400, B4800, B9600,
-  B19200, B38400, B57600, B115200,
-  B230400, B460800, B921600
-};
+static const u32 baudrate_val_table[] =
+  {B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800, B921600};
 
-static const char * const flow_control_enum_names[] = {"None", "RTS/CTS", NULL};
-enum {FLOW_CONTROL_NONE, FLOW_CONTROL_RTS_CTS};
+static const char *const flow_control_enum_names[] = {"None", "RTS/CTS", NULL};
+enum { FLOW_CONTROL_NONE, FLOW_CONTROL_RTS_CTS };
 
 typedef struct {
   char tty_path[PATH_MAX];
@@ -57,29 +69,21 @@ typedef struct {
   u8 flow_control;
 } uart_t;
 
-static uart_t uart0 = {
-  .tty_path = "/dev/ttyPS0",
-  .baudrate = BAUDRATE_115200,
-  .flow_control = FLOW_CONTROL_NONE
-};
+static uart_t uart0 = {.tty_path = "/dev/ttyPS0",
+                       .baudrate = BAUDRATE_115200,
+                       .flow_control = FLOW_CONTROL_NONE};
 
-static uart_t uart1 = {
-  .tty_path = "/dev/ttyPS1",
-  .baudrate = BAUDRATE_115200,
-  .flow_control = FLOW_CONTROL_NONE
-};
+static uart_t uart1 = {.tty_path = "/dev/ttyPS1",
+                       .baudrate = BAUDRATE_115200,
+                       .flow_control = FLOW_CONTROL_NONE};
 
-static uart_t usb0 = {
-  .tty_path = "/dev/tty.usb0",
-  .baudrate = BAUDRATE_9600,
-  .flow_control = FLOW_CONTROL_NONE
-};
+static uart_t usb0 = {.tty_path = "/dev/tty.usb0",
+                      .baudrate = BAUDRATE_9600,
+                      .flow_control = FLOW_CONTROL_NONE};
 
-static uart_t usb2 = {
-  .tty_path = "/dev/tty.usb2",
-  .baudrate = BAUDRATE_9600,
-  .flow_control = FLOW_CONTROL_NONE
-};
+static uart_t usb2 = {.tty_path = "/dev/tty.usb2",
+                      .baudrate = BAUDRATE_9600,
+                      .flow_control = FLOW_CONTROL_NONE};
 
 static int uart_configure(const uart_t *uart)
 {
@@ -99,8 +103,8 @@ static int uart_configure(const uart_t *uart)
   cfmakeraw(&tio);
   tio.c_lflag &= ~ECHO;
   tio.c_oflag &= ~ONLCR;
-  tio.c_cflag = ((tio.c_cflag & ~CRTSCTS) |
-                 (uart->flow_control == FLOW_CONTROL_RTS_CTS ? CRTSCTS : 0));
+  tio.c_cflag =
+    ((tio.c_cflag & ~CRTSCTS) | (uart->flow_control == FLOW_CONTROL_RTS_CTS ? CRTSCTS : 0));
   cfsetispeed(&tio, baudrate_val_table[uart->baudrate]);
   cfsetospeed(&tio, baudrate_val_table[uart->baudrate]);
   tcsetattr(fd, TCSANOW, &tio);
@@ -114,10 +118,10 @@ static int uart_configure(const uart_t *uart)
 
   close(fd);
 
-  if ((cfgetispeed(&tio) != baudrate_val_table[uart->baudrate]) ||
-      (cfgetospeed(&tio) != baudrate_val_table[uart->baudrate]) ||
-      ((tio.c_cflag & CRTSCTS) ? (uart->flow_control != FLOW_CONTROL_RTS_CTS) :
-                                 (uart->flow_control != FLOW_CONTROL_NONE))) {
+  if ((cfgetispeed(&tio) != baudrate_val_table[uart->baudrate])
+      || (cfgetospeed(&tio) != baudrate_val_table[uart->baudrate])
+      || ((tio.c_cflag & CRTSCTS) ? (uart->flow_control != FLOW_CONTROL_RTS_CTS)
+                                  : (uart->flow_control != FLOW_CONTROL_NONE))) {
     piksi_log(LOG_ERR, "error configuring tty");
     return -1;
   }
@@ -142,18 +146,18 @@ int serial_init(settings_ctx_t *settings_ctx)
   char new_path[PATH_MAX];
 
   /* resolve path to USB0 */
-  char* rp = realpath(usb0.tty_path, new_path);
+  char *rp = realpath(usb0.tty_path, new_path);
   if (rp == NULL) {
-     piksi_log(LOG_ERR, "realpath returned error in serial_init for usb0: %s\n", strerror(errno));
-     return -1;
+    piksi_log(LOG_ERR, "realpath returned error in serial_init for usb0: %s\n", strerror(errno));
+    return -1;
   }
   strncpy(usb0.tty_path, new_path, PATH_MAX);
 
   /* resolve path to USB1 */
   rp = realpath(usb2.tty_path, new_path);
   if (rp == NULL) {
-     piksi_log(LOG_ERR, "realpath returned error in serial_init for usb1: %s\n", strerror(errno));
-     return -1;
+    piksi_log(LOG_ERR, "realpath returned error in serial_init for usb1: %s\n", strerror(errno));
+    return -1;
   }
   strncpy(usb2.tty_path, new_path, PATH_MAX);
 
@@ -163,24 +167,42 @@ int serial_init(settings_ctx_t *settings_ctx)
 
   /* Register settings */
   settings_type_t settings_type_baudrate;
-  settings_type_register_enum(settings_ctx, baudrate_enum_names,
-                              &settings_type_baudrate);
-  settings_register(settings_ctx, "uart0", "baudrate", &uart0.baudrate,
-                    sizeof(uart0.baudrate), settings_type_baudrate,
-                    baudrate_notify, &uart0);
-  settings_register(settings_ctx, "uart1", "baudrate", &uart1.baudrate,
-                    sizeof(uart1.baudrate), settings_type_baudrate,
-                    baudrate_notify, &uart1);
+  settings_type_register_enum(settings_ctx, baudrate_enum_names, &settings_type_baudrate);
+  settings_register(settings_ctx,
+                    "uart0",
+                    "baudrate",
+                    &uart0.baudrate,
+                    sizeof(uart0.baudrate),
+                    settings_type_baudrate,
+                    baudrate_notify,
+                    &uart0);
+  settings_register(settings_ctx,
+                    "uart1",
+                    "baudrate",
+                    &uart1.baudrate,
+                    sizeof(uart1.baudrate),
+                    settings_type_baudrate,
+                    baudrate_notify,
+                    &uart1);
 
   settings_type_t settings_type_flow_control;
-  settings_type_register_enum(settings_ctx, flow_control_enum_names,
-                              &settings_type_flow_control);
-  settings_register(settings_ctx, "uart0", "flow_control", &uart0.flow_control,
-                    sizeof(uart0.flow_control), settings_type_flow_control,
-                    flow_control_notify, &uart0);
-  settings_register(settings_ctx, "uart1", "flow_control", &uart1.flow_control,
-                    sizeof(uart1.flow_control), settings_type_flow_control,
-                    flow_control_notify, &uart1);
+  settings_type_register_enum(settings_ctx, flow_control_enum_names, &settings_type_flow_control);
+  settings_register(settings_ctx,
+                    "uart0",
+                    "flow_control",
+                    &uart0.flow_control,
+                    sizeof(uart0.flow_control),
+                    settings_type_flow_control,
+                    flow_control_notify,
+                    &uart0);
+  settings_register(settings_ctx,
+                    "uart1",
+                    "flow_control",
+                    &uart1.flow_control,
+                    sizeof(uart1.flow_control),
+                    settings_type_flow_control,
+                    flow_control_notify,
+                    &uart1);
 
   return 0;
 }

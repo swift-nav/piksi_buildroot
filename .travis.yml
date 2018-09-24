@@ -21,6 +21,16 @@ after_script:
 matrix:
   include:
 
+    # Check formatting
+    - env:
+        - TRAVIS_TARGET=format
+      script:
+        - ./scripts/travis.sh script
+      after_success:
+        - ./scripts/travis.sh after_success
+      after_failure:
+        - ./scripts/travis.sh after_failure
+
     # Check if docker base image needs to be re-built
     - env:
         - TRAVIS_TARGET=docker

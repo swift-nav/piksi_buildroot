@@ -28,6 +28,6 @@ void cell_modem_set_dev(char *dev, enum modem_type type);
 void pppd_respawn(pk_loop_t *loop, void *timer_handle, void *context);
 void override_probe_retry(pk_loop_t *loop, void *timer_handle, void *context);
 bool cell_modem_enabled(void);
-char * cell_modem_get_dev_override(void);
+char *cell_modem_get_dev_override(void);
 
 #endif

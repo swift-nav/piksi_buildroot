@@ -43,7 +43,8 @@ static bool flush_led_state_cache = false;
 
 static u8 isc_route[9] = {0};
 
-static void init_reg_isc(bool is_duro) {
+static void init_reg_isc(bool is_duro)
+{
   int i;
   if (is_duro) {
     isc_route[0] = 0x23U + 8;
@@ -64,17 +65,19 @@ static void init_reg_isc(bool is_duro) {
  *
  * \return 0 if the operation succeeded, error message otherwise.
  */
-static int i2c_read(u8 addr, u8 *data) {
+static int i2c_read(u8 addr, u8 *data)
+{
   struct i2c_msg msgs[] = {{
-    .addr = LED_I2C_ADDR,
-    .len = 1,
-    .buf = &addr,
-  }, {
-    .addr = LED_I2C_ADDR,
-    .flags = I2C_M_RD,
-    .len = 1,
-    .buf = data,
-  }};
+                             .addr = LED_I2C_ADDR,
+                             .len = 1,
+                             .buf = &addr,
+                           },
+                           {
+                             .addr = LED_I2C_ADDR,
+                             .flags = I2C_M_RD,
+                             .len = 1,
+                             .buf = data,
+                           }};
   struct i2c_rdwr_ioctl_data transaction = {.msgs = msgs, .nmsgs = 2};
   return ioctl(led_i2c, I2C_RDWR, &transaction) < 0;
 }
@@ -86,7 +89,8 @@ static int i2c_read(u8 addr, u8 *data) {
  *
  * \return 0 if the operation succeeded, error message otherwise.
  */
-static int i2c_write(u8 addr, u8 data) {
+static int i2c_write(u8 addr, u8 data)
+{
   u8 buf[2] = {addr, data};
   struct i2c_msg msgs[] = {{
     .addr = LED_I2C_ADDR,
@@ -101,17 +105,20 @@ static int i2c_write(u8 addr, u8 data) {
  *
  * \return true if the operation succeeded, false otherwise.
  */
-static bool id_check(void) {
+static bool id_check(void)
+{
   bool read_ok;
   u8 mfdvid;
-  { read_ok = (i2c_read(LED_ADP8866_REG_MFDVID, &mfdvid) == 0); }
+  {
+    read_ok = (i2c_read(LED_ADP8866_REG_MFDVID, &mfdvid) == 0);
+  }
 
   if (!read_ok) {
     piksi_log(LOG_WARNING, "Could not read LED driver ID register");
     return false;
-  } else if (mfdvid !=
-             ((LED_ADP8866_MFDVID_MFID << LED_ADP8866_MFDVID_MFID_Pos) |
-              (LED_ADP8866_MFDVID_DVID << LED_ADP8866_MFDVID_DVID_Pos))) {
+  } else if (mfdvid
+             != ((LED_ADP8866_MFDVID_MFID << LED_ADP8866_MFDVID_MFID_Pos)
+                 | (LED_ADP8866_MFDVID_DVID << LED_ADP8866_MFDVID_DVID_Pos))) {
     piksi_log(LOG_WARNING, "Read invalid LED driver ID: %02x", mfdvid);
     return false;
   }
@@ -123,49 +130,48 @@ static bool id_check(void) {
  *
  * \return true if the operation succeeded, false otherwise.
  */
-static bool configure(void) {
+static bool configure(void)
+{
   bool ret = true;
 
   {
     /* Configure all LEDs as independent sinks */
-    if (i2c_write(LED_ADP8866_REG_CFGR,
-                  (LED_ADP8866_BLSEL_IS << LED_ADP8866_CFGR_D9SEL_Pos)) !=
-        0) {
+    if (i2c_write(LED_ADP8866_REG_CFGR, (LED_ADP8866_BLSEL_IS << LED_ADP8866_CFGR_D9SEL_Pos))
+        != 0) {
       ret = false;
     }
 
     if (i2c_write(LED_ADP8866_REG_BLSEL,
-                  ((LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D1SEL_Pos) |
-                   (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D2SEL_Pos) |
-                   (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D3SEL_Pos) |
-                   (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D4SEL_Pos) |
-                   (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D5SEL_Pos) |
-                   (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D6SEL_Pos) |
-                   (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D7SEL_Pos) |
-                   (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D8SEL_Pos))) !=
-        0) {
+                  ((LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D1SEL_Pos)
+                   | (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D2SEL_Pos)
+                   | (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D3SEL_Pos)
+                   | (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D4SEL_Pos)
+                   | (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D5SEL_Pos)
+                   | (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D6SEL_Pos)
+                   | (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D7SEL_Pos)
+                   | (LED_ADP8866_BLSEL_IS << LED_ADP8866_BLSEL_D8SEL_Pos)))
+        != 0) {
       ret = false;
     }
 
     /* Enable current scaling */
     if (i2c_write(LED_ADP8866_REG_LVL_SEL1,
-                  ((LED_LEVEL_SET_VALUE << LED_ADP8866_LVL_SEL1_LEVEL_SET_Pos) |
-                   (LED_ADP8866_LVL_SEL_SCALED
-                    << LED_ADP8866_LVL_SEL1_D9LVL_Pos))) != 0) {
+                  ((LED_LEVEL_SET_VALUE << LED_ADP8866_LVL_SEL1_LEVEL_SET_Pos)
+                   | (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL1_D9LVL_Pos)))
+        != 0) {
       ret = false;
     }
 
-    if (i2c_write(
-            LED_ADP8866_REG_LVL_SEL2,
-            ((LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D1LVL_Pos) |
-             (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D2LVL_Pos) |
-             (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D3LVL_Pos) |
-             (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D4LVL_Pos) |
-             (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D5LVL_Pos) |
-             (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D6LVL_Pos) |
-             (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D7LVL_Pos) |
-             (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D8LVL_Pos))) !=
-        0) {
+    if (i2c_write(LED_ADP8866_REG_LVL_SEL2,
+                  ((LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D1LVL_Pos)
+                   | (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D2LVL_Pos)
+                   | (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D3LVL_Pos)
+                   | (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D4LVL_Pos)
+                   | (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D5LVL_Pos)
+                   | (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D6LVL_Pos)
+                   | (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D7LVL_Pos)
+                   | (LED_ADP8866_LVL_SEL_SCALED << LED_ADP8866_LVL_SEL2_D8LVL_Pos)))
+        != 0) {
       ret = false;
     }
 
@@ -177,26 +183,21 @@ static bool configure(void) {
     }
 
     /* Enable all independent sinks */
-    if (i2c_write(LED_ADP8866_REG_ISCC1, (1 << LED_ADP8866_ISCC1_SC9_EN_Pos)) !=
-        0) {
+    if (i2c_write(LED_ADP8866_REG_ISCC1, (1 << LED_ADP8866_ISCC1_SC9_EN_Pos)) != 0) {
       ret = false;
     }
 
     if (i2c_write(LED_ADP8866_REG_ISCC2,
-                  ((1 << LED_ADP8866_ISCC2_SC1_EN_Pos) |
-                   (1 << LED_ADP8866_ISCC2_SC2_EN_Pos) |
-                   (1 << LED_ADP8866_ISCC2_SC3_EN_Pos) |
-                   (1 << LED_ADP8866_ISCC2_SC4_EN_Pos) |
-                   (1 << LED_ADP8866_ISCC2_SC5_EN_Pos) |
-                   (1 << LED_ADP8866_ISCC2_SC6_EN_Pos) |
-                   (1 << LED_ADP8866_ISCC2_SC7_EN_Pos) |
-                   (1 << LED_ADP8866_ISCC2_SC8_EN_Pos))) != 0) {
+                  ((1 << LED_ADP8866_ISCC2_SC1_EN_Pos) | (1 << LED_ADP8866_ISCC2_SC2_EN_Pos)
+                   | (1 << LED_ADP8866_ISCC2_SC3_EN_Pos) | (1 << LED_ADP8866_ISCC2_SC4_EN_Pos)
+                   | (1 << LED_ADP8866_ISCC2_SC5_EN_Pos) | (1 << LED_ADP8866_ISCC2_SC6_EN_Pos)
+                   | (1 << LED_ADP8866_ISCC2_SC7_EN_Pos) | (1 << LED_ADP8866_ISCC2_SC8_EN_Pos)))
+        != 0) {
       ret = false;
     }
 
     /* Normal mode */
-    if (i2c_write(LED_ADP8866_REG_MDCR, (1 << LED_ADP8866_MDCR_NSTBY_Pos)) !=
-        0) {
+    if (i2c_write(LED_ADP8866_REG_MDCR, (1 << LED_ADP8866_MDCR_NSTBY_Pos)) != 0) {
       ret = false;
     }
   }
@@ -211,8 +212,7 @@ static bool configure(void) {
  *
  * \return true if the operation succeeded, false otherwise.
  */
-static bool leds_set(const led_adp8866_led_state_t *led_states,
-                     u32 led_states_count)
+static bool leds_set(const led_adp8866_led_state_t *led_states, u32 led_states_count)
 {
   bool ret = true;
 
@@ -280,7 +280,8 @@ static bool led_cache_flush(void)
  */
 static u32 modified_states_get(const led_adp8866_led_state_t *input_states,
                                u32 input_states_count,
-                               led_adp8866_led_state_t *output_states) {
+                               led_adp8866_led_state_t *output_states)
+{
   u32 output_states_count = 0;
 
   for (u32 i = 0; i < input_states_count; i++) {
@@ -302,7 +303,8 @@ static u32 modified_states_get(const led_adp8866_led_state_t *input_states,
 
 /** Initialize the LED driver.
  */
-void led_adp8866_init(bool is_duro) {
+void led_adp8866_init(bool is_duro)
+{
   char *i2c_path = is_duro ? "/dev/i2c-0" : "/dev/i2c-1";
   led_i2c = open(i2c_path, O_RDWR);
   if (led_i2c < 0) {
@@ -340,7 +342,8 @@ void led_adp8866_init(bool is_duro) {
  *
  * \return true if the operation succeeded, false otherwise.
  */
-bool led_adp8866_led_set(const led_adp8866_led_state_t *led_state) {
+bool led_adp8866_led_set(const led_adp8866_led_state_t *led_state)
+{
   return led_adp8866_leds_set(led_state, 1);
 }
 
@@ -351,11 +354,10 @@ bool led_adp8866_led_set(const led_adp8866_led_state_t *led_state) {
  *
  * \return true if the operation succeeded, false otherwise.
  */
-bool led_adp8866_leds_set(const led_adp8866_led_state_t *led_states,
-                          u32 led_states_count) {
+bool led_adp8866_leds_set(const led_adp8866_led_state_t *led_states, u32 led_states_count)
+{
   led_adp8866_led_state_t modified_states[LED_ADP8866_LED_COUNT];
-  u32 modified_states_count =
-      modified_states_get(led_states, led_states_count, modified_states);
+  u32 modified_states_count = modified_states_get(led_states, led_states_count, modified_states);
 
   if (flush_led_state_cache) {
     led_cache_flush();

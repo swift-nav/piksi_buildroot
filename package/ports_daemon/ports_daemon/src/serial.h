@@ -18,4 +18,3 @@
 int serial_init(settings_ctx_t *settings_ctx);
 
 #endif /* SWIFTNAV_SERIAL_H */
-

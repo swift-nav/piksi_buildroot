@@ -189,3 +189,19 @@ To copy data out of docker, use the following make rule:
 ```
 make docker-cp SRC=/piksi_buildroot/buildroot/output/target/usr/bin/nap_linux DST=/tmp/nap_linux
 ```
+
+## Development
+
+### Formatting
+
+When submitting pull requests, automated build infrastructure will apply a standardized formatting
+rubric via `clang-format` to validate any style related changes that might be requested during review
+(see [nits](https://stackoverflow.com/questions/27810522/what-does-nit-mean-in-hacker-speak)). This
+is in an effort to keep review focused on the functionality of the changes, and not on nits.
+
+Use the following target to format your changes before submitting (must have `clang-format==5.0` installed):
+
+```
+make clang-format
+```
+

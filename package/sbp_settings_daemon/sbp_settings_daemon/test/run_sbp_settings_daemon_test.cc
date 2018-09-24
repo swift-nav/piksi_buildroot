@@ -30,14 +30,18 @@ struct setting {
 
 extern "C" void settings_register(struct setting *setting);
 
+// clang-format off
 static setting setting_empty_uart0 = {
   /* section = */ "uart0", /* name = */ "enabled_sbp_messages", /* type  = */ "",
   /* value   = */   "",    /* next = */ NULL,                   /* dirty = */ false,
 };
+// clang-format on
 
-class SbpSettingsDaemonTests : public ::testing::Test { };
+class SbpSettingsDaemonTests : public ::testing::Test {
+};
 
-TEST_F(SbpSettingsDaemonTests, empty_ini_field) {
+TEST_F(SbpSettingsDaemonTests, empty_ini_field)
+{
 
   system("rm -rf /persistent");
   system("mkdir /persistent");
@@ -50,11 +54,12 @@ TEST_F(SbpSettingsDaemonTests, empty_ini_field) {
 
   settings_register(&setting_empty_uart0);
 
-  ASSERT_TRUE( setting_empty_uart0.dirty );
-  ASSERT_STREQ( "", setting_empty_uart0.value );
+  ASSERT_TRUE(setting_empty_uart0.dirty);
+  ASSERT_STREQ("", setting_empty_uart0.value);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

@@ -45,8 +45,7 @@
 
 #define NTRIP_INIT_TIMEOUT_S (200L)
 #define NTRIP_INIT_RETRY_COOLDOWN_US (200000L)
-#define NTRIP_INIT_RETRY_COUNT_MAX \
-    (NTRIP_INIT_RETRY_COOLDOWN_US / NTRIP_INIT_TIMEOUT_S)
+#define NTRIP_INIT_RETRY_COUNT_MAX (NTRIP_INIT_RETRY_COOLDOWN_US / NTRIP_INIT_TIMEOUT_S)
 
 /** How large to configure the recv buffer to avoid excessive buffering. */
 const long RECV_BUFFER_SIZE = 4096L;
@@ -82,6 +81,7 @@ typedef struct {
 
 } fifo_info_t;
 
+// clang-format off
 struct network_context_s {
 
   network_type_t type;         /**< The type of the network session */
@@ -123,6 +123,7 @@ struct network_context_s {
 
   bool gga_rev1;               /**< Should we use rev1 style GGA sentence? */
 };
+// clang-format on
 
 struct context_node {
   network_context_t context;
@@ -133,6 +134,7 @@ typedef LIST_HEAD(context_nodes_head, context_node) context_nodes_head_t;
 
 context_nodes_head_t context_nodes_head = LIST_HEAD_INITIALIZER(context_nodes_head);
 
+// clang-format off
 static network_context_t empty_context = {
   .type = NETWORK_TYPE_INVALID,
   .fd = -1,
@@ -168,28 +170,32 @@ static network_context_t empty_context = {
   .gga_error_count = 0,
   .gga_rev1 = false,
 };
+// clang-format on
 
 #define NMEA_GGA_FILE "/var/run/nmea/GGA"
 
 #define HTTP_RESPONSE_CODE_OK (200L)
-#define NTRIP_DROPPED_CONNECTION_WARNING "Connection dropped with no data. This may be because this NTRIP caster expects an NMEA GGA string to be sent from the receiver. You can enable this through the ntrip.gga_period setting."
+#define NTRIP_DROPPED_CONNECTION_WARNING \
+  "Connection dropped with no data. This may be because this NTRIP caster expects an NMEA GGA string to be sent from the receiver. You can enable this through the ntrip.gga_period setting."
 
-static void trim_crlf(char* buf, size_t *byte_count) __attribute__((nonnull(1)));
-static void log_with_rate_limit(network_context_t* ctx, int priority, const char *format, ...)
-  __attribute__((nonnull(1,3)));
+static void trim_crlf(char *buf, size_t *byte_count) __attribute__((nonnull(1)));
+static void log_with_rate_limit(network_context_t *ctx, int priority, const char *format, ...)
+  __attribute__((nonnull(1, 3)));
 
 void libnetwork_shutdown()
 {
-  context_node_t* node;
-  LIST_FOREACH(node, &context_nodes_head, entries) {
+  context_node_t *node;
+  LIST_FOREACH(node, &context_nodes_head, entries)
+  {
     node->context.shutdown_signaled = true;
   }
 }
 
 void libnetwork_cycle_connection()
 {
-  context_node_t* node;
-  LIST_FOREACH(node, &context_nodes_head, entries) {
+  context_node_t *node;
+  LIST_FOREACH(node, &context_nodes_head, entries)
+  {
     node->context.cycle_connection_signaled = true;
   }
 }
@@ -207,14 +213,22 @@ network_status_t libnetwork_configure_control(network_context_t *ctx, control_pa
   mode_t umask_previous = umask(0);
   int req_fd = mkfifo(control_pair.req_fifo_name, 0777);
   if (req_fd < 0) {
-    piksi_log(LOG_ERR, "error opening request FIFO (%s) (error: %d) \"%s\"", control_pair.req_fifo_name, errno, strerror(errno));
+    piksi_log(LOG_ERR,
+              "error opening request FIFO (%s) (error: %d) \"%s\"",
+              control_pair.req_fifo_name,
+              errno,
+              strerror(errno));
     umask(umask_previous);
     return NETWORK_STATUS_FIFO_ERROR;
   }
 
   int rep_fd = mkfifo(control_pair.rep_fifo_name, 0777);
   if (rep_fd < 0) {
-    piksi_log(LOG_ERR, "error opening response FIFO (%s) (error: %d) \"%s\"", control_pair.rep_fifo_name, errno, strerror(errno));
+    piksi_log(LOG_ERR,
+              "error opening response FIFO (%s) (error: %d) \"%s\"",
+              control_pair.rep_fifo_name,
+              errno,
+              strerror(errno));
     close(req_fd);
     umask(umask_previous);
     return NETWORK_STATUS_FIFO_ERROR;
@@ -227,8 +241,12 @@ network_status_t libnetwork_configure_control(network_context_t *ctx, control_pa
   ctx->control_fifo_info.req_fd = req_fd;
   ctx->control_fifo_info.rep_fd = rep_fd;
 
-  strncpy(ctx->control_fifo_info.req_path, control_pair.req_fifo_name, sizeof(ctx->control_fifo_info.req_path));
-  strncpy(ctx->control_fifo_info.rep_path, control_pair.rep_fifo_name, sizeof(ctx->control_fifo_info.rep_path));
+  strncpy(ctx->control_fifo_info.req_path,
+          control_pair.req_fifo_name,
+          sizeof(ctx->control_fifo_info.req_path));
+  strncpy(ctx->control_fifo_info.rep_path,
+          control_pair.rep_fifo_name,
+          sizeof(ctx->control_fifo_info.rep_path));
 
   return NETWORK_STATUS_SUCCESS;
 }
@@ -262,7 +280,7 @@ network_status_t libnetwork_request_health(control_pair_t control_pair, int *sta
     goto libnetwork_request_health_exit;
   }
 
-  char response_buf[4] = { 0 };
+  char response_buf[4] = {0};
   int rc = read(rep_fd, response_buf, sizeof(response_buf) - 1);
   if (rc <= 0) {
     return_status = NETWORK_STATUS_READ_ERROR;
@@ -273,25 +291,27 @@ network_status_t libnetwork_request_health(control_pair_t control_pair, int *sta
 
   long response = strtol(response_buf, NULL, 10);
   if (response < 0) {
-    piksi_log(LOG_WARNING, "%s: error requesting skylark HTTP response code: %d", __FUNCTION__, response);
+    piksi_log(LOG_WARNING,
+              "%s: error requesting skylark HTTP response code: %d",
+              __FUNCTION__,
+              response);
   }
 
   if (status != NULL) {
-    *status = (int) response;
+    *status = (int)response;
   }
 
- libnetwork_request_health_exit:
+libnetwork_request_health_exit:
   close(rep_fd);
   close(req_fd);
 
   return return_status;
 }
 
-network_context_t* libnetwork_create(network_type_t type)
+network_context_t *libnetwork_create(network_type_t type)
 {
-  context_node_t* node = malloc(sizeof(context_node_t));
-  if (node == NULL)
-    return NULL;
+  context_node_t *node = malloc(sizeof(context_node_t));
+  if (node == NULL) return NULL;
 
   memcpy(&node->context, &empty_context, sizeof(empty_context));
 
@@ -307,7 +327,7 @@ void libnetwork_destroy(network_context_t **ctx)
 {
   LIST_REMOVE((*ctx)->node, entries);
 
-  int* fd_list[] = {
+  int *fd_list[] = {
     &(*ctx)->control_fifo_info.req_fd,
     &(*ctx)->control_fifo_info.req_read_fd,
     &(*ctx)->control_fifo_info.rep_fd,
@@ -315,68 +335,63 @@ void libnetwork_destroy(network_context_t **ctx)
   };
 
   for (size_t x = 0; x < COUNT_OF(fd_list); x++) {
-    if (*fd_list[x] < 0)
-      continue;
+    if (*fd_list[x] < 0) continue;
     close(*fd_list[x]);
     *fd_list[x] = -1;
   }
 
-  if ((*ctx)->gga_xfer_buffer != NULL)
-    free((*ctx)->gga_xfer_buffer);
+  if ((*ctx)->gga_xfer_buffer != NULL) free((*ctx)->gga_xfer_buffer);
 
   free(*ctx);
   *ctx = NULL;
 }
 
-network_status_t libnetwork_set_fd(network_context_t* ctx, int fd)
+network_status_t libnetwork_set_fd(network_context_t *ctx, int fd)
 {
   ctx->fd = fd;
   return NETWORK_STATUS_SUCCESS;
 }
 
-network_status_t libnetwork_set_username(network_context_t* context, const char* username)
+network_status_t libnetwork_set_username(network_context_t *context, const char *username)
 {
-  const size_t max_username = sizeof(((network_context_t*)NULL)->username);
+  const size_t max_username = sizeof(((network_context_t *)NULL)->username);
 
-  if (strlen(username) + 1 > max_username)
-    return NETWORK_STATUS_URL_TOO_LARGE;
+  if (strlen(username) + 1 > max_username) return NETWORK_STATUS_URL_TOO_LARGE;
 
-  (void)strncpy(context->username, username, max_username-1);
+  (void)strncpy(context->username, username, max_username - 1);
 
   return NETWORK_STATUS_SUCCESS;
 }
 
-network_status_t libnetwork_set_password(network_context_t* context, const char* password)
+network_status_t libnetwork_set_password(network_context_t *context, const char *password)
 {
-  const size_t max_password = sizeof(((network_context_t*)NULL)->password);
+  const size_t max_password = sizeof(((network_context_t *)NULL)->password);
 
-  if (strlen(password) + 1 > max_password)
-    return NETWORK_STATUS_URL_TOO_LARGE;
+  if (strlen(password) + 1 > max_password) return NETWORK_STATUS_URL_TOO_LARGE;
 
-  (void)strncpy(context->password, password, max_password-1);
+  (void)strncpy(context->password, password, max_password - 1);
 
   return NETWORK_STATUS_SUCCESS;
 }
 
-network_status_t libnetwork_set_url(network_context_t* context, const char* url)
+network_status_t libnetwork_set_url(network_context_t *context, const char *url)
 {
-  const size_t max_url = sizeof(((network_context_t*)NULL)->url);
+  const size_t max_url = sizeof(((network_context_t *)NULL)->url);
 
-  if (strlen(url) + 1 > max_url)
-    return NETWORK_STATUS_URL_TOO_LARGE;
+  if (strlen(url) + 1 > max_url) return NETWORK_STATUS_URL_TOO_LARGE;
 
-  (void)strncpy(context->url, url, max_url-1);
+  (void)strncpy(context->url, url, max_url - 1);
 
   return NETWORK_STATUS_SUCCESS;
 }
 
-network_status_t libnetwork_set_debug(network_context_t* context, bool debug)
+network_status_t libnetwork_set_debug(network_context_t *context, bool debug)
 {
   context->debug = debug;
   return NETWORK_STATUS_SUCCESS;
 }
 
-network_status_t libnetwork_set_gga_upload_interval(network_context_t* context, int gga_interval)
+network_status_t libnetwork_set_gga_upload_interval(network_context_t *context, int gga_interval)
 {
   if (context->type != NETWORK_TYPE_NTRIP_DOWNLOAD) {
     return NETWORK_STATUS_INVALID_SETTING;
@@ -387,7 +402,7 @@ network_status_t libnetwork_set_gga_upload_interval(network_context_t* context, 
   return NETWORK_STATUS_SUCCESS;
 }
 
-network_status_t libnetwork_set_gga_upload_rev1(network_context_t* context, bool use_rev1)
+network_status_t libnetwork_set_gga_upload_rev1(network_context_t *context, bool use_rev1)
 {
   context->gga_rev1 = use_rev1;
   return NETWORK_STATUS_SUCCESS;
@@ -418,8 +433,8 @@ static void warn_on_pipe_full(int fd, size_t pending_write, bool debug)
   time_t now = time(NULL);
   double percent_full = ((outq_size + (int)pending_write) / (double)pipe_size);
 
-  if ( percent_full >= PIPE_WARN_THRESHOLD && now - last_pipe_warn_time >= PIPE_WARN_SECS) {
-    const char* msg = "output fifo almost full, future writes will block";
+  if (percent_full >= PIPE_WARN_THRESHOLD && now - last_pipe_warn_time >= PIPE_WARN_SECS) {
+    const char *msg = "output fifo almost full, future writes will block";
     sbp_log(LOG_WARNING, msg);
     piksi_log(LOG_WARNING, msg);
     last_pipe_warn_time = now;
@@ -431,17 +446,18 @@ static void dump_connection_stats(int fd)
   struct tcp_info tcp_info;
   socklen_t tcp_info_len = sizeof(tcp_info);
 
-  if (getsockopt(fd, SOL_TCP, TCP_INFO, (void*)&tcp_info, &tcp_info_len) < 0) {
+  if (getsockopt(fd, SOL_TCP, TCP_INFO, (void *)&tcp_info, &tcp_info_len) < 0) {
     piksi_log(LOG_ERR, "getsockopt error %d", errno);
 
   } else {
-    piksi_log(LOG_DEBUG, "rtt=%u rttvar=%u rcv_rtt=%u rcv_space=%u rcv_mss=%u advmss=%u\n",
-        tcp_info.tcpi_rtt,
-        tcp_info.tcpi_rttvar,
-        tcp_info.tcpi_rcv_rtt,
-        tcp_info.tcpi_rcv_space,
-        tcp_info.tcpi_rcv_mss,
-        tcp_info.tcpi_advmss);
+    piksi_log(LOG_DEBUG,
+              "rtt=%u rttvar=%u rcv_rtt=%u rcv_space=%u rcv_mss=%u advmss=%u\n",
+              tcp_info.tcpi_rtt,
+              tcp_info.tcpi_rttvar,
+              tcp_info.tcpi_rcv_rtt,
+              tcp_info.tcpi_rcv_space,
+              tcp_info.tcpi_rcv_mss,
+              tcp_info.tcpi_advmss);
   }
 }
 
@@ -503,7 +519,7 @@ static void trim_crlf(char *buf, size_t *len)
   if (len != NULL) *len = strlen(buf);
 }
 
-static void cache_gga_xfer_buffer(network_context_t *ctx, char* buf, size_t buflen, size_t fill)
+static void cache_gga_xfer_buffer(network_context_t *ctx, char *buf, size_t buflen, size_t fill)
 {
   if (ctx->gga_xfer_buffer == NULL || buflen != ctx->gga_xfer_buflen) {
     if (ctx->gga_xfer_buffer != NULL) free(ctx->gga_xfer_buffer);
@@ -515,7 +531,7 @@ static void cache_gga_xfer_buffer(network_context_t *ctx, char* buf, size_t bufl
   ctx->gga_xfer_fill = fill;
 }
 
-static size_t fill_with_gga_xfer_cache(network_context_t *ctx, char* buf, size_t buflen)
+static size_t fill_with_gga_xfer_cache(network_context_t *ctx, char *buf, size_t buflen)
 {
   // If there's no cache, pause
   if (ctx->gga_xfer_buffer == NULL) {
@@ -554,7 +570,8 @@ static size_t fetch_gga_buffer(network_context_t *ctx, char *buf, size_t buf_siz
   if (read_count == 0 || ferror(fp_gga_cache)) {
 
     if (++ctx->gga_error_count >= MAX_GGA_UPLOAD_READ_ERRORS) {
-      piksi_log(LOG_SBP|LOG_ERR, "max number of GGA file read errors exceeded (" NMEA_GGA_FILE ")");
+      piksi_log(LOG_SBP | LOG_ERR,
+                "max number of GGA file read errors exceeded (" NMEA_GGA_FILE ")");
     }
 
     if (ferror(fp_gga_cache)) {
@@ -609,14 +626,17 @@ static size_t network_upload_write(char *buf, size_t size, size_t n, void *data)
   size_t header_size = 0;
 
   if (ctx->gga_rev1) {
-    header_size = snprintf(buf, size*n, "%s\r\n", gga_string);
+    header_size = snprintf(buf, size * n, "%s\r\n", gga_string);
   } else {
-    header_size = snprintf(buf, size*n, "Ntrip-GGA: %s\r\n", gga_string);
+    header_size = snprintf(buf, size * n, "Ntrip-GGA: %s\r\n", gga_string);
   }
 
-  if ( header_size >= size*n ) {
-    sbp_log(LOG_ERR|LOG_SBP, "%s: unexpected buffer error building GGA string (%s:%d)",
-            __FUNCTION__, __FILE__, __LINE__);
+  if (header_size >= size * n) {
+    sbp_log(LOG_ERR | LOG_SBP,
+            "%s: unexpected buffer error building GGA string (%s:%d)",
+            __FUNCTION__,
+            __FILE__,
+            __LINE__);
     return CURL_READFUNC_PAUSE;
   }
 
@@ -649,24 +669,32 @@ static void service_control_fifo(network_context_t *ctx)
   }
 
   if (ctx->control_fifo_info.req_read_fd < 0) {
-    ctx->control_fifo_info.req_read_fd = open(ctx->control_fifo_info.req_path, O_RDONLY|O_NONBLOCK);
+    ctx->control_fifo_info.req_read_fd =
+      open(ctx->control_fifo_info.req_path, O_RDONLY | O_NONBLOCK);
     if (ctx->control_fifo_info.req_read_fd < 0) {
-      piksi_log(LOG_WARNING, "%s: error opening request FIFO: %s (%d)", __FUNCTION__, strerror(errno), errno);
+      piksi_log(LOG_WARNING,
+                "%s: error opening request FIFO: %s (%d)",
+                __FUNCTION__,
+                strerror(errno),
+                errno);
       return;
     }
   }
 
-  char cmd[1] = { 0 };
+  char cmd[1] = {0};
   ssize_t rc = read(ctx->control_fifo_info.req_read_fd, cmd, sizeof(cmd));
   if (rc <= 0) {
     if (rc < 0 && errno != EAGAIN) {
-      piksi_log(LOG_WARNING, "%s: error reading from FIFO: %s (%d)", __FUNCTION__, strerror(errno), errno);
+      piksi_log(LOG_WARNING,
+                "%s: error reading from FIFO: %s (%d)",
+                __FUNCTION__,
+                strerror(errno),
+                errno);
     }
     return;
   }
 
-  if (ctx->debug)
-    piksi_log(LOG_DEBUG, "%s: got command '%c'", __FUNCTION__, cmd[0]);
+  if (ctx->debug) piksi_log(LOG_DEBUG, "%s: got command '%c'", __FUNCTION__, cmd[0]);
 
   char status_buf[4] = " -1";
 
@@ -677,14 +705,17 @@ static void service_control_fifo(network_context_t *ctx)
   if (ctx->control_fifo_info.rep_write_fd < 0) {
     ctx->control_fifo_info.rep_write_fd = open(ctx->control_fifo_info.rep_path, O_WRONLY);
     if (ctx->control_fifo_info.rep_write_fd < 0) {
-      piksi_log(LOG_WARNING, "%s: error opening response FIFO: %s (%d)", __FUNCTION__, strerror(errno), errno);
+      piksi_log(LOG_WARNING,
+                "%s: error opening response FIFO: %s (%d)",
+                __FUNCTION__,
+                strerror(errno),
+                errno);
       return;
     }
   }
 
   size_t c = snprintf(status_buf, sizeof(status_buf), "%03ld", response_code);
-  if (ctx->debug)
-    piksi_log(LOG_DEBUG, "%s: HTTP response code: %d", __FUNCTION__, response_code);
+  if (ctx->debug) piksi_log(LOG_DEBUG, "%s: HTTP response code: %d", __FUNCTION__, response_code);
 
   if (c >= sizeof(status_buf)) {
     piksi_log(LOG_WARNING, "%s: HTTP response code too large: %d", __FUNCTION__, response_code);
@@ -740,7 +771,11 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
   return 0;
 }
 
-static int network_download_progress(void *data, curl_off_t dltot, curl_off_t dlnow, curl_off_t ultot, curl_off_t ulnow)
+static int network_download_progress(void *data,
+                                     curl_off_t dltot,
+                                     curl_off_t dlnow,
+                                     curl_off_t ultot,
+                                     curl_off_t ulnow)
 {
   (void)dltot;
   (void)ultot;
@@ -750,13 +785,22 @@ static int network_download_progress(void *data, curl_off_t dltot, curl_off_t dl
 
   curl_off_t delta = dlnow - ctx->bytes_transfered;
   if (ctx->debug && delta > 0) {
-    piksi_log(LOG_DEBUG, "down bytes: now=%lld, prev=%lld, delta=%lld, count %lld", dlnow, ctx->bytes_transfered, delta, ctx->stall_count);
+    piksi_log(LOG_DEBUG,
+              "down bytes: now=%lld, prev=%lld, delta=%lld, count %lld",
+              dlnow,
+              ctx->bytes_transfered,
+              delta,
+              ctx->stall_count);
   }
 
   return network_progress_check(ctx, dlnow);
 }
 
-static int network_upload_progress(void *data, curl_off_t dltot, curl_off_t dlnow, curl_off_t ultot, curl_off_t ulnow)
+static int network_upload_progress(void *data,
+                                   curl_off_t dltot,
+                                   curl_off_t dlnow,
+                                   curl_off_t ultot,
+                                   curl_off_t ulnow)
 {
   (void)dltot;
   (void)dlnow;
@@ -765,7 +809,11 @@ static int network_upload_progress(void *data, curl_off_t dltot, curl_off_t dlno
   network_context_t *ctx = data;
 
   if (ctx->debug) {
-    piksi_log(LOG_DEBUG, "up bytes (%lld) %lld count %lld", ulnow, ctx->bytes_transfered, ctx->stall_count);
+    piksi_log(LOG_DEBUG,
+              "up bytes (%lld) %lld count %lld",
+              ulnow,
+              ctx->bytes_transfered,
+              ctx->stall_count);
   }
 
   return network_progress_check(ctx, ulnow);
@@ -775,7 +823,8 @@ static int network_upload_progress(void *data, curl_off_t dltot, curl_off_t dlno
  * @brief We attempt to void excessive buffering by configuring a small
  *        receive buffer to incoming NTRIP data.
  */
-static void configure_recv_buffer(int fd, bool debug) {
+static void configure_recv_buffer(int fd, bool debug)
+{
 
   int recvbufsize = RECV_BUFFER_SIZE;
   socklen_t recvbufsize_size = sizeof(recvbufsize);
@@ -797,7 +846,7 @@ static void configure_recv_buffer(int fd, bool debug) {
 
 static int network_sockopt(void *data, curl_socket_t fd, curlsocktype purpose)
 {
-  network_context_t *ctx = (network_context_t*)data;
+  network_context_t *ctx = (network_context_t *)data;
   ctx->socket_fd = fd;
 
 #ifdef TCP_USER_TIMEOUT
@@ -819,7 +868,7 @@ static int network_sockopt(void *data, curl_socket_t fd, curlsocktype purpose)
   return CURL_SOCKOPT_OK;
 }
 
-static CURL *network_setup(network_context_t* ctx)
+static CURL *network_setup(network_context_t *ctx)
 {
   ctx->shutdown_signaled = false;
 
@@ -852,7 +901,7 @@ static void network_teardown(CURL *curl)
   curl_global_cleanup();
 }
 
-static int network_response_code_check(network_context_t* ctx)
+static int network_response_code_check(network_context_t *ctx)
 {
   int result = 0;
   if (ctx->response_code_check != NULL) {
@@ -861,7 +910,7 @@ static int network_response_code_check(network_context_t* ctx)
   return result;
 }
 
-static void log_with_rate_limit(network_context_t* ctx, int priority, const char *format, ...)
+static void log_with_rate_limit(network_context_t *ctx, int priority, const char *format, ...)
 {
   time_t current_time = time(NULL);
   time_t last_error_delta = current_time - ctx->last_curl_error_time;
@@ -869,7 +918,7 @@ static void log_with_rate_limit(network_context_t* ctx, int priority, const char
   int facpri = priority;
 
   if (last_error_delta >= ERROR_REPORTING_INTERVAL && ctx->report_errors) {
-    facpri =  LOG_SBP|LOG_WARNING;
+    facpri = LOG_SBP | LOG_WARNING;
     ctx->last_curl_error_time = current_time;
   }
 
@@ -882,10 +931,11 @@ static void log_with_rate_limit(network_context_t* ctx, int priority, const char
 }
 
 
-static void network_request(network_context_t* ctx, CURL *curl)
+static void network_request(network_context_t *ctx, CURL *curl)
 {
   char error_buf[CURL_ERROR_SIZE];
 
+  // clang-format off
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER,       error_buf);
   curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 15000L);
   curl_easy_setopt(curl, CURLOPT_DNS_CACHE_TIMEOUT, 0L);
@@ -895,17 +945,16 @@ static void network_request(network_context_t* ctx, CURL *curl)
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPINTVL,     5L);
   curl_easy_setopt(curl, CURLOPT_TCP_KEEPIDLE,      20L);
   curl_easy_setopt(curl, CURLOPT_BUFFERSIZE,        RECV_BUFFER_SIZE);
+  // clang-format on
 
   while (true) {
 
     CURLcode code = curl_easy_perform(curl);
 
-    if (ctx->shutdown_signaled)
-      return;
+    if (ctx->shutdown_signaled) return;
 
     if (code == CURLE_ABORTED_BY_CALLBACK) {
-      if (ctx->debug)
-        piksi_log(LOG_DEBUG, "cURL aborted by callback");
+      if (ctx->debug) piksi_log(LOG_DEBUG, "cURL aborted by callback");
       continue;
     }
 
@@ -937,7 +986,7 @@ static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
   while (!device_has_gps_time() && NTRIP_INIT_RETRY_COUNT_MAX > retries++) {
     usleep(NTRIP_INIT_RETRY_COOLDOWN_US);
   }
-  piksi_log(LOG_DEBUG|LOG_SBP, "ntrip_init: device has gps time");
+  piksi_log(LOG_DEBUG | LOG_SBP, "ntrip_init: device has gps time");
 
   char gga_string[128] = {0};
   size_t gga_len = fetch_gga_buffer(ctx, gga_string, sizeof(gga_string) - 1);
@@ -945,9 +994,8 @@ static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
   if (gga_len > 0) {
     char header_buf[256] = {0};
 
-    size_t c = snprintf(
-        header_buf, sizeof(header_buf), "Ntrip-GGA: %s", gga_string);
-    assert( c < sizeof(header_buf) );
+    size_t c = snprintf(header_buf, sizeof(header_buf), "Ntrip-GGA: %s", gga_string);
+    assert(c < sizeof(header_buf));
 
     curl_slist_append(chunk, header_buf);
 
@@ -955,7 +1003,7 @@ static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
     piksi_log(LOG_WARNING, "was not able to insert NTRIP GGA header");
   }
 
-  curl_easy_setopt(curl, CURLOPT_USERAGENT,  "NTRIP swift-ntrip-client/1.0");
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "NTRIP swift-ntrip-client/1.0");
 
   return chunk;
 }
@@ -971,15 +1019,14 @@ static struct curl_slist *skylark_init(CURL *curl)
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, device_buf);
 
-  curl_easy_setopt(curl, CURLOPT_USERAGENT,  "skylark-agent/1.0");
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "skylark-agent/1.0");
 
   return chunk;
 }
 
 static int ntrip_response_code_check(network_context_t *ctx)
 {
-  if (ctx->response_code == HTTP_RESPONSE_CODE_OK
-      && ctx->bytes_transfered == 0) {
+  if (ctx->response_code == HTTP_RESPONSE_CODE_OK && ctx->bytes_transfered == 0) {
     static bool warned = false;
     if (!warned) {
       sbp_log(LOG_WARNING, NTRIP_DROPPED_CONNECTION_WARNING);
@@ -991,7 +1038,7 @@ static int ntrip_response_code_check(network_context_t *ctx)
 
 void ntrip_download(network_context_t *ctx)
 {
-  CURL* curl = network_setup(ctx);
+  CURL *curl = network_setup(ctx);
   if (curl == NULL) {
     return;
   }
@@ -1000,10 +1047,12 @@ void ntrip_download(network_context_t *ctx)
 
   if (ctx->gga_xfer_secs > 0) {
 
+    // clang-format off
     curl_easy_setopt(curl, CURLOPT_UPLOAD,           1L);
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST,    "GET");
     curl_easy_setopt(curl, CURLOPT_READFUNCTION,     network_upload_write);
     curl_easy_setopt(curl, CURLOPT_READDATA,         ctx);
+    // clang-format on
 
     chunk = curl_slist_append(chunk, "Transfer-Encoding:");
 
@@ -1012,18 +1061,19 @@ void ntrip_download(network_context_t *ctx)
   }
 
   if (strcmp(ctx->username, "") != 0) {
-    curl_easy_setopt(curl, CURLOPT_USERNAME,       ctx->username);
+    curl_easy_setopt(curl, CURLOPT_USERNAME, ctx->username);
     if (ctx->debug) {
       piksi_log(LOG_DEBUG, "username: %s", ctx->username);
     }
   }
   if (strcmp(ctx->password, "") != 0) {
-    curl_easy_setopt(curl, CURLOPT_PASSWORD,       ctx->password);
+    curl_easy_setopt(curl, CURLOPT_PASSWORD, ctx->password);
     if (ctx->debug) {
       piksi_log(LOG_DEBUG, "password: %s", ctx->password);
     }
   }
 
+  // clang-format off
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
@@ -1033,6 +1083,7 @@ void ntrip_download(network_context_t *ctx)
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
+  // clang-format on
 
   network_request(ctx, curl);
 
@@ -1050,6 +1101,7 @@ void skylark_download(network_context_t *ctx)
   struct curl_slist *chunk = skylark_init(curl);
   chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
 
+  // clang-format off
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
@@ -1059,6 +1111,7 @@ void skylark_download(network_context_t *ctx)
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
+  // clang-format on
 
   network_request(ctx, curl);
 
@@ -1066,7 +1119,7 @@ void skylark_download(network_context_t *ctx)
   network_teardown(curl);
 }
 
-void skylark_upload(network_context_t* ctx)
+void skylark_upload(network_context_t *ctx)
 {
   CURL *curl = network_setup(ctx);
   if (curl == NULL) {
@@ -1077,6 +1130,7 @@ void skylark_upload(network_context_t* ctx)
   chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
   chunk = curl_slist_append(chunk, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
 
+  // clang-format off
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_PUT,              1L);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
@@ -1087,6 +1141,7 @@ void skylark_upload(network_context_t* ctx)
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
+  // clang-format on
 
   network_request(ctx, curl);
 

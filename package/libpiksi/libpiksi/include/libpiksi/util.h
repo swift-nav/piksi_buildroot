@@ -134,17 +134,21 @@ void setup_sigchld_handler(void (*handler)(int));
 void setup_sigint_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext));
 void setup_sigterm_handler(void (*handler)(int signum, siginfo_t *info, void *ucontext));
 
-#define SWFT_MAX(a,b) \
-  ({ typeof (a) _a = (a); \
-  typeof (b) _b = (b); \
-  _a > _b ? _a : _b; })
+#define SWFT_MAX(a, b)  \
+  ({                    \
+    typeof(a) _a = (a); \
+    typeof(b) _b = (b); \
+    _a > _b ? _a : _b;  \
+  })
 
-#define SWFT_MIN(a,b) \
-  ({ typeof (a) _a = (a); \
-  typeof (b) _b = (b); \
-  _a < _b ? _a : _b; })
+#define SWFT_MIN(a, b)  \
+  ({                    \
+    typeof(a) _a = (a); \
+    typeof(b) _b = (b); \
+    _a < _b ? _a : _b;  \
+  })
 
-#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+#define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
 
 #ifdef __cplusplus
 }

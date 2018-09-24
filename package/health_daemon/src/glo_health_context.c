@@ -22,7 +22,7 @@
 static struct glo_health_ctx_s {
   bool glonass_enabled;
   bool connected_to_base;
-} glo_health_ctx = { .glonass_enabled = false, .connected_to_base = false };
+} glo_health_ctx = {.glonass_enabled = false, .connected_to_base = false};
 
 
 void glo_context_receive_base_obs(void)

@@ -35,6 +35,7 @@ static char ntrip_rev1gga_s[] = "n";
 
 static bool ntrip_settings_initialized = false;
 
+// clang-format off
 static char *ntrip_argv_normal[] = {
   "ntrip_daemon",
   "--file", FIFO_FILE_PATH,
@@ -76,19 +77,23 @@ static char *ntrip_argv_username_debug[] = {
   "--rev1gga", ntrip_rev1gga_s,
   NULL,
 };
+// clang-format on
 
-static char** ntrip_argv = ntrip_argv_normal;
+static char **ntrip_argv = ntrip_argv_normal;
 
 typedef struct {
   int (*execfn)(void);
   int pid;
 } ntrip_process_t;
 
-static int ntrip_daemon_execfn(void) {
+static int ntrip_daemon_execfn(void)
+{
   return execvp(ntrip_argv[0], ntrip_argv);
 }
 
-static int ntrip_adapter_execfn(void) {
+static int ntrip_adapter_execfn(void)
+{
+  // clang-format off
   char *argv[] = {
     "endpoint_adapter",
     "--name", "ntrip_daemon",
@@ -97,13 +102,14 @@ static int ntrip_adapter_execfn(void) {
     "-p", "ipc:///var/run/sockets/rtcm3_external.sub",
     NULL,
   };
+  // clang-format on
 
   return execvp(argv[0], argv);
 }
 
 static ntrip_process_t ntrip_processes[] = {
-  { .pid = 0, .execfn = ntrip_adapter_execfn },
-  { .pid = 0, .execfn = ntrip_daemon_execfn },
+  {.pid = 0, .execfn = ntrip_adapter_execfn},
+  {.pid = 0, .execfn = ntrip_daemon_execfn},
 };
 
 static const size_t ntrip_processes_count = COUNT_OF(ntrip_processes);
@@ -113,22 +119,22 @@ static void ntrip_stop_process(size_t i)
   ntrip_process_t *process = &ntrip_processes[i];
   pid_t process_pid = process->pid;
   if (process_pid != 0) {
-    piksi_log(LOG_DEBUG, "%s: senging SIGTERM to pid %d",
-              __FUNCTION__, process_pid);
+    piksi_log(LOG_DEBUG, "%s: senging SIGTERM to pid %d", __FUNCTION__, process_pid);
     int ret = kill(process_pid, SIGTERM);
     if (ret != 0) {
-      piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"",
-                process_pid, errno, strerror(errno));
+      piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"", process_pid, errno, strerror(errno));
     }
     sleep(0.5);
     process_pid = process->pid;
     if (process_pid != 0) {
-      piksi_log(LOG_WARNING, "%s: senging SIGKILL to pid %d",
-                __FUNCTION__, process_pid);
+      piksi_log(LOG_WARNING, "%s: senging SIGKILL to pid %d", __FUNCTION__, process_pid);
       ret = kill(process_pid, SIGKILL);
       if (ret != 0 && errno != ESRCH) {
-        piksi_log(LOG_ERR, "force kill pid %d error (%d) \"%s\"",
-                  process_pid, errno, strerror(errno));
+        piksi_log(LOG_ERR,
+                  "force kill pid %d error (%d) \"%s\"",
+                  process_pid,
+                  errno,
+                  strerror(errno));
       }
     }
     process->pid = 0;
@@ -164,11 +170,11 @@ static void ntrip_start_processes()
 
     /* TODO: Remove the need for these by reading from control socket */
     if (!ntrip_enabled || strcmp(ntrip_url, "") == 0) {
-      system("echo 0 >"NTRIP_ENABLED_FILE_PATH);
+      system("echo 0 >" NTRIP_ENABLED_FILE_PATH);
       continue;
     }
 
-    system("echo 1 >"NTRIP_ENABLED_FILE_PATH);
+    system("echo 1 >" NTRIP_ENABLED_FILE_PATH);
 
     if (strcmp(ntrip_username, "") != 0 && strcmp(ntrip_password, "") != 0) {
       ntrip_argv = ntrip_debug ? ntrip_argv_username_debug : ntrip_argv_username;
@@ -181,8 +187,7 @@ static void ntrip_start_processes()
     process->pid = fork();
     if (process->pid == 0) {
       process->execfn();
-      piksi_log(
-          LOG_ERR|LOG_SBP, "exec error (%d) \"%s\"", errno, strerror(errno));
+      piksi_log(LOG_ERR | LOG_SBP, "exec error (%d) \"%s\"", errno, strerror(errno));
       exit(EXIT_FAILURE);
     }
   }
@@ -222,6 +227,7 @@ void ntrip_settings_init(settings_ctx_t *settings_ctx)
 
   mkfifo(FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
+  // clang-format off
   settings_register(settings_ctx, "ntrip", "enable",
                     &ntrip_enabled, sizeof(ntrip_enabled),
                     SETTINGS_TYPE_BOOL,
@@ -258,6 +264,7 @@ void ntrip_settings_init(settings_ctx_t *settings_ctx)
                     ntrip_notify_generic, NULL);
 
   ntrip_settings_initialized = true;
+  // clang-format on
 
   /* Settings ready, start processes accordingly.
    *
@@ -265,14 +272,15 @@ void ntrip_settings_init(settings_ctx_t *settings_ctx)
    * ntrip.enable is registered as the last one in the ntrip settings group.
    * Meaning ntrip.enable reads as false while other settings would be
    * registered and possibly read from the persistent config during boot.
-   * 
+   *
    * This alternative approach has the downside that it will show ntrip.enable
    * as the last setting in the ntrip settings goup on console affecting end
    * user experience. */
   ntrip_start_processes();
 }
 
-bool ntrip_reconnect(void) {
+bool ntrip_reconnect(void)
+{
 
   for (size_t i = 0; i < ntrip_processes_count; i++) {
 
@@ -288,8 +296,11 @@ bool ntrip_reconnect(void) {
       int ret = kill(process->pid, SIGUSR1);
 
       if (ret != 0) {
-        piksi_log(LOG_ERR, "ntrip_reconnect: kill pid %d error (%d) \"%s\"",
-                  process->pid, errno, strerror(errno));
+        piksi_log(LOG_ERR,
+                  "ntrip_reconnect: kill pid %d error (%d) \"%s\"",
+                  process->pid,
+                  errno,
+                  strerror(errno));
 
         return false;
       }
