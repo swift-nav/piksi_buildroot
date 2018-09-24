@@ -83,7 +83,7 @@ int file_read_string(const char *filename, char *str, size_t str_size)
 
   size_t len = strlen(str);
   /* EOF not reached AND no newline at the str end */
-  bool truncated = !feof(stdin) && (len != 0 && str[len - 1] != '\n');
+  bool truncated = !feof(fp) && (len != 0 && str[len - 1] != '\n');
 
   fclose(fp);
 
