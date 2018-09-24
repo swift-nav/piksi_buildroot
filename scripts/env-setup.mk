@@ -15,8 +15,6 @@ BUILD_ENV_ARGS = \
   HW_CONFIG=$(HW_CONFIG) \
   CCACHE_READONLY=$(CCACHE_READONLY) \
 
-BUILD_VARIANT=$(call qstrip,$(subst _defconfig,,$(notdir $(BR2_DEFCONFIG))))
-
 ifeq ("$(OS)","Windows_NT")
 USER := $(USERNAME)
 UID  := 1000
