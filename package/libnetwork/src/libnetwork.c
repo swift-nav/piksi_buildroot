@@ -1198,14 +1198,18 @@ void ota_enquire(network_context_t *ctx)
   char uuid_buf[256];
   char uuid_hdr_buf[270];
   device_uuid_get(uuid_buf, sizeof(uuid_buf));
-  int count = snprintf(uuid_hdr_buf, sizeof(uuid_hdr_buf), "Device-Uid: %s", uuid_buf);
-  assert((size_t)count < sizeof(uuid_hdr_buf));
+  CHECKED_SPRINTF(uuid_hdr_buf,
+                  sizeof(uuid_hdr_buf),
+                  "Device-Uid: %s",
+                  uuid_buf);
 
   char fw_buf[32];
   char fw_hdr_buf[64];
   device_fw_version_get(fw_buf, sizeof(fw_buf));
-  count = snprintf(fw_hdr_buf, sizeof(fw_hdr_buf), "Current-Version: %s", fw_buf);
-  assert((size_t)count < sizeof(fw_hdr_buf));
+  CHECKED_SPRINTF(fw_hdr_buf,
+                  sizeof(fw_hdr_buf),
+                  "Current-Version: %s",
+                  fw_buf);
 
   struct curl_slist *chunk = NULL;
   chunk = curl_slist_append(chunk, uuid_hdr_buf);

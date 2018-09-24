@@ -28,6 +28,14 @@
 
 #include <libpiksi/common.h>
 
+// clang-format off
+#define CHECKED_SPRINTF(TheDest, TheSize, ThePattern, ...)             \
+  {                                                                    \
+    int count = snprintf(TheDest, TheSize, ThePattern, ##__VA_ARGS__); \
+    assert((size_t)count < TheSize);                                   \
+  }
+// clang-format on
+
 #ifdef __cplusplus
 extern "C" {
 #endif

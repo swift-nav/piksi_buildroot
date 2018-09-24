@@ -351,17 +351,22 @@ static int ota_parse_response(ota_resp_t *parsed_resp)
   struct json_object *fjson = json_tokener_parse(fmap);
 
   struct json_object *json_url = json_object_object_get(fjson, "url");
-  strncpy(parsed_resp->url, json_object_get_string(json_url), json_object_get_string_len(json_url));
+  CHECKED_SPRINTF(parsed_resp->url,
+                  sizeof(parsed_resp->url),
+                  "%s",
+                  json_object_get_string(json_url));
 
   struct json_object *json_version = json_object_object_get(fjson, "version");
-  strncpy(parsed_resp->version,
-          json_object_get_string(json_version),
-          json_object_get_string_len(json_version));
+  CHECKED_SPRINTF(parsed_resp->version,
+                  sizeof(parsed_resp->version),
+                  "%s",
+                  json_object_get_string(json_version));
 
   struct json_object *json_sha256 = json_object_object_get(fjson, "sha256");
-  strncpy(parsed_resp->sha256,
-          json_object_get_string(json_sha256),
-          json_object_get_string_len(json_sha256));
+  CHECKED_SPRINTF(parsed_resp->sha256,
+                  sizeof(parsed_resp->sha256),
+                  "%s",
+                  json_object_get_string(json_sha256));
 
   /* Cleanup objects when done */
   json_object_object_del(fjson, "");

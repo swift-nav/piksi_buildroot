@@ -15,10 +15,11 @@
 #include <limits.h>
 #include <errno.h>
 
-#include <libpiksi/runit.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/runit.h>
+#include <libpiksi/util.h>
 
-//// clang-format off
+// clang-format off
 //#define DEBUG_RUNIT
 #ifdef DEBUG_RUNIT
 #define RUNIT_DEBUG_LOG(ThePattern, ...) \
@@ -39,12 +40,6 @@
   if (!(TheCheck)) {                                                                               \
     piksi_log(LOG_ERR, "%s: %s: %s (error: %s)", __FUNCTION__, TheCall, ThePath, strerror(errno)); \
     return -1;                                                                                     \
-  }
-
-#define CHECKED_SPRINTF(TheDest, TheSize, ThePattern, ...)             \
-  {                                                                    \
-    int count = snprintf(TheDest, TheSize, ThePattern, ##__VA_ARGS__); \
-    assert((size_t)count < TheSize);                                   \
   }
 // clang-format on
 
