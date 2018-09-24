@@ -320,7 +320,7 @@ static int ota_version_check(const char *offered)
   int ret = ota_cmp_version(&offered_parsed, &current_parsed);
 
   if (ret > 0) {
-    piksi_log(LOG_INFO, "OTA new version available: %s", offered);
+    piksi_log(LOG_INFO, "New version available via OTA: %s", offered);
   }
 
   return ret;
