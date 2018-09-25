@@ -19,8 +19,8 @@
 #include <libpiksi/logging.h>
 #include "metrics_daemon.h"
 #include <ftw.h>
-extern "C" int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
-extern "C" json_object *init_json_object(const char *path);
+extern int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
+extern json_object *init_json_object(const char *path);
 #define PROGRAM_NAME "metrics_daemon"
 class MetricsDaemonTests : public ::testing::Test {
 };

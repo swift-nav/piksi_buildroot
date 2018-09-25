@@ -43,9 +43,24 @@ json_object *init_json_object(const char *path);
  * @param root       pointer to the root of json object
  * @param file_name  file to write to
  */
-static void write_json_to_file(struct json_object *root, const char *file_path)
+static int write_json_to_file(struct json_object *root, const char *file_path)
 {
-  file_write_string(file_path, json_object_to_json_string(root));
+  FILE *fp = fopen(file_path, "w+");
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "error opening %s", file_path);
+    return -1;
+  }
+
+  bool success = (fprintf(fp, "%s\n", json_object_to_json_string(root)) > 0);
+
+  fclose(fp);
+
+  if (!success) {
+    piksi_log(LOG_ERR, "error writing %s", file_path);
+    return -1;
+  }
+
+  return 0;
 }
 
 /**
@@ -97,7 +112,7 @@ static struct json_object *loop_through_folder_name(const char *process_path,
   const char *pdest = NULL;
   bool found_root = false;
   pdest = strchr(process_path, ch); // get the first slash position
-  unsigned int str_len = sizeof(*process_path);
+  unsigned int str_len = (unsigned int)strlen(process_path);
   if (jobj_root == NULL || pdest < process_path) {
     return jobj_root;
   }
@@ -260,7 +275,8 @@ static void write_metrics_to_file()
   if (ftw(metrics_path, handle_walk_path, 20) == -1) {
     return;
   }
-  write_json_to_file(jobj_root, target_file);
+  if (write_json_to_file(jobj_root, target_file) == -1)
+    piksi_log(LOG_ERR, "Failed to write to file");
 }
 
 static int parse_options(int argc, char *argv[])
