@@ -31,14 +31,18 @@ BR_VERSION=$(git describe --abbrev=0 --tags)
 FW_VERSION=${1:-M4_FW_VERSION}
 NAP_VERSION=${2:-M4_NAP_VERSION}
 
-CCACHE_S3_PATH=s3://M4_BUCKET/piksi_buildroot/$BR_VERSION
+CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
 FW_S3_PATH=s3://M4_BUCKET/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://M4_BUCKET/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
-define(M4_CRED_REQ, ifelse(M4_BUCKET, swiftnav-artifacts, , --no-sign-request ))
+
 fetch() {
-  aws s3 cp M4_CRED_REQ"$@"
+  case $@ in
+    s3://swiftnav-releases/*) aws s3 cp --no-sign-request "$@";;
+    s3://swiftnav-artifacts/*) aws s3 cp "$@";;
+    s3://swiftnav-artifacts-*/*) aws s3 cp "$@";;
+  esac
 }
 
 download_fw() {
