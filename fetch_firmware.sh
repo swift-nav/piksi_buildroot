@@ -31,14 +31,18 @@ BR_VERSION=$(git describe --abbrev=0 --tags)
 FW_VERSION=${1:-v2.1.4}
 NAP_VERSION=${2:-v2.1.4}
 
-CCACHE_S3_PATH=s3://swiftnav-releases/piksi_buildroot/$BR_VERSION
+CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
 FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
 
 fetch() {
-  aws s3 cp --no-sign-request "$@"
+  case $@ in
+    s3://swiftnav-releases/*) aws s3 cp --no-sign-request "$@";;
+    s3://swiftnav-artifacts/*) aws s3 cp "$@";;
+    s3://swiftnav-artifacts-*/*) aws s3 cp "$@";;
+  esac
 }
 
 download_fw() {

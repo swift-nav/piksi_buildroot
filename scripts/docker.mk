@@ -15,6 +15,10 @@ ifneq ($(AWS_SECRET_ACCESS_KEY),)
 AWS_VARIABLES := $(AWS_VARIABLES) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
 endif
 
+ifneq ($(CCACHE_READONLY),)
+DCKR_CCACHE_RO_VAR := -e CCACHE_READONLY=$(CCACHE_READONLY)
+endif
+
 ifeq ($(PIKSI_NON_INTERACTIVE_BUILD),)
 INTERACTIVE_ARGS := $(shell tty &>/dev/null && echo "--tty --interactive")
 endif
@@ -34,8 +38,8 @@ DOCKER_ENV_ARGS :=                                                            \
   -e BR2_BUILD_RELEASE_PROTECTED=$(BR2_BUILD_RELEASE_PROTECTED)               \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
   -e DISABLE_NIXOS_SUPPORT=$(DISABLE_NIXOS_SUPPORT)                           \
-  -e CCACHE_READONLY=$(CCACHE_READONLY)                                       \
   $(AWS_VARIABLES)                                                            \
+  $(DCKR_CCACHE_RO_VAR)                                                       \
   --user $(USER)                                                              \
 
 DOCKER_SETUP_ARGS :=                                                          \
