@@ -38,7 +38,11 @@ NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 export AWS_DEFAULT_REGION="us-west-2"
 
 fetch() {
-  aws s3 cp "$@"
+  case $@ in
+    s3://swiftnav-releases/*) aws s3 cp --no-sign-request "$@";;
+    s3://swiftnav-artifacts/*) aws s3 cp "$@";;
+    s3://swiftnav-artifacts-*/*) aws s3 cp "$@";;
+  esac
 }
 
 download_fw() {
