@@ -140,7 +140,7 @@ static int sbp_msg_obs_callback(health_monitor_t *monitor,
   if (sender_id == MSG_FORWARD_SENDER_ID) {
     check_obs_msg_for_sats(msg_, len);
   }
-  return 1; // don't reset timer as the interval is used to 'sample' num sats
+  return 1; /* don't reset timer as the interval is used to 'sample' num sats */
 }
 
 /**
