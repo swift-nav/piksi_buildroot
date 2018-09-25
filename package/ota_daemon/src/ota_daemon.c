@@ -44,7 +44,7 @@
 #define OTA_TIMEOUT_JITTER_MAX (100 + OTA_TIMEOUT_JITTER_PERCENTAGE)
 #define OTA_TIMEOUT_JITTER_MIN (100 - OTA_TIMEOUT_JITTER_PERCENTAGE)
 
-static inline int ota_timout_s(void)
+static inline int ota_timeout_s(void)
 {
   int jitter = rand() % (OTA_TIMEOUT_JITTER_MAX + 1 - OTA_TIMEOUT_JITTER_MIN);
   float jitter_scaled = (jitter + OTA_TIMEOUT_JITTER_MIN) / 100.f;
@@ -425,7 +425,7 @@ static bool ota_client_loop(void)
 
   while (!libnetwork_shutdown_signaled(nw_ctx) && run_sigtimedwait(&params)) {
     /* Update timeout jitter */
-    update_sigtimedwait(&params, ota_timout_s());
+    update_sigtimedwait(&params, ota_timeout_s());
 
     piksi_log(LOG_INFO, "Checking FW update, next timeout %d s...", params.timeout.tv_sec);
 
