@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <unistd.h>
 
 #include <sys/stat.h>
@@ -54,6 +55,35 @@
 
 #define PIPE_READ_SIDE 0
 #define PIPE_WRITE_SIDE 1
+
+void snprintf_assert(char *s, size_t n, const char *format, ...)
+{
+  va_list args;
+  va_start(args, format);
+
+  int count = vsnprintf(s, n, format, args);
+  assert((size_t)count < n);
+
+  va_end(args);
+}
+
+bool snprintf_warn(char *s, size_t n, const char *format, ...)
+{
+  bool ret = true;
+
+  va_list args;
+  va_start(args, format);
+
+  int count = vsnprintf(s, n, format, args);
+  if ((size_t)count >= n) {
+    piksi_log(LOG_WARNING, "snprintf truncation");
+    ret = false;
+  }
+
+  va_end(args);
+
+  return ret;
+}
 
 int file_read_string(const char *filename, char *str, size_t str_size)
 {

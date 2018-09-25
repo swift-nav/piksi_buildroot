@@ -28,17 +28,30 @@
 
 #include <libpiksi/common.h>
 
-// clang-format off
-#define CHECKED_SPRINTF(TheDest, TheSize, ThePattern, ...)             \
-  {                                                                    \
-    int count = snprintf(TheDest, TheSize, ThePattern, ##__VA_ARGS__); \
-    assert((size_t)count < TheSize);                                   \
-  }
-// clang-format on
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @brief   Call snprintf and assert if the result is truncated
+ * @details snprintf() and do not write more than size bytes (including the
+ *          terminating null byte ('\0')). If the output was truncated due to
+ *          this limit then the return value is the number of characters
+ *          (excluding the terminating null byte) which would have been written
+ *          to the final string if enough space had been available. Thus,
+ *          a return value of size or more means that the output was truncated.
+ *
+ * @return  void
+ */
+void snprintf_assert(char *s, size_t n, const char *format, ...);
+
+/**
+ * @brief   Call snprintf and log a warning if the result is truncated
+ * @details snprintf_assert() documentation for details
+ *
+ * @return  True if success (ie. no truncation)
+ */
+bool snprintf_warn(char *s, size_t n, const char *format, ...);
 
 /**
  * @brief   Get the SBP sender ID for the system.

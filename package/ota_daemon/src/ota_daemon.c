@@ -326,6 +326,17 @@ static int ota_version_check(const char *offered)
   return ret;
 }
 
+static bool ota_get_json_str(const char *str_name,
+                             const json_object *json_parent,
+                             char *str,
+                             size_t str_len)
+{
+  struct json_object *json_obj = json_object_object_get(json_parent, str_name);
+  const char *json_str = json_object_get_string(json_obj);
+
+  return snprintf_warn(str, str_len, "%s", json_str);
+}
+
 static bool ota_parse_response(ota_resp_t *parsed_resp)
 {
   /* Read and mmap the json file */
@@ -350,28 +361,14 @@ static bool ota_parse_response(ota_resp_t *parsed_resp)
   /* Parse json into a json_object struct */
   struct json_object *fjson = json_tokener_parse(fmap);
 
-  struct json_object *json_url = json_object_object_get(fjson, "url");
-  CHECKED_SPRINTF(parsed_resp->url,
-                  sizeof(parsed_resp->url),
-                  "%s",
-                  json_object_get_string(json_url));
-
-  struct json_object *json_version = json_object_object_get(fjson, "version");
-  CHECKED_SPRINTF(parsed_resp->version,
-                  sizeof(parsed_resp->version),
-                  "%s",
-                  json_object_get_string(json_version));
-
-  struct json_object *json_sha256 = json_object_object_get(fjson, "sha256");
-  CHECKED_SPRINTF(parsed_resp->sha256,
-                  sizeof(parsed_resp->sha256),
-                  "%s",
-                  json_object_get_string(json_sha256));
+  bool ret = ota_get_json_str("url", fjson, parsed_resp->url, sizeof(parsed_resp->url));
+  ret &= ota_get_json_str("version", fjson, parsed_resp->version, sizeof(parsed_resp->version));
+  ret &= ota_get_json_str("sha256", fjson, parsed_resp->sha256, sizeof(parsed_resp->sha256));
 
   /* Cleanup objects when done */
   json_object_object_del(fjson, "");
 
-  return true;
+  return ret;
 }
 
 static bool ota_create_files(int *fd_resp, int *fd_img)
