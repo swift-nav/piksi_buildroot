@@ -10,8 +10,13 @@ setup_permissions()
   add_service_user $user
 }
 
-if grep -q "output_mode=Loosely Coupled" /persistent/config.ini; then
+ins_output_mode=$(query_config --section ins --key output_mode)
+starling_daemon_enabled=$(query_config --section system --key enable_starling_daemon)
+
+if [[ "$ins_output_mode" == "Loosely Coupled" ]]; then
   router_config="/etc/endpoint_router/sbp_router_smoothpose.yml"
+elif [[ "$starling_daemon_enabled" == "True" ]]; then
+  router_config="/etc/endpoint_router/sbp_router_starling.yml"
 else
   router_config="/etc/endpoint_router/sbp_router.yml"
 fi
