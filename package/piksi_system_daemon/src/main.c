@@ -549,8 +549,20 @@ static int network_polling_notify(void *context)
 
 static int starling_daemon_notify(void *context)
 {
-  piksi_log(LOG_WARNING | LOG_SBP,
-            "Please save settings and reboot to enable the startling daemon");
+  static bool init = true;
+  if (init) {
+    init = false;
+    return 0;
+  }
+
+  if (enable_starling_daemon) {
+    piksi_log(LOG_WARNING | LOG_SBP,
+              "Please save settings and reboot to enable the startling daemon");
+  } else {
+    piksi_log(LOG_WARNING | LOG_SBP,
+              "Please save settings and reboot to disable the startling daemon");
+  }
+
   return 0;
 }
 
