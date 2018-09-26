@@ -28,12 +28,12 @@ if [[ $(uname -a) == *NixOS* ]]; then
 fi
 
 BR_VERSION=$(git describe --abbrev=0 --tags)
-FW_VERSION=${1:-v2.0.0-develop-2018092118}
-NAP_VERSION=${2:-v2.0.0-develop-2018092118}
+FW_VERSION=${1:-M4_FW_VERSION}
+NAP_VERSION=${2:-M4_NAP_VERSION}
 
 CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
-FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
-NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
+FW_S3_PATH=s3://M4_BUCKET/piksi_firmware_private/$FW_VERSION/v3
+NAP_S3_PATH=s3://M4_BUCKET/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
 
@@ -56,7 +56,7 @@ download_fw() {
     $FIRMWARE_DIR/piksi_firmware.elf
 
   # Download piksi_fpga, try the prod variant first, then sdk variant
-  fetch $NAP_S3_PATH/piksi_prod_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
+  fetch $NAP_S3_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
 }
 
 if [[ -n "$GENERATE_REQUIREMENTS" ]]; then
