@@ -19,11 +19,30 @@ define STARLING_DAEMON_PRE_DOWNLOAD_FIXUP
 	$(call pbr_s3_cp,$(STARLING_DAEMON_S3),$(STARLING_DAEMON_SITE),$(STARLING_DAEMON_SOURCE))
 endef
 
+define STARLING_DAEMON_USERS
+	strlngd -1 strlngd -1 * - - -
+endef
+
 STARLING_DAEMON_PRE_DOWNLOAD_HOOKS += STARLING_DAEMON_PRE_DOWNLOAD_FIXUP
 
+STARLING_DAEMON_LIBS = \
+	libfec.so \
+	libstarling.so \
+	libswiftnav-common.so \
+	libswiftnav.so
+
+STARLING_DAEMON_SRC_NAME = \
+	piksi-multi-linux-starling
+
+STARLING_DAEMON_DST_NAME = \
+	starlingd
+
+BR2_STRIP_EXCLUDE_FILES += $(STARLING_DAEMON_LIBS)
+
 define STARLING_DAEMON_INSTALL_TARGET_CMDS
-	cd $(@D) && $(INSTALL) *.so $(TARGET_DIR)/usr/lib/
-	cd $(@D) && $(INSTALL) piksi-multi-linux-starling $(TARGET_DIR)/usr/bin
+	( $(foreach l,$(STARLING_DAEMON_LIBS),$(INSTALL) $(@D)/$(strip $l) $(TARGET_DIR)/usr/lib/ &&) \
+		exit 0 || exit 1 )
+	$(INSTALL) $(@D)/$(strip $(STARLING_DAEMON_SRC_NAME)) $(TARGET_DIR)/usr/bin/$(STARLING_DAEMON_DST_NAME)
 endef
 
 STARLING_DAEMON_OVERLAY = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/starling_daemon/overlay"
