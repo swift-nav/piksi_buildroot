@@ -26,7 +26,8 @@ define STARLING_DAEMON_INSTALL_TARGET_CMDS
 	cd $(@D) && $(INSTALL) piksi-multi-linux-starling $(TARGET_DIR)/usr/bin
 endef
 
-BR2_ROOTFS_OVERLAY += "${STARLING_DAEMON_SITE}/overlay"
+STARLING_DAEMON_OVERLAY = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/starling_daemon/overlay"
+BR2_ROOTFS_OVERLAY += "${STARLING_DAEMON_OVERLAY}"
 
 $(eval $(generic-package))
 
