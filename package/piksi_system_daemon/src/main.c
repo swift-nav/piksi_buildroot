@@ -557,10 +557,10 @@ static int starling_daemon_notify(void *context)
 
   if (enable_starling_daemon) {
     piksi_log(LOG_WARNING | LOG_SBP,
-              "Please save settings and reboot to enable the startling daemon");
+              "Please save settings and reboot to enable the starling daemon");
   } else {
     piksi_log(LOG_WARNING | LOG_SBP,
-              "Please save settings and reboot to disable the startling daemon");
+              "Please save settings and reboot to disable the starling daemon");
   }
 
   return 0;
