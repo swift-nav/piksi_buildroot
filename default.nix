@@ -22,8 +22,7 @@ let
     db
     file
     flex
-    gcc6
-    gcc-arm-embedded
+    gcc
     git
     glibc
     glibc.dev
