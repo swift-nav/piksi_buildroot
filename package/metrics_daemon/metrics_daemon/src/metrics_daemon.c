@@ -23,7 +23,6 @@
 
 #define METRICS_ROOT_DIRECTORY "/var/log/metrics"
 #define METRICS_OUTPUT_FILENAME "/var/log/metrics.json"
-#define METRICS_OUTPUT_FULLPATH METRICS_ROOT_DIRECTORY METRICS_OUTPUT_FILENAME
 #define METRICS_USAGE_UPDATE_INTERVAL_MS (10000u)
 
 #define MAX_FOLDER_NAME_LENGTH 64
@@ -34,9 +33,11 @@ static unsigned int root_length = 0;
 static bool first_folder = true;
 static char *target_file = METRICS_OUTPUT_FILENAME;
 const char *metrics_path = METRICS_ROOT_DIRECTORY;
+
 int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
 char *extract_filename(const char *str);
 json_object *init_json_object(const char *path);
+
 /**
  * @brief function updates json to file
  *
@@ -45,26 +46,13 @@ json_object *init_json_object(const char *path);
  */
 static int write_json_to_file(struct json_object *root, const char *file_path)
 {
-  FILE *fp = fopen(file_path, "w+");
-  if (fp == NULL) {
-    piksi_log(LOG_ERR, "error opening %s", file_path);
-    return -1;
-  }
-
-  bool success = (fprintf(fp, "%s\n", json_object_to_json_string(root)) > 0);
-
-  fclose(fp);
-
-  if (!success) {
-    piksi_log(LOG_ERR, "error writing %s", file_path);
-    return -1;
-  }
-
-  return 0;
+  return file_write_string(file_path, json_object_to_json_string(root));
 }
 
 /**
  * @brief static function that returns file name from path
+ * Ref: Updated code from
+ * https://cboard.cprogramming.com/c-programming/109469-scan-filename-make-list.html
  *
  * @param  str        file path in ASCII
  * @return file_name  file name
@@ -72,23 +60,23 @@ static int write_json_to_file(struct json_object *root, const char *file_path)
 char *extract_filename(const char *str)
 {
   int ch = '/';
-  const char *pdest = NULL;
+  const char *start_ptr = NULL;
   char *inpfile = NULL;
   assert(str != NULL);
   // Search backwards for last backslash in filepath
-  pdest = strrchr(str, ch);
+  start_ptr = strrchr(str, ch);
 
   // if backslash not found in filepath
-  if (pdest == NULL) {
-    pdest = str; // The whole name is a file in current path
+  if (start_ptr == NULL) {
+    start_ptr = str; // The whole name is a file in current path
   } else {
-    pdest++; // Skip the backslash itself.
+    start_ptr++; // Skip the backslash itself.
   }
 
   // extract filename from file path
-  if (pdest[0] == '.') pdest++;
-  inpfile = calloc(1, MAX_FOLDER_NAME_LENGTH + 1); // Make space for the zero.
-  strncpy(inpfile, pdest, MAX_FOLDER_NAME_LENGTH); // Copy including zero.
+  if (start_ptr[0] == '.') start_ptr++;
+  inpfile = calloc(1, MAX_FOLDER_NAME_LENGTH + 1);     // Make space for the zero.
+  strncpy(inpfile, start_ptr, MAX_FOLDER_NAME_LENGTH); // Copy including zero.
   return inpfile;
 }
 
@@ -109,42 +97,42 @@ static struct json_object *loop_through_folder_name(const char *process_path,
                                                     unsigned int root_len)
 {
   char ch = '/';
-  const char *pdest = NULL;
+  const char *start_ptr = NULL;
   bool found_root = false;
-  pdest = strchr(process_path, ch); // get the first slash position
+  start_ptr = strchr(process_path, ch); // get the first slash position
   unsigned int str_len = (unsigned int)strlen(process_path);
-  if (jobj_root == NULL || pdest < process_path) {
+  if (jobj_root == NULL || start_ptr < process_path) {
     return jobj_root;
   }
   struct json_object *json_current = jobj_root;
-  while (pdest != NULL) {
-    pdest++;
-    if (pdest > process_path + str_len) return json_current;
-    if (pdest[0] == '.') // skip the '.' on the file name
+  while (start_ptr != NULL) {
+    start_ptr++;
+    if (start_ptr > process_path + str_len) return json_current;
+    if (start_ptr[0] == '.') // skip the '.' on the file name
     {
-      pdest++;
+      start_ptr++;
     }
-    if (pdest > process_path + str_len) return json_current;
-    char *pdest2 = strchr(pdest, ch); // search the second slash
-    if (pdest2 != NULL) {
+    if (start_ptr > process_path + str_len) return json_current;
+    char *end_ptr = strchr(start_ptr, ch); // search the second slash
+    if (end_ptr != NULL) {
       unsigned int strlen;
-      if (pdest2 <= pdest) // defensive code
+      if (end_ptr <= start_ptr) // defensive code
         return json_current;
       else
-        strlen = (unsigned)(pdest2 - pdest); // cast to unsigned since the negative and zero
-                                             // case is handled by the if statement
-      if (!found_root && strncmp(pdest, root, root_len) == 0) // search the root first
+        strlen = (unsigned)(end_ptr - start_ptr); // cast to unsigned since the negative and zero
+                                                  // case is handled by the if statement
+      if (!found_root && strncmp(start_ptr, root, root_len) == 0) // search the root first
       {
         found_root = true;
-        pdest--;
+        start_ptr--;
         continue;
       }
       if (found_root) {
         bool found_target = false;
         json_object_object_foreach(json_current, key, val)
         { // for each subfolder, search the name as key in json tree
-          if (strncmp((pdest), key, strlen - 1) == 0) // if find the folder name, continue on the
-                                                      // loop with the new current node
+          if (strncmp((start_ptr), key, strlen - 1) == 0) // if find the folder name, continue on
+                                                          // the loop with the new current node
           {
             json_current = val;
             found_target = true;
@@ -156,7 +144,7 @@ static struct json_object *loop_through_folder_name(const char *process_path,
           return json_current;
       }
     }
-    pdest = pdest2; // if there is still sub-folders, update the pdest to pdest2
+    start_ptr = end_ptr; // if there is still sub-folders, update the start_ptr to end_ptr
   }
   return json_current;
 }
@@ -185,10 +173,10 @@ int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
     return -1;
   }
   json_object *jobj_lc_node =
-    loop_through_folder_name(fpath,
-                             root_name,
-                             root_length); // get the least common node between json object and file
-                                           // path that needs to be updated
+    loop_through_folder_name(fpath,     // get the least common node between json object and file
+                             root_name, // path that needs to be updated
+                             root_length);
+
   if (jobj_lc_node == NULL) {
     return -1;
   }

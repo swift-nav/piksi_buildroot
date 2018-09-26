@@ -1,17 +1,11 @@
 #!/bin/sh
 
 METRICS_DIR="/var/log/metrics/"
-METRICS_OUTPUT_FILE="/var/log/metrics/messaging_statistics-metrics.json"
+METRICS_OUTPUT_FILE="/var/log/metrics.json"
 
 name="metrics_daemon"
 cmd="metrics_daemon"
 dir="/"
 user="metricsd"
-
-setup_permissions()
-{
-  configure_file_resource $user $METRICS_OUTPUT_FILE 0640
-  configure_dir_resource $user $METRICS_DIR 0700
-}
 
 source /etc/init.d/template_runsv.inc.sh
