@@ -58,6 +58,9 @@
 
 void snprintf_assert(char *s, size_t n, const char *format, ...)
 {
+  assert(s);
+  assert(format);
+
   va_list args;
   va_start(args, format);
 
@@ -69,6 +72,9 @@ void snprintf_assert(char *s, size_t n, const char *format, ...)
 
 bool snprintf_warn(char *s, size_t n, const char *format, ...)
 {
+  assert(s);
+  assert(format);
+
   bool ret = true;
 
   va_list args;
@@ -537,7 +543,7 @@ int run_with_stdin_file(const char *input_file,
   if (input_file) {
     fd = open(input_file, O_RDONLY);
 
-    if (fd = -1) {
+    if (fd == -1) {
       exit(EXIT_FAILURE);
     }
 
