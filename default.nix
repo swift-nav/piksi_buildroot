@@ -33,6 +33,7 @@ let
     gnused
     gnutar
     gdb
+    libcxx
     mercurial
     ncurses5
     ncurses5.dev
