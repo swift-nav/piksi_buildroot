@@ -27,5 +27,18 @@ ifeq ($(BR2_PACKAGE_ZLIB),y)
 PROTOBUF_CUSTOM_DEPENDENCIES += zlib
 endif
 
+PROTOBUF_CUSTOM_SEARCHDIR_OLD := \
+	searchdirs="$$newlib_search_path $$lib_search_path $$sys_lib_search_path $$shlib_search_path"
+
+PROTOBUF_CUSTOM_SEARCHDIR_NEW := \
+	searchdirs="$$newlib_search_path $$lib_search_path $$compiler_lib_search_dirs $$sys_lib_search_path $$shlib_search_path"
+
+define PROTOBUF_CUSTOM_FIXUP_LIBTOOL
+	@$(call MESSAGE,"Fixing up libtool script")
+	$(Q)$(SED) 's@$(PROTOBUF_CUSTOM_SEARCHDIR_OLD)@$(PROTOBUF_CUSTOM_SEARCHDIR_NEW)@' $(@D)/libtool
+endef
+
+PROTOBUF_CUSTOM_POST_CONFIGURE_HOOKS += PROTOBUF_CUSTOM_FIXUP_LIBTOOL
+
 $(eval $(autotools-package))
 $(eval $(host-autotools-package))

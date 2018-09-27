@@ -1,0 +1,22 @@
+diff -ur old/Makefile new/Makefile
+--- old/Makefile	2018-09-25 21:22:48.907836717 -0700
++++ new/Makefile	2018-09-25 21:23:06.977310932 -0700
+@@ -2843,12 +2843,16 @@
+ install-headers_c:
+ 	$(E) "[INSTALL] Installing public C headers"
+ 	$(Q) $(foreach h, $(PUBLIC_HEADERS_C), $(INSTALL) -d $(prefix)/$(dir $(h)) && ) exit 0 || exit 1
+-	$(Q) $(foreach h, $(PUBLIC_HEADERS_C), $(INSTALL) $(h) $(prefix)/$(h) && ) exit 0 || exit 1
++	$(Q) ( for _H_FILE in $(foreach h, $(PUBLIC_HEADERS_C), $(h)); \
++		do $(INSTALL) $$_H_FILE $(prefix)/$$_H_FILE || exit 1; done ) \
++		&& exit 0 || exit 1
+ 
+ install-headers_cxx:
+ 	$(E) "[INSTALL] Installing public C++ headers"
+ 	$(Q) $(foreach h, $(PUBLIC_HEADERS_CXX), $(INSTALL) -d $(prefix)/$(dir $(h)) && ) exit 0 || exit 1
+-	$(Q) $(foreach h, $(PUBLIC_HEADERS_CXX), $(INSTALL) $(h) $(prefix)/$(h) && ) exit 0 || exit 1
++	$(Q) ( for _H_FILE in $(foreach h, $(PUBLIC_HEADERS_CXX), $(h)); \
++		do $(INSTALL) $$_H_FILE $(prefix)/$$_H_FILE || exit 1; done ) \
++		&& exit 0 || exit 1
+ 
+ install-static: install-static_c install-static_cxx
+ 

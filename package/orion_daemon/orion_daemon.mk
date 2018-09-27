@@ -15,7 +15,8 @@ define ORION_DAEMON_USERS
 endef
 
 define ORION_DAEMON_BUILD_CMDS
-    $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D)/src all
+    $(MAKE) CROSS=$(TARGET_CROSS) CC=$(TARGET_CC) CFLAGS="$(TARGET_CFLAGS)" \
+			-C $(@D)/src all
 endef
 
 define ORION_DAEMON_INSTALL_TARGET_CMDS
