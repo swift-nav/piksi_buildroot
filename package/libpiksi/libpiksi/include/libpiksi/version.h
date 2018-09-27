@@ -22,16 +22,15 @@
 #ifndef LIBPIKSI_VERSION_H
 #define LIBPIKSI_VERSION_H
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct piksi_version_s {
   int marketing;
   int major;
   int patch;
 } piksi_version_t;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief   Get current version
