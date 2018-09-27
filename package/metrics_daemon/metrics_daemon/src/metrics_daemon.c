@@ -18,6 +18,8 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/util.h>
+#include <libpiksi/settings.h>
+#include "sbp.h"
 
 #define PROGRAM_NAME "metrics_daemon"
 
@@ -33,6 +35,8 @@ static unsigned int root_length = 0;
 static bool first_folder = true;
 static char *target_file = METRICS_OUTPUT_FILENAME;
 const char *metrics_path = METRICS_ROOT_DIRECTORY;
+static bool enable_log_to_file = false;
+
 
 int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
 char *extract_filename(const char *str);
@@ -46,7 +50,7 @@ json_object *init_json_object(const char *path);
  */
 static int write_json_to_file(struct json_object *root, const char *file_path)
 {
-  return file_write_string(file_path, json_object_to_json_string(root));
+  return file_append_string(file_path, json_object_to_json_string(root));
 }
 
 /**
@@ -263,8 +267,10 @@ static void write_metrics_to_file()
   if (ftw(metrics_path, handle_walk_path, 20) == -1) {
     return;
   }
-  if (write_json_to_file(jobj_root, target_file) == -1)
-    piksi_log(LOG_ERR, "Failed to write to file");
+  if (enable_log_to_file) {
+    if (write_json_to_file(jobj_root, target_file) == -1)
+      piksi_log(LOG_ERR, "Failed to write to file");
+  }
 }
 
 static int parse_options(int argc, char *argv[])
@@ -304,20 +310,12 @@ static void run_routine_function(pk_loop_t *loop, void *timer_handle, void *cont
   write_metrics_to_file();
 }
 
-static void signal_handler(pk_loop_t *pk_loop, void *handle, void *context)
-{
-  (void)context;
-  int signal_value = pk_loop_get_signal_from_handle(handle);
-  piksi_log(LOG_DEBUG, "Caught signal: %d", signal_value);
-  pk_loop_stop(pk_loop);
-}
 
-
-static int cleanup(pk_loop_t **pk_loop_loc, int status)
+static int cleanup(int status)
 {
-  pk_loop_destroy(pk_loop_loc);
   if (root_name != NULL) free(root_name);
   logging_deinit();
+  sbp_deinit();
   json_object_put(jobj_root);
   return status;
 }
@@ -333,34 +331,46 @@ json_object *init_json_object(const char *path)
   return jobj_root;
 }
 
+static int notify_log_settings_changed(void *context)
+{
+  (void)context;
+
+  piksi_log(LOG_DEBUG | LOG_SBP, "Settings changed: enable_log_to_file = %d", enable_log_to_file);
+  return 0;
+}
+
+
 int main(int argc, char *argv[])
 {
-  pk_loop_t *loop = NULL;
+
 
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
-    return cleanup(&loop, EXIT_FAILURE);
+    return cleanup(EXIT_FAILURE);
   }
   jobj_root = init_json_object(metrics_path);
-  loop = pk_loop_create();
-  if (loop == NULL) {
-    return cleanup(&loop, EXIT_FAILURE);
+
+  if (sbp_init(METRICS_USAGE_UPDATE_INTERVAL_MS, run_routine_function) != 0) {
+    piksi_log(LOG_ERR | LOG_SBP, "Error initializing SBP!");
+    return cleanup(EXIT_FAILURE);
   }
 
-  if (pk_loop_signal_handler_add(loop, SIGINT, signal_handler, NULL) == NULL) {
-    piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
-  }
+  settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
 
-  if (pk_loop_timer_add(loop, METRICS_USAGE_UPDATE_INTERVAL_MS, run_routine_function, NULL)
-      == NULL) {
-    return cleanup(&loop, EXIT_FAILURE);
-  }
+  settings_register(settings_ctx,
+                    "metrics_daemon",
+                    "enable_log_to_file",
+                    &enable_log_to_file,
+                    sizeof(enable_log_to_file),
+                    SETTINGS_TYPE_BOOL,
+                    notify_log_settings_changed,
+                    NULL);
+  sbp_run();
 
-  pk_loop_run_simple(loop);
   piksi_log(LOG_DEBUG, "Metrics Daemon: Normal Exit");
 
 
-  return cleanup(&loop, EXIT_SUCCESS);
+  return cleanup(EXIT_SUCCESS);
 }
