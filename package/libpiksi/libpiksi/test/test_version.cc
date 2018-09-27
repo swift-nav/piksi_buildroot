@@ -65,8 +65,8 @@ TEST_F(LibpiksiTests, versionTests)
 
   // Version comparison
   {
-    piksi_version_t ver1 = { .marketing = 1, .major = 2, .patch = 3};
-    piksi_version_t ver2 = { .marketing = 2, .major = 3, .patch = 4};
+    piksi_version_t ver1 = {.marketing = 1, .major = 2, .patch = 3};
+    piksi_version_t ver2 = {.marketing = 2, .major = 3, .patch = 4};
 
     EXPECT_GT(0, version_cmp(&ver1, &ver2));
     EXPECT_LT(0, version_cmp(&ver2, &ver1));

@@ -33,7 +33,12 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
     const char *const argv[2] = {"cat", NULL};
     char stdout_str[strlen(test_str) + 16] = {0};
 
-    EXPECT_EQ(0, run_with_stdin_file(stdin_file_name, cmd, const_cast<char *const *>(argv), stdout_str, sizeof(stdout_str)));
+    EXPECT_EQ(0,
+              run_with_stdin_file(stdin_file_name,
+                                  cmd,
+                                  const_cast<char *const *>(argv),
+                                  stdout_str,
+                                  sizeof(stdout_str)));
     EXPECT_STREQ(stdout_str, test_str);
   }
 
@@ -43,7 +48,12 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
     const char *const argv[3] = {"cat", stdin_file_name, NULL};
     char stdout_str[strlen(test_str) + 16] = {0};
 
-    EXPECT_EQ(0, run_with_stdin_file(stdin_file_name, cmd, const_cast<char *const *>(argv), stdout_str, sizeof(stdout_str)));
+    EXPECT_EQ(0,
+              run_with_stdin_file(stdin_file_name,
+                                  cmd,
+                                  const_cast<char *const *>(argv),
+                                  stdout_str,
+                                  sizeof(stdout_str)));
     EXPECT_STREQ(stdout_str, test_str);
   }
 
@@ -53,7 +63,12 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
     const char *const argv[2] = {"cat", NULL};
     char stdout_str[strlen(test_str) - 4] = {0};
 
-    EXPECT_EQ(0, run_with_stdin_file(stdin_file_name, cmd, const_cast<char *const *>(argv), stdout_str, sizeof(stdout_str)));
+    EXPECT_EQ(0,
+              run_with_stdin_file(stdin_file_name,
+                                  cmd,
+                                  const_cast<char *const *>(argv),
+                                  stdout_str,
+                                  sizeof(stdout_str)));
     EXPECT_EQ(0, strncmp(stdout_str, test_str, strlen(stdout_str)));
   }
 
@@ -63,7 +78,12 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
     const char *const argv[2] = {"cat", NULL};
     char stdout_str[strlen(test_str) + 1] = {0};
 
-    EXPECT_EQ(0, run_with_stdin_file(stdin_file_name, cmd, const_cast<char *const *>(argv), stdout_str, sizeof(stdout_str)));
+    EXPECT_EQ(0,
+              run_with_stdin_file(stdin_file_name,
+                                  cmd,
+                                  const_cast<char *const *>(argv),
+                                  stdout_str,
+                                  sizeof(stdout_str)));
     EXPECT_STREQ(stdout_str, test_str);
   }
 

@@ -43,7 +43,7 @@ int version_current_get(piksi_version_t *ver);
 /**
  * @brief   Get current version as str
  * @details Read current version stored on the file system and return it as a
- *          character array 
+ *          character array
  *
  * @return  0 if no errors
  */
