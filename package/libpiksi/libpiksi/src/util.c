@@ -33,7 +33,6 @@
 
 #define SBP_SENDER_ID_FILE_PATH "/cfg/sbp_sender_id"
 #define DEVICE_UUID_FILE_PATH "/cfg/device_uuid"
-#define DEVICE_FW_VERSION_FILE_PATH "/img_tbl/boot/name"
 
 #define DEVICE_HARDWARE_REVISION_FILE_PATH "/factory/hardware"
 #define DEVICE_HARDWARE_REVISION_MAX_LENGTH (64u)
@@ -167,11 +166,6 @@ u64 system_uptime_ms_get(void)
 int device_uuid_get(char *str, size_t str_size)
 {
   return file_read_string(DEVICE_UUID_FILE_PATH, str, str_size);
-}
-
-int device_fw_version_get(char *str, size_t str_size)
-{
-  return file_read_string(DEVICE_FW_VERSION_FILE_PATH, str, str_size);
 }
 
 bool device_is_duro(void)

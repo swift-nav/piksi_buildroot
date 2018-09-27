@@ -77,8 +77,6 @@ u64 system_uptime_ms_get(void);
  */
 int device_uuid_get(char *str, size_t str_size);
 
-int device_fw_version_get(char *str, size_t str_size);
-
 /**
  * @brief   Determine if the current system is Duro
  * @details Returns the true or false

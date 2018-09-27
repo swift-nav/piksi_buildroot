@@ -66,4 +66,9 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
     EXPECT_EQ(0, run_with_stdin_file(stdin_file_name, cmd, const_cast<char *const *>(argv), stdout_str, sizeof(stdout_str)));
     EXPECT_STREQ(stdout_str, test_str);
   }
+
+  // Clean up test file
+  if (remove(stdin_file_name)) {
+    std::cout << "Failed to clean up " << stdin_file_name << std::endl;
+  }
 }

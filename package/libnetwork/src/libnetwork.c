@@ -33,6 +33,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
+#include <libpiksi/version.h>
 
 #include "libnetwork.h"
 
@@ -1202,7 +1203,7 @@ void ota_enquire(network_context_t *ctx)
 
   char fw_buf[32];
   char fw_hdr_buf[64];
-  device_fw_version_get(fw_buf, sizeof(fw_buf));
+  version_current_get_str(fw_buf, sizeof(fw_buf));
   snprintf_assert(fw_hdr_buf, sizeof(fw_hdr_buf), "Current-Version: %s", fw_buf);
 
   struct curl_slist *chunk = NULL;

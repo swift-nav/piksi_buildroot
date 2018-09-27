@@ -10,7 +10,6 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -27,6 +26,7 @@
 #include <libpiksi/runit.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/util.h>
+#include <libpiksi/version.h>
 
 #include <libnetwork.h>
 
@@ -65,12 +65,6 @@ typedef struct ota_resp_s {
   char sha256[65];
   char version[64];
 } ota_resp_t;
-
-typedef struct ota_version_s {
-  int major;
-  int minor;
-  int build;
-} ota_version_t;
 
 static ota_op_mode_t op_mode = OP_MODE_COUNT;
 static const char *opt_url = NULL;
@@ -232,70 +226,6 @@ static int ota_sha256sum(const char *expected)
   return ret;
 }
 
-#define CHECK_TOKEN(version)                                 \
-  do {                                                       \
-    if (token && str_digits_only(token)) {                   \
-      version = atoi(token);                                 \
-    } else {                                                 \
-      piksi_log(LOG_ERR, "Invalid version string: %s", str); \
-      free(digits);                                          \
-      return 1;                                              \
-    }                                                        \
-  } while (0)
-
-static int ota_parse_version_str(const char *str, ota_version_t *ver)
-{
-
-  size_t len = strlen(str);
-  size_t idx = 0;
-
-  /* Find first digit in the str */
-  while (!isdigit(str[idx])) {
-    idx++;
-
-    if (idx >= len) {
-      piksi_log(LOG_ERR, "Invalid version string: %s", str);
-      return 1;
-    }
-  }
-
-  char *digits = strdup(str + idx);
-  char *rest = digits;
-  char *token = NULL;
-
-  token = strtok_r(rest, ".", &rest);
-  CHECK_TOKEN(ver->major);
-
-  token = strtok_r(NULL, ".", &rest);
-  CHECK_TOKEN(ver->minor);
-
-  token = strtok_r(NULL, ".", &rest);
-  CHECK_TOKEN(ver->build);
-
-  free(digits);
-
-  return 0;
-}
-
-/*
- * return:
- *   > 0 if a newer
- *   = 0 if a and b equal
- *   < 0 if b newer
- */
-static int ota_cmp_version(ota_version_t *a, ota_version_t *b)
-{
-  if (a->major != b->major) {
-    return a->major - b->major;
-  }
-
-  if (a->minor != b->minor) {
-    return a->minor - b->minor;
-  }
-
-  return a->build - b->build;
-}
-
 /*
  * return:
  *   > 0 if offered version is newer
@@ -304,20 +234,17 @@ static int ota_cmp_version(ota_version_t *a, ota_version_t *b)
  */
 static int ota_version_check(const char *offered)
 {
-  char current[64];
-  device_fw_version_get(current, sizeof(current));
-
-  ota_version_t offered_parsed = {0};
-  if (ota_parse_version_str(offered, &offered_parsed)) {
+  piksi_version_t offered_parsed = {0};
+  if (version_parse_str(offered, &offered_parsed)) {
     return -1;
   }
 
-  ota_version_t current_parsed = {0};
-  if (ota_parse_version_str(current, &current_parsed)) {
+  piksi_version_t current_parsed = {0};
+  if (version_current_get(&current_parsed)) {
     return -1;
   }
 
-  int ret = ota_cmp_version(&offered_parsed, &current_parsed);
+  int ret = version_cmp(&offered_parsed, &current_parsed);
 
   if (ret > 0) {
     piksi_log(LOG_INFO, "New version available via OTA: %s", offered);
