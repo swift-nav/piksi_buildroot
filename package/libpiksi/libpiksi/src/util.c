@@ -524,9 +524,10 @@ int run_with_stdin_file(const char *input_file,
 
     close(stdout_pipe[PIPE_READ_SIDE]);
 
-    wait(NULL);
+    int status;
+    wait(&status);
 
-    return 0;
+    return status;
   } else if (pid == -1) {
     return 1;
   }

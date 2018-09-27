@@ -25,6 +25,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
 #include <libpiksi/settings.h>
+#include <libpiksi/sha256.h>
 #include <libpiksi/util.h>
 #include <libpiksi/version.h>
 
@@ -205,25 +206,20 @@ static int ota_upgrade()
 
 static int ota_sha256sum(const char *expected)
 {
-  const char *cmd = "sha256sum";
-  char *const argv[3] = {"sha256sum", OTA_IMAGE_FILE_PATH, NULL};
-  char sha[65] = {0};
-  int ret = run_with_stdin_file(NULL, cmd, argv, sha, sizeof(sha));
+  char actual[SHA256SUM_LEN] = {0};
 
-  if (ret) {
-    piksi_log(LOG_ERR | LOG_SBP, "sha256sum error (%d), errno: %d", ret, errno);
-    return ret;
+  if (sha256sum_file(OTA_IMAGE_FILE_PATH, actual, sizeof(actual))) {
+    return -1;
   }
 
-  ret = strcmp(sha, expected);
-
-  if (ret) {
+  if (sha256sum_cmp(actual, expected)) {
     piksi_log(LOG_ERR, "SHA256 mismatch");
-    piksi_log(LOG_ERR, "SHA256 actual  : %s", sha);
+    piksi_log(LOG_ERR, "SHA256 actual  : %s", actual);
     piksi_log(LOG_ERR, "SHA256 expected: %s", expected);
+    return -1;
   }
 
-  return ret;
+  return 0;
 }
 
 /*
