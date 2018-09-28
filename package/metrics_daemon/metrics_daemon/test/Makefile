@@ -5,7 +5,8 @@ SOURCES= \
 
 LIBS= \
 	-ljson-c -luv -lnanomsg -lsbp -lpiksi -ldl -lpthread -lgtest \
-	../src/metrics_daemon.o
+	../src/metrics_daemon.o\
+	../src/sbp.o
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src
 

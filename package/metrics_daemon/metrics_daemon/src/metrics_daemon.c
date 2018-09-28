@@ -343,7 +343,6 @@ static int notify_log_settings_changed(void *context)
 int main(int argc, char *argv[])
 {
 
-
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
