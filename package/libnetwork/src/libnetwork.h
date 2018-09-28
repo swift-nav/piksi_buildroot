@@ -50,6 +50,8 @@ typedef enum {
   NETWORK_TYPE_NTRIP_DOWNLOAD,   /**< Context for an ntrip download session  */
   NETWORK_TYPE_SKYLARK_UPLOAD,   /**< Context for a skylark upload session   */
   NETWORK_TYPE_SKYLARK_DOWNLOAD, /**< Context for a skylark download session */
+  NETWORK_TYPE_OTA,              /**< Context for a ota session */
+  NETWORK_TYPE_ALL
 } network_type_t;
 
 // clang-format off
@@ -67,6 +69,8 @@ typedef enum {
   NETWORK_STATUS_SUCCESS            =  0,  /** < The operation was successful          */
 } network_status_t;
 // clang-format on
+
+const char *libnetwork_status_text(network_status_t status);
 
 /**
  * @brief Create a context for a libnetwork session
@@ -142,6 +146,17 @@ network_status_t libnetwork_set_gga_upload_interval(network_context_t *context, 
 network_status_t libnetwork_set_gga_upload_rev1(network_context_t *context, bool use_rev1);
 
 /**
+ * @brief Set continuous or oneshot read and write
+ *
+ * @param[in] continuous     If true, write/read continues indefinitely
+ *
+ * @return                   The operation result.  See @ref network_status_t.
+ */
+network_status_t libnetwork_set_continuous(network_context_t *context, bool continuous);
+
+bool libnetwork_shutdown_signaled(network_context_t *context);
+
+/**
  * @brief   Download from ntrip.
  * @details Download observations and other messages from a CORS station.
  *
@@ -166,12 +181,28 @@ void skylark_download(network_context_t *ctx);
 void skylark_upload(network_context_t *ctx);
 
 /**
+ * @brief   Enquire information on latest FW available.
+ * @details TBD
+ *
+ * @param[in] config        Pointer to the config to use.
+ */
+void ota_enquire(network_context_t *ctx);
+
+/**
+ * @brief   Download new firmware.
+ * @details TBD
+ *
+ * @param[in] config        Pointer to the config to use.
+ */
+void ota_download(network_context_t *ctx);
+
+/**
  * @brief Graceful termination handler for libnetwork daemons.
  *
  * @details Grafcefully stop the upload/download loops started by
  * ntrip_download, skylark_download, or skylark_upload.
  */
-void libnetwork_shutdown(void);
+void libnetwork_shutdown(network_type_t type);
 
 /**
  * @brief Cycle (reconnect) the current network connection

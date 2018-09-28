@@ -179,7 +179,7 @@ static void network_terminate_handler(int signum, siginfo_t *info, void *ucontex
 {
   (void)ucontext;
   piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d", __FUNCTION__, signum, info->si_pid);
-  libnetwork_shutdown();
+  libnetwork_shutdown(NETWORK_TYPE_ALL);
 }
 
 static void cycle_connection(int signum)

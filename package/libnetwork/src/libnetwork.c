@@ -33,6 +33,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
+#include <libpiksi/version.h>
 
 #include "libnetwork.h"
 
@@ -48,7 +49,7 @@
 #define NTRIP_INIT_RETRY_COUNT_MAX (NTRIP_INIT_RETRY_COOLDOWN_US / NTRIP_INIT_TIMEOUT_S)
 
 /** How large to configure the recv buffer to avoid excessive buffering. */
-const long RECV_BUFFER_SIZE = 4096L;
+const long RECV_BUFFER_SIZE = 16 * 1024L;
 /** Max number of callbacks from CURLOPT_XFERINFOFUNCTION before we attempt to
  * reconnect to the server */
 const curl_off_t MAX_STALLED_INTERVALS = 300;
@@ -110,6 +111,8 @@ struct network_context_s {
   char password[LIBNETWORK_PASSWORD_MAX_LENGTH];
   char url[LIBNETWORK_URL_MAX_LENGTH];
 
+  bool continuous;             /**< Indefinite read/write */
+
   fifo_info_t control_fifo_info;
 
   double gga_xfer_secs;        /**< The number of seconds between GGA upload times */
@@ -153,6 +156,7 @@ static network_context_t empty_context = {
   .username = "",
   .password = "",
   .url = "",
+  .continuous = true,
   .control_fifo_info = {
     .configured = false,
     .req_fd = -1,
@@ -182,12 +186,31 @@ static void trim_crlf(char *buf, size_t *byte_count) __attribute__((nonnull(1)))
 static void log_with_rate_limit(network_context_t *ctx, int priority, const char *format, ...)
   __attribute__((nonnull(1, 3)));
 
-void libnetwork_shutdown()
+const char *libnetwork_status_text(network_status_t status)
+{
+  // clang-format off
+  switch (status) {
+  case NETWORK_STATUS_INVALID_SETTING:    return "Setting is invalid for this type";
+  case NETWORK_STATUS_URL_TOO_LARGE:      return "URL specified is too large";
+  case NETWORK_STATUS_USERNAME_TOO_LARGE: return "Username specified is too large";
+  case NETWORK_STATUS_PASSWORD_TOO_LARGE: return "Password specified is too large";
+  case NETWORK_STATUS_FIFO_ERROR:         return "There was an error creating a FIFO";
+  case NETWORK_STATUS_WRITE_ERROR:        return "There was an error writing to a FIFO";
+  case NETWORK_STATUS_READ_ERROR:         return "There was an error reading from a FIFO";
+  case NETWORK_STATUS_SUCCESS:            return "Operation was successful";
+  default: return "<unknown>";
+  }
+  // clang-format on
+}
+
+void libnetwork_shutdown(network_type_t type)
 {
   context_node_t *node;
   LIST_FOREACH(node, &context_nodes_head, entries)
   {
-    node->context.shutdown_signaled = true;
+    if (type == NETWORK_TYPE_ALL || type == node->context.type) {
+      node->context.shutdown_signaled = true;
+    }
   }
 }
 
@@ -408,9 +431,24 @@ network_status_t libnetwork_set_gga_upload_rev1(network_context_t *context, bool
   return NETWORK_STATUS_SUCCESS;
 }
 
+network_status_t libnetwork_set_continuous(network_context_t *context, bool continuous)
+{
+  context->continuous = continuous;
+  return NETWORK_STATUS_SUCCESS;
+}
+
+bool libnetwork_shutdown_signaled(network_context_t *context)
+{
+  return context->shutdown_signaled;
+}
+
 static void warn_on_pipe_full(int fd, size_t pending_write, bool debug)
 {
   static time_t last_pipe_warn_time = 0;
+
+  if (is_file(fd)) {
+    return;
+  }
 
   int outq_size = 0;
 
@@ -472,7 +510,6 @@ static size_t network_download_write(char *buf, size_t size, size_t n, void *dat
   warn_on_pipe_full(ctx->fd, size * n, ctx->debug);
 
   while (true) {
-
     ssize_t ret = write(ctx->fd, buf, size * n);
     if (ret < 0 && errno == EINTR) {
       continue;
@@ -878,14 +915,14 @@ static CURL *network_setup(network_context_t *ctx)
 
   CURLcode code = curl_global_init(CURL_GLOBAL_ALL);
   if (code != CURLE_OK) {
-    piksi_log(LOG_ERR, "global init %d", code);
+    piksi_log(LOG_ERR, "network_setup global init error %d", code);
     return NULL;
   }
 
   CURL *curl = curl_easy_init();
 
   if (curl == NULL) {
-    piksi_log(LOG_ERR, "init");
+    piksi_log(LOG_ERR, "network_setup cURL easy init failed");
     curl_global_cleanup();
     return NULL;
   }
@@ -933,7 +970,7 @@ static void log_with_rate_limit(network_context_t *ctx, int priority, const char
 
 static void network_request(network_context_t *ctx, CURL *curl)
 {
-  char error_buf[CURL_ERROR_SIZE];
+  char error_buf[CURL_ERROR_SIZE] = {0};
 
   // clang-format off
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER,       error_buf);
@@ -948,30 +985,36 @@ static void network_request(network_context_t *ctx, CURL *curl)
   // clang-format on
 
   while (true) {
-
     CURLcode code = curl_easy_perform(curl);
 
-    if (ctx->shutdown_signaled) return;
+    if (ctx->shutdown_signaled) {
+      return;
+    }
 
     if (code == CURLE_ABORTED_BY_CALLBACK) {
-      if (ctx->debug) piksi_log(LOG_DEBUG, "cURL aborted by callback");
+      if (ctx->debug) {
+        piksi_log(LOG_DEBUG, "cURL aborted by callback");
+      }
       continue;
     }
 
-    long response = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
-    ctx->response_code = response;
-
-    if (code != CURLE_OK) {
-      log_with_rate_limit(ctx, LOG_WARNING, "curl request (error: %d) \"%s\"", code, error_buf);
-    } else {
+    if (code == CURLE_OK) {
+      long response = 0;
+      curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
+      ctx->response_code = response;
       if (response != 0) {
-        log_with_rate_limit(ctx, LOG_WARNING, "curl request (code: %d) \"%s\"", code, error_buf);
+        log_with_rate_limit(ctx, LOG_INFO, "curl request (response: %d)", response);
         network_response_code_check(ctx);
       }
+    } else {
+      log_with_rate_limit(ctx, LOG_WARNING, "curl request (error: %d) \"%s\"", code, error_buf);
     }
 
-    sleep(1);
+    if (ctx->continuous) {
+      sleep(1);
+    } else {
+      break;
+    }
   }
 }
 
@@ -1036,6 +1079,23 @@ static int ntrip_response_code_check(network_context_t *ctx)
   return 0;
 }
 
+static void network_setup_download(struct curl_slist *chunk, network_context_t *ctx, CURL *curl)
+{
+  // clang-format off
+  if (chunk) {
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER,      chunk);
+  }
+  curl_easy_setopt(curl, CURLOPT_URL,               ctx->url);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,     network_download_write);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA,         ctx);
+  curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION,  network_download_progress);
+  curl_easy_setopt(curl, CURLOPT_XFERINFODATA,      ctx);
+  curl_easy_setopt(curl, CURLOPT_NOPROGRESS,        0L);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,   network_sockopt);
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,       ctx);
+}
+// clang-format on
+
 void ntrip_download(network_context_t *ctx)
 {
   CURL *curl = network_setup(ctx);
@@ -1073,17 +1133,7 @@ void ntrip_download(network_context_t *ctx)
     }
   }
 
-  // clang-format off
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
-  curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA,        ctx);
-  curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_download_progress);
-  curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     ctx);
-  curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
-  // clang-format on
+  network_setup_download(chunk, ctx, curl);
 
   network_request(ctx, curl);
 
@@ -1101,17 +1151,7 @@ void skylark_download(network_context_t *ctx)
   struct curl_slist *chunk = skylark_init(curl);
   chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
 
-  // clang-format off
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
-  curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,    network_download_write);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA,        ctx);
-  curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_download_progress);
-  curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     ctx);
-  curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
-  // clang-format on
+  network_setup_download(chunk, ctx, curl);
 
   network_request(ctx, curl);
 
@@ -1146,5 +1186,49 @@ void skylark_upload(network_context_t *ctx)
   network_request(ctx, curl);
 
   curl_slist_free_all(chunk);
+  network_teardown(curl);
+}
+
+void ota_enquire(network_context_t *ctx)
+{
+  CURL *curl = network_setup(ctx);
+  if (curl == NULL) {
+    return;
+  }
+
+  char uuid_buf[256];
+  char uuid_hdr_buf[270];
+  device_uuid_get(uuid_buf, sizeof(uuid_buf));
+  snprintf_assert(uuid_hdr_buf, sizeof(uuid_hdr_buf), "Device-Uid: %s", uuid_buf);
+
+  char fw_buf[32];
+  char fw_hdr_buf[64];
+  version_current_get_str(fw_buf, sizeof(fw_buf));
+  snprintf_assert(fw_hdr_buf, sizeof(fw_hdr_buf), "Current-Version: %s", fw_buf);
+
+  struct curl_slist *chunk = NULL;
+  chunk = curl_slist_append(chunk, uuid_hdr_buf);
+  chunk = curl_slist_append(chunk, fw_hdr_buf);
+  chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.devices.v1+json");
+
+  network_setup_download(chunk, ctx, curl);
+
+  network_request(ctx, curl);
+
+  curl_slist_free_all(chunk);
+  network_teardown(curl);
+}
+
+void ota_download(network_context_t *ctx)
+{
+  CURL *curl = network_setup(ctx);
+  if (curl == NULL) {
+    return;
+  }
+
+  network_setup_download(NULL, ctx, curl);
+
+  network_request(ctx, curl);
+
   network_teardown(curl);
 }

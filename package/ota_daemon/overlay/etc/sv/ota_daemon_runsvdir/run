@@ -1,0 +1,7 @@
+#!/bin/sh
+
+name=ota_daemon
+service=${name}_runsvdir
+user=otad
+
+source /etc/init.d/template_svdir.sh
