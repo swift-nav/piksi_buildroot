@@ -31,13 +31,12 @@
 
 #include <libnetwork.h>
 
+#include "ota_settings.h"
+
 #define OTA_RESPONSE_FILE_PATH "/upgrade_data/ota/response"
 #define OTA_IMAGE_FILE_PATH "/upgrade_data/ota/image"
 #define OTA_IMAGE_SHA256SUM_FILE_PATH "/upgrade_data/ota/image_sha256sum"
 #define OTA_DEFAULT_URL "https://upgrader.skylark.swiftnav.com/images"
-
-#define RUNIT_SERVICE_DIR "/var/run/ota_daemon/sv"
-#define RUNIT_SERVICE_NAME "ota_daemon"
 
 /* Timeout is one hour with 15 % jitter */
 #define OTA_TIMEOUT_AVG_S (3600)
@@ -76,8 +75,6 @@ static ota_op_mode_t op_mode = OP_MODE_COUNT;
 static const char *opt_url = NULL;
 static bool opt_debug = false;
 
-static bool ota_enabled = false;
-
 static void usage(char *command)
 {
   printf("Usage: %s [ --ota [--url url] | --settings ]\n", command);
@@ -107,7 +104,7 @@ static int parse_options(int argc, char *argv[])
     {"debug",     no_argument,        0, OPT_ID_DEBUG},
     {"ota",       no_argument,        0, OPT_ID_MODE_OTA},
     {"settings",  no_argument,        0, OPT_ID_MODE_SETTINGS},
-    {"url",       optional_argument,  0, OPT_ID_URL},
+    {"url",       required_argument,  0, OPT_ID_URL},
     {0, 0, 0, 0},
   };
   // clang-format on
@@ -133,7 +130,7 @@ static int parse_options(int argc, char *argv[])
     } break;
 
     default: {
-      puts("Invalid option");
+      piksi_log(LOG_ERR, "Invalid option");
       return -1;
     } break;
     }
@@ -141,7 +138,7 @@ static int parse_options(int argc, char *argv[])
 
   if (op_mode == OP_MODE_OTA_CLIENT && opt_url == NULL) {
     opt_url = OTA_DEFAULT_URL;
-    printf("Using default URL: %s\n", opt_url);
+    piksi_log(LOG_INFO, "Using default URL: %s\n", opt_url);
   }
 
   return 0;
@@ -197,7 +194,7 @@ static int ota_upgrade()
     "sudo /etc/init.d/do_sbp_msg_reset'";
 
   runit_config_t cfg = (runit_config_t){
-    .service_dir = RUNIT_SERVICE_DIR,
+    .service_dir = OTA_RUNIT_SERVICE_DIR,
     .service_name = "upgrade_tool",
     .command_line = upgrade_cmd,
     .finish_command = NULL,
@@ -409,43 +406,9 @@ static bool ota_client_loop(void)
   return ret;
 }
 
-static int ota_enable_notify(void *context)
-{
-  (void)context;
-  int ret = 0;
-
-  runit_config_t cfg = (runit_config_t){
-    .service_dir = RUNIT_SERVICE_DIR,
-    .service_name = RUNIT_SERVICE_NAME,
-    .command_line = "ota_daemon --ota",
-    .custom_down = NULL,
-    .restart = NULL,
-  };
-
-  if (ota_enabled) {
-    ret = start_runit_service(&cfg);
-  } else if (stat_runit_service(&cfg) == RUNIT_RUNNING) {
-    ret = stop_runit_service(&cfg);
-  }
-
-  return ret;
-}
-
-static void ota_settings(settings_ctx_t *ctx)
-{
-  settings_register(ctx,
-                    "system",
-                    "ota_enabled",
-                    &ota_enabled,
-                    sizeof(ota_enabled),
-                    SETTINGS_TYPE_BOOL,
-                    ota_enable_notify,
-                    NULL);
-}
-
 int main(int argc, char *argv[])
 {
-  logging_init(RUNIT_SERVICE_NAME);
+  logging_init(OTA_RUNIT_SERVICE_NAME);
 
   if (parse_options(argc, argv) != 0) {
     usage(argv[0]);
