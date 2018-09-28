@@ -1,0 +1,2 @@
+config BR2_PACKAGE_RTCM3_OUT_PROTOCOL
+	bool "rtcm3_out_protocol"
