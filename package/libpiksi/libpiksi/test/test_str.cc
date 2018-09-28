@@ -55,13 +55,20 @@ TEST_F(LibpiksiTests, snprintfTests)
 
 TEST_F(LibpiksiTests, fileReadStringTests)
 {
-  const char *filename = "/persistent/config.ini";
+  const char *test_file = "/tmp/test.txt";
+  FILE *file_ptr = fopen(test_file, "w");
+
+  ASSERT_FALSE(file_ptr == NULL);
+
+  const char *test_str = "string literal";
+  fputs(test_str, file_ptr);
+  fclose(file_ptr);
 
   // Valid
   {
     char str[16] = {0};
-    EXPECT_EQ(0, file_read_string(filename, str, sizeof(str)));
-    EXPECT_STREQ(str, "[uart0]\n");
+    EXPECT_EQ(0, file_read_string(test_file, str, sizeof(str)));
+    EXPECT_STREQ(str, test_str);
   }
 
   // NULL pointers
@@ -71,11 +78,11 @@ TEST_F(LibpiksiTests, fileReadStringTests)
     EXPECT_EQ(-1, file_read_string(NULL, str, sizeof(str)));
     EXPECT_TRUE(0 == strcmp(str, ""));
 
-    EXPECT_EQ(-1, file_read_string(filename, NULL, sizeof(str)));
+    EXPECT_EQ(-1, file_read_string(test_file, NULL, sizeof(str)));
     EXPECT_STREQ(str, "");
   }
 
-  // Invalid filename
+  // Invalid test_file
   {
     char str[16] = {0};
 
@@ -86,9 +93,11 @@ TEST_F(LibpiksiTests, fileReadStringTests)
   // Truncation
   {
     char str[4] = {0};
+    char test_str_sub[4] = {0};
+    memcpy(test_str_sub, test_str, 3);
 
-    EXPECT_EQ(0, file_read_string(filename, str, sizeof(str)));
-    EXPECT_STREQ(str, "[ua");
+    EXPECT_EQ(0, file_read_string(test_file, str, sizeof(str)));
+    EXPECT_STREQ(str, test_str_sub);
   }
 }
 

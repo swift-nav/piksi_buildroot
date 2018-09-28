@@ -23,10 +23,15 @@ TEST_F(LibpiksiTests, isFileTests)
 {
   // File
   {
-    int fd = open("/persistent/config.ini", O_RDONLY);
+    const char *test_file = "/tmp/file";
+    int fd = open(test_file, O_CREAT | O_WRONLY);
     ASSERT_FALSE(fd == -1);
     EXPECT_TRUE(is_file(fd));
     close(fd);
+    // Clean up test file
+    if (remove(test_file)) {
+      std::cout << "Failed to clean up " << test_file << std::endl;
+    }
   }
 
   // Pipe
