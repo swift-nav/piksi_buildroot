@@ -45,15 +45,20 @@
 #define OTA_TIMEOUT_JITTER_MAX (100 + OTA_TIMEOUT_JITTER_PERCENTAGE)
 #define OTA_TIMEOUT_JITTER_MIN (100 - OTA_TIMEOUT_JITTER_PERCENTAGE)
 
+/* Timeout before first try, give some time for network connection init */
+#define OTA_INITIAL_TIMEOUT_S (60)
+
+/* Max JSON response size 4 KB */
+#define OTA_ENQUIRE_MAX_BYTES (4 * 1024)
+/* Max upgrade image size 30 MB */
+#define OTA_DOWNLOAD_MAX_BYTES (30 * 1024 * 1024)
+
 static inline int ota_timeout_s(void)
 {
   int jitter = rand() % (OTA_TIMEOUT_JITTER_MAX + 1 - OTA_TIMEOUT_JITTER_MIN);
   float jitter_scaled = (jitter + OTA_TIMEOUT_JITTER_MIN) / 100.f;
   return round(OTA_TIMEOUT_AVG_S * jitter_scaled);
 }
-
-/* Timeout before first try, give some time for network connection init */
-#define OTA_INITIAL_TIMEOUT_S (60)
 
 typedef enum ota_op_mode_e {
   OP_MODE_OTA_CLIENT = 0,
@@ -149,7 +154,7 @@ static void ota_sig_handler(int signum, siginfo_t *info, void *ucontext)
   libnetwork_shutdown(NETWORK_TYPE_OTA);
 }
 
-static int configure_libnetwork(network_context_t *ctx, int fd, const char *url)
+static int configure_libnetwork(int fd, const char *url, size_t max_bytes, network_context_t *ctx)
 {
   network_status_t status = NETWORK_STATUS_SUCCESS;
 
@@ -168,8 +173,12 @@ static int configure_libnetwork(network_context_t *ctx, int fd, const char *url)
     return 1;
   }
 
-  status = libnetwork_set_continuous(ctx, false);
-  if (status != NETWORK_STATUS_SUCCESS) {
+  if ((status = libnetwork_set_continuous(ctx, false)) != NETWORK_STATUS_SUCCESS) {
+    piksi_log(LOG_ERR, libnetwork_status_text(status));
+    return 1;
+  }
+
+  if ((status = libnetwork_set_max_bytes(ctx, max_bytes)) != NETWORK_STATUS_SUCCESS) {
     piksi_log(LOG_ERR, libnetwork_status_text(status));
     return 1;
   }
@@ -354,12 +363,15 @@ static bool ota_client_loop(void)
       break;
     }
 
-    if (configure_libnetwork(nw_ctx, fd_resp, opt_url)) {
+    if (configure_libnetwork(fd_resp, opt_url, OTA_ENQUIRE_MAX_BYTES, nw_ctx)) {
       ret = false;
       break;
     }
 
-    ota_enquire(nw_ctx);
+    if (!ota_enquire(nw_ctx)) {
+      ota_close_files(&fd_resp, &fd_img);
+      continue;
+    }
 
     ota_resp_t parsed_resp = {0};
     if (!ota_parse_response(&parsed_resp)) {
@@ -372,12 +384,16 @@ static bool ota_client_loop(void)
       continue;
     }
 
-    if (configure_libnetwork(nw_ctx, fd_img, parsed_resp.url)) {
+    if (configure_libnetwork(fd_img, parsed_resp.url, OTA_DOWNLOAD_MAX_BYTES, nw_ctx)) {
       ret = false;
       break;
     }
 
-    ota_download(nw_ctx);
+    if (!ota_download(nw_ctx)) {
+      ota_close_files(&fd_resp, &fd_img);
+      continue;
+    }
+
     ota_close_files(&fd_resp, &fd_img);
 
     if (ota_sha256sum(parsed_resp.sha256)) {

@@ -154,6 +154,15 @@ network_status_t libnetwork_set_gga_upload_rev1(network_context_t *context, bool
  */
 network_status_t libnetwork_set_continuous(network_context_t *context, bool continuous);
 
+/**
+ * @brief Set maximum number of bytes to download or upload
+ *
+ * @param[in] max            Number of bytes, shall be less than SIZE_MAX
+ *
+ * @return                   The operation result.  See @ref network_status_t.
+ */
+network_status_t libnetwork_set_max_bytes(network_context_t *context, size_t max);
+
 bool libnetwork_shutdown_signaled(network_context_t *context);
 
 /**
@@ -185,16 +194,20 @@ void skylark_upload(network_context_t *ctx);
  * @details TBD
  *
  * @param[in] config        Pointer to the config to use.
+ *
+ * @return                  true if no errors
  */
-void ota_enquire(network_context_t *ctx);
+bool ota_enquire(network_context_t *ctx);
 
 /**
  * @brief   Download new firmware.
  * @details TBD
  *
  * @param[in] config        Pointer to the config to use.
+ *
+ * @return                  true if no errors
  */
-void ota_download(network_context_t *ctx);
+bool ota_download(network_context_t *ctx);
 
 /**
  * @brief Graceful termination handler for libnetwork daemons.
