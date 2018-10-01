@@ -153,7 +153,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
 
     size_t count = snprintf(spawn_nc,
                             sizeof(spawn_nc),
-                            "sudo -u fio_ex /usr/bin/spawn_nc; "
+                            "sudo -u fileio /usr/bin/spawn_nc; "
                             "sbp_cmd_resp --sequence %u --status $?",
                             msg->sequence);
     assert(count < sizeof(spawn_nc));

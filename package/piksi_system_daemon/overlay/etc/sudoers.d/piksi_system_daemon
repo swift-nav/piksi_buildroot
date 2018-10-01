@@ -2,4 +2,4 @@ piksi_sys ALL=(ALL) NOPASSWD: /usr/bin/upgrade_tool --debug /data/upgrade.image_
 piksi_sys ALL=(ALL) NOPASSWD: /etc/init.d/update_eth0_config
 piksi_sys ALL=(ALL) NOPASSWD: /etc/init.d/update_ntp_config
 piksi_sys ALL=(ALL) NOPASSWD: /etc/init.d/do_sbp_msg_reset
-piksi_sys ALL=(fio_ex) NOPASSWD: /usr/bin/spawn_nc
+piksi_sys ALL=(fileio) NOPASSWD: /usr/bin/spawn_nc
