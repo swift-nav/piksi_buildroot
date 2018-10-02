@@ -63,10 +63,10 @@ download_fw() {
 
   # Download piksi_fpga, try the prod variant first, then sdk variant
   fetch $NAP_S3_PATH_PROD/piksi_prod_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit \
-ifelse(M4_BUCKET, swiftnav-artifacts,
-`    || error "failed to download piksi_fpga.bit"',
+ifelse(M4_BUCKET, swiftnav-releases,
 `    || fetch $NAP_S3_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit \
-    || error "failed to download piksi_fpga.bit"')
+    || error "failed to download piksi_fpga.bit"',
+`    || error "failed to download piksi_fpga.bit"')
 }
 
 if [[ -n "$GENERATE_REQUIREMENTS" ]]; then
