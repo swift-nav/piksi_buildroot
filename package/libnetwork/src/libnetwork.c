@@ -87,7 +87,7 @@ struct network_context_s {
 
   network_type_t type;         /**< The type of the network session */
 
-  int fd;                      /**< The input fd to read from */
+  int fd;                      /**< The input fd to read from / write to */
   bool debug;                  /**< Set if we are emitted debug information */
   curl_socket_t socket_fd;     /**< The socket we're read/writing from/to */
 
@@ -125,6 +125,9 @@ struct network_context_s {
   int gga_error_count;         /**< Number of consecutive errors reading GGA file */
 
   bool gga_rev1;               /**< Should we use rev1 style GGA sentence? */
+
+  size_t max_bytes;            /* Maximum number of bytes to download / upload */
+  size_t cur_bytes;            /* Current number of bytes downloaded / uploaded */
 };
 // clang-format on
 
@@ -173,6 +176,8 @@ static network_context_t empty_context = {
   .gga_xfer_fill = 0,
   .gga_error_count = 0,
   .gga_rev1 = false,
+  .max_bytes = SIZE_MAX,
+  .cur_bytes = 0,
 };
 // clang-format on
 
@@ -437,6 +442,13 @@ network_status_t libnetwork_set_continuous(network_context_t *context, bool cont
   return NETWORK_STATUS_SUCCESS;
 }
 
+network_status_t libnetwork_set_max_bytes(network_context_t *context, size_t max)
+{
+  assert(max < SIZE_MAX);
+  context->max_bytes = max;
+  return NETWORK_STATUS_SUCCESS;
+}
+
 bool libnetwork_shutdown_signaled(network_context_t *context)
 {
   return context->shutdown_signaled;
@@ -499,12 +511,31 @@ static void dump_connection_stats(int fd)
   }
 }
 
+static bool network_byte_limit(network_context_t *ctx, size_t incoming)
+{
+  /* Limit is not set */
+  if (SIZE_MAX == ctx->max_bytes) {
+    return false;
+  }
+
+  if (ctx->cur_bytes + incoming > ctx->max_bytes) {
+    piksi_log(LOG_ERR, "%s: byte limit exceeded", __FUNCTION__);
+    return true;
+  }
+
+  return false;
+}
+
 static size_t network_download_write(char *buf, size_t size, size_t n, void *data)
 {
   network_context_t *ctx = data;
 
   if (ctx->debug) {
     dump_connection_stats(ctx->socket_fd);
+  }
+
+  if (network_byte_limit(ctx, size * n)) {
+    return -1;
   }
 
   warn_on_pipe_full(ctx->fd, size * n, ctx->debug);
@@ -514,6 +545,8 @@ static size_t network_download_write(char *buf, size_t size, size_t n, void *dat
     if (ret < 0 && errno == EINTR) {
       continue;
     }
+
+    ctx->cur_bytes += ret;
 
     if (ctx->debug) {
       piksi_log(LOG_DEBUG, "write bytes (%d) %d", size * n, ret);
@@ -529,11 +562,17 @@ static size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
 {
   network_context_t *ctx = data;
 
+  if (network_byte_limit(ctx, size * n)) {
+    return -1;
+  }
+
   while (true) {
     ssize_t ret = read(ctx->fd, buf, size * n);
     if (ret < 0 && errno == EINTR) {
       continue;
     }
+
+    ctx->cur_bytes += ret;
 
     if (ctx->debug) {
       piksi_log(LOG_DEBUG, "read bytes %d", ret);
@@ -968,7 +1007,7 @@ static void log_with_rate_limit(network_context_t *ctx, int priority, const char
 }
 
 
-static void network_request(network_context_t *ctx, CURL *curl)
+static CURLcode network_request(network_context_t *ctx, CURL *curl)
 {
   char error_buf[CURL_ERROR_SIZE] = {0};
 
@@ -984,11 +1023,13 @@ static void network_request(network_context_t *ctx, CURL *curl)
   curl_easy_setopt(curl, CURLOPT_BUFFERSIZE,        RECV_BUFFER_SIZE);
   // clang-format on
 
+  CURLcode code = CURLE_OK;
+
   while (true) {
-    CURLcode code = curl_easy_perform(curl);
+    code = curl_easy_perform(curl);
 
     if (ctx->shutdown_signaled) {
-      return;
+      break;
     }
 
     if (code == CURLE_ABORTED_BY_CALLBACK) {
@@ -1002,7 +1043,7 @@ static void network_request(network_context_t *ctx, CURL *curl)
       long response = 0;
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
       ctx->response_code = response;
-      if (response != 0) {
+      if (response != HTTP_RESPONSE_CODE_OK) {
         log_with_rate_limit(ctx, LOG_INFO, "curl request (response: %d)", response);
         network_response_code_check(ctx);
       }
@@ -1016,6 +1057,8 @@ static void network_request(network_context_t *ctx, CURL *curl)
       break;
     }
   }
+
+  return code;
 }
 
 static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
@@ -1079,6 +1122,12 @@ static int ntrip_response_code_check(network_context_t *ctx)
   return 0;
 }
 
+static network_status_t network_reset_bytes(network_context_t *context)
+{
+  context->cur_bytes = 0;
+  return NETWORK_STATUS_SUCCESS;
+}
+
 static void network_setup_download(struct curl_slist *chunk, network_context_t *ctx, CURL *curl)
 {
   // clang-format off
@@ -1093,6 +1142,8 @@ static void network_setup_download(struct curl_slist *chunk, network_context_t *
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,        0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,   network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,       ctx);
+
+  network_reset_bytes(ctx);
 }
 // clang-format on
 
@@ -1183,17 +1234,18 @@ void skylark_upload(network_context_t *ctx)
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
   // clang-format on
 
+  network_reset_bytes(ctx);
   network_request(ctx, curl);
 
   curl_slist_free_all(chunk);
   network_teardown(curl);
 }
 
-void ota_enquire(network_context_t *ctx)
+bool ota_enquire(network_context_t *ctx)
 {
   CURL *curl = network_setup(ctx);
   if (curl == NULL) {
-    return;
+    return false;
   }
 
   char uuid_buf[256];
@@ -1213,22 +1265,25 @@ void ota_enquire(network_context_t *ctx)
 
   network_setup_download(chunk, ctx, curl);
 
-  network_request(ctx, curl);
+  CURLcode ret = network_request(ctx, curl);
 
   curl_slist_free_all(chunk);
   network_teardown(curl);
+
+  return (CURLE_OK == ret);
 }
 
-void ota_download(network_context_t *ctx)
+bool ota_download(network_context_t *ctx)
 {
   CURL *curl = network_setup(ctx);
   if (curl == NULL) {
-    return;
+    return false;
   }
 
   network_setup_download(NULL, ctx, curl);
 
-  network_request(ctx, curl);
-
+  CURLcode ret = network_request(ctx, curl);
   network_teardown(curl);
+
+  return (CURLE_OK == ret);
 }
