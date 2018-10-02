@@ -72,10 +72,10 @@ ifelse(M4_BUCKET, swiftnav-artifacts,
 if [[ -n "$GENERATE_REQUIREMENTS" ]]; then
   REQUIREMENTS_M4="$D/requirements.yaml.m4"
   REQUIREMENTS_OUT="${REQUIREMENTS_M4%.m4}"
-  [[ -f "$REQUIREMENTS_M4" ]] || { echo "ERROR: could not find $REQUIREMENTS_M4"; exit 1; }
+  [[ -f "$REQUIREMENTS_M4" ]] || error "could not find $REQUIREMENTS_M4"
   m4 -DFW_VERSION=$FW_VERSION -DNAP_VERSION=$NAP_VERSION $REQUIREMENTS_M4 >$REQUIREMENTS_OUT
 elif [[ -n "$DOWNLOAD_PBR_CCACHE" ]]; then
   fetch $CCACHE_S3_PATH/piksi_br_${PBR_TARGET}_ccache.tgz .
 else
-  download_fw || echo "ERROR: failed to download FPGA and RTOS artifacts"
+  download_fw
 fi
