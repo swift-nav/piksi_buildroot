@@ -34,6 +34,7 @@ NAP_VERSION=${2:-v2.0.0-develop-2018100117}
 CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
 FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
+NAP_S3_PATH_PROD=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
 
@@ -45,6 +46,11 @@ fetch() {
   esac
 }
 
+error() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
 download_fw() {
   FIRMWARE_DIR=firmware/prod
 
@@ -52,20 +58,22 @@ download_fw() {
   mkdir -p $FIRMWARE_DIR
 
   # Download piksi_firmware
-  fetch $FW_S3_PATH/piksi_firmware_v3_prod.stripped.elf \
-    $FIRMWARE_DIR/piksi_firmware.elf
+  fetch $FW_S3_PATH/piksi_firmware_v3_prod.stripped.elf $FIRMWARE_DIR/piksi_firmware.elf \
+    || error "failed to download piksi_firmware.elf"
 
   # Download piksi_fpga, try the prod variant first, then sdk variant
-  fetch $NAP_S3_PATH/piksi_prod_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
+  fetch $NAP_S3_PATH_PROD/piksi_prod_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit \
+    || fetch $NAP_S3_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit \
+    || error "failed to download piksi_fpga.bit"
 }
 
 if [[ -n "$GENERATE_REQUIREMENTS" ]]; then
   REQUIREMENTS_M4="$D/requirements.yaml.m4"
   REQUIREMENTS_OUT="${REQUIREMENTS_M4%.m4}"
-  [[ -f "$REQUIREMENTS_M4" ]] || { echo "ERROR: could not find $REQUIREMENTS_M4"; exit 1; }
+  [[ -f "$REQUIREMENTS_M4" ]] || error "could not find $REQUIREMENTS_M4"
   m4 -DFW_VERSION=$FW_VERSION -DNAP_VERSION=$NAP_VERSION $REQUIREMENTS_M4 >$REQUIREMENTS_OUT
 elif [[ -n "$DOWNLOAD_PBR_CCACHE" ]]; then
   fetch $CCACHE_S3_PATH/piksi_br_${PBR_TARGET}_ccache.tgz .
 else
-  download_fw || echo "ERROR: failed to download FPGA and RTOS artifacts"
+  download_fw
 fi
