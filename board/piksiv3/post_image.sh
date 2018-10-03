@@ -24,7 +24,7 @@ bold=$(tput rev 2>/dev/null || :)
 normal=$(tput sgr0 2>/dev/null || :)
 
 BUILD_TOOLS_REPO=git@github.com:swift-nav/piksi_build_tools.git
-BUILD_TOOLS_VERSION=v2.1.7
+BUILD_TOOLS_VERSION=v2.2.2
 
 CFG=piksiv3_$HW_CONFIG
 get_git_string_script="$(dirname "$0")"/get_git_string.sh
