@@ -24,6 +24,7 @@ bold=$(tput rev 2>/dev/null || :)
 normal=$(tput sgr0 2>/dev/null || :)
 
 BUILD_TOOLS_REPO=git@github.com:swift-nav/piksi_build_tools.git
+BUILD_TOOLS_VERSION="v2.1.7"
 
 CFG=piksiv3_$HW_CONFIG
 get_git_string_script="$(dirname "$0")"/get_git_string.sh
@@ -172,7 +173,9 @@ encrypt_and_sign()
     exit 1
   fi
 
-  git clone ${BUILD_TOOLS_REPO} ${HOST_DIR}/piksi_build_tools
+  git clone --single-branch --branch ${BUILD_TOOLS_VERSION} --depth 1 \
+    ${BUILD_TOOLS_REPO} ${HOST_DIR}/piksi_build_tools
+
   ${HOST_DIR}/piksi_build_tools/bin/encrypt_and_sign $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
 
   rm ${INTERNAL_BIN_PATH}
