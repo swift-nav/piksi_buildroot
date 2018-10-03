@@ -121,14 +121,14 @@ class SettingsCtx : public Ctx {
   bool setup()
   {
     return settings_attach(settings_, loop_) == 0
-           && settings_register(settings_,
-                                "orion",
-                                "enable",
-                                &enable,
-                                sizeof(enable),
-                                SETTINGS_TYPE_BOOL,
-                                settings_callback,
-                                nullptr)
+           && settings_add_watch(settings_,
+                                 "orion",
+                                 "enable",
+                                 &enable,
+                                 sizeof(enable),
+                                 SETTINGS_TYPE_BOOL,
+                                 settings_callback,
+                                 nullptr)
                 == 0
            && settings_register(settings_,
                                 "orion",

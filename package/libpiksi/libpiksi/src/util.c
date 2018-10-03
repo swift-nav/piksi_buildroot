@@ -10,8 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <unistd.h>
 
 #include <sys/stat.h>
@@ -50,21 +52,78 @@
 
 #define GPS_TIME_FILE_PATH "/var/run/health/gps_time_available"
 
-static int file_read_string(const char *filename, char *str, size_t str_size)
+#define PIPE_READ_SIDE 0
+#define PIPE_WRITE_SIDE 1
+
+void snprintf_assert(char *s, size_t n, const char *format, ...)
 {
-  FILE *fp = fopen(filename, "r");
-  if (fp == NULL) {
-    piksi_log(LOG_ERR, "error opening %s", filename);
+  assert(s);
+  assert(format);
+
+  va_list args;
+  va_start(args, format);
+
+  int count = vsnprintf(s, n, format, args);
+  assert((size_t)count < n);
+
+  va_end(args);
+}
+
+bool snprintf_warn(char *s, size_t n, const char *format, ...)
+{
+  assert(s);
+  assert(format);
+
+  bool ret = true;
+
+  va_list args;
+  va_start(args, format);
+
+  int count = vsnprintf(s, n, format, args);
+  if ((size_t)count >= n) {
+    piksi_log(LOG_WARNING, "snprintf truncation");
+    ret = false;
+  }
+
+  va_end(args);
+
+  return ret;
+}
+
+int file_read_string(const char *filename, char *str, size_t str_size)
+{
+  if (filename == NULL) {
+    piksi_log(LOG_ERR, "%s: filename is NULL", __FUNCTION__);
     return -1;
   }
 
-  bool success = (fgets(str, str_size, fp) != NULL);
+  if (str == NULL) {
+    piksi_log(LOG_ERR, "%s: str is NULL", __FUNCTION__);
+    return -1;
+  }
+
+  memset(str, 0, str_size);
+
+  FILE *fp = fopen(filename, "r");
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "%s: error opening %s", __FUNCTION__, filename);
+    return -1;
+  }
+
+  if (fgets(str, str_size, fp) == NULL) {
+    fclose(fp);
+    piksi_log(LOG_ERR, "%s: error reading %s", __FUNCTION__, filename);
+    return -1;
+  }
+
+  size_t len = strlen(str);
+  /* EOF not reached AND no newline at the str end */
+  bool truncated = !feof(fp) && (len != 0 && str[len - 1] != '\n');
 
   fclose(fp);
 
-  if (!success) {
-    piksi_log(LOG_ERR, "error reading %s", filename);
-    return -1;
+  if (truncated) {
+    piksi_log(LOG_WARNING, "%s: str was truncated", __FUNCTION__);
   }
 
   return 0;
@@ -388,4 +447,145 @@ void setup_sigterm_handler(void (*handler)(int signum, siginfo_t *info, void *uc
     piksi_log(LOG_ERR, "error setting up SIGTERM handler");
     exit(-1);
   }
+}
+
+int setup_sigtimedwait(sigwait_params_t *params, int sig, time_t tv_sec)
+{
+  sigemptyset(&params->waitset);
+  sigaddset(&params->waitset, sig);
+  sigprocmask(SIG_BLOCK, &params->waitset, NULL);
+
+  update_sigtimedwait(params, tv_sec);
+
+  return 0;
+}
+
+int update_sigtimedwait(sigwait_params_t *params, time_t tv_sec)
+{
+  params->timeout.tv_sec = tv_sec;
+  params->timeout.tv_nsec = 0;
+
+  return 0;
+}
+
+int run_sigtimedwait(sigwait_params_t *params)
+{
+  int ret = sigtimedwait(&params->waitset, &params->info, &params->timeout);
+
+  if (-1 == ret && EAGAIN == errno) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+bool is_file(int fd)
+{
+  errno = 0;
+  int ret = lseek(fd, 0, SEEK_CUR);
+  return !(-1 == ret && errno == ESPIPE);
+}
+
+int run_with_stdin_file(const char *input_file,
+                        const char *cmd,
+                        char *const argv[],
+                        char *output,
+                        size_t output_size)
+{
+  int stdout_pipe[2];
+
+  if (pipe(stdout_pipe)) {
+    return 1;
+  }
+
+  int pid = fork();
+
+  /* Parent */
+  if (pid > 0) {
+    close(stdout_pipe[PIPE_WRITE_SIDE]);
+
+    size_t total = 0;
+    while (output_size > total) {
+      ssize_t ret = read(stdout_pipe[PIPE_READ_SIDE], output + total, output_size - total);
+
+      if (ret > 0) {
+        total += ret;
+      } else {
+        break;
+      }
+    }
+
+    /* Guarantee null terminated output */
+    if (total >= output_size) {
+      output[output_size - 1] = 0;
+    } else {
+      output[total] = 0;
+    }
+
+    close(stdout_pipe[PIPE_READ_SIDE]);
+
+    int status;
+    wait(&status);
+
+    return status;
+  } else if (pid == -1) {
+    return 1;
+  }
+
+  /* Child */
+  int fd = -1;
+
+  if (input_file) {
+    fd = open(input_file, O_RDONLY);
+
+    if (fd == -1) {
+      exit(EXIT_FAILURE);
+    }
+
+    if (dup2(fd, STDIN_FILENO) < 0) {
+      close(fd);
+      exit(EXIT_FAILURE);
+    }
+
+    close(fd);
+  }
+
+  fd = dup2(stdout_pipe[PIPE_WRITE_SIDE], STDOUT_FILENO);
+  if (fd < 0) {
+    piksi_log(LOG_ERR, "%s: dup2 failed", __FUNCTION__);
+    exit(EXIT_FAILURE);
+  }
+
+  close(stdout_pipe[PIPE_READ_SIDE]);
+
+  execvp(cmd, argv);
+  piksi_log(LOG_ERR | LOG_SBP,
+            "%s: execvp: errno: %s (%s:%d)\n",
+            __FUNCTION__,
+            strerror(errno),
+            __FILE__,
+            __LINE__);
+
+  exit(EXIT_FAILURE);
+  __builtin_unreachable();
+}
+
+bool str_digits_only(const char *str)
+{
+  if (str == NULL) {
+    return false;
+  }
+
+  /* Empty string */
+  if (!(*str)) {
+    return false;
+  }
+
+  while (*str) {
+    if (isdigit(*str++) == 0) {
+      return false;
+    }
+  }
+
+  return true;
 }

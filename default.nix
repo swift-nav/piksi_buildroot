@@ -22,8 +22,7 @@ let
     db
     file
     flex
-    gcc6
-    gcc-arm-embedded
+    gcc
     git
     glibc
     glibc.dev
@@ -33,6 +32,7 @@ let
     gnused
     gnutar
     gdb
+    libcxx
     mercurial
     ncurses5
     ncurses5.dev

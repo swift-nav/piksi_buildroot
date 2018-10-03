@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# Force buildroot to use g++ since clang++ has issues finding
+#   it's libraries (<map>, <iostream>, ..) under NixOS... see
+#   https://github.com/NixOS/nixpkgs/issues/30670.
+exec g++ $*

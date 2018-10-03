@@ -156,7 +156,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
 
     size_t count = snprintf(spawn_nc,
                             sizeof(spawn_nc),
-                            "sudo -u fio_ex /usr/bin/spawn_nc; "
+                            "sudo -u fileio /usr/bin/spawn_nc; "
                             "sbp_cmd_resp --sequence %u --status $?",
                             msg->sequence);
     assert(count < sizeof(spawn_nc));
@@ -229,26 +229,6 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
   // clang-format on
 
   start_runit_service(&cfg);
-}
-
-static int file_read_string(const char *filename, char *str, size_t str_size)
-{
-  FILE *fp = fopen(filename, "r");
-  if (fp == NULL) {
-    piksi_log(LOG_ERR, "error opening %s", filename);
-    return -1;
-  }
-
-  bool success = (fgets(str, str_size, fp) != NULL);
-
-  fclose(fp);
-
-  if (!success) {
-    piksi_log(LOG_ERR, "error reading %s", filename);
-    return -1;
-  }
-
-  return 0;
 }
 
 static int date_string_get(const char *timestamp_string, char *date_string, size_t date_string_size)
