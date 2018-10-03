@@ -1,0 +1,19 @@
+#!/bin/sh
+
+name="starling_daemon"
+cmd="starlingd"
+dir="/"
+user="strlngd"
+
+log_tag=$name # required by logging.sh
+source /etc/init.d/logging.sh
+
+starling_daemon_enabled=$(query_config --section system --key enable_starling_daemon)
+
+if [[ "$starling_daemon_enabled" != "True" ]]; then
+  logi --sbp "Starling daemon not enabled"
+  exit 0
+fi
+
+logi --sbp "Starling daemon enabled"
+source /etc/init.d/template_runsv.inc.sh

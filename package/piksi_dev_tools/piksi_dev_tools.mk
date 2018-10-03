@@ -21,7 +21,7 @@ PIKSI_DEV_TOOLS_DEPENDENCIES = \
 	dropbear blackmagic stress strace
 
 define PIKSI_DEV_TOOLS_INSTALL_TARGET_CMDS
-	:
+	@:
 endef
 
 $(eval $(generic-package))

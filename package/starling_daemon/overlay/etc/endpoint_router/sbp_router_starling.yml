@@ -1,0 +1,248 @@
+name: SBP_ROUTER
+ports:
+  - name: SBP_PORT_FIRMWARE
+    pub_addr: "ipc:///var/run/sockets/firmware.pub"
+    sub_addr: "ipc:///var/run/sockets/firmware.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_SETTINGS_DAEMON
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAE, 0x00] } # Settings register
+          - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          # Filter navigation messages, they are supplied by Linux Starling.
+          - { action: REJECT, prefix: [0x55, 0x02, 0x01] } # MSG_GPS_TIME
+          - { action: REJECT, prefix: [0x55, 0x03, 0x01] } # MSG_UTC_TIME
+          - { action: REJECT, prefix: [0x55, 0x08, 0x02] } # MSG_DOPS
+          - { action: REJECT, prefix: [0x55, 0x09, 0x02] } # MSG_POS_ECEF      
+          - { action: REJECT, prefix: [0x55, 0x14, 0x02] } # MSG_POS_ECEF_COV  
+          - { action: REJECT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH       
+          - { action: REJECT, prefix: [0x55, 0x11, 0x02] } # MSG_POS_LLH_COV   
+          - { action: REJECT, prefix: [0x55, 0x0B, 0x02] } # MSG_BASELINE_ECEF      
+          - { action: REJECT, prefix: [0x55, 0x0C, 0x02] } # MSG_BASELINE_NED       
+          - { action: REJECT, prefix: [0x55, 0x0D, 0x02] } # MSG_VEL_ECEF      
+          - { action: REJECT, prefix: [0x55, 0x15, 0x02] } # MSG_VEL_ECEF_COV  
+          - { action: REJECT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED       
+          - { action: REJECT, prefix: [0x55, 0x12, 0x02] } # MSG_VEL_NED_COV   
+          - { action: REJECT, prefix: [0x55, 0x13, 0x02] } # MSG_VEL_BODY
+          - { action: REJECT, prefix: [0x55, 0x10, 0x02] } # MSG_AGE_CORRECTIONS
+          - { action: REJECT, prefix: [0x55, 0x01, 0x04] } # MSG_LOG           
+          # These are not for external messaging.
+          - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
+          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
+          - { action: ACCEPT }
+      - dst_port: SBP_PORT_FILEIO_FIRMWARE
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: ACCEPT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: ACCEPT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: ACCEPT, prefix: [0x55, 0xAD, 0x00] } # File write
+          - { action: REJECT }
+      - dst_port: SBP_PORT_INTERNAL
+        filters:
+          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
+          - { action: ACCEPT }
+      - dst_port: SBP_PORT_SKYLARK
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # Publish: SBP MSG_POS_LLH
+          - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # Publish: SBP MSG_HEARTBEAT
+          - { action: REJECT }
+      - dst_port: SBP_PORT_NAV_DAEMON # This list sends only what Smoothpose needs at present.
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x00, 0x09] } # MSG_IMU_RAW  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x01, 0x09] } # MSG_IMU_AUX  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0x09] } # MSG_ODOMETRY **Smoothpose Change**
+          - { action: REJECT }
+      - dst_port: SBP_PORT_STARLING_DAEMON 
+        filters:
+          - {action: ACCEPT}
+
+  - name: SBP_PORT_SETTINGS_DAEMON
+    pub_addr: "ipc:///var/run/sockets/settings_daemon.pub"
+    sub_addr: "ipc:///var/run/sockets/settings_daemon.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_FIRMWARE
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
+          - { action: REJECT }
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          - { action: REJECT, prefix: [0x55, 0xA0, 0x00] } # Settings write
+          - { action: ACCEPT }
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
+          - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
+          - { action: REJECT }
+
+  - name: SBP_PORT_EXTERNAL
+    pub_addr: "ipc:///var/run/sockets/external.pub"
+    sub_addr: "ipc:///var/run/sockets/external.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_FIRMWARE
+        filters:
+          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
+          - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
+          - { action: REJECT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
+          - { action: ACCEPT }
+      - dst_port: SBP_PORT_SETTINGS_DAEMON
+        filters:
+          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
+          - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
+          - { action: REJECT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
+          - { action: ACCEPT }
+      - dst_port: SBP_PORT_FILEIO_EXTERNAL
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: ACCEPT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: ACCEPT, prefix: [0x55, 0xAC, 0x00] } # File reamove
+          - { action: ACCEPT, prefix: [0x55, 0xAD, 0x00] } # File write
+          - { action: REJECT }
+      - dst_port: SBP_PORT_INTERNAL
+        filters:
+          - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
+          - { action: REJECT, prefix: [0x55, 0xA9, 0x00] } # File read dir
+          - { action: REJECT, prefix: [0x55, 0xAC, 0x00] } # File remove
+          - { action: REJECT, prefix: [0x55, 0xAD, 0x00] } # File write
+          - { action: ACCEPT }
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
+          - { action: REJECT }
+      - dst_port: SBP_PORT_STARLING_DAEMON 
+        filters:
+          - { action: ACCEPT }
+          #          - { action: ACCEPT, prefix: [0x55, 0x44, 0x00] } # SBP_MSG_BASE_POS_LLH
+          #          - { action: ACCEPT, prefix: [0x55, 0x48, 0x00] } # SBP_MSG_BASE_POS_ECEF
+          #          - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # SBP_MSG_OBS
+          #          - { action: ACCEPT, prefix: [0x55, 0x86, 0x00] } # SBP_MSG_EPHEMERIS_GPS
+          #          - { action: ACCEPT, prefix: [0x55, 0x88, 0x00] } # SBP_MSG_EPHEMERIS_GLO
+          #          - { action: ACCEPT, prefix: [0x55, 0x84, 0x00] } # SBP_MSG_EPHEMERIS_SBAS
+          #          - { action: ACCEPT, prefix: [0x55, 0x75, 0x00] } # SBP_MSG_GLO_BIASES
+          #          - { action: REJECT }
+
+  - name: SBP_PORT_FILEIO_FIRMWARE
+    pub_addr: "ipc:///var/run/sockets/fileio_firmware.pub"
+    sub_addr: "ipc:///var/run/sockets/fileio_firmware.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_FIRMWARE
+        filters:
+          - { action: ACCEPT }
+
+  - name: SBP_PORT_FILEIO_EXTERNAL
+    pub_addr: "ipc:///var/run/sockets/fileio_external.pub"
+    sub_addr: "ipc:///var/run/sockets/fileio_external.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT }
+
+  - name: SBP_PORT_INTERNAL
+    pub_addr: "ipc:///var/run/sockets/internal.pub"
+    sub_addr: "ipc:///var/run/sockets/internal.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT }
+
+  - name: SBP_PORT_SETTINGS_CLIENT
+    pub_addr: "ipc:///var/run/sockets/settings_client.pub"
+    sub_addr: "ipc:///var/run/sockets/settings_client.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
+      - dst_port: SBP_PORT_SETTINGS_DAEMON
+        filters:
+          - { action: ACCEPT }
+      # As long as no receivers echo this message back, then this is not a loop!  This is were
+      #  we actually need a 'bus' style socket.
+      - dst_port: SBP_PORT_SETTINGS_CLIENT
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
+
+  - name: SBP_PORT_SKYLARK
+    pub_addr: "ipc:///var/run/sockets/skylark.pub"
+    sub_addr: "ipc:///var/run/sockets/skylark.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_FIRMWARE
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x44, 0x00] } # SBP_MSG_BASE_POS_LLH
+          - { action: ACCEPT, prefix: [0x55, 0x48, 0x00] } # SBP_MSG_BASE_POS_ECEF
+          - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # SBP_MSG_OBS
+          - { action: ACCEPT, prefix: [0x55, 0x86, 0x00] } # SBP_MSG_EPHEMERIS_GPS
+          - { action: ACCEPT, prefix: [0x55, 0x88, 0x00] } # SBP_MSG_EPHEMERIS_GLO
+          - { action: ACCEPT, prefix: [0x55, 0x84, 0x00] } # SBP_MSG_EPHEMERIS_SBAS
+          - { action: ACCEPT, prefix: [0x55, 0x75, 0x00] } # SBP_MSG_GLO_BIASES
+          - { action: REJECT }
+
+  - name: SBP_PORT_NAV_DAEMON  # Entire Section Smoothpose Change**
+    pub_addr: "ipc:///var/run/sockets/nav_daemon.pub"
+    sub_addr: "ipc:///var/run/sockets/nav_daemon.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x09, 0x02] } # MSG_POS_ECEF      **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH       **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x0D, 0x02] } # MSG_VEL_ECEF      **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED       **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x11, 0x02] } # MSG_POS_LLH_COV   **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x12, 0x02] } # MSG_VEL_NED_COV   **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x14, 0x02] } # MSG_POS_ECEF_COV  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x15, 0x02] } # MSG_VEL_ECEF_COV  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x13, 0x02] } # MSG_VEL_BODY      **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x20, 0x02] } # MSG_ORIENT_QUAT   **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x21, 0x02] } # MSG_ORIENT_EULER  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x22, 0x02] } # MSG_ANGULAR_RATE  **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x01, 0x04] } # MSG_LOG           **Smoothpose Change**
+          - { action: REJECT }
+
+  - name: SBP_PORT_STARLING_DAEMON
+    pub_addr: "ipc:///var/run/sockets/starling.pub"
+    sub_addr: "ipc:///var/run/sockets/starling.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          # All navigation messages.
+          - { action: ACCEPT, prefix: [0x55, 0x02, 0x01] } # MSG_GPS_TIME
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0x01] } # MSG_UTC_TIME
+          - { action: ACCEPT, prefix: [0x55, 0x08, 0x02] } # MSG_DOPS
+          - { action: ACCEPT, prefix: [0x55, 0x09, 0x02] } # MSG_POS_ECEF      
+          - { action: ACCEPT, prefix: [0x55, 0x14, 0x02] } # MSG_POS_ECEF_COV  
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH       
+          - { action: ACCEPT, prefix: [0x55, 0x11, 0x02] } # MSG_POS_LLH_COV   
+          - { action: ACCEPT, prefix: [0x55, 0x0B, 0x02] } # MSG_BASELINE_ECEF      
+          - { action: ACCEPT, prefix: [0x55, 0x0C, 0x02] } # MSG_BASELINE_NED       
+          - { action: ACCEPT, prefix: [0x55, 0x0D, 0x02] } # MSG_VEL_ECEF      
+          - { action: ACCEPT, prefix: [0x55, 0x15, 0x02] } # MSG_VEL_ECEF_COV  
+          - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED       
+          - { action: ACCEPT, prefix: [0x55, 0x12, 0x02] } # MSG_VEL_NED_COV   
+          - { action: ACCEPT, prefix: [0x55, 0x13, 0x02] } # MSG_VEL_BODY
+          - { action: ACCEPT, prefix: [0x55, 0x10, 0x02] } # MSG_AGE_CORRECTIONS
+          - { action: ACCEPT, prefix: [0x55, 0x01, 0x04] } # MSG_LOG           
+          # All settings messages.
+          # Reject everything else.
+          - { action: REJECT }
+
