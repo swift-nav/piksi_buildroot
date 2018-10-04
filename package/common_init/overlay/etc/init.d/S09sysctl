@@ -8,6 +8,3 @@ chmod 1777 /var/run/sockets
 mkdir -p /var/log/metrics
 chmod 1777 /var/log/metrics
 echo "denyinterfaces eth0" >> /etc/dhcpcd.conf
-addgroup -S devmem
-chgrp devmem /dev/mem
-chmod 0770 /dev/mem

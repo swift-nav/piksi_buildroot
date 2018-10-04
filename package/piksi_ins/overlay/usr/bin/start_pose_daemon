@@ -5,7 +5,7 @@ key_index=1
 b=/usr/bin
 l=/usr/lib
 
-caps="ep+cap_ipc_lock,cap_sys_rawio"
+caps="cap_ipc_lock,cap_sys_rawio+ep"
 
 nap_wrap --key-index $key_index \
   --input-file $b/PoseDaemon.enc --output-file $b/PoseDaemon \
