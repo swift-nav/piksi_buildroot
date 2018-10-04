@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
+[[ -z "$DEBUG" ]] || set -x
+
 set -euo pipefail
 IFS=$'\n\t'
 
 D=$( (cd "$(dirname "$0")" || exit 1 >/dev/null; pwd -P) )
 
 pr_files_json=$(mktemp)
-trap 'rm -f $pr_files_json' EXIT
+#trap 'rm -f $pr_files_json' EXIT
 
 fetch_pr_files_json() {
 
@@ -16,8 +18,8 @@ fetch_pr_files_json() {
 
   local files_url="https://api.github.com/repos/$TRAVIS_REPO_SLUG/pulls/$TRAVIS_PULL_REQUEST/files"
 
-  echo "Will use the following URL to check the files in the PR:"
-  echo "\t$files_url"
+  echo ">>> Will use the following URL to check the files in the PR:"
+  echo $'\t'"$files_url"
 
   for i in $(seq $retry_count); do
     curl -sSL "$files_url" --output "$pr_files_json"
@@ -34,12 +36,11 @@ fetch_pr_files_json() {
     echo "ERROR: failed to get JSON blob for PR..." >&2
     exit 1
   fi
-
-  cat $pr_files_json
 }
 
 if [[ "$TRAVIS_PULL_REQUEST" != "false" ]]; then
-  file_names=$( fetch_pr_files_json | jq '.[] | .filename' | tr '"' ' ' )
+  fetch_pr_files_json
+  file_names=$(jq '.[] | .filename' $pr_files_json | tr '"' ' ')
 else
   file_names=$( git diff --name-only "$TRAVIS_COMMIT_RANGE" || echo "" )
 fi
