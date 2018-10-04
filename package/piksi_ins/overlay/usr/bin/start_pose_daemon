@@ -1,0 +1,21 @@
+#!/bin/sh
+
+key_index=1
+
+b=/usr/bin
+l=/usr/lib
+
+caps="ep+cap_ipc_lock,cap_sys_rawio"
+
+nap_wrap --key-index $key_index \
+  --input-file $b/PoseDaemon.enc --output-file $b/PoseDaemon \
+  --permissions 0755 --capabilities "$caps" \
+  --input-file $b/local_pose_playback.enc --output-file $b/local_pose_playback \
+  --permissions 0755 --capabilities "$caps" \
+  --input-file $l/libcrlpose2.so.enc --output-file $l/libcrlpose2.so \
+  --permissions 0644 --capabilities "" \
+  --input-file $l/libaes256.so.enc --output-file $l/libaes256.so \
+  --permissions 0644 --capabilities "" \
+  -- \
+  chpst -u posed:devmem \
+  /usr/bin/PoseDaemon

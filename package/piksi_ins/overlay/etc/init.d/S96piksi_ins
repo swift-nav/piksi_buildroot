@@ -1,9 +1,11 @@
 #!/bin/sh
 
 name="PoseDaemon"
-cmd="PoseDaemon"
+cmd="start_pose_daemon"
 dir="/"
-user="piksi_ins"
+# User is set to posed in the start_pose_daemon wrapper since we
+#   need to process things with nap_wrap before launching.
+user=""
 
 LICENSES_DIR=/persistent/licenses
 
@@ -12,6 +14,8 @@ FILE_PERM=0644
 
 setup_permissions()
 {
+  add_service_user2 posed devmem
+
   # /persistent directory is setup by file_io_daemon
   # piksi_ins daemon creates licenses directory since it is the
   # only process that needs it presentently
