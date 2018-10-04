@@ -118,7 +118,7 @@ void close_udp_broadcast_socket(udp_broadcast_context *udp_context)
   udp_context->sock = -1;
 }
 
-u32 udp_write_callback(u8 *buf, u32 len, void *context)
+ssize_t udp_write_callback(u8 *buf, u32 len, void *context)
 {
   udp_broadcast_context *udp_context = (udp_broadcast_context *)context;
 
