@@ -165,7 +165,15 @@ generate_failsafe()
 
 encrypt_and_sign()
 {
-  ${HOST_DIR}/usr/bin/encrypt_and_sign $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
+  local encr_tool=${HOST_DIR}/usr/bin/encrypt_and_sign
+
+  if [[ ! -f "$encr_tool" ]]; then
+
+    echo "ERROR: 'encrypt_and_sign' tool not found at path: $encr_tool" >&2
+    exit 1
+  fi
+
+  $encr_tool $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
   rm ${INTERNAL_BIN_PATH}
 }
 
