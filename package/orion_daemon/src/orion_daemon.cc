@@ -214,15 +214,31 @@ int main(int argc, char *argv[])
         while (!inactive() && streamer->Read(&sbp_frame)) {
           sbp_ctx.send(sbp_frame);
 
-          auto data = reinterpret_cast<const uint8_t *>(sbp_frame.header().service_uid().payload().data());
+          auto data =
+            reinterpret_cast<const uint8_t *>(sbp_frame.header().service_uid().payload().data());
 
           if (std::memcmp(uuid, data, sizeof(uuid)) != 0) {
             std::memcpy(uuid, data, sizeof(uuid));
 
-            piksi_log(LOG_INFO | LOG_SBP, "Service UUID %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                      uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
-                      uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
-
+            piksi_log(
+              LOG_INFO | LOG_SBP,
+              "Service UUID %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+              uuid[0],
+              uuid[1],
+              uuid[2],
+              uuid[3],
+              uuid[4],
+              uuid[5],
+              uuid[6],
+              uuid[7],
+              uuid[8],
+              uuid[9],
+              uuid[10],
+              uuid[11],
+              uuid[12],
+              uuid[13],
+              uuid[14],
+              uuid[15]);
           }
         }
 
