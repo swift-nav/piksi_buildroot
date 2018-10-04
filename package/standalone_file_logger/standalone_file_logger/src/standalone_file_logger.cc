@@ -413,7 +413,7 @@ int main(int argc, char *argv[])
                     &copy_system_logs_notify,
                     nullptr);
 
-  process_log_callback(LOG_INFO, "Starting");
+  process_log_callback(LOG_DEBUG, "Starting");
 
   pk_loop_run_simple(loop);
 
