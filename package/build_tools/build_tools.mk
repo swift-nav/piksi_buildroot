@@ -4,7 +4,7 @@
 #
 #############################################################
 
-BUILD_TOOLS_VERSION = v2.2.2
+BUILD_TOOLS_VERSION = v2.2.3
 
 BUILD_TOOLS_SITE = git@github.com:swift-nav/piksi_build_tools.git
 BUILD_TOOLS_SITE_METHOD = git
