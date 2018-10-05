@@ -1,6 +1,17 @@
 FROM debian:stretch-slim
 
+RUN echo "deb http://httpredir.debian.org/debian stretch-backports main non-free" \
+      >/etc/apt/sources.list.d/backports.list
+
 RUN apt-get update
+
+RUN apt-get --no-install-recommends -y --force-yes install python-dev python-setuptools python-pip && \
+    apt-get -y --force-yes purge python-pip && \
+    easy_install pip  && \
+    pip install --upgrade pip && \ 
+    pip install --upgrade setuptools && \ 
+    pip install --upgrade aws-google-auth
+
 RUN \
   apt-get --no-install-recommends -y --force-yes install \
       build-essential \
@@ -30,9 +41,8 @@ RUN \
       ccache \
       less \
       procps \
-      python-setuptools \
-      python-pip \
       file \
+      clang-format-5.0 \
       && \
   pwd && mkdir -p cmake-build && cd cmake-build && \
   wget https://cmake.org/files/v3.10/cmake-3.10.1.tar.gz && \
@@ -40,7 +50,6 @@ RUN \
   cd cmake-3.10.1 && ./configure && \
   make -j4 install && \
   cd ../.. && rm -rf cmake-build && \
-  pip install --upgrade aws-google-auth && \ 
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
