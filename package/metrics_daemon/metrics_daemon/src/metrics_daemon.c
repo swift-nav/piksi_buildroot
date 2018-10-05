@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <ftw.h>
 #include <json-c/json.h>
+#include <libgen.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/util.h>
@@ -25,7 +26,7 @@
 
 #define METRICS_ROOT_DIRECTORY "/var/log/metrics"
 #define METRICS_OUTPUT_FILENAME "/var/log/metrics.json"
-#define METRICS_USAGE_UPDATE_INTERVAL_MS (10000u)
+#define METRICS_USAGE_UPDATE_INTERVAL_MS (1000u)
 
 #define MAX_FOLDER_NAME_LENGTH 64
 static json_object *jobj_root = NULL;
@@ -36,10 +37,9 @@ static bool first_folder = true;
 static char *target_file = METRICS_OUTPUT_FILENAME;
 const char *metrics_path = METRICS_ROOT_DIRECTORY;
 static bool enable_log_to_file = false;
-
+static unsigned int metrics_update_interval = 1;   // 1Hz
 
 int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
-char *extract_filename(const char *str);
 json_object *init_json_object(const char *path);
 
 /**
@@ -55,33 +55,13 @@ static int write_json_to_file(struct json_object *root, const char *file_path)
 
 /**
  * @brief static function that returns file name from path
- * Ref: Updated code from
- * https://cboard.cprogramming.com/c-programming/109469-scan-filename-make-list.html
  *
  * @param  str        file path in ASCII
  * @return file_name  file name
  */
-char *extract_filename(const char *str)
+static char *extract_filename(const char *str)
 {
-  int ch = '/';
-  const char *start_ptr = NULL;
-  char *inpfile = NULL;
-  assert(str != NULL);
-  // Search backwards for last backslash in filepath
-  start_ptr = strrchr(str, ch);
-
-  // if backslash not found in filepath
-  if (start_ptr == NULL) {
-    start_ptr = str; // The whole name is a file in current path
-  } else {
-    start_ptr++; // Skip the backslash itself.
-  }
-
-  // extract filename from file path
-  if (start_ptr[0] == '.') start_ptr++;
-  inpfile = calloc(1, MAX_FOLDER_NAME_LENGTH + 1);     // Make space for the zero.
-  strncpy(inpfile, start_ptr, MAX_FOLDER_NAME_LENGTH); // Copy including zero.
-  return inpfile;
+  return basename((char *)str);
 }
 
 
@@ -93,38 +73,29 @@ char *extract_filename(const char *str)
  * @param root         root name, this is used to pair with the root of the json
  * object tree
  * @param root_len     number of chars for the root name
- * @param json_root    root of the json object tree
  * @return json object node that needs to be updated
  */
 static struct json_object *loop_through_folder_name(const char *process_path,
                                                     const char *root,
                                                     unsigned int root_len)
 {
-  char ch = '/';
+  char slash = '/';
   const char *start_ptr = NULL;
   bool found_root = false;
-  start_ptr = strchr(process_path, ch); // get the first slash position
+  start_ptr = strchr(process_path, slash); // get the first slash position
   unsigned int str_len = (unsigned int)strlen(process_path);
-  if (jobj_root == NULL || start_ptr < process_path) {
+  if (start_ptr == NULL || start_ptr < process_path) {
     return jobj_root;
   }
   struct json_object *json_current = jobj_root;
   while (start_ptr != NULL) {
     start_ptr++;
     if (start_ptr > process_path + str_len) return json_current;
-    if (start_ptr[0] == '.') // skip the '.' on the file name
-    {
-      start_ptr++;
-    }
-    if (start_ptr > process_path + str_len) return json_current;
-    char *end_ptr = strchr(start_ptr, ch); // search the second slash
+    char *end_ptr = strchr(start_ptr, slash); // search the second slash
     if (end_ptr != NULL) {
       unsigned int strlen;
-      if (end_ptr <= start_ptr) // defensive code
-        return json_current;
-      else
-        strlen = (unsigned)(end_ptr - start_ptr); // cast to unsigned since the negative and zero
-                                                  // case is handled by the if statement
+      strlen = (unsigned)(end_ptr - start_ptr); // cast to unsigned since the negative and zero
+                                                // case is handled by the if statement
       if (!found_root && strncmp(start_ptr, root, root_len) == 0) // search the root first
       {
         found_root = true;
@@ -208,6 +179,10 @@ int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
 
   case FTW_F: {
     FILE *fp = fopen(fpath, "r"); // read file to get the data
+    if (fp == NULL) {
+      piksi_log(LOG_ERR, "error opening %s : %s", fpath, strerror(errno));
+      return -1;
+    }
     char buf[64];
     long file_len_long = sb->st_size - 1;
     int file_len = (int)(sb->st_size - 1);
@@ -246,12 +221,10 @@ int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
   default: {
     piksi_log(LOG_ERR,
               "FTW: unexpected file type\n"); // For now, only support file and forlder
-    free(bname); // free the file name allocated under loop_through_folder_name()
     return -1;
   }
   }
 
-  free(bname); // free the file name allocated under loop_through_folder_name()
   return 0;
 }
 
@@ -278,7 +251,7 @@ static int parse_options(int argc, char *argv[])
   enum { OPT_ID_METRICS_PATH = 1 };
 
   const struct option long_opts[] = {
-    {"metrics_path", required_argument, 0, OPT_ID_METRICS_PATH},
+    {"path", required_argument, 0, OPT_ID_METRICS_PATH},
     {0, 0, 0, 0},
   };
 
@@ -307,38 +280,43 @@ static void run_routine_function(pk_loop_t *loop, void *timer_handle, void *cont
   (void)loop;
   (void)timer_handle;
   (void)context;
+//  piksi_log(LOG_ERR, "run_routine_function");
   write_metrics_to_file();
 }
 
 
 static int cleanup(int status)
 {
-  if (root_name != NULL) free(root_name);
   logging_deinit();
   sbp_deinit();
-  json_object_put(jobj_root);
+  /**
+   * Decrement the reference count of json_object and free if it reaches zero.
+   * You must have ownership of obj prior to doing this or you will cause an
+   * imbalance in the reference count.
+   * An obj of NULL may be passed; in that case this call is a no-op.
+   *
+   * @param obj the json_object instance
+   * @returns 1 if the object was freed.
+   */
+  if(json_object_put(jobj_root)!=1)
+	piksi_log(LOG_ERR, "failed to free json object");
   return status;
 }
 
-json_object *init_json_object(const char *path)
+json_object *init_json_object(const char *name)
 {
-  jobj_root = json_object_new_object();
-  jobj_cur = json_object_new_object();
-  char *bname = extract_filename(path); // for the file name, clearn it up in cleanup
-  root_length = sizeof(root_name);
-  root_name = bname;
-  json_object_object_add(jobj_root, bname, jobj_cur);
-  return jobj_root;
+  json_object *jobj = json_object_new_object();
+  json_object_object_add(jobj, name, json_object_new_object());
+  return jobj;
 }
 
 static int notify_log_settings_changed(void *context)
 {
   (void)context;
-
-  piksi_log(LOG_DEBUG | LOG_SBP, "Settings changed: enable_log_to_file = %d", enable_log_to_file);
+  piksi_log(LOG_DEBUG | LOG_SBP, "Settings changed: enable_log_to_file = %d metrics_update_interval = %d", enable_log_to_file, metrics_update_interval);
+  sbp_update_timer_interval(metrics_update_interval * METRICS_USAGE_UPDATE_INTERVAL_MS, run_routine_function);
   return 0;
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -349,8 +327,10 @@ int main(int argc, char *argv[])
     piksi_log(LOG_ERR, "invalid arguments");
     return cleanup(EXIT_FAILURE);
   }
-  jobj_root = init_json_object(metrics_path);
-
+  root_name = extract_filename(metrics_path); // for the file name, clearn it up in cleanup
+  root_length = strlen(root_name);
+  jobj_root = init_json_object(root_name);
+  assert(jobj_root != NULL);
   if (sbp_init(METRICS_USAGE_UPDATE_INTERVAL_MS, run_routine_function) != 0) {
     piksi_log(LOG_ERR | LOG_SBP, "Error initializing SBP!");
     return cleanup(EXIT_FAILURE);
@@ -364,6 +344,14 @@ int main(int argc, char *argv[])
                     &enable_log_to_file,
                     sizeof(enable_log_to_file),
                     SETTINGS_TYPE_BOOL,
+                    notify_log_settings_changed,
+                    NULL);
+  settings_register(settings_ctx,
+                    "metrics_daemon",
+                    "metrics_update_interval",
+                    &metrics_update_interval,
+                    sizeof(metrics_update_interval),
+                    SETTINGS_TYPE_INT,
                     notify_log_settings_changed,
                     NULL);
   sbp_run();

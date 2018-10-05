@@ -27,5 +27,5 @@ settings_ctx_t *sbp_get_settings_ctx(void);
 pk_loop_t *sbp_get_loop(void);
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);
 int sbp_run(void);
-
+int sbp_update_timer_interval(unsigned int timer_interval, pk_loop_cb callback);
 #endif /* SWIFTNAV_SBP_H */

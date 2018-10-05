@@ -13,11 +13,13 @@
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/loop.h>
 #include <libpiksi/logging.h>
-
+#include <uv.h>
 #include "sbp.h"
 
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
+
+static uv_timer_t *uv_timer = NULL;
 
 static struct {
   pk_loop_t *loop;
@@ -37,6 +39,17 @@ static void signal_cb(pk_loop_t *pk_loop, void *handle, void *context)
   pk_loop_stop(pk_loop);
 }
 
+int sbp_update_timer_interval(unsigned int timer_interval, pk_loop_cb callback)
+{
+  pk_loop_remove_handle(uv_timer);
+  uv_timer = pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL);
+  if (uv_timer == NULL) {
+    piksi_log(LOG_ERR, "Error adding timer!");
+    sbp_deinit();
+  }
+  return 0;
+}
+
 int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
 {
   ctx.loop = pk_loop_create();
@@ -49,7 +62,8 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
     goto failure;
   }
 
-  if (pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL) == NULL) {
+  uv_timer = pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL);
+  if (uv_timer == NULL) {
     piksi_log(LOG_ERR, "Error adding timer!");
     goto failure;
   }
