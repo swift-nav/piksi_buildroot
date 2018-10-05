@@ -28,7 +28,7 @@ void open_udp_broadcast_socket(udp_broadcast_context *udp_context,
 
 void close_udp_broadcast_socket(udp_broadcast_context *udp_context);
 
-u32 udp_write_callback(u8 *buf, u32 len, void *context);
+ssize_t udp_write_callback(u8 *buf, u32 len, void *context);
 void udp_flush_buffer(udp_broadcast_context *udp_context);
 
 #endif //_SWIFT_UDP_SOCKET_H
