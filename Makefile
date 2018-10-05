@@ -138,7 +138,7 @@ nano-clean:
 rebuild-changed: export BUILD_TEMP=/tmp SINCE=$(SINCE)
 rebuild-changed: _rebuild_changed
 
-REBUILD_CHANGED_IGNORE := release_lockdown|piksi_ins|sample_daemon|llvm_o|llvm_v
+REBUILD_CHANGED_IGNORE := release_lockdown|piksi_ins|sample_daemon|llvm_o|llvm_v|build_tools
 
 _rebuild_changed:
 	$(BUILD_ENV_ARGS) \
