@@ -279,6 +279,10 @@ clang-complete:
 clang-format:
 	@./scripts/run-clang-format
 
+docker-clang-format:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		./scripts/run-clang-format
+
 docker-make-sdk:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make sdk

@@ -2,13 +2,13 @@
 
 set -euo pipefail
 
-CLANG_FORMAT_BINARY=$(command -v clang-format)
-if [ -z "$CLANG_FORMAT_BINARY" ] ; then
+CLANG_FORMAT_BINARY=$(command -v clang-format || command -v "clang-format-5.0" || :)
+if [ -z "${CLANG_FORMAT_BINARY:-}" ] ; then
   echo "Failed to find clang-format binary in path: $PATH"
   exit 1
 fi
 CLANG_FORMAT_VERSION=$($CLANG_FORMAT_BINARY --version)
-if [[ "$CLANG_FORMAT_VERSION" == *"5.0"* ]]; then
+if [[ "$CLANG_FORMAT_VERSION" == *"5.0."* ]]; then
   echo "Formatting C/C++ Sources with $CLANG_FORMAT_VERSION"
 else
   echo "Incorrect formatter version ($CLANG_FORMAT_VERSION), expected 5.0"
