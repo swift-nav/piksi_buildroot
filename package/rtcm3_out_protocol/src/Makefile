@@ -1,6 +1,6 @@
 TARGET=librtcm3_out_protocol
 SOURCES=info_rtcm3_out.c
-CFLAGS=-std=gnu11 -fPIC
+CFLAGS+=-std=gnu11 -fPIC
 ARFLAGS=rcs $(LTO_PLUGIN)
 LDFLAGS=-shared
 

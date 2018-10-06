@@ -29,8 +29,8 @@
 
 bool rtcm3_debug = false;
 
-struct rtcm3_sbp_state rtcm3_sbp_state;
-struct rtcm3_out_state sbp_rtcm3_state;
+struct rtcm3_sbp_state rtcm3_to_sbp_state;
+struct rtcm3_out_state sbp_to_rtcm3_state;
 
 bool simulator_enabled_watch = false;
 
@@ -55,7 +55,7 @@ static void rtcm3_reader_handler(pk_loop_t *loop, void *handle, void *context)
   (void)loop;
   (void)handle;
   pk_endpoint_t *rtcm_sub_ept = (pk_endpoint_t *)context;
-  if (pk_endpoint_receive(rtcm_sub_ept, rtcm2sbp_decode_frame_shim, &rtcm3_sbp_state) != 0) {
+  if (pk_endpoint_receive(rtcm_sub_ept, rtcm2sbp_decode_frame_shim, &rtcm3_to_sbp_state) != 0) {
     piksi_log(LOG_ERR,
               "%s: error in %s (%s:%d): %s",
               __FUNCTION__,
@@ -115,7 +115,7 @@ static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   gps_time_sec_t gps_time;
   gps_time.tow = time->tow * 0.001;
   gps_time.wn = time->wn;
-  rtcm2sbp_set_gps_time(&gps_time, &rtcm3_sbp_state);
+  rtcm2sbp_set_gps_time(&gps_time, &rtcm3_to_sbp_state);
 }
 
 static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
@@ -148,8 +148,8 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
     leap_second = gps_tod + 86400 - utc_tod;
   }
 
-  rtcm2sbp_set_leap_second(leap_second, &rtcm3_sbp_state);
-  sbp2rtcm_set_leap_second(leap_second, &sbp_rtcm3_state);
+  rtcm2sbp_set_leap_second(leap_second, &rtcm3_to_sbp_state);
+  sbp2rtcm_set_leap_second(leap_second, &sbp_to_rtcm3_state);
 }
 
 static void ephemeris_glo_callback(u16 sender_id, u8 len, u8 msg[], void *context)
@@ -160,26 +160,26 @@ static void ephemeris_glo_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   msg_ephemeris_glo_t *e = (msg_ephemeris_glo_t *)msg;
 
   /* extract just the FCN field */
-  rtcm2sbp_set_glo_fcn(e->common.sid, e->fcn, &rtcm3_sbp_state);
-  sbp2rtcm_set_glo_fcn(e->common.sid, e->fcn, &sbp_rtcm3_state);
+  rtcm2sbp_set_glo_fcn(e->common.sid, e->fcn, &rtcm3_to_sbp_state);
+  sbp2rtcm_set_glo_fcn(e->common.sid, e->fcn, &sbp_to_rtcm3_state);
 }
 
 static void base_pos_ecef_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
-  sbp2rtcm_base_pos_ecef_cb(sender_id, len, msg, &sbp_rtcm3_state);
+  sbp2rtcm_base_pos_ecef_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
 }
 
 static void glo_bias_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
-  sbp2rtcm_glo_biases_cb(sender_id, len, msg, &sbp_rtcm3_state);
+  sbp2rtcm_glo_biases_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
 }
 
 static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
-  sbp2rtcm_sbp_obs_cb(sender_id, len, msg, &sbp_rtcm3_state);
+  sbp2rtcm_sbp_obs_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
 }
 
 static int notify_simulator_enable_changed(void *context)
@@ -205,10 +205,10 @@ int main(int argc, char *argv[])
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  /* Need to init rtcm3_sbp_state and sbp_rtcm3_state variables before
+  /* Need to init rtcm3_to_sbp_state and sbp_to_rtcm3_state variables before
      we get SBP in */
-  rtcm2sbp_init(&rtcm3_sbp_state, sbp_message_send, sbp_base_obs_invalid, NULL);
-  sbp2rtcm_init(&sbp_rtcm3_state, rtcm3_out_callback, NULL);
+  rtcm2sbp_init(&rtcm3_to_sbp_state, sbp_message_send, sbp_base_obs_invalid, NULL);
+  sbp2rtcm_init(&sbp_to_rtcm3_state, rtcm3_out_callback, NULL);
 
   if (sbp_init() != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
