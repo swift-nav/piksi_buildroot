@@ -24,7 +24,6 @@ int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
   return snprintf(buf,
                   buf_size,
                   "-f rtcm3 "
-                  "-p 'ipc:///var/run/sockets/rtcm3_external.sub' "
-                  "-s 'ipc:///var/run/sockets/rtcm3_external.pub'",
+                  "-p 'ipc:///var/run/sockets/rtcm3_external.sub'"
                   port_name);
 }
