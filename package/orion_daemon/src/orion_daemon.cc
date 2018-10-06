@@ -221,6 +221,8 @@ int main(int argc, char *argv[])
 
         uint8_t uuid[16];
 
+        std::string version;
+
         orion_proto::SbpFrame sbp_frame;
         while (!inactive() && streamer->Read(&sbp_frame)) {
           sbp_ctx.send(sbp_frame);
@@ -250,6 +252,12 @@ int main(int argc, char *argv[])
               uuid[13],
               uuid[14],
               uuid[15]);
+          }
+
+          if (version != sbp_frame.header().version()) {
+            version = sbp_frame.header().version();
+
+            piksi_log(LOG_INFO | LOG_SBP, "Version %s", version.c_str());
           }
         }
 

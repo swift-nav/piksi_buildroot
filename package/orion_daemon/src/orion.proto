@@ -22,6 +22,7 @@ message Header {
   Timestamp timestamp = 1;
   Uuid service_uid = 2;
   Uuid message_uid = 3;
+  string version = 4;
 }
 
 // SBP Frame representation.
