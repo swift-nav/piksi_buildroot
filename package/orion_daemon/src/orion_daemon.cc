@@ -43,6 +43,8 @@ static std::condition_variable condition;
 
 static std::mutex mutex;
 
+static uint32_t then;
+
 static bool active()
 {
   std::unique_lock<std::mutex> lock{mutex};
@@ -69,6 +71,15 @@ static int settings_callback(void *context)
 
 static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context)
 {
+  auto const msg_pos_llh = reinterpret_cast<const msg_pos_llh_t *>(payload);
+  if ((msg_pos_llh->flags & 0x7) == 0) {
+    return;
+  }
+  const uint32_t now = msg_pos_llh->tow / 1000;
+  if (now == then) {
+    return;
+  }
+  then = now;
   assert(context != nullptr);
   auto streamer =
     static_cast<grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *>(context);
