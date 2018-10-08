@@ -178,6 +178,7 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   /* Add a null termination to dirname */
   msg_[len] = 0;
 
+  DIR *dir;
   struct dirent *dirent;
   u32 offset = msg->offset;
   msg_fileio_read_dir_resp_t *reply = alloca(SBP_FRAMING_MAX_PAYLOAD_SIZE);
@@ -192,9 +193,15 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 			msg->dirname, path_validator_base_paths(g_pv_ctx));
     len = 0;
 
-  } else {
+    /* Check that directory exists */
+  } else if ((dir = opendir(msg->dirname)) == NULL) {
+    piksi_log(LOG_WARNING,
+              "Received FILEIO_READ_DIR request for path (%s) "
+              "which does not exist, ignoring...",
+              msg->dirname);
+    len = 0;
 
-    DIR *dir = opendir(msg->dirname);
+  } else {
     while (offset && (dirent = readdir(dir)))
       offset--;
 
