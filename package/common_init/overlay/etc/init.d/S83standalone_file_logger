@@ -1,8 +1,14 @@
 #!/bin/sh
+source /etc/init.d/common.sh
 
 name="standalone_file_logger"
 cmd="standalone_file_logger -d /media/sda1/ -s 'ipc:///var/run/sockets/external.pub'"
 dir="/"
 user="stndfl"
+
+# put user into extio group that has access to external io like sdcard / usb thumbdrive
+setup_permissions() {
+  add_user_to_group "stndfl" "extio"
+}
 
 source /etc/init.d/template_runsv.inc.sh

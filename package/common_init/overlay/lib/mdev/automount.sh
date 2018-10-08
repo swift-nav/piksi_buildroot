@@ -44,6 +44,10 @@ do_mount()
     rmdir $mountpoint
     exit 1
   fi
+  if ! chgrp extio $mountpoint ; then
+    loge "Unable to change group of mountpoint..."
+    exit 1
+  fi
 }
 
 if [[ -f /var/run/automount_disabled ]]; then
