@@ -188,11 +188,12 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
               path_validator_base_paths(g_pv_ctx));
     len = 0;
 
-  /* Check that directory exists */
+    /* Check that directory exists */
   } else if ((dir = opendir(msg->dirname)) == NULL) {
-    piksi_log(LOG_WARNING, "Received FILEIO_READ_DIR request for path (%s) "
-      "which does not exist, ignoring...",
-      msg->dirname);
+    piksi_log(LOG_WARNING,
+              "Received FILEIO_READ_DIR request for path (%s) "
+              "which does not exist, ignoring...",
+              msg->dirname);
     len = 0;
 
   } else {
