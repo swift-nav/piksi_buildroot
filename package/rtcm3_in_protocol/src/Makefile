@@ -1,5 +1,5 @@
-TARGET=librtcm3_protocol
-SOURCES=info_rtcm3.c framer_rtcm3.c
+TARGET=librtcm3_in_protocol
+SOURCES=info_rtcm3.c framer_rtcm3_in.c
 CFLAGS=-std=gnu11 -fPIC
 ARFLAGS=rcs $(LTO_PLUGIN)
 LDFLAGS=-shared
