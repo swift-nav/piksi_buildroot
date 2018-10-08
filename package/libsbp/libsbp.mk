@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-LIBSBP_VERSION = v2.4.1
+LIBSBP_VERSION = f158f4563fa7e69aa29030890a591ecaa6e2ab3e
 LIBSBP_SITE = https://github.com/swift-nav/libsbp
 LIBSBP_SITE_METHOD = git
 LIBSBP_INSTALL_STAGING = YES
