@@ -43,6 +43,8 @@ static std::condition_variable condition;
 
 static std::mutex mutex;
 
+static uint32_t then;
+
 static bool active()
 {
   std::unique_lock<std::mutex> lock{mutex};
@@ -69,6 +71,15 @@ static int settings_callback(void *context)
 
 static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context)
 {
+  auto const msg_pos_llh = reinterpret_cast<const msg_pos_llh_t *>(payload);
+  if ((msg_pos_llh->flags & 0x7) == 0) {
+    return;
+  }
+  const uint32_t now = msg_pos_llh->tow / 1000;
+  if (now == then) {
+    return;
+  }
+  then = now;
   assert(context != nullptr);
   auto streamer =
     static_cast<grpc::ClientReaderWriter<orion_proto::SbpFrame, orion_proto::SbpFrame> *>(context);
@@ -210,6 +221,8 @@ int main(int argc, char *argv[])
 
         uint8_t uuid[16];
 
+        std::string version;
+
         orion_proto::SbpFrame sbp_frame;
         while (!inactive() && streamer->Read(&sbp_frame)) {
           sbp_ctx.send(sbp_frame);
@@ -239,6 +252,12 @@ int main(int argc, char *argv[])
               uuid[13],
               uuid[14],
               uuid[15]);
+          }
+
+          if (version != sbp_frame.header().version()) {
+            version = sbp_frame.header().version();
+
+            piksi_log(LOG_INFO | LOG_SBP, "Version %s", version.c_str());
           }
         }
 

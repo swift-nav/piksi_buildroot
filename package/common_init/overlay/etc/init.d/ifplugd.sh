@@ -35,6 +35,8 @@ run_ifplugd()
   opts="$opts -t $poll_delay " # How often to poll the device
   opts="$opts -u $up_delay "   # How long to wait before running "up" script
   opts="$opts -d $down_delay " # How long to wait before running "down" script
+  opts="$opts -M "             # Monitor creation/destruction of interface
+                               # (otherwise it must exist)
 
   sudo ifplugd $opts
 }
