@@ -113,7 +113,7 @@ _setup_permissions()
 
 has_user()
 {
-  id -g $1 &>/dev/null
+  id -u $1 &>/dev/null
 }
 
 has_group()

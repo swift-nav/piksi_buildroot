@@ -5,7 +5,7 @@
 #############################################################
 
 define PIKSI_INS_USERS
-	piksi_ins -1 piksi_ins -1 * - - -
+	piksi_ins -1 devmem -1 * - - -
 endef
 
 ifeq      ($(BR2_HAS_PIKSI_INS),y)
