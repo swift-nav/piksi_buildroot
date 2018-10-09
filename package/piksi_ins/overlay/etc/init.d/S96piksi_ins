@@ -1,8 +1,10 @@
 #!/bin/sh
 
 name="PoseDaemon"
-cmd="PoseDaemon"
+cmd="start_pose_daemon"
 dir="/"
+# User is set to piksi_ins in the start_pose_daemon wrapper since we
+#   need to process things with nap_wrap before launching.
 user=""
 
 LICENSES_DIR=/persistent/licenses

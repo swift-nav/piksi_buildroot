@@ -5,7 +5,7 @@
 #############################################################
 
 define PIKSI_INS_USERS
-	piksi_ins -1 piksi_ins -1 * - - -
+	piksi_ins -1 devmem -1 * - - -
 endef
 
 ifeq      ($(BR2_HAS_PIKSI_INS),y)
@@ -23,8 +23,16 @@ PIKSI_INS_SITE = git@github.com:carnegieroboticsllc/piksi_ins.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_INSTALL_STAGING = YES
 PIKSI_INS_INSTALL_TARGET = YES
-PIKSI_INS_DEPENDENCIES = libuv libsbp libpiksi eigen
+PIKSI_INS_DEPENDENCIES = libuv libsbp libpiksi eigen host-build_tools
+
 BR2_ROOTFS_OVERLAY += "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/overlay"
+
+define PIKSI_INS_POST_INSTALL
+	"${BR2_EXTERNAL_piksi_buildroot_PATH}/package/build_tools/install_wrapper.sh" \
+		$(HOST_DIR) $(@D) $(TARGET_DIR)
+endef
+
+PIKSI_INS_POST_INSTALL_TARGET_HOOKS += PIKSI_INS_POST_INSTALL
 
 $(eval $(cmake-package))
 
