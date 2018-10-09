@@ -1,2 +1,0 @@
-config BR2_PACKAGE_RTCM3_PROTOCOL
-	bool "rtcm3_protocol"

@@ -25,12 +25,16 @@
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
 #define RTCM3_SUB_ENDPOINT "ipc:///var/run/sockets/rtcm3_internal.pub" /* RTCM3 Internal Out */
+#define RTCM3_PUB_ENDPOINT "ipc:///var/run/sockets/rtcm3_internal.sub" /* RTCM3 Internal In */
 
 bool rtcm3_debug = false;
 
-struct rtcm3_sbp_state state;
+struct rtcm3_sbp_state rtcm3_to_sbp_state;
+struct rtcm3_out_state sbp_to_rtcm3_state;
 
 bool simulator_enabled_watch = false;
+
+pk_endpoint_t *rtcm3_pub = NULL;
 
 static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void *context)
 {
@@ -38,12 +42,20 @@ static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void 
   return 0;
 }
 
+static void rtcm3_out_callback(u8 *buffer, u8 length, void *context)
+{
+  (void)context;
+  if (pk_endpoint_send(rtcm3_pub, buffer, length) != 0) {
+    piksi_log(LOG_ERR, "Error sending rtcm3 message to rtcm3_internal");
+  }
+}
+
 static void rtcm3_reader_handler(pk_loop_t *loop, void *handle, void *context)
 {
   (void)loop;
   (void)handle;
   pk_endpoint_t *rtcm_sub_ept = (pk_endpoint_t *)context;
-  if (pk_endpoint_receive(rtcm_sub_ept, rtcm2sbp_decode_frame_shim, &state) != 0) {
+  if (pk_endpoint_receive(rtcm_sub_ept, rtcm2sbp_decode_frame_shim, &rtcm3_to_sbp_state) != 0) {
     piksi_log(LOG_ERR,
               "%s: error in %s (%s:%d): %s",
               __FUNCTION__,
@@ -103,7 +115,7 @@ static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   gps_time_sec_t gps_time;
   gps_time.tow = time->tow * 0.001;
   gps_time.wn = time->wn;
-  rtcm2sbp_set_gps_time(&gps_time, &state);
+  rtcm2sbp_set_gps_time(&gps_time, &rtcm3_to_sbp_state);
 }
 
 static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
@@ -136,7 +148,8 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
     leap_second = gps_tod + 86400 - utc_tod;
   }
 
-  rtcm2sbp_set_leap_second(leap_second, &state);
+  rtcm2sbp_set_leap_second(leap_second, &rtcm3_to_sbp_state);
+  sbp2rtcm_set_leap_second(leap_second, &sbp_to_rtcm3_state);
 }
 
 static void ephemeris_glo_callback(u16 sender_id, u8 len, u8 msg[], void *context)
@@ -147,7 +160,26 @@ static void ephemeris_glo_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   msg_ephemeris_glo_t *e = (msg_ephemeris_glo_t *)msg;
 
   /* extract just the FCN field */
-  rtcm2sbp_set_glo_fcn(e->common.sid, e->fcn, &state);
+  rtcm2sbp_set_glo_fcn(e->common.sid, e->fcn, &rtcm3_to_sbp_state);
+  sbp2rtcm_set_glo_fcn(e->common.sid, e->fcn, &sbp_to_rtcm3_state);
+}
+
+static void base_pos_ecef_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)context;
+  sbp2rtcm_base_pos_ecef_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+}
+
+static void glo_bias_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)context;
+  sbp2rtcm_glo_biases_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+}
+
+static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)context;
+  sbp2rtcm_sbp_obs_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
 }
 
 static int notify_simulator_enable_changed(void *context)
@@ -173,11 +205,19 @@ int main(int argc, char *argv[])
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  /* Need to init state variable before we get SBP in */
-  rtcm2sbp_init(&state, sbp_message_send, sbp_base_obs_invalid, NULL);
+  /* Need to init rtcm3_to_sbp_state and sbp_to_rtcm3_state variables before
+     we get SBP in */
+  rtcm2sbp_init(&rtcm3_to_sbp_state, sbp_message_send, sbp_base_obs_invalid, NULL);
+  sbp2rtcm_init(&sbp_to_rtcm3_state, rtcm3_out_callback, NULL);
 
   if (sbp_init() != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
+    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
+  }
+
+  rtcm3_pub = pk_endpoint_create(RTCM3_PUB_ENDPOINT, PK_ENDPOINT_PUB);
+  if (rtcm3_pub == NULL) {
+    piksi_log(LOG_ERR, "error creating PUB socket");
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
@@ -213,6 +253,21 @@ int main(int argc, char *argv[])
   }
   if (sbp_callback_register(SBP_MSG_EPHEMERIS_GLO, ephemeris_glo_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting EPHEMERIS GLO callback");
+    return cleanup(&rtcm3_sub, EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_BASE_POS_ECEF, base_pos_ecef_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting base pos ECEF callback");
+    return cleanup(&rtcm3_sub, EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_GLO_BIASES, glo_bias_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting GLO bias callback callback");
+    return cleanup(&rtcm3_sub, EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_OBS, obs_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting obs callback callback");
     return cleanup(&rtcm3_sub, EXIT_FAILURE);
   }
 
