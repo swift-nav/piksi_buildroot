@@ -57,7 +57,7 @@ enc_wrap_file()
   local the_file=$1; shift
 
   case $the_file in
-  local_pose_playback|*.a)
+  */local_pose_playback|*.a)
     echo "Removing unecessary file: ${the_file}..."
     rm -v "${target_dir}/${the_file}"
     ;;
