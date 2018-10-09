@@ -216,6 +216,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x21, 0x02] } # MSG_ORIENT_EULER  **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x22, 0x02] } # MSG_ANGULAR_RATE  **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x01, 0x04] } # MSG_LOG           **Smoothpose Change**
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0xFF] } # MSG_INS_STATUS    **Smoothpose Change**
           - { action: REJECT }
       - dst_port: SBP_PORT_NMEA_BRIDGE
         filters:
