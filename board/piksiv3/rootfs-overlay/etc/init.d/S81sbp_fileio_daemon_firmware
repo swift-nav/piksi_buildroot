@@ -1,5 +1,6 @@
 #!/bin/sh
 
+FLAG_DIR="/persistent/flags/"
 NDB_DIR="/persistent/ndb/"
 MTD_FILE="/factory/mtd"
 
@@ -12,6 +13,7 @@ setup_permissions()
 {
   configure_file_resource $user $MTD_FILE 0640
   configure_dir_resource_rec $user $NDB_DIR 0755 0644
+  configure_dir_resource_rec $user $FLAG_DIR 0444
 }
 
 source /etc/init.d/template_runsv.inc.sh
