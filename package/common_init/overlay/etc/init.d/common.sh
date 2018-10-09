@@ -113,15 +113,28 @@ _setup_permissions()
 
 has_user()
 {
-  id -u $1 &>/dev/null;
+  id -u $1 &>/dev/null
+}
+
+has_group()
+{
+  grep -q $1 /etc/group
 }
 
 add_service_user()
 {
   local user=$1; shift
 
-  has_user $user || addgroup -S $user
-  has_user $user || adduser -S -D -H -G $user $user
+  add_service_user2 $user $user
+}
+
+add_service_user2()
+{
+  local user=$1; shift
+  local group=$1; shift
+
+  has_group $user || addgroup -S $group
+  has_user $user || adduser -S -D -H -G $group $user
 }
 
 _release_lockdown=/etc/release_lockdown

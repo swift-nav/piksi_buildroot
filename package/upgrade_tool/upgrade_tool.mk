@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-UPGRADE_TOOL_VERSION = v2.2.1
+UPGRADE_TOOL_VERSION = v2.2.4
 UPGRADE_TOOL_PREFIX = piksi_upgrade_tool
 UPGRADE_TOOL_ASSET = piksi_upgrade_tool.tgz
 UPGRADE_TOOL_S3 = $(call pbr_s3_url,$(UPGRADE_TOOL_PREFIX),$(UPGRADE_TOOL_VERSION),$(UPGRADE_TOOL_ASSET))

@@ -1,0 +1,34 @@
+#!/bin/sh
+
+key_index=1
+
+b=/usr/bin
+l=/usr/lib
+
+## Setup limited root privileges (capabilities):
+##
+##  - cap_ipc_lock allows is to run mmap on a region outside of it's virtual memory
+##    (see http://man7.org/linux/man-pages/man7/capabilities.7.html section CAP_IPC_LOCK)
+##
+##  - cap_sys_rawio allows it to open /dev/mem
+##    (see http://man7.org/linux/man-pages/man7/capabilities.7.html section CAP_SYS_RAWIO)
+##
+##  - the +ep piece means: (+) additive to existing capabilities; (e) make the 
+##    capabilities part of the "effective" set (meaning they're on) and (p) 
+##    make the capabilities part of "permitted" set (meaning they're allowed
+##    to be toggled on the process).
+caps="cap_ipc_lock,cap_sys_rawio+ep"
+
+user=piksi_ins
+group=devmem
+
+nap_wrap --key-index $key_index \
+  --input-file $b/PoseDaemon.enc --output-file $b/PoseDaemon \
+  --permissions 0755 --capabilities "$caps" \
+  --input-file $l/libcrlpose2.so.enc --output-file $l/libcrlpose2.so \
+  --permissions 0644 --capabilities "" \
+  --input-file $l/libaes256.so.enc --output-file $l/libaes256.so \
+  --permissions 0644 --capabilities "" \
+  -- \
+  chpst -u $user:$group \
+  /usr/bin/PoseDaemon
