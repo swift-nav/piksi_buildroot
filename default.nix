@@ -54,6 +54,7 @@ let
     vim
     wget
     which
+    valgrind
     xz
     zlib
   ];
