@@ -22,6 +22,8 @@
 #ifndef LIBPIKSI_SETTINGS_H
 #define LIBPIKSI_SETTINGS_H
 
+#include <libsettings/settings_register.h>
+
 #include <libpiksi/common.h>
 #include <libpiksi/sbp_rx.h>
 
@@ -29,34 +31,17 @@
 extern "C" {
 #endif
 
-/**
- * @brief   Settings type.
- */
-typedef int settings_type_t;
+typedef struct settings_ctx_s settings_ctx_t;
+
+typedef bool (*handle_command_fn)();
 
 /**
- * @brief   Standard settings type definitions.
+ * @brief   Registers settings with the given context.
+ *
+ * @details Intended to be used with @c settings_loop to register the settings
+ *          that the loop will be responsible for.
  */
-enum {
-  SETTINGS_TYPE_INT,    /**< Integer. 8, 16, or 32 bits.                   */
-  SETTINGS_TYPE_FLOAT,  /**< Float. Single or double precision.            */
-  SETTINGS_TYPE_STRING, /**< String.                                       */
-  SETTINGS_TYPE_BOOL,   /**< Boolean.                                      */
-};
-
-/**
- * @brief Settings error codes
- */
-enum {
-  SBP_SETTINGS_WRITE_STATUS_OK = 0,               /**< Setting written               */
-  SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED = 1,   /**< Setting value invalid         */
-  SBP_SETTINGS_WRITE_STATUS_SETTING_REJECTED = 2, /**< Setting does not exist        */
-  SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED = 3,     /**< Could not parse setting value */
-  // READ_ONLY:MODIFY_DISABLED ~= Permanent:Temporary
-  SBP_SETTINGS_WRITE_STATUS_READ_ONLY = 4,       /**< Setting is read only          */
-  SBP_SETTINGS_WRITE_STATUS_MODIFY_DISABLED = 5, /**< Setting is not modifiable     */
-  SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED = 6,  /**< System failure during setting */
-};
+typedef void (*register_settings_fn)(settings_ctx_t *ctx);
 
 /**
  * @brief Called when a settings loop terminates (from an signal handler).
@@ -69,48 +54,23 @@ typedef void (*settings_term_fn)(void);
 typedef void (*settings_child_fn)(void);
 
 /**
- * @brief   Settings notify callback.
- * @details Signature of a user-provided callback function to be executed
- *          after a setting value is updated.
+ * @brief   Create a settings context.
+ * @details Create and initialize a settings context.
  *
- * @note    The setting value will be updated _before_ the callback is executed.
- *          If the callback returns an error, the setting value will be
- *          reverted to the previous value.
- *
- * @param[in] context       Pointer to the user-provided context.
- *
- * @return                  The operation result.
- * @retval 0                Success. The updated setting value is acceptable.
- * @retval -1               The updated setting value should be reverted.
+ * @return                  Pointer to the created context, or NULL if the
+ *                          operation failed.
  */
-typedef int (*settings_notify_fn)(void *context);
+settings_ctx_t *settings_create(void);
 
 /**
- * @struct  settings_ctx_t
+ * @brief   Destroy a settings context.
+ * @details Deinitialize and destroy a settings context.
  *
- * @brief   Opaque context for settings.
+ * @note    The context pointer will be set to NULL by this function.
+ *
+ * @param[inout] ctx        Double pointer to the context to destroy.
  */
-typedef struct settings_ctx_s settings_ctx_t;
-
-/**
- * @brief Parse a setting message to obtain the section, name and value
- *
- * @param[in] msg          raw sbp message
- * @param[in] msg_n        length of sbp message
- *
- * @param[out] section     reference to location of section string in message
- * @param[out] name        reference to location of name string in message
- * @param[out] value       reference to location of value string in message
- *
- * @return                 The operation result.
- * @retval 0               Parsing operation successful
- * @retval -1              An error occurred.
- */
-int setting_parse_setting_text(const u8 *msg,
-                               u8 msg_n,
-                               const char **section,
-                               const char **name,
-                               const char **value);
+void settings_destroy(settings_ctx_t **ctx);
 
 /**
  * @brief   Create a settings context.
@@ -147,7 +107,7 @@ void settings_destroy(settings_ctx_t **ctx);
  * @retval -1               An error occurred.
  */
 int settings_type_register_enum(settings_ctx_t *ctx,
-                                const char *const enum_names[],
+                                const char * const enum_names[],
                                 settings_type_t *type);
 
 /**
@@ -172,13 +132,9 @@ int settings_type_register_enum(settings_ctx_t *ctx,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_register(settings_ctx_t *ctx,
-                      const char *section,
-                      const char *name,
-                      void *var,
-                      size_t var_len,
-                      settings_type_t type,
-                      settings_notify_fn notify,
+int settings_register(settings_ctx_t *ctx, const char *section,
+                      const char *name, void *var, size_t var_len,
+                      settings_type_t type, settings_notify_fn notify,
                       void *notify_context);
 
 /**
@@ -197,12 +153,9 @@ int settings_register(settings_ctx_t *ctx,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_register_readonly(settings_ctx_t *ctx,
-                               const char *section,
-                               const char *name,
-                               const void *var,
-                               size_t var_len,
-                               settings_type_t type);
+int settings_register_readonly(settings_ctx_t *ctx, const char *section,
+                               const char *name, const void *var,
+                               size_t var_len, settings_type_t type);
 
 /**
  * @brief   Create and add a watch only setting.
@@ -223,44 +176,10 @@ int settings_register_readonly(settings_ctx_t *ctx,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_add_watch(settings_ctx_t *ctx,
-                       const char *section,
-                       const char *name,
-                       void *var,
-                       size_t var_len,
-                       settings_type_t type,
-                       settings_notify_fn notify,
+int settings_add_watch(settings_ctx_t *ctx, const char *section,
+                       const char *name, void *var, size_t var_len,
+                       settings_type_t type, settings_notify_fn notify,
                        void *notify_context);
-
-/**
- * @brief   Attach settings context to Piksi loop.
- * @details Attach settings context to Piksi loop. Settings rx callbacks
- *          will be executed to process pending messages when available.
- *
- * @param[in] ctx           Pointer to the context to use.
- * @param[in] pk_loop       Pointer to the Piksi loop to use.
- *
- * @return                  The operation result.
- * @retval 0                The settings reader was attached successfully.
- * @retval -1               An error occurred.
- */
-int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop);
-
-/**
- * @brief   Registers settings with the given context.
- *
- * @details Intended to be used with @c settings_loop to register the settings
- *          that the loop will be responsible for.
- */
-typedef void (*register_settings_fn)(settings_ctx_t *ctx);
-
-/**
- * @brief   Handles a control message for a @c settings_loop
- *
- * @details Intended to be used with @c settings_loop, this function is called
- *          when the control command for the loop is received.
- */
-typedef bool (*handle_command_fn)();
 
 /**
  * @brief   Start a settings loop with a control sock.
@@ -311,6 +230,20 @@ bool settings_loop(const char *metrics_ident,
  * @retval -1               An error occurred
  */
 bool settings_loop_simple(const char *metrics_ident, register_settings_fn do_register_settings);
+
+/**
+ * @brief   Attach settings context to Piksi loop.
+ * @details Attach settings context to Piksi loop. Settings rx callbacks
+ *          will be executed to process pending messages when available.
+ *
+ * @param[in] ctx           Pointer to the context to use.
+ * @param[in] pk_loop       Pointer to the Piksi loop to use.
+ *
+ * @return                  The operation result.
+ * @retval 0                The settings reader was attached successfully.
+ * @retval -1               An error occurred.
+ */
+int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop);
 
 /**
  * @brief   Send a control command to a running settings daemon
