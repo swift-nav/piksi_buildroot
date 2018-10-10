@@ -141,12 +141,12 @@ bool file_read_value(char *file_path)
   return ('1' == val_char[0]);
 }
 
-int file_write_string(const char *filename, const char *str)
+bool file_write_string(const char *filename, const char *str)
 {
   FILE *fp = fopen(filename, "w");
   if (fp == NULL) {
-    piksi_log(LOG_ERR, "error opening %s", filename);
-    return -1;
+    piksi_log(LOG_ERR, "error opening %s: %s", filename, strerror(errno));
+    return false;
   }
 
   bool success = (fputs(str, fp) != NULL);
@@ -154,29 +154,28 @@ int file_write_string(const char *filename, const char *str)
   fclose(fp);
 
   if (!success) {
-    piksi_log(LOG_ERR, "error reading %s", filename);
-    return -1;
+    piksi_log(LOG_ERR, "error reading %s: %s", filename, strerror(errno));
+    return false;
   }
 
-  return 0;
+  return true;
 }
 
-int file_append_string(const char *filename, const char *str)
+bool file_append_string(const char *filename, const char *str)
 {
   FILE *fp = fopen(filename, "w+");
   if (fp == NULL) {
-    piksi_log(LOG_ERR, "error opening %s", filename);
-    return -1;
+    piksi_log(LOG_ERR, "error opening %s: %s", filename, strerror(errno));
+    return false;
   }
   bool success = (fprintf(fp, "%s\n", str) > 0);
   fclose(fp);
   if (!success) {
-    piksi_log(LOG_ERR, "error writing %s", filename);
-    return -1;
+    piksi_log(LOG_ERR, "error writing %s: %s", filename, strerror(errno));
+    return false;
   }
-  return 0;
+  return true;
 }
-
 
 u16 sbp_sender_id_get(void)
 {

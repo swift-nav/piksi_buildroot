@@ -166,19 +166,19 @@ bool file_read_value(char *file_path);
 
 /**
  * @brief   Write string to file
- * @details This function write string to the specified file name
+ * @details This function writes string to the specified file name
  *
- * @return  Returns -1 if failed, 0 otherwise
+ * @return  Returns false if failed, true otherwise
  */
-int file_write_string(const char *filename, const char *str);
+bool file_write_string(const char *filename, const char *str);
 
 /**
  * @brief   Append string to file
- * @details This function append string to the end of specified file name
+ * @details This function appends string to the end of specified file name
  *
- * @return  Returns -1 if failed, 0 otherwise
+ * @return  Returns false if failed, true otherwise
  */
-int file_append_string(const char *filename, const char *str);
+bool file_append_string(const char *filename, const char *str);
 
 typedef void (*child_exit_fn_t)(pid_t pid);
 

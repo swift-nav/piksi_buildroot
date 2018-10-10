@@ -21,7 +21,7 @@
 #include <libpiksi/util.h>
 #include <libpiksi/settings.h>
 #include "sbp.h"
-
+#include "metrics_daemon.h"
 #define PROGRAM_NAME "metrics_daemon"
 
 #define METRICS_ROOT_DIRECTORY "/var/log/metrics"
@@ -29,7 +29,6 @@
 #define METRICS_USAGE_UPDATE_INTERVAL_MS (1000u)
 
 #define MAX_FOLDER_NAME_LENGTH 64
-static json_object *jobj_root = NULL;
 static json_object *jobj_cur = NULL;
 static char *root_name = NULL;
 static unsigned int root_length = 0;
@@ -37,10 +36,8 @@ static bool first_folder = true;
 static char *target_file = METRICS_OUTPUT_FILENAME;
 const char *metrics_path = METRICS_ROOT_DIRECTORY;
 static bool enable_log_to_file = false;
-static unsigned int metrics_update_interval = 1;   // 1Hz
+static unsigned int metrics_update_interval = 1; // 1Hz
 
-int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
-json_object *init_json_object(const char *path);
 
 /**
  * @brief function updates json to file
@@ -48,7 +45,7 @@ json_object *init_json_object(const char *path);
  * @param root       pointer to the root of json object
  * @param file_name  file to write to
  */
-static int write_json_to_file(struct json_object *root, const char *file_path)
+static bool write_json_to_file(struct json_object *root, const char *file_path)
 {
   return file_append_string(file_path, json_object_to_json_string(root));
 }
@@ -241,8 +238,7 @@ static void write_metrics_to_file()
     return;
   }
   if (enable_log_to_file) {
-    if (write_json_to_file(jobj_root, target_file) == -1)
-      piksi_log(LOG_ERR, "Failed to write to file");
+    if (!write_json_to_file(jobj_root, target_file)) piksi_log(LOG_ERR, "Failed to write to file");
   }
 }
 
@@ -280,7 +276,7 @@ static void run_routine_function(pk_loop_t *loop, void *timer_handle, void *cont
   (void)loop;
   (void)timer_handle;
   (void)context;
-//  piksi_log(LOG_ERR, "run_routine_function");
+  //  piksi_log(LOG_ERR, "run_routine_function");
   write_metrics_to_file();
 }
 
@@ -298,23 +294,25 @@ static int cleanup(int status)
    * @param obj the json_object instance
    * @returns 1 if the object was freed.
    */
-  if(json_object_put(jobj_root)!=1)
-	piksi_log(LOG_ERR, "failed to free json object");
+  if (json_object_put(jobj_root) != 1) piksi_log(LOG_ERR, "failed to free json object");
   return status;
 }
 
-json_object *init_json_object(const char *name)
+void init_json_object(const char *name)
 {
-  json_object *jobj = json_object_new_object();
-  json_object_object_add(jobj, name, json_object_new_object());
-  return jobj;
+  jobj_root = json_object_new_object();
+  json_object_object_add(jobj_root, name, json_object_new_object());
 }
 
 static int notify_log_settings_changed(void *context)
 {
   (void)context;
-  piksi_log(LOG_DEBUG | LOG_SBP, "Settings changed: enable_log_to_file = %d metrics_update_interval = %d", enable_log_to_file, metrics_update_interval);
-  sbp_update_timer_interval(metrics_update_interval * METRICS_USAGE_UPDATE_INTERVAL_MS, run_routine_function);
+  piksi_log(LOG_DEBUG | LOG_SBP,
+            "Settings changed: enable_log_to_file = %d metrics_update_interval = %d",
+            enable_log_to_file,
+            metrics_update_interval);
+  sbp_update_timer_interval(metrics_update_interval * METRICS_USAGE_UPDATE_INTERVAL_MS,
+                            run_routine_function);
   return 0;
 }
 
@@ -329,7 +327,7 @@ int main(int argc, char *argv[])
   }
   root_name = extract_filename(metrics_path); // for the file name, clearn it up in cleanup
   root_length = (unsigned int)strlen(root_name);
-  jobj_root = init_json_object(root_name);
+  init_json_object(root_name);
   assert(jobj_root != NULL);
   if (sbp_init(METRICS_USAGE_UPDATE_INTERVAL_MS, run_routine_function) != 0) {
     piksi_log(LOG_ERR | LOG_SBP, "Error initializing SBP!");

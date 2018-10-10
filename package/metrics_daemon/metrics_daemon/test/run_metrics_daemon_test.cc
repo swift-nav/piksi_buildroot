@@ -20,10 +20,9 @@
 #include "metrics_daemon.h"
 #include "sbp.h"
 #include <ftw.h>
-
+extern json_object *jobj_root;
 extern int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
-extern json_object *init_json_object(const char *path);
-
+extern void init_json_object(const char *path);
 #define PROGRAM_NAME "metrics_daemon"
 class MetricsDaemonTests : public ::testing::Test {
 };
@@ -52,16 +51,15 @@ TEST_F(MetricsDaemonTests, empty_ini_field)
   // current directory tree: folder_layer_2->folder_layer_3->file_layer4
   //                                       ->abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc->double_data
 
-  json_object *jobj_test = init_json_object(metrics_path);
+  init_json_object(metrics_path);
 
   // variable initialization is identical to the code define in main()
 
 
   int ret = ftw(metrics_path, handle_walk_path, 20);
   ASSERT_NE(ret, -1); // test case 1: no error reported during traverse directory
-
   //  json_object * jobj_test = jobj_root;
-  json_object_object_foreach(jobj_test, key, val)
+  json_object_object_foreach(jobj_root, key, val)
   {
     if (strcmp(key, "folder_layer_3") == 0) {
       json_object *jobj_test_1 = val;
@@ -69,7 +67,7 @@ TEST_F(MetricsDaemonTests, empty_ini_field)
       {
         if (strcmp(key2, "file_layer4") == 0) // test case 2: empty file generate a json_null node
         {
-          ASSERT_EQ(json_object_is_type(val, json_type_null), true);
+          ASSERT_EQ(json_object_is_type(val2, json_type_null), true);
         }
       }
     } else if (
@@ -91,27 +89,38 @@ TEST_F(MetricsDaemonTests, empty_ini_field)
     }
   }
 
-
-  // below is the json-c documentation for function json_object_equal
-  // /** Check if two json_object's are equal
-  // *
-  // * If the passed objects are equal 1 will be returned.
-  // * Equality is defined as follows:
-  // * - json_objects of different types are never equal
-  // * - json_objects of the same primitive type are equal if the
-  // *   c-representation of their value is equal
-  // * - json-arrays are considered equal if all values at the same
-  // *   indices are equal (same order)
-  // * - Complex json_objects are considered equal if all
-  // *   contained objects referenced by their key are equal,
-  // *   regardless their order.
-  // *
-  // * @param obj1 the first json_object instance
-  // * @param obj2 the second json_object instance
-  // * @returns whether both objects are equal or not
-  // */
   system("rm -rf /folder_layer_1");
-  json_object_put(jobj_test);
+  json_object_put(jobj_root);
+
+
+  int tflag = FTW_D;
+  struct stat sb;
+  const char *folder_path = "/folder_layer_1/folder_layer_2/folder3";
+
+  init_json_object(metrics_path);
+  handle_walk_path(folder_path, &sb, tflag);
+  json_object_object_foreach(jobj_root, key3, val3)
+  {
+    if (strcmp(key, "folder3")
+        == 0) // test case 5: simulate a folder and verify it generates a json_type_object node
+    {
+      ASSERT_EQ(json_object_is_type(val3, json_type_object), true);
+    }
+  }
+
+  tflag = FTW_F;
+  sb.st_size = 0;
+  const char *file_path = "/folder_layer_1/folder_layer_2/file3";
+  handle_walk_path(folder_path, &sb, tflag);
+  json_object_object_foreach(jobj_root, key4, val4)
+  {
+    if (strcmp(key, "file3") == 0) // test case 6: empty file generate a json_null node
+    {
+      ASSERT_EQ(json_object_is_type(val4, json_type_null), true);
+    }
+  }
+
+  json_object_put(jobj_root);
 }
 
 int main(int argc, char **argv)
