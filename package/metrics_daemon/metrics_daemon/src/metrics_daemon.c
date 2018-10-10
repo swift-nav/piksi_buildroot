@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
     return cleanup(EXIT_FAILURE);
   }
   root_name = extract_filename(metrics_path); // for the file name, clearn it up in cleanup
-  root_length = strlen(root_name);
+  root_length = (unsigned int)strlen(root_name);
   jobj_root = init_json_object(root_name);
   assert(jobj_root != NULL);
   if (sbp_init(METRICS_USAGE_UPDATE_INTERVAL_MS, run_routine_function) != 0) {
