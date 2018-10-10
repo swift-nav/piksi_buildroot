@@ -20,10 +20,13 @@
 #include "metrics_daemon.h"
 #include "sbp.h"
 #include <ftw.h>
+
 extern json_object *jobj_root;
 extern int handle_walk_path(const char *fpath, const struct stat *sb, int tflag);
 extern void init_json_object(const char *path);
+
 #define PROGRAM_NAME "metrics_daemon"
+
 class MetricsDaemonTests : public ::testing::Test {
 };
 
@@ -58,7 +61,6 @@ TEST_F(MetricsDaemonTests, empty_ini_field)
 
   int ret = ftw(metrics_path, handle_walk_path, 20);
   ASSERT_NE(ret, -1); // test case 1: no error reported during traverse directory
-  //  json_object * jobj_test = jobj_root;
   json_object_object_foreach(jobj_root, key, val)
   {
     if (strcmp(key, "folder_layer_3") == 0) {
@@ -101,7 +103,7 @@ TEST_F(MetricsDaemonTests, empty_ini_field)
   handle_walk_path(folder_path, &sb, tflag);
   json_object_object_foreach(jobj_root, key3, val3)
   {
-    if (strcmp(key, "folder3")
+    if (strcmp(key3, "folder3")
         == 0) // test case 5: simulate a folder and verify it generates a json_type_object node
     {
       ASSERT_EQ(json_object_is_type(val3, json_type_object), true);
@@ -114,7 +116,7 @@ TEST_F(MetricsDaemonTests, empty_ini_field)
   handle_walk_path(folder_path, &sb, tflag);
   json_object_object_foreach(jobj_root, key4, val4)
   {
-    if (strcmp(key, "file3") == 0) // test case 6: empty file generate a json_null node
+    if (strcmp(key4, "file3") == 0) // test case 6: empty file generate a json_null node
     {
       ASSERT_EQ(json_object_is_type(val4, json_type_null), true);
     }

@@ -30,6 +30,7 @@
 
 #define MAX_FOLDER_NAME_LENGTH 64
 static json_object *jobj_cur = NULL;
+json_object *jobj_root = NULL;
 static char *root_name = NULL;
 static unsigned int root_length = 0;
 static bool first_folder = true;
@@ -181,10 +182,9 @@ int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
       return -1;
     }
     char buf[64];
-    long file_len_long = sb->st_size - 1;
     int file_len = (int)(sb->st_size - 1);
     double number = 0.0;
-    if (file_len < 64 && file_len_long > 0) {
+    if (file_len < 64 && file_len > 0) {
       fread(&buf[0], (unsigned int)file_len, 1, fp);
       number = atof(&buf[0]);
     } else {
