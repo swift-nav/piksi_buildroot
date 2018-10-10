@@ -10,7 +10,7 @@ user="metricsd"
 
 setup_permissions()	
 {	
-  configure_file_resource $user $METRICS_OUTPUT_FILE 0640	
+  configure_file_resource $user $METRICS_OUTPUT_FILE 0644	
   configure_dir_resource $user $METRICS_DIR 1777	
 }
 

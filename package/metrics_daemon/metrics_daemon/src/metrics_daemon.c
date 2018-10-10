@@ -9,13 +9,13 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
-
+#define _GNU_SOURCE
 #include <getopt.h>
 #include <string.h>
 #include <unistd.h>
 #include <ftw.h>
 #include <json-c/json.h>
-#include <libgen.h>
+#include <string.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/util.h>
@@ -34,10 +34,10 @@ json_object *jobj_root = NULL;
 static char *root_name = NULL;
 static unsigned int root_length = 0;
 static bool first_folder = true;
-static char *target_file = METRICS_OUTPUT_FILENAME;
-const char *metrics_path = METRICS_ROOT_DIRECTORY;
+static const char *target_file = METRICS_OUTPUT_FILENAME;
+static const char *metrics_path = METRICS_ROOT_DIRECTORY;
 static bool enable_log_to_file = false;
-static unsigned int metrics_update_interval = 1; // 1Hz
+static unsigned int metrics_update_interval = 1;
 
 
 /**
@@ -276,7 +276,6 @@ static void run_routine_function(pk_loop_t *loop, void *timer_handle, void *cont
   (void)loop;
   (void)timer_handle;
   (void)context;
-  //  piksi_log(LOG_ERR, "run_routine_function");
   write_metrics_to_file();
 }
 
