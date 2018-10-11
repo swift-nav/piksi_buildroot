@@ -22,7 +22,8 @@
 #include <ftw.h>
 
 extern json_object *jobj_root;
-
+extern char *root_name;
+extern unsigned int root_length;
 #define PROGRAM_NAME "metrics_daemon"
 
 class MetricsDaemonTests : public ::testing::Test {
@@ -57,50 +58,56 @@ TEST_F(MetricsDaemonTests, metrics_update)
   const char *metrics_path = "/folder_layer_1/folder_layer_2";
   // current directory tree: folder_layer_2->folder_layer_3->file_layer4
   //                                       ->abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc->double_data
-
+  root_name = extract_filename(metrics_path);
+  root_length = strlen(root_name);
   bool found_file_layer4 = false;
   bool found_double_data = false;
 
   // variable initialization is identical to the code define in main()
-  init_json_object(metrics_path);
+  init_json_object(root_name);
 
   int ret = ftw(metrics_path, handle_walk_path, 20);
   ASSERT_NE(ret, -1); // test case 1: no error reported during traverse directory
-  json_object_object_foreach(jobj_root, key, val)
+  json_object_object_foreach(jobj_root, root_key, root_val)
   {
-    if (strcmp(key, "folder_layer_3") == 0) {
-      json_object *jobj_test_1 = val;
-      json_object_object_foreach(jobj_test_1, key2, val2)
+    if (strcmp(root_key, "folder_layer_2") == 0) {
+      json_object_object_foreach(root_val, key, val)
       {
-        if (strcmp(key2, "file_layer4") == 0) // test case 2: empty file generate a json_null node
-        {
-          ASSERT_EQ(json_object_is_type(val2, json_type_null), true);
-          found_file_layer4 = true;
-        }
-      }
-    } else if (
-      strcmp(key,
-             "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc")
-      == 0) {
-      json_object *jobj_test_1 = val;
-      json_object_object_foreach(jobj_test_1, key2, val2)
-      {
-        if (strcmp(key2, "double_data") == 0) {
-          ASSERT_EQ(json_object_is_type(val2, json_type_double),
-                    true); // test case 3: verify if the file that contains correct data generates a
-                           // json double node
-          ASSERT_DOUBLE_EQ(1.23456,
-                           json_object_get_double(
-                             val2)); // test case 4: verify the value of double is stored correct.
-          found_double_data = true;
+        if (strcmp(key, "folder_layer_3") == 0) {
+          json_object *jobj_test_1 = val;
+          json_object_object_foreach(jobj_test_1, key2, val2)
+          {
+            if (strcmp(key2, "file_layer4")
+                == 0) // test case 2: empty file generate a json_null node
+            {
+              ASSERT_EQ(json_object_is_type(val2, json_type_null), true);
+              found_file_layer4 = true;
+            }
+          }
+        } else if (
+          strcmp(
+            key,
+            "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc")
+          == 0) {
+          json_object *jobj_test_1 = val;
+          json_object_object_foreach(jobj_test_1, key2, val2)
+          {
+            if (strcmp(key2, "double_data") == 0) {
+              ASSERT_EQ(json_object_is_type(val2, json_type_double),
+                        true); // test case 3: verify if the file that contains correct data
+                               // generates a json double node
+              ASSERT_DOUBLE_EQ(1.23456,
+                               json_object_get_double(val2)); // test case 4: verify the value of
+                                                              // double is stored correct.
+              found_double_data = true;
+            }
+          }
         }
       }
     }
   }
-
   ASSERT_TRUE(found_file_layer4);
   ASSERT_TRUE(found_double_data);
-
   system("rm -rf /folder_layer_1");
   json_object_put(jobj_root);
 
@@ -110,33 +117,44 @@ TEST_F(MetricsDaemonTests, metrics_update)
 
   bool found_folder3 = false;
 
-  init_json_object(metrics_path);
+  init_json_object(root_name);
   handle_walk_path(folder_path, &sb, tflag);
-  json_object_object_foreach(jobj_root, key3, val3)
+  json_object_object_foreach(jobj_root, root_key_2, root_val_2)
   {
-    if (strcmp(key3, "folder3")
-        == 0) // test case 5: simulate a folder and verify it generates a json_type_object node
-    {
-      ASSERT_EQ(json_object_is_type(val3, json_type_object), true);
+    if (strcmp(root_key_2, "folder_layer_2") == 0) {
+      json_object_object_foreach(root_val_2, key3, val3)
+      {
+        if (strcmp(key3, "folder3")
+            == 0) // test case 5: simulate a folder and verify it generates a json_type_object node
+        {
+          ASSERT_EQ(json_object_is_type(val3, json_type_object), true);
+          found_folder3 = true;
+        }
+      }
     }
   }
+
 
   ASSERT_TRUE(found_folder3);
 
   tflag = FTW_F;
   sb.st_size = 0;
   const char *file_path = "/folder_layer_1/folder_layer_2/file3";
-  handle_walk_path(folder_path, &sb, tflag);
+  handle_walk_path(file_path, &sb, tflag);
   bool found_file3 = false;
-  json_object_object_foreach(jobj_root, key4, val4)
+  json_object_object_foreach(jobj_root, root_key_3, root_val_3)
   {
-    if (strcmp(key4, "file3") == 0) // test case 6: empty file generate a json_null node
-    {
-      ASSERT_EQ(json_object_is_type(val4, json_type_null), true);
-      found_file3 = true;
+    if (strcmp(root_key_3, "folder_layer_2") == 0) {
+      json_object_object_foreach(root_val_3, key4, val4)
+      {
+        if (strcmp(key4, "file3") == 0) // test case 6: empty file generate a json_null node
+        {
+          ASSERT_EQ(json_object_is_type(val4, json_type_null), true);
+          found_file3 = true;
+        }
+      }
     }
   }
-
   ASSERT_TRUE(found_file3);
 }
 
@@ -162,28 +180,42 @@ TEST_F(MetricsDaemonTests, loop_through_folder_name)
   ASSERT_NE(jobj_root, nullptr);
 
   const char *root = "this";
-  const char *process_path = "is/a";
+  const char *process_path = "this/is/a/metric";
 
   json_object *jobj_cur = loop_through_folder_name(process_path, root, strlen(root));
   ASSERT_NE(jobj_cur, nullptr);
 
-  bool found = false;
+  const char *process_path_2 = "this/is/b";
 
+  json_object *jobj_cur_2 = loop_through_folder_name(process_path_2, root, strlen(root));
+  ASSERT_NE(jobj_cur, nullptr);
+  bool found_root = false;
+  bool found_key = false;
   json_object_object_foreach(jobj_root, key, val)
   {
     if (strcmp(key, "this") == 0) {
       ASSERT_EQ(json_object_is_type(val, json_type_object), true);
-      found = true;
-      json_object_object_foreach(jobj_root, key2, val2)
+      found_root = true;
+      json_object_object_foreach(val, key2, val2)
       {
-        printf("key: %s, val: %s\n", key2, json_type_to_name(json_object_get_type(val2)));
+        if (strcmp(key2, "is") == 0) {
+          json_object_object_foreach(val2, key3, val3)
+          {
+            if (strcmp(key3, "a")
+                == 0) { // loop_through_folder_name returns a least common node of the basename
+                        // so for string this/is/a/metric it should return json_object of 'a'
+              found_key = true;
+              ASSERT_EQ(json_object_equal(jobj_cur, val3), 1);
+            }
+          }
+          ASSERT_EQ(json_object_equal(jobj_cur_2, val2),
+                    1); // for string "this/is/b" it should return json_object of 'is'
+        }
       }
-    } else {
-      printf("key: %s, val: %s\n", key, json_type_to_name(json_object_get_type(val)));
     }
   }
-
-  ASSERT_TRUE(found);
+  ASSERT_TRUE(found_root);
+  ASSERT_TRUE(found_key);
   fclose(fp_json);
 }
 

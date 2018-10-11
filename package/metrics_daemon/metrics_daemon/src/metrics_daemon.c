@@ -31,8 +31,8 @@
 #define MAX_FOLDER_NAME_LENGTH 64
 static json_object *jobj_cur = NULL;
 json_object *jobj_root = NULL;
-static char *root_name = NULL;
-static unsigned int root_length = 0;
+char *root_name = NULL;
+unsigned int root_length = 0;
 static bool first_folder = true;
 static const char *target_file = METRICS_OUTPUT_FILENAME;
 static const char *metrics_path = METRICS_ROOT_DIRECTORY;
@@ -57,7 +57,7 @@ static bool write_json_to_file(struct json_object *root, const char *file_path)
  * @param  str        file path in ASCII
  * @return file_name  file name
  */
-static char *extract_filename(const char *str)
+char *extract_filename(const char *str)
 {
   return basename((char *)str);
 }
@@ -80,31 +80,36 @@ struct json_object *loop_through_folder_name(const char *process_path,
   char slash = '/';
   const char *start_ptr = NULL;
   bool found_root = false;
-  start_ptr = strchr(process_path, slash); // get the first slash position
+  start_ptr = process_path;
   unsigned int str_len = (unsigned int)strlen(process_path);
-  if (start_ptr == NULL || start_ptr < process_path) {
+  if (start_ptr == NULL) {
     return jobj_root;
   }
+  char *end_ptr = NULL;
   struct json_object *json_current = jobj_root;
   while (start_ptr != NULL) {
-    start_ptr++;
-    if (start_ptr > process_path + str_len) return json_current;
-    char *end_ptr = strchr(start_ptr, slash); // search the second slash
     if (end_ptr != NULL) {
-      unsigned int strlen;
-      strlen = (unsigned)(end_ptr - start_ptr); // cast to unsigned since the negative and zero
-                                                // case is handled by the if statement
+      start_ptr++;
+      if (start_ptr > process_path + str_len) return json_current;
+    }
+    end_ptr = strchr(start_ptr, slash); // search the second slash
+    if (end_ptr != NULL) {
+
+      unsigned int substr_len =
+        (unsigned)(end_ptr - start_ptr); // cast to unsigned since the negative and zero
+                                         // case is handled by the if statement
       if (!found_root && strncmp(start_ptr, root, root_len) == 0) // search the root first
       {
         found_root = true;
         start_ptr--;
         continue;
-      }
-      if (found_root) {
+      } else if (found_root) {
         bool found_target = false;
-        json_object_object_foreach(json_current, key, val)
-        { // for each subfolder, search the name as key in json tree
-          if (strncmp((start_ptr), key, strlen - 1) == 0) // if find the folder name, continue on
+        json_object_object_foreach(json_current,
+                                   key,
+                                   val) // for each subfolder, search the name as key in json tree
+        {
+          if (strncmp((start_ptr), key, substr_len) == 0) // if find the folder name, continue on
                                                           // the loop with the new current node
           {
             json_current = val;
@@ -176,21 +181,22 @@ int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
   }
 
   case FTW_F: {
-    FILE *fp = fopen(fpath, "r"); // read file to get the data
-    if (fp == NULL) {
-      piksi_log(LOG_ERR, "error opening %s : %s", fpath, strerror(errno));
-      return -1;
-    }
     char buf[64] = { 0 };
     int file_len = (int)(sb->st_size - 1);
     double number = 0.0;
     if (file_len < 64 && file_len > 0) {
+      FILE *fp = fopen(fpath, "r"); // read file to get the data
+      if (fp == NULL) {
+        piksi_log(LOG_ERR, "error opening %s : %s", fpath, strerror(errno));
+        return -1;
+      }
       fread(&buf[0], (unsigned int)file_len, 1, fp);
+      fclose(fp);
       number = atof(&buf[0]);
     } else {
       file_len = 0; // if file is empty, set the str length to zero
     }
-    fclose(fp);
+
     bool file_entry_exist = false;
     json_object_object_foreach(jobj_lc_node, key, val)
     {

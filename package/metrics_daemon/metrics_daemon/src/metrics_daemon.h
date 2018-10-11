@@ -17,6 +17,7 @@ struct json_object *loop_through_folder_name(const char *process_path,
                                              const char *root,
                                              unsigned int root_len);
 
+char *extract_filename(const char *str);
 #ifdef __cplusplus
 }
 #endif
