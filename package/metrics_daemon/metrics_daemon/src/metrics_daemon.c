@@ -181,7 +181,7 @@ int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
   }
 
   case FTW_F: {
-    char buf[64] = { 0 };
+    char buf[64] = {0};
     int file_len = (int)(sb->st_size - 1);
     double number = 0.0;
     if (file_len < 64 && file_len > 0) {
