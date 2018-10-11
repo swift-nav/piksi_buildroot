@@ -11,7 +11,7 @@ METRICS_DAEMON_SITE_METHOD = local
 METRICS_DAEMON_DEPENDENCIES = json-c libuv nanomsg_custom libsbp libpiksi
 
 ifeq ($(BR2_BUILD_TESTS),y)
-  METRICS_DAEMON_DEPENDENCIES += gtest
+  METRICS_DAEMON_DEPENDENCIES += gtest valgrind
 endif
 
 ifeq ($(BR2_BUILD_TESTS),y)
@@ -26,7 +26,17 @@ endif
 
 ifeq ($(BR2_RUN_TESTS),y)
 define METRICS_DAEMON_INSTALL_TARGET_CMDS_TESTS_RUN
-  sudo chroot $(TARGET_DIR) run_metrics_daemon_test
+	{ cd $(TARGET_DIR); \
+	  export PROOT_NO_SECCOMP=1; \
+		export _VALGRIND_LIB=$$PWD/../host/x86_64-buildroot-linux-gnu/sysroot/usr/lib/valgrind; \
+		test -d $$_VALGRIND_LIB || exit 1; \
+		proot -b $$PWD/../build -b $$_VALGRIND_LIB:/usr/lib/valgrind -R . \
+			valgrind \
+				--track-origins=yes \
+				--leak-check=full \
+				--error-exitcode=1 \
+				/usr/bin/run_metrics_daemon_test; \
+	}
 endef
 endif
 
