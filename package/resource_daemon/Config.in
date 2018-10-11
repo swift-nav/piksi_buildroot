@@ -1,2 +1,0 @@
-config BR2_PACKAGE_RESOURCE_DAEMON
-  bool "resource_daemon"

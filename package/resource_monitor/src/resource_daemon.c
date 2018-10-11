@@ -22,7 +22,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#define PROGRAM_NAME "resource_daemon"
+#define PROGRAM_NAME "resource_monitor"
+
 #define RESOURCE_USAGE_UPDATE_INTERVAL_MS (1000u)
 #define MAX_BYTES_PER_LINE 512
 #define MAX_PROCESS_NAME_LENGTH 64
@@ -30,6 +31,7 @@
 #define MAX_OUTPUT_PROCESS 16
 #define MAX_VARIABLE_NAME_LENGTH 16
 #define MAX_VARIABLE_TYPE_LENGTH 4
+
 #define PS_COMMAND_STR "ps --no-headers -eL -o $'%p\\t%C\\t%z\\t%c\\t%a\\t%u' --sort=-pcpu |head -n 6 >/var/ps-info-output"
 #define PS_FILE_NAME "/var/ps-info-output"
 

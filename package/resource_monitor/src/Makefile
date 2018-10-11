@@ -1,5 +1,5 @@
-TARGET=resource_daemon
-SOURCES=resource_daemon.c
+TARGET=resource_monitor
+SOURCES=resource_monitor.c
 LIBS=-luv -lnanomsg -lsbp -lpiksi
 CFLAGS=-std=gnu11 -Wmissing-prototypes -Wconversion -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror
 
