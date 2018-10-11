@@ -47,7 +47,8 @@ endef
 endif
 ifeq ($(BR2_RUN_TESTS),y)
 define LIBPIKSI_INSTALL_TARGET_CMDS_TESTS_RUN
-	sudo chroot $(TARGET_DIR) run_libpiksi_tests
+	PROOT_NO_SECCOMP=1 PATH=/bin:/usr/bin:/sbin:/usr/sbin \
+		proot -R $(TARGET_DIR) run_libpiksi_tests
 	#LD_LIBRARY_PATH=$(TARGET_DIR)/usr/lib valgrind --track-origins=yes --leak-check=full --error-exitcode=1 $(TARGET_DIR)/usr/bin/run_libpiksi_tests
 endef
 endif
