@@ -81,10 +81,10 @@ struct json_object *loop_through_folder_name(const char *process_path,
   const char *start_ptr = NULL;
   bool found_root = false;
   start_ptr = process_path;
-  unsigned int str_len = (unsigned int)strlen(process_path);
   if (start_ptr == NULL) {
     return jobj_root;
   }
+  unsigned int str_len = (unsigned int)strlen(process_path);
   char *end_ptr = NULL;
   struct json_object *json_current = jobj_root;
   while (start_ptr != NULL) {
@@ -240,10 +240,10 @@ static void write_metrics_to_file()
 {
   // Walk dir for metrics
   first_folder = true;
-  if (ftw(metrics_path, handle_walk_path, 20) == -1) {
-    return;
-  }
   if (enable_log_to_file) {
+    if (ftw(metrics_path, handle_walk_path, 20) == -1) {
+      return;
+    }
     if (!write_json_to_file(jobj_root, target_file)) piksi_log(LOG_ERR, "Failed to write to file");
   }
 }
