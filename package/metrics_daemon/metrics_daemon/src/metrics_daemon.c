@@ -73,9 +73,9 @@ static char *extract_filename(const char *str)
  * @param root_len     number of chars for the root name
  * @return json object node that needs to be updated
  */
-static struct json_object *loop_through_folder_name(const char *process_path,
-                                                    const char *root,
-                                                    unsigned int root_len)
+struct json_object *loop_through_folder_name(const char *process_path,
+                                             const char *root,
+                                             unsigned int root_len)
 {
   char slash = '/';
   const char *start_ptr = NULL;
