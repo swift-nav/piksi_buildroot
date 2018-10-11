@@ -10,17 +10,21 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <getopt.h>
-#include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
-#include <stdio.h>
-#include <string.h>
 #include <dirent.h>
 #include <fnmatch.h>
+#include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
-#include <stdlib.h>
+
+#include <libsbp/linux.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/settings.h>
 
 #define PROGRAM_NAME "resource_monitor"
 
@@ -59,7 +63,7 @@ static unsigned int one_hz_tick_count = 0;
 static void dump_resource_statistics_out(void)
 {
     unsigned int i = 0;
-    fprintf("********* CPU usage statistics ***********\n");
+    fprintf(stderr, "********* CPU usage statistics ***********\n");
     piksi_log(LOG_ERR|LOG_SBP, "********* CPU usage statistics ***********");
     for(; i < pinfo_count; i++)
     {
