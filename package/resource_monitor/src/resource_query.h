@@ -28,10 +28,13 @@ extern "C" {
 
 #include <libpiksi/common.h>
 
-typedef void * (*resq_init_fn_t)();
+#define SBP_PAYLOAD_SIZE_MAX (255u)
+
+
+typedef void *(*resq_init_fn_t)();
 typedef void (*resq_run_query_fn_t)(void *context);
-typedef void (*resq_prepare_sbp_fn_t)(u8 *sbp_buf, void *context);
-typedef void (*resq_teardown_fn_t)(void *context);
+typedef bool (*resq_prepare_sbp_fn_t)(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context);
+typedef void (*resq_teardown_fn_t)(void **context);
 
 /**
  * @brief Teardown the resource_query object

@@ -20,91 +20,69 @@
 #include <libpiksi/loop.h>
 
 #include "resource_query.h"
+#include "sbp.h"
 
 #define PROGRAM_NAME "resource_monitor"
 
 #define RESOURCE_USAGE_UPDATE_INTERVAL_MS (1000u)
 
-static unsigned int one_hz_tick_count = 0;
-
 /**
  * @brief used to trigger usage updates
  */
-static void update_metrics(pk_loop_t *loop, void *timer_handle,
-                                void *context) {
+static void update_metrics(pk_loop_t *loop, void *timer_handle, void *context)
+{
 
   (void)loop;
   (void)timer_handle;
   (void)context;
 
-  if (one_hz_tick_count >= 5) {
-    one_hz_tick_count = 0;
-    resq_run_all();
-  }
-
-  one_hz_tick_count++;
+  resq_run_all();
 }
 
-static void signal_handler(pk_loop_t *pk_loop, void *handle, void *context) {
-  (void)context;
-  int signal_value = pk_loop_get_signal_from_handle(handle);
-  piksi_log(LOG_ERR | LOG_SBP, "Caught signal: %d", signal_value);
-
-  pk_loop_stop(pk_loop);
-}
-
-static int cleanup(pk_loop_t **pk_loop_loc, int status);
-
-static int parse_options(int argc, char *argv[]) {
+static int parse_options(int argc, char *argv[])
+{
   const struct option long_opts[] = {
-      {0, 0, 0, 0},
+    {0, 0, 0, 0},
   };
 
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
-    default: { return 0; } break;
+    default: {
+      return 0;
+    } break;
     }
   }
 
   return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int cleanup(int status);
 
-  pk_loop_t *loop = NULL;
+int main(int argc, char *argv[])
+{
+
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
-    return cleanup(&loop, EXIT_FAILURE);
+    return cleanup(EXIT_FAILURE);
   }
 
-  loop = pk_loop_create();
-  if (loop == NULL) {
-    return cleanup(&loop, EXIT_FAILURE);
+  if (!sbp_init(RESOURCE_USAGE_UPDATE_INTERVAL_MS, update_metrics)) {
+    return cleanup(EXIT_FAILURE);
   }
 
-  if (pk_loop_signal_handler_add(loop, SIGINT, signal_handler, NULL) == NULL) {
-    piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
-    return cleanup(&loop, EXIT_FAILURE);
-  }
+  sbp_run();
 
-  if (pk_loop_timer_add(loop, RESOURCE_USAGE_UPDATE_INTERVAL_MS,
-                        update_metrics, NULL) == NULL) {
-    return cleanup(&loop, EXIT_FAILURE);
-  }
-
-  pk_loop_run_simple(loop);
-  piksi_log(LOG_DEBUG, "Resource Daemon: Normal Exit");
-
-  return cleanup(&loop, EXIT_SUCCESS);
+  return cleanup(EXIT_SUCCESS);
 }
 
-static int cleanup(pk_loop_t **pk_loop_loc, int status) {
+static int cleanup(int status)
+{
 
   resq_destroy_all();
-  pk_loop_destroy(pk_loop_loc);
+  sbp_deinit();
   logging_deinit();
 
   return status;
