@@ -49,6 +49,7 @@ void resq_run_all(void)
   {
     node->query->run_query(node->context);
     while (node->query->prepare_sbp(&msg_type, &msg_len, buf, node->context)) {
+      fprintf(stderr, "%s: sending sbp, type=%d, len=%d\n", __FUNCTION__, msg_type, msg_len);
       sbp_tx_send(sbp_get_tx_ctx(), msg_type, msg_len, buf);
     }
   }

@@ -28,7 +28,7 @@
 #define THREAD_NAME_MAX (32u)
 #define COMMAND_LINE_MAX (256u)
 
-#define DEBUG_QUERY_CPU
+//#define DEBUG_QUERY_CPU
 
 
 typedef struct {
@@ -59,14 +59,10 @@ static bool parse_ps_line(const char *line, const size_t item_index)
 
   int state = STATE_PID;
   char *tab_ctx = NULL;
-
-  fprintf(stderr, "line: '%s'\n", line);
   char *line_a = strdupa(line);
 
   for (char *field = strtok_r(line_a, "\t", &tab_ctx); field != NULL;
        field = strtok_r(NULL, "\t", &tab_ctx)) {
-
-    fprintf(stderr, "field: %s\n", field);
 
     switch (state) {
     case STATE_PID: {
