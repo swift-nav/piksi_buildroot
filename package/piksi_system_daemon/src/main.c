@@ -45,9 +45,6 @@
 static double network_polling_frequency = 0.1;
 static double network_polling_retry_frequency = 1;
 static bool log_ping_activity = false;
-#ifdef PBR_BUILD_STARLING_DAEMON
-static bool enable_starling_daemon = false;
-#endif
 
 #define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
 //#define DEBUG_PIKSI_SYSTEM_DAEMON
@@ -525,29 +522,6 @@ static int network_polling_notify(void *context)
   return 0;
 }
 
-#ifdef PBR_BUILD_STARLING_DAEMON
-
-static int starling_daemon_notify(void *context)
-{
-  static bool init = true;
-  if (init) {
-    init = false;
-    return 0;
-  }
-
-  if (enable_starling_daemon) {
-    piksi_log(LOG_WARNING | LOG_SBP,
-              "Please save settings and reboot to enable the starling daemon");
-  } else {
-    piksi_log(LOG_WARNING | LOG_SBP,
-              "Please save settings and reboot to disable the starling daemon");
-  }
-
-  return 0;
-}
-
-#endif
-
 int main(void)
 {
   logging_init(PROGRAM_NAME);
@@ -648,16 +622,6 @@ int main(void)
                     SETTINGS_TYPE_BOOL,
                     network_polling_notify,
                     NULL);
-#ifdef PBR_BUILD_STARLING_DAEMON
-  settings_register(settings_ctx,
-                    "system",
-                    "enable_starling_daemon",
-                    &enable_starling_daemon,
-                    sizeof(enable_starling_daemon),
-                    SETTINGS_TYPE_BOOL,
-                    starling_daemon_notify,
-                    NULL);
-#endif
 
   sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                            SBP_MSG_RESET,
