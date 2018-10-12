@@ -14,8 +14,13 @@
 
 #include <sys/queue.h>
 
+#include <libpiksi/sbp_pubsub.h>
+
+#include "sbp.h"
+
+
 typedef struct resq_node {
-  void* context;
+  void *context;
   resq_interface_t *query;
   LIST_ENTRY(resq_node) entries;
 } resq_node_t;
@@ -26,31 +31,38 @@ resq_node_head_t interface_list = LIST_HEAD_INITIALIZER(resq_nodes_head);
 
 void resq_register(resq_interface_t *resq)
 {
-  resq_node_t *node = malloc(sizeof(resq_node_t));
-
+  resq_node_t *node = calloc(1, sizeof(resq_node_t));
   node->query = resq;
-  node->context = resq->init();
-
+  if (resq->init != NULL) {
+    node->context = resq->init();
+  }
   LIST_INSERT_HEAD(&interface_list, node, entries);
 }
 
-void resq_run_all(void) 
+void resq_run_all(void)
 {
+  u16 msg_type;
+  u8 msg_len;
+  u8 buf[SBP_PAYLOAD_SIZE_MAX];
   resq_node_t *node;
-
   LIST_FOREACH(node, &interface_list, entries)
   {
     node->query->run_query(node->context);
+    while (node->query->prepare_sbp(&msg_type, &msg_len, buf, node->context)) {
+      sbp_tx_send(sbp_get_tx_ctx(), msg_type, msg_len, buf);
+    }
   }
 }
 
 void resq_destroy_all(void)
 {
   resq_node_t *node = NULL;
-
   while (!LIST_EMPTY(&interface_list)) {
     node = LIST_FIRST(&interface_list);
     LIST_REMOVE(node, entries);
+    if (node->query->teardown != NULL) {
+      node->query->teardown(&node->context);
+    }
     free(node);
   }
 }
