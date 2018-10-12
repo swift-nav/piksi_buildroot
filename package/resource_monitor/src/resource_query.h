@@ -26,6 +26,8 @@
 extern "C" {
 #endif
 
+#include <libpiksi/common.h>
+
 typedef void * (*resq_init_fn_t)();
 typedef void (*resq_run_query_fn_t)(void *context);
 typedef void (*resq_prepare_sbp_fn_t)(void *context, u8 *sbp_buf);
@@ -58,7 +60,7 @@ typedef struct {
    */
   resq_teardown_fn_t teardown;
 
-} resq_interface_t:
+} resq_interface_t;
 
 /**
  * @brief Register a query object
