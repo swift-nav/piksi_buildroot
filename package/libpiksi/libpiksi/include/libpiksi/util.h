@@ -258,9 +258,11 @@ int run_with_stdin_file(const char *input_file,
  */
 bool str_digits_only(const char *str);
 
-inline bool strtoul_all(int base, const char *str, unsigned long *value) __attribute__((always_inline));
-inline bool strtoul_all(int base, const char *str, unsigned long *value) {
-  char* endptr = NULL;
+inline bool strtoul_all(int base, const char *str, unsigned long *value)
+  __attribute__((always_inline));
+inline bool strtoul_all(int base, const char *str, unsigned long *value)
+{
+  char *endptr = NULL;
   *value = strtoul(str, &endptr, base);
   if (*endptr != '\0') {
     return false;
@@ -272,8 +274,9 @@ inline bool strtoul_all(int base, const char *str, unsigned long *value) {
 };
 
 inline bool strtod_all(const char *str, double *value) __attribute__((always_inline));
-inline bool strtod_all(const char *str, double *value) {
-  char* endptr = NULL;
+inline bool strtod_all(const char *str, double *value)
+{
+  char *endptr = NULL;
   *value = strtod(str, &endptr);
   if (*endptr != '\0') {
     return false;
