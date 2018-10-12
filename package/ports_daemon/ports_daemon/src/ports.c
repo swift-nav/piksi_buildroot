@@ -48,7 +48,8 @@ typedef enum {
   PORT_TYPE_TCP_SERVER,
   PORT_TYPE_TCP_CLIENT,
   PORT_TYPE_UDP_SERVER,
-  PORT_TYPE_UDP_CLIENT
+  PORT_TYPE_UDP_CLIENT,
+  PORT_TYPE_CAN,
 } port_type_t;
 
 typedef enum {
@@ -73,6 +74,9 @@ typedef union {
     char name[16];
     char address[256];
   } udp_client_data;
+  struct {
+    char name[16];
+  } can_data;
 } opts_data_t;
 
 typedef int (*opts_get_fn_t)(char *buf, size_t buf_size, const opts_data_t *opts_data);
@@ -101,6 +105,11 @@ static int opts_get_udp_client(char *buf, size_t buf_size, const opts_data_t *op
 {
   const char *address = opts_data->udp_client_data.address;
   return snprintf(buf, buf_size, "--name %s --udp-c %s", opts_data->udp_client_data.name, address);
+}
+
+static int opts_get_can(char *buf, size_t buf_size, const opts_data_t *opts_data)
+{
+  return snprintf(buf, buf_size, "--name %s --can %s", opts_data->can_data.name, opts_data->can_data.name);
 }
 
 typedef struct {
@@ -260,6 +269,30 @@ static port_config_t port_configs[] = {
     .opts_data.udp_client_data.address = "",
     .opts_get = opts_get_udp_client,
     .type = PORT_TYPE_UDP_CLIENT,
+    .mode_name_default = MODE_NAME_DISABLED,
+    .mode = MODE_DISABLED,
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
+  },
+  {
+    .name = "can0",
+    .opts = "",
+    .opts_data.can_data.name = "can0",
+    .opts_get = opts_get_can,
+    .type = PORT_TYPE_CAN,
+    .mode_name_default = MODE_NAME_DISABLED,
+    .mode = MODE_DISABLED,
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
+  },
+  {
+    .name = "can1",
+    .opts = "",
+    .opts_data.can_data.name = "can1",
+    .opts_get = opts_get_can,
+    .type = PORT_TYPE_CAN,
     .mode_name_default = MODE_NAME_DISABLED,
     .mode = MODE_DISABLED,
     .adapter_pid = PID_INVALID,
