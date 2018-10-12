@@ -16,6 +16,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libsbp/navigation.h>
+#include <libsbp/orientation.h>
 #include <libsbp/sbp.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -151,6 +152,14 @@ static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   sbp2nmea_gps_time(gps_time, &state);
 }
 
+static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *context) {
+  (void) context;
+  (void) sender_id;
+  (void) len;
+  msg_baseline_heading_t *baseline_hdg = (msg_baseline_heading_t*)msg;
+  sbp2nmea_baseline_heading(baseline_hdg, &state);
+}
+
 
 static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
@@ -271,6 +280,11 @@ int main(int argc, char *argv[])
 
   if (sbp_callback_register(SBP_MSG_VEL_NED, vel_ned_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting vel NED callback");
+    return cleanup(EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_BASELINE_HEADING, baseline_heading_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting baseline heading callback");
     return cleanup(EXIT_FAILURE);
   }
 

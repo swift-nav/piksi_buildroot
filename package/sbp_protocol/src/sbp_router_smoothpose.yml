@@ -70,6 +70,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x02, 0x01] } # MSG_GPS_TIME
           - { action: ACCEPT, prefix: [0x55, 0x03, 0x01] } # MSG_UTC_TIME
           - { action: ACCEPT, prefix: [0x55, 0x08, 0x02] } # MSG_DOPS
+          - { action: ACCEPT, prefix: [0x55, 0x0F, 0x02] } # MSG_BASELINE_HEADING
           - { action: ACCEPT, prefix: [0x55, 0x10, 0x02] } # MSG_AGE_CORRECTIONS
           - { action: REJECT }
 
