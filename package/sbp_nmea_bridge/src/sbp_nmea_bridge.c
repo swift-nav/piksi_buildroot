@@ -332,14 +332,12 @@ int main(int argc, char *argv[])
                     &gpgll_rate,
                     sizeof(gpgll_rate),
                     SETTINGS_TYPE_INT,
-                    notify_gpgll_rate_changed,
-                    NULL);
+                    notify_gpgll_rate_changed, NULL);
 
   settings_register(settings_ctx,
-                    "nmea",
-                    "gpzda_msg_rate",
-                    &gpzda_rate,
-                    sizeof(gphdt_rate),
+		    "nmea",
+		    "gpzda_msg_rate",
+                    &gpzda_rate, sizeof(gpzda_rate),
                     SETTINGS_TYPE_INT,
                     notify_gpzda_rate_changed,
                     NULL);
