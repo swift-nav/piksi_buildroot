@@ -1,4 +1,4 @@
-    /*
+/*
  * Copyright (C) 2018 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
@@ -10,6 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#define _GNU_SOURCE
+
 #include <dirent.h>
 #include <fnmatch.h>
 #include <getopt.h>
@@ -18,226 +20,243 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #include <libsbp/linux.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
+#include <libpiksi/util.h>
+
+#include "resource_query.h"
 
 #define PROGRAM_NAME "resource_monitor"
 
 #define RESOURCE_USAGE_UPDATE_INTERVAL_MS (1000u)
-#define MAX_BYTES_PER_LINE 512
-#define MAX_PROCESS_NAME_LENGTH 64
-#define MAX_NUM_OF_PROCESS 64*128
-#define MAX_OUTPUT_PROCESS 16
-#define MAX_VARIABLE_NAME_LENGTH 16
-#define MAX_VARIABLE_TYPE_LENGTH 4
 
-#define PS_COMMAND_STR "ps --no-headers -eL -o $'%p\\t%C\\t%z\\t%c\\t%a\\t%u' --sort=-pcpu |head -n 6 >/var/ps-info-output"
-#define PS_FILE_NAME "/var/ps-info-output"
+#define ITEM_COUNT 10
 
-typedef struct process_info_s
-{
-    char process_name[MAX_PROCESS_NAME_LENGTH];
-    char user_name[MAX_PROCESS_NAME_LENGTH];
-    unsigned int process_id;
-    unsigned int meas_count;
-    double max_cpu;
-    double avg_cpu;
-    unsigned int vsz;
-    char command[MAX_PROCESS_NAME_LENGTH];
-    char argument[MAX_PROCESS_NAME_LENGTH];
-}process_info_t;
+#define THREAD_NAME_MAX 32
+#define COMMAND_LINE_MAX 256
 
-static struct process_info_s process_info_list[MAX_NUM_OF_PROCESS];
-
-
-static unsigned int pinfo_count = 0;
 static unsigned int one_hz_tick_count = 0;
 
-#define MAX_PARAM_NAME 32
+typedef struct {
+  u16 pid;
+  u8 pcpu;
+  char thread_name[THREAD_NAME_MAX];
+  char command_line[COMMAND_LINE_MAX];
+} query_item_t;
 
-static void dump_resource_statistics_out(void)
-{
-    unsigned int i = 0;
-    fprintf(stderr, "********* CPU usage statistics ***********\n");
-    piksi_log(LOG_ERR|LOG_SBP, "********* CPU usage statistics ***********");
-    for(; i < pinfo_count; i++)
-    {
+static struct { query_item_t items[ITEM_COUNT]; } query_context;
 
-        fprintf(stderr, "PID %d  user: %s  avg CPU %f  max CPU %f stack : %d count : %d\n", process_info_list[i].process_id,
-                            process_info_list[i].user_name,
-                            process_info_list[i].avg_cpu,
-                            process_info_list[i].max_cpu,
-                            process_info_list[i].vsz,
-                            process_info_list[i].meas_count);
-        piksi_log(LOG_ERR|LOG_SBP, "PID:%d User name %s avg cpu %f max cpu %f  statck : %d count : %d\n", process_info_list[i].process_id,
-                  process_info_list[i].user_name,
-                  process_info_list[i].avg_cpu,
-                  process_info_list[i].max_cpu,
-                  process_info_list[i].vsz,
-                  process_info_list[i].meas_count);
+static void *init_cpu_query() { return NULL; }
+
+enum {
+  STATE_PID,
+  STATE_PCPU,
+  STATE_THREAD_NAME,
+  STATE_COMMAND_LINE,
+  STATE_COMMAND_DONE,
+};
+
+static bool parse_ps_line(const char *line, const size_t item_index) {
+
+  int state = STATE_PID;
+  char *tab_ctx = NULL;
+
+  fprintf(stderr, "line: '%s'\n", line);
+  char *line_a = strdupa(line);
+
+  for (char *field = strtok_r(line_a, "\t", &tab_ctx); field != NULL;
+       field = strtok_r(NULL, "\t", &tab_ctx)) {
+
+    fprintf(stderr, "field: %s\n", field);
+
+    switch (state) {
+    case STATE_PID: {
+      unsigned long pid = 0;
+      if (!strtoul_all(10, field, &pid)) {
+        piksi_log(LOG_ERR, "%s: failed to parse pid value: %s", __FUNCTION__,
+                  field);
+        return false;
+      }
+      query_context.items[item_index].pid = (u16)pid;
+      state = STATE_PCPU;
+    } break;
+
+    case STATE_PCPU: {
+      double pcpu_double = 0;
+      if (!strtod_all(field, &pcpu_double)) {
+        piksi_log(LOG_ERR, "%s: failed to parse pcpu value: %s", __FUNCTION__,
+                  field);
+        return false;
+      }
+      query_context.items[item_index].pcpu =
+          (u8)((1u << (sizeof(u8) * 8)) * (pcpu_double / 100.0));
+      state = STATE_THREAD_NAME;
+    } break;
+
+    case STATE_THREAD_NAME: {
+      strncpy(query_context.items[item_index].thread_name, field,
+              sizeof(query_context.items[0].thread_name));
+      state = STATE_COMMAND_LINE;
+    } break;
+
+    case STATE_COMMAND_LINE: {
+      strncpy(query_context.items[item_index].command_line, field,
+              sizeof(query_context.items[0].command_line));
+      state = STATE_COMMAND_DONE;
+    } break;
+
+    case STATE_COMMAND_DONE:
+    default:
+      piksi_log(LOG_ERR, "%s: found too many fields: %s", __FUNCTION__,
+                field);
+      return false;
     }
+  }
+
+  if (state != STATE_COMMAND_DONE) {
+    piksi_log(LOG_ERR, "%s: did not find enough fields", __FUNCTION__);
+    return false;
+  }
+
+  return true;
 }
 
-static int get_process_table_idx_by_pid(unsigned int pid)
-{
-    unsigned int i = 0;
-    for(;i<pinfo_count; i++)
-    {
-        if(process_info_list[i].process_id == pid)
-        {
-            return (int)i;
-        }
+static void run_cpu_query(void *context) {
+
+  (void)context;
+
+  char *argv[] = {"ps", "--no-headers", "-e",
+                  "-o", "%p\t%C\t%c\t%a", "--sort=-pcpu",
+                  NULL};
+
+  char buf[4096] = {0};
+  int rc = run_with_stdin_file(NULL, "ps", argv, buf, sizeof(buf));
+
+  if (rc != 0) {
+    piksi_log(LOG_ERR | LOG_SBP, "error running 'ps' command: %s",
+              strerror(errno));
+  }
+
+  size_t item_index = 0;
+  char *line_ctx = NULL;
+
+  memset(&query_context, 0, sizeof(query_context));
+
+  for (char *line = strtok_r(buf, "\n", &line_ctx); line != NULL;
+       line = strtok_r(NULL, "\n", &line_ctx)) {
+
+    if (item_index >= ITEM_COUNT) {
+      break;
     }
-    if(pinfo_count >= MAX_NUM_OF_PROCESS-1)
-    {
-        return -1;
+
+    if (!parse_ps_line(line, item_index++)) {
+      return;
     }
-    pinfo_count++;
-    process_info_list[i].process_id = pid;
-    process_info_list[i].avg_cpu = 0;
-    process_info_list[i].max_cpu = 0;
-    process_info_list[i].meas_count = 0;
-    process_info_list[i].vsz = 0;
-    return (int)i;
+  }
+
+  for (size_t i = 0; i < ITEM_COUNT; i++) {
+    fprintf(stderr, "%zu: %d %d %s %s\n", i, query_context.items[i].pid,
+            query_context.items[i].pcpu, query_context.items[i].thread_name,
+            query_context.items[i].command_line);
+  }
 }
 
-static void update_process_info(int process_idx, process_info_t * new_data)
-{
-    process_info_list[process_idx].avg_cpu = (process_info_list[process_idx].avg_cpu * process_info_list[process_idx].meas_count + new_data->avg_cpu)/(process_info_list[process_idx].meas_count+1);
-    if(new_data->avg_cpu > process_info_list[process_idx].max_cpu)
-    {
-        process_info_list[process_idx].max_cpu = new_data->avg_cpu;
-    }
-    process_info_list[process_idx].vsz = new_data->vsz;
-    if(process_info_list[process_idx].meas_count == 0)
-    {
-        strncpy(&(process_info_list[process_idx].command[0]),&(new_data->command[0]),MAX_PROCESS_NAME_LENGTH);
-        strncpy(&(process_info_list[process_idx].argument[0]),&(new_data->argument[0]),MAX_PROCESS_NAME_LENGTH);
-        strncpy(&(process_info_list[process_idx].user_name[0]),&(new_data->user_name[0]),MAX_PROCESS_NAME_LENGTH);
-    }
-    process_info_list[process_idx].meas_count++;
+static void prepare_cpu_query_sbp(void *context, u8 *sbp_buf) {
+  (void)context;
+  (void)sbp_buf;
 }
 
-static void process_top_info_by_line(char * buf)
-{
-    process_info_t process_data;
-    sscanf(buf,"%d\t%lf\t%u\t%s\t%s\t%s",
-            &process_data.process_id,
-            &process_data.avg_cpu,
-            &process_data.vsz,
-            &(process_data.command[0]),
-            &(process_data.argument[0]),
-            &(process_data.user_name[0]));
-    int process_idx = get_process_table_idx_by_pid(process_data.process_id);
-    update_process_info(process_idx,&process_data);
-}
+static void teardown_cpu_query(void *context) { (void)context; }
 
-static int update_resource_info()
-{
-    FILE * fp = NULL;
-    system(PS_COMMAND_STR);
-    fp = fopen(PS_FILE_NAME,"r");
-    if(fp == NULL)
-        return -1;
-    char buf[MAX_BYTES_PER_LINE];
-    while(fgets(&buf[0],MAX_BYTES_PER_LINE, fp))
-    {
-        process_top_info_by_line(&buf[0]);
-    }
-    fclose(fp);
-    return 0;
-}
-
-
+resq_interface_t query_cpu = {
+    .init = init_cpu_query,
+    .run_query = run_cpu_query,
+    .prepare_sbp = prepare_cpu_query_sbp,
+    .teardown = teardown_cpu_query,
+};
 
 /**
  * @brief used to trigger usage updates
  */
-static void update_proc_metrics(pk_loop_t *loop, void *timer_handle, void *context)
-{
-    (void)loop;
-    (void)timer_handle;
-    (void)context;
-    update_resource_info();
-    if(one_hz_tick_count>=5)
-    {
-        one_hz_tick_count = 0;
-        dump_resource_statistics_out();
-    }
-    one_hz_tick_count++;
+static void update_proc_metrics(pk_loop_t *loop, void *timer_handle,
+                                void *context) {
+
+  (void)loop;
+  (void)timer_handle;
+  (void)context;
+
+  if (one_hz_tick_count >= 5) {
+    one_hz_tick_count = 0;
+
+    run_cpu_query(NULL);
+  }
+
+  one_hz_tick_count++;
 }
 
-static void signal_handler(pk_loop_t *pk_loop, void *handle, void *context)
-{
-    (void)context;
-    int signal_value = pk_loop_get_signal_from_handle(handle);
-    piksi_log(LOG_ERR|LOG_SBP, "Caught signal: %d", signal_value);
+static void signal_handler(pk_loop_t *pk_loop, void *handle, void *context) {
+  (void)context;
+  int signal_value = pk_loop_get_signal_from_handle(handle);
+  piksi_log(LOG_ERR | LOG_SBP, "Caught signal: %d", signal_value);
 
-
-    pk_loop_stop(pk_loop);
+  pk_loop_stop(pk_loop);
 }
 
+static int cleanup(pk_loop_t **pk_loop_loc, int status);
 
-static int cleanup(pk_loop_t **pk_loop_loc,
-                   int status);
+static int parse_options(int argc, char *argv[]) {
+  const struct option long_opts[] = {
+      {0, 0, 0, 0},
+  };
 
-static int parse_options(int argc, char *argv[])
-{
-    const struct option long_opts[] = {
-            {0, 0, 0, 0},
-    };
-
-    int opt;
-    while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
-        switch (opt) {
-            default: {
-                return 0;
-            }
-                break;
-        }
+  int opt;
+  while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
+    switch (opt) {
+    default: { return 0; } break;
     }
+  }
 
-    return 0;
+  return 0;
 }
 
+int main(int argc, char *argv[]) {
 
-int main(int argc, char *argv[])
-{
-    pk_loop_t *loop = NULL;
-    logging_init(PROGRAM_NAME);
-    if (parse_options(argc, argv) != 0) {
-        piksi_log(LOG_ERR, "invalid arguments");
-        return cleanup(&loop, EXIT_FAILURE);
-    }
+  pk_loop_t *loop = NULL;
+  logging_init(PROGRAM_NAME);
 
-    loop = pk_loop_create();
-    if (loop == NULL) {
-        return cleanup(&loop, EXIT_FAILURE);
-    }
+  if (parse_options(argc, argv) != 0) {
+    piksi_log(LOG_ERR, "invalid arguments");
+    return cleanup(&loop, EXIT_FAILURE);
+  }
 
-    if (pk_loop_signal_handler_add(loop, SIGINT, signal_handler, NULL) == NULL) {
-        piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
-    }
+  loop = pk_loop_create();
+  if (loop == NULL) {
+    return cleanup(&loop, EXIT_FAILURE);
+  }
 
-    if (pk_loop_timer_add(loop, RESOURCE_USAGE_UPDATE_INTERVAL_MS, update_proc_metrics, NULL) == NULL) {
-        return cleanup(&loop, EXIT_FAILURE);
-    }
+  if (pk_loop_signal_handler_add(loop, SIGINT, signal_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
+    return cleanup(&loop, EXIT_FAILURE);
+  }
 
-    pk_loop_run_simple(loop);
-    piksi_log(LOG_DEBUG, "Resource Daemon: Normal Exit");
+  if (pk_loop_timer_add(loop, RESOURCE_USAGE_UPDATE_INTERVAL_MS,
+                        update_proc_metrics, NULL) == NULL) {
+    return cleanup(&loop, EXIT_FAILURE);
+  }
 
+  pk_loop_run_simple(loop);
+  piksi_log(LOG_DEBUG, "Resource Daemon: Normal Exit");
 
-    return cleanup(&loop, EXIT_SUCCESS);
+  return cleanup(&loop, EXIT_SUCCESS);
 }
 
-static int cleanup(pk_loop_t **pk_loop_loc,
-                   int status) {
-    pk_loop_destroy(pk_loop_loc);
-    logging_deinit();
-    return status;
+static int cleanup(pk_loop_t **pk_loop_loc, int status) {
+  pk_loop_destroy(pk_loop_loc);
+  logging_deinit();
+  return status;
 }
