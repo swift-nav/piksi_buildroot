@@ -163,6 +163,23 @@ int file_read_string(const char *filename, char *str, size_t str_size);
  */
 bool file_read_value(char *file_path);
 
+
+/**
+ * @brief   Write string to file
+ * @details This function writes string to the specified file name
+ *
+ * @return  Returns false if failed, true otherwise
+ */
+bool file_write_string(const char *filename, const char *str);
+
+/**
+ * @brief   Append string to file
+ * @details This function appends string to the end of specified file name
+ *
+ * @return  Returns false if failed, true otherwise
+ */
+bool file_append_string(const char *filename, const char *str);
+
 typedef void (*child_exit_fn_t)(pid_t pid);
 
 void reap_children(bool debug, child_exit_fn_t exit_handler);
