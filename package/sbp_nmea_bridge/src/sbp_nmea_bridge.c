@@ -152,19 +152,21 @@ static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   sbp2nmea_gps_time(gps_time, &state);
 }
 
-static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *context) {
-  (void) context;
-  (void) sender_id;
-  (void) len;
-  msg_baseline_heading_t *baseline_hdg = (msg_baseline_heading_t*)msg;
+static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)context;
+  (void)sender_id;
+  (void)len;
+  msg_baseline_heading_t *baseline_hdg = (msg_baseline_heading_t *)msg;
   sbp2nmea_baseline_heading(baseline_hdg, &state);
 }
 
-static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *context) {
-  (void) context;
-  (void) sender_id;
-  (void) len;
-  msg_baseline_heading_t *baseline_hdg = (msg_baseline_heading_t*)msg;
+static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)context;
+  (void)sender_id;
+  (void)len;
+  msg_baseline_heading_t *baseline_hdg = (msg_baseline_heading_t *)msg;
   sbp2nmea_baseline_heading(baseline_hdg, &state);
 }
 
@@ -340,12 +342,14 @@ int main(int argc, char *argv[])
                     &gpgll_rate,
                     sizeof(gpgll_rate),
                     SETTINGS_TYPE_INT,
-                    notify_gpgll_rate_changed, NULL);
+                    notify_gpgll_rate_changed,
+                    NULL);
 
   settings_register(settings_ctx,
-		    "nmea",
-		    "gpzda_msg_rate",
-                    &gpzda_rate, sizeof(gpzda_rate),
+                    "nmea",
+                    "gpzda_msg_rate",
+                    &gpzda_rate,
+                    sizeof(gpzda_rate),
                     SETTINGS_TYPE_INT,
                     notify_gpzda_rate_changed,
                     NULL);
