@@ -30,7 +30,7 @@ extern "C" {
 
 typedef void * (*resq_init_fn_t)();
 typedef void (*resq_run_query_fn_t)(void *context);
-typedef void (*resq_prepare_sbp_fn_t)(void *context, u8 *sbp_buf);
+typedef void (*resq_prepare_sbp_fn_t)(u8 *sbp_buf, void *context);
 typedef void (*resq_teardown_fn_t)(void *context);
 
 /**
@@ -68,9 +68,14 @@ typedef struct {
 void resq_register(resq_interface_t *resq);
 
 /**
+ * @brief Run all query objects
+ */
+void resq_run_all(void);
+
+/**
  * @brief Destroy a query object
  */
-void resq_destory(resq_interface_t **resq);
+void resq_destroy_all(void);
 
 #ifdef __cplusplus
 }

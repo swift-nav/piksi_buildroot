@@ -166,7 +166,7 @@ static void run_cpu_query(void *context) {
   }
 }
 
-static void prepare_cpu_query_sbp(void *context, u8 *sbp_buf) {
+static void prepare_cpu_query_sbp(u8 *sbp_buf, void *context) {
   (void)context;
   (void)sbp_buf;
 }
@@ -180,10 +180,14 @@ resq_interface_t query_cpu = {
     .teardown = teardown_cpu_query,
 };
 
+static __attribute__((constructor)) void register_cpu_query() {
+  resq_register(&query_cpu);
+}
+
 /**
  * @brief used to trigger usage updates
  */
-static void update_proc_metrics(pk_loop_t *loop, void *timer_handle,
+static void update_metrics(pk_loop_t *loop, void *timer_handle,
                                 void *context) {
 
   (void)loop;
@@ -192,8 +196,7 @@ static void update_proc_metrics(pk_loop_t *loop, void *timer_handle,
 
   if (one_hz_tick_count >= 5) {
     one_hz_tick_count = 0;
-
-    run_cpu_query(NULL);
+    resq_run_all();
   }
 
   one_hz_tick_count++;
@@ -245,7 +248,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (pk_loop_timer_add(loop, RESOURCE_USAGE_UPDATE_INTERVAL_MS,
-                        update_proc_metrics, NULL) == NULL) {
+                        update_metrics, NULL) == NULL) {
     return cleanup(&loop, EXIT_FAILURE);
   }
 
@@ -256,7 +259,10 @@ int main(int argc, char *argv[]) {
 }
 
 static int cleanup(pk_loop_t **pk_loop_loc, int status) {
+
+  resq_destroy_all();
   pk_loop_destroy(pk_loop_loc);
   logging_deinit();
+
   return status;
 }
