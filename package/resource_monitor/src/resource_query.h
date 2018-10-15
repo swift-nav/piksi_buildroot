@@ -12,7 +12,7 @@
 
 /**
  * @file    resource_query.h
- * @brief   Piksi Metrics API.
+ * @brief   Piksi Resource Daemon.
  *
  * @defgroup    resource_query
  * @addtogroup  resource_query
@@ -29,7 +29,6 @@ extern "C" {
 #include <libpiksi/common.h>
 
 #define SBP_PAYLOAD_SIZE_MAX (255u)
-
 
 typedef void *(*resq_init_fn_t)();
 typedef void (*resq_run_query_fn_t)(void *context);
