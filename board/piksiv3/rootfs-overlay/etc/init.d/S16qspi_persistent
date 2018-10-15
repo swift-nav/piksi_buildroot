@@ -9,6 +9,7 @@ case "$1" in
             cut -d ':' -f1 | sed s/mtd/mtdblock/g`
   mkdir -p /persistent
   mount -t jffs2 /dev/$MTD_NAME /persistent
+  mkdir -p /persistent/flags
   ;;
   stop)
   ;;

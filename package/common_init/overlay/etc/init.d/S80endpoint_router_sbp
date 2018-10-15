@@ -11,12 +11,15 @@ setup_permissions()
 }
 
 ins_output_mode=$(query_config --section ins --key output_mode)
-starling_daemon_enabled=$(query_config --section system --key enable_starling_daemon)
+starling_daemon_enabled=$(query_config --section experimental_flags --key starling_on_linux)
+
+echo "0" > /persistent/flags/starling_on_linux
 
 if [[ "$ins_output_mode" == "Loosely Coupled" ]]; then
   router_config="/etc/endpoint_router/sbp_router_smoothpose.yml"
 elif [[ "$starling_daemon_enabled" == "True" ]]; then
   router_config="/etc/endpoint_router/sbp_router_starling.yml"
+  echo "1" > /persistent/flags/starling_on_linux
 else
   router_config="/etc/endpoint_router/sbp_router.yml"
 fi
