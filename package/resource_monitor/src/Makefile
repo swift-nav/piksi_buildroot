@@ -1,6 +1,6 @@
 TARGET=resource_monitor
-SOURCES=resource_monitor.c resource_query.c query_cpu_usage.c sbp.c
-LIBS=-luv -lnanomsg -lsbp -lpiksi
+SOURCES=resource_monitor.c resource_query.c query_cpu_usage.c query_mem_usage.c sbp.c parse_ps_line.c
+LIBS=-luv -lnanomsg -lsbp -lpiksi -lm
 CFLAGS=-std=gnu11 -Wmissing-prototypes -Wconversion -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror
 
 CROSS=

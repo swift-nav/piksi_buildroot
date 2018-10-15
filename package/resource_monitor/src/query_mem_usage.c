@@ -12,6 +12,7 @@
 
 #define _GNU_SOURCE
 
+#include <math.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,18 +27,19 @@
 
 #define ITEM_COUNT (10u)
 
-#define THREAD_NAME_MAX (32u)
+#define THREAD_NAME_MAX (16u)
 #define COMMAND_LINE_MAX (256u)
 
-//#define DEBUG_QUERY_CPU
+//#define DEBUG_QUERY_MEM
 
 typedef struct {
+  u32 total_memory;
   u8 current_index;
-} sbp_prepare_state_t;
+} resq_state_t;
 
 typedef struct {
   u16 pid;
-  u8 pcpu;
+  u8 pmem;
   char thread_name[THREAD_NAME_MAX];
   char command_line[COMMAND_LINE_MAX];
 } query_item_t;
@@ -48,28 +50,28 @@ static struct {
 
 enum {
   STATE_PID = 0,
-  STATE_PCPU,
+  STATE_VSZ,
   STATE_THREAD_NAME,
   STATE_COMMAND_LINE,
   STATE_DONE,
   STATE_COUNT = STATE_DONE,
 };
 
-static bool parse_ps_cpu_line(const char *line, const size_t item_index)
+static bool parse_ps_mem_line(const char *line, const size_t item_index, resq_state_t *state)
 {
-  double pcpu_double = 0.0;
+  u32 vsz = 0;
 
   line_spec_t line_specs[STATE_COUNT] = {
     [STATE_PID] = (line_spec_t) {
       .type = FT_U16,
       .dst.u16 = &query_context.items[item_index].pid,
       .desc = "pid",
-      .next = STATE_PCPU,
+      .next = STATE_VSZ,
     },
-    [STATE_PCPU] = (line_spec_t) {
-      .type = FT_F64,
-      .dst.f64 = &pcpu_double,
-      .desc = "pcpu",
+    [STATE_VSZ] = (line_spec_t) {
+      .type = FT_U32,
+      .dst.u32 = &vsz,
+      .desc = "vsz",
       .next = STATE_THREAD_NAME,
     },
     [STATE_THREAD_NAME] = (line_spec_t) {
@@ -93,23 +95,18 @@ static bool parse_ps_cpu_line(const char *line, const size_t item_index)
   if (!parse_success)
     return false;
 
-  query_context.items[item_index].pcpu = (u8)((1u << (sizeof(u8) * 8)) * (pcpu_double / 100.0));
+  query_context.items[item_index].pmem = (u8)
+    ((1u << (sizeof(u8) * 8)) * ((double)vsz / state->total_memory));
 
   return true;
 }
 
-static void *init_resource_query()
-{
-  return calloc(1, sizeof(sbp_prepare_state_t));
-}
-
 static void run_resource_query(void *context)
 {
-
-  sbp_prepare_state_t *prep_state = context;
+  resq_state_t *prep_state = context;
   prep_state->current_index = 0;
 
-  char *argv[] = {"ps", "--no-headers", "-e", "-o", "%p\t%C\t%c\t%a", "--sort=-pcpu", NULL};
+  char *argv[] = {"ps", "--no-headers", "-e", "-o", "%p\t%z\t%c\t%a", "--sort=-vsz", NULL};
 
   char buf[4096] = {0};
   int rc = run_with_stdin_file(NULL, "ps", argv, buf, sizeof(buf));
@@ -130,57 +127,99 @@ static void run_resource_query(void *context)
       break;
     }
 
-    if (!parse_ps_cpu_line(line, item_index++)) {
+    if (!parse_ps_mem_line(line, item_index++, prep_state)) {
       return;
     }
   }
-#ifdef DEBUG_QUERY_CPU
+#ifdef DEBUG_QUERY_MEM
   for (size_t i = 0; i < ITEM_COUNT; i++) {
     fprintf(stderr,
-            "%zu: %d %d %s %s\n",
+            "%zu: %d %d %s %s (%s:%d)\n",
             i,
             query_context.items[i].pid,
-            query_context.items[i].pcpu,
+            query_context.items[i].pmem,
             query_context.items[i].thread_name,
-            query_context.items[i].command_line);
+            query_context.items[i].command_line,
+            __FILE__,
+            __LINE__);
   }
 #endif
 }
 
 static bool prepare_resource_query_sbp(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
 {
-
-  sbp_prepare_state_t *prep_state = context;
+  resq_state_t *prep_state = context;
 
   if (prep_state->current_index >= ITEM_COUNT) return false;
 
-  *msg_type = SBP_MSG_LINUX_CPU_STATE;
-  msg_linux_cpu_state_t *cpu_state = (msg_linux_cpu_state_t *)sbp_buf;
+  *msg_type = SBP_MSG_LINUX_MEM_STATE;
+  msg_linux_mem_state_t *mem_state = (msg_linux_mem_state_t *)sbp_buf;
 
   u8 index = prep_state->current_index;
 
-  cpu_state->index = index;
-  cpu_state->pid = query_context.items[index].pid;
-  cpu_state->pcpu = query_context.items[index].pcpu;
+  mem_state->index = index;
+  mem_state->pid = query_context.items[index].pid;
+  mem_state->pmem = query_context.items[index].pmem;
 
-  strncpy(cpu_state->tname, query_context.items[index].thread_name, sizeof(cpu_state->tname));
+  strncpy(mem_state->tname, query_context.items[index].thread_name, sizeof(mem_state->tname));
 
   size_t cmdline_len = strlen(query_context.items[index].command_line);
-  size_t msg_cmdline_len = SBP_PAYLOAD_SIZE_MAX - offsetof(msg_linux_cpu_state_t, cmdline);
+  size_t msg_cmdline_len = SBP_PAYLOAD_SIZE_MAX - offsetof(msg_linux_mem_state_t, cmdline);
 
   size_t copy_len = SWFT_MIN(cmdline_len, msg_cmdline_len);
 
-  strncpy(cpu_state->cmdline, query_context.items[index].command_line, copy_len);
-  *len = (u8)(sizeof(msg_linux_cpu_state_t) + copy_len);
+  strncpy(mem_state->cmdline, query_context.items[index].command_line, copy_len);
+  *len = (u8)(sizeof(msg_linux_mem_state_t) + copy_len);
 
   ++prep_state->current_index;
 
   return true;
 }
 
+#define PROC_MEMINFO "/proc/meminfo"
+
+static void *init_resource_query()
+{
+  char *mem_total_sz = NULL;
+  resq_state_t *state = calloc(1, sizeof(resq_state_t));
+
+  FILE* fp = fopen(PROC_MEMINFO, "r");
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "%s: unable to open %s: %s (%s:%d)", __FUNCTION__, PROC_MEMINFO, strerror(errno), __FILE__, __LINE__);
+    goto error;
+  }
+
+  int rc = fscanf(fp, "MemTotal: %ms", &mem_total_sz);
+
+  if (rc <= 0) {
+    piksi_log(LOG_ERR, "%s: error reading %s: %s (%s:%d)", __FUNCTION__, PROC_MEMINFO, strerror(errno), __FILE__, __LINE__);
+    goto error;
+  }
+
+  unsigned long mem_total = 0;
+
+  if (!strtoul_all(10, mem_total_sz, &mem_total)) {
+    piksi_log(LOG_ERR, "%s: error reading %s: %s (%s:%d)", __FUNCTION__, PROC_MEMINFO, strerror(errno), __FILE__, __LINE__);
+    goto error;
+  }
+
+  state->total_memory = (u32) mem_total;
+
+  fclose(fp);
+  free(mem_total_sz);
+
+  return state;
+
+error:
+  fclose(fp);
+  free(state);
+  free(mem_total_sz);
+
+  return NULL;
+}
+
 static void teardown_resource_query(void **context)
 {
-
   assert(context != NULL && *context != NULL);
 
   free(*context);
