@@ -163,7 +163,7 @@ bool file_write_string(const char *filename, const char *str)
 
 bool file_append_string(const char *filename, const char *str)
 {
-  FILE *fp = fopen(filename, "w+");
+  FILE *fp = fopen(filename, "a");
   if (fp == NULL) {
     piksi_log(LOG_ERR, "error opening %s: %s", filename, strerror(errno));
     return false;
