@@ -626,14 +626,14 @@ int run_with_stdin_file(const char *input_file,
   return status;
 }
 
-static runner_t *cat_fn(runner_t *r, const char *filename)
+static runner_t *runner_cat(runner_t *r, const char *filename)
 {
 
   r->_filename = filename;
   return r;
 };
 
-static runner_t *pipe_fn(runner_t *r)
+static runner_t *runner_pipe(runner_t *r)
 {
 
   if (r->is_nil(r)) return r;
@@ -675,7 +675,7 @@ static runner_t *pipe_fn(runner_t *r)
   return r;
 };
 
-static runner_t *call_fn(runner_t *r, const char *proc_path, const char *const argv[])
+static runner_t *runner_call(runner_t *r, const char *proc_path, const char *const argv[])
 {
 
   if (r->is_nil(r)) return r;
@@ -688,7 +688,7 @@ static runner_t *call_fn(runner_t *r, const char *proc_path, const char *const a
   return r;
 };
 
-static runner_t *wait_fn(runner_t *r)
+static runner_t *runner_wait(runner_t *r)
 {
 
   if (r->is_nil(r)) return r;
@@ -737,9 +737,20 @@ static runner_t *wait_fn(runner_t *r)
   return r;
 };
 
-bool is_nil_fn(runner_t *r)
+static bool runner_is_nil(runner_t *r)
 {
   return r->_is_nil;
+};
+
+
+static runner_t *runner_destroy(runner_t *r)
+{
+  if (r->_fd_stdin >= 0) {
+    close(r->_fd_stdin);
+    r->_fd_stdin = -1;
+  }
+  free(r);
+  return NULL;
 };
 
 runner_t *create_runner(void)
@@ -747,12 +758,21 @@ runner_t *create_runner(void)
   runner_t *runner = calloc(1, sizeof(runner_t));
 
   *runner = (runner_t){
-    .cat = cat_fn,
-    .pipe = pipe_fn,
-    .call = call_fn,
-    .wait = wait_fn,
-    .is_nil = is_nil_fn,
+    .cat = runner_cat,
+    .pipe = runner_pipe,
+    .call = runner_call,
+    .wait = runner_wait,
+    .is_nil = runner_is_nil,
+    .destroy = runner_destroy,
+
+    .stdout_buffer = {0},
+    .exit_code = EXIT_FAILURE,
+
     ._is_nil = false,
+    ._filename = NULL,
+    ._fd_stdin = -1,
+    ._proc_path = NULL,
+    ._proc_args = NULL,
   };
 
   return runner;
@@ -777,3 +797,33 @@ bool str_digits_only(const char *str)
 
   return true;
 }
+
+bool strtoul_all(int base, const char *str, unsigned long *value)
+{
+  char *endptr = NULL;
+  *value = strtoul(str, &endptr, base);
+  while (isspace(*endptr))
+    endptr++;
+  if (*endptr != '\0') {
+    return false;
+  }
+  if (str == endptr) {
+    return false;
+  }
+  return true;
+};
+
+bool strtod_all(const char *str, double *value)
+{
+  char *endptr = NULL;
+  *value = strtod(str, &endptr);
+  while (isspace(*endptr))
+    endptr++;
+  if (*endptr != '\0') {
+    return false;
+  }
+  if (str == endptr) {
+    return false;
+  }
+  return true;
+};

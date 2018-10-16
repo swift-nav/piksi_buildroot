@@ -98,7 +98,7 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
   EXPECT_NE(r, nullptr);
   EXPECT_FALSE(r->is_nil(r));
 
-  r = r->call(r, "grep", (const char* const[]){ "grep", "literal", NULL });
+  r = r->call(r, "grep", (const char *const[]){"grep", "literal", NULL});
   EXPECT_NE(r, nullptr);
   EXPECT_FALSE(r->is_nil(r));
 

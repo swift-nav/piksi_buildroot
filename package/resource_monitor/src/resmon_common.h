@@ -19,8 +19,8 @@
  * @{
  */
 
-#ifndef PARSE_PS_LINE_H
-#define PARSE_PS_LINE_H
+#ifndef RESMON_COMMON_H
+#define RESMON_COMMON_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,10 +52,12 @@ bool parse_ps_line(const char *line, int start_state, int final_state, line_spec
 
 int count_lines(const char *file_path);
 
+unsigned long fetch_mem_total(void);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* PARSE_PS_LINE_H */
+#endif /* RESMON_COMMON_H */
 
 /** @} */

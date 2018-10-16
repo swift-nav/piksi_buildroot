@@ -259,38 +259,9 @@ int run_with_stdin_file(const char *input_file,
  */
 bool str_digits_only(const char *str);
 
-inline bool strtoul_all(int base, const char *str, unsigned long *value)
-  __attribute__((always_inline));
-inline bool strtoul_all(int base, const char *str, unsigned long *value)
-{
-  char *endptr = NULL;
-  *value = strtoul(str, &endptr, base);
-  while (isspace(*endptr))
-    endptr++;
-  if (*endptr != '\0') {
-    return false;
-  }
-  if (str == endptr) {
-    return false;
-  }
-  return true;
-};
+bool strtoul_all(int base, const char *str, unsigned long *value);
 
-inline bool strtod_all(const char *str, double *value) __attribute__((always_inline));
-inline bool strtod_all(const char *str, double *value)
-{
-  char *endptr = NULL;
-  *value = strtod(str, &endptr);
-  while (isspace(*endptr))
-    endptr++;
-  if (*endptr != '\0') {
-    return false;
-  }
-  if (str == endptr) {
-    return false;
-  }
-  return true;
-};
+bool strtod_all(const char *str, double *value);
 
 typedef struct runner_s runner_t;
 
@@ -301,10 +272,9 @@ typedef struct runner_s {
   runner_t *(*call)(runner_t *r, const char *prog, const char *const argv[]);
   runner_t *(*wait)(runner_t *r);
   bool (*is_nil)(runner_t *r);
+  runner_t *(*destroy)(runner_t *r);
 
   char stdout_buffer[4096];
-  char stderr_buffer[4096];
-
   int exit_code;
 
   const char *_filename;
@@ -318,6 +288,8 @@ typedef struct runner_s {
 } runner_t;
 
 runner_t *create_runner(void);
+
+#define SCRUB(TheVar, TheFunc) (TheVar)__attribute__ ((__cleanup__(TheFunc)))
 
 #define SWFT_MAX(a, b)  \
   ({                    \
