@@ -18,11 +18,12 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
+#include <libpiksi/runit.h>
 
 #include "resource_query.h"
 #include "sbp.h"
 
-#define PROGRAM_NAME "resource_monitor"
+#include "resource_monitor.h"
 
 #define RESOURCE_USAGE_UPDATE_INTERVAL_MS (1000u)
 
@@ -31,7 +32,6 @@
  */
 static void update_metrics(pk_loop_t *loop, void *timer_handle, void *context)
 {
-
   (void)loop;
   (void)timer_handle;
   (void)context;
@@ -61,7 +61,6 @@ static int cleanup(int status);
 
 int main(int argc, char *argv[])
 {
-
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
@@ -80,7 +79,6 @@ int main(int argc, char *argv[])
 
 static int cleanup(int status)
 {
-
   resq_destroy_all();
   sbp_deinit();
   logging_deinit();

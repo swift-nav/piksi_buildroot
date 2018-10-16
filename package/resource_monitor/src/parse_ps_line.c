@@ -31,7 +31,11 @@ bool parse_ps_line(const char *line, int start_state, int final_state, line_spec
        field = strtok_r(NULL, "\t", &tab_ctx)) {
 
     if (state == final_state) {
-      piksi_log(LOG_ERR, "%s: found too many fields (in state: %s): %s", __FUNCTION__, line_specs[state].desc, field);
+      piksi_log(LOG_ERR,
+                "%s: found too many fields (in state: %s): %s",
+                __FUNCTION__,
+                line_specs[state].desc,
+                field);
       return false;
     }
 
@@ -39,7 +43,11 @@ bool parse_ps_line(const char *line, int start_state, int final_state, line_spec
     case FT_U16: {
       unsigned long ul_value = 0;
       if (!strtoul_all(10, field, &ul_value)) {
-        piksi_log(LOG_ERR, "%s: failed to parse %s value: %s", __FUNCTION__, line_specs[state].desc, field);
+        piksi_log(LOG_ERR,
+                  "%s: failed to parse %s value: %s",
+                  __FUNCTION__,
+                  line_specs[state].desc,
+                  field);
         return false;
       }
       *line_specs[state].dst.u16 = (u16)ul_value;
@@ -49,7 +57,11 @@ bool parse_ps_line(const char *line, int start_state, int final_state, line_spec
     case FT_U32: {
       unsigned long ul_value = 0;
       if (!strtoul_all(10, field, &ul_value)) {
-        piksi_log(LOG_ERR, "%s: failed to parse %s value: %s", __FUNCTION__, line_specs[state].desc, field);
+        piksi_log(LOG_ERR,
+                  "%s: failed to parse %s value: %s",
+                  __FUNCTION__,
+                  line_specs[state].desc,
+                  field);
         return false;
       }
       *line_specs[state].dst.u32 = (u32)ul_value;
@@ -59,7 +71,11 @@ bool parse_ps_line(const char *line, int start_state, int final_state, line_spec
     case FT_F64: {
       double f64_value = 0;
       if (!strtod_all(field, &f64_value)) {
-        piksi_log(LOG_ERR, "%s: failed to parse %s value: %s", __FUNCTION__, line_specs[state].desc, field);
+        piksi_log(LOG_ERR,
+                  "%s: failed to parse %s value: %s",
+                  __FUNCTION__,
+                  line_specs[state].desc,
+                  field);
         return false;
       }
       *line_specs[state].dst.f64 = f64_value;
@@ -71,17 +87,40 @@ bool parse_ps_line(const char *line, int start_state, int final_state, line_spec
       state = line_specs[state].next;
     } break;
 
-    default:
-      piksi_log(LOG_ERR, "%s: invalid field type", __FUNCTION__);
-      return false;
+    default: piksi_log(LOG_ERR, "%s: invalid field type", __FUNCTION__); return false;
     }
   }
 
   if (state != final_state) {
-    piksi_log(LOG_ERR, "%s: did not find enough fields (last state: %s)", __FUNCTION__, line_specs[state].desc);
+    piksi_log(LOG_ERR,
+              "%s: did not find enough fields (last state: %s)",
+              __FUNCTION__,
+              line_specs[state].desc);
     return false;
   }
 
   return true;
 }
 
+int count_lines(const char *file_path)
+{
+  FILE *fp = fopen(file_path, "r");
+
+  if (fp == NULL) {
+    piksi_log(LOG_ERR, "%s: error opening file: %s", __FUNCTION__, strerror(errno));
+    return -1;
+  }
+
+  int count = 0;
+
+  for (;;) {
+
+    int ret = fgetc(fp);
+    if (ret == EOF) break;
+
+    count++;
+  }
+
+  fclose(fp);
+  return count;
+}

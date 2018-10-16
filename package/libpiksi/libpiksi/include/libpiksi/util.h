@@ -22,6 +22,7 @@
 #ifndef LIBPIKSI_UTIL_H
 #define LIBPIKSI_UTIL_H
 
+#include <ctype.h>
 #include <errno.h>
 #include <signal.h>
 #include <unistd.h>
@@ -264,6 +265,8 @@ inline bool strtoul_all(int base, const char *str, unsigned long *value)
 {
   char *endptr = NULL;
   *value = strtoul(str, &endptr, base);
+  while (isspace(*endptr))
+    endptr++;
   if (*endptr != '\0') {
     return false;
   }
@@ -278,6 +281,8 @@ inline bool strtod_all(const char *str, double *value)
 {
   char *endptr = NULL;
   *value = strtod(str, &endptr);
+  while (isspace(*endptr))
+    endptr++;
   if (*endptr != '\0') {
     return false;
   }
@@ -286,6 +291,33 @@ inline bool strtod_all(const char *str, double *value)
   }
   return true;
 };
+
+typedef struct runner_s runner_t;
+
+typedef struct runner_s {
+
+  runner_t *(*cat)(runner_t *r, const char *filename);
+  runner_t *(*pipe)(runner_t *r);
+  runner_t *(*call)(runner_t *r, const char *prog, const char *const argv[]);
+  runner_t *(*wait)(runner_t *r);
+  bool (*is_nil)(runner_t *r);
+
+  char stdout_buffer[4096];
+  char stderr_buffer[4096];
+
+  int exit_code;
+
+  const char *_filename;
+  int _fd_stdin;
+
+  const char *_proc_path;
+  const char *const *_proc_args;
+
+  bool _is_nil;
+
+} runner_t;
+
+runner_t *create_runner(void);
 
 #define SWFT_MAX(a, b)  \
   ({                    \
