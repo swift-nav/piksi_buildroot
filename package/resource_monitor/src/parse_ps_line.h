@@ -50,6 +50,8 @@ typedef struct {
 
 bool parse_ps_line(const char *line, int start_state, int final_state, line_spec_t *line_specs);
 
+int count_lines(const char *file_path);
+
 #ifdef __cplusplus
 }
 #endif

@@ -62,41 +62,44 @@ static bool parse_ps_mem_line(const char *line, const size_t item_index, resq_st
   u32 vsz = 0;
 
   line_spec_t line_specs[STATE_COUNT] = {
-    [STATE_PID] = (line_spec_t) {
-      .type = FT_U16,
-      .dst.u16 = &query_context.items[item_index].pid,
-      .desc = "pid",
-      .next = STATE_VSZ,
-    },
-    [STATE_VSZ] = (line_spec_t) {
-      .type = FT_U32,
-      .dst.u32 = &vsz,
-      .desc = "vsz",
-      .next = STATE_THREAD_NAME,
-    },
-    [STATE_THREAD_NAME] = (line_spec_t) {
-      .type = FT_STR,
-      .dst.str = query_context.items[item_index].thread_name,
-      .buflen = sizeof(query_context.items[0].thread_name),
-      .desc = "thread name",
-      .next = STATE_COMMAND_LINE,
-    },
-    [STATE_COMMAND_LINE] = (line_spec_t) {
-      .type = FT_STR,
-      .dst.str = query_context.items[item_index].command_line,
-      .buflen = sizeof(query_context.items[0].command_line),
-      .desc = "command line",
-      .next = STATE_DONE,
-    },
+    [STATE_PID] =
+      (line_spec_t){
+        .type = FT_U16,
+        .dst.u16 = &query_context.items[item_index].pid,
+        .desc = "pid",
+        .next = STATE_VSZ,
+      },
+    [STATE_VSZ] =
+      (line_spec_t){
+        .type = FT_U32,
+        .dst.u32 = &vsz,
+        .desc = "vsz",
+        .next = STATE_THREAD_NAME,
+      },
+    [STATE_THREAD_NAME] =
+      (line_spec_t){
+        .type = FT_STR,
+        .dst.str = query_context.items[item_index].thread_name,
+        .buflen = sizeof(query_context.items[0].thread_name),
+        .desc = "thread name",
+        .next = STATE_COMMAND_LINE,
+      },
+    [STATE_COMMAND_LINE] =
+      (line_spec_t){
+        .type = FT_STR,
+        .dst.str = query_context.items[item_index].command_line,
+        .buflen = sizeof(query_context.items[0].command_line),
+        .desc = "command line",
+        .next = STATE_DONE,
+      },
   };
 
   bool parse_success = parse_ps_line(line, STATE_PID, STATE_DONE, line_specs);
 
-  if (!parse_success)
-    return false;
+  if (!parse_success) return false;
 
-  query_context.items[item_index].pmem = (u8)
-    ((1u << (sizeof(u8) * 8)) * ((double)vsz / state->total_memory));
+  query_context.items[item_index].pmem =
+    (u8)((1u << (sizeof(u8) * 8)) * ((double)vsz / state->total_memory));
 
   return true;
 }
@@ -183,27 +186,45 @@ static void *init_resource_query()
   char *mem_total_sz = NULL;
   resq_state_t *state = calloc(1, sizeof(resq_state_t));
 
-  FILE* fp = fopen(PROC_MEMINFO, "r");
+  FILE *fp = fopen(PROC_MEMINFO, "r");
   if (fp == NULL) {
-    piksi_log(LOG_ERR, "%s: unable to open %s: %s (%s:%d)", __FUNCTION__, PROC_MEMINFO, strerror(errno), __FILE__, __LINE__);
+    piksi_log(LOG_ERR,
+              "%s: unable to open %s: %s (%s:%d)",
+              __FUNCTION__,
+              PROC_MEMINFO,
+              strerror(errno),
+              __FILE__,
+              __LINE__);
     goto error;
   }
 
   int rc = fscanf(fp, "MemTotal: %ms", &mem_total_sz);
 
   if (rc <= 0) {
-    piksi_log(LOG_ERR, "%s: error reading %s: %s (%s:%d)", __FUNCTION__, PROC_MEMINFO, strerror(errno), __FILE__, __LINE__);
+    piksi_log(LOG_ERR,
+              "%s: error reading %s: %s (%s:%d)",
+              __FUNCTION__,
+              PROC_MEMINFO,
+              strerror(errno),
+              __FILE__,
+              __LINE__);
     goto error;
   }
 
   unsigned long mem_total = 0;
 
   if (!strtoul_all(10, mem_total_sz, &mem_total)) {
-    piksi_log(LOG_ERR, "%s: error reading %s: %s (%s:%d)", __FUNCTION__, PROC_MEMINFO, strerror(errno), __FILE__, __LINE__);
+    piksi_log(LOG_ERR,
+              "%s: error reading %s: %s (%s:%d)",
+              __FUNCTION__,
+              PROC_MEMINFO,
+              strerror(errno),
+              __FILE__,
+              __LINE__);
     goto error;
   }
 
-  state->total_memory = (u32) mem_total;
+  state->total_memory = (u32)mem_total;
 
   fclose(fp);
   free(mem_total_sz);

@@ -60,38 +60,41 @@ static bool parse_ps_cpu_line(const char *line, const size_t item_index)
   double pcpu_double = 0.0;
 
   line_spec_t line_specs[STATE_COUNT] = {
-    [STATE_PID] = (line_spec_t) {
-      .type = FT_U16,
-      .dst.u16 = &query_context.items[item_index].pid,
-      .desc = "pid",
-      .next = STATE_PCPU,
-    },
-    [STATE_PCPU] = (line_spec_t) {
-      .type = FT_F64,
-      .dst.f64 = &pcpu_double,
-      .desc = "pcpu",
-      .next = STATE_THREAD_NAME,
-    },
-    [STATE_THREAD_NAME] = (line_spec_t) {
-      .type = FT_STR,
-      .dst.str = query_context.items[item_index].thread_name,
-      .buflen = sizeof(query_context.items[0].thread_name),
-      .desc = "thread name",
-      .next = STATE_COMMAND_LINE,
-    },
-    [STATE_COMMAND_LINE] = (line_spec_t) {
-      .type = FT_STR,
-      .dst.str = query_context.items[item_index].command_line,
-      .buflen = sizeof(query_context.items[0].command_line),
-      .desc = "command line",
-      .next = STATE_DONE,
-    },
+    [STATE_PID] =
+      (line_spec_t){
+        .type = FT_U16,
+        .dst.u16 = &query_context.items[item_index].pid,
+        .desc = "pid",
+        .next = STATE_PCPU,
+      },
+    [STATE_PCPU] =
+      (line_spec_t){
+        .type = FT_F64,
+        .dst.f64 = &pcpu_double,
+        .desc = "pcpu",
+        .next = STATE_THREAD_NAME,
+      },
+    [STATE_THREAD_NAME] =
+      (line_spec_t){
+        .type = FT_STR,
+        .dst.str = query_context.items[item_index].thread_name,
+        .buflen = sizeof(query_context.items[0].thread_name),
+        .desc = "thread name",
+        .next = STATE_COMMAND_LINE,
+      },
+    [STATE_COMMAND_LINE] =
+      (line_spec_t){
+        .type = FT_STR,
+        .dst.str = query_context.items[item_index].command_line,
+        .buflen = sizeof(query_context.items[0].command_line),
+        .desc = "command line",
+        .next = STATE_DONE,
+      },
   };
 
   bool parse_success = parse_ps_line(line, STATE_PID, STATE_DONE, line_specs);
 
-  if (!parse_success)
-    return false;
+  if (!parse_success) return false;
 
   query_context.items[item_index].pcpu = (u8)((1u << (sizeof(u8) * 8)) * (pcpu_double / 100.0));
 

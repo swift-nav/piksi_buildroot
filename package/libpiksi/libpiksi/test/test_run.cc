@@ -29,9 +29,9 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
 
   // Valid with stdin file
   {
-    const char *cmd = "cat";
-    const char *const argv[2] = {"cat", NULL};
-    char stdout_str[strlen(test_str) + 16] = {0};
+    const char *cmd = "/bin/cat";
+    const char *const argv[2] = {"/bin/cat", NULL};
+    char stdout_str[strlen(test_str) + 64] = {0};
 
     EXPECT_EQ(0,
               run_with_stdin_file(stdin_file_name,
@@ -86,6 +86,26 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
                                   sizeof(stdout_str)));
     EXPECT_STREQ(stdout_str, test_str);
   }
+
+  runner_t *r = create_runner();
+  EXPECT_NE(r, nullptr);
+
+  r = r->cat(r, stdin_file_name);
+  EXPECT_NE(r, nullptr);
+  EXPECT_FALSE(r->is_nil(r));
+
+  r = r->pipe(r);
+  EXPECT_NE(r, nullptr);
+  EXPECT_FALSE(r->is_nil(r));
+
+  r = r->call(r, "grep", (const char* const[]){ "grep", "literal", NULL });
+  EXPECT_NE(r, nullptr);
+  EXPECT_FALSE(r->is_nil(r));
+
+  r = r->wait(r);
+  EXPECT_NE(r, nullptr);
+  EXPECT_FALSE(r->is_nil(r));
+  EXPECT_EQ(r->exit_code, 0);
 
   // Clean up test file
   if (remove(stdin_file_name)) {
