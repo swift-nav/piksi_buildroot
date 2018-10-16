@@ -122,13 +122,15 @@ static bool prepare_resource_query_sbp(u16 *msg_type, u8 *len, u8 *sbp_buf, void
 {
   prep_state_t *state = context;
 
-  *msg_type = SBP_MSG_LINUX_SYS_STATE_SUMMARY;
-  msg_linux_sys_state_summary_t *sys_state_summary = (msg_linux_sys_state_summary_t *)sbp_buf;
+  *msg_type = SBP_MSG_LINUX_SYS_STATE;
+  msg_linux_sys_state_t *sys_state = (msg_linux_sys_state_t *)sbp_buf;
 
-  *len = (u8)(sizeof(msg_linux_sys_state_summary_t));
+  *len = (u8)(sizeof(msg_linux_sys_state_t));
 
-  sys_state_summary->procs_starting = (u16)state->procs_started;
-  sys_state_summary->procs_stopping = (u16)state->procs_exitted;
+  sys_state->procs_starting = (u16)state->procs_started;
+  sys_state->procs_stopping = (u16)state->procs_exitted;
+
+  sys_state->mem_total = (u16)state->mem_total;
 
   return state->sent_sbp++ == 0;
 }

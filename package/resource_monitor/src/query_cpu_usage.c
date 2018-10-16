@@ -22,7 +22,7 @@
 #include <libpiksi/util.h>
 
 #include "resource_query.h"
-#include "parse_ps_line.h"
+#include "resmon_common.h"
 
 #define ITEM_COUNT (10u)
 
