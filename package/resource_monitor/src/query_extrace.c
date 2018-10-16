@@ -24,6 +24,7 @@
 
 #include "resource_monitor.h"
 #include "resource_query.h"
+#include "resmon_common.h"
 
 #define EXTRACE_LOG "/var/log/extrace.log"
 
@@ -36,10 +37,19 @@ typedef struct {
 
   runit_config_t runit_cfg;
 
+  unsigned long mem_total;
+
 } prep_state_t;
+
+static void s_runner(runner_t **r) {
+  if (r == NULL || *r == NULL) return;
+  (*r)->destroy(*r);
+  *r = NULL;
+};
 
 static void run_resource_query(void *context)
 {
+
   prep_state_t *state = context;
   stop_runit_service(&state->runit_cfg);
 
@@ -47,7 +57,7 @@ static void run_resource_query(void *context)
 
   state->procs_started = 0;
   {
-    runner_t *r = create_runner();
+    runner_t *SCRUB(r, s_runner) = create_runner();
     r = r->cat(r, EXTRACE_LOG);
     r = r->pipe(r);
     r = r->call(r, "grep", (const char *const[]){"grep", "-c", "^[0-9][0-9]*[+] ", NULL});
@@ -78,7 +88,7 @@ static void run_resource_query(void *context)
 
   state->procs_exitted = 0;
   {
-    runner_t *r = create_runner();
+    runner_t *SCRUB(r, s_runner) = create_runner();
     r = r->cat(r, EXTRACE_LOG);
     r = r->pipe(r);
     r = r->call(r, "grep", (const char *const[]){"grep", "-c", "^[0-9][0-9]*[-] ", NULL});
@@ -131,6 +141,8 @@ static void *init_resource_query()
 
   state->procs_started = 0;
   state->procs_exitted = 0;
+
+  state->mem_total = fetch_mem_total();
 
   state->runit_cfg = (runit_config_t){
     .service_dir = RUNIT_SERVICE_DIR,

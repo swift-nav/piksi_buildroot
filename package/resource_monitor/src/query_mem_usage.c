@@ -23,7 +23,7 @@
 #include <libpiksi/util.h>
 
 #include "resource_query.h"
-#include "parse_ps_line.h"
+#include "resmon_common.h"
 
 #define ITEM_COUNT (10u)
 
@@ -179,63 +179,17 @@ static bool prepare_resource_query_sbp(u16 *msg_type, u8 *len, u8 *sbp_buf, void
   return true;
 }
 
-#define PROC_MEMINFO "/proc/meminfo"
-
 static void *init_resource_query()
 {
-  char *mem_total_sz = NULL;
   resq_state_t *state = calloc(1, sizeof(resq_state_t));
+  state->total_memory = (u32)fetch_mem_total();
 
-  FILE *fp = fopen(PROC_MEMINFO, "r");
-  if (fp == NULL) {
-    piksi_log(LOG_ERR,
-              "%s: unable to open %s: %s (%s:%d)",
-              __FUNCTION__,
-              PROC_MEMINFO,
-              strerror(errno),
-              __FILE__,
-              __LINE__);
-    goto error;
-  }
-
-  int rc = fscanf(fp, "MemTotal: %ms", &mem_total_sz);
-
-  if (rc <= 0) {
-    piksi_log(LOG_ERR,
-              "%s: error reading %s: %s (%s:%d)",
-              __FUNCTION__,
-              PROC_MEMINFO,
-              strerror(errno),
-              __FILE__,
-              __LINE__);
-    goto error;
-  }
-
-  unsigned long mem_total = 0;
-
-  if (!strtoul_all(10, mem_total_sz, &mem_total)) {
-    piksi_log(LOG_ERR,
-              "%s: error reading %s: %s (%s:%d)",
-              __FUNCTION__,
-              PROC_MEMINFO,
-              strerror(errno),
-              __FILE__,
-              __LINE__);
-    goto error;
-  }
-
-  state->total_memory = (u32)mem_total;
-
-  fclose(fp);
-  free(mem_total_sz);
+  if (state->total_memory == 0) goto error;
 
   return state;
 
 error:
-  fclose(fp);
   free(state);
-  free(mem_total_sz);
-
   return NULL;
 }
 

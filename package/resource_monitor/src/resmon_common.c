@@ -19,7 +19,9 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 
-#include "parse_ps_line.h"
+#include "resmon_common.h"
+
+#define PROC_MEMINFO "/proc/meminfo"
 
 bool parse_ps_line(const char *line, int start_state, int final_state, line_spec_t *line_specs)
 {
@@ -114,13 +116,67 @@ int count_lines(const char *file_path)
   int count = 0;
 
   for (;;) {
-
     int ret = fgetc(fp);
     if (ret == EOF) break;
-
-    count++;
+    if (ret == '\n') count++;
   }
 
   fclose(fp);
   return count;
+}
+
+unsigned long fetch_mem_total(void)
+{
+  char *mem_total_sz = NULL;
+
+  FILE *fp = fopen(PROC_MEMINFO, "r");
+  if (fp == NULL) {
+    piksi_log(LOG_ERR,
+              "%s: unable to open %s: %s (%s:%d)",
+              __FUNCTION__,
+              PROC_MEMINFO,
+              strerror(errno),
+              __FILE__,
+              __LINE__);
+    goto error;
+  }
+
+  int rc = fscanf(fp, "MemTotal: %ms", &mem_total_sz);
+
+  if (rc <= 0) {
+    piksi_log(LOG_ERR,
+              "%s: error reading %s: %s (%s:%d)",
+              __FUNCTION__,
+              PROC_MEMINFO,
+              strerror(errno),
+              __FILE__,
+              __LINE__);
+    goto error;
+  }
+
+  unsigned long mem_total = 0;
+
+  if (!strtoul_all(10, mem_total_sz, &mem_total)) {
+    piksi_log(LOG_ERR,
+              "%s: error reading %s: %s (%s:%d)",
+              __FUNCTION__,
+              PROC_MEMINFO,
+              strerror(errno),
+              __FILE__,
+              __LINE__);
+    goto error;
+  }
+
+  fclose(fp);
+  free(mem_total_sz);
+
+  return mem_total;
+
+error:
+  fclose(fp);
+  if (mem_total_sz != NULL) {
+    free(mem_total_sz);
+  }
+
+  return 0;
 }
