@@ -22,6 +22,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
 
+#include "can.h"
 #include "ports.h"
 #include "protocols.h"
 
@@ -75,7 +76,7 @@ typedef union {
     char address[256];
   } udp_client_data;
   struct {
-    char name[16];
+    u8 number;
   } can_data;
 } opts_data_t;
 
@@ -109,7 +110,8 @@ static int opts_get_udp_client(char *buf, size_t buf_size, const opts_data_t *op
 
 static int opts_get_can(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
-  return snprintf(buf, buf_size, "--name %s --can %s", opts_data->can_data.name, opts_data->can_data.name);
+  u8 nmbr = opts_data->can_data.number;
+  return snprintf(buf, buf_size, "--name can%" PRIu8 " --can %" PRIu32 " --can-f %" PRIu32, nmbr, can_get_id(nmbr), can_get_filter(nmbr));
 }
 
 typedef struct {
@@ -278,7 +280,7 @@ static port_config_t port_configs[] = {
   {
     .name = "can0",
     .opts = "",
-    .opts_data.can_data.name = "can0",
+    .opts_data.can_data.number = 0,
     .opts_get = opts_get_can,
     .type = PORT_TYPE_CAN,
     .mode_name_default = MODE_NAME_DISABLED,
@@ -290,7 +292,7 @@ static port_config_t port_configs[] = {
   {
     .name = "can1",
     .opts = "",
-    .opts_data.can_data.name = "can1",
+    .opts_data.can_data.number = 1,
     .opts_get = opts_get_can,
     .type = PORT_TYPE_CAN,
     .mode_name_default = MODE_NAME_DISABLED,

@@ -46,17 +46,24 @@ static const u32 baudrate_val_table[] =
 
 typedef struct {
   char *name;
+  u32 id;
+  u32 filter;
   u8 baudrate;
 } can_t;
 
-static can_t can0 = {
-  .name = "can0",
-  .baudrate = BAUDRATE_250K
-};
-
-static can_t can1 = {
-  .name = "can1",
-  .baudrate = BAUDRATE_250K
+static can_t cans[2] = {
+  [0] = {
+    .name = "can0",
+    .id = 0,
+    .filter = -1,
+    .baudrate = BAUDRATE_250K
+  },
+  [1] = {
+    .name = "can1",
+    .id = 1,
+    .filter = -1,
+    .baudrate = BAUDRATE_250K
+  }
 };
 
 static int can_cmd(const char *cmd)
@@ -152,6 +159,12 @@ static int can_configure(const can_t *can)
   return 0;
 }
 
+static int can_notify(void *context)
+{
+  (void)context;
+  return 0;
+}
+
 static int baudrate_notify(void *context)
 {
   const can_t *can = (can_t *)context;
@@ -160,8 +173,8 @@ static int baudrate_notify(void *context)
 
 int can_init(settings_ctx_t *settings_ctx)
 {
-  can_configure(&can0);
-  can_configure(&can1);
+  can_configure(&cans[0]);
+  can_configure(&cans[1]);
 
   /* Register settings */
   settings_type_t settings_type_baudrate;
@@ -172,20 +185,68 @@ int can_init(settings_ctx_t *settings_ctx)
   settings_register(settings_ctx,
                     "can0",
                     "baudrate",
-                    &can0.baudrate,
-                    sizeof(can0.baudrate),
+                    &cans[0].baudrate,
+                    sizeof(cans[0].baudrate),
                     settings_type_baudrate,
                     baudrate_notify,
-                    &can0);
+                    &cans[0]);
+
+  settings_register(settings_ctx,
+                    "can0",
+                    "id",
+                    &cans[0].id,
+                    sizeof(cans[0].id),
+                    SETTINGS_TYPE_INT,
+                    can_notify,
+                    NULL);
+
+  settings_register(settings_ctx,
+                    "can0",
+                    "filter",
+                    &cans[0].filter,
+                    sizeof(cans[0].filter),
+                    SETTINGS_TYPE_INT,
+                    can_notify,
+                    NULL);
 
   settings_register(settings_ctx,
                     "can1",
                     "baudrate",
-                    &can1.baudrate,
-                    sizeof(can1.baudrate),
+                    &cans[1].baudrate,
+                    sizeof(cans[1].baudrate),
                     settings_type_baudrate,
                     baudrate_notify,
-                    &can1);
+                    &cans[1]);
+
+  settings_register(settings_ctx,
+                    "can1",
+                    "id",
+                    &cans[1].id,
+                    sizeof(cans[1].id),
+                    SETTINGS_TYPE_INT,
+                    can_notify,
+                    NULL);
+
+  settings_register(settings_ctx,
+                    "can1",
+                    "filter",
+                    &cans[1].filter,
+                    sizeof(cans[1].filter),
+                    SETTINGS_TYPE_INT,
+                    can_notify,
+                    NULL);
 
   return 0;
+}
+
+u32 can_get_id(u8 can_number)
+{
+  assert(can_number < sizeof(cans) / sizeof(cans[0]));
+  return cans[can_number].id;
+}
+
+u32 can_get_filter(u8 can_number)
+{
+  assert(can_number < sizeof(cans) / sizeof(cans[0]));
+  return cans[can_number].filter;
 }

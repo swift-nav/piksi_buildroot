@@ -122,7 +122,8 @@ static int tcp_listen_port = -1;
 static const char *tcp_connect_addr = NULL;
 static int udp_listen_port = -1;
 static const char *udp_connect_addr = NULL;
-static const char *can_name = NULL;
+static int can_id = -1;
+static int can_filter = -1;
 
 static pid_t pub_pid = -1;
 static pid_t sub_pid = -1;
@@ -158,7 +159,8 @@ static void usage(char *command)
   fprintf(stderr, "\t--tcp-c <addr>\n");
   fprintf(stderr, "\t--udp-l <port>\n");
   fprintf(stderr, "\t--udp-c <addr>\n");
-  fprintf(stderr, "\t--can <name>\n");
+  fprintf(stderr, "\t--can <can_id>\n");
+  fprintf(stderr, "\t--can-f <can_filter>\n");
 
   fprintf(stderr, "\nMisc options\n");
   fprintf(stderr, "\t--startup-delay <ms>\n");
@@ -189,6 +191,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_NONBLOCK,
     OPT_ID_OUTQ,
     OPT_ID_CAN,
+    OPT_ID_CAN_FILTER,
   };
 
   // clang-format off
@@ -212,6 +215,7 @@ static int parse_options(int argc, char *argv[])
     {"nonblock",          no_argument,       0, OPT_ID_NONBLOCK},
     {"outq",              required_argument, 0, OPT_ID_OUTQ},
     {"can",               required_argument, 0, OPT_ID_CAN},
+    {"can-f",             required_argument, 0, OPT_ID_CAN_FILTER},
     {0, 0, 0, 0},
     // clang-format on
   };
@@ -222,7 +226,11 @@ static int parse_options(int argc, char *argv[])
     switch (c) {
     case OPT_ID_CAN: {
       io_mode = IO_CAN;
-      can_name = optarg;
+      can_id = atoi(optarg);
+    } break;
+
+    case OPT_ID_CAN_FILTER: {
+      can_filter = atoi(optarg);
     } break;
 
     case OPT_ID_STDIO: {
@@ -514,7 +522,7 @@ static ssize_t can_write(int fd, const void *buffer, size_t count)
   size_t written = 0;
   while (written < count) {
     struct can_frame frame = {0};
-    frame.can_id  = 0xf0;// | CAN_EFF_FLAG;
+    frame.can_id  = can_id & CAN_SFF_MASK;
     frame.can_dlc = sizeof(frame.data);
     if (count - written < frame.can_dlc) {
       frame.can_dlc = count - written;
@@ -1034,8 +1042,8 @@ int main(int argc, char *argv[])
   } break;
 
   case IO_CAN: {
-    extern int can_loop(const char* name);
-    ret = can_loop(can_name);
+    extern int can_loop(const char *name, u32 filter);
+    ret = can_loop(port_name, can_filter);
   } break;
 
   default: break;

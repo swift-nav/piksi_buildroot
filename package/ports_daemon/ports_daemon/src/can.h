@@ -16,5 +16,7 @@
 #include <libpiksi/settings.h>
 
 int can_init(settings_ctx_t *settings_ctx);
+u32 can_get_id(u8 can_number);
+u32 can_get_filter(u8 can_number);
 
 #endif /* SWIFTNAV_CAN_H */

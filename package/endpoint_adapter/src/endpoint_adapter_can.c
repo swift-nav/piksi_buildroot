@@ -20,7 +20,7 @@
 
 #include "endpoint_adapter.h"
 
-int can_loop(const char *can_name)
+int can_loop(const char *can_name, u32 can_filter)
 {
   while (1) {
     /* Open CAN socket */
@@ -34,7 +34,7 @@ int can_loop(const char *can_name)
     }
 
     struct can_filter rfilter[1];
-    rfilter[0].can_id   = 0xf0; 
+    rfilter[0].can_id   = can_filter; 
     rfilter[0].can_mask = CAN_SFF_MASK;
 
     setsockopt(socket_can,
