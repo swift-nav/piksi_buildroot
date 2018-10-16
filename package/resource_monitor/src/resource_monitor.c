@@ -18,7 +18,6 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
-#include <libpiksi/runit.h>
 
 #include "resource_query.h"
 #include "sbp.h"
