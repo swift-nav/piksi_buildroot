@@ -54,6 +54,9 @@ int count_lines(const char *file_path);
 
 unsigned long fetch_mem_total(void);
 
+NESTED_FN_TYPEDEF(bool, line_fn_t, const char *line);
+void foreach_line(const char * lines, line_fn_t);
+
 #ifdef __cplusplus
 }
 #endif

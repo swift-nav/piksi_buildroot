@@ -1,4 +1,7 @@
-// clang-format off
+/* clang-format off */
+/*
+ * Source: https://github.com/chneukirchen/extrace
+ */
 /* extrace - trace exec() calls system-wide
  *
  * Requires CONFIG_CONNECTOR=y and CONFIG_PROC_EVENTS=y.
@@ -615,4 +618,4 @@ close_and_exit:
 	close(sk_nl);
 	return rc;
 }
-// clang-format on
+/* clang-format on */

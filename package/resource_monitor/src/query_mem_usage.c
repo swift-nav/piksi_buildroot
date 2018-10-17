@@ -118,22 +118,16 @@ static void run_resource_query(void *context)
     piksi_log(LOG_ERR | LOG_SBP, "error running 'ps' command: %s", strerror(errno));
   }
 
-  size_t item_index = 0;
-  char *line_ctx = NULL;
-
+  size_t NESTED_AXX(item_index) = 0;
   memset(&query_context, 0, sizeof(query_context));
 
-  for (char *line = strtok_r(buf, "\n", &line_ctx); line != NULL;
-       line = strtok_r(NULL, "\n", &line_ctx)) {
-
-    if (item_index >= ITEM_COUNT) {
-      break;
+  foreach_line(buf, NESTED_FN(bool, (const char *line), {
+    if (item_index >= ITEM_COUNT || !parse_ps_mem_line(line, item_index++, prep_state)) {
+      return false;
     }
+    return true;
+  }));
 
-    if (!parse_ps_mem_line(line, item_index++, prep_state)) {
-      return;
-    }
-  }
 #ifdef DEBUG_QUERY_MEM
   for (size_t i = 0; i < ITEM_COUNT; i++) {
     fprintf(stderr,

@@ -265,6 +265,13 @@ bool strtod_all(const char *str, double *value);
 
 typedef struct runner_s runner_t;
 
+/**
+ * A utility class for running pipelines, similar to shell pipeline.
+ * 
+ * Pipelines can be constructed as follows:
+ *
+ * 
+ */
 typedef struct runner_s {
 
   runner_t *(*cat)(runner_t *r, const char *filename);
@@ -306,6 +313,33 @@ runner_t *create_runner(void);
   })
 
 #define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
+
+#define PK_LOG_ANNO(Pri, Msg, ...) \
+  do { \
+    piksi_log(LOG_ERR, \
+              "%s: " Msg " (%s:%d)", \
+              __FUNCTION__, ##__VA_ARGS__, \
+              __FILE__, \
+              __LINE__); \
+  } while(false)
+
+#ifdef __clang__
+#define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (^Name)(__VA_ARGS__);
+#else
+#define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (*Name)(__VA_ARGS__);
+#endif
+
+#ifdef __clang__
+#define NESTED_AXX(F) __block F
+#else
+#define NESTED_AXX(F) F
+#endif
+
+#ifdef __clang__
+#define NESTED_FN(RetTy, ArgSpec, FnBody) ^RetTy ArgSpec FnBody
+#else
+#define NESTED_FN(RetTy, ArgSpec, FnBody) ({ RetTy __fn__ ArgSpec FnBody; __fn__; })
+#endif
 
 #ifdef __cplusplus
 }

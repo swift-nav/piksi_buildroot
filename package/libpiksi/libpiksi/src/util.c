@@ -628,6 +628,7 @@ int run_with_stdin_file(const char *input_file,
 
 static runner_t *runner_cat(runner_t *r, const char *filename)
 {
+  if (r->_is_nil) return r;
 
   r->_filename = filename;
   return r;
@@ -635,13 +636,14 @@ static runner_t *runner_cat(runner_t *r, const char *filename)
 
 static runner_t *runner_pipe(runner_t *r)
 {
-
-  if (r->is_nil(r)) return r;
+  if (r->_is_nil) return r;
 
   if (r->_filename != NULL) {
 
     int fd = open(r->_filename, O_RDONLY);
+
     if (fd < 0) {
+      piksi_log(LOG_ERR, "%s: error opening file: %s (%s:%d)", __FUNCTION__, strerror(errno), __FILE__, __LINE__);
       r->_is_nil = true;
       return r;
     }
@@ -667,9 +669,7 @@ static runner_t *runner_pipe(runner_t *r)
   } else {
 
     piksi_log(LOG_ERR, "%s nothing staged for pipe (%s:%d)", __FUNCTION__, __FILE__, __LINE__);
-
     r->_is_nil = true;
-    return r;
   }
 
   return r;
@@ -677,8 +677,7 @@ static runner_t *runner_pipe(runner_t *r)
 
 static runner_t *runner_call(runner_t *r, const char *proc_path, const char *const argv[])
 {
-
-  if (r->is_nil(r)) return r;
+  if (r->_is_nil) return r;
 
   size_t index = 0;
 
@@ -690,8 +689,7 @@ static runner_t *runner_call(runner_t *r, const char *proc_path, const char *con
 
 static runner_t *runner_wait(runner_t *r)
 {
-
-  if (r->is_nil(r)) return r;
+  if (r->_is_nil) return r;
 
   int out_fd = -1;
   int rc = _run_with_stdin_file(r->_fd_stdin, r->_proc_path, r->_proc_args, &out_fd);
@@ -741,7 +739,6 @@ static bool runner_is_nil(runner_t *r)
 {
   return r->_is_nil;
 };
-
 
 static runner_t *runner_destroy(runner_t *r)
 {

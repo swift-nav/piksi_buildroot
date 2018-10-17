@@ -131,39 +131,23 @@ unsigned long fetch_mem_total(void)
 
   FILE *fp = fopen(PROC_MEMINFO, "r");
   if (fp == NULL) {
-    piksi_log(LOG_ERR,
-              "%s: unable to open %s: %s (%s:%d)",
-              __FUNCTION__,
-              PROC_MEMINFO,
-              strerror(errno),
-              __FILE__,
-              __LINE__);
+    PK_LOG_ANNO(LOG_ERR, "unable to open %s: %s", PROC_MEMINFO, strerror(errno));
     goto error;
   }
 
   int rc = fscanf(fp, "MemTotal: %ms", &mem_total_sz);
 
   if (rc <= 0) {
-    piksi_log(LOG_ERR,
-              "%s: error reading %s: %s (%s:%d)",
-              __FUNCTION__,
-              PROC_MEMINFO,
-              strerror(errno),
-              __FILE__,
-              __LINE__);
+    PK_LOG_ANNO(LOG_ERR, "error reading %s: %s", PROC_MEMINFO, strerror(errno));
     goto error;
   }
+
+  PK_LOG_ANNO(LOG_DEBUG, "read mem total: %s", mem_total_sz);
 
   unsigned long mem_total = 0;
 
   if (!strtoul_all(10, mem_total_sz, &mem_total)) {
-    piksi_log(LOG_ERR,
-              "%s: error reading %s: %s (%s:%d)",
-              __FUNCTION__,
-              PROC_MEMINFO,
-              strerror(errno),
-              __FILE__,
-              __LINE__);
+    PK_LOG_ANNO(LOG_ERR, "invalid value: %s (errno: %s)", mem_total_sz, strerror(errno));
     goto error;
   }
 
@@ -179,4 +163,14 @@ error:
   }
 
   return 0;
+}
+
+void foreach_line(const char * const lines_ro, line_fn_t line_fn)
+{
+  char *lines = strdupa(lines_ro);
+  char *line_ctx = NULL;
+  for (char *line = strtok_r(lines, "\n", &line_ctx); line != NULL;
+       line = strtok_r(NULL, "\n", &line_ctx)) {
+    if (!line_fn(line)) return;
+  }
 }
