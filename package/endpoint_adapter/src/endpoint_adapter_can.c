@@ -37,27 +37,39 @@ int can_loop(const char *can_name, u32 can_filter)
     rfilter[0].can_id   = can_filter; 
     rfilter[0].can_mask = CAN_SFF_MASK;
 
-    setsockopt(socket_can,
-               SOL_CAN_RAW,
-               CAN_RAW_FILTER,
-               &rfilter,
-               sizeof(rfilter)); 
+    if (setsockopt(socket_can,
+                   SOL_CAN_RAW,
+                   CAN_RAW_FILTER,
+                   &rfilter,
+                   sizeof(rfilter)) {
+      piksi_log(LOG_ERR, "Could not set filter for %s", can_name);
+      return 1;
+    } 
 
     const int loopback = 0;
 
-    setsockopt(socket_can,
-               SOL_CAN_RAW,
-               CAN_RAW_LOOPBACK,
-               &loopback,
-               sizeof(loopback));
+    if (setsockopt(socket_can,
+                   SOL_CAN_RAW,
+                   CAN_RAW_LOOPBACK,
+                   &loopback,
+                   sizeof(loopback))) {
+      piksi_log(LOG_ERR, "Could not disable loopback for %s", can_name);
+      return 1;
+    } 
 
     strcpy(ifr.ifr_name, can_name);
-    ioctl(socket_can, SIOCGIFINDEX, &ifr);
+    if (ioctl(socket_can, SIOCGIFINDEX, &ifr) < 0) {
+      piksi_log(LOG_ERR, "Could not get index name for %s", can_name);
+      return 1;
+    }
 
     addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
 
-    bind(socket_can, (struct sockaddr *)&addr, sizeof(addr));
+    if (bind(socket_can, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+      piksi_log(LOG_ERR, "Could not bind %s", can_name);
+      return 1;
+    }
 
     int wfd = dup(socket_can);
     io_loop_start_can(socket_can, wfd);
@@ -67,5 +79,6 @@ int can_loop(const char *can_name, u32 can_filter)
     close(wfd);
     socket_can = -1;
   }
+
   return 0;
 }
