@@ -48,11 +48,10 @@ void piksi_log(int priority, const char *format, ...)
 void piksi_vlog(int priority, const char *format, va_list ap)
 {
   if (log_stdout_only) {
-    char *with_return = (char *)malloc(strlen(format) + 1);
+    char *with_return = (char *)alloca(strlen(format) + 1 /* newline */ + 1 /* null terminator */);
     if (with_return != NULL) {
       sprintf(with_return, "%s\n", format);
       vprintf(with_return, ap);
-      free(with_return);
     }
     return;
   }

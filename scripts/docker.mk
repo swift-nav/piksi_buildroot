@@ -55,6 +55,7 @@ DOCKER_SETUP_ARGS :=                                                          \
 
 DOCKER_RUN_ARGS := \
   $(DOCKER_SETUP_ARGS) \
+  --security-opt seccomp:unconfined --cap-add=SYS_PTRACE \
   -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images \
   -v $(CURDIR)/buildroot/nano_output/images:/piksi_buildroot/buildroot/nano_output/images
 

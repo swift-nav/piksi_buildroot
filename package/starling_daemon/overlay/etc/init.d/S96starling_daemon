@@ -8,9 +8,9 @@ user="strlngd"
 log_tag=$name # required by logging.sh
 source /etc/init.d/logging.sh
 
-starling_daemon_enabled=$(query_config --section system --key enable_starling_daemon)
+starling_daemon_enabled=$(cat /persistent/flags/starling_on_linux 2>/dev/null)
 
-if [[ "$starling_daemon_enabled" != "True" ]]; then
+if [[ "$starling_daemon_enabled" != "1" ]]; then
   logi --sbp "Starling daemon not enabled"
   exit 0
 fi
