@@ -41,7 +41,7 @@ int can_loop(const char *can_name, u32 can_filter)
                    SOL_CAN_RAW,
                    CAN_RAW_FILTER,
                    &rfilter,
-                   sizeof(rfilter)) {
+                   sizeof(rfilter))) {
       piksi_log(LOG_ERR, "Could not set filter for %s", can_name);
       return 1;
     } 
