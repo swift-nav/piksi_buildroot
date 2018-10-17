@@ -37,23 +37,64 @@ typedef struct {
 
   runit_config_t runit_cfg;
 
+  double pcpu_used;
+  unsigned long mem_used;
+
   unsigned long mem_total;
 
 } prep_state_t;
 
 static void s_runner(runner_t **r) {
   if (r == NULL || *r == NULL) return;
-  (*r)->destroy(*r);
-  *r = NULL;
+  *r = (*r)->destroy(*r);
 };
+
+enum {
+  STATE_PCPU = 0,
+  STATE_VSZ,
+  STATE_DONE,
+  STATE_COUNT = STATE_DONE,
+};
+
+static bool parse_ps_cpu_mem_line(const char *line, prep_state_t *state)
+{
+  double pcpu = 0;
+  u32 vsz = 0;
+
+  line_spec_t line_specs[STATE_COUNT] = {
+    [STATE_PCPU] =
+      (line_spec_t){
+        .type = FT_F64,
+        .dst.f64 = &pcpu,
+        .desc = "pcpu",
+        .next = STATE_VSZ,
+      },
+    [STATE_VSZ] =
+      (line_spec_t){
+        .type = FT_U32,
+        .dst.u32 = &vsz,
+        .desc = "vsz",
+        .next = STATE_DONE,
+      },
+  };
+
+  bool parse_success = parse_ps_line(line, STATE_PCPU, STATE_DONE, line_specs);
+  if (!parse_success) return false;
+
+  state->pcpu_used += pcpu;
+  state->mem_used += vsz;
+
+  return true;
+}
 
 static void run_resource_query(void *context)
 {
-
   prep_state_t *state = context;
   stop_runit_service(&state->runit_cfg);
 
   state->sent_sbp = 0;
+  state->pcpu_used = 0;
+  state->mem_used = 0;
 
   state->procs_started = 0;
   {
@@ -65,24 +106,11 @@ static void run_resource_query(void *context)
     r = r->wait(r);
 
     if (r->is_nil(r)) {
-      piksi_log(LOG_ERR,
-                "%s: grep call failed: %d (%s:%d)",
-                __FUNCTION__,
-                r->exit_code,
-                __FILE__,
-                __LINE__);
-      return;
-    }
-
-    if (!strtoul_all(10, r->stdout_buffer, &state->procs_started)) {
-      piksi_log(LOG_ERR,
-                "%s: grep returned invalid value: '%s' (exit: %d) (%s:%d)",
-                __FUNCTION__,
-                r->stdout_buffer,
-                r->exit_code,
-                __FILE__,
-                __LINE__);
-      return;
+      PK_LOG_ANNO(LOG_ERR, "grep call failed: %d", r->exit_code);
+    } else {
+      if (!strtoul_all(10, r->stdout_buffer, &state->procs_started)) {
+        PK_LOG_ANNO(LOG_ERR, "grep returned invalid value: '%s' (exit: %d)", r->stdout_buffer, r->exit_code);
+      }
     }
   }
 
@@ -96,26 +124,30 @@ static void run_resource_query(void *context)
     r = r->wait(r);
 
     if (r->is_nil(r)) {
-      piksi_log(LOG_ERR,
-                "%s: grep call failed: %d (%s:%d)",
-                __FUNCTION__,
-                r->exit_code,
-                __FILE__,
-                __LINE__);
-      return;
-    }
-
-    if (!strtoul_all(10, r->stdout_buffer, &state->procs_exitted)) {
-      piksi_log(LOG_ERR,
-                "%s: grep returned invalid value: '%s' (exit: %d) (%s:%d)",
-                __FUNCTION__,
-                r->stdout_buffer,
-                r->exit_code,
-                __FILE__,
-                __LINE__);
-      return;
+      PK_LOG_ANNO(LOG_ERR, "grep call failed: %d", r->exit_code);
+    } else {
+      if (!strtoul_all(10, r->stdout_buffer, &state->procs_exitted)) {
+        PK_LOG_ANNO(LOG_ERR, "grep returned invalid value: '%s' (exit: %d)", r->stdout_buffer, r->exit_code);
+      }
     }
   }
+
+  char *argv[] = {"ps", "--no-headers", "-e", "-o", "%C\t%z", NULL};
+
+  char buf[16*1024] = {0};
+  int rc = run_with_stdin_file(NULL, "ps", argv, buf, sizeof(buf));
+ 
+  if (rc != 0) {
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "error running 'ps' command: %s", strerror(errno));
+  }
+  foreach_line(buf, NESTED_FN(bool, (const char *line), {
+    if (!parse_ps_cpu_mem_line(line, state)) {
+      return false;
+    }
+    return true;
+  }));
+
+  start_runit_service(&state->runit_cfg);
 }
 
 static bool prepare_resource_query_sbp(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
@@ -130,7 +162,12 @@ static bool prepare_resource_query_sbp(u16 *msg_type, u8 *len, u8 *sbp_buf, void
   sys_state->procs_starting = (u16)state->procs_started;
   sys_state->procs_stopping = (u16)state->procs_exitted;
 
-  sys_state->mem_total = (u16)state->mem_total;
+  sys_state->mem_total = (u16)(state->mem_total / 1024);
+
+  sys_state->pcpu = 
+    (u8)((1u << (sizeof(u8) * 8)) * (state->pcpu_used / 100.0));
+  sys_state->pmem =
+    (u8)((1u << (sizeof(u8) * 8)) * ((double)state->mem_used / sys_state->mem_total));
 
   return state->sent_sbp++ == 0;
 }

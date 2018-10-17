@@ -16,12 +16,13 @@ endef
 
 define RESOURCE_MONITOR_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/src/resource_monitor $(TARGET_DIR)/usr/bin
+	$(INSTALL) -D -m 0755 $(@D)/src/extrace $(TARGET_DIR)/usr/bin
 endef
 
 define RESOURCE_MONITOR_BUILD_CMDS
 	$(MAKE) CROSS=$(TARGET_CROSS) LD=$(TARGET_LD) -C $(@D)/src all
 endef
 
-
+BR2_ROOTFS_OVERLAY += "${RESOURCE_MONITOR_SITE}/overlay"
 
 $(eval $(generic-package))
