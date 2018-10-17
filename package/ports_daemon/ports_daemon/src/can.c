@@ -23,7 +23,7 @@
 
 #include "can.h"
 
-static const char *const baudrate_enum_names[] = {"10000",
+static const char *const bitrate_enum_names[] = {"10000",
                                                   "20000",
                                                   "50000",
                                                   "125000",
@@ -32,23 +32,23 @@ static const char *const baudrate_enum_names[] = {"10000",
                                                   "1000000",
                                                   NULL};
 enum {
-  BAUDRATE_10K,
-  BAUDRATE_20K,
-  BAUDRATE_50K,
-  BAUDRATE_125K,
-  BAUDRATE_250K,
-  BAUDRATE_500K,
-  BAUDRATE_1M,
+  BITRATE_10K,
+  BITRATE_20K,
+  BITRATE_50K,
+  BITRATE_125K,
+  BITRATE_250K,
+  BITRATE_500K,
+  BITRATE_1M,
 };
 
-static const u32 baudrate_val_table[] =
+static const u32 bitrate_val_table[] =
   {10000, 20000, 50000, 125000, 250000, 500000, 1000000};
 
 typedef struct {
   char *name;
   u32 id;
   u32 filter;
-  u8 baudrate;
+  u8 bitrate;
 } can_t;
 
 static can_t cans[2] = {
@@ -56,13 +56,13 @@ static can_t cans[2] = {
     .name = "can0",
     .id = 0,
     .filter = -1,
-    .baudrate = BAUDRATE_250K
+    .bitrate = BITRATE_250K
   },
   [1] = {
     .name = "can1",
     .id = 1,
     .filter = -1,
-    .baudrate = BAUDRATE_250K
+    .bitrate = BITRATE_250K
   }
 };
 
@@ -128,10 +128,10 @@ static int can_configure(const can_t *can)
   }
 
   /* Set the CAN bitrate. This must be done before turning interface back on. */
-  if (can_set_bitrate_piksi(can->name, baudrate_val_table[can->baudrate])) {
+  if (can_set_bitrate_piksi(can->name, bitrate_val_table[can->bitrate])) {
     piksi_log(LOG_ERR,
               "Could not set bitrate %" PRId32 " on interface %s",
-              baudrate_val_table[can->baudrate],
+              bitrate_val_table[can->bitrate],
               can->name);
     return 1;
   }
@@ -165,7 +165,7 @@ static int can_notify(void *context)
   return 0;
 }
 
-static int baudrate_notify(void *context)
+static int bitrate_notify(void *context)
 {
   const can_t *can = (can_t *)context;
   return can_configure(can);
@@ -177,18 +177,18 @@ int can_init(settings_ctx_t *settings_ctx)
   can_configure(&cans[1]);
 
   /* Register settings */
-  settings_type_t settings_type_baudrate;
+  settings_type_t settings_type_bitrate;
   settings_type_register_enum(settings_ctx,
-                              baudrate_enum_names,
-                              &settings_type_baudrate);
+                              bitrate_enum_names,
+                              &settings_type_bitrate);
 
   settings_register(settings_ctx,
                     "can0",
-                    "baudrate",
-                    &cans[0].baudrate,
-                    sizeof(cans[0].baudrate),
-                    settings_type_baudrate,
-                    baudrate_notify,
+                    "bitrate",
+                    &cans[0].bitrate,
+                    sizeof(cans[0].bitrate),
+                    settings_type_bitrate,
+                    bitrate_notify,
                     &cans[0]);
 
   settings_register(settings_ctx,
@@ -211,11 +211,11 @@ int can_init(settings_ctx_t *settings_ctx)
 
   settings_register(settings_ctx,
                     "can1",
-                    "baudrate",
-                    &cans[1].baudrate,
-                    sizeof(cans[1].baudrate),
-                    settings_type_baudrate,
-                    baudrate_notify,
+                    "bitrate",
+                    &cans[1].bitrate,
+                    sizeof(cans[1].bitrate),
+                    settings_type_bitrate,
+                    bitrate_notify,
                     &cans[1]);
 
   settings_register(settings_ctx,
