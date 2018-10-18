@@ -14,6 +14,10 @@
   - Board-specific files (rootfs overlay, device trees, scripts, etc.) in `board/piksiv3`
 
 ## Building
+<u>Note:</u>
+Images built from source are no longer compatible with official releases. In order to
+upgrade to the latest official release you must install the pre-built
+[v2.0.2](https://github.com/swift-nav/piksi_buildroot/releases/tag/v2.0.2) binary.
 
 ### Docker
 
@@ -110,7 +114,7 @@ export BR2_BUILD_SAMPLE_DAEMON=y
 ```
 
 Then build normally:
-```
+``` sh
 # Docker
 make docker-make-image
 
@@ -120,7 +124,7 @@ make image
 
 ## Fetching firmware binaries
 
-To build a production system image, the build process expects the following
+To build a whole system image, the build process expects the following
 firmware and FPGA binaries to be present:
 
 ```
@@ -144,9 +148,16 @@ make firmware
 
 Check `fetch-firmware.sh` to see which image versions are being used.
 
-Note that these binaries are only used by the production system image. In the
+<u>Note:</u>
+These binaries are only used when building a whole system image. In the
 development system image they are instead read from the network or SD
 card.
+
+<u>Note:</u>
+Only [tagged releases](https://github.com/swift-nav/piksi_buildroot/releases)
+are made publicly available for download for use in building from source. Running
+`make firmware` on the last tagged release in relation to an untagged branch or
+commit may not always produce a functionial build, and therefore is not supported.
 
 ## Copying data out of docker
 
