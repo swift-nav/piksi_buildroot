@@ -572,3 +572,22 @@ int ports_init(settings_ctx_t *settings_ctx)
 
   return 0;
 }
+
+bool port_is_enabled(const char *name)
+{
+  assert(strlen(name) > 3);
+
+  for (size_t i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
+    port_config_t *port_config = &port_configs[i];
+
+    if (strncmp(name, port_config->name, 3)) {
+      continue;
+    }
+
+    if (MODE_DISABLED != port_config->mode) {
+      return true;
+    }
+  }
+
+  return false;
+}

@@ -22,6 +22,11 @@
 #include <libpiksi/util.h>
 
 #include "can.h"
+#include "ports.h"
+
+/* can_settings_initialized prevents false warning when notify function
+ * is triggered by read from persistent config file during boot */
+static bool can_settings_initialized = false;
 
 static const char *const bitrate_enum_names[] = {"10000",
                                                   "20000",
@@ -161,13 +166,25 @@ static int can_configure(const can_t *can)
 
 static int can_notify(void *context)
 {
-  (void)context;
+  const can_t *can = (can_t *)context;
+
+  if (can_settings_initialized && port_is_enabled(can->name)) {
+    sbp_log(LOG_WARNING, "%s must be disabled to modify settings", can->name);
+    return 1;
+  }
+
   return 0;
 }
 
 static int bitrate_notify(void *context)
 {
   const can_t *can = (can_t *)context;
+
+  if (can_settings_initialized && port_is_enabled(can->name)) {
+    sbp_log(LOG_WARNING, "%s must be disabled to modify settings", can->name);
+    return 1;
+  }
+
   return can_configure(can);
 }
 
@@ -198,16 +215,16 @@ int can_init(settings_ctx_t *settings_ctx)
                     sizeof(cans[0].id),
                     SETTINGS_TYPE_INT,
                     can_notify,
-                    NULL);
+                    &cans[0]);
 
   settings_register(settings_ctx,
                     "can0",
-                    "filter",
+                    "rx_id_filter",
                     &cans[0].filter,
                     sizeof(cans[0].filter),
                     SETTINGS_TYPE_INT,
                     can_notify,
-                    NULL);
+                    &cans[0]);
 
   settings_register(settings_ctx,
                     "can1",
@@ -225,16 +242,18 @@ int can_init(settings_ctx_t *settings_ctx)
                     sizeof(cans[1].id),
                     SETTINGS_TYPE_INT,
                     can_notify,
-                    NULL);
+                    &cans[1]);
 
   settings_register(settings_ctx,
                     "can1",
-                    "filter",
+                    "rx_id_filter",
                     &cans[1].filter,
                     sizeof(cans[1].filter),
                     SETTINGS_TYPE_INT,
                     can_notify,
-                    NULL);
+                    &cans[1]);
+
+  can_settings_initialized = true;
 
   return 0;
 }
