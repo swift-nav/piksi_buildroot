@@ -71,6 +71,18 @@ int can_loop(const char *can_name, u32 can_filter)
       return 1;
     }
 
+    /* Set socket for blocking */
+    int flags = fcntl(socket_can, F_GETFL, 0);
+    if (flags < 0) {
+      piksi_log(LOG_ERR, "Failed CAN flag fetch");
+      return 1;
+    }
+    
+    if (fcntl(socket_can, F_SETFL, flags & ~O_NONBLOCK) < 0) {
+      piksi_log(LOG_ERR, "Failed CAN flag set");
+      return 1;
+    }
+
     int wfd = dup(socket_can);
     io_loop_start_can(socket_can, wfd);
     io_loop_wait();

@@ -21,6 +21,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <limits.h>
+#include <time.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
@@ -491,58 +492,32 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
 
 static ssize_t can_write(int fd, const void *buffer, size_t count)
 {
-  //piksi_log(LOG_ERR, "Writing to CAN %d bytes", count);
-  if (isatty(fd) && (outq > 0)) {
-    int qlen;
-    ioctl(fd, TIOCOUTQ, &qlen);
-    if (qlen + count > outq) {
-      /* Flush the output buffer, otherwise we'll get behind and start
-       * transmitting partial SBP packets, we must drop some data here, so we
-       * choose to drop old data rather than new data.
-       */
-      tcflush(fd, TCOFLUSH);
-      ioctl(fd, TIOCOUTQ, &qlen);
-      if (qlen != 0) {
-        if (strstr(port_name, "usb") != port_name) {
-          piksi_log(LOG_WARNING, "Could not completely flush tty: %d bytes remaining.", qlen);
-        } else {
-          /* USB gadget serial can't flush properly for some reason, ignore...
-           *   (This is ignored ad infinitum because this condition occurs on
-           *   start-up before the interface is read from, after the interface
-           *   is read from, it never occurs again.)
-           */
-          return count;
-        }
-      }
-      piksi_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH, port_name);
-      sbp_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH, port_name);
-      return count;
-    }
+  struct can_frame frame = {0};
+  frame.can_id  = can_id & CAN_SFF_MASK;
+  frame.can_dlc = sizeof(frame.data);
+  if (count < frame.can_dlc) {
+    frame.can_dlc = count;
   }
-  size_t written = 0;
-  while (written < count) {
-    struct can_frame frame = {0};
-    frame.can_id  = can_id & CAN_SFF_MASK;
-    frame.can_dlc = sizeof(frame.data);
-    if (count - written < frame.can_dlc) {
-      frame.can_dlc = count - written;
-    }
-    memcpy(frame.data, buffer + written, frame.can_dlc);
+  memcpy(frame.data, buffer, frame.can_dlc);
+
+  while (1) {
     ssize_t ret = write(fd, &frame, sizeof(frame));
     /* Retry if interrupted */
     if ((ret == -1) && (errno == EINTR)) {
+      nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
+      piksi_log(LOG_WARNING, "CAN write interrupted");
       continue;
     } else if ((ret < 0) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
       /* Our output buffer is full and we're in non-blocking mode.
        * Just silently drop the rest of the output...
        */
-      return count;
+      nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
+      piksi_log(LOG_WARNING, "CAN write failed");
+      return 0;
     } else {
-      written += frame.can_dlc;
+      return frame.can_dlc;
     }
   }
-  //piksi_log(LOG_ERR, "Wrote to CAN %d bytes", written);
-  return written;
 }
 
 static ssize_t fd_write(int fd, const void *buffer, size_t count)

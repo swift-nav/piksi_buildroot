@@ -95,6 +95,19 @@ static int can_set_bitrate_piksi(const char *name, int br)
   return can_cmd(cmd);
 }
 
+static int can_set_txqueuelen_piksi(const char *name, int txqlen)
+{
+  char cmd[100];
+
+  snprintf_assert(cmd,
+                  sizeof(cmd),
+                  "sudo ip link set %s txqueuelen %d",
+                  name,
+                  txqlen);
+
+  return can_cmd(cmd);
+}
+
 static int can_do_start_piksi(const char *name)
 {
   char cmd[100];
@@ -137,6 +150,14 @@ static int can_configure(const can_t *can)
     piksi_log(LOG_ERR,
               "Could not set bitrate %" PRId32 " on interface %s",
               bitrate_val_table[can->bitrate],
+              can->name);
+    return 1;
+  }
+
+  if (can_set_txqueuelen_piksi(can->name, 1000)) {
+    piksi_log(LOG_ERR,
+              "Could not set tx queue len %" PRId32 " on interface %s",
+              1000,
               can->name);
     return 1;
   }
