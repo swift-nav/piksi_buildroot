@@ -139,7 +139,6 @@ struct json_object *loop_through_folder_name(const char *process_path,
  */
 int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
 {
-
   if (first_folder == true) // skip the root since it is handled by main()
   {
     first_folder = false;
@@ -202,13 +201,21 @@ int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
     {
       if (strcmp(bname, key) == 0) {
         file_entry_exist = true;
-        if (file_len == 0) {
-          json_object_put(val);
-          json_object_object_add(jobj_lc_node, bname, NULL);
+        if (file_len > 0) {
+          if (json_object_is_type(val, json_type_double))
+            json_object_set_double(val, number); // if file exist, update
+          else if (json_object_is_type(val, json_type_null)) {
+            json_object *jobj_remove = json_object_get(
+              val); // need to get the ownership of the json_object node before call put
+            json_object_put(jobj_remove);
+            json_object_object_add(jobj_lc_node, bname, json_object_new_double(number));
+          }
         } else {
-          json_object_set_double(val, number); // if file exist, update
+          json_object *jobj_remove = json_object_get(
+            val); // need to get the ownership of the json_object node before call put
+          json_object_put(jobj_remove);
+          json_object_object_add(jobj_lc_node, key, NULL);
         }
-
         break;
       }
     }
@@ -299,7 +306,9 @@ static int cleanup(int status)
    * @param obj the json_object instance
    * @returns 1 if the object was freed.
    */
-  if (json_object_put(jobj_root) != 1) piksi_log(LOG_ERR, "failed to free json object");
+  json_object *jobj_remove =
+    json_object_get(jobj_root); // need to get the ownership of the json_object node before call put
+  if (json_object_put(jobj_remove) != 1) piksi_log(LOG_ERR, "failed to free json object");
   return status;
 }
 
