@@ -44,7 +44,8 @@ typedef struct {
 
 } prep_state_t;
 
-static void s_runner(runner_t **r) {
+static void s_runner(runner_t **r)
+{
   if (r == NULL || *r == NULL) return;
   *r = (*r)->destroy(*r);
 };
@@ -109,7 +110,10 @@ static void run_resource_query(void *context)
       PK_LOG_ANNO(LOG_ERR, "grep call failed: %d", r->exit_code);
     } else {
       if (!strtoul_all(10, r->stdout_buffer, &state->procs_started)) {
-        PK_LOG_ANNO(LOG_ERR, "grep returned invalid value: '%s' (exit: %d)", r->stdout_buffer, r->exit_code);
+        PK_LOG_ANNO(LOG_ERR,
+                    "grep returned invalid value: '%s' (exit: %d)",
+                    r->stdout_buffer,
+                    r->exit_code);
       }
     }
   }
@@ -127,25 +131,28 @@ static void run_resource_query(void *context)
       PK_LOG_ANNO(LOG_ERR, "grep call failed: %d", r->exit_code);
     } else {
       if (!strtoul_all(10, r->stdout_buffer, &state->procs_exitted)) {
-        PK_LOG_ANNO(LOG_ERR, "grep returned invalid value: '%s' (exit: %d)", r->stdout_buffer, r->exit_code);
+        PK_LOG_ANNO(LOG_ERR,
+                    "grep returned invalid value: '%s' (exit: %d)",
+                    r->stdout_buffer,
+                    r->exit_code);
       }
     }
   }
 
   char *argv[] = {"ps", "--no-headers", "-e", "-o", "%C\t%z", NULL};
 
-  char buf[16*1024] = {0};
+  char buf[16 * 1024] = {0};
   int rc = run_with_stdin_file(NULL, "ps", argv, buf, sizeof(buf));
- 
+
   if (rc != 0) {
     PK_LOG_ANNO(LOG_ERR | LOG_SBP, "error running 'ps' command: %s", strerror(errno));
   }
   foreach_line(buf, NESTED_FN(bool, (const char *line), {
-    if (!parse_ps_cpu_mem_line(line, state)) {
-      return false;
-    }
-    return true;
-  }));
+                 if (!parse_ps_cpu_mem_line(line, state)) {
+                   return false;
+                 }
+                 return true;
+               }));
 
   start_runit_service(&state->runit_cfg);
 }
@@ -164,8 +171,7 @@ static bool prepare_resource_query_sbp(u16 *msg_type, u8 *len, u8 *sbp_buf, void
 
   sys_state->mem_total = (u16)(state->mem_total / 1024);
 
-  sys_state->pcpu = 
-    (u8)((1u << (sizeof(u8) * 8)) * (state->pcpu_used / 100.0));
+  sys_state->pcpu = (u8)((1u << (sizeof(u8) * 8)) * (state->pcpu_used / 100.0));
   sys_state->pmem =
     (u8)((1u << (sizeof(u8) * 8)) * ((double)state->mem_used / sys_state->mem_total));
 

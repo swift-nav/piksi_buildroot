@@ -509,11 +509,9 @@ int run_sigtimedwait(sigwait_params_t *params)
 {
   int ret = sigtimedwait(&params->waitset, &params->info, &params->timeout);
 
-  if (-1 == ret && EAGAIN == errno) {
-    return 1;
-  } else {
-    return 0;
-  }
+  if (-1 == ret && EAGAIN == errno) return 1;
+
+  return 0;
 }
 
 bool is_file(int fd)
@@ -522,7 +520,6 @@ bool is_file(int fd)
   int ret = lseek(fd, 0, SEEK_CUR);
   return !(-1 == ret && errno == ESPIPE);
 }
-
 
 static int _run_with_stdin_file(int fd_stdin,
                                 const char *cmd,
@@ -580,11 +577,26 @@ static int _run_with_stdin_file(int fd_stdin,
   __builtin_unreachable();
 }
 
+int run_command(const run_command_t *r)
+{
+  return run_with_stdin_file2(r->input, r->argv[0], r->argv, r->buffer, r->length, r->func);
+}
+
 int run_with_stdin_file(const char *input_file,
                         const char *cmd,
                         char *const argv[],
                         char *output,
                         size_t output_size)
+{
+  return run_with_stdin_file2(input_file, cmd, argv, output, output_size, NULL);
+}
+
+int run_with_stdin_file2(const char *input_file,
+                         const char *cmd,
+                         char *const argv[],
+                         char *output,
+                         size_t output_size,
+                         buffer_fn_t buffer_fn)
 {
   int fd_stdin = -1;
 
@@ -600,22 +612,42 @@ int run_with_stdin_file(const char *input_file,
 
   if (rc != 0) return rc;
 
-  size_t total = 0;
-  while (output_size > total) {
-    ssize_t ret = read(stdout_pipe, output + total, output_size - total);
+  if (buffer_fn != NULL) {
 
-    if (ret > 0) {
-      total += ret;
-    } else {
-      break;
-    }
-  }
+    size_t ret = 0;
+    do {
+      ret = read(stdout_pipe, output, output_size);
+      assert(ret < output_size);
+      if (ret > 0) {
+        ssize_t consumed = buffer_fn(output, ret);
+        if (consumed < 0) {
+          break;
+        }
+        if (consumed < ret) {
+          memmove(output, &output[consumed], ret - consumed);
+        }
+      }
+    } while (ret > 0);
 
-  /* Guarantee null terminated output */
-  if (total >= output_size) {
-    output[output_size - 1] = 0;
   } else {
-    output[total] = 0;
+
+    size_t total = 0;
+    while (output_size > total) {
+      ssize_t ret = read(stdout_pipe, output + total, output_size - total);
+
+      if (ret > 0) {
+        total += ret;
+      } else {
+        break;
+      }
+    }
+
+    /* Guarantee null terminated output */
+    if (total >= output_size) {
+      output[output_size - 1] = 0;
+    } else {
+      output[total] = 0;
+    }
   }
 
   close(stdout_pipe);
@@ -643,7 +675,12 @@ static runner_t *runner_pipe(runner_t *r)
     int fd = open(r->_filename, O_RDONLY);
 
     if (fd < 0) {
-      piksi_log(LOG_ERR, "%s: error opening file: %s (%s:%d)", __FUNCTION__, strerror(errno), __FILE__, __LINE__);
+      piksi_log(LOG_ERR,
+                "%s: error opening file: %s (%s:%d)",
+                __FUNCTION__,
+                strerror(errno),
+                __FILE__,
+                __LINE__);
       r->_is_nil = true;
       return r;
     }

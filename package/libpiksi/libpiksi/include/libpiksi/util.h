@@ -33,6 +33,28 @@
 extern "C" {
 #endif
 
+#ifdef __clang__
+#define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (^Name)(__VA_ARGS__);
+#else
+#define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (*Name)(__VA_ARGS__);
+#endif
+
+#ifdef __clang__
+#define NESTED_AXX(F) __block F
+#else
+#define NESTED_AXX(F) F
+#endif
+
+#ifdef __clang__
+#define NESTED_FN(RetTy, ArgSpec, FnBody) ^RetTy ArgSpec FnBody
+#else
+#define NESTED_FN(RetTy, ArgSpec, FnBody) \
+  ({                                      \
+    RetTy __fn__ ArgSpec FnBody;          \
+    __fn__;                               \
+  })
+#endif
+
 /**
  * @brief   Call snprintf and assert if the result is truncated
  * @details snprintf() and do not write more than size bytes (including the
@@ -228,6 +250,30 @@ int run_sigtimedwait(sigwait_params_t *params);
  */
 bool is_file(int fd);
 
+NESTED_FN_TYPEDEF(ssize_t, buffer_fn_t, char *buffer, size_t buflen);
+
+/** @brief Configures the run_command function */
+typedef struct {
+  const char *input; /**< The input file for the process */
+  char *const *argv; /**< The argv of the command, e.g. {"ls", "foo", "bar", "baz"} */
+  char *buffer;      /**< The buffer to write output data to */
+  size_t length;     /**< The length of the output buffer */
+  buffer_fn_t func;  /**< A function to receive output data */
+} run_command_t;
+
+/**
+ * @brief   Start a child process and record its output
+ * @details Forks a child process and redirect its stdout to provided output buffer.
+ *          Call blocks until the output buffer is full or child process stdout
+ *          gives EOF.
+ *
+ * @param[in]    r Command config to run within child process
+ *
+ * @return                    The operation result.
+ * @retval 0                  Success
+ */
+int run_command(const run_command_t *r);
+
 /**
  * @brief   Start a child process and record its output
  * @details Forks a child process and redirect its stdin from the input file
@@ -251,6 +297,30 @@ int run_with_stdin_file(const char *input_file,
                         size_t output_size);
 
 /**
+ * @brief   Start a child process and record its output
+ * @details Forks a child process and redirect its stdin from the input file
+ *          and its stdout to provided output buffer. Call blocks until the
+ *          output buffer is full or child process stdout gives EOF.
+ *
+ * @param[in]    input_file   Input file to map as child process stdin
+ * @param[in]    cmd          Command to run within child process
+ * @param[in]    cmd          Command arguments, list shall be NULL terminated,
+ *                            see execvp manual
+ * @param[inout] output       Output buffer
+ * @param[in]    output_size  Output buffer size
+ * @param[in]    buffer_fn    Function which will process output data
+ *
+ * @return                    The operation result.
+ * @retval 0                  Success
+ */
+int run_with_stdin_file2(const char *input_file,
+                         const char *cmd,
+                         char *const argv[],
+                         char *output,
+                         size_t output_size,
+                         buffer_fn_t buffer_fn);
+
+/**
  * @brief   Check if string contains only digits
  * @details Empty string ("\0") and NULL are considered non-digits-only.
  *          A string with leading zeros is considered as a valid digits-only.
@@ -267,10 +337,10 @@ typedef struct runner_s runner_t;
 
 /**
  * A utility class for running pipelines, similar to shell pipeline.
- * 
+ *
  * Pipelines can be constructed as follows:
  *
- * 
+ *
  */
 typedef struct runner_s {
 
@@ -296,7 +366,7 @@ typedef struct runner_s {
 
 runner_t *create_runner(void);
 
-#define SCRUB(TheVar, TheFunc) (TheVar)__attribute__ ((__cleanup__(TheFunc)))
+#define SCRUB(TheVar, TheFunc) (TheVar) __attribute__((__cleanup__(TheFunc)))
 
 #define SWFT_MAX(a, b)  \
   ({                    \
@@ -314,32 +384,10 @@ runner_t *create_runner(void);
 
 #define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
 
-#define PK_LOG_ANNO(Pri, Msg, ...) \
-  do { \
-    piksi_log(LOG_ERR, \
-              "%s: " Msg " (%s:%d)", \
-              __FUNCTION__, ##__VA_ARGS__, \
-              __FILE__, \
-              __LINE__); \
-  } while(false)
-
-#ifdef __clang__
-#define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (^Name)(__VA_ARGS__);
-#else
-#define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (*Name)(__VA_ARGS__);
-#endif
-
-#ifdef __clang__
-#define NESTED_AXX(F) __block F
-#else
-#define NESTED_AXX(F) F
-#endif
-
-#ifdef __clang__
-#define NESTED_FN(RetTy, ArgSpec, FnBody) ^RetTy ArgSpec FnBody
-#else
-#define NESTED_FN(RetTy, ArgSpec, FnBody) ({ RetTy __fn__ ArgSpec FnBody; __fn__; })
-#endif
+#define PK_LOG_ANNO(Pri, Msg, ...)                                                              \
+  do {                                                                                          \
+    piksi_log(LOG_ERR, "%s: " Msg " (%s:%d)", __FUNCTION__, ##__VA_ARGS__, __FILE__, __LINE__); \
+  } while (false)
 
 #ifdef __cplusplus
 }
