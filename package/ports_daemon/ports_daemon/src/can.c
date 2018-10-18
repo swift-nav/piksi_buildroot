@@ -28,14 +28,14 @@
  * is triggered by read from persistent config file during boot */
 static bool can_settings_initialized = false;
 
-static const char *const bitrate_enum_names[] = {"10000",
-                                                  "20000",
-                                                  "50000",
-                                                  "125000",
-                                                  "250000",
-                                                  "500000",
-                                                  "1000000",
-                                                  NULL};
+static const char *const bitrate_enum_names[] = {"10k",
+                                                 "20k",
+                                                 "50k",
+                                                 "125k",
+                                                 "250k",
+                                                 "500k",
+                                                 "1M",
+                                                 NULL};
 enum {
   BITRATE_10K,
   BITRATE_20K,
@@ -60,13 +60,13 @@ static can_t cans[2] = {
   [0] = {
     .name = "can0",
     .id = 0,
-    .filter = -1,
+    .filter = 0,
     .bitrate = BITRATE_250K
   },
   [1] = {
     .name = "can1",
     .id = 1,
-    .filter = -1,
+    .filter = 0,
     .bitrate = BITRATE_250K
   }
 };
@@ -210,7 +210,7 @@ int can_init(settings_ctx_t *settings_ctx)
 
   settings_register(settings_ctx,
                     "can0",
-                    "id",
+                    "tx_id",
                     &cans[0].id,
                     sizeof(cans[0].id),
                     SETTINGS_TYPE_INT,
@@ -237,7 +237,7 @@ int can_init(settings_ctx_t *settings_ctx)
 
   settings_register(settings_ctx,
                     "can1",
-                    "id",
+                    "tx_id",
                     &cans[1].id,
                     sizeof(cans[1].id),
                     SETTINGS_TYPE_INT,
