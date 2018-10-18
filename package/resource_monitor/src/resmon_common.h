@@ -49,13 +49,19 @@ typedef struct {
 } line_spec_t;
 
 bool parse_ps_line(const char *line, int start_state, int final_state, line_spec_t *line_specs);
+bool parse_tab_line(const char *line,
+                    int start_state,
+                    int final_state,
+                    line_spec_t *line_specs,
+                    const char *separators);
 
 int count_lines(const char *file_path);
+int count_sz_lines(const char *sz);
 
 unsigned long fetch_mem_total(void);
 
 NESTED_FN_TYPEDEF(bool, line_fn_t, const char *line);
-void foreach_line(const char * lines, line_fn_t);
+size_t foreach_line(const char *lines, line_fn_t);
 
 #ifdef __cplusplus
 }

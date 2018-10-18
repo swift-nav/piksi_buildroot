@@ -25,12 +25,21 @@
 
 bool parse_ps_line(const char *line, int start_state, int final_state, line_spec_t *line_specs)
 {
+  return parse_tab_line(line, start_state, final_state, line_specs, "\t");
+}
+
+bool parse_tab_line(const char *line,
+                    int start_state,
+                    int final_state,
+                    line_spec_t *line_specs,
+                    const char *separators)
+{
   int state = start_state;
   char *tab_ctx = NULL;
   char *line_a = strdupa(line);
 
-  for (char *field = strtok_r(line_a, "\t", &tab_ctx); field != NULL;
-       field = strtok_r(NULL, "\t", &tab_ctx)) {
+  for (char *field = strtok_r(line_a, separators, &tab_ctx); field != NULL;
+       field = strtok_r(NULL, separators, &tab_ctx)) {
 
     if (state == final_state) {
       piksi_log(LOG_ERR,
@@ -104,6 +113,15 @@ bool parse_ps_line(const char *line, int start_state, int final_state, line_spec
   return true;
 }
 
+int count_sz_lines(const char *sz)
+{
+  int count = 0;
+  while ((sz = strchr(sz, '\n')) != NULL) {
+    count++;
+  }
+  return count;
+}
+
 int count_lines(const char *file_path)
 {
   FILE *fp = fopen(file_path, "r");
@@ -165,12 +183,18 @@ error:
   return 0;
 }
 
-void foreach_line(const char * const lines_ro, line_fn_t line_fn)
+size_t foreach_line(const char *const lines_ro, line_fn_t line_fn)
 {
   char *lines = strdupa(lines_ro);
   char *line_ctx = NULL;
+
+  size_t consumed = 0;
+
   for (char *line = strtok_r(lines, "\n", &line_ctx); line != NULL;
        line = strtok_r(NULL, "\n", &line_ctx)) {
-    if (!line_fn(line)) return;
+    consumed += strlen(line);
+    if (!line_fn(line)) break;
   }
+
+  return consumed;
 }
