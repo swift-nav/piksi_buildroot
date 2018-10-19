@@ -8,7 +8,7 @@ LIBPIKSI_VERSION = 0.1
 LIBPIKSI_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/libpiksi/libpiksi"
 LIBPIKSI_SITE_METHOD = local
-LIBPIKSI_DEPENDENCIES = libuv nanomsg_custom libsbp
+LIBPIKSI_DEPENDENCIES = libuv nanomsg_custom libsbp busybox
 ifeq ($(BR2_BUILD_TESTS),y)
 	LIBPIKSI_DEPENDENCIES += gtest
 endif
@@ -43,15 +43,16 @@ endef
 ifeq ($(BR2_BUILD_TESTS),y)
 define LIBPIKSI_INSTALL_TARGET_CMDS_TESTS_INSTALL
 	$(INSTALL) -D -m 0755 $(@D)/test/run_libpiksi_tests $(TARGET_DIR)/usr/bin
+	$(INSTALL) -D -m 0755 $(@D)/test/run_libpiksi_str_tests $(TARGET_DIR)/usr/bin
 endef
 endif
+
 ifeq ($(BR2_RUN_TESTS),y)
-define LIBPIKSI_INSTALL_TARGET_CMDS_TESTS_RUN
-	PROOT_NO_SECCOMP=1 PATH=/bin:/usr/bin:/sbin:/usr/sbin \
-		proot -R $(TARGET_DIR) run_libpiksi_tests
-	#LD_LIBRARY_PATH=$(TARGET_DIR)/usr/lib valgrind --track-origins=yes --leak-check=full --error-exitcode=1 $(TARGET_DIR)/usr/bin/run_libpiksi_tests
-endef
+LIBPIKSI_INSTALL_TARGET_CMDS_TESTS_RUN = \
+	$(call pbr_proot_valgrind_test,run_libpiksi_tests) && \
+		$(call pbr_proot_test,run_libpiksi_str_tests)
 endif
+
 define LIBPIKSI_INSTALL_TARGET_CMDS
 	$(LIBPIKSI_INSTALL_TARGET_CMDS_DEFAULT)
 	$(LIBPIKSI_INSTALL_TARGET_CMDS_TESTS_INSTALL)

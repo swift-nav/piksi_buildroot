@@ -250,15 +250,16 @@ int run_sigtimedwait(sigwait_params_t *params);
  */
 bool is_file(int fd);
 
-NESTED_FN_TYPEDEF(ssize_t, buffer_fn_t, char *buffer, size_t buflen);
+NESTED_FN_TYPEDEF(ssize_t, buffer_fn_t, char *buffer, size_t buflen, void *context);
 
 /** @brief Configures the run_command function */
 typedef struct {
-  const char *input; /**< The input file for the process */
-  char *const *argv; /**< The argv of the command, e.g. {"ls", "foo", "bar", "baz"} */
-  char *buffer;      /**< The buffer to write output data to */
-  size_t length;     /**< The length of the output buffer */
-  buffer_fn_t func;  /**< A function to receive output data */
+  const char *input;       /**< The input file for the process */
+  const char *const *argv; /**< The argv of the command, e.g. {"ls", "foo", "bar", "baz"} */
+  char *buffer;            /**< The buffer to write output data to */
+  size_t length;           /**< The length of the output buffer */
+  buffer_fn_t func;        /**< A function to receive output data */
+  void *context;           /**< A context to pass to the function */
 } run_command_t;
 
 /**
@@ -292,7 +293,7 @@ int run_command(const run_command_t *r);
  */
 int run_with_stdin_file(const char *input_file,
                         const char *cmd,
-                        char *const argv[],
+                        const char *const argv[],
                         char *output,
                         size_t output_size);
 
@@ -309,16 +310,18 @@ int run_with_stdin_file(const char *input_file,
  * @param[inout] output       Output buffer
  * @param[in]    output_size  Output buffer size
  * @param[in]    buffer_fn    Function which will process output data
+ * @param[in]    context      A context to pass to buffer_fn
  *
  * @return                    The operation result.
  * @retval 0                  Success
  */
 int run_with_stdin_file2(const char *input_file,
                          const char *cmd,
-                         char *const argv[],
+                         const char *const argv[],
                          char *output,
                          size_t output_size,
-                         buffer_fn_t buffer_fn);
+                         buffer_fn_t buffer_fn,
+                         void *context);
 
 /**
  * @brief   Check if string contains only digits

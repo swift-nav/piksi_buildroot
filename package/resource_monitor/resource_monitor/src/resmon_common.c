@@ -12,6 +12,7 @@
 
 #define _GNU_SOURCE
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -115,11 +116,20 @@ bool parse_tab_line(const char *line,
 
 int count_sz_lines(const char *sz)
 {
+  assert(sz != NULL);
+
+  if (*sz == '\0') return 0;
+
   int count = 0;
+  bool newline_eof = false;
+
   while ((sz = strchr(sz, '\n')) != NULL) {
-    count++;
+    ++count;
+    ++sz;
+    newline_eof = *sz == '\0';
   }
-  return count;
+
+  return newline_eof ? count : count + 1;
 }
 
 int count_lines(const char *file_path)
@@ -192,7 +202,7 @@ size_t foreach_line(const char *const lines_ro, line_fn_t line_fn)
 
   for (char *line = strtok_r(lines, "\n", &line_ctx); line != NULL;
        line = strtok_r(NULL, "\n", &line_ctx)) {
-    consumed += strlen(line);
+    consumed += strlen(line) + 1;
     if (!line_fn(line)) break;
   }
 

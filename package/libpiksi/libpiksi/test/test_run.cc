@@ -16,6 +16,19 @@
 
 #include <libpiksi/util.h>
 
+static const char *test_str = "string literal";
+
+ssize_t buffer_func(char *buffer, size_t length, void *context)
+{
+  size_t *offset = (size_t *)context;
+  buffer[length] = '\0';
+
+  EXPECT_TRUE(buffer[0] == test_str[*offset]);
+  *offset += 1;
+
+  return (ssize_t)1;
+}
+
 TEST_F(LibpiksiTests, runWithStdinFileTests)
 {
   const char *stdin_file_name = "/tmp/stdin.txt";
@@ -23,7 +36,6 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
 
   EXPECT_FALSE(file_ptr == NULL);
 
-  const char *test_str = "string literal";
   fputs(test_str, file_ptr);
   fclose(file_ptr);
 
@@ -106,6 +118,30 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
   EXPECT_NE(r, nullptr);
   EXPECT_FALSE(r->is_nil(r));
   EXPECT_EQ(r->exit_code, 0);
+
+  r = r->destroy(r);
+
+  // Use run_command, specify a buffer function
+  {
+    const char *cmd = "cat";
+    const char *const argv[] = {"cat", stdin_file_name, NULL};
+
+    char buffer[128] = {0};
+
+    size_t offset = 0;
+
+    run_command_t run_config = {
+      .input = NULL,
+      .argv = argv,
+      .buffer = buffer,
+      .length = sizeof(buffer) - 1,
+      .func = buffer_func,
+      .context = &offset,
+    };
+
+    EXPECT_EQ(0, run_command(&run_config));
+    EXPECT_EQ(offset, strlen(test_str));
+  }
 
   // Clean up test file
   if (remove(stdin_file_name)) {

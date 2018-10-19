@@ -31,6 +31,7 @@ extern "C" {
 #define SBP_PAYLOAD_SIZE_MAX (255u)
 
 typedef void *(*resq_init_fn_t)();
+typedef const char *(*resq_describe_fn_t)(void);
 typedef void (*resq_run_query_fn_t)(void *context);
 typedef bool (*resq_prepare_sbp_fn_t)(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context);
 typedef void (*resq_teardown_fn_t)(void **context);
@@ -46,6 +47,11 @@ typedef struct {
    * @return a context that will be passed to subsequent method invocations.
    */
   resq_init_fn_t init;
+
+  /**
+   * @brief Run the resource query.
+   */
+  resq_describe_fn_t describe;
 
   /**
    * @brief Run the resource query.
