@@ -7,8 +7,8 @@ user="otad"
 
 setup_permissions()
 {
-  mkdir -p /upgrade_data/ota
-  chown -R ${user}:${user} /upgrade_data/ota
+  mkdir -p /data/ota
+  chown -R ${user}:${user} /data/ota
 
   # Setup runit dir dynamic services
   mkdir -p /var/run/${name}/sv
