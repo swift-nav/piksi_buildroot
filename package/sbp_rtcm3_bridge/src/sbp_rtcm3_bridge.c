@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include "sbp.h"
 #include <assert.h>
 #include <getopt.h>
 #include <gnss-converters/rtcm3_sbp.h>
@@ -20,7 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "sbp.h"
 
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
@@ -36,13 +36,17 @@ bool simulator_enabled_watch = false;
 
 pk_endpoint_t *rtcm3_pub = NULL;
 
+static const char *const rtcm_out_modes[] = {"Legacy", "MSM4", "MSM5", NULL};
+enum { RTCM_OUT_MODE_LEGACY, RTCM_OUT_MODE_MSM4, RTCM_OUT_MODE_MSM5 };
+static u8 rtcm_out_mode = (u8)RTCM_OUT_MODE_MSM5;
+
 static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void *context)
 {
   rtcm2sbp_decode_frame(data, length, context);
   return 0;
 }
 
-static void rtcm3_out_callback(u8 *buffer, u8 length, void *context)
+static void rtcm3_out_callback(u8 *buffer, u16 length, void *context)
 {
   (void)context;
   if (pk_endpoint_send(rtcm3_pub, buffer, length) != 0) {
@@ -112,7 +116,7 @@ static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
     return;
   }
 
-  gps_time_sec_t gps_time;
+  gps_time_t gps_time;
   gps_time.tow = time->tow * 0.001;
   gps_time.wn = time->wn;
   rtcm2sbp_set_gps_time(&gps_time, &rtcm3_to_sbp_state);
@@ -132,7 +136,7 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   /* work out the time of day in utc time */
   u32 utc_tod = time->hours * 3600 + time->minutes * 60 + time->seconds;
 
-  // Check we aren't within 0.1ms of the whole second boundary and round up if we are
+  /* Check we aren't within 0.1ms of the whole second boundary and round up if we are */
   if (999999999 - time->ns < 1e6) {
     utc_tod += 1;
   }
@@ -141,7 +145,8 @@ static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   u32 gps_tod = (time->tow % 86400000) * 1e-3;
 
   s8 leap_second;
-  /* if gps tod is smaller than utc tod we've crossed the day boundary during the leap second */
+  /* if gps tod is smaller than utc tod we've crossed the day boundary during
+   * the leap second */
   if (utc_tod < gps_tod) {
     leap_second = gps_tod - utc_tod;
   } else {
@@ -186,6 +191,20 @@ static int notify_simulator_enable_changed(void *context)
 {
   (void)context;
   sbp_simulator_enabled_set(simulator_enabled_watch);
+  return 0;
+}
+
+static int notify_rtcm_out_output_mode_changed(void *context)
+{
+  (void)context;
+
+  switch (rtcm_out_mode) {
+  case RTCM_OUT_MODE_LEGACY: sbp2rtcm_set_rtcm_out_mode(MSM_UNKNOWN, &sbp_to_rtcm3_state); break;
+  case RTCM_OUT_MODE_MSM4: sbp2rtcm_set_rtcm_out_mode(MSM4, &sbp_to_rtcm3_state); break;
+  case RTCM_OUT_MODE_MSM5: sbp2rtcm_set_rtcm_out_mode(MSM5, &sbp_to_rtcm3_state); break;
+  default: return -1;
+  }
+
   return 0;
 }
 
@@ -281,6 +300,17 @@ int main(int argc, char *argv[])
                      SETTINGS_TYPE_BOOL,
                      notify_simulator_enable_changed,
                      NULL);
+
+  settings_type_t settings_type_rtcm_out_mode;
+  settings_type_register_enum(settings_ctx, rtcm_out_modes, &settings_type_rtcm_out_mode);
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "output_mode",
+                    &rtcm_out_mode,
+                    sizeof(rtcm_out_mode),
+                    settings_type_rtcm_out_mode,
+                    notify_rtcm_out_output_mode_changed,
+                    &rtcm_out_mode);
 
   sbp_run();
 
