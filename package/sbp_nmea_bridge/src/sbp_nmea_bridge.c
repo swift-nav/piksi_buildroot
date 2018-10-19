@@ -161,16 +161,6 @@ static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *con
   sbp2nmea_baseline_heading(baseline_hdg, &state);
 }
 
-static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *context)
-{
-  (void)context;
-  (void)sender_id;
-  (void)len;
-  msg_baseline_heading_t *baseline_hdg = (msg_baseline_heading_t *)msg;
-  sbp2nmea_baseline_heading(baseline_hdg, &state);
-}
-
-
 static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)len;
