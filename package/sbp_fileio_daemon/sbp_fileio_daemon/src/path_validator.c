@@ -158,7 +158,7 @@ const char *path_validator_base_paths(path_validator_t *ctx)
 }
 
 #define CHECK_PATH_BUFFER(TheCount, TheBuf)                                                  \
-  if (TheCount >= (int)sizeof(TheBuf)) {                                                     \
+  if ((TheCount) >= (int)sizeof((TheBuf))) {                                                 \
     piksi_log(LOG_ERR, "%s path buffer overflow (%s:%d)", __FUNCTION__, __FILE__, __LINE__); \
     return false;                                                                            \
   }

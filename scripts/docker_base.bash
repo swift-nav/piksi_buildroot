@@ -17,12 +17,19 @@ cd "${build_dir}"
 
 echo '>>> Running docker build command...'
 
-docker build \
-  --force-rm \
-  --no-cache \
-  -f Dockerfile.base \
-  -t "$DOCKER_REPO_NAME:$VERSION_TAG" \
-  .
+if [[ -z "$USE_CACHE" ]];then
+  docker build \
+    --force-rm \
+    --no-cache \
+    -f Dockerfile.base \
+    -t "$DOCKER_REPO_NAME:$VERSION_TAG" \
+    .
+else
+  docker build \
+    -f Dockerfile.base \
+    -t "$DOCKER_REPO_NAME:$VERSION_TAG" \
+    .
+fi
 
 echo '>>> Pushing build to Docker Hub...'
 
