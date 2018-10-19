@@ -12,9 +12,11 @@
 
 #include <gtest/gtest.h>
 
+#include <libpiksi/logging.h>
+#include <libpiksi/util.h>
+
 #include <libpiksi_tests.h>
 
-#include <libpiksi/util.h>
 
 TEST_F(LibpiksiTests, snprintfTests)
 {
@@ -132,4 +134,19 @@ TEST_F(LibpiksiTests, strDigitsOnlyTests)
   {
     EXPECT_FALSE(str_digits_only(""));
   }
+}
+
+#define PROGRAM_NAME "libpiksi_tests"
+
+int main(int argc, char **argv)
+{
+  ::testing::InitGoogleTest(&argc, argv);
+
+  logging_init(PROGRAM_NAME);
+  logging_log_to_stdout_only(true);
+
+  auto ret = RUN_ALL_TESTS();
+  logging_deinit();
+
+  return ret;
 }

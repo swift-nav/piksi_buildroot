@@ -109,7 +109,7 @@ static void run_resource_query(void *context)
   resq_state_t *prep_state = context;
   prep_state->current_index = 0;
 
-  char *argv[] = {"ps", "--no-headers", "-e", "-o", "%p\t%z\t%c\t%a", "--sort=-vsz", NULL};
+  const char *argv[] = {"ps", "--no-headers", "-e", "-o", "%p\t%z\t%c\t%a", "--sort=-vsz", NULL};
 
   char buf[4096] = {0};
   int rc = run_with_stdin_file(NULL, "ps", argv, buf, sizeof(buf));
@@ -188,6 +188,11 @@ error:
   return NULL;
 }
 
+static const char *describe_query(void)
+{
+  return "system state";
+}
+
 static void teardown_resource_query(void **context)
 {
   assert(context != NULL && *context != NULL);
@@ -198,6 +203,7 @@ static void teardown_resource_query(void **context)
 
 static resq_interface_t query_descriptor = {
   .init = init_resource_query,
+  .describe = describe_query,
   .run_query = run_resource_query,
   .prepare_sbp = prepare_resource_query_sbp,
   .teardown = teardown_resource_query,

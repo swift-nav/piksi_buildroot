@@ -27,6 +27,7 @@ extern "C" {
 #endif
 
 #include <libpiksi/common.h>
+#include <libpiksi/util.h>
 
 typedef enum {
   FT_F64,

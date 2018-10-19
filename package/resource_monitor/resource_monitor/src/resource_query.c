@@ -14,6 +14,7 @@
 
 #include <sys/queue.h>
 
+#include <libpiksi/logging.h>
 #include <libpiksi/sbp_pubsub.h>
 
 #include "sbp.h"
@@ -35,6 +36,11 @@ void resq_register(resq_interface_t *resq)
   node->query = resq;
   if (resq->init != NULL) {
     node->context = resq->init();
+    if (node->context == NULL) {
+      piksi_log(LOG_ERR, "query module '%s' failed to initialize", resq->describe());
+      free(node);
+      return;
+    }
   }
   LIST_INSERT_HEAD(&interface_list, node, entries);
 }

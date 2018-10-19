@@ -579,24 +579,31 @@ static int _run_with_stdin_file(int fd_stdin,
 
 int run_command(const run_command_t *r)
 {
-  return run_with_stdin_file2(r->input, r->argv[0], r->argv, r->buffer, r->length, r->func);
+  return run_with_stdin_file2(r->input,
+                              r->argv[0],
+                              r->argv,
+                              r->buffer,
+                              r->length,
+                              r->func,
+                              r->context);
 }
 
 int run_with_stdin_file(const char *input_file,
                         const char *cmd,
-                        char *const argv[],
+                        const char *const argv[],
                         char *output,
                         size_t output_size)
 {
-  return run_with_stdin_file2(input_file, cmd, argv, output, output_size, NULL);
+  return run_with_stdin_file2(input_file, cmd, argv, output, output_size, NULL, NULL);
 }
 
 int run_with_stdin_file2(const char *input_file,
                          const char *cmd,
-                         char *const argv[],
+                         const char *const argv[],
                          char *output,
                          size_t output_size,
-                         buffer_fn_t buffer_fn)
+                         buffer_fn_t buffer_fn,
+                         void *context)
 {
   int fd_stdin = -1;
 
@@ -614,20 +621,23 @@ int run_with_stdin_file2(const char *input_file,
 
   if (buffer_fn != NULL) {
 
-    size_t ret = 0;
+    size_t read_size = 0;
+    size_t read_size_orig = 0;
     do {
-      ret = read(stdout_pipe, output, output_size);
-      assert(ret < output_size);
-      if (ret > 0) {
-        ssize_t consumed = buffer_fn(output, ret);
-        if (consumed < 0) {
-          break;
-        }
-        if (consumed < ret) {
-          memmove(output, &output[consumed], ret - consumed);
+      read_size = read_size_orig = read(stdout_pipe, output, output_size);
+      assert(read_size <= output_size);
+      size_t offset = 0;
+      while (read_size > 0) {
+        ssize_t consumed = buffer_fn(&output[offset], read_size, context);
+        if (consumed < 0) break;
+        if (consumed < read_size) {
+          offset += consumed;
+          read_size -= consumed;
+        } else {
+          read_size = 0;
         }
       }
-    } while (ret > 0);
+    } while (read_size_orig > 0);
 
   } else {
 
