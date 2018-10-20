@@ -8,7 +8,7 @@ user="resmond"
 setup_permissions()
 {
   # Add the network admin capability
-  setcap cap_net_admin+ep /usr/bin/extrace
+  /usr/sbin/setcap cap_net_admin+ep /usr/bin/extrace
 
   # Setup runit dir dynamic services
   mkdir -p /var/run/${name}/sv
