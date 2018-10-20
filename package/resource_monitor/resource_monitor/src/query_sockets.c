@@ -22,6 +22,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libpiksi/runit.h>
+#include <libpiksi/table.h>
 
 #include "resource_monitor.h"
 #include "resource_query.h"
@@ -43,17 +44,22 @@ typedef enum {
 
 typedef struct {
 
+  char pid_str[16];
   u16 pid;
 
   u16 socket_count;
   socket_types_t socket_types;
 
-} socket_tab;
+} pid_entry_t;
+
+MAKE_TABLE_WRAPPER(pid, pid_entry_t)
 
 typedef struct {
 
   int item_index;
-  struct hsearch_data socket_tabs;
+  size_t pid_count;
+
+  table_t *pid_table;
 
 } resq_state_t;
 
@@ -66,8 +72,65 @@ enum {
   STATE_REMOTE_ADDR,
   STATE_EXTRA_INFO,
   STATE_DONE,
-  STATE_COUNT = STATE_DONE + 1,
+  STATE_COUNT,
 };
+
+static void process_ss_entry(resq_state_t *state,
+                             const char *socket_type,
+                             const char *socket_state,
+                             const u32 recv_q,
+                             const u32 send_q,
+                             const char *local_addr,
+                             const char *remote_addr,
+                             const char *pid_str)
+{
+  pid_entry_t *entry = pid_table_get(state->pid_table, pid_str);
+
+  if (entry == NULL) {
+#ifdef DEBUG_QUERY_SOCKETS
+    PK_LOG_ANNO(LOG_ERR, "creating new entry for '%s'", pid_str);
+#endif
+    pid_entry_t new_entry = {0};
+    int s = snprintf(new_entry.pid_str, sizeof(entry->pid_str), "%s", pid_str);
+
+    if (s < 0 || (size_t)s >= sizeof(entry->pid_str)) {
+      PK_LOG_ANNO(LOG_ERR, "failed to copy pid string");
+      return;
+    }
+
+    unsigned long pid = 0;
+    if (!strtoul_all(10, pid_str, &pid)) {
+      PK_LOG_ANNO(LOG_ERR, "failed to convert pid str to number: %s", strerror(errno));
+      return;
+    }
+
+    new_entry.pid = (u16)pid;
+
+    entry = calloc(1, sizeof(pid_entry_t));
+    *entry = new_entry;
+
+    bool added = pid_table_put(state->pid_table, pid_str, entry);
+
+    if (!added) {
+      PK_LOG_ANNO(LOG_ERR, "failed add entry for pid '%s'", pid_str);
+      free(entry);
+      return;
+    }
+
+  } else {
+#ifdef DEBUG_QUERY_SOCKETS
+    PK_LOG_ANNO(LOG_ERR, "found existing entry for %s", pid_str);
+#endif
+
+    /* TODO */
+    (void)socket_type;
+    (void)socket_state;
+    (void)recv_q;
+    (void)send_q;
+    (void)local_addr;
+    (void)remote_addr;
+  }
+}
 
 static bool parse_ss_line(resq_state_t *state, const char *line)
 {
@@ -144,8 +207,21 @@ static bool parse_ss_line(resq_state_t *state, const char *line)
     return false;
   }
 
-  /* TODO */
-  (void)state;
+  char *pid_str = NULL;
+  char *pid_eq = strstr(extra_info, "pid=");
+
+  if (pid_eq == NULL) {
+    PK_LOG_ANNO(LOG_WARNING, "extra info did not have pid information: %s", extra_info);
+    return false;
+  }
+
+  int items = sscanf(pid_eq, "pid=%m[^,]", &pid_str);
+
+  if (items == 0) {
+    PK_LOG_ANNO(LOG_WARNING, "extra info did not have pid information: %s", extra_info);
+    return false;
+  }
+
 #ifdef DEBUG_QUERY_SOCKETS
   PK_LOG_ANNO(LOG_DEBUG,
               "type: %s; state: %s; recvq: %d; sendq: %d; local: %s; remote: %s; extra: %s",
@@ -158,6 +234,19 @@ static bool parse_ss_line(resq_state_t *state, const char *line)
               extra_info);
 #endif
 
+  assert(pid_str != NULL);
+
+  process_ss_entry(state,
+                   socket_type,
+                   socket_state,
+                   recv_q,
+                   send_q,
+                   local_addr,
+                   remote_addr,
+                   pid_str);
+
+  free(pid_str);
+
   return true;
 }
 
@@ -168,7 +257,7 @@ static void run_resource_query(void *context)
 
   run_command_t run_config = {.input = NULL,
                               .context = NULL,
-                              .argv = (const char *[]){"ss", "-a", "-n", "-p", "-e", NULL},
+                              .argv = (const char *[]){"sudo", "/sbin/ss", "-a", "-n", "-p", NULL},
                               .buffer = output_buffer,
                               .length = sizeof(output_buffer) - 1,
                               .func = NESTED_FN(ssize_t, (char *buffer, size_t length, void *ctx), {
@@ -211,6 +300,16 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
   ++state->item_index;
 
   return true;
+}
+
+static void destroy_table_entry(table_t *table, void **entry)
+{
+  (void)table;
+
+  pid_entry_t *pid_entry = *entry;
+  free(pid_entry);
+
+  *entry = NULL;
 }
 
 static void *init_resource_query()
@@ -260,7 +359,8 @@ static void *init_resource_query()
 #endif
   }
 
-  if (hcreate_r(MAX_PROCESS_COUNT, &state->socket_tabs) == 0) {
+  state->pid_table = table_create(MAX_PROCESS_COUNT, destroy_table_entry);
+  if (state->pid_table == NULL) {
     PK_LOG_ANNO(LOG_ERR, "hash creation failed");
     goto error;
   }

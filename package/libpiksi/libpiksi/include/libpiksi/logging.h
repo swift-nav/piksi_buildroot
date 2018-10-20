@@ -61,6 +61,11 @@
 #define LOG_LOCAL6 (22u << 3u) /* reserved for local use */
 #define LOG_LOCAL7 (23u << 3u) /* reserved for local use */
 
+#define PK_LOG_ANNO(Pri, Msg, ...)                                                              \
+  do {                                                                                          \
+    piksi_log(LOG_ERR, "%s: " Msg " (%s:%d)", __FUNCTION__, ##__VA_ARGS__, __FILE__, __LINE__); \
+  } while (false)
+
 /**
  * Add to piksi_log to send the log message to SBP as well as
  *   the system log (syslog).
