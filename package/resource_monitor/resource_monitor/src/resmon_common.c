@@ -193,18 +193,64 @@ error:
   return 0;
 }
 
-size_t foreach_line(const char *const lines_ro, line_fn_t line_fn)
+ssize_t foreach_line(const char *const lines_ro, leftover_t * const leftover, line_fn_t line_fn)
 {
-  char *lines = strdupa(lines_ro);
-  char *line_ctx = NULL;
+  size_t total_len = strlen(lines_ro);
+  PK_LOG_ANNO(LOG_DEBUG, "total_len: %d, leftover: %d", total_len, leftover == NULL ? 0 : leftover->size);
 
+  char *lines = NULL;
+
+  if (leftover != NULL && leftover->size != 0) {
+
+    size_t sz_size = leftover->size + total_len + 1 /* NULL terminator */;
+
+    lines = alloca(sz_size);
+    lines[0] = '\0';
+
+    strncat(lines, leftover->buf, leftover->size);
+    strncat(lines, lines_ro, total_len);
+
+    total_len += leftover->size;
+
+  } else {
+    lines = strdupa(lines_ro);
+  }
+
+  if (leftover != NULL) {
+    leftover->line_count = 0;
+    leftover->size = 0;
+  }
+
+  char *line_ctx = NULL;
   size_t consumed = 0;
+  size_t line_count = 0;
 
   for (char *line = strtok_r(lines, "\n", &line_ctx); line != NULL;
        line = strtok_r(NULL, "\n", &line_ctx)) {
-    consumed += strlen(line) + 1;
+
+    size_t len = strlen(line);
+    consumed += len;
+
+    /* if we're at the end of the buffer and we're not ending exactly with a newline, we'll need to
+     * come back to this data later... copy it into the leftover buffer. */
+    if (consumed == total_len && lines[total_len - 1] != '\n') {
+      if (leftover == NULL) {
+        return -1;
+      }
+      bzero(leftover->buf, len + 1);
+      memcpy(leftover->buf, line, len);
+      leftover->size = len;
+      break;
+    }
+
+    consumed += 1; /* consume the newline too */
+    line_count++;
+
     if (!line_fn(line)) break;
   }
 
-  return consumed;
+  if (leftover != NULL) leftover->line_count = line_count;
+  PK_LOG_ANNO(LOG_DEBUG, "consumed: %d, line_count: %d", consumed, line_count);
+
+  return (ssize_t)consumed;
 }

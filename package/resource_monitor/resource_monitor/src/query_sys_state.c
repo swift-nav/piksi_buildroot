@@ -146,13 +146,18 @@ static void run_resource_query(void *context)
 
   if (rc != 0) {
     PK_LOG_ANNO(LOG_ERR | LOG_SBP, "error running 'ps' command: %s", strerror(errno));
+    return;
   }
-  foreach_line(buf, NESTED_FN(bool, (const char *line), {
-                 if (!parse_ps_cpu_mem_line(line, state)) {
-                   return false;
-                 }
-                 return true;
-               }));
+
+  ssize_t consumed =
+    foreach_line(buf, NULL, NESTED_FN(bool, (const char *line), {
+                   return parse_ps_cpu_mem_line(line, state);
+                 }));
+
+  if (consumed < 0) {
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "error parsing 'ps' output");
+    return;
+  }
 
   start_runit_service(&state->runit_cfg);
 }
