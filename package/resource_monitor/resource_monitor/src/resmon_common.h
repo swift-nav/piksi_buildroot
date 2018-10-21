@@ -62,7 +62,27 @@ int count_sz_lines(const char *sz);
 unsigned long fetch_mem_total(void);
 
 NESTED_FN_TYPEDEF(bool, line_fn_t, const char *line);
-size_t foreach_line(const char *lines, line_fn_t);
+
+typedef struct {
+  char *buf;
+  size_t size;
+  size_t line_count;
+} leftover_t;
+
+/**
+ * @brief Iterate over every line in a buffer.
+ *
+ * @param lines[in]          the buffer that contains line delimited data
+ * @param leftover[out]      a buffer that receives any partial lines at the end of the buffer
+ * @param leftover_size[out] the amount of data in the leftover
+ * @param line_fn[in]        the function that will be called for each line
+ *
+ * @return The number of characters that were consumed from the buffer, not including the
+ *         null terminator of the string (could include "leftover" bytes from a previous
+ *         invocation) ... or, -1, if their was leftover, and no leftover structure was
+ *         provided.
+ */
+ssize_t foreach_line(const char *lines, leftover_t * const leftover, line_fn_t line_fn);
 
 #ifdef __cplusplus
 }
