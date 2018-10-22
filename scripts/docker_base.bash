@@ -17,7 +17,7 @@ cd "${build_dir}"
 
 echo '>>> Running docker build command...'
 
-if [[ -z "$USE_CACHE" ]];then
+if [[ -z "${USE_CACHE:-}" ]];then
   docker build \
     --force-rm \
     --no-cache \
@@ -34,7 +34,7 @@ fi
 echo '>>> Pushing build to Docker Hub...'
 
 if [[ -n "${DOCKER_PASS:-}" ]]; then
-  echo $DOCKER_PASS | docker login --username="${DOCKER_USER:-swiftnav}" --password-stdin
+  echo "$DOCKER_PASS" | docker login --username="${DOCKER_USER:-swiftnav}" --password-stdin
   docker push "$DOCKER_REPO_NAME:$VERSION_TAG"
 else
   echo "WARNING: Not pushing new image to Docker Hub"
