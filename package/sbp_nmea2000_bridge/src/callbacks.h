@@ -23,8 +23,8 @@ extern bool setting_n2k_129539;
 extern bool setting_n2k_129540;
 extern bool setting_n2k_enable;
 
-int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
-                       void *interface_name_void);
+// int callback_can_debug(zloop_t *loop, zmq_pollitem_t *item,
+//                        void *interface_name_void);
 
 // PGN 126992
 void callback_sbp_utc_time(u16 sender_id, u8 len, u8 msg[], void *context);

@@ -8,7 +8,7 @@ SBP_NMEA2000_BRIDGE_VERSION = 0.1
 SBP_NMEA2000_BRIDGE_SITE = \
 	"${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_nmea2000_bridge/src"
 SBP_NMEA2000_BRIDGE_SITE_METHOD = local
-SBP_NMEA2000_BRIDGE_DEPENDENCIES = libnmea2000 libsbp libpiksi libsocketcan
+SBP_NMEA2000_BRIDGE_DEPENDENCIES = libnmea2000 libsbp libpiksi libsocketcan libuv nanomsg_custom
 
 define SBP_NMEA2000_BRIDGE_BUILD_CMDS
 	$(INSTALL) $(@D)/NMEA2000_SocketCAN.h $(STAGING_DIR)/usr/include/
