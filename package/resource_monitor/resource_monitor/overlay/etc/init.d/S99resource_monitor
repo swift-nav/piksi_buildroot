@@ -5,14 +5,14 @@ cmd="resource_monitor"
 dir="/"
 user="resmond"
 
-setup_permissions()
-{
+#setup_permissions()
+#{
   # Add the network admin capability
   /usr/sbin/setcap cap_net_admin+ep /usr/bin/extrace
 
   # Setup runit dir dynamic services
   mkdir -p /var/run/${name}/sv
   chown -R ${user}:${user} /var/run/${name}
-}
+#}
 
-source /etc/init.d/template_runsv.inc.sh
+#source /etc/init.d/template_runsv.inc.sh

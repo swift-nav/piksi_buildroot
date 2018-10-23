@@ -98,14 +98,14 @@ static unsigned long line_func_next_line = 10;
 
 bool line_func(const char *line)
 {
-  (void) line;
+  (void)line;
   unsigned long current = 0;
 
-  EXPECT_TRUE( strtoul_all(10, line, &current) );
-  EXPECT_EQ( current, line_func_next_line );
+  EXPECT_TRUE(strtoul_all(10, line, &current));
+  EXPECT_EQ(current, line_func_next_line);
 
   line_func_next_line += 10;
-  
+
   return true;
 }
 
@@ -119,7 +119,7 @@ TEST_F(ResmondTests, foreach_line)
   char buf[8];
   char leftover_buf[4];
 
-  leftover_t leftover = { .buf = leftover_buf };
+  leftover_t leftover = {.buf = leftover_buf};
 
   ssize_t consumed = foreach_line(lines, &leftover, line_func);
 

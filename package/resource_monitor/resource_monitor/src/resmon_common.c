@@ -193,10 +193,13 @@ error:
   return 0;
 }
 
-ssize_t foreach_line(const char *const lines_ro, leftover_t * const leftover, line_fn_t line_fn)
+ssize_t foreach_line(const char *const lines_ro, leftover_t *const leftover, line_fn_t line_fn)
 {
   size_t total_len = strlen(lines_ro);
-  PK_LOG_ANNO(LOG_DEBUG, "total_len: %d, leftover: %d", total_len, leftover == NULL ? 0 : leftover->size);
+  PK_LOG_ANNO(LOG_DEBUG,
+              "total_len: %d, leftover: %d",
+              total_len,
+              leftover == NULL ? 0 : leftover->size);
 
   char *lines = NULL;
 

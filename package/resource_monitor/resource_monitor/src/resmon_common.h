@@ -82,7 +82,7 @@ typedef struct {
  *         invocation) ... or, -1, if their was leftover, and no leftover structure was
  *         provided.
  */
-ssize_t foreach_line(const char *lines, leftover_t * const leftover, line_fn_t line_fn);
+ssize_t foreach_line(const char *lines, leftover_t *leftover, line_fn_t line_fn);
 
 #ifdef __cplusplus
 }

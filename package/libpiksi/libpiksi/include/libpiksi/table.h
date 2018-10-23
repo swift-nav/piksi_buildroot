@@ -22,6 +22,7 @@
 #ifndef LIBPIKSI_TABLE_H
 #define LIBPIKSI_TABLE_H
 
+#include <libpiksi/util.h>
 #include <libpiksi/common.h>
 
 #ifdef __cplusplus
@@ -39,6 +40,16 @@ void table_destroy(table_t **table);
 
 bool table_put(table_t *table, const char *key, void *data);
 void *table_get(table_t *table, const char *key);
+
+NESTED_FN_TYPEDEF(bool,
+                  table_foreach_fn_t,
+                  table_t *table,
+                  const char *key,
+                  size_t index,
+                  void *context);
+void table_foreach_key(table_t *table, void *context, table_foreach_fn_t foreach_fn);
+
+size_t table_count(table_t *table);
 
 #ifdef __cplusplus
 }

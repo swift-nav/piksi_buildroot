@@ -122,16 +122,15 @@ static void run_resource_query(void *context)
   size_t NESTED_AXX(item_index) = 0;
   memset(&query_context, 0, sizeof(query_context));
 
-  ssize_t consumed =
-    foreach_line(buf, NULL, NESTED_FN(bool, (const char *line), {
-                   if (item_index >= ITEM_COUNT
-                       || !parse_ps_mem_line(line, item_index++, prep_state)) {
-                     return false;
-                   }
-                   return true;
-                 }));
+  ssize_t consumed = foreach_line(buf, NULL, NESTED_FN(bool, (const char *line), {
+                                    if (item_index >= ITEM_COUNT
+                                        || !parse_ps_mem_line(line, item_index++, prep_state)) {
+                                      return false;
+                                    }
+                                    return true;
+                                  }));
 
-  if (consumed) {
+  if (consumed < 0) {
     piksi_log(LOG_ERR | LOG_SBP, "error parsing 'ps' data");
     return;
   }
@@ -218,5 +217,6 @@ static resq_interface_t query_descriptor = {
 
 static __attribute__((constructor)) void register_cpu_query()
 {
-  resq_register(&query_descriptor);
+  (void)query_descriptor;
+  // resq_register(&query_descriptor);
 }
