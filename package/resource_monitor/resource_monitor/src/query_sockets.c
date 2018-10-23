@@ -24,6 +24,7 @@
 #include <libpiksi/runit.h>
 #include <libpiksi/table.h>
 
+#include "query_sys_state.h"
 #include "resource_monitor.h"
 #include "resource_query.h"
 #include "resmon_common.h"
@@ -310,9 +311,10 @@ static bool parse_socket_common(resq_state_t *state,
     return false;
   }
 
-  /* Forked processes will have multiple pid= entries in the 'ss' output, it's should
-     be sufficient to only report these sockets for the first pid entry (which is probably
-           the parent process). */
+  /* Forked processes will have multiple pid= entries in the 'ss' output,
+   * it's should be sufficient to only report these sockets for the first
+   * pid entry (which is probably the parent process).
+   */
   int items = sscanf(pid_eq, "pid=%m[^,]", &pid_str);
 
   if (items == 0) {
@@ -788,49 +790,30 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
 
 static void *init_resource_query()
 {
+  u16 pid_count = 0;
+
   resq_state_t *state = calloc(1, sizeof(resq_state_t));
+  resq_read_property_t read_prop = {.id = QUERY_SYS_PROP_PID_COUNT, .type = RESQ_PROP_U16};
 
-  char output_buffer[4096];
-  int NESTED_AXX(line_count) = 0;
-
-  run_command_t run_config = {.input = NULL,
-                              .context = NULL,
-                              .argv = (const char *[]){"ps", "--no-headers", "-a", "-e", NULL},
-                              .buffer = output_buffer,
-                              .length = sizeof(output_buffer) - 1,
-                              .func = NESTED_FN(ssize_t, (char *buffer, size_t length, void *ctx), {
-#ifdef DEBUG_QUERY_SOCKETS_PS
-                                PK_LOG_ANNO(LOG_DEBUG,
-                                            "counting ps lines in buffer of size %d",
-                                            length);
-#endif
-                                (void)ctx;
-                                buffer[length] = '\0';
-                                int _line_count = count_sz_lines(buffer);
-                                if (_line_count < 0) {
-                                  PK_LOG_ANNO(LOG_ERR, "counting ps lines failed");
-                                  line_count = -1;
-                                  return -1;
-                                }
-                                line_count += _line_count;
-                                return (ssize_t)length;
-                              })};
-
-  if (run_command(&run_config) != 0) {
-    PK_LOG_ANNO(LOG_ERR, "ps command failed: %s (errno: %d)", strerror(errno), errno);
+  if (!resq_read_property(QUERY_SYS_STATE_NAME, &read_prop)) {
+    PK_LOG_ANNO(LOG_ERR,
+                "failed to read 'pid count' property from '%s' module",
+                QUERY_SYS_STATE_NAME);
     goto error;
   }
 
-  if (line_count > MAX_PROCESS_COUNT) {
+  pid_count = read_prop.property.u16;
+  PK_LOG_ANNO(LOG_DEBUG,
+              "'%s' module reported %d processes on the system",
+              QUERY_SYS_STATE_NAME,
+              pid_count);
+
+  if (pid_count > MAX_PROCESS_COUNT) {
     PK_LOG_ANNO(LOG_ERR,
                 "detected more than %d processes on the system: %d",
                 MAX_PROCESS_COUNT,
-                line_count);
+                pid_count);
     goto error;
-  } else {
-#ifdef DEBUG_QUERY_SOCKETS_PS
-    PK_LOG_ANNO(LOG_DEBUG, "detected %d processes on the system", line_count);
-#endif
   }
 
   state->pid_table = NULL;
@@ -862,8 +845,10 @@ static void teardown_resource_query(void **context)
 }
 
 static resq_interface_t query_descriptor = {
+  .priority = RESQ_PRIORIRTY_2,
   .init = init_resource_query,
   .describe = describe_query,
+  .read_property = NULL,
   .run_query = run_resource_query,
   .prepare_sbp = query_sockets_prepare,
   .teardown = teardown_resource_query,

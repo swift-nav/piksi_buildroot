@@ -11,11 +11,11 @@
  */
 
 /**
- * @file    parse_ps_line.h
- * @brief   Utility for parsing output from ps line
+ * @file    resmon_common.h
+ * @brief   Utility functions for the resource_monitor
  *
- * @defgroup    parse_ps_line
- * @addtogroup  parse_ps_line
+ * @defgroup    resmon_common
+ * @addtogroup  resmon_common
  * @{
  */
 

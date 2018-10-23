@@ -625,11 +625,11 @@ int run_with_stdin_file2(const char *input_file,
     size_t read_size_orig = 0;
     do {
       read_size = read_size_orig = read(stdout_pipe, output, output_size);
-      PK_LOG_ANNO(LOG_DEBUG, "read: %d", read_size_orig);
+      //      PK_LOG_ANNO(LOG_DEBUG, "read: %d", read_size_orig);
       assert(read_size <= output_size);
       size_t offset = 0;
       while (read_size > 0) {
-        PK_LOG_ANNO(LOG_DEBUG, "call buffer_fn...");
+        //        PK_LOG_ANNO(LOG_DEBUG, "call buffer_fn...");
         ssize_t consumed = buffer_fn(&output[offset], read_size, context);
         if (consumed < 0) break;
         if (consumed < read_size) {
@@ -638,7 +638,7 @@ int run_with_stdin_file2(const char *input_file,
         } else {
           read_size = 0;
         }
-        PK_LOG_ANNO(LOG_DEBUG, "read_size: %d", read_size);
+        //        PK_LOG_ANNO(LOG_DEBUG, "read_size: %d", read_size);
       }
     } while (read_size_orig > 0);
   } else {
