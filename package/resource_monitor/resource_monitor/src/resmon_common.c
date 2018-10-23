@@ -43,7 +43,7 @@ bool parse_tab_line(const char *line,
        field = strtok_r(NULL, separators, &tab_ctx)) {
 
     if (state == final_state) {
-      piksi_log(LOG_ERR,
+      piksi_log(LOG_WARNING,
                 "%s: found too many fields (in state: %s): %s",
                 __FUNCTION__,
                 line_specs[state].desc,
@@ -55,7 +55,7 @@ bool parse_tab_line(const char *line,
     case FT_U16: {
       unsigned long ul_value = 0;
       if (!strtoul_all(10, field, &ul_value)) {
-        piksi_log(LOG_ERR,
+        piksi_log(LOG_WARNING,
                   "%s: failed to parse %s value: %s",
                   __FUNCTION__,
                   line_specs[state].desc,
@@ -69,7 +69,7 @@ bool parse_tab_line(const char *line,
     case FT_U32: {
       unsigned long ul_value = 0;
       if (!strtoul_all(10, field, &ul_value)) {
-        piksi_log(LOG_ERR,
+        piksi_log(LOG_WARNING,
                   "%s: failed to parse %s value: %s",
                   __FUNCTION__,
                   line_specs[state].desc,
@@ -83,7 +83,7 @@ bool parse_tab_line(const char *line,
     case FT_F64: {
       double f64_value = 0;
       if (!strtod_all(field, &f64_value)) {
-        piksi_log(LOG_ERR,
+        piksi_log(LOG_WARNING,
                   "%s: failed to parse %s value: %s",
                   __FUNCTION__,
                   line_specs[state].desc,
@@ -99,12 +99,12 @@ bool parse_tab_line(const char *line,
       state = line_specs[state].next;
     } break;
 
-    default: piksi_log(LOG_ERR, "%s: invalid field type", __FUNCTION__); return false;
+    default: piksi_log(LOG_WARNING, "%s: invalid field type", __FUNCTION__); return false;
     }
   }
 
   if (state != final_state) {
-    piksi_log(LOG_ERR,
+    piksi_log(LOG_WARNING,
               "%s: did not find enough fields (last state: %s)",
               __FUNCTION__,
               line_specs[state].desc);
@@ -196,10 +196,12 @@ error:
 ssize_t foreach_line(const char *const lines_ro, leftover_t *const leftover, line_fn_t line_fn)
 {
   size_t total_len = strlen(lines_ro);
+#ifdef DEBUG_FOREACH_LINE
   PK_LOG_ANNO(LOG_DEBUG,
               "total_len: %d, leftover: %d",
               total_len,
               leftover == NULL ? 0 : leftover->size);
+#endif
 
   char *lines = NULL;
 
@@ -253,7 +255,9 @@ ssize_t foreach_line(const char *const lines_ro, leftover_t *const leftover, lin
   }
 
   if (leftover != NULL) leftover->line_count = line_count;
+#ifdef DEBUG_FOREACH_LINE
   PK_LOG_ANNO(LOG_DEBUG, "consumed: %d, line_count: %d", consumed, line_count);
+#endif
 
   return (ssize_t)consumed;
 }

@@ -105,7 +105,7 @@ bool resq_read_property(const char *query_name, resq_read_property_t *read_prop)
 
     if (read_prop1.type == RESQ_PROP_NONE) {
       PK_LOG_ANNO(LOG_ERR,
-                  "property was not set on outgoing property: %d, from module: %s",
+                  "type was not set on outgoing property: %d, from module: %s",
                   read_prop->id,
                   query_name);
       return false;
