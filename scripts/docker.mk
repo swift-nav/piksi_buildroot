@@ -3,8 +3,12 @@
 # Setup variables for invoking docker with sane settings for a development
 #   environement.
 
+LOWER_USER = $(shell echo $(USER) | tr A-Z a-z)
+
 ifneq ("$(DOCKER_SUFFIX)","")
-_DOCKER_SUFFIX := -$(DOCKER_SUFFIX)
+_DOCKER_SUFFIX := -$(LOWER_USER)-$(DOCKER_SUFFIX)
+else
+_DOCKER_SUFFIX := -$(shell pwd | $(CURDIR)/scripts/gen-docker-suffix)
 endif
 
 ifneq ($(AWS_ACCESS_KEY_ID),)
@@ -23,9 +27,8 @@ ifeq ($(PIKSI_NON_INTERACTIVE_BUILD),)
 INTERACTIVE_ARGS := $(shell tty &>/dev/null && echo "--tty --interactive")
 endif
 
-LOWER_USER = $(shell echo $(USER) | tr A-Z a-z)
-DOCKER_BUILD_VOLUME = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
-DOCKER_TAG = piksi_buildroot-$(LOWER_USER)$(_DOCKER_SUFFIX)
+DOCKER_BUILD_VOLUME = piksi-buildroot$(_DOCKER_SUFFIX)
+DOCKER_TAG = piksi-buildroot$(_DOCKER_SUFFIX)
 
 DOCKER_ENV_ARGS :=                                                            \
   -e USER=$(USER)                                                             \
@@ -46,7 +49,7 @@ DOCKER_SETUP_ARGS :=                                                          \
   $(INTERACTIVE_ARGS)                                                         \
   $(DOCKER_ENV_ARGS)                                                          \
   --rm                                                                        \
-  --hostname piksi-builder$(_DOCKER_SUFFIX)                                   \
+  --hostname piksi-buildroot$(_DOCKER_SUFFIX)                                 \
   -v $(HOME):/host/home:ro                                                    \
   -v /tmp:/host/tmp:rw                                                        \
   -v $(CURDIR):/piksi_buildroot                                               \
