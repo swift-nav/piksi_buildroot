@@ -605,9 +605,11 @@ static void run_resource_query(void *context)
       }
     }
     /* TODO: need to process sockets in TIME-WAIT (and other states) differently, they don't
-     * seem to have all the same info as other states
+     * seem to have all the same info as other states... in particular, we should process
+     * socket states separately from the socket ownership, and not worry about how many
+     * fields a line has since we only need the first 2 for socket state (at least for
+     * system wide socket states).
      */
-
     return true;
   });
 
