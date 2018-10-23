@@ -149,10 +149,9 @@ static void run_resource_query(void *context)
     return;
   }
 
-  ssize_t consumed =
-    foreach_line(buf, NULL, NESTED_FN(bool, (const char *line), {
-                   return parse_ps_cpu_mem_line(line, state);
-                 }));
+  ssize_t consumed = foreach_line(buf, NULL, NESTED_FN(bool, (const char *line), {
+                                    return parse_ps_cpu_mem_line(line, state);
+                                  }));
 
   if (consumed < 0) {
     PK_LOG_ANNO(LOG_ERR | LOG_SBP, "error parsing 'ps' output");
@@ -233,5 +232,6 @@ static resq_interface_t query_descriptor = {
 
 static __attribute__((constructor)) void register_cpu_query()
 {
-  resq_register(&query_descriptor);
+  (void)query_descriptor;
+  // resq_register(&query_descriptor);
 }

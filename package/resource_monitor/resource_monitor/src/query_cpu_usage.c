@@ -205,5 +205,6 @@ static resq_interface_t query_descriptor = {
 
 static __attribute__((constructor)) void register_cpu_query()
 {
-  resq_register(&query_descriptor);
+  (void)query_descriptor;
+  //  resq_register(&query_descriptor);
 }

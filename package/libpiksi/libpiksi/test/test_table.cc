@@ -29,6 +29,29 @@ void cleanup_entry(table_t *table, void **entry)
   *entry = NULL;
 }
 
+typedef struct foreach_s {
+  bool saw_key1;
+  bool saw_key2;
+} foreach_t;
+
+bool foreach_key(table_t *table, const char *key, size_t index, void *context)
+{
+  foreach_t *foreach = (foreach_t *)context;
+
+  EXPECT_NE(table, nullptr);
+  if (strcmp(key, "Entry Key") == 0) {
+    foreach
+      ->saw_key1 = true;
+  } else if (strcmp(key, "Entry Key 2") == 0) {
+    foreach
+      ->saw_key2 = true;
+  } else {
+    bool found_unexpected_key = true;
+    EXPECT_FALSE(found_unexpected_key);
+  }
+  return true;
+}
+
 TEST_F(LibpiksiTests, table)
 {
   table_t *table = table_create(16, cleanup_entry);
@@ -40,18 +63,52 @@ TEST_F(LibpiksiTests, table)
   entry = table_get(table, "Not There");
   ASSERT_EQ(entry, nullptr);
 
-  entry_t *the_entry = (entry_t *)calloc(1, sizeof(entry_t));
-  *the_entry = (entry_t){.foo = 42, .bar = 2600};
+  {
+    entry_t *the_entry = (entry_t *)calloc(1, sizeof(entry_t));
+    *the_entry = (entry_t){.foo = 42, .bar = 2600};
 
-  success = table_put(table, "Entry Key", the_entry);
-  ASSERT_TRUE(success);
+    success = table_put(table, "Entry Key", the_entry);
+    ASSERT_TRUE(success);
 
-  entry_t *found_entry = (entry_t *)table_get(table, "Entry Key");
+    entry_t *found_entry = (entry_t *)table_get(table, "Entry Key");
 
-  ASSERT_NE(found_entry, nullptr);
+    ASSERT_NE(found_entry, nullptr);
 
-  ASSERT_EQ(found_entry->foo, 42);
-  ASSERT_EQ(found_entry->bar, 2600);
+    ASSERT_EQ(found_entry->foo, 42);
+    ASSERT_EQ(found_entry->bar, 2600);
+  }
+  {
+    entry_t *the_entry = (entry_t *)calloc(1, sizeof(entry_t));
+    *the_entry = (entry_t){.foo = 4242, .bar = 26000};
+
+    success = table_put(table, "Entry Key 2", the_entry);
+    ASSERT_TRUE(success);
+
+    entry_t *found_entry = (entry_t *)table_get(table, "Entry Key 2");
+
+    ASSERT_NE(found_entry, nullptr);
+
+    ASSERT_EQ(found_entry->foo, 4242);
+    ASSERT_EQ(found_entry->bar, 26000);
+  }
+  {
+    entry_t *found_entry = (entry_t *)table_get(table, "Entry Key");
+
+    ASSERT_NE(found_entry, nullptr);
+
+    ASSERT_EQ(found_entry->foo, 42);
+    ASSERT_EQ(found_entry->bar, 2600);
+  }
+  {
+    foreach_t foreach = {.saw_key1 = false, .saw_key2 = false};
+    table_foreach_key(table, &foreach, foreach_key);
+
+    ASSERT_TRUE(foreach.saw_key1);
+    ASSERT_TRUE(foreach.saw_key2);
+  }
+  {
+    ASSERT_EQ(table_count(table), 2);
+  }
 
   table_destroy(&table);
   ASSERT_EQ(table, nullptr);

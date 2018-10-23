@@ -60,15 +60,23 @@ void table_destroy(table_t **ptable)
 
   table_t *table = *ptable;
 
-  int i = 0;
-  for (; i < table->htab.filled; ++i) {
+  for (int i = 0; i < table->htab.filled; ++i) {
+#ifdef DEBUG_PIKSI_TABLE
+    PK_LOG_ANNO(LOG_DEBUG, "free'ing entry with key '%s'", table->keys[i]);
+#endif
     void *dt = table_get(table, table->keys[i]);
     assert(dt && "no data!");
 
     table->destroy_entry(table, &dt);
     assert(dt == NULL);
+  }
 
+  for (int i = 0; i < table->htab.filled; ++i) {
+#ifdef DEBUG_PIKSI_TABLE
+    PK_LOG_ANNO(LOG_DEBUG, "free'ing key '%s'", table->keys[i]);
+#endif
     free(table->keys[i]);
+
     table->keys[i] = NULL;
   }
 
@@ -90,7 +98,10 @@ bool table_put(table_t *table, const char *key, void *data)
   n = hsearch_r(e, ENTER, &ep, &table->htab);
 
   if (fb < table->htab.filled) {
-    assert(table->keys[fb] == 0 && "free space");
+    if (table->keys[fb] != 0) {
+      PK_LOG_ANNO(LOG_ERR, "no free space");
+      return false;
+    }
     table->keys[fb] = e.key;
   } else {
     PK_LOG_ANNO(LOG_ERR, "overwrite is not supported");
@@ -111,4 +122,16 @@ void *table_get(table_t *table, const char *key_in)
   if (!n) return NULL;
 
   return ep->data;
+}
+
+void table_foreach_key(table_t *table, void *context, table_foreach_fn_t func)
+{
+  for (unsigned int idx = 0; idx < table->htab.filled; idx++) {
+    if (!func(table, table->keys[idx], (size_t)idx, context)) break;
+  }
+}
+
+size_t table_count(table_t *table)
+{
+  return (size_t)table->htab.filled;
 }
