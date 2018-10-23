@@ -30,6 +30,11 @@ extern "C" {
 
 #define SBP_PAYLOAD_SIZE_MAX (255u)
 
+/**
+ * The priority with which the resource query module is initialized.
+ *
+ * See @c resq_priority_t.priority for more details.
+ */
 typedef enum {
   RESQ_PRIORIRTY_1,
   RESQ_PRIORIRTY_2,
@@ -38,6 +43,9 @@ typedef enum {
   RESQ_PRIORIRTY_COUNT,
 } resq_priority_t;
 
+/**
+ * The type of property to be read from the resource query module.
+ */
 typedef enum {
   RESQ_PROP_NONE,
   RESQ_PROP_U8,
@@ -48,6 +56,13 @@ typedef enum {
   RESQ_PROP_STR,
 } resq_property_t;
 
+/**
+ * @brief Structure for a property read request from a module.
+ *
+ * @details Upon calling @c resq_read_property, the fields `.id` and `.type`
+ *          must be filled.  On return the union `.property` will be filled
+ *          with an appropriate value.
+ */
 typedef struct {
   int id;
   resq_property_t type;
@@ -60,7 +75,6 @@ typedef struct {
     char *str;
   } property;
 } resq_read_property_t;
-
 
 /**
  * @brief Initialize the resource query object.
@@ -102,6 +116,9 @@ typedef bool (*resq_prepare_sbp_fn_t)(u16 *msg_type, u8 *len, u8 *sbp_buf, void 
  */
 typedef bool (*resq_read_property_fn_t)(resq_read_property_t *read_prop, void *context);
 
+/**
+ * @brief Destroy the resource query object
+ */
 typedef void (*resq_teardown_fn_t)(void **context);
 
 /**
@@ -150,6 +167,9 @@ typedef struct {
    */
   resq_teardown_fn_t teardown;
 
+  /**
+   * The initialization priority of the module, @see @c resq_priority_t.
+   */
   resq_priority_t priority;
 
 } resq_interface_t;
