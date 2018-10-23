@@ -28,8 +28,9 @@ STARLING_DAEMON_PRE_DOWNLOAD_HOOKS += STARLING_DAEMON_PRE_DOWNLOAD_FIXUP
 STARLING_DAEMON_LIBS = \
 	libfec.so \
 	libstarling.so \
-	libswiftnav-common.so \
-	libswiftnav.so
+	libstarling-shim.so \
+	libstarling-integration.so \
+	libswiftnav.so \
 
 STARLING_DAEMON_SRC_NAME = \
 	piksi-multi-linux-starling
