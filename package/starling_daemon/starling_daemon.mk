@@ -6,7 +6,7 @@
 
 ifeq    ($(BR2_BUILD_STARLING_DAEMON),y)
 
-STARLING_DAEMON_VERSION = v0.2.5
+STARLING_DAEMON_VERSION = v0.2.6
 STARLING_DAEMON_PREFIX = starling_daemon
 STARLING_DAEMON_ASSET = piksi-multi-linux.deploy.tar.gz
 STARLING_DAEMON_S3 = $(call pbr_s3_url,$(STARLING_DAEMON_PREFIX),$(STARLING_DAEMON_VERSION),$(STARLING_DAEMON_ASSET))
@@ -28,8 +28,9 @@ STARLING_DAEMON_PRE_DOWNLOAD_HOOKS += STARLING_DAEMON_PRE_DOWNLOAD_FIXUP
 STARLING_DAEMON_LIBS = \
 	libfec.so \
 	libstarling.so \
-	libswiftnav-common.so \
-	libswiftnav.so
+	libstarling-shim.so \
+	libstarling-integration.so \
+	libswiftnav.so \
 
 STARLING_DAEMON_SRC_NAME = \
 	piksi-multi-linux-starling
