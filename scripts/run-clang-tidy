@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -x
+cd "$(dirname "$0")/.." || exit 1
+exec buildroot/output/host/opt/llvm-vanilla/bin/clang-tidy "$@"

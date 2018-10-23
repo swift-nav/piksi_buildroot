@@ -10,6 +10,7 @@ endif
 .PHONY: all firmware config image clean host-config host-image host-clean     \
         docker-setup docker-make-image docker-make-clean                      \
         docker-make-host-image docker-make-host-clean docker-run              \
+        docker-shell \
         docker-host-config docker-config pkg-% docker-pkg-%                   \
         docker-rebuild-changed rebuild-changed _rebuild_changed               \
 				docker-host-pkg-%                                                     \
@@ -247,9 +248,9 @@ docker-pkg-%: docker-config
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make -C buildroot $* O=output
 
-docker-run:
+docker-shell docker-run:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) \
-		--tty --interactive $(DOCKER_TAG) || :
+		--tty --interactive $(DOCKER_TAG) $(ARGS) || :
 
 docker-exec:
 	docker exec $(DOCKER_ENV_ARGS) --interactive --tty \
@@ -273,8 +274,26 @@ help:
 		less $(CURDIR)/scripts/make_help.txt || \
 		cat $(CURDIR)/scripts/make_help.txt
 
-clang-complete:
+clang-complete-config:
 	@./scripts/gen-clang-complete
+
+docker-clang-complete-config:
+	@docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		./scripts/gen-clang-complete
+
+run-clang-tidy:
+	@./scripts/run-clang-tidy $(ARGS)
+
+docker-run-clang-tidy:
+	@docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		./scripts/run-clang-tidy $(ARGS)
+
+run-clang:
+	@./scripts/run-clang $(ARGS)
+
+docker-run-clang:
+	docker run $(DOCKER_ARGS) -e CLANG_STDIN=$(CLANG_STDIN) $(DOCKER_TAG) \
+		./scripts/run-clang $(ARGS)
 
 clang-format:
 	@./scripts/run-clang-format
