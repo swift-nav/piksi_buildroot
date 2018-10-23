@@ -33,18 +33,54 @@
 extern "C" {
 #endif
 
+/**
+ * The NESTED_FN_TYPEDEF creates a typedef sufficient to represent a nested
+ * function on clang and gcc.  On clang, we must use the "blocks" feature,
+ * for gcc we can used nested functions, which can be captured by a normal
+ * function pointer.
+ *
+ * Example:
+ *
+ * ```
+ * NESTED_FN_TYPEDEF(bool, line_fn_t, const char *line);
+ * ```
+ */
 #ifdef __clang__
 #define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (^Name)(__VA_ARGS__);
 #else
 #define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (*Name)(__VA_ARGS__);
 #endif
 
+/**
+ * On clang, a nested function (block) must annotate data outside its scope
+ *   that it wishes to modify.
+ *
+ * Example:
+ *
+ * ```
+ * int NESTED_AXX(line_count) = 0;
+ * ```
+ */
 #ifdef __clang__
 #define NESTED_AXX(F) __block F
 #else
 #define NESTED_AXX(F) F
 #endif
 
+/**
+ * Wrapper to define a nested function (block on clang) suitable for clange
+ * or for gcc.
+ *
+ * Example:
+ *
+ * ```
+ * NESTED_FN(bool, (const char *line),
+ * {
+ *   state->pid_count++;
+ *   return parse_ps_cpu_mem_line(line, state);
+ * })
+ * ```
+ */
 #ifdef __clang__
 #define NESTED_FN(RetTy, ArgSpec, FnBody) ^RetTy ArgSpec FnBody
 #else
@@ -336,25 +372,67 @@ bool strtoul_all(int base, const char *str, unsigned long *value);
 
 bool strtod_all(const char *str, double *value);
 
-typedef struct runner_s runner_t;
+typedef struct pipeline_s pipeline_t;
 
 /**
- * A utility class for running pipelines, similar to shell pipeline.
+ * A utility class for running pipelines, similar to a shell pipeline.
+ * 
+ * For example:
  *
- * Pipelines can be constructed as follows:
+ * ```
+ * pipeline_t *SCRUB(r, s_pipeline) = create_pipeline();
+ * r = r->cat(r, EXTRACE_LOG);
+ * r = r->pipe(r);
+ * r = r->call(r, "grep", (const char *const[]){"grep", "-c", "^[0-9][0-9]*[+] ", NULL});
  *
+ * r = r->wait(r);
  *
+ * if (r->is_nil(r)) { handle_failure(...); }
+ * else ...
+ * ```
  */
-typedef struct runner_s {
+typedef struct pipeline_s {
 
-  runner_t *(*cat)(runner_t *r, const char *filename);
-  runner_t *(*pipe)(runner_t *r);
-  runner_t *(*call)(runner_t *r, const char *prog, const char *const argv[]);
-  runner_t *(*wait)(runner_t *r);
-  bool (*is_nil)(runner_t *r);
-  runner_t *(*destroy)(runner_t *r);
+  /**
+   * Stage a file as input to the next component of the pipeline.
+   */
+  pipeline_t *(*cat)(pipeline_t *r, const char *filename);
 
+  /**
+   * Takes anything previously staged as input (from @c cat or @c call) and
+   *   opens up corresponding filesystem objects to pipe output to the next
+   *   component of the pipeline.
+   */
+  pipeline_t *(*pipe)(pipeline_t *r);
+
+  /**
+   * Stages a subprocess exec into the pipeline.  Arguments are similar
+   * to that of execv and friends.
+   */
+  pipeline_t *(*call)(pipeline_t *r, const char *prog, const char *const argv[]);
+
+  /**
+   * Wait for the pipeline to complete (and capture it's output).
+   */
+  pipeline_t *(*wait)(pipeline_t *r);
+
+  /**
+   * Ask if the pipeline is "nil", a nil pipeline indicates that a failure
+   *   occured while executing.
+   */
+  bool (*is_nil)(pipeline_t *r);
+
+  /**
+   * Clean-up resources used by this pipeline object.
+   */
+  pipeline_t *(*destroy)(pipeline_t *r);
+
+  /** The stdout of the command that was run, output is truncated at 4k */
   char stdout_buffer[4096];
+
+  /** The exit code of the pipeline, usually the exit code of the last process, or
+   *  and artificial exit code if there was usage error.
+   */
   int exit_code;
 
   const char *_filename;
@@ -365,10 +443,30 @@ typedef struct runner_s {
 
   bool _is_nil;
 
-} runner_t;
+} pipeline_t;
 
-runner_t *create_runner(void);
+pipeline_t *create_pipeline(void);
 
+/**
+ * Attached a clean-up function for a variable.
+ *
+ * The function that's attached to the variable will be called with a pointer
+ * to that variable when the variable goes out of scope.
+ *
+ * Example:
+ * ```
+ * pipeline_t *SCRUB(r, s_pipeline) = create_pipeline();
+ * ```
+ *
+ * With `s_pipeline` defined as follows:
+ * ```
+ * static void s_pipeline(pipeline_t **r)
+ * {
+ *   if (r == NULL || *r == NULL) return;
+ *   *r = (*r)->destroy(*r);
+ * };
+ * ```
+ */
 #define SCRUB(TheVar, TheFunc) (TheVar) __attribute__((__cleanup__(TheFunc)))
 
 #define SWFT_MAX(a, b)  \

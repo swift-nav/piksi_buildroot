@@ -667,7 +667,7 @@ int run_with_stdin_file2(const char *input_file,
   return status;
 }
 
-static runner_t *runner_cat(runner_t *r, const char *filename)
+static pipeline_t *pipeline_cat(pipeline_t *r, const char *filename)
 {
   if (r->_is_nil) return r;
 
@@ -675,7 +675,7 @@ static runner_t *runner_cat(runner_t *r, const char *filename)
   return r;
 };
 
-static runner_t *runner_pipe(runner_t *r)
+static pipeline_t *pipeline_pipe(pipeline_t *r)
 {
   if (r->_is_nil) return r;
 
@@ -721,7 +721,7 @@ static runner_t *runner_pipe(runner_t *r)
   return r;
 };
 
-static runner_t *runner_call(runner_t *r, const char *proc_path, const char *const argv[])
+static pipeline_t *pipeline_call(pipeline_t *r, const char *proc_path, const char *const argv[])
 {
   if (r->_is_nil) return r;
 
@@ -733,7 +733,7 @@ static runner_t *runner_call(runner_t *r, const char *proc_path, const char *con
   return r;
 };
 
-static runner_t *runner_wait(runner_t *r)
+static pipeline_t *pipeline_wait(pipeline_t *r)
 {
   if (r->_is_nil) return r;
 
@@ -781,12 +781,12 @@ static runner_t *runner_wait(runner_t *r)
   return r;
 };
 
-static bool runner_is_nil(runner_t *r)
+static bool pipeline_is_nil(pipeline_t *r)
 {
   return r->_is_nil;
 };
 
-static runner_t *runner_destroy(runner_t *r)
+static pipeline_t *pipeline_destroy(pipeline_t *r)
 {
   if (r->_fd_stdin >= 0) {
     close(r->_fd_stdin);
@@ -796,17 +796,17 @@ static runner_t *runner_destroy(runner_t *r)
   return NULL;
 };
 
-runner_t *create_runner(void)
+pipeline_t *create_pipeline(void)
 {
-  runner_t *runner = calloc(1, sizeof(runner_t));
+  pipeline_t *pipeline = calloc(1, sizeof(pipeline_t));
 
-  *runner = (runner_t){
-    .cat = runner_cat,
-    .pipe = runner_pipe,
-    .call = runner_call,
-    .wait = runner_wait,
-    .is_nil = runner_is_nil,
-    .destroy = runner_destroy,
+  *pipeline = (pipeline_t){
+    .cat = pipeline_cat,
+    .pipe = pipeline_pipe,
+    .call = pipeline_call,
+    .wait = pipeline_wait,
+    .is_nil = pipeline_is_nil,
+    .destroy = pipeline_destroy,
 
     .stdout_buffer = {0},
     .exit_code = EXIT_FAILURE,
@@ -818,7 +818,7 @@ runner_t *create_runner(void)
     ._proc_args = NULL,
   };
 
-  return runner;
+  return pipeline;
 }
 
 bool str_digits_only(const char *str)

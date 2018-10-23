@@ -99,7 +99,7 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
     EXPECT_STREQ(stdout_str, test_str);
   }
 
-  runner_t *r = create_runner();
+  pipeline_t *r = create_pipeline();
   EXPECT_NE(r, nullptr);
 
   r = r->cat(r, stdin_file_name);

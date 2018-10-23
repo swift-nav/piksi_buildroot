@@ -47,7 +47,7 @@ typedef struct {
 
 } prep_state_t;
 
-static void s_runner(runner_t **r)
+static void s_pipeline(pipeline_t **r)
 {
   if (r == NULL || *r == NULL) return;
   *r = (*r)->destroy(*r);
@@ -103,7 +103,7 @@ static void run_resource_query(void *context)
 
   state->procs_started = 0;
   {
-    runner_t *SCRUB(r, s_runner) = create_runner();
+    pipeline_t *SCRUB(r, s_pipeline) = create_pipeline();
     r = r->cat(r, EXTRACE_LOG);
     r = r->pipe(r);
     r = r->call(r, "grep", (const char *const[]){"grep", "-c", "^[0-9][0-9]*[+] ", NULL});
@@ -124,7 +124,7 @@ static void run_resource_query(void *context)
 
   state->procs_exitted = 0;
   {
-    runner_t *SCRUB(r, s_runner) = create_runner();
+    pipeline_t *SCRUB(r, s_pipeline) = create_pipeline();
     r = r->cat(r, EXTRACE_LOG);
     r = r->pipe(r);
     r = r->call(r, "grep", (const char *const[]){"grep", "-c", "^[0-9][0-9]*[-] ", NULL});
