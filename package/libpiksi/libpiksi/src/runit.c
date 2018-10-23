@@ -144,7 +144,7 @@ int start_runit_service(runit_config_t *cfg)
 
   RUNIT_DEBUG_LOG("Waiting for control socket (%s) ...", path_buf);
   while (stat(path_buf, &s) != 0 && control_pipe_retries-- > 0) {
-    assert(usleep(control_sleep_us) == 0);
+    if (log_assert(usleep(control_sleep_us) == 0)) return -1;
   }
   RUNIT_DEBUG_LOG("Found control socket (%s) ...", path_buf);
 

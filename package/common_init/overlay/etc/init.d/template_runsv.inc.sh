@@ -1,3 +1,5 @@
+#!/bin/ash
+
 # /etc/init.d template for processes
 
 # name=""
@@ -22,7 +24,7 @@ fac=daemon
 _setup_svdir()
 {
   if [[ -e "/var/service/${name}" ]]; then
-    break
+    return
   fi
 
   mkdir -p "/etc/sv/${name}/control"
@@ -75,7 +77,7 @@ do_start()
 
   sv start "/var/service/${name}"
 
-  for i in $(seq 1 10); do
+  for _ in $(seq 1 10); do
     if sv_is_running "$name"; then
       break
     fi

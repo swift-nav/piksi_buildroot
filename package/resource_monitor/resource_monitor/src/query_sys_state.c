@@ -26,6 +26,8 @@
 #include "resource_query.h"
 #include "resmon_common.h"
 
+#include "query_sys_state.h"
+
 #define EXTRACE_LOG "/var/log/extrace.log"
 
 typedef struct {
@@ -41,6 +43,7 @@ typedef struct {
   unsigned long mem_used;
 
   unsigned long mem_total;
+  u16 pid_count;
 
 } prep_state_t;
 
@@ -96,6 +99,7 @@ static void run_resource_query(void *context)
   state->sent_sbp = 0;
   state->pcpu_used = 0;
   state->mem_used = 0;
+  state->pid_count = 0;
 
   state->procs_started = 0;
   {
@@ -150,6 +154,7 @@ static void run_resource_query(void *context)
   }
 
   ssize_t consumed = foreach_line(buf, NULL, NESTED_FN(bool, (const char *line), {
+                                    state->pid_count++;
                                     return parse_ps_cpu_mem_line(line, state);
                                   }));
 
@@ -159,6 +164,22 @@ static void run_resource_query(void *context)
   }
 
   start_runit_service(&state->runit_cfg);
+}
+
+static bool read_property(resq_read_property_t *read_prop, void *context)
+{
+  prep_state_t *state = context;
+  if (read_prop == NULL) return false;
+
+  switch (read_prop->id) {
+  case QUERY_SYS_PROP_PID_COUNT:
+    read_prop->type = RESQ_PROP_U16;
+    read_prop->property.u16 = state->pid_count;
+    break;
+  default: return false;
+  }
+
+  return true;
 }
 
 static bool prepare_resource_query_sbp(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
@@ -178,6 +199,8 @@ static bool prepare_resource_query_sbp(u16 *msg_type, u8 *len, u8 *sbp_buf, void
   sys_state->pcpu = (u8)((1u << (sizeof(u8) * 8)) * (state->pcpu_used / 100.0));
   sys_state->pmem =
     (u8)((1u << (sizeof(u8) * 8)) * ((double)state->mem_used / sys_state->mem_total));
+
+  sys_state->pid_count = state->pid_count;
 
   return state->sent_sbp++ == 0;
 }
@@ -200,14 +223,46 @@ static void *init_resource_query()
     .restart = false,
   };
 
-  start_runit_service(&state->runit_cfg);
+  char output_buffer[4096];
+  int NESTED_AXX(line_count) = 0;
 
+  run_command_t run_config = {.input = NULL,
+                              .context = NULL,
+                              .argv = (const char *[]){"ps", "--no-headers", "-a", "-e", NULL},
+                              .buffer = output_buffer,
+                              .length = sizeof(output_buffer) - 1,
+                              .func = NESTED_FN(ssize_t, (char *buffer, size_t length, void *ctx), {
+                                (void)ctx;
+                                buffer[length] = '\0';
+                                int _line_count = count_sz_lines(buffer);
+                                if (_line_count < 0) {
+                                  PK_LOG_ANNO(LOG_ERR, "counting ps lines failed");
+                                  line_count = -1;
+                                  return -1;
+                                }
+                                line_count += _line_count;
+                                return (ssize_t)length;
+                              })};
+
+  if (run_command(&run_config) != 0) {
+    PK_LOG_ANNO(LOG_ERR, "ps command failed: %s (errno: %d)", strerror(errno), errno);
+    goto error;
+  }
+
+  state->pid_count = (u16)line_count;
+  PK_LOG_ANNO(LOG_DEBUG, "detected %hu processes on the system", state->pid_count);
+
+  start_runit_service(&state->runit_cfg);
   return state;
+
+error:
+  free(state);
+  return NULL;
 }
 
 static const char *describe_query(void)
 {
-  return "system state";
+  return QUERY_SYS_STATE_NAME;
 }
 
 static void teardown_resource_query(void **context)
@@ -223,8 +278,10 @@ static void teardown_resource_query(void **context)
 }
 
 static resq_interface_t query_descriptor = {
+  .priority = RESQ_PRIORIRTY_1,
   .init = init_resource_query,
   .describe = describe_query,
+  .read_property = read_property,
   .run_query = run_resource_query,
   .prepare_sbp = prepare_resource_query_sbp,
   .teardown = teardown_resource_query,
@@ -232,6 +289,5 @@ static resq_interface_t query_descriptor = {
 
 static __attribute__((constructor)) void register_cpu_query()
 {
-  (void)query_descriptor;
-  // resq_register(&query_descriptor);
+  resq_register(&query_descriptor);
 }

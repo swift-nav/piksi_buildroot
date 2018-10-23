@@ -71,6 +71,7 @@ int main(int argc, char *argv[])
     return cleanup(EXIT_FAILURE);
   }
 
+  resq_initilize_all();
   sbp_run();
 
   return cleanup(EXIT_SUCCESS);

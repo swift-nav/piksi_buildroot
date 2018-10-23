@@ -137,6 +137,21 @@ void sbp_log(int priority, const char *msg_text, ...);
  */
 void sbp_vlog(int priority, const char *msg_text, va_list ap);
 
+#define log_assert(TheExpr)                         \
+  ({                                                \
+    bool result = false;                            \
+    if (TheExpr) {                                  \
+      piksi_log(LOG_ERR | LOG_SBP,                  \
+                "%s: assertion failed: %s (%s:%d)", \
+                __FUNCTION__,                       \
+                #TheExpr,                           \
+                __FILE__,                           \
+                __LINE__);                          \
+      result = true;                                \
+    };                                              \
+    result;                                         \
+  })
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

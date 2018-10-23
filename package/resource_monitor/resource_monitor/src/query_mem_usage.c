@@ -109,6 +109,9 @@ static void run_resource_query(void *context)
   resq_state_t *prep_state = context;
   prep_state->current_index = 0;
 
+  /* TODO: use regular ps output with %MEM, not the vsz figure which seems to calculate the
+   * wrong percentage of system memory used at certain points.
+   */
   const char *argv[] = {"ps", "--no-headers", "-e", "-o", "%p\t%z\t%c\t%a", "--sort=-vsz", NULL};
 
   char buf[4096] = {0};
@@ -208,8 +211,10 @@ static void teardown_resource_query(void **context)
 }
 
 static resq_interface_t query_descriptor = {
+  .priority = RESQ_PRIORIRTY_1,
   .init = init_resource_query,
   .describe = describe_query,
+  .read_property = NULL,
   .run_query = run_resource_query,
   .prepare_sbp = prepare_resource_query_sbp,
   .teardown = teardown_resource_query,
@@ -217,6 +222,5 @@ static resq_interface_t query_descriptor = {
 
 static __attribute__((constructor)) void register_cpu_query()
 {
-  (void)query_descriptor;
-  // resq_register(&query_descriptor);
+  resq_register(&query_descriptor);
 }
