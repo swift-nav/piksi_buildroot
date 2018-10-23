@@ -51,7 +51,7 @@ int version_current_get_str(char *str, size_t str_size);
 /**
  * @brief   Parse version string
  * @details Parse given version string into piksi_version_t. String format shall
- *          be "[FOO BLAA BLAA v]{x}.{y}.{z}" where:
+ *          be "[FOO BLAA BLAA v]{x}.{y}.{z}[-<devstring>]" where:
  *          x = marketing (only digits)
  *          y = major (only digits)
  *          z = patch (only digits)

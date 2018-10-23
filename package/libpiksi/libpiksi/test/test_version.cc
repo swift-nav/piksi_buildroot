@@ -93,10 +93,16 @@ TEST_F(LibpiksiTests, versionTests)
     EXPECT_EQ(1, ver.major);
     EXPECT_EQ(4, ver.patch);
 
+    EXPECT_EQ(0, version_parse_str("v2.0.0-develop-2018101616-11-g8a", &ver));
+    EXPECT_EQ(2, ver.marketing);
+    EXPECT_EQ(0, ver.major);
+    EXPECT_EQ(0, ver.patch);
+
     // Invalid
     EXPECT_NE(0, version_parse_str("x.y.z", &ver));
     EXPECT_NE(0, version_parse_str("2.1.4z", &ver));
     EXPECT_NE(0, version_parse_str("2.y1.4", &ver));
     EXPECT_NE(0, version_parse_str("2x.y1.4", &ver));
+    EXPECT_NE(0, version_parse_str("v2.0.0develop-2018101616-11-g8a", &ver));
   }
 }
