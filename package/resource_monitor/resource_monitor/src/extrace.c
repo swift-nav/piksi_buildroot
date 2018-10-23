@@ -333,6 +333,7 @@ handle_msg(struct cn_msg *cn_hdr)
 
 		d = pid_depth(pid);
 		if (d < 0) {
+#if 0
 			if (*cmdline) {
 				fprintf(stderr,
 				    "extrace: process vanished before we found its parent: pid %d: %s\n",
@@ -342,6 +343,7 @@ handle_msg(struct cn_msg *cn_hdr)
 				    "extrace: process vanished without a name: pid %d\n",
 				    pid);
 			}
+#endif
 			close(proc_dir_fd);
 			return;
 		}
