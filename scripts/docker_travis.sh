@@ -23,15 +23,15 @@ fetch_pr_files() {
   echo ">>> Will use the following URL to check the files in the PR:"
   echo $'\t'"$files_url"
 
-  for i in $(seq $retry_count); do
+  for _ in $(seq $retry_count); do
     if ! curl -sSL "$files_url" --output "$pr_files_json"; then
       echo "WARNING: cURL failed, sleeping..." >&2
-      sleep $(( $sleep_seconds + ($((RANDOM)) % 5) ))
+      sleep $(( sleep_seconds + ($((RANDOM)) % 5) ))
       continue
     fi
-    if ! jq '.[] | .filename' $pr_files_json | tr '"' ' ' >"$pr_files"; then
+    if ! jq '.[] | .filename' "$pr_files_json" | tr '"' ' ' >"$pr_files"; then
       echo "WARNING: Got unexpected JSON blob, sleeping..." >&2
-      sleep $(( $sleep_seconds + ($((RANDOM)) % 5) ))
+      sleep $(( sleep_seconds + ($((RANDOM)) % 5) ))
     fi
     got_files=y
     break
@@ -41,20 +41,18 @@ fetch_pr_files() {
     echo "ERROR: failed to get JSON blob for PR..." >&2
     exit 1
   fi
-
-  cat $pr_files
 }
 
 if [[ "$TRAVIS_PULL_REQUEST" != "false" ]]; then
-  file_names=$( fetch_pr_files )
+  fetch_pr_files
 else
-  file_names=$( git diff --name-only "$TRAVIS_COMMIT_RANGE" || echo "" )
+  ( git diff --name-only "$TRAVIS_COMMIT_RANGE" || echo "" ) >"$pr_files"
 fi
 
 echo ">>> Detecting files associated with current build request"
-echo "$file_names"
+cat "$pr_files"
 
-if echo "$file_names" | grep -q -E "/Dockerfile[.]base"; then
+if grep -q -E "/Dockerfile[.]base" "$pr_files"; then
 	"$D/docker_base.bash"
 else
   echo ">>> No modifications to base Docker image found"

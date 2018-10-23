@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+cd "$(dirname "$0")/.." || exit 1
+
+if [[ -n "$CLANG_STDIN" ]]; then
+  exec buildroot/output/host/opt/llvm-vanilla/bin/clang "$@" <"$CLANG_STDIN"
+else
+  exec buildroot/output/host/opt/llvm-vanilla/bin/clang "$@"
+fi

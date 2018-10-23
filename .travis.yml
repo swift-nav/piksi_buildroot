@@ -85,6 +85,7 @@ matrix:
 
 env:
   global:
+    - DOCKER_SUFFIX=travis
     - PIKSI_NON_INTERACTIVE_BUILD=y
     # Secure keys below are encrypted with travis encrypt gem
     # Example encryption: travis encrypt AWS_SECRET_ACCESS_KEY=foo
