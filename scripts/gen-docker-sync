@@ -4,6 +4,13 @@ docker_build_volume=$1; shift
 docker_sync_uid=$1; shift
 docker_host=$1; shift
 
+die_usage() {
+  echo "$(basename "$0"): <DOCKER_BUILD_VOLUME> <DOCKER_SYNC_UID> <DOCKER_HOST>"
+  exit 1
+}
+
+[[ -n "$docker_host" ]] || { echo $'ERROR: no <DOCKER_HOST> specifid\n' >&2; die_usage; }
+
 cat >.docker-sync.yml <<EOF
 version: "2"
 options:
