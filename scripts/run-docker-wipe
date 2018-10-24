@@ -1,1 +1,33 @@
 #!/usr/bin/env bash
+
+set -e
+
+echo "WARNING: This will wipe all Piksi related Docker images, containers, and volumes!"
+
+read -r -p "Continue? (y/[n]) " x && { [[ "$x" == "y" ]] || exit 0; }
+echo -n "Wiping all Piksi related docker materials"
+
+for _ in $(seq 4); do
+  sleep 0.25
+  echo -n .
+done
+
+echo "... stopping Piksi containers"
+
+running_images=$(docker ps --format '{{.Names}},{{.ID}}' | grep '^piksi_.*,.*$' | cut -f2 -d, || echo)
+[[ -z "$running_images" ]] || docker stop -t 1 "$running_images"
+
+echo "... removing Piksi containers"
+
+stopped_images=$(docker ps -a --format '{{.Names }},{{.ID}}' | grep '^piksi_.*,.*$' | cut -f2 -d, || echo)
+[[ -z "$stopped_images" ]] || docker rm -f "$stopped_images"
+
+echo "... removing Piksi images"
+
+images=$(docker images --format '{{.Repository}},{{.ID}}' | grep '^piksi_.*,.*$' | cut -f2 -d, || echo)
+[[ -z "$images" ]] || docker rmi -f "$images"
+
+echo "... removing Piksi volumes"
+
+volumes=$(docker volume ls --format '{{.Name}}' | grep '^piksi_.*$' || echo)
+[[ -z "$volumes" ]] || docker volume rm "$volumes"

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+if ! command -v docker-sync &>/dev/null; then
+  gem install docker-sync || { echo "ERROR: failed to install docker-sync"; exit 1; }
+fi
+
+if ! command -v unison &>/dev/null; then
+  brew install unison || { echo "ERROR: failed to install unison"; exit 1; }
+fi
