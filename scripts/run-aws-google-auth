@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Touch these files prior to running so they'll have
+#   the correct owner/group (otherwise docker will create them as root)
 touch "$HOME/.aws/credentials"
 touch "$HOME/.aws/config"
 touch "$HOME/.aws/saml_cache.xml"
