@@ -6,6 +6,7 @@ dir="/"
 # User is set to piksi_ins in the start_pose_daemon wrapper since we
 #   need to process things with nap_wrap before launching.
 user=""
+priority="-16"
 
 LICENSES_DIR=/persistent/licenses
 
