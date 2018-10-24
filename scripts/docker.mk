@@ -61,7 +61,7 @@ else
 BUILD_VOLUME_ARGS := \
   -v $(DOCKER_BUILD_VOLUME)-sync:/piksi_buildroot
 
-RUN_VOLUME_ARGS := 
+RUN_VOLUME_ARGS :=
 
 endif
 
@@ -76,7 +76,7 @@ DOCKER_SETUP_ARGS :=                                                          \
 
 DOCKER_RUN_ARGS := \
   $(DOCKER_SETUP_ARGS) \
-	$(RUN_VOLUME_ARGS) \
+  $(RUN_VOLUME_ARGS) \
   --security-opt seccomp:unconfined --cap-add=SYS_PTRACE
 
 ifneq ($(SSH_AUTH_SOCK),)
