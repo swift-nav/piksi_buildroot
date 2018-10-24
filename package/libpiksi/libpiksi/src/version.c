@@ -38,17 +38,6 @@ int version_current_get_str(char *str, size_t str_size)
   return file_read_string(DEVICE_FW_VERSION_FILE_PATH, str, str_size);
 }
 
-#define CHECK_TOKEN(version)                                 \
-  do {                                                       \
-    if (token && str_digits_only(token)) {                   \
-      version = atoi(token);                                 \
-    } else {                                                 \
-      piksi_log(LOG_ERR, "Invalid version string: %s", str); \
-      free(digits);                                          \
-      return 1;                                              \
-    }                                                        \
-  } while (0)
-
 int version_parse_str(const char *str, piksi_version_t *ver)
 {
   size_t len = strlen(str);
