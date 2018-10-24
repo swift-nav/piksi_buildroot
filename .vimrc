@@ -1,9 +1,22 @@
-let s:path = resolve(expand('<sfile>:p:h'))
+""" To use this you need to have the following plugins installed
+"""   with your favorite plugin manager:
+"""
+"""     Plugin 'justmao945/vim-clang'
+"""     Plugin 'w0rp/ale'
+"""
+""" And also have the following lines in your ~/.vimrc, so that
+"""   the project specific .vimrc will get evaluated:
+"""     
+"""      set exrc
+"""      set secure
+"""
+""" Then run the clang-complete-config target:
+"""
+"""     make docker-clang-complete-config
+"""       (or without docker- if not using docker)
+"""
 
-"let g:syntastic_clang_tidy_config_file = s:path . '/.clang_complete'
-"let g:syntastic_cpp_config_file = s:path . '/.clang_complete'
-"let g:syntastic_c_clang_tidy_exec = s:path . '/scripts/vim-clang-tidy'
-"let g:syntastic_cpp_clang_tidy_exec = s:path . '/scripts/vim-clang-tidy'
+let s:path = resolve(expand('<sfile>:p:h'))
 
 let g:clang_dotfile = s:path . '/.clang_complete'
 let g:clang_exec = s:path . '/scripts/vim-clang'
