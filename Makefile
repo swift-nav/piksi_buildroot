@@ -174,6 +174,26 @@ docker-populate-volume:
 
 docker-setup: docker-build-image docker-populate-volume
 
+docker-sync-setup:
+	@./scripts/gen-docker-sync $(DOCKER_BUILD_VOLUME) $(UID) $(DOCKER_HOST)
+	@docker volume create --name=$(DOCKER_BUILD_VOLUME)-sync
+	@echo "Done, run: make docker-start-sync"
+
+docker-sync-start:
+	@docker-sync start -c .docker-sync.yml
+
+docker-sync-logs:
+	@docker-sync logs -c .docker-sync.yml
+
+docker-sync-stop:
+	@docker-sync stop -c .docker-sync.yml
+
+docker-sync-clean:
+	@docker-sync clean -c .docker-sync.yml
+
+docker-aws-google-auth:
+	@./scripts/run-aws-google-auth
+
 docker-rebuild-changed:
 	docker run $(DOCKER_ARGS) -e BUILD_TEMP=/host/tmp -e SINCE=$(SINCE) \
 		$(DOCKER_TAG) \
