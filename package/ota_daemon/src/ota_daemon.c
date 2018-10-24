@@ -241,6 +241,11 @@ static int ota_version_check(const char *offered)
     return -1;
   }
 
+  if (offered_parsed.dev) {
+    piksi_log(LOG_INFO, "New DEV version available via OTA: %s", offered);
+    return 1;
+  }
+
   piksi_version_t current_parsed = {0};
   if (version_current_get(&current_parsed)) {
     return -1;

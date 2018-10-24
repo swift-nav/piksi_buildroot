@@ -82,21 +82,25 @@ TEST_F(LibpiksiTests, versionTests)
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(1, ver.major);
     EXPECT_EQ(4, ver.patch);
+    EXPECT_FALSE(ver.dev);
 
     EXPECT_EQ(0, version_parse_str("2.1.4", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(1, ver.major);
     EXPECT_EQ(4, ver.patch);
+    EXPECT_FALSE(ver.dev);
 
     EXPECT_EQ(0, version_parse_str("v2.1.4", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(1, ver.major);
     EXPECT_EQ(4, ver.patch);
+    EXPECT_FALSE(ver.dev);
 
     EXPECT_EQ(0, version_parse_str("v2.0.0-develop-2018101616-11-g8a", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(0, ver.major);
     EXPECT_EQ(0, ver.patch);
+    EXPECT_TRUE(ver.dev);
 
     // Invalid
     EXPECT_NE(0, version_parse_str("x.y.z", &ver));

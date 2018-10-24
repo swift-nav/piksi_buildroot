@@ -26,6 +26,7 @@ typedef struct piksi_version_s {
   int marketing;
   int major;
   int patch;
+  bool dev;
 } piksi_version_t;
 
 #ifdef __cplusplus

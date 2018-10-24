@@ -44,6 +44,7 @@ int version_parse_str(const char *str, piksi_version_t *ver)
   size_t idx = 0;
   char tail[len];
   memset(tail, 0, len);
+  memset(ver, 0, sizeof(piksi_version_t));
 
   /* Find first digit in the str */
   while (!isdigit(str[idx])) {
@@ -55,17 +56,27 @@ int version_parse_str(const char *str, piksi_version_t *ver)
     }
   }
 
-  if (3 != sscanf(str + idx,
-                  "%d.%d.%d%[^-]",
-                  &ver->marketing,
-                  &ver->major,
-                  &ver->patch,
-                  tail)) {
+  int res = sscanf(str + idx,
+                   "%d.%d.%d%s",
+                   &ver->marketing,
+                   &ver->major,
+                   &ver->patch,
+                   tail);
+
+  switch (res) {
+  case 3:
+    return 0;
+  case 4:
+    if (strlen(tail) > 0 && tail[0] == '-') {
+      ver->dev = true;
+      return 0;
+    } else {
+      /* Fall to default (erroneous string) */
+    }
+  default:
     piksi_log(LOG_ERR, "Invalid version string: %s", str);
     return 1;
   }
-
-  return 0;
 }
 
 int version_cmp(piksi_version_t *a, piksi_version_t *b)
