@@ -7,10 +7,10 @@ touch "$HOME/.aws/saml_cache.xml"
 [[ -n "$GOOGLE_USERNAME" ]] || GOOGLE_USERNAME=$USER@swift-nav.com
 
 [[ -n "$GOOGLE_IDP_ID" ]] || \
-  { echo "ERROR: Environment variable GOOGLE_IDP_ID not defined"; exit 1; }
+  { echo "ERROR: Environment variable GOOGLE_IDP_ID not defined" >&2; exit 1; }
 
 [[ -n "$GOOGLE_SP_ID" ]] || \
-  { echo "ERROR: Environment variable GOOGLE_SP_ID not defined"; exit 1; }
+  { echo "ERROR: Environment variable GOOGLE_SP_ID not defined" >&2; exit 1; }
 
 docker run -v "$HOME/.aws:/root/.aws" \
   --rm \
