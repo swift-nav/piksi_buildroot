@@ -46,6 +46,6 @@ services:
     volumes:
       - ${docker_build_volume}-sync:/piksi_buildroot:nocopy # nocopy is important
 volumes:
-  piksi-buildroot-955ff503d411-sync:
+  ${docker_build_volume}-sync:
     external: true
 EOF
