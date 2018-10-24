@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+docker_build_volume=$1; shift
+docker_sync_uid=$1; shift
+docker_host=$1; shift
+
+cat >.docker-sync.yml <<EOF
+version: "2"
+options:
+  verbose: True
+  compose-file-path: .docker-compose.yml
+syncs:
+  ${docker_build_volume}-sync:
+    notify_terminal: true
+    src: '.'
+    sync_host_ip: '$(echo "${docker_host}" | cut -d: -f1)'
+    sync_strategy: 'unison'
+    sync_userid: '${docker_sync_uid}'
+    sync_args:
+      - "-ignore='Path buildroot/output/build'"
+      - "-ignore='Path buildroot/output/ccache'"
+      - "-ignore='Path buildroot/output/target'"
+      - "-ignore='Path buildroot/output/host'"
+      - "-ignore='Path buildroot/output/staging'"
+      - "-ignore='Path buildroot/dl'"
+      - "-ignore='Path .docker-sync*'"
+      - "-ignore='Path .docker-compose.yml'"
+      - "-ignore='Name .*.sw?'"
+    watch_excludes:
+      - 'buildroot/output/build'
+      - 'buildroot/output/ccache'
+      - 'buildroot/output/target'
+      - 'buildroot/output/host'
+      - 'buildroot/output/staging'
+      - 'buildroot/dl'
+EOF
+
+cat >.docker-compose.yml <<EOF
+version: "2"
+services:
+  ${docker_build_volume}-sync:
+    image: alpine
+    container_name: '${docker_build_volume}-sync'
+    command: ['watch', '-n1', '-t', 'date']
+    user: ${docker_sync_uid}
+    volumes:
+      - ${docker_build_volume}-sync:/piksi_buildroot:nocopy # nocopy is important
+volumes:
+  ${docker_build_volume}-sync:
+    external: true
+EOF

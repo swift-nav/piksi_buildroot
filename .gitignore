@@ -7,3 +7,6 @@ build/
 .vscode/
 .clang_complete
 .clang_stdin
+.docker-sync/
+.docker-sync.yml
+.docker-compose.yml

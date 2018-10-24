@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+if [[ $(uname) != *Darwin* ]]; then
+  echo "ERROR: docker-sync not (yet) supported on non Mac OS X hosts" >&2
+  exit 1
+fi
+
+if ! command -v docker-sync &>/dev/null; then
+  gem install docker-sync || { echo "ERROR: failed to install docker-sync" >&2; exit 1; }
+fi
+
+if ! command -v unison &>/dev/null; then
+  brew install unison || { echo "ERROR: failed to install unison" >&2; exit 1; }
+fi
