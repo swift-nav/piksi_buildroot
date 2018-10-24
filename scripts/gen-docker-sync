@@ -17,13 +17,21 @@ syncs:
     sync_strategy: 'unison'
     sync_userid: '${docker_sync_uid}'
     sync_args:
-      - "-ignorenot='Path buildroot/output/images/*'"
-      - "-ignore='Path buildroot/output/*'"
+      - "-ignore='Path buildroot/output/build'"
+      - "-ignore='Path buildroot/output/ccache'"
+      - "-ignore='Path buildroot/output/target'"
+      - "-ignore='Path buildroot/output/host'"
+      - "-ignore='Path buildroot/output/staging'"
+      - "-ignore='Path buildroot/dl'"
       - "-ignore='Path .docker-sync*'"
       - "-ignore='Path .docker-compose.yml'"
       - "-ignore='Name .*.sw?'"
     watch_excludes:
-      - 'buildroot/output'
+      - 'buildroot/output/build'
+      - 'buildroot/output/ccache'
+      - 'buildroot/output/target'
+      - 'buildroot/output/host'
+      - 'buildroot/output/staging'
       - 'buildroot/dl'
 EOF
 
