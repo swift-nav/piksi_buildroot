@@ -41,7 +41,18 @@ enum {
   SETTINGS_TYPE_INT,    /**< Integer. 8, 16, or 32 bits.                   */
   SETTINGS_TYPE_FLOAT,  /**< Float. Single or double precision.            */
   SETTINGS_TYPE_STRING, /**< String.                                       */
-  SETTINGS_TYPE_BOOL    /**< Boolean.                                      */
+  SETTINGS_TYPE_BOOL,   /**< Boolean.                                      */
+};
+
+/**
+ * @brief Settings error codes
+ */
+enum {
+  SBP_WRITE_STATUS_OK,                /**< Setting written                               */
+  SBP_WRITE_STATUS_VALUE_REJECTED,    /**< Setting value invalid                         */
+  SBP_WRITE_STATUS_SETTING_REJECTED,  /**< Setting does not exist                        */
+  SBP_WRITE_STATUS_PARSE_FAILED,      /**< Could not parse setting value                 */
+  SBP_WRITE_STATUS_VALUE_READ_ONLY,   /**< Setting is read only                          */
 };
 
 /**
