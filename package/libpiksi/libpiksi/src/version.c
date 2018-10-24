@@ -56,16 +56,10 @@ int version_parse_str(const char *str, piksi_version_t *ver)
     }
   }
 
-  int res = sscanf(str + idx,
-                   "%d.%d.%d%s",
-                   &ver->marketing,
-                   &ver->major,
-                   &ver->patch,
-                   tail);
+  int res = sscanf(str + idx, "%d.%d.%d%s", &ver->marketing, &ver->major, &ver->patch, tail);
 
   switch (res) {
-  case 3:
-    return 0;
+  case 3: return 0;
   case 4:
     if (strlen(tail) > 0 && tail[0] == '-') {
       ver->dev = true;
@@ -73,9 +67,7 @@ int version_parse_str(const char *str, piksi_version_t *ver)
     } else {
       /* Fall to default (erroneous string) */
     }
-  default:
-    piksi_log(LOG_ERR, "Invalid version string: %s", str);
-    return 1;
+  default: piksi_log(LOG_ERR, "Invalid version string: %s", str); return 1;
   }
 }
 
