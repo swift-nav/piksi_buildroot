@@ -46,6 +46,25 @@ DOCKER_ENV_ARGS :=                                                            \
   $(DCKR_CCACHE_RO_VAR)                                                       \
   --user $(USER)                                                              \
 
+ifeq (,$(wildcard .docker-sync.yml))
+
+BUILD_VOLUME_ARGS := \
+  -v $(CURDIR):/piksi_buildroot \
+  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot
+
+RUN_VOLUME_ARGS := \
+  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images \
+  -v $(CURDIR)/buildroot/nano_output/images:/piksi_buildroot/buildroot/nano_output/images
+
+else
+
+BUILD_VOLUME_ARGS := \
+  -v $(DOCKER_BUILD_VOLUME)-sync:/piksi_buildroot
+
+RUN_VOLUME_ARGS := 
+
+endif
+
 DOCKER_SETUP_ARGS :=                                                          \
   $(INTERACTIVE_ARGS)                                                         \
   $(DOCKER_ENV_ARGS)                                                          \
@@ -53,14 +72,12 @@ DOCKER_SETUP_ARGS :=                                                          \
   --hostname piksi-buildroot$(_DOCKER_SUFFIX)                                 \
   -v $(HOME):/host/home:ro                                                    \
   -v /tmp:/host/tmp:rw                                                        \
-  -v $(CURDIR):/piksi_buildroot                                               \
-  -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot
+  $(BUILD_VOLUME_ARGS)
 
 DOCKER_RUN_ARGS := \
   $(DOCKER_SETUP_ARGS) \
-  --security-opt seccomp:unconfined --cap-add=SYS_PTRACE \
-  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images \
-  -v $(CURDIR)/buildroot/nano_output/images:/piksi_buildroot/buildroot/nano_output/images
+	$(RUN_VOLUME_ARGS) \
+  --security-opt seccomp:unconfined --cap-add=SYS_PTRACE
 
 ifneq ($(SSH_AUTH_SOCK),)
 DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
