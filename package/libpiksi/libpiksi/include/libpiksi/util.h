@@ -376,7 +376,7 @@ typedef struct pipeline_s pipeline_t;
 
 /**
  * A utility class for running pipelines, similar to a shell pipeline.
- * 
+ *
  * For example:
  *
  * ```

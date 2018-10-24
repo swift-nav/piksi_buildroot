@@ -21,9 +21,7 @@ typedef struct sbp_tx_ctx_s sbp_tx_ctx_t;
 int sbp_init(unsigned int timer_interval, pk_loop_cb callback);
 void sbp_deinit(void);
 
-#if 0
 settings_ctx_t *sbp_get_settings_ctx(void);
-#endif
 sbp_tx_ctx_t *sbp_get_tx_ctx(void);
 
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);

@@ -26,33 +26,36 @@ static uv_timer_t *uv_timer = NULL;
 static struct {
   pk_loop_t *loop;
   sbp_pubsub_ctx_t *pubsub_ctx;
-#if 0
   settings_ctx_t *settings_ctx;
-#endif
 } ctx = {
   .loop = NULL,
   .pubsub_ctx = NULL,
-#if 0
   .settings_ctx = NULL,
-#endif
 };
 
 static void signal_cb(pk_loop_t *pk_loop, void *handle, void *context)
 {
   (void)handle;
   (void)context;
+
   piksi_log(LOG_DEBUG, "Received interrupt! Exiting...");
   pk_loop_stop(pk_loop);
 }
 
 int sbp_update_timer_interval(unsigned int timer_interval, pk_loop_cb callback)
 {
-  pk_loop_remove_handle(uv_timer);
+  if (uv_timer != NULL) pk_loop_remove_handle(uv_timer);
+  uv_timer = NULL;
+
+  if (timer_interval == 0) return 0;
+
   uv_timer = pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL);
+
   if (uv_timer == NULL) {
     piksi_log(LOG_ERR, "Error adding timer!");
     sbp_deinit();
   }
+
   return 0;
 }
 
@@ -68,10 +71,12 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
     goto failure;
   }
 
-  uv_timer = pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL);
-  if (uv_timer == NULL) {
-    piksi_log(LOG_ERR, "Error adding timer!");
-    goto failure;
+  if (timer_interval != 0) {
+    uv_timer = pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL);
+    if (uv_timer == NULL) {
+      piksi_log(LOG_ERR, "Error adding timer!");
+      goto failure;
+    }
   }
 
   ctx.pubsub_ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
@@ -83,7 +88,7 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
     piksi_log(LOG_ERR, "Error registering for sbp pubsub!");
     goto failure;
   }
-#if 0
+
   ctx.settings_ctx = settings_create();
   if (ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
@@ -94,7 +99,7 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
     piksi_log(LOG_ERR, "Error registering for settings read!");
     goto failure;
   }
-#endif
+
   return true;
 
 failure:
@@ -110,19 +115,15 @@ void sbp_deinit(void)
   if (ctx.pubsub_ctx != NULL) {
     sbp_pubsub_destroy(&ctx.pubsub_ctx);
   }
-#if 0
   if (ctx.settings_ctx != NULL) {
     settings_destroy(&ctx.settings_ctx);
   }
-#endif
 }
 
-#if 0
 settings_ctx_t *sbp_get_settings_ctx(void)
 {
   return ctx.settings_ctx;
 }
-#endif
 
 sbp_tx_ctx_t *sbp_get_tx_ctx(void)
 {

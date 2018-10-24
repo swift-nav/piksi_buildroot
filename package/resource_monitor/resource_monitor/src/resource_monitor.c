@@ -18,13 +18,16 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
+#include <libpiksi/settings.h>
 
 #include "resource_query.h"
 #include "sbp.h"
 
 #include "resource_monitor.h"
 
-#define RESOURCE_USAGE_UPDATE_INTERVAL_MS (1000u)
+#define DEFAULT_UPDATE_INTERVAL (0u) // Disabled by default
+
+static bool resource_monitor_interval_s = DEFAULT_UPDATE_INTERVAL;
 
 /**
  * @brief used to trigger usage updates
@@ -56,6 +59,14 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static int notify_interval_changed(void *context)
+{
+  (void)context;
+
+  sbp_update_timer_interval(resource_monitor_interval_s, update_metrics);
+  return 0;
+}
+
 static int cleanup(int status);
 
 int main(int argc, char *argv[])
@@ -67,9 +78,20 @@ int main(int argc, char *argv[])
     return cleanup(EXIT_FAILURE);
   }
 
-  if (!sbp_init(RESOURCE_USAGE_UPDATE_INTERVAL_MS, update_metrics)) {
+  if (!sbp_init(resource_monitor_interval_s, update_metrics)) {
     return cleanup(EXIT_FAILURE);
   }
+
+  settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
+
+  settings_register(settings_ctx,
+                    "system",
+                    "resource_monitor_update_interval",
+                    &resource_monitor_interval_s,
+                    sizeof(resource_monitor_interval_s),
+                    SETTINGS_TYPE_INT,
+                    notify_interval_changed,
+                    NULL);
 
   resq_initilize_all();
   sbp_run();
