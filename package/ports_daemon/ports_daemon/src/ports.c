@@ -295,7 +295,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   if (!updating_mode && port_config->first_start) {
     // Wait for mode settings to be updated before launching the port, the
     //   'mode' setting should be sent last because it's registered last.
-    return 0;
+    return SBP_WRITE_STATUS_OK;
   }
 
   if (port_config->first_start) {
