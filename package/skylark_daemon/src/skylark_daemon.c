@@ -22,7 +22,8 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 
-#include <libnetwork.h>
+#include <libnetwork/libnetwork.h>
+#include <libnetwork/libnetwork_http2.h>
 
 #include "skylark_settings.h"
 
@@ -39,6 +40,8 @@
 
 static bool debug = false;
 static const char *fifo_file_path = NULL;
+static const char *up_fifo_file_path = NULL;
+static const char *down_fifo_file_path = NULL;
 static const char *url = NULL;
 static bool no_error_reporting = false;
 
@@ -46,6 +49,7 @@ typedef enum {
   OP_MODE_NONE,
   OP_MODE_DOWNLOAD,
   OP_MODE_UPLOAD,
+  OP_MODE_HTTP2,
   OP_MODE_SETTINGS,
   OP_MODE_RECONNECT_DL,
   OP_MODE_GET_HEALTH,
@@ -60,12 +64,18 @@ static void usage(char *command)
   puts("\nMode selection options");
   puts("\t--upload         Launch in skylark upload mode");
   puts("\t--download       Launch in skylark download mode");
+  puts("\t--http2          Launch in skylark HTTP2 mode");
   puts("\t--settings       Launch in settings daemon mode");
   puts("\t--reconnect-dl   Ask the download daemon to reconnect");
   puts("\t--get-health     Ask the download daemon for it's last HTTP response code");
 
   puts("\nUpload/download mode options");
   puts("\t--file           <file>");
+  puts("\t--url            <url>");
+
+  puts("\nHTTP2 mode options");
+  puts("\t--file-down      <download file>");
+  puts("\t--file-up        <upload file>");
   puts("\t--url            <url>");
 
   puts("\nMisc options");
@@ -76,10 +86,13 @@ static int parse_options(int argc, char *argv[])
 {
   enum {
     OPT_ID_FILE = 1,
+    OPT_ID_FILE_UP,
+    OPT_ID_FILE_DOWN,
     OPT_ID_URL,
     OPT_ID_DEBUG,
     OPT_ID_UPLOAD,
     OPT_ID_DOWNLOAD,
+    OPT_ID_HTTP2,
     OPT_ID_SETTINGS,
     OPT_ID_RECONNECT_DL,
     OPT_ID_NO_ERROR_REPORTING,
@@ -90,11 +103,14 @@ static int parse_options(int argc, char *argv[])
   const struct option long_opts[] = {
     {"upload",             no_argument,       0, OPT_ID_UPLOAD},
     {"download",           no_argument,       0, OPT_ID_DOWNLOAD},
+    {"http2",              no_argument,       0, OPT_ID_HTTP2},
     {"settings",           no_argument,       0, OPT_ID_SETTINGS},
     {"reconnect-dl",       no_argument,       0, OPT_ID_RECONNECT_DL},
     {"no-error-reporting", no_argument,       0, OPT_ID_NO_ERROR_REPORTING},
     {"get-health",         no_argument,       0, OPT_ID_GET_HEALTH},
     {"file",               required_argument, 0, OPT_ID_FILE},
+    {"file-up",            required_argument, 0, OPT_ID_FILE_UP},
+    {"file-down",          required_argument, 0, OPT_ID_FILE_DOWN},
     {"url  ",              required_argument, 0, OPT_ID_URL},
     {"debug",              no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
@@ -113,6 +129,10 @@ static int parse_options(int argc, char *argv[])
       op_mode = OP_MODE_DOWNLOAD;
     } break;
 
+    case OPT_ID_HTTP2: {
+      op_mode = OP_MODE_HTTP2;
+    } break;
+
     case OPT_ID_SETTINGS: {
       op_mode = OP_MODE_SETTINGS;
     } break;
@@ -123,6 +143,14 @@ static int parse_options(int argc, char *argv[])
 
     case OPT_ID_FILE: {
       fifo_file_path = optarg;
+    } break;
+
+    case OPT_ID_FILE_UP: {
+      up_fifo_file_path = optarg;
+    } break;
+
+    case OPT_ID_FILE_DOWN: {
+      down_fifo_file_path = optarg;
     } break;
 
     case OPT_ID_URL: {
@@ -157,7 +185,20 @@ static int parse_options(int argc, char *argv[])
       puts("Missing url");
       return -1;
     }
-  }
+  } else if (op_mode == OP_MODE_HTTP2) {
+    if (up_fifo_file_path == NULL) {
+      puts("Missing up file");
+      return -1;
+    }
+    if (down_fifo_file_path == NULL) {
+      puts("Missing down file");
+      return -1;
+    }
+    if (url == NULL) {
+      puts("Missing url");
+      return -1;
+    }
+  } 
 
   return 0;
 }
@@ -169,11 +210,6 @@ static void network_terminate_handler(int signum, siginfo_t *info, void *ucontex
   piksi_log(LOG_DEBUG, "%s: received signal: %d, sender: %d", __FUNCTION__, signum, info->si_pid);
 
   libnetwork_shutdown(NETWORK_TYPE_ALL);
-}
-
-static void skylark_loop_sigchild()
-{
-  reap_children(debug, skylark_record_exit);
 }
 
 static void cycle_connection(int signum)
@@ -275,10 +311,52 @@ static void skylark_download_mode()
   libnetwork_destroy(&network_context);
 }
 
+static void skylark_http2_mode()
+{
+  int up_fd = open(up_fifo_file_path, O_RDONLY);
+  if (up_fd < 0) {
+    piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  network_context_t *ctx_up = libnetwork_create(NETWORK_TYPE_SKYLARK_UPLOAD);
+  if (!configure_libnetwork(ctx_up, up_fd, OP_MODE_UPLOAD)) {
+    exit(EXIT_FAILURE);
+  }
+
+  int down_fd = open(down_fifo_file_path, O_WRONLY);
+  if (down_fd < 0) {
+    piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  network_context_t *ctx_down = libnetwork_create(NETWORK_TYPE_SKYLARK_DOWNLOAD);
+
+  if (!configure_libnetwork(ctx_down, down_fd, OP_MODE_DOWNLOAD)) {
+    exit(EXIT_FAILURE);
+  }
+
+  setup_sigint_handler(network_terminate_handler);
+  setup_sigterm_handler(network_terminate_handler);
+
+  skylark_http2(ctx_up, ctx_down);
+
+  close(up_fd);
+  libnetwork_destroy(&ctx_up);
+
+  close(down_fd);
+  libnetwork_destroy(&ctx_down);
+}
+
 static void skylark_loop_terminate()
 {
   skylark_stop_processes();
   reap_children(debug, NULL);
+}
+
+static void skylark_loop_sigchild()
+{
+  reap_children(debug, skylark_record_exit);
 }
 
 static void skylark_settings_loop(void)
@@ -287,7 +365,7 @@ static void skylark_settings_loop(void)
                    SKYLARK_CONTROL_SOCK,
                    SKYLARK_CONTROL_FILE,
                    SKYLARK_CONTROL_COMMAND_RECONNECT,
-                   skylark_init,
+                   skylark_settings_init,
                    skylark_reconnect_dl,
                    skylark_loop_terminate,
                    skylark_loop_sigchild);
@@ -308,6 +386,7 @@ int main(int argc, char *argv[])
   case OP_MODE_DOWNLOAD: skylark_download_mode(); break;
   case OP_MODE_SETTINGS: skylark_settings_loop(); break;
   case OP_MODE_UPLOAD: skylark_upload_mode(); break;
+  case OP_MODE_HTTP2: skylark_http2_mode(); break;
   case OP_MODE_GET_HEALTH: exit_status = skylark_request_health(); break;
   case OP_MODE_RECONNECT_DL:
     pk_settings_loop_send_command("skylark",

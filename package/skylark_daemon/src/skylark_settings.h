@@ -15,7 +15,7 @@
 
 #include <libpiksi/settings_client.h>
 
-void skylark_init(pk_settings_ctx_t *settings_ctx);
+void skylark_settings_init(pk_settings_ctx_t *settings_ctx);
 bool skylark_reconnect_dl(void);
 void skylark_stop_processes(void);
 void skylark_record_exit(pid_t pid);

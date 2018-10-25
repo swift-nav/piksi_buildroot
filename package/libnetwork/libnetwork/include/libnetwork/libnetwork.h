@@ -24,6 +24,8 @@
 
 #include <stdbool.h>
 
+#include <curl/curl.h>
+
 #define SKYLARK_REQ_FIFO_NAME "/var/run/skylark/control/dl.req"
 #define SKYLARK_REP_FIFO_NAME "/var/run/skylark/control/dl.resp"
 
@@ -72,6 +74,18 @@ typedef enum {
 
 const char *libnetwork_status_text(network_status_t status);
 
+void network_ctx_setup(network_context_t *ctx);
+
+CURL *network_curl_init(network_context_t *ctx);
+
+size_t network_upload_read(char *buf, size_t size, size_t n, void *data);
+
+void network_setup_download(struct curl_slist *chunk, network_context_t *ctx, CURL *curl);
+
+struct curl_slist *skylark_init(CURL *curl);
+
+void skylark_setup_upload(struct curl_slist *chunk, network_context_t *ctx, CURL *curl);
+
 /**
  * @brief Create a context for a libnetwork session
  *
@@ -118,6 +132,8 @@ network_status_t libnetwork_set_password(network_context_t *context, const char 
  * @return                   The operation result.  See @ref network_status_t.
  */
 network_status_t libnetwork_set_url(network_context_t *context, const char *url);
+
+const char *libnetwork_get_url(network_context_t *context);
 
 /**
  * @brief Set the debug flag for this context

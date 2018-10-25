@@ -35,7 +35,7 @@
 #include <libpiksi/util.h>
 #include <libpiksi/version.h>
 
-#include "libnetwork.h"
+#include <libnetwork/libnetwork.h>
 
 /** Maximum length of username string */
 #define LIBNETWORK_USERNAME_MAX_LENGTH (512L)
@@ -413,6 +413,11 @@ network_status_t libnetwork_set_url(network_context_t *context, const char *url)
   return NETWORK_STATUS_SUCCESS;
 }
 
+const char *libnetwork_get_url(network_context_t *context)
+{
+  return context->url;
+}
+
 network_status_t libnetwork_set_debug(network_context_t *context, bool debug)
 {
   context->debug = debug;
@@ -555,10 +560,12 @@ static size_t network_download_write(char *buf, size_t size, size_t n, void *dat
     return ret;
   }
 
+  piksi_log(LOG_ERR, "network_download_write FAILURE");
+
   return -1;
 }
 
-static size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
+size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
 {
   network_context_t *ctx = data;
 
@@ -810,12 +817,13 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
   service_control_fifo(ctx);
 
   if (ctx->shutdown_signaled) {
+    piksi_log(LOG_WARNING, "network_progress_check shutdown_signaled");
     ctx->stall_count = 0;
     return -1;
   }
 
   if (ctx->cycle_connection_signaled) {
-
+    piksi_log(LOG_WARNING, "cycle_connection_signaled");
     sbp_log(LOG_WARNING, "forced re-connect requested");
 
     ctx->cycle_connection_signaled = false;
@@ -826,7 +834,7 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
 
   if (ctx->bytes_transfered == bytes) {
     if (ctx->stall_count++ > MAX_STALLED_INTERVALS) {
-
+      piksi_log(LOG_WARNING, "network_progress_check connection stalled");
       log_with_rate_limit(ctx, LOG_WARNING, "connection stalled");
       ctx->stall_count = 0;
 
@@ -861,7 +869,7 @@ static int network_download_progress(void *data,
 
   curl_off_t delta = dlnow - ctx->bytes_transfered;
   if (ctx->debug && delta > 0) {
-    piksi_log(LOG_DEBUG,
+    piksi_log(LOG_INFO,
               "down bytes: now=%lld, prev=%lld, delta=%lld, count %lld",
               dlnow,
               ctx->bytes_transfered,
@@ -869,7 +877,14 @@ static int network_download_progress(void *data,
               ctx->stall_count);
   }
 
-  return network_progress_check(ctx, dlnow);
+  int prog = network_progress_check(ctx, dlnow);
+
+  if (prog) {
+    piksi_log(LOG_INFO,
+              "network_progress_check ALARM");
+  }
+
+  return prog;
 }
 
 static int network_upload_progress(void *data,
@@ -944,13 +959,29 @@ static int network_sockopt(void *data, curl_socket_t fd, curlsocktype purpose)
   return CURL_SOCKOPT_OK;
 }
 
-static CURL *network_setup(network_context_t *ctx)
+void network_ctx_setup(network_context_t *ctx) 
 {
   ctx->shutdown_signaled = false;
 
   ctx->last_xfer_time = 0;
   ctx->bytes_transfered = 0;
   ctx->stall_count = 0;
+}
+
+CURL *network_curl_init(network_context_t *ctx)
+{
+  ctx->curl = curl_easy_init();
+
+  if (ctx->curl == NULL) {
+    piksi_log(LOG_ERR, "network_setup cURL easy init failed");
+  }
+
+  return ctx->curl;
+}
+
+static CURL *network_setup(network_context_t *ctx)
+{
+  network_ctx_setup(ctx);
 
   CURLcode code = curl_global_init(CURL_GLOBAL_ALL);
   if (code != CURLE_OK) {
@@ -958,17 +989,11 @@ static CURL *network_setup(network_context_t *ctx)
     return NULL;
   }
 
-  CURL *curl = curl_easy_init();
-
-  if (curl == NULL) {
-    piksi_log(LOG_ERR, "network_setup cURL easy init failed");
+  if (network_curl_init(ctx)) {
     curl_global_cleanup();
-    return NULL;
   }
 
-  ctx->curl = curl;
-
-  return curl;
+  return ctx->curl;
 }
 
 static void network_teardown(CURL *curl)
@@ -1094,7 +1119,7 @@ static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
   return chunk;
 }
 
-static struct curl_slist *skylark_init(CURL *curl)
+struct curl_slist *skylark_init(CURL *curl)
 {
   char uuid_buf[256];
   device_uuid_get(uuid_buf, sizeof(uuid_buf));
@@ -1128,7 +1153,7 @@ static network_status_t network_reset_bytes(network_context_t *context)
   return NETWORK_STATUS_SUCCESS;
 }
 
-static void network_setup_download(struct curl_slist *chunk, network_context_t *ctx, CURL *curl)
+void network_setup_download(struct curl_slist *chunk, network_context_t *ctx, CURL *curl)
 {
   // clang-format off
   if (chunk) {
@@ -1142,10 +1167,10 @@ static void network_setup_download(struct curl_slist *chunk, network_context_t *
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,        0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,   network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,       ctx);
+  // clang-format on
 
   network_reset_bytes(ctx);
 }
-// clang-format on
 
 void ntrip_download(network_context_t *ctx)
 {
@@ -1210,17 +1235,8 @@ void skylark_download(network_context_t *ctx)
   network_teardown(curl);
 }
 
-void skylark_upload(network_context_t *ctx)
+void skylark_setup_upload(struct curl_slist *chunk, network_context_t *ctx, CURL *curl)
 {
-  CURL *curl = network_setup(ctx);
-  if (curl == NULL) {
-    return;
-  }
-
-  struct curl_slist *chunk = skylark_init(curl);
-  chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
-  chunk = curl_slist_append(chunk, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
-
   // clang-format off
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
   curl_easy_setopt(curl, CURLOPT_PUT,              1L);
@@ -1235,6 +1251,20 @@ void skylark_upload(network_context_t *ctx)
   // clang-format on
 
   network_reset_bytes(ctx);
+}
+
+void skylark_upload(network_context_t *ctx)
+{
+  CURL *curl = network_setup(ctx);
+  if (curl == NULL) {
+    return;
+  }
+
+  struct curl_slist *chunk = skylark_init(curl);
+  chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
+  chunk = curl_slist_append(chunk, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
+
+
   network_request(ctx, curl);
 
   curl_slist_free_all(chunk);

@@ -27,7 +27,7 @@
 #define SKYLARK_URL             "https://broker.skylark.swiftnav.com"
 // clang-format on
 
-static bool skylark_enabled;
+static u8 skylark_enabled;
 static char skylark_url[256];
 
 typedef struct {
@@ -111,18 +111,41 @@ static int skylark_download_adapter_execfn(void)
   return execvp(argv[0], argv);
 }
 
-static skylark_process_t skylark_processes[] = {
-  {.pid = 0, .execfn = skylark_upload_daemon_execfn},
+static int skylark_http2_daemon_execfn(void)
+{
+  char *url = get_skylark_url();
+  char *argv[] = {
+    "skylark_daemon",
+    "--http2",
+    "--file-down",
+    DOWNLOAD_FIFO_FILE_PATH,
+    "--file-up",
+    UPLOAD_FIFO_FILE_PATH,
+    "--url",
+    url,
+    "--debug",
+    NULL,
+  };
+
+  return execvp(argv[0], argv);
+}
+
+static skylark_process_t skylark_endpoint_processes[] = {
   {.pid = 0, .execfn = skylark_upload_adapter_execfn},
   {.pid = 0, .execfn = skylark_download_adapter_execfn},
+};
+
+static skylark_process_t skylark_http1_processes[] = {
+  {.pid = 0, .execfn = skylark_upload_daemon_execfn},
   {.pid = 0, .execfn = skylark_download_daemon_execfn},
 };
 
-static const size_t skylark_processes_count = COUNT_OF(skylark_processes);
+static skylark_process_t skylark_http2_processes[] = {
+  {.pid = 0, .execfn = skylark_http2_daemon_execfn},
+};
 
-static void skylark_stop_process(size_t i)
+static void skylark_stop_process(skylark_process_t *process)
 {
-  skylark_process_t *process = &skylark_processes[i];
   if (process->pid != 0) {
     int ret = kill(process->pid, SIGTERM);
     if (ret != 0) {
@@ -133,17 +156,45 @@ static void skylark_stop_process(size_t i)
   }
 }
 
-void skylark_stop_processes()
-{
-  for (size_t i = 0; i < skylark_processes_count; i++) {
-    skylark_stop_process(i);
+void skylark_stop_processes(void) {
+  for (size_t i = 0; i < COUNT_OF(skylark_endpoint_processes); i++) {
+    skylark_process_t *process = &skylark_endpoint_processes[i];
+    skylark_stop_process(process);
+  }
+
+  for (size_t i = 0; i < COUNT_OF(skylark_http1_processes); i++) {
+    skylark_process_t *process = &skylark_http1_processes[i];
+    skylark_stop_process(process);
+  }
+
+  for (size_t i = 0; i < COUNT_OF(skylark_http2_processes); i++) {
+    skylark_process_t *process = &skylark_http2_processes[i];
+    skylark_stop_process(process);
   }
 }
 
 void skylark_record_exit(pid_t pid)
 {
-  for (size_t i = 0; i < skylark_processes_count; i++) {
-    skylark_process_t *process = &skylark_processes[i];
+  for (size_t i = 0; i < COUNT_OF(skylark_endpoint_processes); i++) {
+    skylark_process_t *process = &skylark_endpoint_processes[i];
+    if (process->pid != 0 && process->pid == pid) {
+      piksi_log(LOG_DEBUG, "known child process pid %d exited", process->pid);
+      process->pid = 0;
+      return;
+    }
+  }
+
+  for (size_t i = 0; i < COUNT_OF(skylark_http1_processes); i++) {
+    skylark_process_t *process = &skylark_http1_processes[i];
+    if (process->pid != 0 && process->pid == pid) {
+      piksi_log(LOG_DEBUG, "known child process pid %d exited", process->pid);
+      process->pid = 0;
+      return;
+    }
+  }
+
+  for (size_t i = 0; i < COUNT_OF(skylark_http2_processes); i++) {
+    skylark_process_t *process = &skylark_http2_processes[i];
     if (process->pid != 0 && process->pid == pid) {
       piksi_log(LOG_DEBUG, "known child process pid %d exited", process->pid);
       process->pid = 0;
@@ -156,18 +207,56 @@ static int skylark_notify(void *context)
 {
   (void)context;
 
-  for (size_t i = 0; i < skylark_processes_count; i++) {
+  assert(skylark_enabled <= 2);
 
-    skylark_stop_process(i);
+  if (0 == skylark_enabled) {
+    system("echo 0 >/var/run/skylark/enabled");
+  } else {
+    system("echo 1 >/var/run/skylark/enabled");
+  }
 
-    if (!skylark_enabled) {
-      system("echo 0 >/var/run/skylark/enabled");
+  for (size_t i = 0; i < COUNT_OF(skylark_endpoint_processes); i++) {
+    skylark_process_t *process = &skylark_endpoint_processes[i];
+    skylark_stop_process(process);
+
+    if (0 == skylark_enabled) {
       continue;
     }
 
-    system("echo 1 >/var/run/skylark/enabled");
+    process->pid = fork();
 
-    skylark_process_t *process = &skylark_processes[i];
+    if (process->pid == 0) {
+      process->execfn();
+      piksi_log(LOG_ERR, "exec error (%d) \"%s\"", errno, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  for (size_t i = 0; i < COUNT_OF(skylark_http1_processes); i++) {
+    skylark_process_t *process = &skylark_http1_processes[i];
+    skylark_stop_process(process);
+
+    if (1 != skylark_enabled) {
+      continue;
+    }
+
+    process->pid = fork();
+
+    if (process->pid == 0) {
+      process->execfn();
+      piksi_log(LOG_ERR, "exec error (%d) \"%s\"", errno, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  for (size_t i = 0; i < COUNT_OF(skylark_http2_processes); i++) {
+    skylark_process_t *process = &skylark_http2_processes[i];
+    skylark_stop_process(process);
+
+    if (2 != skylark_enabled) {
+      continue;
+    }
+
     process->pid = fork();
 
     if (process->pid == 0) {
@@ -182,48 +271,65 @@ static int skylark_notify(void *context)
 
 bool skylark_reconnect_dl(void)
 {
-  for (size_t i = 0; i < skylark_processes_count; i++) {
+  for (size_t i = 0; i < COUNT_OF(skylark_http1_processes); i++) {
 
-    skylark_process_t *process = &skylark_processes[i];
+    skylark_process_t *process = &skylark_http1_processes[i];
 
-    if (process->execfn == skylark_download_daemon_execfn) {
+    if (process->execfn != skylark_download_daemon_execfn) {
+      continue;
+    }
 
-      if (process->pid == 0) {
-        piksi_log(
-          LOG_ERR,
-          "Asked to tell skylark_daemon to reconnect (in download mode), but it isn't running");
-        return false;
-      }
+    if (process->pid == 0) {
+      piksi_log(
+        LOG_ERR,
+        "Asked to tell skylark_daemon to reconnect (in download mode), but it isn't running");
+      return false;
+    }
 
-      int ret = kill(process->pid, SIGUSR1);
+    int ret = kill(process->pid, SIGUSR1);
 
-      if (ret != 0) {
-        piksi_log(LOG_ERR,
-                  "skylark_reconnect_dl: kill (SIGUSR1) pid %d error (%d) \"%s\"",
-                  process->pid,
-                  errno,
-                  strerror(errno));
+    if (ret != 0) {
+      piksi_log(LOG_ERR,
+                "skylark_reconnect_dl: kill (SIGUSR1) pid %d error (%d) \"%s\"",
+                process->pid,
+                errno,
+                strerror(errno));
 
-        return false;
-      }
+      return false;
     }
   }
 
   return true;
 }
 
-void skylark_init(pk_settings_ctx_t *settings_ctx)
+static const char *const skylark_mode_enum_names[] = {"Disabled",
+                                                      "HTTP 1.1",
+                                                      "HTTP 2",
+                                                      NULL};
+
+enum {
+  SKYLARK_MODE_DISABLED,
+  SKYLARK_MODE_HTTP_1_1,
+  SKYLARK_MODE_HTTP_2,
+};
+
+void skylark_settings_init(pk_settings_ctx_t *settings_ctx)
 {
   mkfifo(UPLOAD_FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
   mkfifo(DOWNLOAD_FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
+  settings_type_t skylark_mode;
+  pk_settings_type_register_enum(settings_ctx,
+                                 skylark_mode_enum_names,
+                                 &skylark_mode);
+
   pk_settings_register(settings_ctx,
                        "skylark",
-                       "enable",
+                       "mode",
                        &skylark_enabled,
                        sizeof(skylark_enabled),
-                       SETTINGS_TYPE_BOOL,
+                       skylark_mode,
                        skylark_notify,
                        NULL);
 
