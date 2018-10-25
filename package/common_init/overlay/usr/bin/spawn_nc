@@ -1,10 +1,21 @@
 #!/bin/sh
 
+pid_file=/var/run/spawn_nc.pid
+
 # Close stdin
 exec <&-
 
 rm -f /data/decrypted.bin
 rm -f /data/upgrade.image_set.bin
 
+the_pid=$(cat $pid_file)
+
+# shellcheck disable=SC2039
+if [[ -n "$the_pid" ]] && [[ -d "/proc/$the_pid" ]]; then
+  kill "$(cat $pid_file)"
+fi
+
 # Launch netcat in listen mode, wait 30s for a connection
 nc -w 30 -p 44444 -l >/data/upgrade.image_set.bin &
+
+echo $! >$pid_file
