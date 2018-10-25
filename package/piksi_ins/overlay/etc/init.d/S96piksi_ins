@@ -5,7 +5,7 @@ cmd="start_pose_daemon"
 dir="/"
 # User is set to piksi_ins in the start_pose_daemon wrapper since we
 #   need to process things with nap_wrap before launching.
-user=""
+user="root"
 priority="-16"
 
 LICENSES_DIR=/persistent/licenses
@@ -21,4 +21,4 @@ setup_permissions()
   configure_dir_resource_rec fileio "$LICENSES_DIR" "$DIR_PERM" "$FILE_PERM"
 }
 
-source /etc/init.d/template_process.inc.sh
+source /etc/init.d/template_runsv.inc.sh
