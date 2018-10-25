@@ -12,6 +12,8 @@
 
 #include <gtest/gtest.h>
 
+#include <string.h>
+
 #include <libpiksi_tests.h>
 
 #include <libpiksi/version.h>
@@ -66,11 +68,18 @@ TEST_F(LibpiksiTests, versionTests)
   // Version comparison
   {
     piksi_version_t ver1 = {.marketing = 1, .major = 2, .patch = 3};
+    /* Array designated initialization is not supported in C++ */
+    strncpy(ver1.devstr, "-dev-123", sizeof(ver1.devstr));
     piksi_version_t ver2 = {.marketing = 2, .major = 3, .patch = 4};
+    strncpy(ver2.devstr, "-dev-456", sizeof(ver2.devstr));
 
     EXPECT_GT(0, version_cmp(&ver1, &ver2));
     EXPECT_LT(0, version_cmp(&ver2, &ver1));
     EXPECT_EQ(0, version_cmp(&ver1, &ver1));
+
+    EXPECT_GT(0, version_devstr_cmp(&ver1, &ver2));
+    EXPECT_LT(0, version_devstr_cmp(&ver2, &ver1));
+    EXPECT_EQ(0, version_devstr_cmp(&ver1, &ver1));
   }
 
   // Version parsing
@@ -82,25 +91,25 @@ TEST_F(LibpiksiTests, versionTests)
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(1, ver.major);
     EXPECT_EQ(4, ver.patch);
-    EXPECT_FALSE(ver.dev);
+    EXPECT_EQ(0, strcmp("", ver.devstr));
 
     EXPECT_EQ(0, version_parse_str("2.1.4", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(1, ver.major);
     EXPECT_EQ(4, ver.patch);
-    EXPECT_FALSE(ver.dev);
+    EXPECT_EQ(0, strcmp("", ver.devstr));
 
     EXPECT_EQ(0, version_parse_str("v2.1.4", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(1, ver.major);
     EXPECT_EQ(4, ver.patch);
-    EXPECT_FALSE(ver.dev);
+    EXPECT_EQ(0, strcmp("", ver.devstr));
 
     EXPECT_EQ(0, version_parse_str("v2.0.0-develop-2018101616-11-g8a", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(0, ver.major);
     EXPECT_EQ(0, ver.patch);
-    EXPECT_TRUE(ver.dev);
+    EXPECT_EQ(0, strcmp("-develop-2018101616-11-g8a", ver.devstr));
 
     // Invalid
     EXPECT_NE(0, version_parse_str("x.y.z", &ver));

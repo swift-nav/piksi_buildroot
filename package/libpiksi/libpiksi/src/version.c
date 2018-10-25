@@ -62,16 +62,16 @@ int version_parse_str(const char *str, piksi_version_t *ver)
   case 3: return 0;
   case 4:
     if (strlen(tail) > 0 && tail[0] == '-') {
-      ver->dev = true;
+      snprintf_warn(ver->devstr, VERSION_DEVSTRING_MAXLEN, "%s", tail);
       return 0;
     } else {
-      /* Fall to default (erroneous string) */
+      /* Fall to default (erroneous version string) */
     }
   default: piksi_log(LOG_ERR, "Invalid version string: %s", str); return 1;
   }
 }
 
-int version_cmp(piksi_version_t *a, piksi_version_t *b)
+int version_cmp(const piksi_version_t *a, const piksi_version_t *b)
 {
   if (a->marketing != b->marketing) {
     return a->marketing - b->marketing;
@@ -82,4 +82,9 @@ int version_cmp(piksi_version_t *a, piksi_version_t *b)
   }
 
   return a->patch - b->patch;
+}
+
+int version_devstr_cmp(const piksi_version_t *a, const piksi_version_t *b)
+{
+  return strcmp(a->devstr, b->devstr);
 }

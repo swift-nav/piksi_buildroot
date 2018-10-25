@@ -22,11 +22,13 @@
 #ifndef LIBPIKSI_VERSION_H
 #define LIBPIKSI_VERSION_H
 
+#define VERSION_DEVSTRING_MAXLEN 128
+
 typedef struct piksi_version_s {
   int marketing;
   int major;
   int patch;
-  bool dev;
+  char devstr[VERSION_DEVSTRING_MAXLEN];
 } piksi_version_t;
 
 #ifdef __cplusplus
@@ -63,12 +65,20 @@ int version_parse_str(const char *str, piksi_version_t *ver);
 
 /**
  * @brief   Compare two versions
+ * @details This comparison doesn't include devstring comparison
  *
- * @return; > 0 if a newer
+ * @return  > 0 if a newer
  *          = 0 if a and b equal
  *          < 0 if b newer
  */
-int version_cmp(piksi_version_t *a, piksi_version_t *b);
+int version_cmp(const piksi_version_t *a, const piksi_version_t *b);
+
+/**
+ * @brief   Compare devstrings of two versions
+ *
+ * @return  See strcmp documentation
+ */
+int version_devstr_cmp(const piksi_version_t *a, const piksi_version_t *b);
 
 #ifdef __cplusplus
 }
