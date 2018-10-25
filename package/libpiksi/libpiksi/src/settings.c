@@ -875,7 +875,7 @@ static int setting_format_setting(setting_data_t *setting_data, char *buf, int l
 static void setting_update_value(setting_data_t *setting_data, const char *value, u8 *write_result)
 {
   if (setting_data->readonly) {
-    *write_result = SBP_WRITE_STATUS_VALUE_READ_ONLY;
+    *write_result = SBP_WRITE_STATUS_READ_ONLY;
   } else {
     *write_result = SBP_WRITE_STATUS_OK;
     /* Store copy and update value */
@@ -886,11 +886,11 @@ static void setting_update_value(setting_data_t *setting_data, const char *value
                                               value)) {
       /* Revert value if conversion fails */
       memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
-      *write_result = SBP_WRITE_STATUS_VALUE_REJECTED;
+      *write_result = SBP_WRITE_STATUS_PARSE_FAILED;
     } else if (setting_data->notify != NULL) {
       /* Call notify function */
       int notify_response = setting_data->notify(setting_data->notify_context);
-      if ( notify_response != 0) {
+      if ( notify_response != SBP_WRITE_STATUS_OK) {
         if (!setting_data->watchonly) {
           /* Revert value if notify returns error */
           memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);

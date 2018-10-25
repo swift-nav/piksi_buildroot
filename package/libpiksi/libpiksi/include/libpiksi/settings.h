@@ -48,11 +48,11 @@ enum {
  * @brief Settings error codes
  */
 enum {
-  SBP_WRITE_STATUS_OK,                /**< Setting written                               */
-  SBP_WRITE_STATUS_VALUE_REJECTED,    /**< Setting value invalid                         */
-  SBP_WRITE_STATUS_SETTING_REJECTED,  /**< Setting does not exist                        */
-  SBP_WRITE_STATUS_PARSE_FAILED,      /**< Could not parse setting value                 */
-  SBP_WRITE_STATUS_VALUE_READ_ONLY,   /**< Setting is read only                          */
+  SBP_WRITE_STATUS_OK               = 0,/**< Setting written               */
+  SBP_WRITE_STATUS_VALUE_REJECTED   = 1,/**< Setting value invalid         */
+  SBP_WRITE_STATUS_SETTING_REJECTED = 2,/**< Setting does not exist        */
+  SBP_WRITE_STATUS_PARSE_FAILED     = 3,/**< Could not parse setting value */
+  SBP_WRITE_STATUS_READ_ONLY        = 4,/**< Setting is read only          */
 };
 
 /**
