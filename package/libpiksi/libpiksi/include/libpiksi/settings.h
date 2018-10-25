@@ -55,6 +55,7 @@ enum {
   // READ_ONLY:MODIFY_DISABLED ~= Permanent:Temporary
   SBP_WRITE_STATUS_READ_ONLY        = 4,/**< Setting is read only          */
   SBP_WRITE_STATUS_MODIFY_DISABLED  = 5,/**< Setting is is not modifiable  */
+  SBP_WRITE_STATUS_SERVICE_FAILED   = 6,/**< System failure during setting */
 };
 
 /**
