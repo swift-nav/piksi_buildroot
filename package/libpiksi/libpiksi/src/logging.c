@@ -83,7 +83,8 @@ void sbp_log(int priority, const char *msg_text, ...)
   va_end(ap);
 }
 
-void sbp_vlog(int priority, const char *msg, ...) {
+void sbp_vlog(int priority, const char *msg, ...)
+{
   msg_log_t *log;
   va_list ap;
   char buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
@@ -107,7 +108,7 @@ void sbp_vlog(int priority, const char *msg, ...) {
 
   if (n < 0) return;
 
-  if (0 != sbp_tx_send(sbp_tx, SBP_MSG_LOG, n + sizeof(msg_log_t), (uint8_t*)buf)) {
-    piksi_log(LOG_ERR, "unable to transmit SBP message.");    
+  if (0 != sbp_tx_send(sbp_tx, SBP_MSG_LOG, n + sizeof(msg_log_t), (uint8_t *)buf)) {
+    piksi_log(LOG_ERR, "unable to transmit SBP message.");
   }
 }
