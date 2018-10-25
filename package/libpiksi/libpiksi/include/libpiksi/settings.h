@@ -52,7 +52,9 @@ enum {
   SBP_WRITE_STATUS_VALUE_REJECTED   = 1,/**< Setting value invalid         */
   SBP_WRITE_STATUS_SETTING_REJECTED = 2,/**< Setting does not exist        */
   SBP_WRITE_STATUS_PARSE_FAILED     = 3,/**< Could not parse setting value */
+  // READ_ONLY:MODIFY_DISABLED ~= Permanent:Temporary
   SBP_WRITE_STATUS_READ_ONLY        = 4,/**< Setting is read only          */
+  SBP_WRITE_STATUS_MODIFY_DISABLED  = 5,/**< Setting is is not modifiable  */
 };
 
 /**
