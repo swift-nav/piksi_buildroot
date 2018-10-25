@@ -491,7 +491,7 @@ static int network_polling_notify(void *context)
       piksi_log(LOG_ERR | LOG_SBP,
                 "buffer overflow while formatting setting '%s'",
                 formatters[x].name);
-      return SBP_WRITE_STATUS_PARSE_FAILED;
+      return SBP_WRITE_STATUS_VALUE_REJECTED;
     }
   }
 
