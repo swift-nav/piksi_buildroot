@@ -31,7 +31,7 @@ int logging_init(const char *identity)
   openlog(identity, OPTIONS, FACILITY);
 
   sbp_tx = sbp_tx_create(SBP_TX_ENDPOINT);
-  if (NULL == s->sbp_tx) {
+  if (NULL == sbp_tx) {
     piksi_log(LOG_ERR, "unable to initialize SBP tx endpoint.");
     return -1;
   }
@@ -79,14 +79,13 @@ void sbp_log(int priority, const char *msg_text, ...)
 {
   va_list ap;
   va_start(ap, msg_text);
-  sbp_vlog(level, msg_text, ap);
+  sbp_vlog(priority, msg_text, ap);
   va_end(ap);
 }
 
-void sbp_vlog(int priority, const char *msg, ...)
+void sbp_vlog(int priority, const char *msg, va_list ap)
 {
   msg_log_t *log;
-  va_list ap;
   char buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 
   if (!sbp_tx) {
@@ -102,9 +101,7 @@ void sbp_vlog(int priority, const char *msg, ...)
   log = (msg_log_t *)buf;
   log->level = (uint8_t)priority;
 
-  va_start(ap, msg);
   int n = vsnprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t), msg, ap);
-  va_end(ap);
 
   if (n < 0) return;
 
