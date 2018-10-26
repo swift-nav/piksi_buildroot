@@ -53,6 +53,33 @@ make image
 
 Images will be in the `buildroot/output/images` folder.
 
+### Build Outputs
+
+A successfull build should finish with the following output visible:
+
+``` sh
+>>>   Executing post-image script /piksi_buildroot/board/piksiv3/post_image.sh
+>>> Generating FAILSAFE firmware image... done.
+>>> Generating DEV firmware image... done.
+>>> Generating PROD firmware image... done.
+>>> INTERNAL firmware image located at:
+        buildroot/output/images/piksiv3_prod/PiksiMulti-INTERNAL-<version_tag>.bin
+>>> DEV firmware image located at:
+        buildroot/output/images/piksiv3_prod/PiksiMulti-DEV-<version_tag>.bin
+>>> FAILSAFE firmware image located at:
+        buildroot/output/images/piksiv3_prod/PiksiMulti-FAILSAFE-<version_tag>.bin
+```
+
+The build variants are as follows:
+ * `INTERNAL` is a complete image with the firmware and FPGA binaries included.
+ * `DEV` is a minimal u-boot image that is configured for loading development artifacts.
+ * `FAILSAFE` is an even more minimal u-boot image that allows for manual recovery.
+
+Without prior experience and instructions, it is recommended that the `DEV` and `FAILSAFE`
+images be ignored.
+
+A `PiksiMulti-*.bin` binary can be loaded onto the device using the console, or via
+usb thumbdrive auto-upgrade feature.
 
 ## Incremental Builds
 
