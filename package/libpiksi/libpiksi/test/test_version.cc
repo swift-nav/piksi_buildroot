@@ -38,7 +38,7 @@ TEST_F(LibpiksiTests, versionTests)
 
   ASSERT_FALSE(file_ptr == NULL);
 
-  const char *test_str = "DEV v2.1.4";
+  const char *test_str = "DEV v223.14.47";
   fputs(test_str, file_ptr);
   fclose(file_ptr);
 
@@ -70,8 +70,12 @@ TEST_F(LibpiksiTests, versionTests)
     piksi_version_t ver1 = {.marketing = 1, .major = 2, .patch = 3};
     /* Array designated initialization is not supported in C++ */
     strncpy(ver1.devstr, "-dev-123", sizeof(ver1.devstr));
+
     piksi_version_t ver2 = {.marketing = 2, .major = 3, .patch = 4};
     strncpy(ver2.devstr, "-dev-456", sizeof(ver2.devstr));
+
+    piksi_version_t ver3 = {.marketing = 7, .major = 8, .patch = 10};
+    strncpy(ver3.devstr, "", sizeof(ver3.devstr));
 
     EXPECT_GT(0, version_cmp(&ver1, &ver2));
     EXPECT_LT(0, version_cmp(&ver2, &ver1));
@@ -80,6 +84,14 @@ TEST_F(LibpiksiTests, versionTests)
     EXPECT_GT(0, version_devstr_cmp(&ver1, &ver2));
     EXPECT_LT(0, version_devstr_cmp(&ver2, &ver1));
     EXPECT_EQ(0, version_devstr_cmp(&ver1, &ver1));
+
+    EXPECT_GT(0, version_devstr_cmp(&ver3, &ver1));
+    EXPECT_LT(0, version_devstr_cmp(&ver1, &ver3));
+    EXPECT_EQ(0, version_devstr_cmp(&ver3, &ver3));
+
+    EXPECT_TRUE(version_is_dev(&ver1));
+    EXPECT_TRUE(version_is_dev(&ver2));
+    EXPECT_FALSE(version_is_dev(&ver3));
   }
 
   // Version parsing
@@ -88,28 +100,32 @@ TEST_F(LibpiksiTests, versionTests)
 
     // Valid
     EXPECT_EQ(0, version_parse_str(test_str, &ver));
-    EXPECT_EQ(2, ver.marketing);
-    EXPECT_EQ(1, ver.major);
-    EXPECT_EQ(4, ver.patch);
+    EXPECT_EQ(223, ver.marketing);
+    EXPECT_EQ(14, ver.major);
+    EXPECT_EQ(47, ver.patch);
     EXPECT_EQ(0, strcmp("", ver.devstr));
+    EXPECT_FALSE(version_is_dev(&ver));
 
     EXPECT_EQ(0, version_parse_str("2.1.4", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(1, ver.major);
     EXPECT_EQ(4, ver.patch);
     EXPECT_EQ(0, strcmp("", ver.devstr));
+    EXPECT_FALSE(version_is_dev(&ver));
 
     EXPECT_EQ(0, version_parse_str("v2.1.4", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(1, ver.major);
     EXPECT_EQ(4, ver.patch);
     EXPECT_EQ(0, strcmp("", ver.devstr));
+    EXPECT_FALSE(version_is_dev(&ver));
 
     EXPECT_EQ(0, version_parse_str("v2.0.0-develop-2018101616-11-g8a", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(0, ver.major);
     EXPECT_EQ(0, ver.patch);
     EXPECT_EQ(0, strcmp("-develop-2018101616-11-g8a", ver.devstr));
+    EXPECT_TRUE(version_is_dev(&ver));
 
     // Invalid
     EXPECT_NE(0, version_parse_str("x.y.z", &ver));

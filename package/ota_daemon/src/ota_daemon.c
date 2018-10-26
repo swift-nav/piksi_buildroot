@@ -231,33 +231,58 @@ static int ota_sha256sum(const char *expected)
 /*
  * return:
  *   > 0 if offered version is newer
- *   = 0 if offered and current versions are equal
+ *   = 0 if offered and current versions are equal OR error
  *   < 0 if current version is newer or error
  */
 static int ota_version_check(const char *offered)
 {
   piksi_version_t offered_parsed = {0};
   if (version_parse_str(offered, &offered_parsed)) {
-    return -1;
+    return 0;
   }
 
+  char current[VERSION_MAXLEN] = {0};
   piksi_version_t current_parsed = {0};
-  if (version_current_get(&current_parsed)) {
-    return -1;
+
+  if (version_current_get_str(current, sizeof(current))) {
+    return 0;
   }
+
+  if (version_parse_str(current, &current_parsed)) {
+    return 0;
+  }
+
+  piksi_log(LOG_INFO, "Current version: %s", current);
+  piksi_log(LOG_INFO, "Offered version: %s", current);
 
   int ret = version_devstr_cmp(&offered_parsed, &current_parsed);
 
-  /* It's enough that offered devstr is different from current, sign doesn't matter */
   if (ret) {
-    piksi_log(LOG_INFO, "New DEV version available via OTA: %s", offered);
-    return 1;
+    bool offered_dev = version_is_dev(&offered_parsed);
+    bool current_dev = version_is_dev(&current_parsed);
+
+    if (offered_dev && current_dev) {
+      piksi_log(LOG_INFO, "Development version change, upgrading");
+    } else if (offered_dev && !current_dev) {
+      piksi_log(LOG_INFO, "Development version replacing production version, upgrading");
+    } else if (!offered_dev && current_dev) {
+      piksi_log(LOG_INFO, "Production version replacing development version, upgrading");
+    } else {
+      /* Should not happen because version_devstr_cmp() should have returned 0 */
+      piksi_log(LOG_ERROR, "Logic error in %s", __FUNCTION__);
+    }
+
+    return ret;
   }
 
   ret = version_cmp(&offered_parsed, &current_parsed);
 
   if (ret > 0) {
-    piksi_log(LOG_INFO, "New version available via OTA: %s", offered);
+    piksi_log(LOG_INFO, "Offered version is newer, upgrading");
+  } else if (ret < 0) {
+    piksi_log(LOG_INFO, "Offered version is older, performing rollback");
+  } else {
+    piksi_log(LOG_INFO, "Offered version matches current version, no action");
   }
 
   return ret;
@@ -384,7 +409,7 @@ static bool ota_client_loop(void)
       continue;
     }
 
-    if (ota_version_check(parsed_resp.version) <= 0) {
+    if (ota_version_check(parsed_resp.version) == 0) {
       ota_close_files(&fd_resp, &fd_img);
       continue;
     }

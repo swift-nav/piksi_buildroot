@@ -71,6 +71,11 @@ int version_parse_str(const char *str, piksi_version_t *ver)
   }
 }
 
+int version_is_dev(const piksi_version_t *ver)
+{
+  return (0 != strlen(ver->devstr));
+}
+
 int version_cmp(const piksi_version_t *a, const piksi_version_t *b)
 {
   if (a->marketing != b->marketing) {

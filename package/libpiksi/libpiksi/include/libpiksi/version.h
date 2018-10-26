@@ -22,7 +22,8 @@
 #ifndef LIBPIKSI_VERSION_H
 #define LIBPIKSI_VERSION_H
 
-#define VERSION_DEVSTRING_MAXLEN 128
+#define VERSION_MAXLEN 128
+#define VERSION_DEVSTRING_MAXLEN 64
 
 typedef struct piksi_version_s {
   int marketing;
@@ -65,6 +66,13 @@ int version_current_get_str(char *str, size_t str_size);
  * @return  0 if no errors
  */
 int version_parse_str(const char *str, piksi_version_t *ver);
+
+/**
+ * @brief   Check if development version
+ *
+ * @return  true if development version
+ */
+int version_is_dev(const piksi_version_t *ver);
 
 /**
  * @brief   Compare two versions
