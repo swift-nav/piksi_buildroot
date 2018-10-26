@@ -55,24 +55,27 @@ int version_current_get_str(char *str, size_t str_size);
 /**
  * @brief   Parse version string
  * @details Parse given version string into piksi_version_t. String format shall
- *          be "[[FOO BLAA BLAA ]v]{x}.{y}.{z}[-<devstring>]" where:
- *          Leading non-digit chars before {x} shall be ignored
+ *          be "[[DEV ]v]{x}.{y}.{z}[-<devstring>]" where:
+ *          Leading non-digit chars before {x} shall be part of the devstring
  *          x = marketing (only digits)
  *          y = major (only digits)
  *          z = patch (only digits)
  *          Possible following devstring shall be stored to devstr member,
- *          a valid devstring shall begin with '-'
+ *          a valid tailing devstring shall begin with '-'
  *
  * @return  0 if no errors
  */
 int version_parse_str(const char *str, piksi_version_t *ver);
 
 /**
- * @brief   Check if development version
+ * @brief   Check if version is development build
+ * @details Version is considered as development build if it has a valid devstring,
+ *          except if the devstring is only `v`. Meaning that v{x}.{y}.{z}
+ *          versions are not considered as development builds.
  *
  * @return  true if development version
  */
-int version_is_dev(const piksi_version_t *ver);
+bool version_is_dev(const piksi_version_t *ver);
 
 /**
  * @brief   Compare two versions

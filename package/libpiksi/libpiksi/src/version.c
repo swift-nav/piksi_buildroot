@@ -50,11 +50,13 @@ int version_parse_str(const char *str, piksi_version_t *ver)
   while (!isdigit(str[idx])) {
     idx++;
 
-    if (idx >= len) {
+    if (idx >= len || VERSION_DEVSTRING_MAXLEN < idx) {
       piksi_log(LOG_ERR, "Invalid version string: %s", str);
       return 1;
     }
   }
+
+  memcpy(ver->devstr, str, idx);
 
   int res = sscanf(str + idx, "%d.%d.%d%s", &ver->marketing, &ver->major, &ver->patch, tail);
 
@@ -62,7 +64,7 @@ int version_parse_str(const char *str, piksi_version_t *ver)
   case 3: return 0;
   case 4:
     if (strlen(tail) > 0 && tail[0] == '-') {
-      snprintf_warn(ver->devstr, VERSION_DEVSTRING_MAXLEN, "%s", tail);
+      snprintf_warn(ver->devstr + idx, VERSION_DEVSTRING_MAXLEN - idx, "%s", tail);
       return 0;
     } else {
       /* Fall to default (erroneous version string) */
@@ -71,9 +73,18 @@ int version_parse_str(const char *str, piksi_version_t *ver)
   }
 }
 
-int version_is_dev(const piksi_version_t *ver)
+bool version_is_dev(const piksi_version_t *ver)
 {
-  return (0 != strlen(ver->devstr));
+  if (0 == strlen(ver->devstr)) {
+    return false;
+  }
+
+  /* v1.2.3 is not considered as DEV build */
+  if (1 == strlen(ver->devstr)) {
+    return ('v' != ver->devstr[0]);
+  }
+
+  return true;
 }
 
 int version_cmp(const piksi_version_t *a, const piksi_version_t *b)

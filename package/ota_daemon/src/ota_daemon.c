@@ -230,6 +230,38 @@ static int ota_sha256sum(const char *expected)
 
 /*
  * return:
+ *   = 0 if offered and current versions are both production builds OR devstrings are equal
+ *  != 0 otherwise
+ */
+static int ota_dev_version_check(const piksi_version_t *offered, const piksi_version_t *current)
+{
+  bool offered_dev = version_is_dev(offered);
+  bool current_dev = version_is_dev(current);
+
+  if (!offered_dev && !current_dev) {
+    return 0;
+  }
+
+  int ret = version_devstr_cmp(offered, current);
+
+  if (ret) {
+    if (offered_dev && current_dev) {
+      piksi_log(LOG_INFO, "Development version change, upgrading");
+    } else if (offered_dev && !current_dev) {
+      piksi_log(LOG_INFO, "Development version replacing production version, upgrading");
+    } else if (!offered_dev && current_dev) {
+      piksi_log(LOG_INFO, "Production version replacing development version, upgrading");
+    } else {
+      /* Should not happen because version_devstr_cmp() should have returned 0 */
+      piksi_log(LOG_ERR, "Logic error in %s", __FUNCTION__);
+    }
+  }
+
+  return ret;
+}
+
+/*
+ * return:
  *   > 0 if offered version is newer
  *   = 0 if offered and current versions are equal OR error
  *   < 0 if current version is newer or error
@@ -255,23 +287,9 @@ static int ota_version_check(const char *offered)
   piksi_log(LOG_INFO, "Current version: %s", current);
   piksi_log(LOG_INFO, "Offered version: %s", current);
 
-  int ret = version_devstr_cmp(&offered_parsed, &current_parsed);
+  int ret = ota_dev_version_check(&offered_parsed, &current_parsed);
 
   if (ret) {
-    bool offered_dev = version_is_dev(&offered_parsed);
-    bool current_dev = version_is_dev(&current_parsed);
-
-    if (offered_dev && current_dev) {
-      piksi_log(LOG_INFO, "Development version change, upgrading");
-    } else if (offered_dev && !current_dev) {
-      piksi_log(LOG_INFO, "Development version replacing production version, upgrading");
-    } else if (!offered_dev && current_dev) {
-      piksi_log(LOG_INFO, "Production version replacing development version, upgrading");
-    } else {
-      /* Should not happen because version_devstr_cmp() should have returned 0 */
-      piksi_log(LOG_ERROR, "Logic error in %s", __FUNCTION__);
-    }
-
     return ret;
   }
 

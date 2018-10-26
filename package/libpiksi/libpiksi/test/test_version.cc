@@ -97,14 +97,15 @@ TEST_F(LibpiksiTests, versionTests)
   // Version parsing
   {
     piksi_version_t ver = {0};
+    piksi_version_t ver_cmp = {0};
 
     // Valid
     EXPECT_EQ(0, version_parse_str(test_str, &ver));
     EXPECT_EQ(223, ver.marketing);
     EXPECT_EQ(14, ver.major);
     EXPECT_EQ(47, ver.patch);
-    EXPECT_EQ(0, strcmp("", ver.devstr));
-    EXPECT_FALSE(version_is_dev(&ver));
+    EXPECT_EQ(0, strcmp("DEV v", ver.devstr));
+    EXPECT_TRUE(version_is_dev(&ver));
 
     EXPECT_EQ(0, version_parse_str("2.1.4", &ver));
     EXPECT_EQ(2, ver.marketing);
@@ -113,18 +114,20 @@ TEST_F(LibpiksiTests, versionTests)
     EXPECT_EQ(0, strcmp("", ver.devstr));
     EXPECT_FALSE(version_is_dev(&ver));
 
-    EXPECT_EQ(0, version_parse_str("v2.1.4", &ver));
-    EXPECT_EQ(2, ver.marketing);
-    EXPECT_EQ(1, ver.major);
-    EXPECT_EQ(4, ver.patch);
-    EXPECT_EQ(0, strcmp("", ver.devstr));
-    EXPECT_FALSE(version_is_dev(&ver));
+    EXPECT_EQ(0, version_parse_str("v2.1.4", &ver_cmp));
+    EXPECT_EQ(2, ver_cmp.marketing);
+    EXPECT_EQ(1, ver_cmp.major);
+    EXPECT_EQ(4, ver_cmp.patch);
+    EXPECT_EQ(0, strcmp("v", ver_cmp.devstr));
+    EXPECT_FALSE(version_is_dev(&ver_cmp));
+
+    EXPECT_GT(0, version_devstr_cmp(&ver, &ver_cmp));
 
     EXPECT_EQ(0, version_parse_str("v2.0.0-develop-2018101616-11-g8a", &ver));
     EXPECT_EQ(2, ver.marketing);
     EXPECT_EQ(0, ver.major);
     EXPECT_EQ(0, ver.patch);
-    EXPECT_EQ(0, strcmp("-develop-2018101616-11-g8a", ver.devstr));
+    EXPECT_EQ(0, strcmp("v-develop-2018101616-11-g8a", ver.devstr));
     EXPECT_TRUE(version_is_dev(&ver));
 
     // Invalid
