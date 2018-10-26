@@ -10,31 +10,27 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/logging.h>
-#include <libpiksi/sbp_tx.h>
-#include <libsbp/logging.h>
 #include <stdarg.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/util.h>
+#include <libpiksi/sbp_tx.h>
+
+#include <libsbp/logging.h>
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
-#define SBP_TX_ENDPOINT "ipc:///var/run/sockets/external.sub"
+#define SBP_TX_ENDPOINT "ipc:///var/run/sockets/internal.sub"
 
 #define FACILITY LOG_LOCAL0
 #define OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)
 
 static bool log_stdout_only = false;
 
-static sbp_tx_ctx_t *sbp_tx = NULL;
-
 int logging_init(const char *identity)
 {
   openlog(identity, OPTIONS, FACILITY);
 
-  sbp_tx = sbp_tx_create(SBP_TX_ENDPOINT);
-  if (NULL == sbp_tx) {
-    piksi_log(LOG_ERR, "unable to initialize SBP tx endpoint.");
-    return -1;
-  }
   return 0;
 }
 
@@ -46,7 +42,6 @@ void logging_log_to_stdout_only(bool enable)
 void logging_deinit(void)
 {
   closelog();
-  sbp_tx_destroy(&sbp_tx);
 }
 
 void piksi_log(int priority, const char *format, ...)
@@ -85,17 +80,22 @@ void sbp_log(int priority, const char *msg_text, ...)
 
 void sbp_vlog(int priority, const char *msg, va_list ap)
 {
-  msg_log_t *log;
-  char buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
+  sbp_tx_ctx_t *sbp_tx = sbp_tx_create(SBP_TX_ENDPOINT);
 
-  if (!sbp_tx) {
-    piksi_log(LOG_ERR, "attempt to send SBP prior to initialization.");
+  if (NULL == sbp_tx) {
+    piksi_log(LOG_ERR, "unable to initialize SBP tx endpoint.");
     return;
   }
 
+  // Force main thread to sleep so nanomsg has a chance to setup...
+  usleep(1);
+
+  msg_log_t *log;
+  char buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
+
   if (priority < 0 || priority > UINT8_MAX) {
     piksi_log(LOG_ERR, "invalid SBP log level.");
-    return;
+    goto exit;
   }
 
   log = (msg_log_t *)buf;
@@ -103,9 +103,14 @@ void sbp_vlog(int priority, const char *msg, va_list ap)
 
   int n = vsnprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t), msg, ap);
 
-  if (n < 0) return;
+  if (n < 0) goto exit;
+
+  n = SWFT_MIN(n, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t));
 
   if (0 != sbp_tx_send(sbp_tx, SBP_MSG_LOG, n + sizeof(msg_log_t), (uint8_t *)buf)) {
     piksi_log(LOG_ERR, "unable to transmit SBP message.");
   }
+
+exit:
+  sbp_tx_destroy(&sbp_tx);
 }
