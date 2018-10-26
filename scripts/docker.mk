@@ -74,7 +74,6 @@ DOCKER_SETUP_ARGS :=                                                          \
 
 DOCKER_RUN_ARGS := \
   $(DOCKER_SETUP_ARGS) \
-  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images \
   $(RUN_VOLUME_ARGS) \
   --security-opt seccomp:unconfined --cap-add=SYS_PTRACE
 
