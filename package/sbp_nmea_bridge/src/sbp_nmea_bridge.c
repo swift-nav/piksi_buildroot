@@ -170,7 +170,7 @@ static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   if (sbp_sender_id_get() == sender_id) {
     uint8_t num_obs = (len - sizeof(observation_header_t)) / sizeof(packed_obs_content_t);
     sbp2nmea_obs((msg_obs_t *)msg, num_obs, &state);
-  } else {
+  } else if (sender_id > 0) {
     sbp2nmea_set_base_id(sender_id, &state);
   }
 }
