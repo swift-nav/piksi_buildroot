@@ -28,14 +28,8 @@
  * is triggered by read from persistent config file during boot */
 static bool can_settings_initialized = false;
 
-static const char *const bitrate_enum_names[] = {"10k",
-                                                 "20k",
-                                                 "50k",
-                                                 "125k",
-                                                 "250k",
-                                                 "500k",
-                                                 "1M",
-                                                 NULL};
+static const char *const bitrate_enum_names[] =
+  {"10k", "20k", "50k", "125k", "250k", "500k", "1M", NULL};
 enum {
   BITRATE_10K,
   BITRATE_20K,
@@ -46,8 +40,7 @@ enum {
   BITRATE_1M,
 };
 
-static const u32 bitrate_val_table[] =
-  {10000, 20000, 50000, 125000, 250000, 500000, 1000000};
+static const u32 bitrate_val_table[] = {10000, 20000, 50000, 125000, 250000, 500000, 1000000};
 
 typedef struct {
   char *name;
@@ -56,20 +49,8 @@ typedef struct {
   u8 bitrate;
 } can_t;
 
-static can_t cans[2] = {
-  [0] = {
-    .name = "can0",
-    .id = 0,
-    .filter = 0,
-    .bitrate = BITRATE_250K
-  },
-  [1] = {
-    .name = "can1",
-    .id = 1,
-    .filter = 0,
-    .bitrate = BITRATE_250K
-  }
-};
+static can_t cans[2] = {[0] = {.name = "can0", .id = 0, .filter = 0, .bitrate = BITRATE_250K},
+                        [1] = {.name = "can1", .id = 1, .filter = 0, .bitrate = BITRATE_250K}};
 
 static int can_cmd(const char *cmd)
 {
@@ -86,11 +67,7 @@ static int can_set_bitrate_piksi(const char *name, int br)
 {
   char cmd[100];
 
-  snprintf_assert(cmd,
-                  sizeof(cmd),
-                  "sudo ip link set %s type can bitrate %d",
-                  name,
-                  br);
+  snprintf_assert(cmd, sizeof(cmd), "sudo ip link set %s type can bitrate %d", name, br);
 
   return can_cmd(cmd);
 }
@@ -99,11 +76,7 @@ static int can_set_txqueuelen_piksi(const char *name, int txqlen)
 {
   char cmd[100];
 
-  snprintf_assert(cmd,
-                  sizeof(cmd),
-                  "sudo ip link set %s txqueuelen %d",
-                  name,
-                  txqlen);
+  snprintf_assert(cmd, sizeof(cmd), "sudo ip link set %s txqueuelen %d", name, txqlen);
 
   return can_cmd(cmd);
 }
@@ -155,10 +128,7 @@ static int can_configure(const can_t *can)
   }
 
   if (can_set_txqueuelen_piksi(can->name, 1000)) {
-    piksi_log(LOG_ERR,
-              "Could not set tx queue len %" PRId32 " on interface %s",
-              1000,
-              can->name);
+    piksi_log(LOG_ERR, "Could not set tx queue len %" PRId32 " on interface %s", 1000, can->name);
     return 1;
   }
 
@@ -216,9 +186,7 @@ int can_init(settings_ctx_t *settings_ctx)
 
   /* Register settings */
   settings_type_t settings_type_bitrate;
-  settings_type_register_enum(settings_ctx,
-                              bitrate_enum_names,
-                              &settings_type_bitrate);
+  settings_type_register_enum(settings_ctx, bitrate_enum_names, &settings_type_bitrate);
 
   settings_register(settings_ctx,
                     "can0",

@@ -34,28 +34,20 @@ int can_loop(const char *can_name, u32 can_filter)
     }
 
     struct can_filter rfilter[1];
-    rfilter[0].can_id   = can_filter; 
+    rfilter[0].can_id = can_filter;
     rfilter[0].can_mask = CAN_SFF_MASK;
 
-    if (setsockopt(socket_can,
-                   SOL_CAN_RAW,
-                   CAN_RAW_FILTER,
-                   &rfilter,
-                   sizeof(rfilter))) {
+    if (setsockopt(socket_can, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter))) {
       piksi_log(LOG_ERR, "Could not set filter for %s", can_name);
       return 1;
-    } 
+    }
 
     const int loopback = 0;
 
-    if (setsockopt(socket_can,
-                   SOL_CAN_RAW,
-                   CAN_RAW_LOOPBACK,
-                   &loopback,
-                   sizeof(loopback))) {
+    if (setsockopt(socket_can, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &loopback, sizeof(loopback))) {
       piksi_log(LOG_ERR, "Could not disable loopback for %s", can_name);
       return 1;
-    } 
+    }
 
     strcpy(ifr.ifr_name, can_name);
     if (ioctl(socket_can, SIOCGIFINDEX, &ifr) < 0) {
@@ -77,7 +69,7 @@ int can_loop(const char *can_name, u32 can_filter)
       piksi_log(LOG_ERR, "Failed CAN flag fetch");
       return 1;
     }
-    
+
     if (fcntl(socket_can, F_SETFL, flags & ~O_NONBLOCK) < 0) {
       piksi_log(LOG_ERR, "Failed CAN flag set");
       return 1;

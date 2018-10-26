@@ -450,7 +450,7 @@ static ssize_t can_read(int skt, void *buffer, size_t count)
     /* Non-blocking */
     struct timeval tv = {0, 0};
     fd_set fds;
-    
+
     FD_ZERO(&fds);
     FD_SET(skt, &fds);
 
@@ -493,7 +493,7 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
 static ssize_t can_write(int fd, const void *buffer, size_t count)
 {
   struct can_frame frame = {0};
-  frame.can_id  = can_id & CAN_SFF_MASK;
+  frame.can_id = can_id & CAN_SFF_MASK;
   frame.can_dlc = sizeof(frame.data);
   if (count < frame.can_dlc) {
     frame.can_dlc = count;
@@ -808,14 +808,28 @@ void io_loop_run(int read_fd, int write_fd, bool is_can)
 
         /* Read from fd, write to pub */
         handle_t pub_handle;
-        if (handle_init(&pub_handle, pub, -1, -1, framer_name, filter_in_name, filter_in_config, false)
+        if (handle_init(&pub_handle,
+                        pub,
+                        -1,
+                        -1,
+                        framer_name,
+                        filter_in_name,
+                        filter_in_config,
+                        false)
             != 0) {
           debug_printf("handle_init for pub returned error\n");
           exit(EXIT_FAILURE);
         }
 
         handle_t fd_handle;
-        if (handle_init(&fd_handle, NULL, read_fd, -1, FRAMER_NONE_NAME, FILTER_NONE_NAME, NULL, is_can)
+        if (handle_init(&fd_handle,
+                        NULL,
+                        read_fd,
+                        -1,
+                        FRAMER_NONE_NAME,
+                        FILTER_NONE_NAME,
+                        NULL,
+                        is_can)
             != 0) {
           debug_printf("handle_init for read_fd returned error\n");
           exit(EXIT_FAILURE);
@@ -849,7 +863,8 @@ void io_loop_run(int read_fd, int write_fd, bool is_can)
 
         /* Read from sub, write to fd */
         handle_t sub_handle;
-        if (handle_init(&sub_handle, sub, -1, -1, FRAMER_NONE_NAME, FILTER_NONE_NAME, NULL, false) != 0) {
+        if (handle_init(&sub_handle, sub, -1, -1, FRAMER_NONE_NAME, FILTER_NONE_NAME, NULL, false)
+            != 0) {
           debug_printf("handle_init for sub returned error\n");
           exit(EXIT_FAILURE);
         }

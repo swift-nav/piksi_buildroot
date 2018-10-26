@@ -111,7 +111,12 @@ static int opts_get_udp_client(char *buf, size_t buf_size, const opts_data_t *op
 static int opts_get_can(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
   u8 nmbr = opts_data->can_data.number;
-  return snprintf(buf, buf_size, "--name can%" PRIu8 " --can %" PRIu32 " --can-f %" PRIu32, nmbr, can_get_id(nmbr), can_get_filter(nmbr));
+  return snprintf(buf,
+                  buf_size,
+                  "--name can%" PRIu8 " --can %" PRIu32 " --can-f %" PRIu32,
+                  nmbr,
+                  can_get_id(nmbr),
+                  can_get_filter(nmbr));
 }
 
 typedef struct {
