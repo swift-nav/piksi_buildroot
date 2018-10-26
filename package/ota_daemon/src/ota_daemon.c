@@ -230,17 +230,13 @@ static int ota_sha256sum(const char *expected)
 
 /*
  * return:
- *   = 0 if offered and current versions are both production builds OR devstrings are equal
+ *   = 0 if devstrings are equal
  *  != 0 otherwise
  */
 static int ota_dev_version_check(const piksi_version_t *offered, const piksi_version_t *current)
 {
   bool offered_dev = version_is_dev(offered);
   bool current_dev = version_is_dev(current);
-
-  if (!offered_dev && !current_dev) {
-    return 0;
-  }
 
   int ret = version_devstr_cmp(offered, current);
 
@@ -251,9 +247,9 @@ static int ota_dev_version_check(const piksi_version_t *offered, const piksi_ver
       piksi_log(LOG_INFO, "Development version replacing production version, upgrading");
     } else if (!offered_dev && current_dev) {
       piksi_log(LOG_INFO, "Production version replacing development version, upgrading");
-    } else {
-      /* Should not happen because version_devstr_cmp() should have returned 0 */
-      piksi_log(LOG_ERR, "Logic error in %s", __FUNCTION__);
+    } else if (!offered_dev && !current_dev) {
+      /* This happens in case we have "vA.B.C" vs "X.Y.Z" */
+      piksi_log(LOG_INFO, "Version format change, upgrading");
     }
   }
 
