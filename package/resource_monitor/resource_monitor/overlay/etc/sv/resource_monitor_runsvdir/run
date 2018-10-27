@@ -1,0 +1,7 @@
+#!/bin/sh
+
+name=resource_monitor
+user=resmond
+service=${name}_runsvdir
+
+source /etc/init.d/template_svdir.sh

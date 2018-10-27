@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2017-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -22,6 +22,7 @@
 #ifndef LIBPIKSI_UTIL_H
 #define LIBPIKSI_UTIL_H
 
+#include <ctype.h>
 #include <errno.h>
 #include <signal.h>
 #include <unistd.h>
@@ -30,6 +31,64 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+/**
+ * The NESTED_FN_TYPEDEF creates a typedef sufficient to represent a nested
+ * function on clang and gcc.  On clang, we must use the "blocks" feature,
+ * for gcc we can used nested functions, which can be captured by a normal
+ * function pointer.
+ *
+ * Example:
+ *
+ * ```
+ * NESTED_FN_TYPEDEF(bool, line_fn_t, const char *line);
+ * ```
+ */
+#ifdef __clang__
+#define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (^Name)(__VA_ARGS__);
+#else
+#define NESTED_FN_TYPEDEF(RetTy, Name, ...) typedef RetTy (*Name)(__VA_ARGS__);
+#endif
+
+/**
+ * On clang, a nested function (block) must annotate data outside its scope
+ *   that it wishes to modify.
+ *
+ * Example:
+ *
+ * ```
+ * int NESTED_AXX(line_count) = 0;
+ * ```
+ */
+#ifdef __clang__
+#define NESTED_AXX(F) __block F
+#else
+#define NESTED_AXX(F) F
+#endif
+
+/**
+ * Wrapper to define a nested function (block on clang) suitable for clange
+ * or for gcc.
+ *
+ * Example:
+ *
+ * ```
+ * NESTED_FN(bool, (const char *line),
+ * {
+ *   state->pid_count++;
+ *   return parse_ps_cpu_mem_line(line, state);
+ * })
+ * ```
+ */
+#ifdef __clang__
+#define NESTED_FN(RetTy, ArgSpec, FnBody) ^RetTy ArgSpec FnBody
+#else
+#define NESTED_FN(RetTy, ArgSpec, FnBody) \
+  ({                                      \
+    RetTy __fn__ ArgSpec FnBody;          \
+    __fn__;                               \
+  })
 #endif
 
 /**
@@ -227,6 +286,31 @@ int run_sigtimedwait(sigwait_params_t *params);
  */
 bool is_file(int fd);
 
+NESTED_FN_TYPEDEF(ssize_t, buffer_fn_t, char *buffer, size_t buflen, void *context);
+
+/** @brief Configures the run_command function */
+typedef struct {
+  const char *input;       /**< The input file for the process */
+  const char *const *argv; /**< The argv of the command, e.g. {"ls", "foo", "bar", "baz"} */
+  char *buffer;            /**< The buffer to write output data to */
+  size_t length;           /**< The length of the output buffer */
+  buffer_fn_t func;        /**< A function to receive output data */
+  void *context;           /**< A context to pass to the function */
+} run_command_t;
+
+/**
+ * @brief   Start a child process and record its output
+ * @details Forks a child process and redirect its stdout to provided output buffer.
+ *          Call blocks until the output buffer is full or child process stdout
+ *          gives EOF.
+ *
+ * @param[in]    r Command config to run within child process
+ *
+ * @return                    The operation result.
+ * @retval 0                  Success
+ */
+int run_command(const run_command_t *r);
+
 /**
  * @brief   Start a child process and record its output
  * @details Forks a child process and redirect its stdin from the input file
@@ -245,9 +329,35 @@ bool is_file(int fd);
  */
 int run_with_stdin_file(const char *input_file,
                         const char *cmd,
-                        char *const argv[],
+                        const char *const argv[],
                         char *output,
                         size_t output_size);
+
+/**
+ * @brief   Start a child process and record its output
+ * @details Forks a child process and redirect its stdin from the input file
+ *          and its stdout to provided output buffer. Call blocks until the
+ *          output buffer is full or child process stdout gives EOF.
+ *
+ * @param[in]    input_file   Input file to map as child process stdin
+ * @param[in]    cmd          Command to run within child process
+ * @param[in]    cmd          Command arguments, list shall be NULL terminated,
+ *                            see execvp manual
+ * @param[inout] output       Output buffer
+ * @param[in]    output_size  Output buffer size
+ * @param[in]    buffer_fn    Function which will process output data
+ * @param[in]    context      A context to pass to buffer_fn
+ *
+ * @return                    The operation result.
+ * @retval 0                  Success
+ */
+int run_with_stdin_file2(const char *input_file,
+                         const char *cmd,
+                         const char *const argv[],
+                         char *output,
+                         size_t output_size,
+                         buffer_fn_t buffer_fn,
+                         void *context);
 
 /**
  * @brief   Check if string contains only digits
@@ -257,6 +367,107 @@ int run_with_stdin_file(const char *input_file,
  * @return  True if only digits in str
  */
 bool str_digits_only(const char *str);
+
+bool strtoul_all(int base, const char *str, unsigned long *value);
+
+bool strtod_all(const char *str, double *value);
+
+typedef struct pipeline_s pipeline_t;
+
+/**
+ * A utility class for running pipelines, similar to a shell pipeline.
+ *
+ * For example:
+ *
+ * ```
+ * pipeline_t *SCRUB(r, s_pipeline) = create_pipeline();
+ * r = r->cat(r, EXTRACE_LOG);
+ * r = r->pipe(r);
+ * r = r->call(r, "grep", (const char *const[]){"grep", "-c", "^[0-9][0-9]*[+] ", NULL});
+ *
+ * r = r->wait(r);
+ *
+ * if (r->is_nil(r)) { handle_failure(...); }
+ * else ...
+ * ```
+ */
+typedef struct pipeline_s {
+
+  /**
+   * Stage a file as input to the next component of the pipeline.
+   */
+  pipeline_t *(*cat)(pipeline_t *r, const char *filename);
+
+  /**
+   * Takes anything previously staged as input (from @c cat or @c call) and
+   *   opens up corresponding filesystem objects to pipe output to the next
+   *   component of the pipeline.
+   */
+  pipeline_t *(*pipe)(pipeline_t *r);
+
+  /**
+   * Stages a subprocess exec into the pipeline.  Arguments are similar
+   * to that of execv and friends.
+   */
+  pipeline_t *(*call)(pipeline_t *r, const char *prog, const char *const argv[]);
+
+  /**
+   * Wait for the pipeline to complete (and capture it's output).
+   */
+  pipeline_t *(*wait)(pipeline_t *r);
+
+  /**
+   * Ask if the pipeline is "nil", a nil pipeline indicates that a failure
+   *   occured while executing.
+   */
+  bool (*is_nil)(pipeline_t *r);
+
+  /**
+   * Clean-up resources used by this pipeline object.
+   */
+  pipeline_t *(*destroy)(pipeline_t *r);
+
+  /** The stdout of the command that was run, output is truncated at 4k */
+  char stdout_buffer[4096];
+
+  /** The exit code of the pipeline, usually the exit code of the last process, or
+   *  and artificial exit code if there was usage error.
+   */
+  int exit_code;
+
+  const char *_filename;
+  int _fd_stdin;
+
+  const char *_proc_path;
+  const char *const *_proc_args;
+
+  bool _is_nil;
+
+} pipeline_t;
+
+pipeline_t *create_pipeline(void);
+
+/**
+ * Attached a clean-up function for a variable.
+ *
+ * The function that's attached to the variable will be called with a pointer
+ * to that variable when the variable goes out of scope.
+ *
+ * Example:
+ * ```
+ * pipeline_t *SCRUB(r, s_pipeline) = create_pipeline();
+ * ```
+ *
+ * With `s_pipeline` defined as follows:
+ * ```
+ * static void s_pipeline(pipeline_t **r)
+ * {
+ *   if (r == NULL || *r == NULL) return;
+ *   *r = (*r)->destroy(*r);
+ * };
+ * ```
+ */
+#define SCRUB(TheVar, TheFunc) (TheVar) __attribute__((__cleanup__(TheFunc)))
 
 #define SWFT_MAX(a, b)  \
   ({                    \

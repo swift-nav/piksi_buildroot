@@ -1,0 +1,2 @@
+config BR2_PACKAGE_RESOURCE_MONITOR
+  bool "resource_monitor"

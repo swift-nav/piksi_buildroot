@@ -14,6 +14,7 @@
 #include <libpiksi/loop.h>
 #include <libpiksi/logging.h>
 #include <uv.h>
+
 #include "sbp.h"
 
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
@@ -39,15 +40,17 @@ static void signal_cb(pk_loop_t *pk_loop, void *handle, void *context)
   pk_loop_stop(pk_loop);
 }
 
-int sbp_update_timer_interval(unsigned int timer_interval, pk_loop_cb callback)
+bool sbp_update_timer_interval(unsigned int timer_interval, pk_loop_cb callback)
 {
-  pk_loop_remove_handle(uv_timer);
+  if (uv_timer != NULL) pk_loop_remove_handle(uv_timer);
+
   uv_timer = pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL);
+
   if (uv_timer == NULL) {
     piksi_log(LOG_ERR, "Error adding timer!");
-    sbp_deinit();
+    return false;
   }
-  return 0;
+  return true;
 }
 
 int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
@@ -62,9 +65,7 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
     goto failure;
   }
 
-  uv_timer = pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL);
-  if (uv_timer == NULL) {
-    piksi_log(LOG_ERR, "Error adding timer!");
+  if (!sbp_update_timer_interval(timer_interval, callback)) {
     goto failure;
   }
 

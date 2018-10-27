@@ -19,12 +19,14 @@
 
 #include <libpiksi/util.h>
 
+mode_t mode = 0644;
+
 TEST_F(LibpiksiTests, isFileTests)
 {
   // File
   {
     const char *test_file = "/tmp/file";
-    int fd = open(test_file, O_CREAT | O_WRONLY);
+    int fd = open(test_file, O_CREAT | O_WRONLY, mode);
     ASSERT_FALSE(fd == -1);
     EXPECT_TRUE(is_file(fd));
     close(fd);

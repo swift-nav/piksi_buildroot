@@ -10,19 +10,27 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/logging.h>
 #include <stdarg.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/util.h>
+#include <libpiksi/sbp_tx.h>
+
+#include <libsbp/logging.h>
+
+#define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
+
+#define SBP_TX_ENDPOINT "ipc:///var/run/sockets/internal.sub"
 
 #define FACILITY LOG_LOCAL0
 #define OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)
 
-static char log_ident[256];
-bool log_stdout_only = false;
+static bool log_stdout_only = false;
 
 int logging_init(const char *identity)
 {
-  snprintf(log_ident, sizeof(log_ident), "%s", identity);
   openlog(identity, OPTIONS, FACILITY);
+
   return 0;
 }
 
@@ -33,7 +41,6 @@ void logging_log_to_stdout_only(bool enable)
 
 void logging_deinit(void)
 {
-  snprintf(log_ident, sizeof(log_ident), "");
   closelog();
 }
 
@@ -63,8 +70,6 @@ void piksi_vlog(int priority, const char *format, va_list ap)
   vsyslog(priority, format, ap);
 }
 
-#define NUM_LOG_LEVELS 8
-
 void sbp_log(int priority, const char *msg_text, ...)
 {
   va_list ap;
@@ -73,39 +78,39 @@ void sbp_log(int priority, const char *msg_text, ...)
   va_end(ap);
 }
 
-void sbp_vlog(int priority, const char *msg_text, va_list ap)
+void sbp_vlog(int priority, const char *msg, va_list ap)
 {
-  const char *log_args[NUM_LOG_LEVELS] =
-    {"emerg", "alert", "crit", "error", "warn", "notice", "info", "debug"};
+  sbp_tx_ctx_t *sbp_tx = sbp_tx_create(SBP_TX_ENDPOINT);
 
-  if (priority < 0 || priority >= NUM_LOG_LEVELS) {
-    priority = LOG_INFO;
-  }
-
-  char cmd_buf[256];
-  snprintf(cmd_buf, sizeof(cmd_buf), "sbp_log --%s", log_args[priority]);
-  FILE *output = popen(cmd_buf, "w");
-
-  if (output == 0) {
-    piksi_log(LOG_ERR, "couldn't call sbp_log.");
+  if (NULL == sbp_tx) {
+    piksi_log(LOG_ERR, "unable to initialize SBP tx endpoint.");
     return;
   }
 
-  char formatted_msg[2048];
+  // Force main thread to sleep so nanomsg has a chance to setup...
+  usleep(1);
 
-  vsnprintf(formatted_msg, sizeof(formatted_msg), msg_text, ap);
+  msg_log_t *log;
+  char buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 
-  char msg_buf[2048];
-  snprintf(msg_buf, sizeof(msg_buf), "%s: %s", log_ident, formatted_msg);
-
-  fputs(msg_buf, output);
-
-  if (ferror(output) != 0) {
-    piksi_log(LOG_ERR, "output to sbp_log failed.");
+  if (priority < 0 || priority > UINT8_MAX) {
+    piksi_log(LOG_ERR, "invalid SBP log level.");
+    goto exit;
   }
 
-  if (pclose(output) != 0) {
-    piksi_log(LOG_ERR, "couldn't close sbp_log call.");
-    return;
+  log = (msg_log_t *)buf;
+  log->level = (uint8_t)priority;
+
+  int n = vsnprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t), msg, ap);
+
+  if (n < 0) goto exit;
+
+  n = SWFT_MIN(n, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t));
+
+  if (0 != sbp_tx_send(sbp_tx, SBP_MSG_LOG, n + sizeof(msg_log_t), (uint8_t *)buf)) {
+    piksi_log(LOG_ERR, "unable to transmit SBP message.");
   }
+
+exit:
+  sbp_tx_destroy(&sbp_tx);
 }

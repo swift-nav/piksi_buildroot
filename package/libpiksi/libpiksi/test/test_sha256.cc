@@ -11,15 +11,30 @@
  */
 
 #include <gtest/gtest.h>
-
-#include <libpiksi_tests.h>
-
 #include <libpiksi/sha256.h>
 
-TEST_F(LibpiksiTests, sha256Tests)
-{
-  const char *test_file = "/tmp/test_sha.txt";
+static const char *test_file = "/tmp/libpiksi_test_sha256.txt";
 
+class LibpiksiSha256Tests : public ::testing::Test {
+
+ protected:
+  void SetUp() override
+  {
+    // Clean up test file if it's already there
+    remove(test_file);
+  }
+
+  void TearDown() override
+  {
+    // Clean up test file
+    if (remove(test_file)) {
+      std::cout << "Failed to clean up " << test_file << std::endl;
+    }
+  }
+};
+
+TEST_F(LibpiksiSha256Tests, sha256Tests)
+{
   // File not present
   {
     char sha[SHA256SUM_LEN] = {0};
@@ -43,10 +58,5 @@ TEST_F(LibpiksiTests, sha256Tests)
     EXPECT_EQ(0, sha256sum_file(test_file, sha, sizeof(sha)));
     EXPECT_EQ(0, sha256sum_cmp(expected, sha));
     EXPECT_NE(0, sha256sum_cmp(not_expected, sha));
-  }
-
-  // Clean up test file
-  if (remove(test_file)) {
-    std::cout << "Failed to clean up " << test_file << std::endl;
   }
 }

@@ -16,16 +16,18 @@
 #include <libsbp/sbp.h>
 #include <libpiksi/settings.h>
 
-// clang-format off
 #define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
-#define NO_TIME          0
-// clang-format on
+#define NO_TIME 0
 
 int sbp_init(unsigned int timer_interval, pk_loop_cb callback);
 void sbp_deinit(void);
+
 settings_ctx_t *sbp_get_settings_ctx(void);
 pk_loop_t *sbp_get_loop(void);
+
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);
+bool sbp_update_timer_interval(unsigned int timer_interval, pk_loop_cb callback);
+
 int sbp_run(void);
-int sbp_update_timer_interval(unsigned int timer_interval, pk_loop_cb callback);
+
 #endif /* SWIFTNAV_SBP_H */
