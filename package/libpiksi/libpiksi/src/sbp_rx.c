@@ -19,12 +19,12 @@ struct sbp_rx_ctx_s {
   pk_endpoint_t *pk_ept;
   sbp_state_t sbp_state;
   const u8 *receive_buffer;
-  u32 receive_buffer_length;
+  s32 receive_buffer_length;
   bool reader_interrupt;
   void *reader_handle;
 };
 
-static u32 receive_buffer_read(u8 *buff, u32 n, void *context)
+static s32 receive_buffer_read(u8 *buff, u32 n, void *context)
 {
   sbp_rx_ctx_t *ctx = (sbp_rx_ctx_t *)context;
   u32 len = SWFT_MIN(n, ctx->receive_buffer_length);

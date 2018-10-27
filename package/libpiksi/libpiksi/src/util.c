@@ -149,7 +149,7 @@ bool file_write_string(const char *filename, const char *str)
     return false;
   }
 
-  bool success = (fputs(str, fp) != NULL);
+  bool success = (fputs(str, fp) != EOF);
 
   fclose(fp);
 
