@@ -21,53 +21,38 @@
 #include <libpiksi/sbp_tx.h>
 
 #define PROGRAM_NAME "sbp_log"
-
-#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/firmware.sub"
-#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/firmware.pub"
-
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
 int main(int argc, char *argv[])
 {
-  int ret = -1;
+  int level = LOG_INFO;
 
-  logging_init(PROGRAM_NAME);
-
-  msg_log_t *msg = alloca(SBP_FRAMING_MAX_PAYLOAD_SIZE);
   const static struct option long_options[] = {
-    {"emerg", no_argument, NULL, 0},
-    {"alert", no_argument, NULL, 1},
-    {"crit", no_argument, NULL, 2},
-    {"error", no_argument, NULL, 3},
-    {"warn", no_argument, NULL, 4},
-    {"notice", no_argument, NULL, 5},
-    {"info", no_argument, NULL, 6},
-    {"debug", no_argument, NULL, 7},
+    {"emerg", no_argument, NULL, LOG_EMERG},
+    {"alert", no_argument, NULL, LOG_ALERT},
+    {"crit", no_argument, NULL, LOG_CRIT},
+    {"error", no_argument, NULL, LOG_ERR},
+    {"warn", no_argument, NULL, LOG_WARNING},
+    {"notice", no_argument, NULL, LOG_NOTICE},
+    {"info", no_argument, NULL, LOG_INFO},
+    {"debug", no_argument, NULL, LOG_DEBUG},
     {0, 0, 0, 0},
   };
+
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_options, NULL)) > 0) {
-    if ((unsigned)opt > 7) {
+    if ((unsigned)opt > LOG_DEBUG) {
       fprintf(stderr, "Invalid argument\n");
       return -1;
     }
-    msg->level = opt;
+    level = opt;
   }
 
-  sbp_tx_ctx_t *ctx = sbp_tx_create(SBP_PUB_ENDPOINT);
-  if (ctx == NULL) {
-    exit(EXIT_FAILURE);
+  char msg[SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text)] = {0};
+
+  while (fgets(msg, sizeof(msg), stdin)) {
+    sbp_log(level, msg);
   }
-
-  /* Delay for long enough for socket thread to sort itself out */
-  usleep(100000);
-
-  while (fgets(msg->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - offsetof(msg_log_t, text), stdin)) {
-    sbp_tx_send(ctx, SBP_MSG_LOG, sizeof(*msg) + strlen(msg->text), (u8 *)msg);
-  }
-
-  sbp_tx_destroy(&ctx);
-  logging_deinit();
 
   return 0;
 }
