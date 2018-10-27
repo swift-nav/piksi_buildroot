@@ -18,5 +18,4 @@ cat >$D/../.clang_complete <<EOF
 -isysroot$D/../buildroot/output/host/usr/arm-buildroot-linux-gnueabihf/sysroot
 -arch armv7
 -fblocks
--std=gnu11
 EOF

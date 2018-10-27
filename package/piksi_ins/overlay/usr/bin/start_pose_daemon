@@ -22,12 +22,10 @@ caps="cap_ipc_lock,cap_sys_rawio+ep"
 user=piksi_ins
 group=devmem
 
-nap_wrap --key-index $key_index \
+exec nap_wrap --key-index $key_index \
   --input-file $b/PoseDaemon.enc --output-file $b/PoseDaemon \
   --permissions 0755 --capabilities "$caps" \
   --input-file $l/libcrlpose2.so.enc --output-file $l/libcrlpose2.so \
-  --permissions 0644 --capabilities "" \
-  --input-file $l/libaes256.so.enc --output-file $l/libaes256.so \
   --permissions 0644 --capabilities "" \
   -- \
   chpst -u $user:$group \
