@@ -509,11 +509,9 @@ int run_sigtimedwait(sigwait_params_t *params)
 {
   int ret = sigtimedwait(&params->waitset, &params->info, &params->timeout);
 
-  if (-1 == ret && EAGAIN == errno) {
-    return 1;
-  } else {
-    return 0;
-  }
+  if (-1 == ret && EAGAIN == errno) return 1;
+
+  return 0;
 }
 
 bool is_file(int fd)
@@ -523,11 +521,10 @@ bool is_file(int fd)
   return !(-1 == ret && errno == ESPIPE);
 }
 
-int run_with_stdin_file(const char *input_file,
-                        const char *cmd,
-                        char *const argv[],
-                        char *output,
-                        size_t output_size)
+static int _run_with_stdin_file(int fd_stdin,
+                                const char *cmd,
+                                const char *const argv[],
+                                int *stdout_pipe_fd)
 {
   int stdout_pipe[2];
 
@@ -539,55 +536,28 @@ int run_with_stdin_file(const char *input_file,
 
   /* Parent */
   if (pid > 0) {
+
     close(stdout_pipe[PIPE_WRITE_SIDE]);
+    *stdout_pipe_fd = stdout_pipe[PIPE_READ_SIDE];
 
-    size_t total = 0;
-    while (output_size > total) {
-      ssize_t ret = read(stdout_pipe[PIPE_READ_SIDE], output + total, output_size - total);
+    return 0;
+  }
 
-      if (ret > 0) {
-        total += ret;
-      } else {
-        break;
-      }
-    }
-
-    /* Guarantee null terminated output */
-    if (total >= output_size) {
-      output[output_size - 1] = 0;
-    } else {
-      output[total] = 0;
-    }
-
-    close(stdout_pipe[PIPE_READ_SIDE]);
-
-    int status;
-    wait(&status);
-
-    return status;
-  } else if (pid == -1) {
+  if (pid == -1) {
     return 1;
   }
 
-  /* Child */
-  int fd = -1;
+  if (fd_stdin >= 0) {
 
-  if (input_file) {
-    fd = open(input_file, O_RDONLY);
-
-    if (fd == -1) {
+    if (dup2(fd_stdin, STDIN_FILENO) < 0) {
+      close(fd_stdin);
       exit(EXIT_FAILURE);
     }
 
-    if (dup2(fd, STDIN_FILENO) < 0) {
-      close(fd);
-      exit(EXIT_FAILURE);
-    }
-
-    close(fd);
+    close(fd_stdin);
   }
 
-  fd = dup2(stdout_pipe[PIPE_WRITE_SIDE], STDOUT_FILENO);
+  int fd = dup2(stdout_pipe[PIPE_WRITE_SIDE], STDOUT_FILENO);
   if (fd < 0) {
     piksi_log(LOG_ERR, "%s: dup2 failed", __FUNCTION__);
     exit(EXIT_FAILURE);
@@ -595,7 +565,7 @@ int run_with_stdin_file(const char *input_file,
 
   close(stdout_pipe[PIPE_READ_SIDE]);
 
-  execvp(cmd, argv);
+  execvp(cmd, (char *const *)argv);
   piksi_log(LOG_ERR | LOG_SBP,
             "%s: execvp: errno: %s (%s:%d)\n",
             __FUNCTION__,
@@ -605,6 +575,250 @@ int run_with_stdin_file(const char *input_file,
 
   exit(EXIT_FAILURE);
   __builtin_unreachable();
+}
+
+int run_command(const run_command_t *r)
+{
+  return run_with_stdin_file2(r->input,
+                              r->argv[0],
+                              r->argv,
+                              r->buffer,
+                              r->length,
+                              r->func,
+                              r->context);
+}
+
+int run_with_stdin_file(const char *input_file,
+                        const char *cmd,
+                        const char *const argv[],
+                        char *output,
+                        size_t output_size)
+{
+  return run_with_stdin_file2(input_file, cmd, argv, output, output_size, NULL, NULL);
+}
+
+int run_with_stdin_file2(const char *input_file,
+                         const char *cmd,
+                         const char *const argv[],
+                         char *output,
+                         size_t output_size,
+                         buffer_fn_t buffer_fn,
+                         void *context)
+{
+  int fd_stdin = -1;
+
+  if (input_file) {
+    fd_stdin = open(input_file, O_RDONLY);
+    if (fd_stdin == -1) {
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  int stdout_pipe = -1;
+  int rc = _run_with_stdin_file(fd_stdin, cmd, (const char *const *)argv, &stdout_pipe);
+
+  if (rc != 0) return rc;
+
+  if (buffer_fn != NULL) {
+
+    size_t read_size = 0;
+    size_t read_size_orig = 0;
+    do {
+      read_size = read_size_orig = read(stdout_pipe, output, output_size);
+      //      PK_LOG_ANNO(LOG_DEBUG, "read: %d", read_size_orig);
+      assert(read_size <= output_size);
+      size_t offset = 0;
+      while (read_size > 0) {
+        //        PK_LOG_ANNO(LOG_DEBUG, "call buffer_fn...");
+        ssize_t consumed = buffer_fn(&output[offset], read_size, context);
+        if (consumed < 0) break;
+        if (consumed < read_size) {
+          offset += consumed;
+          read_size -= consumed;
+        } else {
+          read_size = 0;
+        }
+        //        PK_LOG_ANNO(LOG_DEBUG, "read_size: %d", read_size);
+      }
+    } while (read_size_orig > 0);
+  } else {
+    size_t total = 0;
+    while (output_size > total) {
+      ssize_t ret = read(stdout_pipe, output + total, output_size - total);
+      if (ret > 0) {
+        total += ret;
+      } else {
+        break;
+      }
+    }
+    /* Guarantee null terminated output */
+    if (total >= output_size) {
+      output[output_size - 1] = 0;
+    } else {
+      output[total] = 0;
+    }
+  }
+
+  close(stdout_pipe);
+
+  int status;
+  wait(&status);
+
+  return status;
+}
+
+static pipeline_t *pipeline_cat(pipeline_t *r, const char *filename)
+{
+  if (r->_is_nil) return r;
+
+  r->_filename = filename;
+  return r;
+};
+
+static pipeline_t *pipeline_pipe(pipeline_t *r)
+{
+  if (r->_is_nil) return r;
+
+  if (r->_filename != NULL) {
+
+    int fd = open(r->_filename, O_RDONLY);
+
+    if (fd < 0) {
+      piksi_log(LOG_ERR,
+                "%s: error opening file: %s (%s:%d)",
+                __FUNCTION__,
+                strerror(errno),
+                __FILE__,
+                __LINE__);
+      r->_is_nil = true;
+      return r;
+    }
+
+    r->_filename = NULL;
+    r->_fd_stdin = fd;
+
+  } else if (r->_proc_path != NULL) {
+
+    int out_fd = -1;
+    int rc = _run_with_stdin_file(r->_fd_stdin, r->_proc_path, r->_proc_args, &out_fd);
+
+    if (rc != 0) {
+      r->_is_nil = true;
+      return r;
+    }
+
+    r->_fd_stdin = out_fd;
+
+    r->_proc_path = NULL;
+    r->_proc_args = NULL;
+
+  } else {
+
+    piksi_log(LOG_ERR, "%s nothing staged for pipe (%s:%d)", __FUNCTION__, __FILE__, __LINE__);
+    r->_is_nil = true;
+  }
+
+  return r;
+};
+
+static pipeline_t *pipeline_call(pipeline_t *r, const char *proc_path, const char *const argv[])
+{
+  if (r->_is_nil) return r;
+
+  size_t index = 0;
+
+  r->_proc_path = proc_path;
+  r->_proc_args = argv;
+
+  return r;
+};
+
+static pipeline_t *pipeline_wait(pipeline_t *r)
+{
+  if (r->_is_nil) return r;
+
+  int out_fd = -1;
+  int rc = _run_with_stdin_file(r->_fd_stdin, r->_proc_path, r->_proc_args, &out_fd);
+
+  if (rc != 0) {
+    r->_is_nil = true;
+    return r;
+  }
+
+  r->_fd_stdin = out_fd;
+
+  r->_proc_path = NULL;
+  r->_proc_args = NULL;
+
+  size_t total = 0;
+  size_t output_size = sizeof(r->stdout_buffer);
+
+  char *output = r->stdout_buffer;
+
+  while (output_size > total) {
+    ssize_t ret = read(out_fd, output + total, output_size - total);
+    if (ret > 0) {
+      total += ret;
+    } else {
+      break;
+    }
+  }
+
+  /* Guarantee null terminated output */
+  if (total >= output_size) {
+    output[output_size - 1] = 0;
+  } else {
+    output[total] = 0;
+  }
+
+  close(out_fd);
+
+  int status;
+  wait(&status);
+
+  r->exit_code = status;
+
+  return r;
+};
+
+static bool pipeline_is_nil(pipeline_t *r)
+{
+  return r->_is_nil;
+};
+
+static pipeline_t *pipeline_destroy(pipeline_t *r)
+{
+  if (r->_fd_stdin >= 0) {
+    close(r->_fd_stdin);
+    r->_fd_stdin = -1;
+  }
+  free(r);
+  return NULL;
+};
+
+pipeline_t *create_pipeline(void)
+{
+  pipeline_t *pipeline = calloc(1, sizeof(pipeline_t));
+
+  *pipeline = (pipeline_t){
+    .cat = pipeline_cat,
+    .pipe = pipeline_pipe,
+    .call = pipeline_call,
+    .wait = pipeline_wait,
+    .is_nil = pipeline_is_nil,
+    .destroy = pipeline_destroy,
+
+    .stdout_buffer = {0},
+    .exit_code = EXIT_FAILURE,
+
+    ._is_nil = false,
+    ._filename = NULL,
+    ._fd_stdin = -1,
+    ._proc_path = NULL,
+    ._proc_args = NULL,
+  };
+
+  return pipeline;
 }
 
 bool str_digits_only(const char *str)
@@ -626,3 +840,33 @@ bool str_digits_only(const char *str)
 
   return true;
 }
+
+bool strtoul_all(int base, const char *str, unsigned long *value)
+{
+  char *endptr = NULL;
+  *value = strtoul(str, &endptr, base);
+  while (isspace(*endptr))
+    endptr++;
+  if (*endptr != '\0') {
+    return false;
+  }
+  if (str == endptr) {
+    return false;
+  }
+  return true;
+};
+
+bool strtod_all(const char *str, double *value)
+{
+  char *endptr = NULL;
+  *value = strtod(str, &endptr);
+  while (isspace(*endptr))
+    endptr++;
+  if (*endptr != '\0') {
+    return false;
+  }
+  if (str == endptr) {
+    return false;
+  }
+  return true;
+};
