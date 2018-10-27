@@ -39,10 +39,10 @@ void resq_register(resq_interface_t *resq)
   LIST_INSERT_HEAD(&interface_list, node, entries);
 }
 
-void resq_initilize_all(void)
+void resq_initialize_all(void)
 {
   resq_node_t *node;
-  for (resq_priority_t priority = RESQ_PRIORIRTY_1; priority < RESQ_PRIORIRTY_COUNT; priority++) {
+  for (resq_priority_t priority = RESQ_PRIORITY_1; priority < RESQ_PRIORITY_COUNT; priority++) {
     LIST_FOREACH(node, &interface_list, entries)
     {
       if (node->query->priority == priority) {

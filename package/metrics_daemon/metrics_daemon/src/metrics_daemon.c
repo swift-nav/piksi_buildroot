@@ -9,26 +9,33 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
+
 #define _GNU_SOURCE
+
+#include <ftw.h>
 #include <getopt.h>
 #include <string.h>
 #include <unistd.h>
-#include <ftw.h>
+
 #include <json-c/json.h>
-#include <string.h>
+
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/util.h>
-#include <libpiksi/settings.h>
+
 #include "sbp.h"
 #include "metrics_daemon.h"
+
 #define PROGRAM_NAME "metrics_daemon"
 
 #define METRICS_ROOT_DIRECTORY "/var/log/metrics"
 #define METRICS_OUTPUT_FILENAME "/var/log/metrics.json"
-#define METRICS_USAGE_UPDATE_INTERVAL_MS (1000u)
+
+#define DEFAULT_METRICS_INTERVAL_S 1
+#define TO_MILLISECONDS(X) ((X)*1000u)
 
 #define MAX_FOLDER_NAME_LENGTH 64
+
 static json_object *jobj_cur = NULL;
 json_object *jobj_root = NULL;
 char *root_name = NULL;
@@ -325,8 +332,7 @@ static int notify_log_settings_changed(void *context)
             "Settings changed: enable_log_to_file = %d metrics_update_interval = %d",
             enable_log_to_file,
             metrics_update_interval);
-  sbp_update_timer_interval(metrics_update_interval * METRICS_USAGE_UPDATE_INTERVAL_MS,
-                            run_routine_function);
+  sbp_update_timer_interval(TO_MILLISECONDS(metrics_update_interval), run_routine_function);
   return 0;
 }
 
@@ -343,7 +349,7 @@ int main(int argc, char *argv[])
   root_length = (unsigned int)strlen(root_name);
   init_json_object(root_name);
   assert(jobj_root != NULL);
-  if (sbp_init(METRICS_USAGE_UPDATE_INTERVAL_MS, run_routine_function) != 0) {
+  if (sbp_init(TO_MILLISECONDS(DEFAULT_METRICS_INTERVAL_S), run_routine_function) != 0) {
     piksi_log(LOG_ERR | LOG_SBP, "Error initializing SBP!");
     return cleanup(EXIT_FAILURE);
   }

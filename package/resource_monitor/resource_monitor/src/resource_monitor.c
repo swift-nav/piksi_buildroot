@@ -26,6 +26,7 @@
 #include "resource_monitor.h"
 
 #define DEFAULT_UPDATE_INTERVAL (0u) // Disabled by default
+#define TO_MILLISECONDS(X) ((X)*1000u)
 
 static bool resource_monitor_interval_s = DEFAULT_UPDATE_INTERVAL;
 
@@ -63,7 +64,8 @@ static int notify_interval_changed(void *context)
 {
   (void)context;
 
-  sbp_update_timer_interval(resource_monitor_interval_s, update_metrics);
+  sbp_update_timer_interval(TO_MILLISECONDS(resource_monitor_interval_s), update_metrics);
+
   return 0;
 }
 
@@ -93,7 +95,7 @@ int main(int argc, char *argv[])
                     notify_interval_changed,
                     NULL);
 
-  resq_initilize_all();
+  resq_initialize_all();
   sbp_run();
 
   return cleanup(EXIT_SUCCESS);

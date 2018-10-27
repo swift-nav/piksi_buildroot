@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
+ * Copyright (C) 2018 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -42,21 +42,21 @@ static void signal_cb(pk_loop_t *pk_loop, void *handle, void *context)
   pk_loop_stop(pk_loop);
 }
 
-int sbp_update_timer_interval(unsigned int timer_interval, pk_loop_cb callback)
+bool sbp_update_timer_interval(unsigned int timer_interval, pk_loop_cb callback)
 {
   if (uv_timer != NULL) pk_loop_remove_handle(uv_timer);
   uv_timer = NULL;
 
-  if (timer_interval == 0) return 0;
+  if (timer_interval == 0) return true;
 
   uv_timer = pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL);
 
   if (uv_timer == NULL) {
     piksi_log(LOG_ERR, "Error adding timer!");
-    sbp_deinit();
+    return false;
   }
 
-  return 0;
+  return true;
 }
 
 int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
@@ -72,9 +72,7 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
   }
 
   if (timer_interval != 0) {
-    uv_timer = pk_loop_timer_add(ctx.loop, timer_interval, callback, NULL);
-    if (uv_timer == NULL) {
-      piksi_log(LOG_ERR, "Error adding timer!");
+    if (!sbp_update_timer_interval(timer_interval, callback)) {
       goto failure;
     }
   }

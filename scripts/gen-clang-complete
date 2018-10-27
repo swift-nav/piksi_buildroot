@@ -16,6 +16,5 @@ cat >$D/../.clang_complete <<EOF
 -I$D/../buildroot/output/host/opt/ext-toolchain/lib/gcc/arm-linux-gnueabihf/6.2.1/include-fixed
 -isystem$D/../buildroot/output/host/usr/arm-buildroot-linux-gnueabihf/sysroot/usr/include
 -isysroot$D/../buildroot/output/host/usr/arm-buildroot-linux-gnueabihf/sysroot
--arch armv7
 -fblocks
 EOF

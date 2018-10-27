@@ -36,11 +36,11 @@ extern "C" {
  * See @c resq_priority_t.priority for more details.
  */
 typedef enum {
-  RESQ_PRIORIRTY_1,
-  RESQ_PRIORIRTY_2,
-  RESQ_PRIORIRTY_3,
-  RESQ_PRIORIRTY_4,
-  RESQ_PRIORIRTY_COUNT,
+  RESQ_PRIORITY_1,
+  RESQ_PRIORITY_2,
+  RESQ_PRIORITY_3,
+  RESQ_PRIORITY_4,
+  RESQ_PRIORITY_COUNT,
 } resq_priority_t;
 
 /**
@@ -87,10 +87,12 @@ typedef struct {
 typedef void *(*resq_init_fn_t)();
 
 /**
- * @brief Provides a textual description of the resource query object, should
- * be unique.
+ * @brief Provides a textual description of the resource query object, must be
+ * unique.
  *
- * @details The resource query object should retain ownership of pointer.
+ * @details The resource query object will retain ownership of pointer and the
+ * pointer will be passed back to the resource query object (for clean-up) when
+ * resq_teardown_fn_t is invoked.
  */
 typedef const char *(*resq_describe_fn_t)(void);
 
@@ -107,7 +109,7 @@ typedef void (*resq_run_query_fn_t)(void *context);
 typedef bool (*resq_prepare_sbp_fn_t)(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context);
 
 /**
- * @brief Allow a property to be read from another module.
+ * @brief Allows a property to be read from another module.
  *
  * @param read_prop[inout] The property to read, the .id and .type fields must be populated.
  * @param context[in]      A context to passs to the property read function.
@@ -149,7 +151,7 @@ typedef struct {
   resq_run_query_fn_t run_query;
 
   /**
-   * @brief Function pointer that prepare an SBP packet, cannot be NULL.
+   * @brief Function pointer that prepares an SBP packet, cannot be NULL.
    *
    * @details @see @c resq_run_query_fn_t
    */
@@ -182,7 +184,7 @@ void resq_register(resq_interface_t *resq);
 /**
  * @brief Run all initializer functions in priority order
  */
-void resq_initilize_all(void);
+void resq_initialize_all(void);
 
 /**
  * @brief Run all query objects

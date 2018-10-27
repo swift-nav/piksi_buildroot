@@ -211,7 +211,7 @@ static void teardown_resource_query(void **context)
 }
 
 static resq_interface_t query_descriptor = {
-  .priority = RESQ_PRIORIRTY_1,
+  .priority = RESQ_PRIORITY_1,
   .init = init_resource_query,
   .describe = describe_query,
   .read_property = NULL,

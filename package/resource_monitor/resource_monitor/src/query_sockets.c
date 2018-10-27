@@ -51,16 +51,16 @@ typedef enum {
 
 /* clang-format off */
 typedef enum {
-	SS_ESTAB       = 0x0001,
-	SS_SYN_SENT    = 0x0002,
-	SS_SYN_RECV    = 0x0004,
-	SS_FIN_WAIT1   = 0x0008,
-	SS_FIN_WAIT2   = 0x0010,
-	SS_TIME_WAIT   = 0x0020, 
-	SS_CLOSED      = 0x0040,
-	SS_CLOSE_WAIT  = 0x0080,
+  SS_ESTAB       = 0x0001,
+  SS_SYN_SENT    = 0x0002,
+  SS_SYN_RECV    = 0x0004,
+  SS_FIN_WAIT1   = 0x0008,
+  SS_FIN_WAIT2   = 0x0010,
+  SS_TIME_WAIT   = 0x0020, 
+  SS_CLOSED      = 0x0040,
+  SS_CLOSE_WAIT  = 0x0080,
   SS_LAST_ACK    = 0x0100,
-	SS_LISTEN      = 0x0200,
+  SS_LISTEN      = 0x0200,
   SS_CLOSING     = 0x0400,
   SS_UNCONNECTED = 0x0800,
   SS_UNKNOWN     = 0x8000,
@@ -847,7 +847,7 @@ static void teardown_resource_query(void **context)
 }
 
 static resq_interface_t query_descriptor = {
-  .priority = RESQ_PRIORIRTY_2,
+  .priority = RESQ_PRIORITY_2,
   .init = init_resource_query,
   .describe = describe_query,
   .read_property = NULL,
