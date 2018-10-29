@@ -63,7 +63,7 @@
 
 #define PK_LOG_ANNO(Pri, Msg, ...)                                                              \
   do {                                                                                          \
-    piksi_log(LOG_ERR, "%s: " Msg " (%s:%d)", __FUNCTION__, ##__VA_ARGS__, __FILE__, __LINE__); \
+    piksi_log(Pri, "%s: " Msg " (%s:%d)", __FUNCTION__, ##__VA_ARGS__, __FILE__, __LINE__); \
   } while (false)
 
 /**

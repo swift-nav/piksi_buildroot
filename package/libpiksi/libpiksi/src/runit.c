@@ -290,7 +290,7 @@ int stop_runit_service(runit_config_t *cfg)
   CHECK_FS_CALL(control_fp != NULL, "fopen", path_buf);
 
   // Stop the service
-  piksi_log(LOG_DEBUG, "sending stop command to service %s", cfg->service_name);
+  RUNIT_DEBUG_LOG("sending stop command to service %s", cfg->service_name);
   fprintf(control_fp, "d");
 
   CHECK_FS_CALL(fclose(control_fp) == 0, "fclose", path_buf);
