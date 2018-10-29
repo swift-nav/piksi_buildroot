@@ -202,10 +202,10 @@ static int ntrip_notify_generic(void *context)
    * is triggered by read from persistent config file during boot */
   if (ntrip_enabled && ntrip_settings_initialized) {
     sbp_log(LOG_WARNING, "NTRIP must be disabled to modify settings");
-    return SBP_WRITE_STATUS_MODIFY_DISABLED;
+    return SBP_SETTINGS_WRITE_STATUS_MODIFY_DISABLED;
   }
 
-  return SBP_WRITE_STATUS_OK;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int ntrip_notify_enable(void *context)

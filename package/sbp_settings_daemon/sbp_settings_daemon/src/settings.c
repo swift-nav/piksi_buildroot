@@ -342,7 +342,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
     return;
   }
 
-  u8 resp[] = {SBP_WRITE_STATUS_SETTING_REJECTED};
+  u8 resp[] = {SBP_SETTINGS_WRITE_STATUS_SETTING_REJECTED};
   /* Reply with write response rejecting this setting */
   sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, sizeof(resp), resp, SBP_SENDER_ID);
 }

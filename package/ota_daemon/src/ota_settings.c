@@ -62,9 +62,9 @@ static int ota_notify_enable(void *context)
   runit_cfg.command_line = NULL;
 
   if (ret != 0) {
-    return SBP_WRITE_STATUS_SERVICE_FAILED;
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
   }
-  return SBP_WRITE_STATUS_OK;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int ota_notify_generic(void *context)
@@ -73,10 +73,10 @@ static int ota_notify_generic(void *context)
 
   if (stat_runit_service(&runit_cfg) == RUNIT_RUNNING) {
     sbp_log(LOG_WARNING, "OTA must be disabled to modify settings");
-    return SBP_WRITE_STATUS_MODIFY_DISABLED;
+    return SBP_SETTINGS_WRITE_STATUS_MODIFY_DISABLED;
   }
 
-  return SBP_WRITE_STATUS_OK;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 void ota_settings(settings_ctx_t *ctx)

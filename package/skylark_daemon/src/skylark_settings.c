@@ -177,7 +177,7 @@ static int skylark_notify(void *context)
     }
   }
 
-  return SBP_WRITE_STATUS_OK;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 bool skylark_reconnect_dl(void)

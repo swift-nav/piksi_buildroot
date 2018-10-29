@@ -463,7 +463,7 @@ int whitelist_notify(void *context)
         break;
       case PARSE_AFTER_DIV:
       case PARSE_AFTER_ID:
-      default: return SBP_WRITE_STATUS_PARSE_FAILED;
+      default: return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
       }
       break;
 
@@ -473,7 +473,7 @@ int whitelist_notify(void *context)
         state = PARSE_DIV;
         c++;
       } else {
-        return SBP_WRITE_STATUS_PARSE_FAILED;
+        return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
       }
       break;
 
@@ -483,7 +483,7 @@ int whitelist_notify(void *context)
         state = PARSE_ID;
         c++;
       } else {
-        return SBP_WRITE_STATUS_PARSE_FAILED;
+        return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
       }
       break;
 
@@ -497,7 +497,7 @@ int whitelist_notify(void *context)
       break;
 
     /* Invalid token, parse error */
-    default: return SBP_WRITE_STATUS_PARSE_FAILED;
+    default: return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
     }
   }
 
@@ -507,14 +507,14 @@ int whitelist_notify(void *context)
   FILE *cfg = fopen(fn, "w");
   if (cfg == NULL) {
     piksi_log(LOG_ERR, "Error opening file: %s (error: %s)", fn, strerror(errno));
-    return SBP_WRITE_STATUS_SERVICE_FAILED;
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
   }
   for (int i = 0; i < entries; i++) {
     fprintf(cfg, "%x %x\n", whitelist[i].id, whitelist[i].div);
   }
   fclose(cfg);
 
-  return SBP_WRITE_STATUS_OK;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 int whitelists_init(settings_ctx_t *settings_ctx)
