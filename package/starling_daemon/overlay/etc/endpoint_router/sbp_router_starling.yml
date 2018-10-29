@@ -16,22 +16,6 @@ ports:
           - { action: REJECT }
       - dst_port: SBP_PORT_EXTERNAL
         filters:
-          # Filter navigation messages, they are supplied by Linux Starling.
-          - { action: REJECT, prefix: [0x55, 0x02, 0x01] } # MSG_GPS_TIME
-          - { action: REJECT, prefix: [0x55, 0x03, 0x01] } # MSG_UTC_TIME
-          - { action: REJECT, prefix: [0x55, 0x08, 0x02] } # MSG_DOPS
-          - { action: REJECT, prefix: [0x55, 0x09, 0x02] } # MSG_POS_ECEF      
-          - { action: REJECT, prefix: [0x55, 0x14, 0x02] } # MSG_POS_ECEF_COV  
-          - { action: REJECT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH       
-          - { action: REJECT, prefix: [0x55, 0x11, 0x02] } # MSG_POS_LLH_COV   
-          - { action: REJECT, prefix: [0x55, 0x0B, 0x02] } # MSG_BASELINE_ECEF      
-          - { action: REJECT, prefix: [0x55, 0x0C, 0x02] } # MSG_BASELINE_NED       
-          - { action: REJECT, prefix: [0x55, 0x0D, 0x02] } # MSG_VEL_ECEF      
-          - { action: REJECT, prefix: [0x55, 0x15, 0x02] } # MSG_VEL_ECEF_COV  
-          - { action: REJECT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED       
-          - { action: REJECT, prefix: [0x55, 0x12, 0x02] } # MSG_VEL_NED_COV   
-          - { action: REJECT, prefix: [0x55, 0x13, 0x02] } # MSG_VEL_BODY
-          - { action: REJECT, prefix: [0x55, 0x10, 0x02] } # MSG_AGE_CORRECTIONS
           # These are not for external messaging.
           - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
           - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
