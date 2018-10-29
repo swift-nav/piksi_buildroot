@@ -32,7 +32,6 @@ ports:
           - { action: REJECT, prefix: [0x55, 0x12, 0x02] } # MSG_VEL_NED_COV   
           - { action: REJECT, prefix: [0x55, 0x13, 0x02] } # MSG_VEL_BODY
           - { action: REJECT, prefix: [0x55, 0x10, 0x02] } # MSG_AGE_CORRECTIONS
-          - { action: REJECT, prefix: [0x55, 0x01, 0x04] } # MSG_LOG           
           # These are not for external messaging.
           - { action: REJECT, prefix: [0x55, 0xAE, 0x00] } # Settings register
           - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
