@@ -12,7 +12,7 @@ the_pid=$(cat $pid_file)
 
 # shellcheck disable=SC2039
 if [[ -n "$the_pid" ]] && [[ -d "/proc/$the_pid" ]]; then
-  kill "$(cat $pid_file)"
+  kill "$the_pid"
 fi
 
 # Launch netcat in listen mode, wait 30s for a connection

@@ -7,6 +7,10 @@ user="piksi_sys"
 
 piksi_sys_dir=/var/run/piksi_sys
 
+spawn_nc_pid_file=/var/run/spawn_nc.pid
+stream_logs_pid_file=/var/run/stream_logs.pid
+dump_syslog_pid_file=/var/run/dump_syslog.pid
+
 setup_permissions()
 {
   configure_dir_resource $user $piksi_sys_dir 0755
@@ -15,6 +19,10 @@ setup_permissions()
   configure_file_resource $user $piksi_sys_dir/network_polling_period 0644
   configure_file_resource $user $piksi_sys_dir/network_polling_retry_period 0644
   configure_file_resource $user $piksi_sys_dir/enable_ping_logging 0644
+
+  configure_file_resource $user $spawn_nc_pid_file 0644
+  configure_file_resource $user $stream_logs_pid_file 0644
+  configure_file_resource $user $dump_syslog_pid_file 0644
 
   # Setup runit dir dynamic services
   mkdir -p /var/run/${name}/sv
