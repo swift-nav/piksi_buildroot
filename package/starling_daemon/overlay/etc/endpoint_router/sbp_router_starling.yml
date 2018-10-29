@@ -78,6 +78,10 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
           - { action: REJECT }
+      - dst_port: SBP_PORT_STARLING_DAEMON
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xA0, 0x00] } # Settings write
+          - { action: REJECT }
       - dst_port: SBP_PORT_EXTERNAL
         filters:
           - { action: REJECT, prefix: [0x55, 0xA0, 0x00] } # Settings write
@@ -241,7 +245,12 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x13, 0x02] } # MSG_VEL_BODY
           - { action: ACCEPT, prefix: [0x55, 0x10, 0x02] } # MSG_AGE_CORRECTIONS
           - { action: ACCEPT, prefix: [0x55, 0x01, 0x04] } # MSG_LOG           
-          # All settings messages.
-          # Reject everything else.
           - { action: REJECT }
+      - dst_port: SBP_PORT_SETTINGS_DAEMON
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0xAE, 0x00] } # Settings register
+          - { action: ACCEPT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
+          - { action: ACCEPT, prefix: [0x55, 0xAF, 0x00] } # Settings write response
+          - { action: REJECT }
+
 
