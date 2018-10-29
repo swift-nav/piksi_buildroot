@@ -38,51 +38,56 @@ int version_current_get_str(char *str, size_t str_size)
   return file_read_string(DEVICE_FW_VERSION_FILE_PATH, str, str_size);
 }
 
-#define CHECK_TOKEN(version)                                 \
-  do {                                                       \
-    if (token && str_digits_only(token)) {                   \
-      version = atoi(token);                                 \
-    } else {                                                 \
-      piksi_log(LOG_ERR, "Invalid version string: %s", str); \
-      free(digits);                                          \
-      return 1;                                              \
-    }                                                        \
-  } while (0)
-
 int version_parse_str(const char *str, piksi_version_t *ver)
 {
   size_t len = strlen(str);
   size_t idx = 0;
+  char tail[len];
+  memset(tail, 0, len);
+  memset(ver, 0, sizeof(piksi_version_t));
 
   /* Find first digit in the str */
   while (!isdigit(str[idx])) {
     idx++;
 
-    if (idx >= len) {
+    if (idx >= len || VERSION_DEVSTRING_MAXLEN < idx) {
       piksi_log(LOG_ERR, "Invalid version string: %s", str);
       return 1;
     }
   }
 
-  char *digits = strdup(str + idx);
-  char *rest = digits;
-  char *token = NULL;
+  memcpy(ver->devstr, str, idx);
 
-  token = strtok_r(rest, ".", &rest);
-  CHECK_TOKEN(ver->marketing);
+  int res = sscanf(str + idx, "%d.%d.%d%s", &ver->marketing, &ver->major, &ver->patch, tail);
 
-  token = strtok_r(NULL, ".", &rest);
-  CHECK_TOKEN(ver->major);
-
-  token = strtok_r(NULL, ".", &rest);
-  CHECK_TOKEN(ver->patch);
-
-  free(digits);
-
-  return 0;
+  switch (res) {
+  case 3: return 0;
+  case 4:
+    if (strlen(tail) > 0 && tail[0] == '-') {
+      snprintf_warn(ver->devstr + idx, VERSION_DEVSTRING_MAXLEN - idx, "%s", tail);
+      return 0;
+    } else {
+      /* Fall to default (erroneous version string) */
+    }
+  default: piksi_log(LOG_ERR, "Invalid version string: %s", str); return 1;
+  }
 }
 
-int version_cmp(piksi_version_t *a, piksi_version_t *b)
+bool version_is_dev(const piksi_version_t *ver)
+{
+  if (0 == strlen(ver->devstr)) {
+    return false;
+  }
+
+  /* v1.2.3 is not considered as DEV build */
+  if (1 == strlen(ver->devstr)) {
+    return ('v' != ver->devstr[0]);
+  }
+
+  return true;
+}
+
+int version_cmp(const piksi_version_t *a, const piksi_version_t *b)
 {
   if (a->marketing != b->marketing) {
     return a->marketing - b->marketing;
@@ -93,4 +98,9 @@ int version_cmp(piksi_version_t *a, piksi_version_t *b)
   }
 
   return a->patch - b->patch;
+}
+
+int version_devstr_cmp(const piksi_version_t *a, const piksi_version_t *b)
+{
+  return strcmp(a->devstr, b->devstr);
 }

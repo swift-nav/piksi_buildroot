@@ -22,10 +22,14 @@
 #ifndef LIBPIKSI_VERSION_H
 #define LIBPIKSI_VERSION_H
 
+#define VERSION_MAXLEN 128
+#define VERSION_DEVSTRING_MAXLEN 64
+
 typedef struct piksi_version_s {
   int marketing;
   int major;
   int patch;
+  char devstr[VERSION_DEVSTRING_MAXLEN];
 } piksi_version_t;
 
 #ifdef __cplusplus
@@ -51,23 +55,44 @@ int version_current_get_str(char *str, size_t str_size);
 /**
  * @brief   Parse version string
  * @details Parse given version string into piksi_version_t. String format shall
- *          be "[FOO BLAA BLAA v]{x}.{y}.{z}" where:
+ *          be "[[DEV ]v]{x}.{y}.{z}[-<devstring>]" where:
+ *          Leading non-digit chars before {x} shall be part of the devstring
  *          x = marketing (only digits)
  *          y = major (only digits)
  *          z = patch (only digits)
+ *          Possible following devstring shall be stored to devstr member,
+ *          a valid tailing devstring shall begin with '-'
  *
  * @return  0 if no errors
  */
 int version_parse_str(const char *str, piksi_version_t *ver);
 
 /**
- * @brief   Compare two versions
+ * @brief   Check if version is development build
+ * @details Version is considered as development build if it has a valid devstring,
+ *          except if the devstring is only `v`. Meaning that v{x}.{y}.{z}
+ *          versions are not considered as development builds.
  *
- * @return; > 0 if a newer
+ * @return  true if development version
+ */
+bool version_is_dev(const piksi_version_t *ver);
+
+/**
+ * @brief   Compare two versions
+ * @details This comparison doesn't include devstring comparison
+ *
+ * @return  > 0 if a newer
  *          = 0 if a and b equal
  *          < 0 if b newer
  */
-int version_cmp(piksi_version_t *a, piksi_version_t *b);
+int version_cmp(const piksi_version_t *a, const piksi_version_t *b);
+
+/**
+ * @brief   Compare devstrings of two versions
+ *
+ * @return  See strcmp documentation
+ */
+int version_devstr_cmp(const piksi_version_t *a, const piksi_version_t *b);
 
 #ifdef __cplusplus
 }
