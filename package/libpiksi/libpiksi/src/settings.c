@@ -890,7 +890,7 @@ static void setting_update_value(setting_data_t *setting_data, const char *value
     } else if (setting_data->notify != NULL) {
       /* Call notify function */
       int notify_response = setting_data->notify(setting_data->notify_context);
-      if ( notify_response != SBP_WRITE_STATUS_OK) {
+      if (notify_response != SBP_WRITE_STATUS_OK) {
         if (!setting_data->watchonly) {
           /* Revert value if notify returns error */
           memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
