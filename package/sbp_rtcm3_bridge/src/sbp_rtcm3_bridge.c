@@ -46,6 +46,14 @@ static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void 
   return 0;
 }
 
+static void rtcm3_out_callback(u8 *buffer, u16 length, void *context)
+{
+  (void)context;
+  if (pk_endpoint_send(rtcm3_pub, buffer, length) != 0) {
+    piksi_log(LOG_ERR, "Error sending rtcm3 message to rtcm3_internal");
+  }
+}
+
 static void rtcm3_reader_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;

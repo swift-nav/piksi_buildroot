@@ -1420,13 +1420,8 @@ int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
   return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
-static void signal_handler(pk_loop_t *loop, void *handle, int status, void *context)
+static void signal_handler_extended(int signum, siginfo_t *info, void *ucontext)
 {
-  (void)context;
-  (void)status;
-
-  int signal_value = pk_loop_get_signal_from_handle(handle);
-
   (void)ucontext;
 
   if (signum == SIGINT || signum == SIGTERM) {
@@ -1482,6 +1477,7 @@ static int command_receive_callback(const u8 *data, const size_t length, void *c
 
 static void control_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
+  (void)loop;
   (void)status;
 
   control_command_t* cmd_info = (control_command_t*)context;
