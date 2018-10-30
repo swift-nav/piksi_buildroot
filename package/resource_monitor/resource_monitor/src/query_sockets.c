@@ -581,12 +581,16 @@ static void run_resource_query(void *context)
     PK_LOG_ANNO(LOG_DEBUG, "ss line: '%s'", line);
 #endif
     if (strstr(line, "Netid") == line) {
+#ifdef DEBUG_QUERY_SOCKETS_SS_OUTPUT
       PK_LOG_ANNO(LOG_DEBUG, "Skipping header line: '%s'", line);
+#endif
       return true;
     }
 
     if (strstr(line, "nl") == line) {
+#ifdef DEBUG_QUERY_SOCKETS_SS_OUTPUT
       PK_LOG_ANNO(LOG_DEBUG, "Skipping nl socket line: '%s'", line);
+#endif
       return true;
     }
 
@@ -738,6 +742,7 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
     index = 9;
     state->send_state = SEND_DONE;
     break;
+  case SEND_DONE: break;
   case SEND_SOCKET_QUEUES_0:
   case SEND_SOCKET_QUEUES_1:
   case SEND_SOCKET_QUEUES_2:
@@ -748,7 +753,6 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
   case SEND_SOCKET_QUEUES_7:
   case SEND_SOCKET_QUEUES_8:
   case SEND_SOCKET_QUEUES_9:
-  case SEND_DONE:
   default: PK_LOG_ANNO(LOG_ERR, "Invalid state value: %d", state->send_state);
   }
 
@@ -773,6 +777,7 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
     socket_counts->socket_states = entry->socket_states;
     *len = sizeof(msg_linux_process_socket_counts_t);
   } break;
+  case SEND_DONE: break;
   case SEND_SOCKET_QUEUES_0:
   case SEND_SOCKET_QUEUES_1:
   case SEND_SOCKET_QUEUES_2:
@@ -783,7 +788,6 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
   case SEND_SOCKET_QUEUES_7:
   case SEND_SOCKET_QUEUES_8:
   case SEND_SOCKET_QUEUES_9:
-  case SEND_DONE:
   default: PK_LOG_ANNO(LOG_ERR, "Invalid state value: %d", state->send_state);
   }
 

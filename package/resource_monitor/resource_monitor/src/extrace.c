@@ -54,6 +54,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
+//#define DEBUG_EXTRACE
+
 #define _XOPEN_SOURCE 700
 
 #include <linux/cn_proc.h>
@@ -333,7 +335,7 @@ handle_msg(struct cn_msg *cn_hdr)
 
 		d = pid_depth(pid);
 		if (d < 0) {
-#if 0
+#if DEBUG_EXTRACE
 			if (*cmdline) {
 				fprintf(stderr,
 				    "extrace: process vanished before we found its parent: pid %d: %s\n",
@@ -594,11 +596,13 @@ usage:
 		if (from_nla.nl_pid != 0 || recv_len < 1)
 			continue;
 	
+#if DEBUG_EXTRACE
 		if (last_seq[cproc->cpu] &&
 		    cmsg->seq != last_seq[cproc->cpu] + 1)
 			fprintf(stderr,
 			    "extrace: out of order message on cpu %d\n",
 			    cproc->cpu);
+#endif
 		last_seq[cproc->cpu] = cmsg->seq;
 
 		while (NLMSG_OK(nlh, recv_len)) {

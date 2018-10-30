@@ -22,7 +22,7 @@ int sha256sum_file(const char *filename, char *sha, size_t sha_size)
   assert(sha_size >= SHA256SUM_LEN);
 
   const char *cmd = "sha256sum";
-  char *const argv[3] = {"sha256sum", (char *)filename, NULL};
+  const char *argv[3] = {"sha256sum", (char *)filename, NULL};
   int ret = run_with_stdin_file(NULL, cmd, argv, sha, sha_size);
 
   if (ret) {
