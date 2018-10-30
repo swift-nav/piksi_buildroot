@@ -663,12 +663,7 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
   client_context->slot = client_slot;
 
   if (fcntl(clientfd, F_SETFL, fcntl(clientfd, F_GETFL, 0) | O_NONBLOCK) < 0) {
-    piksi_log(LOG_WARNING,
-              "%s: fcntl error: %s (%s:%d)",
-              __FUNCTION__,
-              strerror(errno),
-              __FILE__,
-              __LINE__);
+    pk_log_anno(LOG_WARNING, "fcntl error: %s", strerror(errno));
   }
 
   ++ept->client_count;
@@ -679,11 +674,17 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
 
 void pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle)
 {
-  assert(loop != NULL);
+  pk_log_anno(LOG_DEBUG, "loop: %p; pk_ept->loop: %p", loop, pk_ept->loop);
 
-  if (pk_ept->loop == loop) return;
+  assert( loop != NULL );
 
-  assert(pk_ept->loop == NULL);
+  if (pk_ept->loop == loop) {
+//    assert( pk_ept->poll_handle == poll_handle );
+    return;
+  }
+
+  assert( pk_ept->loop == NULL );
+  assert( pk_ept->poll_handle == NULL );
 
   pk_endpoint_set_non_blocking(pk_ept); // TODO handle error?
   pk_ept->loop = loop;
@@ -696,7 +697,8 @@ void pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_han
   if (pk_ept->type == PK_ENDPOINT_REQ) return;
 
   if (pk_ept->type == PK_ENDPOINT_REP) {
-    assert(false); // TODO implement
+    pk_log_anno(LOG_WARNING, "skipping init of PK_ENDPOINT_REP");
+    return;
   }
 
   assert(poll_handle == NULL);
