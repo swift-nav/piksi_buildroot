@@ -32,6 +32,7 @@
 
 
 void io_loop_start(int read_fd, int write_fd);
+void io_loop_start_can(int read_fd, int write_fd);
 void io_loop_wait(void);
 void io_loop_wait_one(void);
 void io_loop_terminate(void);

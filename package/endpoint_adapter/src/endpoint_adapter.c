@@ -12,6 +12,7 @@
 
 #define _DEFAULT_SOURCE
 
+#include <linux/can.h>
 #include <stdlib.h>
 #include <getopt.h>
 #include <dlfcn.h>
@@ -20,6 +21,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <limits.h>
+#include <time.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
@@ -72,6 +74,7 @@ typedef enum {
   IO_TCP_CONNECT,
   IO_UDP_LISTEN,
   IO_UDP_CONNECT,
+  IO_CAN,
 } io_mode_t;
 
 typedef enum {
@@ -85,6 +88,7 @@ typedef struct {
   int write_fd;
   framer_t *framer;
   filter_t *filter;
+  bool is_can;
 } handle_t;
 
 static const u64 one_second_ns = 1e9;
@@ -119,6 +123,8 @@ static int tcp_listen_port = -1;
 static const char *tcp_connect_addr = NULL;
 static int udp_listen_port = -1;
 static const char *udp_connect_addr = NULL;
+static int can_id = -1;
+static int can_filter = -1;
 
 static pid_t pub_pid = -1;
 static pid_t sub_pid = -1;
@@ -154,6 +160,8 @@ static void usage(char *command)
   fprintf(stderr, "\t--tcp-c <addr>\n");
   fprintf(stderr, "\t--udp-l <port>\n");
   fprintf(stderr, "\t--udp-c <addr>\n");
+  fprintf(stderr, "\t--can <can_id>\n");
+  fprintf(stderr, "\t--can-f <can_filter>\n");
 
   fprintf(stderr, "\nMisc options\n");
   fprintf(stderr, "\t--startup-delay <ms>\n");
@@ -183,6 +191,8 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_FILTER_OUT_CONFIG,
     OPT_ID_NONBLOCK,
     OPT_ID_OUTQ,
+    OPT_ID_CAN,
+    OPT_ID_CAN_FILTER,
   };
 
   // clang-format off
@@ -205,6 +215,8 @@ static int parse_options(int argc, char *argv[])
     {"debug",             no_argument,       0, OPT_ID_DEBUG},
     {"nonblock",          no_argument,       0, OPT_ID_NONBLOCK},
     {"outq",              required_argument, 0, OPT_ID_OUTQ},
+    {"can",               required_argument, 0, OPT_ID_CAN},
+    {"can-f",             required_argument, 0, OPT_ID_CAN_FILTER},
     {0, 0, 0, 0},
     // clang-format on
   };
@@ -213,6 +225,15 @@ static int parse_options(int argc, char *argv[])
   int opt_index;
   while ((c = getopt_long(argc, argv, "p:s:r:y:f:", long_opts, &opt_index)) != -1) {
     switch (c) {
+    case OPT_ID_CAN: {
+      io_mode = IO_CAN;
+      can_id = atoi(optarg);
+    } break;
+
+    case OPT_ID_CAN_FILTER: {
+      can_filter = atoi(optarg);
+    } break;
+
     case OPT_ID_STDIO: {
       io_mode = IO_STDIO;
     } break;
@@ -374,7 +395,8 @@ static int handle_init(handle_t *handle,
                        int write_fd,
                        const char *framer_name,
                        const char *filter_name,
-                       const char *filter_config)
+                       const char *filter_config,
+                       bool is_can)
 {
   *handle = (handle_t){
     .pk_ept = pk_ept,
@@ -382,6 +404,7 @@ static int handle_init(handle_t *handle,
     .write_fd = write_fd,
     .framer = framer_create(framer_name),
     .filter = filter_create(filter_name, filter_config),
+    .is_can = is_can,
   };
 
   if ((handle->framer == NULL) || (handle->filter == NULL)) {
@@ -420,6 +443,38 @@ static pk_endpoint_t *pk_endpoint_start(int type)
   return pk_ept;
 }
 
+static ssize_t can_read(int skt, void *buffer, size_t count)
+{
+  while (1) {
+    struct can_frame frame = {0};
+    /* Non-blocking */
+    struct timeval tv = {0, 0};
+    fd_set fds;
+
+    FD_ZERO(&fds);
+    FD_SET(skt, &fds);
+
+    if (select((skt + 1), &fds, NULL, NULL, &tv) < 0) {
+      return 0;
+    }
+
+    if (FD_ISSET(skt, &fds) == 0) {
+      continue;
+    }
+
+    ssize_t ret = read(skt, &frame, sizeof(frame));
+
+    /* Retry if interrupted */
+    if ((ret == -1) && (errno == EINTR)) {
+      continue;
+    } else {
+      assert(count >= frame.can_dlc);
+      memcpy(buffer, frame.data, frame.can_dlc);
+      return frame.can_dlc;
+    }
+  }
+}
+
 static ssize_t fd_read(int fd, void *buffer, size_t count)
 {
   while (1) {
@@ -434,6 +489,36 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
 }
 
 #define MSG_ERROR_SERIAL_FLUSH "Interface %s output buffer is full. Dropping data."
+
+static ssize_t can_write(int fd, const void *buffer, size_t count)
+{
+  struct can_frame frame = {0};
+  frame.can_id = can_id & CAN_SFF_MASK;
+  frame.can_dlc = sizeof(frame.data);
+  if (count < frame.can_dlc) {
+    frame.can_dlc = count;
+  }
+  memcpy(frame.data, buffer, frame.can_dlc);
+
+  while (1) {
+    ssize_t ret = write(fd, &frame, sizeof(frame));
+    /* Retry if interrupted */
+    if ((ret == -1) && (errno == EINTR)) {
+      nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
+      piksi_log(LOG_WARNING, "CAN write interrupted");
+      continue;
+    } else if ((ret < 0) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
+      /* Our output buffer is full and we're in non-blocking mode.
+       * Just silently drop the rest of the output...
+       */
+      nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
+      piksi_log(LOG_WARNING, "CAN write failed");
+      return 0;
+    } else {
+      return frame.can_dlc;
+    }
+  }
+}
 
 static ssize_t fd_write(int fd, const void *buffer, size_t count)
 {
@@ -482,7 +567,9 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
 
 static ssize_t handle_read(handle_t *handle, void *buffer, size_t count)
 {
-  if (handle->pk_ept != NULL) {
+  if (handle->is_can) {
+    return can_read(handle->read_fd, buffer, count);
+  } else if (handle->pk_ept != NULL) {
     return pk_endpoint_read(handle->pk_ept, buffer, count);
   } else {
     return fd_read(handle->read_fd, buffer, count);
@@ -494,7 +581,9 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
   PK_METRICS_UPDATE(MR, MI.write_count);
   PK_METRICS_UPDATE(MR, MI.write_size_total, PK_METRICS_VALUE((u32)count));
 
-  if (handle->pk_ept != NULL) {
+  if (handle->is_can) {
+    return can_write(handle->write_fd, buffer, count);
+  } else if (handle->pk_ept != NULL) {
     if (pk_endpoint_send(handle->pk_ept, (u8 *)buffer, count) != 0) {
       return -1;
     }
@@ -697,7 +786,7 @@ static void setup_metrics(const char *pubsub)
   last_metrics_flush = pk_metrics_gettime().ns;
 }
 
-void io_loop_start(int read_fd, int write_fd)
+void io_loop_run(int read_fd, int write_fd, bool is_can)
 {
   if (nonblock && write_fd != -1) {
     int arg = O_NONBLOCK;
@@ -719,14 +808,28 @@ void io_loop_start(int read_fd, int write_fd)
 
         /* Read from fd, write to pub */
         handle_t pub_handle;
-        if (handle_init(&pub_handle, pub, -1, -1, framer_name, filter_in_name, filter_in_config)
+        if (handle_init(&pub_handle,
+                        pub,
+                        -1,
+                        -1,
+                        framer_name,
+                        filter_in_name,
+                        filter_in_config,
+                        false)
             != 0) {
           debug_printf("handle_init for pub returned error\n");
           exit(EXIT_FAILURE);
         }
 
         handle_t fd_handle;
-        if (handle_init(&fd_handle, NULL, read_fd, -1, FRAMER_NONE_NAME, FILTER_NONE_NAME, NULL)
+        if (handle_init(&fd_handle,
+                        NULL,
+                        read_fd,
+                        -1,
+                        FRAMER_NONE_NAME,
+                        FILTER_NONE_NAME,
+                        NULL,
+                        is_can)
             != 0) {
           debug_printf("handle_init for read_fd returned error\n");
           exit(EXIT_FAILURE);
@@ -760,7 +863,8 @@ void io_loop_start(int read_fd, int write_fd)
 
         /* Read from sub, write to fd */
         handle_t sub_handle;
-        if (handle_init(&sub_handle, sub, -1, -1, FRAMER_NONE_NAME, FILTER_NONE_NAME, NULL) != 0) {
+        if (handle_init(&sub_handle, sub, -1, -1, FRAMER_NONE_NAME, FILTER_NONE_NAME, NULL, false)
+            != 0) {
           debug_printf("handle_init for sub returned error\n");
           exit(EXIT_FAILURE);
         }
@@ -772,7 +876,8 @@ void io_loop_start(int read_fd, int write_fd)
                         write_fd,
                         FRAMER_NONE_NAME,
                         filter_out_name,
-                        filter_out_config)
+                        filter_out_config,
+                        is_can)
             != 0) {
           debug_printf("handle_init for write_fd returned error\n");
           exit(EXIT_FAILURE);
@@ -795,6 +900,16 @@ void io_loop_start(int read_fd, int write_fd)
 
   default: break;
   }
+}
+
+void io_loop_start(int read_fd, int write_fd)
+{
+  io_loop_run(read_fd, write_fd, false);
+}
+
+void io_loop_start_can(int read_fd, int write_fd)
+{
+  io_loop_run(read_fd, write_fd, true);
 }
 
 void io_loop_wait(void)
@@ -914,6 +1029,11 @@ int main(int argc, char *argv[])
   case IO_UDP_CONNECT: {
     extern int udp_connect_loop(const char *addr);
     ret = udp_connect_loop(udp_connect_addr);
+  } break;
+
+  case IO_CAN: {
+    extern int can_loop(const char *name, u32 filter);
+    ret = can_loop(port_name, can_filter);
   } break;
 
   default: break;

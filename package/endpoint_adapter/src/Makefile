@@ -7,6 +7,7 @@ SOURCES= \
 	endpoint_adapter_tcp_connect.c \
 	endpoint_adapter_udp_listen.c \
 	endpoint_adapter_udp_connect.c \
+	endpoint_adapter_can.c
 
 LIBS=-luv -lnanomsg -lsbp -lpiksi -ldl
 CFLAGS=-std=gnu11 -Wall -O3

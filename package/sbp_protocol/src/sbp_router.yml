@@ -60,6 +60,15 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x0F, 0x02] } # MSG_BASELINE_HEADING
           - { action: ACCEPT, prefix: [0x55, 0x10, 0x02] } # MSG_AGE_CORRECTIONS
           - { action: REJECT }
+      - dst_port: SBP_PORT_CAN
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0x01] } # MSG_UTC_TIME
+          - { action: ACCEPT, prefix: [0x55, 0x08, 0x02] } # MSG_DOPS
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH
+          - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED
+          - { action: ACCEPT, prefix: [0x55, 0x0F, 0x02] } # MSG_BASELINE_HEADING
+          - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # MSG_HEARTBEAT
+          - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
     pub_addr: "ipc:///var/run/sockets/settings_daemon.pub"
