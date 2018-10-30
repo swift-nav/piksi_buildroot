@@ -227,21 +227,26 @@ static void router_teardown(router_t **router_loc)
   *router_loc = NULL;
 }
 
-static int router_setup(router_t *router)
+static int router_setup(router_t *router, pk_loop_t *loop)
 {
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
+
     port->pub_ept = pk_endpoint_create(port->pub_addr, PK_ENDPOINT_PUB_SERVER);
     if (port->pub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
 
+    pk_endpoint_start_server(port->pub_ept, loop);
+
     port->sub_ept = pk_endpoint_create(port->sub_addr, PK_ENDPOINT_SUB_SERVER);
     if (port->sub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
+
+    pk_endpoint_start_server(port->sub_ept, loop);
   }
 
   return 0;
@@ -473,14 +478,14 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  /* Set up router data */
-  if (router_setup(router) != 0) {
-    exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
-  }
-
   /* Create loop */
   loop = pk_loop_create();
   if (loop == NULL) {
+    exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
+  }
+
+  /* Set up router data */
+  if (router_setup(router, loop) != 0) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 

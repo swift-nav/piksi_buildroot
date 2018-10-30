@@ -12,10 +12,10 @@
 
 #include <uv.h>
 
-#include <libpiksi/util.h>
+#include <libpiksi/endpoint.h>
 #include <libpiksi/logging.h>
-
 #include <libpiksi/loop.h>
+#include <libpiksi/util.h>
 
 /**
  * @brief Loop Callback Context
@@ -388,7 +388,9 @@ static void uv_loop_poll_handler(uv_poll_t *poller, int status, int events)
     return;
   }
   if (events & UV_DISCONNECT) {
+    // TODO: pass to clients?
     piksi_log(LOG_ERR, "uv_poll_event - UV_DISCONNECT");
+    uv_poll_stop((uv_poll_t *)handle);
     return;
   }
 
@@ -406,7 +408,12 @@ void *pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
   assert(pk_ept != NULL);
   assert(callback != NULL);
 
-  return pk_loop_poll_add(pk_loop, pk_endpoint_poll_handle_get(pk_ept), callback, context);
+  (void)pk_endpoint_set_non_blocking(pk_ept); // TODO handle error
+
+  return pk_loop_poll_add(pk_loop,
+                          pk_endpoint_poll_handle_get(pk_ept),
+                          callback,
+                          context);
 }
 
 void *pk_loop_poll_add(pk_loop_t *pk_loop, int fd, pk_loop_cb callback, void *context)

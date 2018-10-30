@@ -25,7 +25,7 @@
 #include <signal.h>
 #include <libpiksi/common.h>
 
-#include <libpiksi/endpoint.h>
+typedef struct pk_endpoint_s pk_endpoint_t;
 
 #ifdef __cplusplus
 extern "C" {
