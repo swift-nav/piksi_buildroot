@@ -1,1 +1,2 @@
 resmond ALL=(ALL) NOPASSWD: /sbin/ss
+Defaults:resmond !syslog
