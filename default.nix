@@ -58,6 +58,7 @@ let
     valgrind
     xz
     zlib
+    valgrind
   ];
   multiPkgs = pkgs: with pkgs; [ ];
   runScript = "$SHELL";

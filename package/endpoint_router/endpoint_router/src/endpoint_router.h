@@ -19,6 +19,10 @@
 
 #include <libpiksi/endpoint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
   FILTER_ACTION_ACCEPT,
   FILTER_ACTION_REJECT,
@@ -54,5 +58,19 @@ typedef struct {
 } router_t;
 
 void debug_printf(const char *msg, ...);
+
+typedef void (*match_fn_t)(forwarding_rule_t *forwarding_rule,
+                           filter_t *filter,
+                           const u8 *data,
+                           size_t length);
+
+void rule_process(forwarding_rule_t *forwarding_rule,
+                  const u8 *data,
+                  size_t length,
+                  match_fn_t match_fn);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SWIFTNAV_ENDPOINT_ROUTER_H */
