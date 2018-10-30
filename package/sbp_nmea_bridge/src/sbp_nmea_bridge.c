@@ -91,56 +91,56 @@ static int notify_gpgga_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gpgga_rate(gpgga_rate, &state);
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int notify_gprmc_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gprmc_rate(gprmc_rate, &state);
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int notify_gpvtg_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gpvtg_rate(gpvtg_rate, &state);
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int notify_gphdt_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gphdt_rate(gphdt_rate, &state);
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int notify_gpgll_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gpgll_rate(gpgll_rate, &state);
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int notify_gpzda_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gpzda_rate(gpzda_rate, &state);
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int notify_gsa_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gsa_rate(gsa_rate, &state);
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int notify_soln_freq_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_soln_freq(soln_freq, &state);
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)

@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/settings.h>
 #include <libpiksi/util.h>
 
 #include "skylark_settings.h"
@@ -176,7 +177,7 @@ static int skylark_notify(void *context)
     }
   }
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 bool skylark_reconnect_dl(void)

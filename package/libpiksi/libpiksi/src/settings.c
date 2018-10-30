@@ -169,12 +169,6 @@ struct settings_ctx_s {
   sbp_msg_callbacks_node_t *read_resp_cb_node;
 };
 
-enum {
-  SBP_WRITE_STATUS_OK,
-  SBP_WRITE_STATUS_VALUE_REJECTED,
-  SBP_WRITE_STATUS_SETTING_REJECTED,
-};
-
 static settings_term_fn settings_term_handler = NULL;
 static settings_child_fn settings_child_handler = NULL;
 
@@ -881,9 +875,9 @@ static int setting_format_setting(setting_data_t *setting_data, char *buf, int l
 static void setting_update_value(setting_data_t *setting_data, const char *value, u8 *write_result)
 {
   if (setting_data->readonly) {
-    *write_result = SBP_WRITE_STATUS_VALUE_REJECTED;
+    *write_result = SBP_SETTINGS_WRITE_STATUS_READ_ONLY;
   } else {
-    *write_result = SBP_WRITE_STATUS_OK;
+    *write_result = SBP_SETTINGS_WRITE_STATUS_OK;
     /* Store copy and update value */
     memcpy(setting_data->var_copy, setting_data->var, setting_data->var_len);
     if (!setting_data->type_data->from_string(setting_data->type_data->priv,
@@ -892,14 +886,15 @@ static void setting_update_value(setting_data_t *setting_data, const char *value
                                               value)) {
       /* Revert value if conversion fails */
       memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
-      *write_result = SBP_WRITE_STATUS_VALUE_REJECTED;
+      *write_result = SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
     } else if (setting_data->notify != NULL) {
       /* Call notify function */
-      if (setting_data->notify(setting_data->notify_context) != 0) {
+      int notify_response = setting_data->notify(setting_data->notify_context);
+      if (notify_response != SBP_SETTINGS_WRITE_STATUS_OK) {
         if (!setting_data->watchonly) {
           /* Revert value if notify returns error */
           memcpy(setting_data->var, setting_data->var_copy, setting_data->var_len);
-          *write_result = SBP_WRITE_STATUS_VALUE_REJECTED;
+          *write_result = notify_response;
         }
       }
     }
@@ -986,7 +981,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
     return;
   }
 
-  u8 write_result = SBP_WRITE_STATUS_OK;
+  u8 write_result = SBP_SETTINGS_WRITE_STATUS_OK;
   setting_update_value(setting_data, value, &write_result);
 
   u8 resp[SBP_PAYLOAD_SIZE_MAX];
@@ -1027,9 +1022,9 @@ static int settings_update_watch_only(settings_ctx_t *ctx, u8 *msg, u8 len)
     return 0;
   }
 
-  u8 write_result = SBP_WRITE_STATUS_OK;
+  u8 write_result = SBP_SETTINGS_WRITE_STATUS_OK;
   setting_update_value(setting_data, value, &write_result);
-  if (write_result != SBP_WRITE_STATUS_OK) {
+  if (write_result != SBP_SETTINGS_WRITE_STATUS_OK) {
     return -1;
   }
   return 0;

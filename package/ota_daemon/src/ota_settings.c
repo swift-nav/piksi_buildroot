@@ -11,6 +11,7 @@
  */
 
 #include <libpiksi/logging.h>
+#include <libpiksi/settings.h>
 #include <libpiksi/runit.h>
 
 #include "ota_settings.h"
@@ -60,7 +61,10 @@ static int ota_notify_enable(void *context)
   /* Clear the pointer because it points to local char array */
   runit_cfg.command_line = NULL;
 
-  return ret;
+  if (ret != 0) {
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+  }
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int ota_notify_generic(void *context)
@@ -69,10 +73,10 @@ static int ota_notify_generic(void *context)
 
   if (stat_runit_service(&runit_cfg) == RUNIT_RUNNING) {
     sbp_log(LOG_WARNING, "OTA must be disabled to modify settings");
-    return 1;
+    return SBP_SETTINGS_WRITE_STATUS_MODIFY_DISABLED;
   }
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 void ota_settings(settings_ctx_t *ctx)

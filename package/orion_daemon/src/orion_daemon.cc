@@ -66,7 +66,7 @@ static int settings_callback(void *context)
   enabled = enable && strlen(port) != 0;
   changed = true;
   condition.notify_all();
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static void pos_llh_callback(uint16_t sender, uint8_t length, uint8_t *payload, void *context)

@@ -333,7 +333,7 @@ static int notify_log_settings_changed(void *context)
             enable_log_to_file,
             metrics_update_interval);
   sbp_update_timer_interval(TO_MILLISECONDS(metrics_update_interval), run_routine_function);
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 int main(int argc, char *argv[])

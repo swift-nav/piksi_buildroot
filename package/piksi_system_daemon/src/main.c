@@ -83,7 +83,7 @@ static int eth_ip_mode_notify(void *context)
 {
   (void)context;
   eth_update_config();
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int eth_ip_config_notify(void *context)
@@ -91,11 +91,11 @@ static int eth_ip_config_notify(void *context)
   char *ip = (char *)context;
 
   if (inet_addr(ip) == INADDR_NONE) {
-    return -1;
+    return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
   }
 
   eth_update_config();
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void *context)
@@ -433,14 +433,14 @@ static int system_time_src_notify(void *context)
 
   if (oldsrc == system_time_src) {
     /* Avoid restarting ntpd if config hasn't changed */
-    return 0;
+    return SBP_SETTINGS_WRITE_STATUS_OK;
   }
 
   switch (system_time_src) {
   case SYSTEM_TIME_GPS_NTP: ntpconf = "/etc/ntp.conf.gpsntp"; break;
   case SYSTEM_TIME_GPS: ntpconf = "/etc/ntp.conf.gps"; break;
   case SYSTEM_TIME_NTP: ntpconf = "/etc/ntp.conf.ntp"; break;
-  default: return -1;
+  default: return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
   }
 
   char command[1024] = {0};
@@ -448,7 +448,10 @@ static int system_time_src_notify(void *context)
     snprintf(command, sizeof(command), "sudo /etc/init.d/update_ntp_config %s", ntpconf);
   assert(count < sizeof(command));
 
-  return system(command);
+  if (system(command) != 0) {
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+  }
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int network_polling_notify(void *context)
@@ -488,7 +491,7 @@ static int network_polling_notify(void *context)
       piksi_log(LOG_ERR | LOG_SBP,
                 "buffer overflow while formatting setting '%s'",
                 formatters[x].name);
-      return 0;
+      return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
     }
   }
 
@@ -519,7 +522,7 @@ static int network_polling_notify(void *context)
     fclose(fp);
   }
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 int main(void)

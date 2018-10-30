@@ -335,7 +335,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   if (!updating_mode && port_config->first_start) {
     // Wait for mode settings to be updated before launching the port, the
     //   'mode' setting should be sent last because it's registered last.
-    return 0;
+    return SBP_SETTINGS_WRITE_STATUS_OK;
   }
 
   if (port_config->first_start) {
@@ -352,13 +352,13 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   }
 
   if (port_config->mode == MODE_DISABLED) {
-    return 0;
+    return SBP_SETTINGS_WRITE_STATUS_OK;
   }
 
   int protocol_index = mode_to_protocol_index(port_config->mode);
   const protocol_t *protocol = protocols_get(protocol_index);
   if (protocol == NULL) {
-    return -1;
+    return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
   }
 
   /* Prepare the command used to launch endpoint_adapter. */
@@ -374,7 +374,10 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
 
   piksi_log(LOG_DEBUG, "Starting endpoint_adapter: %s", cmd);
 
-  return start_runit_service(&cfg);
+  if (start_runit_service(&cfg) != 0) {
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+  }
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int setting_mode_notify(void *context)

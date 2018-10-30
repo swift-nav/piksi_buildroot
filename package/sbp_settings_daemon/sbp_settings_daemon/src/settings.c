@@ -11,6 +11,7 @@
  */
 
 #include <libpiksi/logging.h>
+#include <libpiksi/settings.h>
 #include <libsbp/settings.h>
 
 #include <string.h>
@@ -34,16 +35,10 @@ struct setting {
   bool dirty;
 };
 
-enum {
-  SBP_WRITE_STATUS_OK,
-  SBP_WRITE_STATUS_VALUE_REJECTED,
-  SBP_WRITE_STATUS_SETTING_REJECTED,
-};
-
 static struct setting *settings_head;
 
 /* Register a new setting in our linked list */
-void settings_register(struct setting *setting)
+void setting_register(struct setting *setting)
 {
   struct setting *s;
 
@@ -149,7 +144,7 @@ static bool settings_parse_setting(u8 len,
   return true;
 }
 
-static void settings_register_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
 
@@ -168,7 +163,7 @@ static void settings_register_callback(u16 sender_id, u8 len, u8 msg[], void *co
     strncpy(s->value, value, BUFSIZE);
     if (type != NULL) strncpy(s->type, type, BUFSIZE);
 
-    settings_register(s);
+    setting_register(s);
   }
 
   /* Reply with write message with our value */
@@ -347,7 +342,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
     return;
   }
 
-  u8 resp[] = {SBP_WRITE_STATUS_SETTING_REJECTED};
+  u8 resp[] = {SBP_SETTINGS_WRITE_STATUS_SETTING_REJECTED};
   /* Reply with write response rejecting this setting */
   sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, sizeof(resp), resp, SBP_SENDER_ID);
 }
@@ -369,7 +364,7 @@ void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx)
                            NULL);
   sbp_rx_callback_register(rx_ctx,
                            SBP_MSG_SETTINGS_REGISTER,
-                           settings_register_callback,
+                           setting_register_callback,
                            tx_ctx,
                            NULL);
 }

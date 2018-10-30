@@ -90,14 +90,14 @@ static int uart_configure(const uart_t *uart)
   int fd = open(uart->tty_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0) {
     piksi_log(LOG_ERR, "error opening tty device");
-    return -1;
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
   }
 
   struct termios tio;
   if (tcgetattr(fd, &tio) != 0) {
     piksi_log(LOG_ERR, "error in tcgetattr()");
     close(fd);
-    return -1;
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
   }
 
   cfmakeraw(&tio);
@@ -113,7 +113,7 @@ static int uart_configure(const uart_t *uart)
   if (tcgetattr(fd, &tio) != 0) {
     piksi_log(LOG_ERR, "error in tcgetattr()");
     close(fd);
-    return -1;
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
   }
 
   close(fd);
@@ -123,10 +123,10 @@ static int uart_configure(const uart_t *uart)
       || ((tio.c_cflag & CRTSCTS) ? (uart->flow_control != FLOW_CONTROL_RTS_CTS)
                                   : (uart->flow_control != FLOW_CONTROL_NONE))) {
     piksi_log(LOG_ERR, "error configuring tty");
-    return -1;
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
   }
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int baudrate_notify(void *context)

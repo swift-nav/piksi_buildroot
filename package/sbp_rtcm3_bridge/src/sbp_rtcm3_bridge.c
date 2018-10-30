@@ -15,6 +15,7 @@
 #include <getopt.h>
 #include <gnss-converters/rtcm3_sbp.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/settings.h>
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
 #include <stdint.h>
@@ -202,10 +203,10 @@ static int notify_rtcm_out_output_mode_changed(void *context)
   case RTCM_OUT_MODE_LEGACY: sbp2rtcm_set_rtcm_out_mode(MSM_UNKNOWN, &sbp_to_rtcm3_state); break;
   case RTCM_OUT_MODE_MSM4: sbp2rtcm_set_rtcm_out_mode(MSM4, &sbp_to_rtcm3_state); break;
   case RTCM_OUT_MODE_MSM5: sbp2rtcm_set_rtcm_out_mode(MSM5, &sbp_to_rtcm3_state); break;
-  default: return -1;
+  default: return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
   }
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);

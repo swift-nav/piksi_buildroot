@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/settings.h>
 #include <libpiksi/util.h>
 
 #include "ntrip_settings.h"
@@ -201,10 +202,10 @@ static int ntrip_notify_generic(void *context)
    * is triggered by read from persistent config file during boot */
   if (ntrip_enabled && ntrip_settings_initialized) {
     sbp_log(LOG_WARNING, "NTRIP must be disabled to modify settings");
-    return 1;
+    return SBP_SETTINGS_WRITE_STATUS_MODIFY_DISABLED;
   }
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int ntrip_notify_enable(void *context)
