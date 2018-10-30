@@ -6,7 +6,7 @@ SOURCES= \
 RESMON_A = ../src/resource_monitor.a
 
 LIBS= \
-	-ljson-c -luv -lnanomsg -lsbp -lpiksi -ldl -lpthread -lgtest \
+	-ljson-c -luv -lsbp -lpiksi -ldl -lpthread -lgtest \
 	$(RESMON_A)
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src

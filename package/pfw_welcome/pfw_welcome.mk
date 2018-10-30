@@ -8,7 +8,7 @@ PFW_WELCOME_VERSION = 0.1
 PFW_WELCOME_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/pfw_welcome/src"
 PFW_WELCOME_SITE_METHOD = local
-PFW_WELCOME_DEPENDENCIES = libuv nanomsg_custom libpiksi
+PFW_WELCOME_DEPENDENCIES = libuv libpiksi
 
 define PFW_WELCOME_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all

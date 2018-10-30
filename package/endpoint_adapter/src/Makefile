@@ -8,7 +8,7 @@ SOURCES= \
 	endpoint_adapter_udp_listen.c \
 	endpoint_adapter_udp_connect.c \
 
-LIBS=-luv -lnanomsg -lsbp -lpiksi -ldl
+LIBS=-luv -lsbp -lpiksi -ldl
 CFLAGS=-std=gnu11 -Wall -ggdb3 -O3
 
 CROSS=

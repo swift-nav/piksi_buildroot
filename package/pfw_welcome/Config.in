@@ -7,5 +7,4 @@ config BR2_PACKAGE_PFW_WELCOME
   # to acheive by blocking in the init script
   bool "pfw_welcome"
   select BR2_PACKAGE_LIBUV
-  select BR2_PACKAGE_NANOMSG_CUSTOM
   select BR2_PACKAGE_LIBPIKSI

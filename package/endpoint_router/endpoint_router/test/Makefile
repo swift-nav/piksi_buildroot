@@ -4,7 +4,7 @@ SOURCES= \
 	endpoint_router_test.cc
 
 LIBS= \
-	-luv -lnanomsg -lsbp -lpiksi -lgtest -ldl -lcmph -lyaml -lpthread \
+	-luv -lsbp -lpiksi -lgtest -ldl -lcmph -lyaml -lpthread \
 	../src/endpoint_router.a
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src -g

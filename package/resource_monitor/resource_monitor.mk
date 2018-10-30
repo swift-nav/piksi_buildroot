@@ -8,7 +8,7 @@ RESOURCE_MONITOR_VERSION = 0.1
 RESOURCE_MONITOR_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/resource_monitor/resource_monitor"
 RESOURCE_MONITOR_SITE_METHOD = local
-RESOURCE_MONITOR_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
+RESOURCE_MONITOR_DEPENDENCIES = libuv libsbp libpiksi
 
 ifeq ($(BR2_BUILD_TESTS),y)
   RESOURCE_MONITOR_DEPENDENCIES += gtest valgrind

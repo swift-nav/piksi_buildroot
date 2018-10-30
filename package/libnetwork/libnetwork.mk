@@ -7,7 +7,7 @@
 LIBNETWORK_VERSION = 0.1
 LIBNETWORK_SITE = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/libnetwork/src"
 LIBNETWORK_SITE_METHOD = local
-LIBNETWORK_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi libcurl
+LIBNETWORK_DEPENDENCIES = libuv libsbp libpiksi libcurl
 LIBNETWORK_INSTALL_STAGING = YES
 
 define LIBNETWORK_BUILD_CMDS

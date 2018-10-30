@@ -7,7 +7,7 @@ SOURCES=$(filter-out test_str.cc,$(notdir $(shell find . -name '*.cc')))
 SOURCES_STR_TESTS=test_str.cc
 
 LIBS= \
-	-luv -lnanomsg -lpiksi -lsbp -ldl -lpthread -lgtest
+	-luv -lpiksi -lsbp -ldl -lpthread -lgtest
 
 CFLAGS=-std=gnu++11 -z muldefs -I. -I../include -L../src -ggdb3
 

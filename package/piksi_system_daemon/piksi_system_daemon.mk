@@ -8,7 +8,7 @@ PIKSI_SYSTEM_DAEMON_VERSION = 0.1
 PIKSI_SYSTEM_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_system_daemon"
 PIKSI_SYSTEM_DAEMON_SITE_METHOD = local
-PIKSI_SYSTEM_DAEMON_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
+PIKSI_SYSTEM_DAEMON_DEPENDENCIES = libuv libsbp libpiksi
 
 PIKSI_SYSTEM_DAEMON_CFLAGS :=
 

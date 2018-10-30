@@ -4,7 +4,7 @@ SOURCES= \
 	run_sbp_settings_daemon_test.cc
 
 LIBS= \
-	-luv -lnanomsg -lsbp -lpiksi -ldl -lpthread -lgtest \
+	-luv -lsbp -lpiksi -ldl -lpthread -lgtest \
 	../src/settings.o
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src

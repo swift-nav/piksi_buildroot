@@ -1,6 +1,6 @@
 TARGET=metrics_daemon
 SOURCES=metrics_daemon.c sbp.c
-LIBS=-ljson-c -luv -lnanomsg -lsbp -lpiksi
+LIBS=-ljson-c -luv -lsbp -lpiksi
 CFLAGS=-ggdb3 -std=gnu11 -Wmissing-prototypes -Wconversion -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror
 ARFLAGS=rcs $(LTO_PLUGIN)
 
