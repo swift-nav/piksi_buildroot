@@ -742,8 +742,7 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
     index = 9;
     state->send_state = SEND_DONE;
     break;
-  case SEND_DONE:
-    break;
+  case SEND_DONE: break;
   case SEND_SOCKET_QUEUES_0:
   case SEND_SOCKET_QUEUES_1:
   case SEND_SOCKET_QUEUES_2:
@@ -778,8 +777,7 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
     socket_counts->socket_states = entry->socket_states;
     *len = sizeof(msg_linux_process_socket_counts_t);
   } break;
-  case SEND_DONE:
-    break;
+  case SEND_DONE: break;
   case SEND_SOCKET_QUEUES_0:
   case SEND_SOCKET_QUEUES_1:
   case SEND_SOCKET_QUEUES_2:
