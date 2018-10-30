@@ -21,6 +21,8 @@ do_start()
   else
     echo "Starting $name"
     _setup_permissions
+    configure_logrotate_file "${name}_log" $stdout_log
+    configure_logrotate_file "${name}_err" $stderr_log
     cd "$dir"
     if [ -z "$user" ]; then
       sudo $cmd >> "$stdout_log" 2>> "$stderr_log" &
