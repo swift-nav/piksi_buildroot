@@ -61,7 +61,6 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x75, 0x00] } # SBP_MSG_GLO_BIASES
           - { action: REJECT }
 
-
   - name: SBP_PORT_SETTINGS_DAEMON
     pub_addr: "ipc:///var/run/sockets/settings_daemon.pub"
     sub_addr: "ipc:///var/run/sockets/settings_daemon.sub"
