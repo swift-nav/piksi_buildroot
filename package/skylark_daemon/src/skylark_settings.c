@@ -16,190 +16,133 @@
 #include <sys/stat.h>
 
 #include <libpiksi/logging.h>
+<<<<<<< a38803e8154e292aa27b3bf89d282df4cb23477a
 #include <libpiksi/settings_client.h>
+=======
+#include <libpiksi/runit.h>
+#include <libpiksi/settings.h>
+>>>>>>> Use runit services
 #include <libpiksi/util.h>
 
 #include "skylark_settings.h"
 
 // clang-format off
-#define UPLOAD_FIFO_FILE_PATH   "/var/run/skylark/upload"
-#define DOWNLOAD_FIFO_FILE_PATH "/var/run/skylark/download"
-#define SKYLARK_URL             "https://broker.skylark.swiftnav.com"
+#define SL_RUNIT_SERVICE_DIR            "/var/run/skylark_"
+#define SL_HTTP2_RUNIT_SERVICE_NAME     "http2"
+#define SL_HTTP1_DL_RUNIT_SERVICE_NAME  "http1_dl"
+#define SL_HTTP1_UL_RUNIT_SERVICE_NAME  "http1_ul"
+#define SL_ADAPT_DL_RUNIT_SERVICE_NAME  "adapt_dl"
+#define SL_ADAPT_UL_RUNIT_SERVICE_NAME  "adapt_ul"
+
+#define UPLOAD_FIFO_FILE_PATH           "/var/run/skylark/upload"
+#define DOWNLOAD_FIFO_FILE_PATH         "/var/run/skylark/download"
+#define SKYLARK_URL                     "https://broker.skylark.swiftnav.com"
 // clang-format on
+
+static const char *const skylark_mode_enum_names[] = {"Disabled",
+                                                      "HTTP 1.1",
+                                                      "HTTP 2",
+                                                      NULL};
+
+enum {
+  SKYLARK_MODE_DISABLED,
+  SKYLARK_MODE_HTTP_1_1,
+  SKYLARK_MODE_HTTP_2,
+};
 
 static u8 skylark_enabled;
 static char skylark_url[256];
 
 typedef struct {
-  int (*execfn)(void);
-  int pid;
+  runit_config_t cfg;
+  u32 modes;
+  char *base_cmd;
 } skylark_process_t;
+
+static skylark_process_t procs[] = {
+  {
+    .cfg = {
+      .service_dir = SL_RUNIT_SERVICE_DIR SL_ADAPT_DL_RUNIT_SERVICE_NAME "/sv",
+      .service_name = SL_ADAPT_DL_RUNIT_SERVICE_NAME,
+      .command_line = NULL,
+      .custom_down = NULL,
+      .restart = NULL,
+    },
+    .modes = (1 << SKYLARK_MODE_HTTP_1_1) | (1 << SKYLARK_MODE_HTTP_2),
+    .base_cmd = "endpoint_adapter --name skylark_download -f sbp --file " DOWNLOAD_FIFO_FILE_PATH " -p ipc:///var/run/sockets/skylark.sub"
+  },
+  {
+    .cfg = {
+      .service_dir = SL_RUNIT_SERVICE_DIR SL_ADAPT_UL_RUNIT_SERVICE_NAME "/sv",
+      .service_name = SL_ADAPT_UL_RUNIT_SERVICE_NAME,
+      .command_line = NULL,
+      .custom_down = NULL,
+      .restart = NULL,
+    },
+    .modes = (1 << SKYLARK_MODE_HTTP_1_1) | (1 << SKYLARK_MODE_HTTP_2),
+    .base_cmd = "endpoint_adapter --name skylark_upload --file " UPLOAD_FIFO_FILE_PATH " -s ipc:///var/run/sockets/skylark.pub "
+               "--filter-out sbp --filter-out-config /etc/skylark_upload_filter_out_config"
+  },
+  {
+    .cfg = {
+      .service_dir = SL_RUNIT_SERVICE_DIR SL_HTTP1_DL_RUNIT_SERVICE_NAME "/sv",
+      .service_name = SL_HTTP1_DL_RUNIT_SERVICE_NAME,
+      .command_line = NULL,
+      .custom_down = NULL,
+      .restart = NULL,
+    },
+    .modes = (1 << SKYLARK_MODE_HTTP_1_1),
+    .base_cmd = "skylark_daemon --download --file " DOWNLOAD_FIFO_FILE_PATH " --url "
+  },
+  {
+    .cfg = {
+      .service_dir = SL_RUNIT_SERVICE_DIR SL_HTTP1_UL_RUNIT_SERVICE_NAME "/sv",
+      .service_name = SL_HTTP1_UL_RUNIT_SERVICE_NAME,
+      .command_line = NULL,
+      .custom_down = NULL,
+      .restart = NULL,
+    },
+    .modes = (1 << SKYLARK_MODE_HTTP_1_1),
+    .base_cmd = "skylark_daemon --upload --no-error-reporting --file " UPLOAD_FIFO_FILE_PATH " --url "
+  },
+  {
+    .cfg = {
+      .service_dir = SL_RUNIT_SERVICE_DIR SL_HTTP2_RUNIT_SERVICE_NAME "/sv",
+      .service_name = SL_HTTP2_RUNIT_SERVICE_NAME,
+      .command_line = NULL,
+      .custom_down = NULL,
+      .restart = NULL,
+    },
+    .modes = (1 << SKYLARK_MODE_HTTP_2),
+    .base_cmd = "skylark_daemon --http2 --file-down " DOWNLOAD_FIFO_FILE_PATH " --file-up " UPLOAD_FIFO_FILE_PATH " --url "
+  },
+};
 
 static char *get_skylark_url(void)
 {
   return strcmp(skylark_url, "") == 0 ? SKYLARK_URL : skylark_url;
 }
 
-static int skylark_upload_daemon_execfn(void)
+static bool skylark_proc_is_endpoint(const skylark_process_t *proc)
 {
-  char *url = get_skylark_url();
-  char *argv[] = {
-    "skylark_daemon",
-    "--upload",
-    "--no-error-reporting",
-    "--file",
-    UPLOAD_FIFO_FILE_PATH,
-    "--url",
-    url,
-    NULL,
-  };
-
-  return execvp(argv[0], argv);
+  u32 mode = (1 << SKYLARK_MODE_HTTP_1_1) | (1 << SKYLARK_MODE_HTTP_2);
+  return (proc->modes == mode);
 }
 
-static int skylark_upload_adapter_execfn(void)
+static void skylark_stop_process(skylark_process_t *proc)
 {
-  char *argv[] = {
-    "endpoint_adapter",
-    "--name",
-    "skylark_upload",
-    "--file",
-    UPLOAD_FIFO_FILE_PATH,
-    "-s",
-    "ipc:///var/run/sockets/skylark.pub",
-    "--filter-out",
-    "sbp",
-    "--filter-out-config",
-    "/etc/skylark_upload_filter_out_config",
-    NULL,
-  };
-
-  return execvp(argv[0], argv);
-}
-
-static int skylark_download_daemon_execfn(void)
-{
-  char *url = get_skylark_url();
-  char *argv[] = {
-    "skylark_daemon",
-    "--download",
-    "--file",
-    DOWNLOAD_FIFO_FILE_PATH,
-    "--url",
-    url,
-    NULL,
-  };
-
-  return execvp(argv[0], argv);
-}
-
-static int skylark_download_adapter_execfn(void)
-{
-  char *argv[] = {
-    "endpoint_adapter",
-    "--name",
-    "skylark_download",
-    "-f",
-    "sbp",
-    "--file",
-    DOWNLOAD_FIFO_FILE_PATH,
-    "-p",
-    "ipc:///var/run/sockets/skylark.sub",
-    NULL,
-  };
-
-  return execvp(argv[0], argv);
-}
-
-static int skylark_http2_daemon_execfn(void)
-{
-  char *url = get_skylark_url();
-  char *argv[] = {
-    "skylark_daemon",
-    "--http2",
-    "--file-down",
-    DOWNLOAD_FIFO_FILE_PATH,
-    "--file-up",
-    UPLOAD_FIFO_FILE_PATH,
-    "--url",
-    url,
-    "--debug",
-    NULL,
-  };
-
-  return execvp(argv[0], argv);
-}
-
-static skylark_process_t skylark_endpoint_processes[] = {
-  {.pid = 0, .execfn = skylark_upload_adapter_execfn},
-  {.pid = 0, .execfn = skylark_download_adapter_execfn},
-};
-
-static skylark_process_t skylark_http1_processes[] = {
-  {.pid = 0, .execfn = skylark_upload_daemon_execfn},
-  {.pid = 0, .execfn = skylark_download_daemon_execfn},
-};
-
-static skylark_process_t skylark_http2_processes[] = {
-  {.pid = 0, .execfn = skylark_http2_daemon_execfn},
-};
-
-static void skylark_stop_process(skylark_process_t *process)
-{
-  if (process->pid != 0) {
-    int ret = kill(process->pid, SIGTERM);
-    if (ret != 0) {
-      piksi_log(LOG_ERR, "kill pid %d error (%d) \"%s\"", process->pid, errno, strerror(errno));
-    }
-    sleep(0.1); // allow us to receive sigchild
-    process->pid = 0;
+  if (stat_runit_service(&proc->cfg) != RUNIT_RUNNING) {
+    return;
+  }
+   
+  if (stop_runit_service(&proc->cfg)) {
+    piksi_log(LOG_ERR, "stop_runit_service failed for %s", proc->cfg.service_name);
   }
 }
 
 void skylark_stop_processes(void) {
-  for (size_t i = 0; i < COUNT_OF(skylark_endpoint_processes); i++) {
-    skylark_process_t *process = &skylark_endpoint_processes[i];
-    skylark_stop_process(process);
-  }
-
-  for (size_t i = 0; i < COUNT_OF(skylark_http1_processes); i++) {
-    skylark_process_t *process = &skylark_http1_processes[i];
-    skylark_stop_process(process);
-  }
-
-  for (size_t i = 0; i < COUNT_OF(skylark_http2_processes); i++) {
-    skylark_process_t *process = &skylark_http2_processes[i];
-    skylark_stop_process(process);
-  }
-}
-
-void skylark_record_exit(pid_t pid)
-{
-  for (size_t i = 0; i < COUNT_OF(skylark_endpoint_processes); i++) {
-    skylark_process_t *process = &skylark_endpoint_processes[i];
-    if (process->pid != 0 && process->pid == pid) {
-      piksi_log(LOG_DEBUG, "known child process pid %d exited", process->pid);
-      process->pid = 0;
-      return;
-    }
-  }
-
-  for (size_t i = 0; i < COUNT_OF(skylark_http1_processes); i++) {
-    skylark_process_t *process = &skylark_http1_processes[i];
-    if (process->pid != 0 && process->pid == pid) {
-      piksi_log(LOG_DEBUG, "known child process pid %d exited", process->pid);
-      process->pid = 0;
-      return;
-    }
-  }
-
-  for (size_t i = 0; i < COUNT_OF(skylark_http2_processes); i++) {
-    skylark_process_t *process = &skylark_http2_processes[i];
-    if (process->pid != 0 && process->pid == pid) {
-      piksi_log(LOG_DEBUG, "known child process pid %d exited", process->pid);
-      process->pid = 0;
-      return;
-    }
+  for (size_t i = 0; i < COUNT_OF(procs); i++) {
+    skylark_stop_process(&procs[i]);
   }
 }
 
@@ -215,55 +158,38 @@ static int skylark_notify(void *context)
     system("echo 1 >/var/run/skylark/enabled");
   }
 
-  for (size_t i = 0; i < COUNT_OF(skylark_endpoint_processes); i++) {
-    skylark_process_t *process = &skylark_endpoint_processes[i];
+  for (size_t i = 0; i < COUNT_OF(procs); i++) {
+    skylark_process_t *process = &procs[i];
     skylark_stop_process(process);
 
     if (0 == skylark_enabled) {
       continue;
     }
 
-    process->pid = fork();
-
-    if (process->pid == 0) {
-      process->execfn();
-      piksi_log(LOG_ERR, "exec error (%d) \"%s\"", errno, strerror(errno));
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  for (size_t i = 0; i < COUNT_OF(skylark_http1_processes); i++) {
-    skylark_process_t *process = &skylark_http1_processes[i];
-    skylark_stop_process(process);
-
-    if (1 != skylark_enabled) {
+    if (((1 << skylark_enabled) & process->modes) == 0) {
+      /* Process is not needed in this mode */
       continue;
     }
 
-    process->pid = fork();
+    char *cmd = process->base_cmd;
+    char *url = "";
 
-    if (process->pid == 0) {
-      process->execfn();
-      piksi_log(LOG_ERR, "exec error (%d) \"%s\"", errno, strerror(errno));
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  for (size_t i = 0; i < COUNT_OF(skylark_http2_processes); i++) {
-    skylark_process_t *process = &skylark_http2_processes[i];
-    skylark_stop_process(process);
-
-    if (2 != skylark_enabled) {
-      continue;
+    if (!skylark_proc_is_endpoint(process)) {
+      url = get_skylark_url();
     }
 
-    process->pid = fork();
+    char cmd_url[strlen(cmd) + strlen(url) + 1];
+    snprintf_assert(cmd_url, sizeof(cmd_url), "%s%s", cmd, url);
 
-    if (process->pid == 0) {
-      process->execfn();
-      piksi_log(LOG_ERR, "exec error (%d) \"%s\"", errno, strerror(errno));
-      exit(EXIT_FAILURE);
+    process->cfg.command_line = cmd_url;
+
+    if (start_runit_service(&process->cfg)) {
+      piksi_log(LOG_ERR, "start_runit_service failed for %s", process->cfg.service_name);
+      return 1;
     }
+
+    /* Clear the pointer because it points to local char array */
+    process->cfg.command_line = NULL;
   }
 
   return SETTINGS_WR_OK;
@@ -271,27 +197,29 @@ static int skylark_notify(void *context)
 
 bool skylark_reconnect_dl(void)
 {
-  for (size_t i = 0; i < COUNT_OF(skylark_http1_processes); i++) {
+  for (size_t i = 0; i < COUNT_OF(procs); i++) {
 
-    skylark_process_t *process = &skylark_http1_processes[i];
+    skylark_process_t *process = &procs[i];
 
-    if (process->execfn != skylark_download_daemon_execfn) {
+    if (strcmp(process->cfg.service_name, SL_HTTP1_DL_RUNIT_SERVICE_NAME)) {
       continue;
     }
 
-    if (process->pid == 0) {
+    pid_t pid;
+
+    if (RUNIT_RUNNING != pid_runit_service(&process->cfg, &pid)) {
       piksi_log(
         LOG_ERR,
         "Asked to tell skylark_daemon to reconnect (in download mode), but it isn't running");
       return false;
     }
 
-    int ret = kill(process->pid, SIGUSR1);
+    int ret = kill(pid, SIGUSR1);
 
     if (ret != 0) {
       piksi_log(LOG_ERR,
                 "skylark_reconnect_dl: kill (SIGUSR1) pid %d error (%d) \"%s\"",
-                process->pid,
+                pid,
                 errno,
                 strerror(errno));
 

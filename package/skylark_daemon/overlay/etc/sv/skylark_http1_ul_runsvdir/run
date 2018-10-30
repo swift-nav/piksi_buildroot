@@ -1,0 +1,7 @@
+#!/bin/sh
+
+name=skylark_http1_ul
+service=${name}_runsvdir
+user=skylarkd
+
+source /etc/init.d/template_svdir.sh

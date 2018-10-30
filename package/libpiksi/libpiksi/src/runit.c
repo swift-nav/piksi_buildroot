@@ -173,7 +173,7 @@ int start_runit_service(runit_config_t *cfg)
   return 0;
 }
 
-runit_stat_t stat_runit_service(runit_config_t *cfg)
+static runit_stat_t runit_stat(runit_config_t *cfg, pid_t *pid)
 {
   char service_dir[PATH_MAX];
   char path_buf[PATH_MAX];
@@ -230,6 +230,10 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
 
     RUNIT_DEBUG_LOG("service status, pid: '%s' (read_count: %llu)", pid_buf, read_count);
 
+    if (NULL != pid) {
+      *pid = atol(pid_buf);
+    }
+
     CHECK_FS_CALL(fclose(pid_fp) == 0, "fclose", pid_path_buf);
 
     if (strcmp(pid_buf, RUNIT_STAT_EMPTY) != 0) {
@@ -250,6 +254,14 @@ runit_stat_t stat_runit_service(runit_config_t *cfg)
             stat_buf);
 
   return RUNIT_UNKNOWN;
+}
+
+runit_stat_t stat_runit_service(runit_config_t *cfg) {
+  return runit_stat(cfg, NULL);
+}
+
+runit_stat_t pid_runit_service(runit_config_t *cfg, pid_t *pid) {
+  return runit_stat(cfg, pid);
 }
 
 const char *runit_status_str(runit_stat_t status)

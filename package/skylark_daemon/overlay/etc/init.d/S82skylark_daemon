@@ -8,6 +8,11 @@ user="skylarkd"
 setup_permissions() {
 
   mkdir -p /var/run/skylark/control
+  mkdir -p /var/run/skylark/http2/sv
+  mkdir -p /var/run/skylark/http1_dl/sv
+  mkdir -p /var/run/skylark/http1_ul/sv
+  mkdir -p /var/run/skylark/adapt_dl/sv
+  mkdir -p /var/run/skylark/adapt_ul/sv
   touch /var/run/skylark/control/socket
   chown $user:$user /var/run/skylark/control/socket
 
@@ -25,4 +30,4 @@ setup_permissions() {
   chown -R $user:$user /var/run/skylark
 }
 
-source /etc/init.d/template_process.inc.sh
+source /etc/init.d/template_runsv.inc.sh

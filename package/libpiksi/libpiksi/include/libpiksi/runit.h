@@ -74,6 +74,8 @@ typedef enum {
  */
 runit_stat_t stat_runit_service(runit_config_t *cfg);
 
+runit_stat_t pid_runit_service(runit_config_t *cfg, pid_t *pid);
+
 /** @brief Convert @c runit_stat_t to human readable string.
  */
 const char *runit_status_str(runit_stat_t status);
