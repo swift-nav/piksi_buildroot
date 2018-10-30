@@ -75,6 +75,8 @@ TEST_F(PubsubLoopIntegrationTests, pubsubLoopIntegrationTest)
   sub_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_SUB_SERVER);
   ASSERT_NE(sub_ept, nullptr);
 
+  pk_endpoint_loop_add(sub_ept, loop, NULL);
+
   // this is cleaned up in TearDown
   pub_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_PUB);
   ASSERT_NE(pub_ept, nullptr);

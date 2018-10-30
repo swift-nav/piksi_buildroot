@@ -21,6 +21,7 @@ extern "C" bool pk_endpoint_test(void);
 TEST_F(LibpiksiTests, endpointTests)
 {
   pk_endpoint_t *ept = nullptr;
+  pk_endpoint_t *ept_srv = nullptr;
 
   /* create with invalid inputs */
   {
@@ -33,27 +34,26 @@ TEST_F(LibpiksiTests, endpointTests)
 
   /* create server pub and connect pub */
   {
-    ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_PUB_SERVER);
-    ASSERT_NE(ept, nullptr);
-    pk_endpoint_type type = pk_endpoint_type_get(ept);
+    ept_srv = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_PUB_SERVER);
+    ASSERT_NE(ept_srv, nullptr);
+    pk_endpoint_type type = pk_endpoint_type_get(ept_srv);
     ASSERT_EQ(type, PK_ENDPOINT_PUB_SERVER);
-    pk_endpoint_destroy(&ept);
-    ASSERT_EQ(ept, nullptr);
 
     ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_PUB);
     ASSERT_NE(ept, nullptr);
     pk_endpoint_destroy(&ept);
     ASSERT_EQ(ept, nullptr);
+
+    pk_endpoint_destroy(&ept_srv);
+    ASSERT_EQ(ept_srv, nullptr);
   }
 
   /* create server sub and connect sub */
   {
-    ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_SUB_SERVER);
-    ASSERT_NE(ept, nullptr);
-    pk_endpoint_type type = pk_endpoint_type_get(ept);
+    ept_srv = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_SUB_SERVER);
+    ASSERT_NE(ept_srv, nullptr);
+    pk_endpoint_type type = pk_endpoint_type_get(ept_srv);
     ASSERT_EQ(type, PK_ENDPOINT_SUB_SERVER);
-    pk_endpoint_destroy(&ept);
-    ASSERT_EQ(ept, nullptr);
 
     ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_SUB);
     ASSERT_NE(ept, nullptr);
@@ -61,5 +61,8 @@ TEST_F(LibpiksiTests, endpointTests)
     ASSERT_NE(fd, -1);
     pk_endpoint_destroy(&ept);
     ASSERT_EQ(ept, nullptr);
+
+    pk_endpoint_destroy(&ept_srv);
+    ASSERT_EQ(ept_srv, nullptr);
   }
 }

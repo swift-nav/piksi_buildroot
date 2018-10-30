@@ -52,11 +52,13 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
 #define ASSERT_FAIL_MSG "ASSERT FAILURE: %s: %s (%s:%d), %zu backtrace entries:"
 
   piksi_log(LOG_ERR, ASSERT_FAIL_MSG, func, assert_str, file, lineno, size);
-  fprintf(stderr, ASSERT_FAIL_MSG, func, assert_str, file, lineno, size);
-
   for (i = 0; i < size; i++) {
     piksi_log(LOG_ERR, "backtrace: %s", strings[i]);
-    fprintf(stderr, "backtrace: %s", strings[i]);
+  }
+
+  fprintf(stderr, ASSERT_FAIL_MSG "\n", func, assert_str, file, lineno, size);
+  for (i = 0; i < size; i++) {
+    fprintf(stderr, "backtrace: %s\n", strings[i]);
   }
 
   free(strings);
@@ -110,7 +112,7 @@ static int create_un_socket()
   int fd = -1;
 
   if ((fd = socket(AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
-    perror("socket error");
+    pk_log_anno(LOG_ERR, "socket error: %s", strerror(errno));
     return -1;
   }
 
@@ -150,7 +152,7 @@ static int connect_un_socket(int fd, const char *path)
   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
   if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-    pk_log_anno(LOG_WARNING, "connect error: %s", strerror(errno));
+    pk_log_anno(LOG_ERR, "connect error: %s (path: %s)", strerror(errno), path);
     return -1;
   }
 
@@ -222,14 +224,12 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   } break;
   } // end of switch
 
-  static const size_t prefix_len = strlen(IPC_PREFIX);
+  size_t prefix_len = strstr(endpoint, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
 
   if (do_bind) {
-    if (strstr(endpoint, IPC_PREFIX) != NULL) {
-      int rc = unlink(endpoint + prefix_len);
-      if (rc != 0 && errno != ENOENT) {
-        pk_log_anno(LOG_WARNING, "unlink: %s", strerror(errno));
-      }
+    int rc = unlink(endpoint + prefix_len);
+    if (rc != 0 && errno != ENOENT) {
+      pk_log_anno(LOG_WARNING, "unlink: %s", strerror(errno));
     }
   }
 
@@ -248,11 +248,9 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
 
     if (start_un_listen(endpoint, pk_ept->sock) < 0) goto failure;
 
-    if (strstr(endpoint, IPC_PREFIX) != NULL) {
-      int rc = chmod(endpoint + prefix_len, 0777);
-      if (rc != 0) {
-        pk_log_anno(LOG_WARNING, "chmod: %s", strerror(errno));
-      }
+    int rc = chmod(endpoint + prefix_len, 0777);
+    if (rc != 0) {
+      pk_log_anno(LOG_WARNING, "chmod: %s", strerror(errno));
     }
 
     pk_ept->wakefd = eventfd(0, EFD_NONBLOCK);
