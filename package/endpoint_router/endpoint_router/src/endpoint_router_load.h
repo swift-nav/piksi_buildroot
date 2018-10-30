@@ -19,7 +19,7 @@
 extern "C" {
 #endif
 
-router_t * router_load(const char *filename);
+router_t *router_load(const char *filename);
 void router_teardown(router_t **router_loc);
 
 #ifdef __cplusplus

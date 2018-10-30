@@ -178,8 +178,8 @@ int cell_modem_scan_for_modem(inotify_ctx_t *ctx)
 
 static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, int status, void *context)
 {
-  (void) loop;
-  (void) poll_handle;
+  (void)loop;
+  (void)poll_handle;
   (void)status;
 
   inotify_ctx_t *ctx = (inotify_ctx_t *)context;

@@ -1198,7 +1198,7 @@ static void destroy(settings_ctx_t **ctx)
   *ctx = NULL;
 }
 
-settings_ctx_t * settings_create(pk_loop_t *loop)
+settings_ctx_t *settings_create(pk_loop_t *loop)
 {
   settings_ctx_t *ctx = (settings_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
@@ -1480,7 +1480,7 @@ static void control_handler(pk_loop_t *loop, void *handle, int status, void *con
   (void)loop;
   (void)status;
 
-  control_command_t* cmd_info = (control_command_t*)context;
+  control_command_t *cmd_info = (control_command_t *)context;
 
   u8 data = 0;
   if (pk_endpoint_receive(cmd_info->cmd_ept, command_receive_callback, &data) != 0) {

@@ -185,31 +185,24 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   LIST_INIT(&pk_ept->client_nodes_head);
 
   bool do_bind = false;
-  switch (pk_ept->type)
-  {
-  case PK_ENDPOINT_PUB_SERVER:
-    do_bind = true;
-  case PK_ENDPOINT_PUB:
-  {
+  switch (pk_ept->type) {
+  case PK_ENDPOINT_PUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_PUB: {
     pk_ept->sock = create_un_socket();
     if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK PUB socket: %s",
-                         pk_endpoint_strerror());
+      piksi_log(LOG_ERR, "error creating PK PUB socket: %s", pk_endpoint_strerror());
       goto failure;
     }
   } break;
-  case PK_ENDPOINT_SUB_SERVER:
-    do_bind = true;
-  case PK_ENDPOINT_SUB:
-  {
+  case PK_ENDPOINT_SUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_SUB: {
     pk_ept->sock = create_un_socket();
     if (pk_ept->sock < 0) {
       piksi_log(LOG_ERR, "error creating PK PUB/SUB socket: %s", pk_endpoint_strerror());
       goto failure;
     }
   } break;
-  case PK_ENDPOINT_REP:
-    do_bind = true;
+  case PK_ENDPOINT_REP: do_bind = true;
   case PK_ENDPOINT_REQ: {
     pk_ept->sock = create_un_socket();
     if (pk_ept->sock < 0) {
@@ -217,8 +210,7 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
       goto failure;
     }
   } break;
-  default:
-  {
+  default: {
     piksi_log(LOG_ERR, "Unsupported endpoint type");
     goto failure;
   } break;
@@ -392,7 +384,7 @@ static int recv_impl(pk_endpoint_t *ept,
     }
   }
 
-  *length_loc = (size_t) length;
+  *length_loc = (size_t)length;
 
   return PKE_SUCCESS;
 }
@@ -628,7 +620,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   return rc;
 }
 
-const char * pk_endpoint_strerror(void)
+const char *pk_endpoint_strerror(void)
 {
   return strerror(errno);
 }
