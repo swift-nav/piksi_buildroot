@@ -1620,7 +1620,7 @@ bool settings_loop(const char *control_socket,
   }
 
   do_settings_register(settings_ctx);
-
+#if 0
   if (control_socket != NULL) {
     bool control_sock_configured = configure_control_socket(loop,
                                                             control_socket,
@@ -1634,7 +1634,7 @@ bool settings_loop(const char *control_socket,
       goto settings_loop_cleanup;
     }
   }
-
+#endif
   pk_loop_run_simple(loop);
 
 settings_loop_cleanup:

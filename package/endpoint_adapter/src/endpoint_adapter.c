@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <limits.h>
 
+#include <libpiksi/endpoint.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
 #include <libpiksi/util.h>
