@@ -28,6 +28,7 @@
 /* can_settings_initialized prevents false warning when notify function
  * is triggered by read from persistent config file during boot */
 static bool can_settings_initialized = false;
+static bool is_duro = device_is_duro();
 
 static const char *const bitrate_enum_names[] =
   {"10k", "20k", "50k", "125k", "250k", "500k", "1M", NULL};
@@ -141,10 +142,6 @@ static int can_configure(const can_t *can)
   piksi_log(LOG_ERR, "%s state %d", can->name, state);
 
   /* Turn the CAN interface on. */
-  if (device_is_duro() && strcmp(can->name, "can1")) {
-    piksi_log(LOG_ERR, "No can1 port on Duro");
-    return 1;
-  }
   if (can_do_start_piksi(can->name)) {
     piksi_log(LOG_ERR, "Could not start interface %s", can->name);
     return 1;
@@ -187,7 +184,9 @@ static int bitrate_notify(void *context)
 int can_init(settings_ctx_t *settings_ctx)
 {
   can_configure(&cans[0]);
-  can_configure(&cans[1]);
+  if (is_duro) {
+    can_configure(&cans[1]);
+  }
 
   /* Register settings */
   settings_type_t settings_type_bitrate;
@@ -220,32 +219,34 @@ int can_init(settings_ctx_t *settings_ctx)
                     can_notify,
                     &cans[0]);
 
-  settings_register(settings_ctx,
-                    "can1",
-                    "bitrate",
-                    &cans[1].bitrate,
-                    sizeof(cans[1].bitrate),
-                    settings_type_bitrate,
-                    bitrate_notify,
-                    &cans[1]);
+  if (is_duro()) {
+    settings_register(settings_ctx,
+                      "can1",
+                      "bitrate",
+                      &cans[1].bitrate,
+                      sizeof(cans[1].bitrate),
+                      settings_type_bitrate,
+                      bitrate_notify,
+                      &cans[1]);
 
-  settings_register(settings_ctx,
-                    "can1",
-                    "tx_id",
-                    &cans[1].id,
-                    sizeof(cans[1].id),
-                    SETTINGS_TYPE_INT,
-                    can_notify,
-                    &cans[1]);
+    settings_register(settings_ctx,
+                      "can1",
+                      "tx_id",
+                      &cans[1].id,
+                      sizeof(cans[1].id),
+                      SETTINGS_TYPE_INT,
+                      can_notify,
+                      &cans[1]);
 
-  settings_register(settings_ctx,
-                    "can1",
-                    "rx_id_filter",
-                    &cans[1].filter,
-                    sizeof(cans[1].filter),
-                    SETTINGS_TYPE_INT,
-                    can_notify,
-                    &cans[1]);
+    settings_register(settings_ctx,
+                      "can1",
+                      "rx_id_filter",
+                      &cans[1].filter,
+                      sizeof(cans[1].filter),
+                      SETTINGS_TYPE_INT,
+                      can_notify,
+                      &cans[1]);
+  }
 
   can_settings_initialized = true;
 
