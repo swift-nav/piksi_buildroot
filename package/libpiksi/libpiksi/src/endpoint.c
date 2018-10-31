@@ -614,6 +614,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
     LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
     {
       rc = send_impl(pk_ept, node->val.fd, data, length, pk_ept->loop, node->val.poll_handle, node);
+      // TODO: remove sockets that error?
     }
   }
 

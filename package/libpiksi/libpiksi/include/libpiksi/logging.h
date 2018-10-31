@@ -129,6 +129,17 @@ void piksi_log(int priority, const char *format, ...);
 void piksi_vlog(int priority, const char *format, va_list ap);
 
 /**
+ * @brief   Dump a binary blob in xxd format
+ * @details Dump a binary blob in xxd format to facilitate debugging.
+ *
+ * @param[in] priority    Priority level as defined in <syslog.h>.
+ * @param[in] header      Header used to describe data being dumped
+ * @param[in] buffer      The data being dumped
+ * @param[in] len         Length of the input buffer
+ */
+void piksi_log_xxd(int priority, const char *header, const u8 *buffer, size_t len);
+
+/**
  * @brief   Send a log message over SBP
  *
  * @param[in] priority      Priority level as defined in <syslog.h>.
