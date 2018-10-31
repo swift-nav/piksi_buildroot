@@ -156,10 +156,22 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
  */
 const char *pk_endpoint_strerror(void);
 
+/**
+ * @brief For server sockets, accept an incoming connection.
+ */
 int pk_endpoint_accept(pk_endpoint_t *pk_ept);
 
+/**
+ * @brief Configure a socket to be non-blocking
+ */
 int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
 
+/**
+ * @brief Add a server socket to a loop for servicing.
+ *
+ * @details Server sockets created with @c pk_endpoint_create need to be added
+ *          to a loop in order to be serviced.
+ */
 int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle);
 
 #ifdef __cplusplus

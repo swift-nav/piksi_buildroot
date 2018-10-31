@@ -456,7 +456,7 @@ static int service_reads(pk_endpoint_t *ept,
                          void *context)
 {
   for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
-    u8 buffer[4096];
+    u8 buffer[4096] = {0};
     size_t length = sizeof(buffer);
     int rc = recv_impl(ept, fd, buffer, &length, true, loop, poll_handle, node);
     if (rc < 0) {

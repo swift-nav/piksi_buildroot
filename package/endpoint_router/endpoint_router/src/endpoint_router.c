@@ -290,7 +290,6 @@ static int reader_fn(const u8 *data, const size_t length, void *context)
 
   PK_METRICS_UPDATE(router_metrics, MI.size_total, PK_METRICS_VALUE((u32)length));
 
-  process_forwarding_rules(port->forwarding_rules_list, data, length, filter_match_process);
   if (options.process_sbp) {
     process_buffer_via_framer(port, data, length);
   } else {
