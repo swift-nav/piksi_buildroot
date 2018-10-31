@@ -413,11 +413,6 @@ network_status_t libnetwork_set_url(network_context_t *context, const char *url)
   return NETWORK_STATUS_SUCCESS;
 }
 
-const char *libnetwork_get_url(network_context_t *context)
-{
-  return context->url;
-}
-
 network_status_t libnetwork_set_debug(network_context_t *context, bool debug)
 {
   context->debug = debug;
@@ -1153,20 +1148,20 @@ static network_status_t network_reset_bytes(network_context_t *context)
   return NETWORK_STATUS_SUCCESS;
 }
 
-void network_setup_download(struct curl_slist *chunk, network_context_t *ctx, CURL *curl)
+void network_setup_download(network_context_t *ctx, struct curl_slist *chunk)
 {
   // clang-format off
   if (chunk) {
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER,      chunk);
+    curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER,      chunk);
   }
-  curl_easy_setopt(curl, CURLOPT_URL,               ctx->url);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,     network_download_write);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA,         ctx);
-  curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION,  network_download_progress);
-  curl_easy_setopt(curl, CURLOPT_XFERINFODATA,      ctx);
-  curl_easy_setopt(curl, CURLOPT_NOPROGRESS,        0L);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,   network_sockopt);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,       ctx);
+  curl_easy_setopt(ctx->curl, CURLOPT_URL,               ctx->url);
+  curl_easy_setopt(ctx->curl, CURLOPT_WRITEFUNCTION,     network_download_write);
+  curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA,         ctx);
+  curl_easy_setopt(ctx->curl, CURLOPT_XFERINFOFUNCTION,  network_download_progress);
+  curl_easy_setopt(ctx->curl, CURLOPT_XFERINFODATA,      ctx);
+  curl_easy_setopt(ctx->curl, CURLOPT_NOPROGRESS,        0L);
+  curl_easy_setopt(ctx->curl, CURLOPT_SOCKOPTFUNCTION,   network_sockopt);
+  curl_easy_setopt(ctx->curl, CURLOPT_SOCKOPTDATA,       ctx);
   // clang-format on
 
   network_reset_bytes(ctx);
@@ -1209,7 +1204,7 @@ void ntrip_download(network_context_t *ctx)
     }
   }
 
-  network_setup_download(chunk, ctx, curl);
+  network_setup_download(ctx, chunk);
 
   network_request(ctx, curl);
 
@@ -1227,7 +1222,7 @@ void skylark_download(network_context_t *ctx)
   struct curl_slist *chunk = skylark_init(curl);
   chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
 
-  network_setup_download(chunk, ctx, curl);
+  network_setup_download(ctx, chunk);
 
   network_request(ctx, curl);
 
@@ -1235,19 +1230,19 @@ void skylark_download(network_context_t *ctx)
   network_teardown(curl);
 }
 
-void skylark_setup_upload(struct curl_slist *chunk, network_context_t *ctx, CURL *curl)
+void skylark_setup_upload(network_context_t *ctx, struct curl_slist *chunk)
 {
   // clang-format off
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
-  curl_easy_setopt(curl, CURLOPT_PUT,              1L);
-  curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
-  curl_easy_setopt(curl, CURLOPT_READFUNCTION,     network_upload_read);
-  curl_easy_setopt(curl, CURLOPT_READDATA,         ctx);
-  curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, network_upload_progress);
-  curl_easy_setopt(curl, CURLOPT_XFERINFODATA,     ctx);
-  curl_easy_setopt(curl, CURLOPT_NOPROGRESS,       0L);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
-  curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
+  curl_easy_setopt(ctx->curl, CURLOPT_HTTPHEADER,       chunk);
+  curl_easy_setopt(ctx->curl, CURLOPT_PUT,              1L);
+  curl_easy_setopt(ctx->curl, CURLOPT_URL,              ctx->url);
+  curl_easy_setopt(ctx->curl, CURLOPT_READFUNCTION,     network_upload_read);
+  curl_easy_setopt(ctx->curl, CURLOPT_READDATA,         ctx);
+  curl_easy_setopt(ctx->curl, CURLOPT_XFERINFOFUNCTION, network_upload_progress);
+  curl_easy_setopt(ctx->curl, CURLOPT_XFERINFODATA,     ctx);
+  curl_easy_setopt(ctx->curl, CURLOPT_NOPROGRESS,       0L);
+  curl_easy_setopt(ctx->curl, CURLOPT_SOCKOPTFUNCTION,  network_sockopt);
+  curl_easy_setopt(ctx->curl, CURLOPT_SOCKOPTDATA,      ctx);
   // clang-format on
 
   network_reset_bytes(ctx);
@@ -1293,7 +1288,7 @@ bool ota_enquire(network_context_t *ctx)
   chunk = curl_slist_append(chunk, fw_hdr_buf);
   chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.devices.v1+json");
 
-  network_setup_download(chunk, ctx, curl);
+  network_setup_download(ctx, chunk);
 
   CURLcode ret = network_request(ctx, curl);
 
@@ -1310,7 +1305,7 @@ bool ota_download(network_context_t *ctx)
     return false;
   }
 
-  network_setup_download(NULL, ctx, curl);
+  network_setup_download(ctx, NULL);
 
   CURLcode ret = network_request(ctx, curl);
   network_teardown(curl);

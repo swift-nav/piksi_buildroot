@@ -80,11 +80,11 @@ CURL *network_curl_init(network_context_t *ctx);
 
 size_t network_upload_read(char *buf, size_t size, size_t n, void *data);
 
-void network_setup_download(struct curl_slist *chunk, network_context_t *ctx, CURL *curl);
+void network_setup_download(network_context_t *ctx, struct curl_slist *chunk);
 
 struct curl_slist *skylark_init(CURL *curl);
 
-void skylark_setup_upload(struct curl_slist *chunk, network_context_t *ctx, CURL *curl);
+void skylark_setup_upload(network_context_t *ctx, struct curl_slist *chunk);
 
 /**
  * @brief Create a context for a libnetwork session
@@ -132,8 +132,6 @@ network_status_t libnetwork_set_password(network_context_t *context, const char 
  * @return                   The operation result.  See @ref network_status_t.
  */
 network_status_t libnetwork_set_url(network_context_t *context, const char *url);
-
-const char *libnetwork_get_url(network_context_t *context);
 
 /**
  * @brief Set the debug flag for this context

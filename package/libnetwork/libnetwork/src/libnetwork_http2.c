@@ -28,6 +28,8 @@
 #include <libnetwork/libnetwork.h>
 #include <libnetwork/libnetwork_http2.h>
 
+#define TIMEOUT_MAX_S 1
+
 static
 void dump(const char *text,
           FILE *stream, unsigned char *ptr, size_t size)
@@ -100,9 +102,8 @@ int my_trace(CURL *handle, curl_infotype type,
   return 0;
 }
 
-static void http2_setup_download(CURL *curl)
+static void http2_setup(CURL *curl)
 {
-  /* HTTP/2 please */ 
   curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
 
   /* we use a self-signed test server, skip verification during debugging */ 
@@ -112,34 +113,137 @@ static void http2_setup_download(CURL *curl)
   curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
   curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, my_trace);
 
-  /* wait for pipe connection to confirm */ 
   curl_easy_setopt(curl, CURLOPT_PIPEWAIT, 1L);
 }
 
-static void http2_setup_upload(CURL *curl)
+static int http2_setup_download(network_context_t *ctx_down, CURL **curl, struct curl_slist **chunk_down)
 {
-  /* upload please */ 
-  curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+  network_ctx_setup(ctx_down);
 
-  /* HTTP/2 please */ 
-  curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+  *curl = network_curl_init(ctx_down);
+  if (NULL == curl) {
+    piksi_log(LOG_ERR, "network_curl_init failed");
+    return 1;
+  }
 
-  /* we use a self-signed test server, skip verification during debugging */ 
-  curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-  curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+  *chunk_down = skylark_init(*curl);
+  *chunk_down = curl_slist_append(*chunk_down, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
 
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-  curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, my_trace);
+  network_setup_download(ctx_down, *chunk_down);
 
-  /* wait for pipe connection to confirm */ 
-  curl_easy_setopt(curl, CURLOPT_PIPEWAIT, 1L);
+  http2_setup(*curl);
+
+  return 0;
+}
+
+static int http2_setup_upload(network_context_t *ctx_up, CURL **curl, struct curl_slist **chunk_up)
+{
+  network_ctx_setup(ctx_up);
+
+  *curl = network_curl_init(ctx_up);
+  if (NULL == curl) {
+    piksi_log(LOG_ERR, "network_curl_init failed");
+    return 1;
+  }
+
+  *chunk_up = skylark_init(*curl);
+  *chunk_up = curl_slist_append(*chunk_up, "Transfer-Encoding: chunked");
+  *chunk_up = curl_slist_append(*chunk_up, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
+  skylark_setup_upload(ctx_up, *chunk_up);
+
+  curl_easy_setopt(*curl, CURLOPT_UPLOAD, 1L);
+
+  http2_setup(*curl);
+
+  return 0;
+}
+
+static int http2_setup_multi(CURL *curl_down, CURL *curl_up, CURLM **multi)
+{
+  *multi = curl_multi_init();
+
+  curl_multi_add_handle(*multi, curl_down);
+  curl_multi_add_handle(*multi, curl_up);
+
+  curl_multi_setopt(*multi, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
+
+  curl_multi_setopt(*multi, CURLMOPT_MAX_HOST_CONNECTIONS, 1L);
+
+  return 0;
+}
+
+static void http2_cleanup(CURLM *multi, struct curl_slist *chunk_down, struct curl_slist *chunk_up)
+{
+  if (multi) {
+    curl_multi_cleanup(multi);
+  }
+
+  if (chunk_down) {
+    curl_slist_free_all(chunk_down);
+  }
+
+  if (chunk_up) {
+    curl_slist_free_all(chunk_up);
+  }
+
+  curl_global_cleanup();
+}
+
+static void http2_timeout(CURLM *multi, struct timeval *timeout)
+{
+  long curl_timeo_ms = -1;
+
+  curl_multi_timeout(multi, &curl_timeo_ms);
+  if(curl_timeo_ms >= 0 && curl_timeo_ms <  TIMEOUT_MAX_S * 1000) {
+    *timeout = (struct timeval){ .tv_sec = 0, .tv_usec = curl_timeo_ms * 1000 };
+  } else {
+    /* Max timeout */
+    *timeout = (struct timeval){ .tv_sec = TIMEOUT_MAX_S, .tv_usec = 0 };
+  }
+}
+
+static void http2_loop(CURLM *multi)
+{
+  int active = 0;
+  curl_multi_perform(multi, &active);
+
+  while (active) {
+    struct timeval timeout = {0};
+    int rc, maxfd = -1;
+
+    fd_set fdread, fdwrite, fdexcep;
+    FD_ZERO(&fdread);
+    FD_ZERO(&fdwrite);
+    FD_ZERO(&fdexcep);
+
+    CURLMcode mc = curl_multi_fdset(multi, &fdread, &fdwrite, &fdexcep, &maxfd);
+
+    if (mc != CURLM_OK) {
+      piksi_log(LOG_ERR, "curl_multi_fdset() failed, code %d", mc);
+      break;
+    }
+
+    if (maxfd == -1) {
+      /* https://curl.haxx.se/libcurl/c/curl_multi_fdset.html
+       * Recommended wait is 100 ms in this case.
+       */
+      timeout = (struct timeval){ 0, 100 * 1000 };
+      rc = select(0, NULL, NULL, NULL, &timeout);
+    } else {
+      http2_timeout(multi, &timeout);
+      rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
+    }
+
+    if (rc >= 0) {
+      curl_multi_perform(multi, &active);
+    }
+  }
 }
 
 void skylark_http2(network_context_t *ctx_up, network_context_t *ctx_down)
 {
-  int still_running = 0; /* keep number of running handles */ 
-  network_ctx_setup(ctx_up);
-  network_ctx_setup(ctx_down);
+  assert(ctx_up);
+  assert(ctx_down);
 
   CURLcode code = curl_global_init(CURL_GLOBAL_ALL);
   if (code != CURLE_OK) {
@@ -147,116 +251,25 @@ void skylark_http2(network_context_t *ctx_up, network_context_t *ctx_down)
     return;
   }
 
-  CURL *curl_up = network_curl_init(ctx_up);
-
-  if (NULL == curl_up) {
-    piksi_log(LOG_ERR, "network_curl_init failed");
-    curl_global_cleanup();
-    return;
+  CURL *curl_down = NULL;
+  struct curl_slist *chunk_down = NULL;
+  if (http2_setup_download(ctx_down, &curl_down, &chunk_down)) {
+    goto cleanup;
   }
 
-  CURL *curl_down = network_curl_init(ctx_down);
-
-  if (NULL == curl_down) {
-    piksi_log(LOG_ERR, "network_curl_init failed");
-    curl_global_cleanup();
-    return;
+  CURL *curl_up = NULL;
+  struct curl_slist *chunk_up = NULL;
+  if (http2_setup_upload(ctx_up, &curl_up, &chunk_up)) {
+    goto cleanup;
   }
 
-  CURLM *multi_handle = curl_multi_init();
-
-  struct curl_slist *chunk_down = skylark_init(curl_down);
-  chunk_down = curl_slist_append(chunk_down, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
-  network_setup_download(chunk_down, ctx_down, curl_down);
-  http2_setup_download(curl_down);
-
-  struct curl_slist *chunk_up = skylark_init(curl_up);
-  chunk_up = curl_slist_append(chunk_up, "Transfer-Encoding: chunked");
-  chunk_up = curl_slist_append(chunk_up, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
-  skylark_setup_upload(chunk_up, ctx_up, curl_up);
-  http2_setup_upload(curl_up);
-
-  curl_multi_add_handle(multi_handle, curl_down);
-  curl_multi_add_handle(multi_handle, curl_up);
-
-  curl_multi_setopt(multi_handle, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
-
-  /* We do HTTP/2 so let's stick to one connection per host */ 
-  curl_multi_setopt(multi_handle, CURLMOPT_MAX_HOST_CONNECTIONS, 1L);
-
-  /* we start some action by calling perform right away */ 
-  curl_multi_perform(multi_handle, &still_running);
-
-  while(still_running) {
-    struct timeval timeout;
-    int rc; /* select() return code */ 
-    CURLMcode mc; /* curl_multi_fdset() return code */ 
-
-    fd_set fdread;
-    fd_set fdwrite;
-    fd_set fdexcep;
-    int maxfd = -1;
-
-    long curl_timeo = -1;
-
-    FD_ZERO(&fdread);
-    FD_ZERO(&fdwrite);
-    FD_ZERO(&fdexcep);
-
-    /* set a suitable timeout to play around with */ 
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
-
-    curl_multi_timeout(multi_handle, &curl_timeo);
-    if(curl_timeo >= 0) {
-      timeout.tv_sec = curl_timeo / 1000;
-      if(timeout.tv_sec > 1)
-        timeout.tv_sec = 1;
-      else
-        timeout.tv_usec = (curl_timeo % 1000) * 1000;
-    }
-
-    /* get file descriptors from the transfers */ 
-    mc = curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
-
-    if(mc != CURLM_OK) {
-      fprintf(stderr, "curl_multi_fdset() failed, code %d.\n", mc);
-      break;
-    }
-
-    /* On success the value of maxfd is guaranteed to be >= -1. We call
-       select(maxfd + 1, ...); specially in case of (maxfd == -1) there are
-       no fds ready yet so we call select(0, ...) --or Sleep() on Windows--
-       to sleep 100ms, which is the minimum suggested value in the
-       curl_multi_fdset() doc. */ 
-
-    if(maxfd == -1) {
-      struct timeval wait = { 0, 100 * 1000 }; /* 100ms */ 
-      rc = select(0, NULL, NULL, NULL, &wait);
-    }
-    else {
-      /* Note that on some platforms 'timeout' may be modified by select().
-         If you need access to the original value save a copy beforehand. */ 
-      rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
-    }
-
-    switch(rc) {
-    case -1:
-      /* select error */ 
-      break;
-    case 0:
-    default:
-      /* timeout or readable/writable sockets */ 
-      curl_multi_perform(multi_handle, &still_running);
-      break;
-    }
+  CURLM *multi = NULL;
+  if (http2_setup_multi(curl_down, curl_up, &multi)) {
+    goto cleanup;
   }
 
-  curl_multi_cleanup(multi_handle);
+  http2_loop(multi);
 
-  curl_slist_free_all(chunk_down);
-  curl_slist_free_all(chunk_up);
-
-  curl_easy_cleanup(curl_down);
-  curl_easy_cleanup(curl_up);
+cleanup:
+  http2_cleanup(multi, chunk_down, chunk_up);
 }
