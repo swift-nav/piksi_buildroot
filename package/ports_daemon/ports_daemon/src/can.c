@@ -17,6 +17,7 @@
 #include <sys/socket.h>
 #include <sys/socket.h>
 #include <linux/can.h>
+#include <string.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
@@ -140,6 +141,10 @@ static int can_configure(const can_t *can)
   piksi_log(LOG_ERR, "%s state %d", can->name, state);
 
   /* Turn the CAN interface on. */
+  if (device_is_duro() && strcmp(can->name, "can1")) {
+    piksi_log(LOG_ERR, "No can1 port on Duro");
+    return 1;
+  }
   if (can_do_start_piksi(can->name)) {
     piksi_log(LOG_ERR, "Could not start interface %s", can->name);
     return 1;
