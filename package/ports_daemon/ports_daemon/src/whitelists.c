@@ -48,6 +48,8 @@ enum port {
   PORT_UDP_SERVER1,
   PORT_UDP_CLIENT0,
   PORT_UDP_CLIENT1,
+  PORT_CAN0,
+  PORT_CAN1,
   PORT_MAX
 };
 
@@ -427,7 +429,15 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgStartup                 65280
         MsgDgnssStatus             65282
         MsgHeartbeat               65535 */
-  }
+  },
+  [PORT_CAN0] = {
+    .name = "can0",
+    .wl = "23,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+  },
+  [PORT_CAN1] = {
+    .name = "can1",
+    .wl = "23,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+  },
 };
 // clang-format on
 
@@ -463,7 +473,7 @@ int whitelist_notify(void *context)
         break;
       case PARSE_AFTER_DIV:
       case PARSE_AFTER_ID:
-      default: return -1;
+      default: return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
       }
       break;
 
@@ -473,7 +483,7 @@ int whitelist_notify(void *context)
         state = PARSE_DIV;
         c++;
       } else {
-        return -1;
+        return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
       }
       break;
 
@@ -483,7 +493,7 @@ int whitelist_notify(void *context)
         state = PARSE_ID;
         c++;
       } else {
-        return -1;
+        return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
       }
       break;
 
@@ -497,7 +507,7 @@ int whitelist_notify(void *context)
       break;
 
     /* Invalid token, parse error */
-    default: return -1;
+    default: return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
     }
   }
 
@@ -507,14 +517,14 @@ int whitelist_notify(void *context)
   FILE *cfg = fopen(fn, "w");
   if (cfg == NULL) {
     piksi_log(LOG_ERR, "Error opening file: %s (error: %s)", fn, strerror(errno));
-    return -1;
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
   }
   for (int i = 0; i < entries; i++) {
     fprintf(cfg, "%x %x\n", whitelist[i].id, whitelist[i].div);
   }
   fclose(cfg);
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 int whitelists_init(settings_ctx_t *settings_ctx)

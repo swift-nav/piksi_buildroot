@@ -146,7 +146,7 @@ static int notify_settings_changed(void *context)
 
   if (enable_broadcast) open_udp_broadcast_socket(&udp_context, broadcast_hostname, broadcast_port);
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 int main(int argc, char *argv[])

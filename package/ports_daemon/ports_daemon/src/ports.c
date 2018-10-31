@@ -22,6 +22,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
 
+#include "can.h"
 #include "ports.h"
 #include "protocols.h"
 
@@ -48,7 +49,8 @@ typedef enum {
   PORT_TYPE_TCP_SERVER,
   PORT_TYPE_TCP_CLIENT,
   PORT_TYPE_UDP_SERVER,
-  PORT_TYPE_UDP_CLIENT
+  PORT_TYPE_UDP_CLIENT,
+  PORT_TYPE_CAN,
 } port_type_t;
 
 typedef enum {
@@ -73,6 +75,9 @@ typedef union {
     char name[16];
     char address[256];
   } udp_client_data;
+  struct {
+    u8 number;
+  } can_data;
 } opts_data_t;
 
 typedef int (*opts_get_fn_t)(char *buf, size_t buf_size, const opts_data_t *opts_data);
@@ -101,6 +106,17 @@ static int opts_get_udp_client(char *buf, size_t buf_size, const opts_data_t *op
 {
   const char *address = opts_data->udp_client_data.address;
   return snprintf(buf, buf_size, "--name %s --udp-c %s", opts_data->udp_client_data.name, address);
+}
+
+static int opts_get_can(char *buf, size_t buf_size, const opts_data_t *opts_data)
+{
+  u8 nmbr = opts_data->can_data.number;
+  return snprintf(buf,
+                  buf_size,
+                  "--name can%" PRIu8 " --can %" PRIu32 " --can-f %" PRIu32,
+                  nmbr,
+                  can_get_id(nmbr),
+                  can_get_filter(nmbr));
 }
 
 typedef struct {
@@ -266,6 +282,30 @@ static port_config_t port_configs[] = {
     .restart = DO_NOT_RESTART,
     .first_start = true,
   },
+  {
+    .name = "can0",
+    .opts = "",
+    .opts_data.can_data.number = 0,
+    .opts_get = opts_get_can,
+    .type = PORT_TYPE_CAN,
+    .mode_name_default = MODE_NAME_DISABLED,
+    .mode = MODE_DISABLED,
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
+  },
+  {
+    .name = "can1",
+    .opts = "",
+    .opts_data.can_data.number = 1,
+    .opts_get = opts_get_can,
+    .type = PORT_TYPE_CAN,
+    .mode_name_default = MODE_NAME_DISABLED,
+    .mode = MODE_DISABLED,
+    .adapter_pid = PID_INVALID,
+    .restart = DO_NOT_RESTART,
+    .first_start = true,
+  },
 };
 
 static int mode_to_protocol_index(u8 mode)
@@ -295,7 +335,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   if (!updating_mode && port_config->first_start) {
     // Wait for mode settings to be updated before launching the port, the
     //   'mode' setting should be sent last because it's registered last.
-    return 0;
+    return SBP_SETTINGS_WRITE_STATUS_OK;
   }
 
   if (port_config->first_start) {
@@ -312,13 +352,13 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   }
 
   if (port_config->mode == MODE_DISABLED) {
-    return 0;
+    return SBP_SETTINGS_WRITE_STATUS_OK;
   }
 
   int protocol_index = mode_to_protocol_index(port_config->mode);
   const protocol_t *protocol = protocols_get(protocol_index);
   if (protocol == NULL) {
-    return -1;
+    return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
   }
 
   /* Prepare the command used to launch endpoint_adapter. */
@@ -334,7 +374,10 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
 
   piksi_log(LOG_DEBUG, "Starting endpoint_adapter: %s", cmd);
 
-  return start_runit_service(&cfg);
+  if (start_runit_service(&cfg) != 0) {
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+  }
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int setting_mode_notify(void *context)
@@ -536,4 +579,23 @@ int ports_init(settings_ctx_t *settings_ctx)
   }
 
   return 0;
+}
+
+bool port_is_enabled(const char *name)
+{
+  assert(strlen(name) > 3);
+
+  for (size_t i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
+    port_config_t *port_config = &port_configs[i];
+
+    if (strncmp(name, port_config->name, 3)) {
+      continue;
+    }
+
+    if (MODE_DISABLED != port_config->mode) {
+      return true;
+    }
+  }
+
+  return false;
 }

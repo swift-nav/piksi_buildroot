@@ -18,6 +18,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/settings.h>
 
+#include "can.h"
 #include "ports.h"
 #include "protocols.h"
 #include "whitelists.h"
@@ -74,6 +75,8 @@ static void settings_init(settings_ctx_t *s)
   if (ports_init(s) != 0) exit(EXIT_FAILURE);
 
   if (serial_init(s) != 0) exit(EXIT_FAILURE);
+
+  if (can_init(s) != 0) exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])

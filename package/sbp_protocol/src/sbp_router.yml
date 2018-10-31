@@ -209,3 +209,4 @@ ports:
   - name: SBP_PORT_NMEA_BRIDGE
     pub_addr: "ipc:///var/run/sockets/nmea_bridge.pub"
     sub_addr: "ipc:///var/run/sockets/nmea_bridge.sub"
+

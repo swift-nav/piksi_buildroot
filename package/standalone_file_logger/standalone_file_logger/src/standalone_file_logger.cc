@@ -173,12 +173,12 @@ static int logging_filesystem_notify(void *context)
 
   if (logging_fs_type != LOGGING_FILESYSTEM_F2FS) {
     save_prev_logging_fs_type_value();
-    return 0;
+    return SBP_SETTINGS_WRITE_STATUS_OK;
   }
 
   if (!logging_fs_type_prev.is_set || logging_fs_type_prev.value != LOGGING_FILESYSTEM_FAT) {
     save_prev_logging_fs_type_value();
-    return 0;
+    return SBP_SETTINGS_WRITE_STATUS_OK;
   }
 
   save_prev_logging_fs_type_value();
@@ -200,7 +200,7 @@ static int logging_filesystem_notify(void *context)
   for (size_t x = 0; x < str_count; ++x)
     piksi_log(LOG_WARNING, warning_strs[x]);
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int copy_system_logs_notify(void *context)
@@ -211,7 +211,7 @@ static int copy_system_logs_notify(void *context)
     system("COPY_SYS_LOGS= sudo /etc/init.d/S98copy_sys_logs stop");
   }
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int setting_usb_logging_notify(void *context)
@@ -235,7 +235,7 @@ static int setting_usb_logging_notify(void *context)
     stop_logging();
   }
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 static int log_frame_callback(const u8 *data, const size_t length, void *context)
