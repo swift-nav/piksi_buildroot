@@ -2,6 +2,7 @@
 
 FILEIO_DIR=/data/
 PERSIST_DIR=/persistent/
+FLAG_DIR=/etc/flags/
 MEDIA_DIR=/media/
 
 DIR_PERM=0755
@@ -13,6 +14,7 @@ cmd="sbp_fileio_daemon \
 -s 'ipc:///var/run/sockets/fileio_external.pub' \
 --basedir $FILEIO_DIR \
 --basedir $PERSIST_DIR \
+--basedir $FLAGS_DIR \
 --basedir $MEDIA_DIR \
 --imageset"
 
