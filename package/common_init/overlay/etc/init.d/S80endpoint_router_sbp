@@ -18,7 +18,6 @@ if [[ "$ins_output_mode" == "Loosely Coupled" ]]; then
   router_config="/etc/endpoint_router/sbp_router_smoothpose.yml"
 elif [[ "$starling_daemon_enabled" == "True" ]]; then
   router_config="/etc/endpoint_router/sbp_router_starling.yml"
-  echo "1" > /etc/flags/starling_on_linux
 else
   router_config="/etc/endpoint_router/sbp_router.yml"
 fi
