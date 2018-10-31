@@ -75,27 +75,27 @@ void piksi_vlog(int priority, const char *format, va_list ap)
 /* Adapted from: https://www.libssh2.org/mail/libssh2-devel-archive-2011-07/att-0011/xxd.c */
 void piksi_log_xxd(int priority, const char *header, const u8 *buffer, size_t len)
 {
-	piksi_log(priority, "%s", header);
-	char buf_start[128] = {0};
+  piksi_log(priority, "%s", header);
+  char buf_start[128] = {0};
   if (len >= MAX_XXD_DUMP) {
     piksi_log(priority, "<... buffer too large for %s ...>", __FUNCTION__);
     return;
   }
-	char *buf = buf_start;
-  size_t i,j;
-  for(i=0;i<len;i+=16) {
-    buf += sprintf(buf, "%06x: ",i);
-    for(j=0;j<16;j++)
-      if(i+j<len)
-        buf += sprintf(buf, " %02x",s[i+j]);
+  char *buf = buf_start;
+  size_t i, j;
+  for (i = 0; i < len; i += 16) {
+    buf += sprintf(buf, "%06x: ", i);
+    for (j = 0; j < 16; j++)
+      if (i + j < len)
+        buf += sprintf(buf, " %02x", s[i + j]);
       else
         buf += sprintf(buf, "   ");
     buf += sprintf(buf, "  ");
-    for(j=0;j<16&&i+j<len;j++)
-      buf += sprintf(buf, "%c",isprint(s[i+j])?s[i+j]:'.');
-		piksi_log(priority, "%s", buf_start);
-		buf = buf_start;
-		buf[0] = '\0';
+    for (j = 0; j < 16 && i + j < len; j++)
+      buf += sprintf(buf, "%c", isprint(s[i + j]) ? s[i + j] : '.');
+    piksi_log(priority, "%s", buf_start);
+    buf = buf_start;
+    buf[0] = '\0';
   }
 }
 

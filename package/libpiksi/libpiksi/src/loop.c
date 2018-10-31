@@ -559,11 +559,7 @@ const char *pk_loop_describe_status(int status)
   }
 
   if (status & LOOP_READ) {
-    snprintf(buf_read,
-             sizeof(buf_read),
-             "%s%sLOOP_READ",
-             addbar ? buf : "",
-             addbar ? "|" : "");
+    snprintf(buf_read, sizeof(buf_read), "%s%sLOOP_READ", addbar ? buf : "", addbar ? "|" : "");
     snprintf(buf, sizeof(buf), "%s", buf_read);
     addbar = true;
   }
