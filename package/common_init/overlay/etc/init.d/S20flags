@@ -3,8 +3,6 @@
 # initialize flags
 #
 
-log_tag=flag_init
-
 starling_daemon_enabled=$(query_config --section experimental_flags --key starling_on_linux)
 
 if [[ "$starling_daemon_enabled" == "True" ]]; then
