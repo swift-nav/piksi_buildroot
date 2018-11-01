@@ -228,6 +228,30 @@ To copy data out of docker, use the following make rule:
 make docker-cp SRC=/piksi_buildroot/buildroot/output/target/usr/bin/nap_linux DST=/tmp/nap_linux
 ```
 
+## Jenkins Builds
+
+The pipeline defined in Jenkinsfile is using docker containers. To reproduce the same container as used
+by Jenkins, run `make docker-jenkins` from the repo root dir; this will open a shell in the container.
+The workspace is mounted to /mnt/workspace.
+
+Note that on non-Linux hosts, the mounted filesystem's performance is very low, so a full build may take
+a long time.
+
+The alternative is to go to the users homedir, `git clone` the repo into the container, and run any build
+on that container-native filesystem:
+```bash
+> make docker-jenkins
+jenkins@9896b6d04be2:/mnt/workspace$ cd ~
+
+jenkins@9896b6d04be2:~$ git clone ssh://git@github.com/swift-nav/piksi_buildroot
+Cloning into 'piksi_buildroot'...
+
+jenkins@9896b6d04be2:~$ cd piksi_buildroot/
+jenkins@9896b6d04be2:~/piksi_buildroot$ git submodule update --init --recursive
+[...]
+jenkins@9896b6d04be2:~/piksi_buildroot$ make firmware image
+```
+
 ## Development
 
 ### Formatting
