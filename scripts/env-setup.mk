@@ -1,6 +1,9 @@
 # File: env-setup.mk
 
-CCACHE_DIR := $(CURDIR)/buildroot/output/ccache
+# Allow override of ccache dir from env var
+ifeq ($(CCACHE_DIR),)
+CCACHE_DIR := $(CURDIR)/.buildroot-ccache
+endif
 
 ifneq ($(CCACHE_READONLY),)
 CCACHE_RO_VAR := CCACHE_READONLY=$(CCACHE_READONLY)
