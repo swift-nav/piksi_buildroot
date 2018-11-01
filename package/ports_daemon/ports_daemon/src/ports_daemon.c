@@ -55,11 +55,6 @@ static int parse_options(int argc, char *argv[])
   int opt;
 
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
-    // end of options
-    if (opt == -1) {
-      break;
-    }
-
     switch (opt) {
 
     case OPT_ID_DEBUG: {
