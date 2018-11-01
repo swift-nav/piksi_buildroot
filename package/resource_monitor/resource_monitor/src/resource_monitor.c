@@ -67,7 +67,10 @@ static int notify_interval_changed(void *context)
 
   if (previous_interval != resource_monitor_interval_s) {
 
-    piksi_log(LOG_DEBUG | LOG_SBP, "resource monitor config: %d -> %d", previous_interval, resource_monitor_interval_s);
+    piksi_log(LOG_DEBUG,
+              "resource monitor config: %d -> %d",
+              previous_interval,
+              resource_monitor_interval_s);
 
     resq_teardown_all();
 
