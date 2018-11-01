@@ -42,7 +42,7 @@
 #define MAX_CLIENTS 128
 
 // clang-format off
-#define DEBUG_ENDPOINT
+//#define DEBUG_ENDPOINT
 #ifdef DEBUG_ENDPOINT
 #  define ENDPOINT_DEBUG_LOG(ThePattern, ...) \
      PK_LOG_ANNO(LOG_DEBUG, ThePattern, ##__VA_ARGS__)
@@ -739,10 +739,7 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
 
   if ((status & LOOP_ERROR) || (status & LOOP_DISCONNECTED)) {
 
-    PK_LOG_ANNO(LOG_DEBUG,
-                "client disconnected: %s (%08x)",
-                pk_loop_describe_status(status),
-                status);
+    ENDPOINT_DEBUG_LOG("client disconnected: %s (%08x)", pk_loop_describe_status(status), status);
 
     close(client_context->fd);
     record_disconnect(client_context->ept, &client_context->node);
