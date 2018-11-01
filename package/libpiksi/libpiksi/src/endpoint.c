@@ -55,10 +55,11 @@
 // clang-format on
 
 typedef struct client_node client_node_t;
+typedef struct removed_node removed_node_t;
 
 typedef struct {
   pk_endpoint_t *ept;
-  int fd;
+  int handle;
   void *poll_handle;
   client_node_t *node;
 } client_context_t;
@@ -68,7 +69,13 @@ struct client_node {
   LIST_ENTRY(client_node) entries;
 };
 
+struct removed_node {
+  client_node_t *client_node;
+  LIST_ENTRY(removed_node) entries;
+};
+
 typedef LIST_HEAD(client_nodes_head, client_node) client_nodes_head_t;
+typedef LIST_HEAD(removed_nodes_head, removed_node) removed_nodes_head_t;
 
 struct pk_endpoint_s {
   pk_endpoint_type type;                  /**< The type socket (e.g. {pub,sub}_server, pub/sub, req/rep*/
@@ -80,6 +87,7 @@ struct pk_endpoint_s {
   bool nonblock;                          /**< Set the socket to non-blocking mode */
   bool woke;                              /**< Has the socket been woken up */
   client_nodes_head_t client_nodes_head;  /**< The list of client nodes for a server socket */
+  removed_nodes_head_t removed_nodes_head; /**< The list of client nodes for a server socket */
   int client_count;                       /**< The number of clients for a server socket */
   pk_loop_t *loop;                        /**< The event loop this endpoint is associated with */
   void *poll_handle;                      /**< The poll handle for this socket */
@@ -97,49 +105,27 @@ static int connect_un_socket(int fd, const char *path);
 
 static bool valid_socket_type_for_read(pk_endpoint_t *pk_ept);
 
-static int recv_impl(pk_endpoint_t *ept,
-                     int sock,
-                     u8 *buffer,
-                     size_t *length_loc,
-                     bool nonblocking,
-                     pk_loop_t *loop,
-                     void *poll_handle,
-                     client_node_t **node);
+static void teardown_client(client_context_t *ctx);
 
-static int service_reads_base(pk_endpoint_t *ept,
-                              int fd,
-                              pk_loop_t *loop,
-                              void *poll_handle,
-                              pk_endpoint_receive_cb rx_cb,
-                              void *context,
-                              client_node_t **node);
+static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc);
 
-static int service_reads(pk_endpoint_t *ept,
-                         int fd,
-                         pk_loop_t *loop,
-                         void *poll_handle,
-                         pk_endpoint_receive_cb rx_cb,
-                         void *context);
+static int service_reads(client_context_t *ctx, pk_endpoint_receive_cb rx_cb, void *context);
 
-static void send_close_socket_helper(pk_endpoint_t *ept,
-                                     int sock,
-                                     pk_loop_t *loop,
-                                     void *poll_handle,
-                                     client_node_t **node);
+static void send_close_socket_helper(client_context_t *ctx);
 
-static int send_impl_base(pk_endpoint_t *ept,
-                          int sock,
-                          const u8 *data,
-                          size_t length,
-                          pk_loop_t *loop,
-                          void *poll_handle,
-                          client_node_t **node);
+static int send_impl(client_context_t *ctx, const u8 *data, size_t length);
 
-static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, size_t length);
+static void discard_read_data(client_context_t *ctx);
 
-static void discard_read_data(pk_loop_t *loop, client_context_t *ctx);
+NESTED_FN_TYPEDEF(void, foreach_client_fn_t, pk_endpoint_t *pk_ept, client_node_t *client_node, void *context);
 
-static void record_disconnect(pk_endpoint_t *ept, client_node_t **node);
+static void foreach_client(pk_endpoint_t *pk_ept, void *context, foreach_client_fn_t foreach_fn);
+
+static void purge_client_node(client_node_t *client_node);
+
+static void process_removed_clients(pk_endpoint_t *pk_ept);
+
+static void record_disconnect(client_node_t *node);
 
 static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *context);
 
@@ -175,6 +161,7 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   strncpy(pk_ept->path, endpoint, sizeof(pk_ept->path));
 
   LIST_INIT(&pk_ept->client_nodes_head);
+  LIST_INIT(&pk_ept->removed_nodes_head);
 
   bool do_bind = false;
   switch (pk_ept->type) {
@@ -280,11 +267,7 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
   }
   while (!LIST_EMPTY(&pk_ept->client_nodes_head)) {
     client_node_t *node = LIST_FIRST(&pk_ept->client_nodes_head);
-    LIST_REMOVE(node, entries);
-    if (pk_ept->loop != NULL) {
-      pk_loop_poll_remove(pk_ept->loop, node->val.poll_handle);
-    }
-    free(node);
+    purge_client_node(node);
   }
   if (pk_ept->wakefd >= 0) {
     while (close(pk_ept->wakefd) != 0) {
@@ -364,16 +347,21 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 
     pk_ept->woke = false;
 
-    client_node_t *node;
-    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
-    {
-      rc = recv_impl(pk_ept, node->val.fd, buffer, &length, pk_ept->nonblock, NULL, NULL, NULL);
-      // TODO safely handle things being removed?
-    }
+    foreach_client(pk_ept, &length, NESTED_FN(void, (pk_endpoint_t *pk_ept, client_node_t *node, void *ctx), {
+      size_t *length_loc = ctx;
+      recv_impl(&node->val, buffer, length_loc);
+    }));
 
   } else {
 
-    rc = recv_impl(pk_ept, pk_ept->sock, buffer, &length, pk_ept->nonblock, NULL, NULL, NULL);
+    client_context_t client_context = (client_context_t) {
+      .ept = pk_ept,
+      .handle = pk_ept->sock, 
+      .poll_handle = NULL,
+      .node = NULL,
+    };
+
+    rc = recv_impl(&client_context, buffer, &length);
   }
 
   if (rc < 0) return rc;
@@ -412,21 +400,18 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
 
     pk_ept->woke = false;
 
-    client_node_t *node;
-    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
-    {
-      service_reads_base(pk_ept,
-                         node->val.fd,
-                         pk_ept->loop,
-                         node->val.poll_handle,
-                         rx_cb,
-                         context,
-                         &node);
-      // TODO safely handle things being removed?
-    }
+    foreach_client(pk_ept, NULL, NESTED_FN(void, (pk_endpoint_t *pk_ept, client_node_t *node, void *ctx), {
+      service_reads(&node->val, rx_cb, context);
+    }));
 
   } else {
-    service_reads(pk_ept, pk_ept->sock, pk_ept->loop, pk_ept->poll_handle, rx_cb, context);
+    client_context_t ctx = (client_context_t) {
+      .ept = pk_ept,
+      .handle = pk_ept->sock,
+      .poll_handle = pk_ept->poll_handle,
+      .node = NULL,
+    };
+    service_reads(&ctx, rx_cb, context);
   }
 
   return 0;
@@ -444,20 +429,19 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   int rc = -1;
 
   if (pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_REQ) {
-    rc = send_impl(pk_ept, pk_ept->sock, data, length);
+    client_context_t ctx = (client_context_t) {
+      .ept = pk_ept,
+      .handle = pk_ept->sock,
+      .poll_handle = NULL,
+      .node = NULL,
+    };
+    rc = send_impl(&ctx, data, length);
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
-    client_node_t *node;
-    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
-    {
-      rc = send_impl_base(pk_ept,
-                          node->val.fd,
-                          data,
-                          length,
-                          pk_ept->loop,
-                          node->val.poll_handle,
-                          &node);
-      // TODO safely handle things being removed?
-    }
+    foreach_client(pk_ept, &rc, NESTED_FN(void, (pk_endpoint_t *pk_ept, client_node_t *node, void *ctx), {
+      // TODO: Why are we saving rc here, invalid clients will just be removed...
+      int *rc_loc = ctx;
+      *rc_loc = send_impl(&node->val, data, length);
+    }));
   }
 
   return rc;
@@ -624,15 +608,27 @@ static bool valid_socket_type_for_read(pk_endpoint_t *pk_ept)
   return false;
 }
 
-static int recv_impl(pk_endpoint_t *ept,
-                     int sock,
-                     u8 *buffer,
-                     size_t *length_loc,
-                     bool nonblocking,
-                     pk_loop_t *loop,
-                     void *poll_handle,
-                     client_node_t **node)
+static void teardown_client(client_context_t *ctx)
 {
+  if (ctx->ept->loop != NULL && ctx->poll_handle != NULL) {
+    pk_loop_poll_remove(ctx->ept->loop, ctx->poll_handle);
+    ctx->poll_handle = NULL;
+  }
+
+  ASSERT_TRACE(ctx->poll_handle == NULL);
+
+  if (ctx->handle == -1) return;
+
+  shutdown(ctx->handle, SHUT_RDWR);
+  close(ctx->handle);
+
+  ctx->handle = -1;
+}
+
+static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
+{
+  ENDPOINT_DEBUG_LOG("handle: %d, ept: %p, poll_handle: %p, node: %p", ctx->handle, ctx->ept, ctx->poll_handle, ctx->node);
+
   int err = 0;
   int length = 0;
 
@@ -647,18 +643,13 @@ static int recv_impl(pk_endpoint_t *ept,
 
   while (1) {
 
-    length = recvmsg(sock, &msg, 0);
+    length = recvmsg(ctx->handle, &msg, 0);
 
     if (length >= 0) {
       if (length == 0) {
         ENDPOINT_DEBUG_LOG("socket closed");
-        if (loop != NULL) {
-          ASSERT_TRACE(poll_handle != NULL);
-          pk_loop_poll_remove(loop, poll_handle);
-        }
-        if (node != NULL) record_disconnect(ept, node);
-        shutdown(sock, SHUT_RDWR);
-        close(sock);
+        if (ctx->node != NULL) record_disconnect(ctx->node);
+        teardown_client(ctx);
       }
       // TODO: we should probably auto reconnect here if we're a PUB/SUB/REQ
       //   (non-server socket).
@@ -671,7 +662,7 @@ static int recv_impl(pk_endpoint_t *ept,
       continue;
     }
 
-    if (nonblocking && errno == EAGAIN) {
+    if (ctx->ept->nonblock && errno == EAGAIN) {
       // An "expected" error, don't need to report an error
       return PKE_EAGAIN;
     }
@@ -688,18 +679,12 @@ static int recv_impl(pk_endpoint_t *ept,
   return PKE_SUCCESS;
 }
 
-static int service_reads_base(pk_endpoint_t *ept,
-                              int fd,
-                              pk_loop_t *loop,
-                              void *poll_handle,
-                              pk_endpoint_receive_cb rx_cb,
-                              void *context,
-                              client_node_t **node)
+static int service_reads(client_context_t *ctx, pk_endpoint_receive_cb rx_cb, void *context)
 {
   for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
     u8 buffer[4096] = {0};
     size_t length = sizeof(buffer);
-    int rc = recv_impl(ept, fd, buffer, &length, true, loop, poll_handle, node);
+    int rc = recv_impl(ctx, buffer, &length);
     if (rc < 0) {
       if (rc == PKE_EAGAIN || rc == PKE_NOT_CONN) break;
       piksi_log(LOG_ERR, "failed to receive message");
@@ -712,43 +697,16 @@ static int service_reads_base(pk_endpoint_t *ept,
   return 0;
 }
 
-static int service_reads(pk_endpoint_t *ept,
-                         int fd,
-                         pk_loop_t *loop,
-                         void *poll_handle,
-                         pk_endpoint_receive_cb rx_cb,
-                         void *context)
+static void send_close_socket_helper(client_context_t *ctx)
 {
-  return service_reads_base(ept, fd, loop, poll_handle, rx_cb, context, NULL);
+  if (ctx->node != NULL) record_disconnect(ctx->node);
+  teardown_client(ctx);
 }
 
-static void send_close_socket_helper(pk_endpoint_t *ept,
-                                     int sock,
-                                     pk_loop_t *loop,
-                                     void *poll_handle,
-                                     client_node_t **node)
+static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 {
-  if (loop != NULL) {
+  ENDPOINT_DEBUG_LOG("handle: %d, ept: %p, poll_handle: %p, node: %p", ctx->handle, ctx->ept, ctx->poll_handle, ctx->node);
 
-    ASSERT_TRACE(poll_handle != NULL);
-    ASSERT_TRACE(node != NULL);
-
-    pk_loop_poll_remove(loop, poll_handle);
-    if (node != NULL) record_disconnect(ept, node);
-  }
-
-  shutdown(sock, SHUT_RDWR);
-  close(sock);
-}
-
-static int send_impl_base(pk_endpoint_t *ept,
-                          int sock,
-                          const u8 *data,
-                          const size_t length,
-                          pk_loop_t *loop,
-                          void *poll_handle,
-                          client_node_t **node)
-{
   struct iovec iov[1] = {0};
   struct msghdr msg = {0};
 
@@ -760,7 +718,7 @@ static int send_impl_base(pk_endpoint_t *ept,
 
   while (1) {
 
-    int written = sendmsg(sock, &msg, 0);
+    int written = sendmsg(ctx->handle, &msg, 0);
     int error = errno;
 
     if (written != -1) {
@@ -772,12 +730,12 @@ static int send_impl_base(pk_endpoint_t *ept,
     if (error == EAGAIN || error == EWOULDBLOCK) {
 
       int queued_input = -1;
-      int error = ioctl(sock, SIOCINQ, &queued_input);
+      int error = ioctl(ctx->handle, SIOCINQ, &queued_input);
 
       if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCINQ: %s", strerror(errno));
 
       int queued_output = -1;
-      error = ioctl(sock, SIOCOUTQ, &queued_output);
+      error = ioctl(ctx->handle, SIOCOUTQ, &queued_output);
 
       if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCOUTQ: %s", strerror(errno));
 
@@ -785,12 +743,13 @@ static int send_impl_base(pk_endpoint_t *ept,
                   "sendmsg returned EAGAIN, dropping %d bytes "
                   "(path: %s, node: %p, queued input: %d, queued output: %d)",
                   length,
-                  ept->path,
-                  node,
+                  ctx->ept->path,
+                  ctx->node,
                   queued_input,
                   queued_output);
 
-      send_close_socket_helper(ept, sock, loop, poll_handle, node);
+
+      send_close_socket_helper(ctx);
 
       return 0;
     }
@@ -801,7 +760,7 @@ static int send_impl_base(pk_endpoint_t *ept,
       continue;
     }
 
-    send_close_socket_helper(ept, sock, loop, poll_handle, node);
+    send_close_socket_helper(ctx);
 
     if (error != EPIPE && error != ECONNRESET) {
       PK_LOG_ANNO(LOG_ERR, "error in sendmsg: %s", strerror(error));
@@ -812,12 +771,7 @@ static int send_impl_base(pk_endpoint_t *ept,
   }
 }
 
-static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, const size_t length)
-{
-  return send_impl_base(ept, sock, data, length, NULL, NULL, NULL);
-}
-
-static void discard_read_data(pk_loop_t *loop, client_context_t *ctx)
+static void discard_read_data(client_context_t *ctx)
 {
   u8 read_buf[4096];
   size_t length = sizeof(read_buf);
@@ -826,27 +780,56 @@ static void discard_read_data(pk_loop_t *loop, client_context_t *ctx)
 
     if (ctx == NULL || ctx->node == NULL) break;
 
-    pk_endpoint_t *ept = ctx->ept;
-    int fd = ctx->fd;
-    void *poll_handle = ctx->poll_handle;
-    client_node_t *node = ctx->node;
-
-    if (recv_impl(ept, fd, read_buf, &length, true, loop, poll_handle, &node) != 0) {
+    if (recv_impl(ctx, read_buf, &length) != 0) {
       break;
     }
   }
 }
 
-static void record_disconnect(pk_endpoint_t *ept, client_node_t **node)
+static void foreach_client(pk_endpoint_t *pk_ept, void *context, foreach_client_fn_t foreach_fn)
 {
+  client_node_t *node;
+  LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
+  {
+    foreach_fn(pk_ept, node, context);
+  }
+  process_removed_clients(pk_ept);
+}
+
+static void purge_client_node(client_node_t *client_node)
+{
+  LIST_REMOVE(client_node, entries);
+  teardown_client(&client_node->val);
+  free(client_node);
+}
+
+static void process_removed_clients(pk_endpoint_t *pk_ept)
+{
+  while (!LIST_EMPTY(&pk_ept->removed_nodes_head)) {
+
+    removed_node_t *removed_node = LIST_FIRST(&pk_ept->removed_nodes_head);
+    LIST_REMOVE(removed_node, entries);
+
+    ENDPOINT_DEBUG_LOG("removing client: client node: %d", removed_node->client_node);
+
+    purge_client_node(removed_node->client_node);
+    free(removed_node);
+  }
+}
+
+static void record_disconnect(client_node_t *node)
+{
+  pk_endpoint_t *ept = node->val.ept;
+
   ASSERT_TRACE(ept != NULL);
-  ASSERT_TRACE(node != NULL && *node != NULL);
+  ASSERT_TRACE(node != NULL);
 
   --ept->client_count;
-  LIST_REMOVE(*node, entries);
 
-  free(*node);
-  *node = NULL;
+  removed_node_t* removed_node = malloc(sizeof(removed_node_t));
+  *removed_node = (removed_node_t) { .client_node = node };
+
+  LIST_INSERT_HEAD(&ept->removed_nodes_head, removed_node, entries);
 
   if (ept->client_count < 0) {
     PK_LOG_ANNO(LOG_ERR | LOG_SBP, "client count is negative (count: %d)", ept->client_count);
@@ -855,6 +838,7 @@ static void record_disconnect(pk_endpoint_t *ept, client_node_t **node)
 
 static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *context)
 {
+  (void)loop;
   (void)handle;
 
   client_context_t *client_context = (client_context_t *)context;
@@ -863,8 +847,9 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
 
     ENDPOINT_DEBUG_LOG("client disconnected: %s (%08x)", pk_loop_describe_status(status), status);
 
-    close(client_context->fd);
-    record_disconnect(client_context->ept, &client_context->node);
+    teardown_client(client_context);
+    record_disconnect(client_context->node);
+    process_removed_clients(client_context->ept);
 
     return;
   }
@@ -872,7 +857,7 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
   if ((status & LOOP_READ) && client_context->ept->type == PK_ENDPOINT_PUB_SERVER) {
 
     piksi_log(LOG_WARNING, "discarding read data from pub server");
-    discard_read_data(loop, client_context);
+    discard_read_data(client_context);
 
     return;
   }
@@ -932,7 +917,7 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
 
   ENDPOINT_DEBUG_LOG("new client_fd: %d", clientfd);
 
-  client_context->fd = clientfd;
+  client_context->handle = clientfd;
   client_context->ept = ept;
   client_context->node = client_node;
 
