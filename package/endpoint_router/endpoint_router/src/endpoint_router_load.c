@@ -22,12 +22,12 @@
 #define PROCESS_FN(name) \
   int process_##name(yaml_event_t *event, yaml_parser_t *parser, void *context)
 
-typedef struct {
+typedef struct { /* NOLINT */
   yaml_event_type_t event_type;
   const char *scalar_value;
   int (*process)(yaml_event_t *event, yaml_parser_t *parser, void *context);
   bool next;
-} expected_event_t; /* NOLINT */
+} expected_event_t;
 
 static PROCESS_FN(router);
 static PROCESS_FN(router_name);
