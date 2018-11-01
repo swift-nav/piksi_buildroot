@@ -27,7 +27,7 @@ typedef struct {
   const char *scalar_value;
   int (*process)(yaml_event_t *event, yaml_parser_t *parser, void *context);
   bool next;
-} expected_event_t;
+} expected_event_t; /* NOLINT */
 
 static PROCESS_FN(router);
 static PROCESS_FN(router_name);
@@ -178,8 +178,9 @@ static int handle_expected_events(yaml_parser_t *parser,
         }
 
         break;
+      }
 
-      } else if (expected_event->next) {
+      if (expected_event->next) {
         i++;
       } else {
         printf("unexpected event: %d\n", event.type);
@@ -249,28 +250,28 @@ static filter_t *current_filter_get(router_t *router)
   return filter;
 }
 
-typedef void (*consume_str_fn_t)(port_t *p, char *s);
+NESTED_FN_TYPEDEF(void, consume_str_fn_t, port_t *p, char *);
 
 #define MAKE_CONSUME_FN(FuncName, TheField) \
-  consume_str_fn_t FuncName = lambda(void, (port_t * p, char *s) { p->TheField = s; });
+  consume_str_fn_t FuncName = NESTED_FN(void, (port_t * p, char *s), { p->TheField = s; });
 
 static int event_port_string(yaml_parser_t *parser, void *context, consume_str_fn_t consume_str_fn)
 {
   router_t *router = (router_t *)context;
+  port_t *port = NULL;
 
-  char *str;
-  if (event_scalar_value_get(parser, &str) != 0) {
-    return -1;
-  }
+  char *str = NULL;
+  if (event_scalar_value_get(parser, &str) != 0) goto error;
 
-  port_t *port = current_port_get(router);
-  if (port == NULL) {
-    return -1;
-  }
+  port = current_port_get(router);
+  if (port == NULL) goto error;
 
   consume_str_fn(port, str);
-
   return 0;
+
+error:
+  if (str != NULL) free(str);
+  return -1;
 }
 
 

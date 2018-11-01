@@ -146,7 +146,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
  * @retval 0                Send operation was successful.
  * @retval -1               An error occurred.
  */
-int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length);
+int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, size_t length);
 
 /**
  * @brief   Get specific error string following and operation that failed

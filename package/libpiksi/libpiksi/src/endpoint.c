@@ -38,7 +38,20 @@
 
 #define IPC_PREFIX "ipc://"
 
+// MAximum number of client we expect to have per socket
 #define MAX_CLIENTS 128
+
+// clang-format off
+#define DEBUG_ENDPOINT
+#ifdef DEBUG_ENDPOINT
+#  define ENDPOINT_DEBUG_LOG(ThePattern, ...) \
+     PK_LOG_ANNO(LOG_DEBUG, ThePattern, ##__VA_ARGS__)
+#  define NDEBUG_UNUSED(X)
+#else
+#  define ENDPOINT_DEBUG_LOG(...)
+#  define NDEBUG_UNUSED(X) (void)(X)
+#endif
+// clang-format on
 
 void print_trace(const char *assert_str, const char *file, const char *func, int lineno)
 {
@@ -63,6 +76,8 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
   }
 
   free(strings);
+
+#undef ASSERT_FAIL_MSG
 }
 
 #define ASSERT_TRACE(TheAssert)                                           \
@@ -104,17 +119,15 @@ struct pk_endpoint_s {
   char path[PATH_MAX];
 };
 
-
-static void record_disconnect(pk_endpoint_t *pk_ept, client_node_t *node);
+static void record_disconnect(pk_endpoint_t *ept, client_node_t *node);
 static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void *context);
 
 static int create_un_socket()
 {
-
   int fd = -1;
 
   if ((fd = socket(AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
-    pk_log_anno(LOG_ERR, "socket error: %s", strerror(errno));
+    PK_LOG_ANNO(LOG_ERR, "socket error: %s", strerror(errno));
     return -1;
   }
 
@@ -140,7 +153,7 @@ static int start_un_listen(const char *path, int fd)
 
   if (listen(fd, 50) == -1) {
 
-    pk_log_anno(LOG_ERR, "listen() error for socket: %s (path: %s)", strerror(errno), path);
+    PK_LOG_ANNO(LOG_ERR, "listen() error for socket: %s (path: %s)", strerror(errno), path);
     return -1;
   }
 
@@ -154,7 +167,7 @@ static int connect_un_socket(int fd, const char *path)
   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
   if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-    pk_log_anno(LOG_ERR, "connect error: %s (path: %s)", strerror(errno), path);
+    PK_LOG_ANNO(LOG_ERR, "connect error: %s (path: %s)", strerror(errno), path);
     return -1;
   }
 
@@ -221,7 +234,7 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   if (do_bind) {
     int rc = unlink(endpoint + prefix_len);
     if (rc != 0 && errno != ENOENT) {
-      pk_log_anno(LOG_WARNING, "unlink: %s", strerror(errno));
+      PK_LOG_ANNO(LOG_WARNING, "unlink: %s", strerror(errno));
     }
   }
 
@@ -242,13 +255,13 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
 
     int rc = chmod(endpoint + prefix_len, 0777);
     if (rc != 0) {
-      pk_log_anno(LOG_WARNING, "chmod: %s", strerror(errno));
+      PK_LOG_ANNO(LOG_WARNING, "chmod: %s", strerror(errno));
     }
 
     pk_ept->wakefd = eventfd(0, EFD_NONBLOCK);
 
     if (pk_ept->wakefd < 0) {
-      pk_log_anno(LOG_ERR, "eventfd: %s", strerror(errno));
+      PK_LOG_ANNO(LOG_ERR, "eventfd: %s", strerror(errno));
       goto failure;
     }
   }
@@ -348,11 +361,10 @@ static int recv_impl(pk_endpoint_t *ept,
   while (1) {
 
     length = recvmsg(sock, &msg, 0);
-    //    pk_log_anno(LOG_DEBUG, "recvmsg: length: %d", length);
 
     if (length >= 0) {
       if (length == 0) {
-        pk_log_anno(LOG_DEBUG, "socket closed");
+        ENDPOINT_DEBUG_LOG("socket closed");
         if (loop != NULL) {
           ASSERT_TRACE(poll_handle != NULL);
           pk_loop_poll_remove(loop, poll_handle);
@@ -364,24 +376,24 @@ static int recv_impl(pk_endpoint_t *ept,
       // TODO: we should probably auto reconnect here if we're a PUB/SUB/REQ
       //   (non-server socket).
       break;
+    }
 
-    } else if (errno == EINTR) {
+    if (errno == EINTR) {
       /* Retry if interrupted */
-      pk_log_anno(LOG_DEBUG, "got EINTR from recvmsg: %s", strerror(errno));
+      ENDPOINT_DEBUG_LOG("got EINTR from recvmsg: %s", strerror(errno));
       continue;
+    }
 
-    } else if (nonblocking && errno == EAGAIN) {
+    if (nonblocking && errno == EAGAIN) {
       // An "expected" error, don't need to report an error
       return PKE_EAGAIN;
-
-    } else {
-
-      if ((err = errno) != ENOTCONN) {
-        pk_log_anno(LOG_ERR, "recvmsg error: %d (%s)", err, strerror(err));
-      }
-
-      return err == ENOTCONN ? PKE_NOT_CONN : PKE_ERROR;
     }
+
+    if ((err = errno) != ENOTCONN) {
+      PK_LOG_ANNO(LOG_ERR, "recvmsg error: %d (%s)", err, strerror(err));
+    }
+
+    return err == ENOTCONN ? PKE_NOT_CONN : PKE_ERROR;
   }
 
   *length_loc = (size_t)length;
@@ -409,7 +421,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
   ASSERT_TRACE(count > 0);
 
   if (!valid_socket_type_for_read(pk_ept)) {
-    pk_log_anno(LOG_ERR, "invalid socket type for read");
+    PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
     return -1;
   }
 
@@ -422,7 +434,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
     ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
 
     if (c < 0 || c != sizeof(counter)) {
-      pk_log_anno(LOG_ERR, "invalid read size from eventfd: %zd", c);
+      PK_LOG_ANNO(LOG_ERR, "invalid read size from eventfd: %zd", c);
       return -1;
     }
 
@@ -479,7 +491,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
   ASSERT_TRACE(pk_ept->nonblock);
 
   if (!valid_socket_type_for_read(pk_ept)) {
-    pk_log_anno(LOG_ERR, "invalid socket type for read");
+    PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
     return -1;
   }
 
@@ -489,7 +501,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
     ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
 
     if (c < 0 || c != sizeof(counter)) {
-      pk_log_anno(LOG_ERR, "invalid read size from eventfd: %zd", c);
+      PK_LOG_ANNO(LOG_ERR, "invalid read size from eventfd: %zd", c);
       return -1;
     }
 
@@ -561,14 +573,14 @@ static int send_impl(pk_endpoint_t *ept,
       int queued_input = -1;
       int error = ioctl(sock, SIOCINQ, &queued_input);
 
-      if (error < 0) pk_log_anno(LOG_DEBUG, "unable to read SIOCINQ: %s", strerror(errno));
+      if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCINQ: %s", strerror(errno));
 
       int queued_output = -1;
       error = ioctl(sock, SIOCOUTQ, &queued_output);
 
-      if (error < 0) pk_log_anno(LOG_DEBUG, "unable to read SIOCOUTQ: %s", strerror(errno));
+      if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCOUTQ: %s", strerror(errno));
 
-      pk_log_anno(LOG_WARNING,
+      PK_LOG_ANNO(LOG_WARNING,
                   "sendmsg returned EAGAIN, dropping %d bytes "
                   "(path: %s, node: %p, queued input: %d, queued output: %d)",
                   length,
@@ -583,7 +595,7 @@ static int send_impl(pk_endpoint_t *ept,
 
     } else if (error == EINTR) {
       /* Retry if interrupted */
-      pk_log_anno(LOG_DEBUG, "sendmsg returned with EINTR");
+      ENDPOINT_DEBUG_LOG("sendmsg returned with EINTR");
       continue;
 
     } else {
@@ -591,7 +603,7 @@ static int send_impl(pk_endpoint_t *ept,
       close_socket_helper();
 
       if (error != EPIPE && error != ECONNRESET) {
-        pk_log_anno(LOG_ERR, "error in sendmsg: %s", strerror(error));
+        PK_LOG_ANNO(LOG_ERR, "error in sendmsg: %s", strerror(error));
       }
 
       /* Return error */
@@ -631,7 +643,7 @@ int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept)
   int status = -1;
 
   if ((status = fcntl(pk_ept->sock, F_SETFL, fcntl(pk_ept->sock, F_GETFL, 0) | O_NONBLOCK))) {
-    pk_log_anno(LOG_ERR, "fcntl error: %s", strerror(errno));
+    PK_LOG_ANNO(LOG_ERR, "fcntl error: %s", strerror(errno));
     return -1;
   }
 
@@ -645,7 +657,7 @@ int pk_endpoint_accept(pk_endpoint_t *pk_ept)
   int cl;
 
   if ((cl = accept(pk_ept->sock, NULL, NULL)) == -1) {
-    pk_log_anno(LOG_ERR, "accept error: %s", strerror(errno));
+    PK_LOG_ANNO(LOG_ERR, "accept error: %s", strerror(errno));
     return -1;
   }
 
@@ -676,7 +688,7 @@ static void record_disconnect(pk_endpoint_t *ept, client_node_t *node)
   free(node);
 
   if (ept->client_count < 0) {
-    pk_log_anno(LOG_ERR | LOG_SBP, "client count is negative (count: %d)", ept->client_count);
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "client count is negative (count: %d)", ept->client_count);
   }
 }
 
@@ -686,7 +698,7 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
 
   if ((status & LOOP_ERROR) || (status & LOOP_DISCONNECTED)) {
 
-    pk_log_anno(LOG_DEBUG,
+    PK_LOG_ANNO(LOG_DEBUG,
                 "client disconnected: %s (%08x)",
                 pk_loop_describe_status(status),
                 status);
@@ -716,17 +728,19 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
 
 static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
+  (void)handle;
+
   ASSERT_TRACE(loop != NULL);
 
   if (!(status & LOOP_READ) && status != LOOP_SUCCESS) {
 
     if (status & LOOP_ERROR) {
-      pk_log_anno(LOG_ERR,
+      PK_LOG_ANNO(LOG_ERR,
                   "status: %s; error: %s",
                   pk_loop_describe_status(status),
                   pk_loop_last_error(loop));
     } else {
-      pk_log_anno(LOG_ERR, "status: %s", pk_loop_describe_status(status));
+      PK_LOG_ANNO(LOG_ERR, "status: %s", pk_loop_describe_status(status));
     }
 
     return;
@@ -752,18 +766,18 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
 
   client_context_t *client_context = &client_node->val;
 
-  pk_log_anno(LOG_DEBUG, "new client_count: %d; path: %s", ept->client_count + 1, ept->path);
+  ENDPOINT_DEBUG_LOG("new client_count: %d; path: %s", ept->client_count + 1, ept->path);
 
   int clientfd = pk_endpoint_accept(ept);
 
-  pk_log_anno(LOG_DEBUG, "new client_fd: %d", clientfd);
+  ENDPOINT_DEBUG_LOG("new client_fd: %d", clientfd);
 
   client_context->fd = clientfd;
   client_context->ept = ept;
   client_context->node = client_node;
 
   if (fcntl(clientfd, F_SETFL, fcntl(clientfd, F_GETFL, 0) | O_NONBLOCK) < 0) {
-    pk_log_anno(LOG_WARNING, "fcntl error: %s", strerror(errno));
+    PK_LOG_ANNO(LOG_WARNING, "fcntl error: %s", strerror(errno));
   }
 
   if (++ept->client_count > MAX_CLIENTS) {
