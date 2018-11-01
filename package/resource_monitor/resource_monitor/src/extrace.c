@@ -79,6 +79,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <libpiksi/logging.h>
+
+#define PROGRAM_NAME "extrace"
+
 #define max(x, y) ((y) < (x) ? (x) : (y))
 #define min(x, y) ((y) > (x) ? (x) : (y))
 
@@ -309,9 +313,11 @@ handle_msg(struct cn_msg *cn_hdr)
 		int i = 0;
 		int proc_dir_fd = open_proc_dir(pid);
 		if (proc_dir_fd < 0) {
+#if DEBUG_EXTRACE
 			fprintf(stderr,
 			    "extrace: process vanished before notification: pid %d\n",
 			    pid);
+#endif
 			return;
 		}
 
@@ -354,9 +360,13 @@ handle_msg(struct cn_msg *cn_hdr)
 			for (i = 0; i < PID_DB_SIZE - 1; i++)
 				if (pid_db[i].pid == 0)
 					break;
-			if (i == PID_DB_SIZE - 1)
+			if (i == PID_DB_SIZE - 1) {
+				piksi_log(LOG_ERR, "process tracking table overflowed, too many processes may be spawning and/or exiting");
+#if DEBUG_EXTRACE
 				fprintf(stderr, "extrace: warning: pid_db of "
 				    "size %d overflowed\n", PID_DB_SIZE);
+#endif
+      }
 
 			pid_db[i].pid = pid;
 			pid_db[i].depth = d;
@@ -582,6 +592,8 @@ usage:
 		}
 	}
 
+	logging_init(PROGRAM_NAME);
+
 	rc = 0;
 	while (!quit) {
 		cmsg = (struct cn_msg *)(buff + sizeof (struct nlmsghdr));
@@ -619,6 +631,8 @@ usage:
 			nlh = NLMSG_NEXT(nlh, recv_len);
 		}
 	}
+
+	logging_deinit();
 
 close_and_exit:
 	close(sk_nl);

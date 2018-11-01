@@ -26,9 +26,9 @@
 #include "resource_monitor.h"
 
 #define DEFAULT_UPDATE_INTERVAL (0u) // Disabled by default
-#define TO_MILLISECONDS(X) ((X)*1000u)
+#define TO_MILLISECONDS(X) ((unsigned int)(X)*1000u)
 
-static bool resource_monitor_interval_s = DEFAULT_UPDATE_INTERVAL;
+static int resource_monitor_interval_s = DEFAULT_UPDATE_INTERVAL;
 
 /**
  * @brief used to trigger usage updates
@@ -63,6 +63,26 @@ static int parse_options(int argc, char *argv[])
 static int notify_interval_changed(void *context)
 {
   (void)context;
+  static int previous_interval = -1;
+
+  if (previous_interval != resource_monitor_interval_s) {
+
+    piksi_log(LOG_DEBUG,
+              "resource monitor config: %d -> %d",
+              previous_interval,
+              resource_monitor_interval_s);
+
+    resq_teardown_all();
+
+    if (resource_monitor_interval_s != 0) {
+      resq_initialize_all();
+      piksi_log(LOG_INFO | LOG_SBP, "resource monitor starting");
+    } else if (previous_interval != -1) {
+      piksi_log(LOG_INFO | LOG_SBP, "resource monitor stopped");
+    }
+
+    previous_interval = resource_monitor_interval_s;
+  }
 
   sbp_update_timer_interval(TO_MILLISECONDS(resource_monitor_interval_s), update_metrics);
 
@@ -80,7 +100,7 @@ int main(int argc, char *argv[])
     return cleanup(EXIT_FAILURE);
   }
 
-  if (!sbp_init(resource_monitor_interval_s, update_metrics)) {
+  if (!sbp_init((u32)resource_monitor_interval_s, update_metrics)) {
     return cleanup(EXIT_FAILURE);
   }
 
@@ -95,7 +115,6 @@ int main(int argc, char *argv[])
                     notify_interval_changed,
                     NULL);
 
-  resq_initialize_all();
   sbp_run();
 
   return cleanup(EXIT_SUCCESS);
