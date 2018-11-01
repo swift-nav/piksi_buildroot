@@ -38,8 +38,10 @@
 
 #define IPC_PREFIX "ipc://"
 
-// MAximum number of client we expect to have per socket
+// Maximum number of clients we expect to have per socket
 #define MAX_CLIENTS 128
+// Maximum number of clients in the listen() backlog
+#define MAX_BACKLOG 128
 
 // clang-format off
 //#define DEBUG_ENDPOINT
@@ -136,7 +138,6 @@ static int create_un_socket()
 
 static int bind_un_socket(int fd, const char *path)
 {
-
   struct sockaddr_un addr = {.sun_family = AF_UNIX};
   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
@@ -150,8 +151,7 @@ static int bind_un_socket(int fd, const char *path)
 
 static int start_un_listen(const char *path, int fd)
 {
-
-  if (listen(fd, 50) == -1) {
+  if (listen(fd, MAX_BACKLOG) == -1) {
 
     PK_LOG_ANNO(LOG_ERR, "listen() error for socket: %s (path: %s)", strerror(errno), path);
     return -1;
@@ -162,7 +162,6 @@ static int start_un_listen(const char *path, int fd)
 
 static int connect_un_socket(int fd, const char *path)
 {
-
   struct sockaddr_un addr = {.sun_family = AF_UNIX};
   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
@@ -460,13 +459,13 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
   return length;
 }
 
-static int service_reads_server(pk_endpoint_t *ept,
-                                int fd,
-                                pk_loop_t *loop,
-                                void *poll_handle,
-                                pk_endpoint_receive_cb rx_cb,
-                                void *context,
-                                client_node_t **node)
+static int service_reads_base(pk_endpoint_t *ept,
+                              int fd,
+                              pk_loop_t *loop,
+                              void *poll_handle,
+                              pk_endpoint_receive_cb rx_cb,
+                              void *context,
+                              client_node_t **node)
 {
   for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
     u8 buffer[4096] = {0};
@@ -491,7 +490,7 @@ static int service_reads(pk_endpoint_t *ept,
                          pk_endpoint_receive_cb rx_cb,
                          void *context)
 {
-  return service_reads_server(ept, fd, loop, poll_handle, rx_cb, context, NULL);
+  return service_reads_base(ept, fd, loop, poll_handle, rx_cb, context, NULL);
 }
 
 
@@ -525,13 +524,13 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
     client_node_t *node;
     LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
     {
-      service_reads_server(pk_ept,
-                           node->val.fd,
-                           pk_ept->loop,
-                           node->val.poll_handle,
-                           rx_cb,
-                           context,
-                           &node);
+      service_reads_base(pk_ept,
+                         node->val.fd,
+                         pk_ept->loop,
+                         node->val.poll_handle,
+                         rx_cb,
+                         context,
+                         &node);
       // TODO safely handle things being removed?
     }
 
@@ -561,13 +560,13 @@ static void send_close_socket_helper(pk_endpoint_t *ept,
   close(sock);
 }
 
-static int send_impl_server(pk_endpoint_t *ept,
-                            int sock,
-                            const u8 *data,
-                            const size_t length,
-                            pk_loop_t *loop,
-                            void *poll_handle,
-                            client_node_t **node)
+static int send_impl_base(pk_endpoint_t *ept,
+                          int sock,
+                          const u8 *data,
+                          const size_t length,
+                          pk_loop_t *loop,
+                          void *poll_handle,
+                          client_node_t **node)
 {
   struct iovec iov[1] = {0};
   struct msghdr msg = {0};
@@ -634,7 +633,7 @@ static int send_impl_server(pk_endpoint_t *ept,
 
 static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, const size_t length)
 {
-  return send_impl_server(ept, sock, data, length, NULL, NULL, NULL);
+  return send_impl_base(ept, sock, data, length, NULL, NULL, NULL);
 }
 
 int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
@@ -650,13 +649,13 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
     client_node_t *node;
     LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
     {
-      rc = send_impl_server(pk_ept,
-                            node->val.fd,
-                            data,
-                            length,
-                            pk_ept->loop,
-                            node->val.poll_handle,
-                            &node);
+      rc = send_impl_base(pk_ept,
+                          node->val.fd,
+                          data,
+                          length,
+                          pk_ept->loop,
+                          node->val.poll_handle,
+                          &node);
       // TODO safely handle things being removed?
     }
   }
