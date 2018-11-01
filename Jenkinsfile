@@ -2,8 +2,7 @@
 
 // Use 'ci-jenkins@somebranch' to pull shared lib from a different branch than the default.
 // Default is configured in Jenkins and should be from "stable" tag.
-// TODO: Remove the branch name here once lib support is merged and tagged
-@Library("ci-jenkins@klaus/post-build") import com.swiftnav.ci.*
+@Library("ci-jenkins") import com.swiftnav.ci.*
 
 String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
@@ -11,6 +10,7 @@ String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/build
 String dockerSecArgs = "--cap-add=SYS_PTRACE --security-opt seccomp=unconfined"
 def context = new Context(context: this)
 def builder = context.getBuilder()
+def logger = context.getLogger()
 
 pipeline {
     // Override agent in each stage to make sure we don't share containers among stages.
@@ -25,8 +25,11 @@ pipeline {
 
     parameters {
         string(name: "REF", defaultValue: "master", description: "git ref for piksi_buildroot repo")
-        choice(name: "LOG_LEVEL", choices: ['INFO', 'DEBUG', 'WARNING', 'ERROR'])
-        booleanParam(name: "UPLOAD_TO_S3", defaultValue: true, description: "Enable if artifacts should be uploaded to S3")
+        choice(name: "LOG_LEVEL", choices: ['info', 'debug', 'warning', 'error'])
+        booleanParam(name: "UPLOAD_TO_S3",
+                defaultValue: true,
+                description: "Artifacts get uploaded to S3 if build is a tag/PR/master/release build. "
+                        + "Uncheck this flag to prevent all S3 uploading.")
     }
 
     environment {
@@ -239,10 +242,18 @@ pipeline {
                         crlKeyAdd()
 
                         script {
-                            builder.make(target: "nano-image")
+                            builder.make(target: "firmware")
+                            builder.make(target: "image")
+                            builder.make(target: "sdk")
                         }
                     }
                     post {
+                        success {
+                            archivePatterns(
+                                    context: context,
+                                    patterns: ['piksi_sdk.txz'],
+                                    addPath: "v3/prod")
+                        }
                         always {
                             cleanUp()
                         }
@@ -340,20 +351,22 @@ def archivePatterns(Map args) {
 }
 
 /**
- * Upload to S3 if the UPLOAD_TO_S3 parameter is enabled;
+ * Upload to S3 if the UPLOAD_TO_S3 parameter is enabled or does not exist;
  * this may be extended with more criteria later.
+ *
+ * Note that S3 upload is skipped for non-tag/pr/release builds.
  * @return
  */
 boolean shouldUploadToS3(Map args=[:]) {
-    if (env.UPLOAD_TO_S3 && env.UPLOAD_TO_S3 == "true") {
-        return true
-    } else {
+    if (env.UPLOAD_TO_S3 && env.UPLOAD_TO_S3 == "false") {
         return false
+    } else {
+        return true
     }
 }
 
 /**
- * Upload artifacts to S3. Determin ethe bucket and path bvased on whether this
+ * Upload artifacts to S3. Determine the bucket and path based on whether this
  * is a PR, a branch, or a tag push.
  * @param args
  *   args.context
@@ -364,19 +377,31 @@ boolean shouldUploadToS3(Map args=[:]) {
  */
 def uploadArtifactsToS3(Map args) {
     // Initially, use a bucket separate from travis so we can run both in parallel without conflict.
+    assert args.context
+
+    boolean upload = false
     String bucket
-    String path
-    if (args.context.isPrPush()) {
-        bucket = "swiftnav-artifacts-pull-requests-jenkins"
-        path = "piksi_buildroot/" + args.context.gitDescribe() + "/"
+    String path = "piksi_buildroot/"
+
+    if (args.context.isTagPush()) {
+        bucket = "swiftnav-artifacts-jenkins"
+        path += context.gitDescribe() + "/"
+        upload = true
     } else {
-        if (args.context.isBranchPush(branches: ['master', '*-release'])) {
-            bucket = "swiftnav-artifacts-jenkins"
-            path = "piksi_buildroot/" + args.context.gitDescribe() + "/"
+        if (args.context.isPrPush()) {
+            bucket = "swiftnav-artifacts-pull-requests-jenkins"
+            path += "pr-" + args.context.prNumber + "/" + args.context.gitDescribe() + "/"
+            upload = true
         } else {
-            // TODO: Handle the tag pushes
-            bucket = "swiftnav-artifacts-jenkins"
-            path = "piksi_buildroot_notype/" + args.context.gitDescribe() + "/"
+            // TODO remove the 'klaus.*-release' which is here to test uploads
+            if (args.context.isBranchPush(branches: ['master', 'v.*-release', 'klaus.*-release'])) {
+                bucket = "swiftnav-artifacts-jenkins"
+                path += args.context.branchName() + "/" + args.context.gitDescribe() + "/"
+                upload = true
+            } else {
+                logger.info("Neither a tag, PR, or master/release branch push - not publishing artifacts to S3")
+                upload = false
+            }
         }
     }
 
@@ -395,12 +420,14 @@ def uploadArtifactsToS3(Map args) {
 
     String pattern = args.includePattern ?: "**"
 
-    // s3Upload is provided by the Jenkins S3 plugin
-    s3Upload(
-        includePathPattern: pattern,
-        bucket: bucket,
-        path: path,
-        acl: 'BucketOwnerFullControl')
+    if (upload && shouldUploadToS3()) {
+        // s3Upload is provided by the Jenkins S3 plugin
+        s3Upload(
+                includePathPattern: pattern,
+                bucket: bucket,
+                path: path,
+                acl: 'BucketOwnerFullControl')
+    }
 }
 
 /**
@@ -409,12 +436,15 @@ def uploadArtifactsToS3(Map args) {
  * @return
  */
 def cleanUp() {
-    // The persistent files get created with root permissions during the build, so
-    // the regular 'workspace wipe' is not able to delete them.
-    // Remove them explicitly at the end of a build stage.
+    /**
+     * The persistent files get created with root permissions during the build, so
+     * the regular 'workspace wipe' is not able to delete them.
+     * Remove them explicitly at the end of a build stage.
+     * Fail build if cleanup fails, so that we can find out what had created
+     * the undeletable files/dirs.
+     */
     cleanWs(
         externalDelete: 'sudo rm -rf %s',
-        notFailBuild: true,
         patterns: [[pattern: 'buildroot/host_output/target/fake_persist', type: 'INCLUDE'],
                    [pattern: 'buildroot/host_output/target/persistent', type: 'INCLUDE'],
         ])

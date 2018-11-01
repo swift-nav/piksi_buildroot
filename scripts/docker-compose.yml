@@ -1,5 +1,12 @@
 version: '3.1'
 
+# This docker-compose is for developers, to start
+# a container locally that is equivalent to the one used on Jenkins.
+# Use 'make docker-jenkins' on the repo top level.
+#
+# The container that is being run on the Jenkins pipeline is not using this docker-compose
+# but explicit options to the docker command.
+
 services:
   pbr:
     build:
@@ -12,3 +19,6 @@ services:
     volumes:
       - ${PWD}:/mnt/workspace:delegated
       - ${HOME}/.ssh/id_rsa:/home/jenkins/.ssh/id_rsa
+      # Mount ~/.aws to enable fetching of firmware artifacts from S3
+      # It assumes that you already authenticated with AWS on the host.
+      - ${HOME}/.aws:/home/jenkins/.aws
