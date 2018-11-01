@@ -888,9 +888,11 @@ static int network_upload_progress(void *data,
 
   if (ctx->debug) {
     piksi_log(LOG_DEBUG,
-              "up bytes (%lld) %lld count %lld",
+              "connection type %d: up bytes (%" CURL_FORMAT_CURL_OFF_T  ") %" CURL_FORMAT_CURL_OFF_T  " of total %" CURL_FORMAT_CURL_OFF_T  ", stall count %lld",
+              ctx->type,
               ulnow,
               ctx->bytes_transfered,
+              dltot,
               ctx->stall_count);
   }
 
