@@ -16,12 +16,8 @@
 #include <sys/stat.h>
 
 #include <libpiksi/logging.h>
-<<<<<<< a38803e8154e292aa27b3bf89d282df4cb23477a
-#include <libpiksi/settings_client.h>
-=======
 #include <libpiksi/runit.h>
-#include <libpiksi/settings.h>
->>>>>>> Use runit services
+#include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
 
 #include "skylark_settings.h"
@@ -92,7 +88,7 @@ static skylark_process_t procs[] = {
       .restart = NULL,
     },
     .modes = (1 << SKYLARK_MODE_HTTP_1_1),
-    .base_cmd = "skylark_daemon --download --file " DOWNLOAD_FIFO_FILE_PATH " --url "
+    .base_cmd = "skylark_daemon --download --file-down " DOWNLOAD_FIFO_FILE_PATH " --url "
   },
   {
     .cfg = {
@@ -103,7 +99,7 @@ static skylark_process_t procs[] = {
       .restart = NULL,
     },
     .modes = (1 << SKYLARK_MODE_HTTP_1_1),
-    .base_cmd = "skylark_daemon --upload --no-error-reporting --file " UPLOAD_FIFO_FILE_PATH " --url "
+    .base_cmd = "skylark_daemon --upload --no-error-reporting --file-up " UPLOAD_FIFO_FILE_PATH " --url "
   },
   {
     .cfg = {
@@ -114,7 +110,7 @@ static skylark_process_t procs[] = {
       .restart = NULL,
     },
     .modes = (1 << SKYLARK_MODE_HTTP_2),
-    .base_cmd = "skylark_daemon --http2 --file-down " DOWNLOAD_FIFO_FILE_PATH " --file-up " UPLOAD_FIFO_FILE_PATH " --url "
+    .base_cmd = "skylark_daemon --debug --http2 --file-down " DOWNLOAD_FIFO_FILE_PATH " --file-up " UPLOAD_FIFO_FILE_PATH " --url "
   },
 };
 

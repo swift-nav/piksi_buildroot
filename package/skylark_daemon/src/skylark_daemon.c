@@ -39,7 +39,6 @@
 #define MSG_GET_HEALTH_ERROR_LF (MSG_GET_HEALTH_ERROR "\n")
 
 static bool debug = false;
-static const char *fifo_file_path = NULL;
 static const char *up_fifo_file_path = NULL;
 static const char *down_fifo_file_path = NULL;
 static const char *url = NULL;
@@ -70,10 +69,6 @@ static void usage(char *command)
   puts("\t--get-health     Ask the download daemon for it's last HTTP response code");
 
   puts("\nUpload/download mode options");
-  puts("\t--file           <file>");
-  puts("\t--url            <url>");
-
-  puts("\nHTTP2 mode options");
   puts("\t--file-down      <download file>");
   puts("\t--file-up        <upload file>");
   puts("\t--url            <url>");
@@ -85,8 +80,7 @@ static void usage(char *command)
 static int parse_options(int argc, char *argv[])
 {
   enum {
-    OPT_ID_FILE = 1,
-    OPT_ID_FILE_UP,
+    OPT_ID_FILE_UP = 1,
     OPT_ID_FILE_DOWN,
     OPT_ID_URL,
     OPT_ID_DEBUG,
@@ -108,7 +102,6 @@ static int parse_options(int argc, char *argv[])
     {"reconnect-dl",       no_argument,       0, OPT_ID_RECONNECT_DL},
     {"no-error-reporting", no_argument,       0, OPT_ID_NO_ERROR_REPORTING},
     {"get-health",         no_argument,       0, OPT_ID_GET_HEALTH},
-    {"file",               required_argument, 0, OPT_ID_FILE},
     {"file-up",            required_argument, 0, OPT_ID_FILE_UP},
     {"file-down",          required_argument, 0, OPT_ID_FILE_DOWN},
     {"url  ",              required_argument, 0, OPT_ID_URL},
@@ -139,10 +132,6 @@ static int parse_options(int argc, char *argv[])
 
     case OPT_ID_RECONNECT_DL: {
       op_mode = OP_MODE_RECONNECT_DL;
-    } break;
-
-    case OPT_ID_FILE: {
-      fifo_file_path = optarg;
     } break;
 
     case OPT_ID_FILE_UP: {
@@ -176,22 +165,18 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
-  if (op_mode == OP_MODE_DOWNLOAD || op_mode == OP_MODE_UPLOAD) {
-    if (fifo_file_path == NULL) {
-      puts("Missing file");
+  if ((op_mode == OP_MODE_DOWNLOAD) || (op_mode == OP_MODE_HTTP2)) {
+    if (down_fifo_file_path == NULL) {
+      puts("Missing down file");
       return -1;
     }
     if (url == NULL) {
       puts("Missing url");
       return -1;
     }
-  } else if (op_mode == OP_MODE_HTTP2) {
+  } else if ((op_mode == OP_MODE_UPLOAD) || (op_mode == OP_MODE_HTTP2)) {
     if (up_fifo_file_path == NULL) {
       puts("Missing up file");
-      return -1;
-    }
-    if (down_fifo_file_path == NULL) {
-      puts("Missing down file");
       return -1;
     }
     if (url == NULL) {
@@ -243,7 +228,7 @@ exit_error:
 
 static void skylark_upload_mode()
 {
-  int fd = open(fifo_file_path, O_RDONLY);
+  int fd = open(up_fifo_file_path, O_RDONLY);
   if (fd < 0) {
     piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
     exit(EXIT_FAILURE);
@@ -280,7 +265,7 @@ static int skylark_request_health()
 
 static void skylark_download_mode()
 {
-  int fd = open(fifo_file_path, O_WRONLY);
+  int fd = open(down_fifo_file_path, O_WRONLY);
   if (fd < 0) {
     piksi_log(LOG_ERR, "fifo error (%d) \"%s\"", errno, strerror(errno));
     exit(EXIT_FAILURE);

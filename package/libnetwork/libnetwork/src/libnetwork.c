@@ -812,13 +812,11 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
   service_control_fifo(ctx);
 
   if (ctx->shutdown_signaled) {
-    piksi_log(LOG_WARNING, "network_progress_check shutdown_signaled");
     ctx->stall_count = 0;
     return -1;
   }
 
   if (ctx->cycle_connection_signaled) {
-    piksi_log(LOG_WARNING, "cycle_connection_signaled");
     sbp_log(LOG_WARNING, "forced re-connect requested");
 
     ctx->cycle_connection_signaled = false;
@@ -829,8 +827,7 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
 
   if (ctx->bytes_transfered == bytes) {
     if (ctx->stall_count++ > MAX_STALLED_INTERVALS) {
-      piksi_log(LOG_WARNING, "network_progress_check connection stalled");
-      log_with_rate_limit(ctx, LOG_WARNING, "connection stalled");
+      log_with_rate_limit(ctx, LOG_WARNING, "connection type %d stalled", ctx->type);
       ctx->stall_count = 0;
 
       return -1;
@@ -873,11 +870,6 @@ static int network_download_progress(void *data,
   }
 
   int prog = network_progress_check(ctx, dlnow);
-
-  if (prog) {
-    piksi_log(LOG_INFO,
-              "network_progress_check ALARM");
-  }
 
   return prog;
 }
