@@ -11,6 +11,7 @@
  */
 
 #include <ctype.h>
+#include <execinfo.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -667,6 +668,56 @@ int run_with_stdin_file2(const char *input_file,
   return status;
 }
 
+bool str_digits_only(const char *str)
+{
+  if (str == NULL) {
+    return false;
+  }
+
+  /* Empty string */
+  if (!(*str)) {
+    return false;
+  }
+
+  while (*str) {
+    if (isdigit(*str++) == 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool strtoul_all(int base, const char *str, unsigned long *value)
+{
+  char *endptr = NULL;
+  *value = strtoul(str, &endptr, base);
+  while (isspace(*endptr))
+    endptr++;
+  if (*endptr != '\0') {
+    return false;
+  }
+  if (str == endptr) {
+    return false;
+  }
+  return true;
+};
+
+bool strtod_all(const char *str, double *value)
+{
+  char *endptr = NULL;
+  *value = strtod(str, &endptr);
+  while (isspace(*endptr))
+    endptr++;
+  if (*endptr != '\0') {
+    return false;
+  }
+  if (str == endptr) {
+    return false;
+  }
+  return true;
+};
+
 static pipeline_t *pipeline_cat(pipeline_t *r, const char *filename)
 {
   if (r->_is_nil) return r;
@@ -833,52 +884,31 @@ pipeline_t *create_pipeline(void)
   return pipeline;
 }
 
-bool str_digits_only(const char *str)
+void print_trace(const char *assert_str, const char *file, const char *func, int lineno)
 {
-  if (str == NULL) {
-    return false;
+  void *array[32];
+  size_t size;
+  char **strings;
+  size_t i;
+
+  size = backtrace(array, 32);
+  strings = backtrace_symbols(array, size);
+
+#define ASSERT_FAIL_MSG "ASSERT FAILURE: %s: %s (%s:%d), %zu backtrace entries:"
+
+  piksi_log(LOG_ERR, ASSERT_FAIL_MSG, func, assert_str, file, lineno, size);
+  for (i = 0; i < size; i++) {
+    piksi_log(LOG_ERR, "backtrace: %s", strings[i]);
   }
 
-  /* Empty string */
-  if (!(*str)) {
-    return false;
+  fprintf(stderr, ASSERT_FAIL_MSG "\n", func, assert_str, file, lineno, size);
+  for (i = 0; i < size; i++) {
+    fprintf(stderr, "backtrace: %s\n", strings[i]);
   }
 
-  while (*str) {
-    if (isdigit(*str++) == 0) {
-      return false;
-    }
-  }
+  free(strings);
 
-  return true;
+#undef ASSERT_FAIL_MSG
 }
 
-bool strtoul_all(int base, const char *str, unsigned long *value)
-{
-  char *endptr = NULL;
-  *value = strtoul(str, &endptr, base);
-  while (isspace(*endptr))
-    endptr++;
-  if (*endptr != '\0') {
-    return false;
-  }
-  if (str == endptr) {
-    return false;
-  }
-  return true;
-};
 
-bool strtod_all(const char *str, double *value)
-{
-  char *endptr = NULL;
-  *value = strtod(str, &endptr);
-  while (isspace(*endptr))
-    endptr++;
-  if (*endptr != '\0') {
-    return false;
-  }
-  if (str == endptr) {
-    return false;
-  }
-  return true;
-};

@@ -11,7 +11,6 @@
  */
 
 #include <errno.h>
-#include <execinfo.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <unistd.h>
@@ -54,41 +53,6 @@
 #  define NDEBUG_UNUSED(X) (void)(X)
 #endif
 // clang-format on
-
-void print_trace(const char *assert_str, const char *file, const char *func, int lineno)
-{
-  void *array[32];
-  size_t size;
-  char **strings;
-  size_t i;
-
-  size = backtrace(array, 32);
-  strings = backtrace_symbols(array, size);
-
-#define ASSERT_FAIL_MSG "ASSERT FAILURE: %s: %s (%s:%d), %zu backtrace entries:"
-
-  piksi_log(LOG_ERR, ASSERT_FAIL_MSG, func, assert_str, file, lineno, size);
-  for (i = 0; i < size; i++) {
-    piksi_log(LOG_ERR, "backtrace: %s", strings[i]);
-  }
-
-  fprintf(stderr, ASSERT_FAIL_MSG "\n", func, assert_str, file, lineno, size);
-  for (i = 0; i < size; i++) {
-    fprintf(stderr, "backtrace: %s\n", strings[i]);
-  }
-
-  free(strings);
-
-#undef ASSERT_FAIL_MSG
-}
-
-#define ASSERT_TRACE(TheAssert)                                           \
-  {                                                                       \
-    if (!(TheAssert)) {                                                   \
-      print_trace(__STRING(TheAssert), __FILE__, __FUNCTION__, __LINE__); \
-      assert((TheAssert));                                                \
-    }                                                                     \
-  }
 
 typedef struct client_node client_node_t;
 
@@ -289,7 +253,7 @@ failure:
 }
 
 /**********************************************************************/
-/************* pk_endpoint_destroy ***************/
+/************* pk_endpoint_destroy ************************************/
 /**********************************************************************/
 
 void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
@@ -332,7 +296,7 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
 }
 
 /**********************************************************************/
-/************* pk_endpoint_type_get ***************/
+/************* pk_endpoint_type_get ***********************************/
 /**********************************************************************/
 
 pk_endpoint_type pk_endpoint_type_get(pk_endpoint_t *pk_ept)
@@ -341,7 +305,7 @@ pk_endpoint_type pk_endpoint_type_get(pk_endpoint_t *pk_ept)
 }
 
 /**********************************************************************/
-/************* pk_endpoint_poll_handle_get ***************/
+/************* pk_endpoint_poll_handle_get ****************************/
 /**********************************************************************/
 
 int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
@@ -366,7 +330,7 @@ int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
 }
 
 /**********************************************************************/
-/************* pk_endpoint_read ***************/
+/************* pk_endpoint_read ***************************************/
 /**********************************************************************/
 
 ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
@@ -591,9 +555,9 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_hand
   return pk_ept->poll_handle != NULL ? 0 : -1;
 }
 
-/*************************************/
-/************* Helpers ***************/
-/*************************************/
+/**************************************************************************/
+/************* Helpers ****************************************************/
+/**************************************************************************/
 
 static int create_un_socket()
 {
