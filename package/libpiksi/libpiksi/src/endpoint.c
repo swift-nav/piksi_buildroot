@@ -188,10 +188,12 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   pk_ept->eid = -1;
   pk_ept->nonblock = false;
   pk_ept->woke = false;
+  pk_ept->wakefd = -1;
   pk_ept->client_count = 0;
   pk_ept->loop = NULL;
   pk_ept->poll_handle = NULL;
   pk_ept->poll_handle_read = NULL;
+
   strncpy(pk_ept->path, endpoint, sizeof(pk_ept->path));
 
   LIST_INIT(&pk_ept->client_nodes_head);
@@ -305,6 +307,16 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
       pk_loop_poll_remove(pk_ept->loop, node->val.poll_handle);
     }
     free(node);
+  }
+  if (pk_ept->wakefd >= 0) {
+    while (close(pk_ept->wakefd) != 0) {
+      piksi_log(LOG_ERR, "Failed to eventfd: %s", pk_endpoint_strerror());
+      // retry if EINTR, EBADF means it wasn't valid in the first place
+      if (errno == EINTR) {
+        continue;
+      }
+      break;
+    }
   }
   free(pk_ept);
   *pk_ept_loc = NULL;
