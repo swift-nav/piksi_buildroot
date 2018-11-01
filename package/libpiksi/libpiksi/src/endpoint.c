@@ -107,10 +107,10 @@ struct client_node {
 typedef LIST_HEAD(client_nodes_head, client_node) client_nodes_head_t;
 
 struct pk_endpoint_s {
-  pk_endpoint_type type;
-  int sock;
+  pk_endpoint_type type;                  /**< The type socket (e.g. {pub,sub}_server, pub/sub, req/rep*/
+  int sock;                               /**< The socket fd associated with this endpoint */
   int wakefd;
-  int eid;
+  bool started;
   bool nonblock;
   bool woke;
   client_nodes_head_t client_nodes_head;
@@ -121,8 +121,479 @@ struct pk_endpoint_s {
   char path[PATH_MAX];
 };
 
+static int create_un_socket();
+
+static int bind_un_socket(int fd, const char *path);
+
+static int start_un_listen(const char *path, int fd);
+
+static int connect_un_socket(int fd, const char *path);
+
+static bool valid_socket_type_for_read(pk_endpoint_t *pk_ept);
+
+static int recv_impl(pk_endpoint_t *ept,
+                     int sock,
+                     u8 *buffer,
+                     size_t *length_loc,
+                     bool nonblocking,
+                     pk_loop_t *loop,
+                     void *poll_handle,
+                     client_node_t **node);
+
+static int service_reads_base(pk_endpoint_t *ept,
+                              int fd,
+                              pk_loop_t *loop,
+                              void *poll_handle,
+                              pk_endpoint_receive_cb rx_cb,
+                              void *context,
+                              client_node_t **node);
+
+static int service_reads(pk_endpoint_t *ept,
+                         int fd,
+                         pk_loop_t *loop,
+                         void *poll_handle,
+                         pk_endpoint_receive_cb rx_cb,
+                         void *context);
+
+static void send_close_socket_helper(pk_endpoint_t *ept,
+                                     int sock,
+                                     pk_loop_t *loop,
+                                     void *poll_handle,
+                                     client_node_t **node);
+
+static int send_impl_base(pk_endpoint_t *ept,
+                          int sock,
+                          const u8 *data,
+                          size_t length,
+                          pk_loop_t *loop,
+                          void *poll_handle,
+                          client_node_t **node);
+
+static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, size_t length);
+
+static void discard_read_data(pk_loop_t *loop, client_context_t *ctx);
+
 static void record_disconnect(pk_endpoint_t *ept, client_node_t **node);
+
+static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *context);
+
 static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void *context);
+
+/**********************************************************************/
+/************* pk_endpoint_create *************************************/
+/**********************************************************************/
+
+pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
+{
+  ASSERT_TRACE(endpoint != NULL);
+
+  pk_endpoint_t *pk_ept = (pk_endpoint_t *)malloc(sizeof(pk_endpoint_t));
+  if (pk_ept == NULL) {
+    piksi_log(LOG_ERR, "Failed to allocate PK endpoint");
+    goto failure;
+  }
+
+  *pk_ept = (pk_endpoint_t) {
+    .type = type,
+    .sock = -1,
+    .started = false,
+    .nonblock = false,
+    .woke = false,
+    .wakefd = -1,
+    .client_count = 0,
+    .loop = NULL,
+    .poll_handle = NULL,
+    .poll_handle_read = NULL,
+  };
+
+  strncpy(pk_ept->path, endpoint, sizeof(pk_ept->path));
+
+  LIST_INIT(&pk_ept->client_nodes_head);
+
+  bool do_bind = false;
+  switch (pk_ept->type) {
+  case PK_ENDPOINT_PUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_PUB: {
+    pk_ept->sock = create_un_socket();
+    if (pk_ept->sock < 0) {
+      piksi_log(LOG_ERR, "error creating PK PUB socket: %s", pk_endpoint_strerror());
+      goto failure;
+    }
+  } break;
+  case PK_ENDPOINT_SUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_SUB: {
+    pk_ept->sock = create_un_socket();
+    if (pk_ept->sock < 0) {
+      piksi_log(LOG_ERR, "error creating PK PUB/SUB socket: %s", pk_endpoint_strerror());
+      goto failure;
+    }
+  } break;
+  case PK_ENDPOINT_REP: do_bind = true;
+  case PK_ENDPOINT_REQ: {
+    pk_ept->sock = create_un_socket();
+    if (pk_ept->sock < 0) {
+      piksi_log(LOG_ERR, "error creating PK REQ/REP socket: %s", pk_endpoint_strerror());
+      goto failure;
+    }
+  } break;
+  default: {
+    piksi_log(LOG_ERR, "Unsupported endpoint type");
+    goto failure;
+  } break;
+  } // end of switch
+
+  size_t prefix_len = strstr(endpoint, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
+
+  if (do_bind) {
+    int rc = unlink(endpoint + prefix_len);
+    if (rc != 0 && errno != ENOENT) {
+      PK_LOG_ANNO(LOG_WARNING, "unlink: %s", strerror(errno));
+    }
+  }
+
+  int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
+                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len);
+
+  pk_ept->started = rc == 0;
+
+  if (!pk_ept->started) {
+    piksi_log(LOG_ERR,
+              "Failed to %s socket: %s",
+              do_bind ? "bind" : "connect",
+              pk_endpoint_strerror());
+    goto failure;
+  }
+
+  if (do_bind) {
+
+    if (start_un_listen(endpoint, pk_ept->sock) < 0) goto failure;
+
+    int rc = chmod(endpoint + prefix_len, 0777);
+    if (rc != 0) {
+      PK_LOG_ANNO(LOG_WARNING, "chmod: %s", strerror(errno));
+    }
+
+    pk_ept->wakefd = eventfd(0, EFD_NONBLOCK);
+
+    if (pk_ept->wakefd < 0) {
+      PK_LOG_ANNO(LOG_ERR, "eventfd: %s", strerror(errno));
+      goto failure;
+    }
+  }
+
+  return pk_ept;
+
+failure:
+  pk_endpoint_destroy(&pk_ept);
+  return NULL;
+}
+
+/**********************************************************************/
+/************* pk_endpoint_destroy ***************/
+/**********************************************************************/
+
+void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
+{
+  if (pk_ept_loc == NULL || *pk_ept_loc == NULL) {
+    return;
+  }
+  pk_endpoint_t *pk_ept = *pk_ept_loc;
+  if (pk_ept->started) {
+    while (shutdown(pk_ept->sock, SHUT_RDWR) != 0) {
+      if (errno == EINTR) continue;
+      piksi_log(LOG_ERR, "Failed to shutdown endpoint: %s", pk_endpoint_strerror());
+      break;
+    }
+  }
+  if (pk_ept->sock >= 0) {
+    while (close(pk_ept->sock) != 0) {
+      if (errno == EINTR) continue;
+      piksi_log(LOG_ERR, "Failed to close socket: %s", pk_endpoint_strerror());
+      break;
+    }
+  }
+  while (!LIST_EMPTY(&pk_ept->client_nodes_head)) {
+    client_node_t *node = LIST_FIRST(&pk_ept->client_nodes_head);
+    LIST_REMOVE(node, entries);
+    if (pk_ept->loop != NULL) {
+      pk_loop_poll_remove(pk_ept->loop, node->val.poll_handle);
+    }
+    free(node);
+  }
+  if (pk_ept->wakefd >= 0) {
+    while (close(pk_ept->wakefd) != 0) {
+      if (errno == EINTR) continue;
+      piksi_log(LOG_ERR, "Failed to close eventfd: %s", pk_endpoint_strerror());
+      break;
+    }
+  }
+  free(pk_ept);
+  *pk_ept_loc = NULL;
+}
+
+/**********************************************************************/
+/************* pk_endpoint_type_get ***************/
+/**********************************************************************/
+
+pk_endpoint_type pk_endpoint_type_get(pk_endpoint_t *pk_ept)
+{
+  return pk_ept->type;
+}
+
+/**********************************************************************/
+/************* pk_endpoint_poll_handle_get ***************/
+/**********************************************************************/
+
+int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
+{
+  ASSERT_TRACE(pk_ept != NULL);
+
+  if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_REQ) {
+    return pk_ept->sock;
+  }
+
+  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
+    return pk_ept->wakefd;
+  }
+
+  /* Pub and pub server are send only, they should not need to be polled for
+   * input, therefore this function should not be called on these socket
+   * types.
+   */
+  assert(pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_PUB_SERVER);
+
+  return -1;
+}
+
+/**********************************************************************/
+/************* pk_endpoint_read ***************/
+/**********************************************************************/
+
+ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
+{
+  ASSERT_TRACE(pk_ept != NULL);
+  ASSERT_TRACE(buffer != NULL);
+  ASSERT_TRACE(count > 0);
+
+  if (!valid_socket_type_for_read(pk_ept)) {
+    PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
+    return -1;
+  }
+
+  size_t length = count;
+  int rc = 0;
+
+  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
+
+    int64_t counter = 0;
+    ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
+
+    if (c != sizeof(counter)) {
+      PK_LOG_ANNO(LOG_ERR, "invalid read size from eventfd: %zd", c);
+      return -1;
+    }
+
+    ASSERT_TRACE(counter == 1);
+    ASSERT_TRACE(pk_ept->woke);
+
+    pk_ept->woke = false;
+
+    client_node_t *node;
+    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
+    {
+      rc = recv_impl(pk_ept, node->val.fd, buffer, &length, pk_ept->nonblock, NULL, NULL, NULL);
+      // TODO safely handle things being removed?
+    }
+
+  } else {
+
+    rc = recv_impl(pk_ept, pk_ept->sock, buffer, &length, pk_ept->nonblock, NULL, NULL, NULL);
+  }
+
+  if (rc < 0) return rc;
+
+  return length;
+}
+
+/**********************************************************************/
+/************* pk_endpoint_receive ************************************/
+/**********************************************************************/
+
+int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context)
+{
+  ASSERT_TRACE(pk_ept != NULL);
+  ASSERT_TRACE(rx_cb != NULL);
+
+  ASSERT_TRACE(pk_ept->nonblock);
+
+  if (!valid_socket_type_for_read(pk_ept)) {
+    PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
+    return -1;
+  }
+
+  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
+
+    int64_t counter = 0;
+    ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
+
+    if (c != sizeof(counter)) {
+      PK_LOG_ANNO(LOG_ERR, "invalid read size from eventfd: %zd", c);
+      return -1;
+    }
+
+    ASSERT_TRACE(counter == 1);
+    ASSERT_TRACE(pk_ept->woke);
+
+    pk_ept->woke = false;
+
+    client_node_t *node;
+    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
+    {
+      service_reads_base(pk_ept,
+                         node->val.fd,
+                         pk_ept->loop,
+                         node->val.poll_handle,
+                         rx_cb,
+                         context,
+                         &node);
+      // TODO safely handle things being removed?
+    }
+
+  } else {
+    service_reads(pk_ept, pk_ept->sock, pk_ept->loop, pk_ept->poll_handle, rx_cb, context);
+  }
+
+  return 0;
+}
+
+/**********************************************************************/
+/************* pk_endpoint_send ***************************************/
+/**********************************************************************/
+
+int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
+{
+  ASSERT_TRACE(pk_ept != NULL);
+  ASSERT_TRACE(pk_ept->type != PK_ENDPOINT_SUB && pk_ept->type != PK_ENDPOINT_SUB_SERVER);
+
+  int rc = -1;
+
+  if (pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_REQ) {
+    rc = send_impl(pk_ept, pk_ept->sock, data, length);
+  } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
+    client_node_t *node;
+    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
+    {
+      rc = send_impl_base(pk_ept,
+                          node->val.fd,
+                          data,
+                          length,
+                          pk_ept->loop,
+                          node->val.poll_handle,
+                          &node);
+      // TODO safely handle things being removed?
+    }
+  }
+
+  return rc;
+}
+
+/**************************************************************************/
+/************* pk_endpoint_strerror ***************************************/
+/**************************************************************************/
+
+const char *pk_endpoint_strerror(void)
+{
+  return strerror(errno);
+}
+
+/**************************************************************************/
+/************* pk_endpoint_set_non_blocking *******************************/
+/**************************************************************************/
+
+int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept)
+{
+  int status = -1;
+
+  if ((status = fcntl(pk_ept->sock, F_SETFL, fcntl(pk_ept->sock, F_GETFL, 0) | O_NONBLOCK))) {
+    PK_LOG_ANNO(LOG_ERR, "fcntl error: %s", strerror(errno));
+    return -1;
+  }
+
+  pk_ept->nonblock = true;
+
+  return 0;
+}
+
+/**************************************************************************/
+/************* pk_endpoint_accept *****************************************/
+/**************************************************************************/
+
+int pk_endpoint_accept(pk_endpoint_t *pk_ept)
+{
+  int cl;
+
+  if ((cl = accept(pk_ept->sock, NULL, NULL)) == -1) {
+    PK_LOG_ANNO(LOG_ERR, "accept error: %s", strerror(errno));
+    return -1;
+  }
+
+  return cl;
+}
+
+/**************************************************************************/
+/************* pk_endpoint_loop_add ***************************************/
+/**************************************************************************/
+
+int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle_read)
+{
+  if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
+
+  if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_PUB
+      || pk_ept->type == PK_ENDPOINT_REQ) {
+
+    ASSERT_TRACE(poll_handle_read != NULL);
+    pk_ept->poll_handle = poll_handle_read;
+
+    return 0;
+  }
+
+  ASSERT_TRACE(loop != NULL);
+
+  if (pk_ept->loop == loop) {
+
+    /* If we're a server style SUB/REP socket, pk_loop_endpoint_reader_add will
+     * pass a poll_handle of NULL because someone else should be handling the
+     * read events for the socket.
+     */
+
+    ASSERT_TRACE(poll_handle_read != NULL);
+    ASSERT_TRACE(pk_ept->poll_handle_read == NULL);
+
+    ASSERT_TRACE(pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP);
+
+    pk_ept->poll_handle_read = poll_handle_read;
+
+    return 0;
+  }
+
+  ASSERT_TRACE(pk_ept->loop == NULL);
+  ASSERT_TRACE(pk_ept->poll_handle == NULL);
+
+  if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
+
+  pk_ept->loop = loop;
+
+  ASSERT_TRACE(poll_handle_read == NULL);
+  ASSERT_TRACE(pk_ept->poll_handle == NULL);
+
+  pk_ept->poll_handle = pk_loop_poll_add(loop, pk_ept->sock, accept_wake_handler, pk_ept);
+
+  return pk_ept->poll_handle != NULL ? 0 : -1;
+}
+
+/*************************************/
+/************* Helpers ***************/
+/*************************************/
 
 static int create_un_socket()
 {
@@ -173,179 +644,17 @@ static int connect_un_socket(int fd, const char *path)
   return 0;
 }
 
-pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
+static bool valid_socket_type_for_read(pk_endpoint_t *pk_ept)
 {
-  ASSERT_TRACE(endpoint != NULL);
+  if (pk_ept->type == PK_ENDPOINT_SUB) return true;
 
-  pk_endpoint_t *pk_ept = (pk_endpoint_t *)malloc(sizeof(pk_endpoint_t));
-  if (pk_ept == NULL) {
-    piksi_log(LOG_ERR, "Failed to allocate PK endpoint");
-    goto failure;
-  }
+  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER) return true;
 
-  pk_ept->type = type;
-  pk_ept->sock = -1;
-  pk_ept->eid = -1;
-  pk_ept->nonblock = false;
-  pk_ept->woke = false;
-  pk_ept->wakefd = -1;
-  pk_ept->client_count = 0;
-  pk_ept->loop = NULL;
-  pk_ept->poll_handle = NULL;
-  pk_ept->poll_handle_read = NULL;
+  if (pk_ept->type == PK_ENDPOINT_REP) return true;
 
-  strncpy(pk_ept->path, endpoint, sizeof(pk_ept->path));
+  if (pk_ept->type == PK_ENDPOINT_REQ) return true;
 
-  LIST_INIT(&pk_ept->client_nodes_head);
-
-  bool do_bind = false;
-  switch (pk_ept->type) {
-  case PK_ENDPOINT_PUB_SERVER: do_bind = true;
-  case PK_ENDPOINT_PUB: {
-    pk_ept->sock = create_un_socket();
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK PUB socket: %s", pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-  case PK_ENDPOINT_SUB_SERVER: do_bind = true;
-  case PK_ENDPOINT_SUB: {
-    pk_ept->sock = create_un_socket();
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK PUB/SUB socket: %s", pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-  case PK_ENDPOINT_REP: do_bind = true;
-  case PK_ENDPOINT_REQ: {
-    pk_ept->sock = create_un_socket();
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK REQ/REP socket: %s", pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-  default: {
-    piksi_log(LOG_ERR, "Unsupported endpoint type");
-    goto failure;
-  } break;
-  } // end of switch
-
-  size_t prefix_len = strstr(endpoint, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
-
-  if (do_bind) {
-    int rc = unlink(endpoint + prefix_len);
-    if (rc != 0 && errno != ENOENT) {
-      PK_LOG_ANNO(LOG_WARNING, "unlink: %s", strerror(errno));
-    }
-  }
-
-  pk_ept->eid = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
-                        : connect_un_socket(pk_ept->sock, endpoint + prefix_len);
-
-  if (pk_ept->eid < 0) {
-    piksi_log(LOG_ERR,
-              "Failed to %s socket: %s",
-              do_bind ? "bind" : "connect",
-              pk_endpoint_strerror());
-    goto failure;
-  }
-
-  if (do_bind) {
-
-    if (start_un_listen(endpoint, pk_ept->sock) < 0) goto failure;
-
-    int rc = chmod(endpoint + prefix_len, 0777);
-    if (rc != 0) {
-      PK_LOG_ANNO(LOG_WARNING, "chmod: %s", strerror(errno));
-    }
-
-    pk_ept->wakefd = eventfd(0, EFD_NONBLOCK);
-
-    if (pk_ept->wakefd < 0) {
-      PK_LOG_ANNO(LOG_ERR, "eventfd: %s", strerror(errno));
-      goto failure;
-    }
-  }
-
-  return pk_ept;
-
-failure:
-  pk_endpoint_destroy(&pk_ept);
-  return NULL;
-}
-
-void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
-{
-  if (pk_ept_loc == NULL || *pk_ept_loc == NULL) {
-    return;
-  }
-  pk_endpoint_t *pk_ept = *pk_ept_loc;
-  if (pk_ept->eid >= 0) {
-    while (shutdown(pk_ept->sock, SHUT_RDWR) != 0) {
-      piksi_log(LOG_ERR, "Failed to shutdown endpoint: %s", pk_endpoint_strerror());
-      // retry if EINTR, others likely mean we should exit
-      if (errno == EINTR) {
-        continue;
-      }
-      break;
-    }
-  }
-  if (pk_ept->sock >= 0) {
-    while (close(pk_ept->sock) != 0) {
-      piksi_log(LOG_ERR, "Failed to close socket: %s", pk_endpoint_strerror());
-      // retry if EINTR, EBADF means it wasn't valid in the first place
-      if (errno == EINTR) {
-        continue;
-      }
-      break;
-    }
-  }
-  while (!LIST_EMPTY(&pk_ept->client_nodes_head)) {
-    client_node_t *node = LIST_FIRST(&pk_ept->client_nodes_head);
-    LIST_REMOVE(node, entries);
-    if (pk_ept->loop != NULL) {
-      pk_loop_poll_remove(pk_ept->loop, node->val.poll_handle);
-    }
-    free(node);
-  }
-  if (pk_ept->wakefd >= 0) {
-    while (close(pk_ept->wakefd) != 0) {
-      piksi_log(LOG_ERR, "Failed to eventfd: %s", pk_endpoint_strerror());
-      // retry if EINTR, EBADF means it wasn't valid in the first place
-      if (errno == EINTR) {
-        continue;
-      }
-      break;
-    }
-  }
-  free(pk_ept);
-  *pk_ept_loc = NULL;
-}
-
-pk_endpoint_type pk_endpoint_type_get(pk_endpoint_t *pk_ept)
-{
-  return pk_ept->type;
-}
-
-int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
-{
-  ASSERT_TRACE(pk_ept != NULL);
-
-  if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_REQ) {
-    return pk_ept->sock;
-  }
-
-  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
-    return pk_ept->wakefd;
-  }
-
-  /* Pub and pub server are send only, they should not need to be polled for
-   * input, therefore this function should not be called on these socket
-   * types.
-   */
-  assert(pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_PUB_SERVER);
-
-  return -1;
+  return false;
 }
 
 static int recv_impl(pk_endpoint_t *ept,
@@ -412,65 +721,6 @@ static int recv_impl(pk_endpoint_t *ept,
   return PKE_SUCCESS;
 }
 
-bool valid_socket_type_for_read(pk_endpoint_t *pk_ept)
-{
-  if (pk_ept->type == PK_ENDPOINT_SUB) return true;
-
-  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER) return true;
-
-  if (pk_ept->type == PK_ENDPOINT_REP) return true;
-
-  if (pk_ept->type == PK_ENDPOINT_REQ) return true;
-
-  return false;
-}
-
-ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
-{
-  ASSERT_TRACE(pk_ept != NULL);
-  ASSERT_TRACE(buffer != NULL);
-  ASSERT_TRACE(count > 0);
-
-  if (!valid_socket_type_for_read(pk_ept)) {
-    PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
-    return -1;
-  }
-
-  size_t length = count;
-  int rc = 0;
-
-  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
-
-    int64_t counter = 0;
-    ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
-
-    if (c != sizeof(counter)) {
-      PK_LOG_ANNO(LOG_ERR, "invalid read size from eventfd: %zd", c);
-      return -1;
-    }
-
-    ASSERT_TRACE(counter == 1);
-    ASSERT_TRACE(pk_ept->woke);
-
-    pk_ept->woke = false;
-
-    client_node_t *node;
-    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
-    {
-      rc = recv_impl(pk_ept, node->val.fd, buffer, &length, pk_ept->nonblock, NULL, NULL, NULL);
-      // TODO safely handle things being removed?
-    }
-
-  } else {
-
-    rc = recv_impl(pk_ept, pk_ept->sock, buffer, &length, pk_ept->nonblock, NULL, NULL, NULL);
-  }
-
-  if (rc < 0) return rc;
-
-  return length;
-}
-
 static int service_reads_base(pk_endpoint_t *ept,
                               int fd,
                               pk_loop_t *loop,
@@ -503,54 +753,6 @@ static int service_reads(pk_endpoint_t *ept,
                          void *context)
 {
   return service_reads_base(ept, fd, loop, poll_handle, rx_cb, context, NULL);
-}
-
-
-int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context)
-{
-  ASSERT_TRACE(pk_ept != NULL);
-  ASSERT_TRACE(rx_cb != NULL);
-
-  ASSERT_TRACE(pk_ept->nonblock);
-
-  if (!valid_socket_type_for_read(pk_ept)) {
-    PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
-    return -1;
-  }
-
-  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
-
-    int64_t counter = 0;
-    ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
-
-    if (c != sizeof(counter)) {
-      PK_LOG_ANNO(LOG_ERR, "invalid read size from eventfd: %zd", c);
-      return -1;
-    }
-
-    ASSERT_TRACE(counter == 1);
-    ASSERT_TRACE(pk_ept->woke);
-
-    pk_ept->woke = false;
-
-    client_node_t *node;
-    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
-    {
-      service_reads_base(pk_ept,
-                         node->val.fd,
-                         pk_ept->loop,
-                         node->val.poll_handle,
-                         rx_cb,
-                         context,
-                         &node);
-      // TODO safely handle things being removed?
-    }
-
-  } else {
-    service_reads(pk_ept, pk_ept->sock, pk_ept->loop, pk_ept->poll_handle, rx_cb, context);
-  }
-
-  return 0;
 }
 
 static void send_close_socket_helper(pk_endpoint_t *ept,
@@ -646,64 +848,6 @@ static int send_impl_base(pk_endpoint_t *ept,
 static int send_impl(pk_endpoint_t *ept, int sock, const u8 *data, const size_t length)
 {
   return send_impl_base(ept, sock, data, length, NULL, NULL, NULL);
-}
-
-int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
-{
-  ASSERT_TRACE(pk_ept != NULL);
-  ASSERT_TRACE(pk_ept->type != PK_ENDPOINT_SUB && pk_ept->type != PK_ENDPOINT_SUB_SERVER);
-
-  int rc = -1;
-
-  if (pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_REQ) {
-    rc = send_impl(pk_ept, pk_ept->sock, data, length);
-  } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
-    client_node_t *node;
-    LIST_FOREACH(node, &pk_ept->client_nodes_head, entries)
-    {
-      rc = send_impl_base(pk_ept,
-                          node->val.fd,
-                          data,
-                          length,
-                          pk_ept->loop,
-                          node->val.poll_handle,
-                          &node);
-      // TODO safely handle things being removed?
-    }
-  }
-
-  return rc;
-}
-
-const char *pk_endpoint_strerror(void)
-{
-  return strerror(errno);
-}
-
-int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept)
-{
-  int status = -1;
-
-  if ((status = fcntl(pk_ept->sock, F_SETFL, fcntl(pk_ept->sock, F_GETFL, 0) | O_NONBLOCK))) {
-    PK_LOG_ANNO(LOG_ERR, "fcntl error: %s", strerror(errno));
-    return -1;
-  }
-
-  pk_ept->nonblock = true;
-
-  return 0;
-}
-
-int pk_endpoint_accept(pk_endpoint_t *pk_ept)
-{
-  int cl;
-
-  if ((cl = accept(pk_ept->sock, NULL, NULL)) == -1) {
-    PK_LOG_ANNO(LOG_ERR, "accept error: %s", strerror(errno));
-    return -1;
-  }
-
-  return cl;
 }
 
 static void discard_read_data(pk_loop_t *loop, client_context_t *ctx)
@@ -841,49 +985,4 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
   ASSERT_TRACE(client_context->poll_handle != NULL);
 }
 
-int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle_read)
-{
-  if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
 
-  if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_PUB
-      || pk_ept->type == PK_ENDPOINT_REQ) {
-
-    ASSERT_TRACE(poll_handle_read != NULL);
-    pk_ept->poll_handle = poll_handle_read;
-
-    return 0;
-  }
-
-  ASSERT_TRACE(loop != NULL);
-
-  if (pk_ept->loop == loop) {
-
-    /* If we're a server style SUB/REP socket, pk_loop_endpoint_reader_add will
-     * pass a poll_handle of NULL because someone else should be handling the
-     * read events for the socket.
-     */
-
-    ASSERT_TRACE(poll_handle_read != NULL);
-    ASSERT_TRACE(pk_ept->poll_handle_read == NULL);
-
-    ASSERT_TRACE(pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP);
-
-    pk_ept->poll_handle_read = poll_handle_read;
-
-    return 0;
-  }
-
-  ASSERT_TRACE(pk_ept->loop == NULL);
-  ASSERT_TRACE(pk_ept->poll_handle == NULL);
-
-  if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
-
-  pk_ept->loop = loop;
-
-  ASSERT_TRACE(poll_handle_read == NULL);
-  ASSERT_TRACE(pk_ept->poll_handle == NULL);
-
-  pk_ept->poll_handle = pk_loop_poll_add(loop, pk_ept->sock, accept_wake_handler, pk_ept);
-
-  return pk_ept->poll_handle != NULL ? 0 : -1;
-}
