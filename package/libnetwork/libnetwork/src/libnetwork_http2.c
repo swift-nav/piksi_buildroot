@@ -104,7 +104,8 @@ int my_trace(CURL *handle, curl_infotype type,
 
 static void http2_setup(CURL *curl)
 {
-  curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+  //curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+  curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2);
 
   /* we use a self-signed test server, skip verification during debugging */ 
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
