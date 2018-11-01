@@ -361,7 +361,7 @@ handle_msg(struct cn_msg *cn_hdr)
 				if (pid_db[i].pid == 0)
 					break;
 			if (i == PID_DB_SIZE - 1) {
-        piksi_log(LOG_ERR, "process tracking table overflowed, too many processes may be spawning and/or exiting");
+				piksi_log(LOG_ERR, "process tracking table overflowed, too many processes may be spawning and/or exiting");
 #if DEBUG_EXTRACE
 				fprintf(stderr, "extrace: warning: pid_db of "
 				    "size %d overflowed\n", PID_DB_SIZE);
@@ -592,7 +592,7 @@ usage:
 		}
 	}
 
-  logging_init(PROGRAM_NAME);
+	logging_init(PROGRAM_NAME);
 
 	rc = 0;
 	while (!quit) {
@@ -632,7 +632,7 @@ usage:
 		}
 	}
 
-  logging_deinit();
+	logging_deinit();
 
 close_and_exit:
 	close(sk_nl);
