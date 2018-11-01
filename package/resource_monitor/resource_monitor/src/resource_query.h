@@ -187,12 +187,17 @@ void resq_register(resq_interface_t *resq);
 void resq_initialize_all(void);
 
 /**
+ * @brief Run all teardown functions
+ */
+void resq_teardown_all(void);
+
+/**
  * @brief Run all query objects
  */
 void resq_run_all(void);
 
 /**
- * @brief Destroy a query object
+ * @brief Destroy all registered query objects
  */
 void resq_destroy_all(void);
 

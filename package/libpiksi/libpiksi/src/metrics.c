@@ -50,7 +50,7 @@ struct pk_metrics_s {
 
 static int mkpath(char *dir, mode_t mode);
 static void write_metric(const metrics_descriptor_t *desc);
-static u64 get_denominator_value(pk_metrics_type_t type, const pk_metrics_value_t *value);
+static u64 get_denominator_value(pk_metrics_type_t type, const pk_metrics_value_t *value_in);
 
 pk_metrics_t *_pk_metrics_create(void)
 {
@@ -267,6 +267,7 @@ int pk_metrics_read(pk_metrics_t *metrics, size_t metrics_index, pk_metrics_valu
   }
   metrics_descriptor_t *desc = &metrics->descriptors[metrics_index];
   *value = desc->value;
+  return METRICS_STATUS_SUCCESS;
 }
 
 const char *pk_metrics_status_text(pk_metrics_status_t status)
@@ -305,11 +306,13 @@ pk_metrics_time_t pk_metrics_gettime()
 
 pk_metrics_value_t pk_metrics_reset_default(pk_metrics_type_t type, pk_metrics_value_t initial)
 {
+  (void)type;
   return initial;
 }
 
 pk_metrics_value_t pk_metrics_reset_time(pk_metrics_type_t type, pk_metrics_value_t initial)
 {
+  (void)type;
   (void)initial;
   return (pk_metrics_value_t){.time = pk_metrics_gettime()};
 }
@@ -360,6 +363,8 @@ pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
                                               pk_metrics_value_t current_value,
                                               pk_metrics_update_t update)
 {
+  (void)current_value;
+
   pk_metrics_average_t *average = update.context;
   pk_metrics_t *metrics = update.metrics;
 
@@ -501,6 +506,8 @@ pk_metrics_value_t pk_metrics_updater_count(pk_metrics_type_t type,
                                             pk_metrics_value_t current_value,
                                             pk_metrics_update_t update)
 {
+  (void)update;
+
   switch (type) {
   case METRICS_TYPE_U32: return (pk_metrics_value_t){.u32 = current_value.u32 + 1};
   case METRICS_TYPE_S32: return (pk_metrics_value_t){.s32 = current_value.s32 + 1};
@@ -521,6 +528,8 @@ pk_metrics_value_t pk_metrics_updater_assign(pk_metrics_type_t type,
                                              pk_metrics_value_t current_value,
                                              pk_metrics_update_t update)
 {
+  (void)type;
+  (void)current_value;
   return update.value;
 }
 
@@ -553,7 +562,7 @@ static void write_metric(const metrics_descriptor_t *desc)
   case METRICS_TYPE_S32: fprintf(desc->stream, "%d\n", desc->value.s32); return;
   case METRICS_TYPE_U64: fprintf(desc->stream, "%llu\n", desc->value.u64); return;
   case METRICS_TYPE_S64: fprintf(desc->stream, "%lld\n", desc->value.s64); return;
-  case METRICS_TYPE_F64: fprintf(desc->stream, "%f\n", desc->value.s64); return;
+  case METRICS_TYPE_F64: fprintf(desc->stream, "%f\n", desc->value.f64); return;
   case METRICS_TYPE_TIME:
     timeval = (double)desc->value.time.ns / 1e6;
     fprintf(desc->stream, "%0.03f\n", timeval);

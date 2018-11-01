@@ -21,7 +21,7 @@ $(RESMON): $(OBJS)
 	$(CC) $(CFLAGS) -o $(RESMON) $^ $(LIBS)
 
 $(EXTRACE): extrace.c
-	$(CC) -o $(EXTRACE) $^
+	$(CC) -o $(EXTRACE) $^ $(LIBS)
 
 $(RESMON).a: $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^

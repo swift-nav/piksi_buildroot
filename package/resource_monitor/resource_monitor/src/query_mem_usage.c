@@ -204,7 +204,7 @@ static const char *describe_query(void)
 
 static void teardown_resource_query(void **context)
 {
-  assert(context != NULL && *context != NULL);
+  if (context == NULL || *context == NULL) return;
 
   free(*context);
   *context = NULL;
