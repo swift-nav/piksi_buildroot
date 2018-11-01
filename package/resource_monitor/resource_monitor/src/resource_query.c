@@ -131,6 +131,17 @@ bool resq_read_property(const char *query_name, resq_read_property_t *read_prop)
   return false;
 }
 
+void resq_teardown_all(void)
+{
+  resq_node_t *node = NULL;
+  LIST_FOREACH(node, &interface_list, entries)
+  {
+    if (node->init_success && node->query->teardown != NULL) {
+      node->query->teardown(&node->context);
+    }
+  }
+}
+
 void resq_destroy_all(void)
 {
   resq_node_t *node = NULL;

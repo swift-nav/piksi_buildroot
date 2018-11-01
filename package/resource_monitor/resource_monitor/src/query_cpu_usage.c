@@ -188,8 +188,7 @@ static bool prepare_resource_query_sbp(u16 *msg_type, u8 *len, u8 *sbp_buf, void
 
 static void teardown_resource_query(void **context)
 {
-
-  assert(context != NULL && *context != NULL);
+  if (context == NULL || *context == NULL) return;
 
   free(*context);
   *context = NULL;

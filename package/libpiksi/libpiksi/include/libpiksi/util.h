@@ -443,6 +443,9 @@ typedef struct pipeline_s {
 
   bool _is_nil;
 
+  int _closeable_fds[16];
+  size_t _closeable_idx;
+
 } pipeline_t;
 
 pipeline_t *create_pipeline(void);

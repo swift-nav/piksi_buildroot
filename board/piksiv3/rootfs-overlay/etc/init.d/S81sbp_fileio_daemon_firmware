@@ -1,6 +1,6 @@
 #!/bin/sh
 
-FLAG_DIR="/persistent/flags/"
+FLAG_DIR="/etc/flags/"
 NDB_DIR="/persistent/ndb/"
 MTD_FILE="/factory/mtd"
 

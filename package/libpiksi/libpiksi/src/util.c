@@ -702,6 +702,9 @@ static pipeline_t *pipeline_pipe(pipeline_t *r)
     int out_fd = -1;
     int rc = _run_with_stdin_file(r->_fd_stdin, r->_proc_path, r->_proc_args, &out_fd);
 
+    assert(r->_closeable_idx < COUNT_OF(r->_closeable_fds));
+    r->_closeable_fds[r->_closeable_idx++] = r->_fd_stdin;
+
     if (rc != 0) {
       r->_is_nil = true;
       return r;
@@ -739,6 +742,9 @@ static pipeline_t *pipeline_wait(pipeline_t *r)
 
   int out_fd = -1;
   int rc = _run_with_stdin_file(r->_fd_stdin, r->_proc_path, r->_proc_args, &out_fd);
+
+  assert(r->_closeable_idx < COUNT_OF(r->_closeable_fds));
+  r->_closeable_fds[r->_closeable_idx++] = r->_fd_stdin;
 
   if (rc != 0) {
     r->_is_nil = true;
@@ -792,6 +798,10 @@ static pipeline_t *pipeline_destroy(pipeline_t *r)
     close(r->_fd_stdin);
     r->_fd_stdin = -1;
   }
+  for (size_t x = 0; x < COUNT_OF(r->_closeable_fds); x++) {
+    if (r->_closeable_fds[x] == -1) break;
+    close(r->_closeable_fds[x]);
+  }
   free(r);
   return NULL;
 };
@@ -816,6 +826,8 @@ pipeline_t *create_pipeline(void)
     ._fd_stdin = -1,
     ._proc_path = NULL,
     ._proc_args = NULL,
+    ._closeable_fds = {-1},
+    ._closeable_idx = 0,
   };
 
   return pipeline;
