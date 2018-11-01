@@ -17,7 +17,6 @@
 #include <sys/socket.h>
 #include <sys/socket.h>
 #include <linux/can.h>
-#include <string.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
@@ -28,7 +27,6 @@
 /* can_settings_initialized prevents false warning when notify function
  * is triggered by read from persistent config file during boot */
 static bool can_settings_initialized = false;
-static bool is_duro = device_is_duro();
 
 static const char *const bitrate_enum_names[] =
   {"10k", "20k", "50k", "125k", "250k", "500k", "1M", NULL};
@@ -184,7 +182,7 @@ static int bitrate_notify(void *context)
 int can_init(settings_ctx_t *settings_ctx)
 {
   can_configure(&cans[0]);
-  if (is_duro) {
+  if (!device_is_duro()) {
     can_configure(&cans[1]);
   }
 
@@ -219,7 +217,7 @@ int can_init(settings_ctx_t *settings_ctx)
                     can_notify,
                     &cans[0]);
 
-  if (is_duro()) {
+  if (!device_is_duro()) {
     settings_register(settings_ctx,
                       "can1",
                       "bitrate",
