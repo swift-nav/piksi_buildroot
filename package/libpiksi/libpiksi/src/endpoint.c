@@ -72,17 +72,19 @@ typedef LIST_HEAD(client_nodes_head, client_node) client_nodes_head_t;
 
 struct pk_endpoint_s {
   pk_endpoint_type type;                  /**< The type socket (e.g. {pub,sub}_server, pub/sub, req/rep*/
-  int sock;                               /**< The socket fd associated with this endpoint */
-  int wakefd;
-  bool started;
-  bool nonblock;
-  bool woke;
-  client_nodes_head_t client_nodes_head;
-  int client_count;
-  pk_loop_t *loop;
-  void *poll_handle;
-  void *poll_handle_read;
-  char path[PATH_MAX];
+  int sock;                               /**< The socket handle associated with this endpoint */
+  int wakefd;                             /**< An eventfd() handle for waking up the event loop or to unblock a call
+                                            to pk_endpoint_read */
+  bool started;                           /**< True if the socket was successfully started (e.g. connect()
+                                            or bind() succeeded). */
+  bool nonblock;                          /**< Set the socket to non-blocking mode */
+  bool woke;                              /**< Has the socket been woken up */
+  client_nodes_head_t client_nodes_head;  /**< The list of client nodes for a server socket */
+  int client_count;                       /**< The number of clients for a server socket */
+  pk_loop_t *loop;                        /**< The event loop this endpoint is associated with */
+  void *poll_handle;                      /**< The poll handle for this socket */
+  void *poll_handle_read;                 /**< TODO: remove this? */
+  char path[PATH_MAX];                    /**< The path to the socket */
 };
 
 static int create_un_socket();
@@ -510,6 +512,7 @@ int pk_endpoint_accept(pk_endpoint_t *pk_ept)
 
 int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle_read)
 {
+  // TODO: audit this code
   if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
 
   if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_PUB
@@ -948,5 +951,3 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
 
   ASSERT_TRACE(client_context->poll_handle != NULL);
 }
-
-
