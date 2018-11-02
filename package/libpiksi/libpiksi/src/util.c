@@ -132,8 +132,8 @@ int file_read_string(const char *filename, char *str, size_t str_size)
 
 bool file_read_value(char *file_path)
 {
-  /* Accommodate also the terminating null char fgets always adds */
-  char val_char[2];
+  /* Accommodate the terminating null char fgets always adds and a newline */
+  char val_char[3];
   if (file_read_string(file_path, val_char, sizeof(val_char)) != 0) {
     return false;
   }
