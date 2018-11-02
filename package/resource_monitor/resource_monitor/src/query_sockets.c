@@ -603,7 +603,8 @@ static void run_resource_query(void *context)
       return true;
     }
 
-    if (strstr(line, "u_str") == line || strstr(line, "u_dgr") == line || strstr(line, "u_seq") == line) {
+    if (strstr(line, "u_str") == line || strstr(line, "u_dgr") == line
+        || strstr(line, "u_seq") == line) {
       if (!parse_uds_socket_line(state, line)) {
         PK_LOG_ANNO(LOG_WARNING, "failed to parse uds 'ss' line: %s", line);
       }
