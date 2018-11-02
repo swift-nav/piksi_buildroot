@@ -61,6 +61,12 @@
 #define LOG_LOCAL6 (22u << 3u) /* reserved for local use */
 #define LOG_LOCAL7 (23u << 3u) /* reserved for local use */
 
+/**
+ * An 'annotated' version of @c piksi_log which logs the formatted message with the function name, filename and line.
+ *
+ * An 'annotated' version of @c piksi_log which logs a message annotated as follows:
+ *   `<function_name>: <formatted_message> (<file_name>:<file_line>)`.
+ */
 #define PK_LOG_ANNO(Pri, Msg, ...)                                                          \
   do {                                                                                      \
     piksi_log(Pri, "%s: " Msg " (%s:%d)", __FUNCTION__, ##__VA_ARGS__, __FILE__, __LINE__); \
@@ -73,14 +79,6 @@
  *  E.g. `piksi_log(LOG_SBP|LOG_ERR, "Some message");`
  */
 #define LOG_SBP LOG_LOCAL1
-
-#define pk_log_anno(FacPri, MsgPattern, ...) \
-  piksi_log(FacPri,                          \
-            ("%s: " MsgPattern " (%s:%d)"),  \
-            __FUNCTION__,                    \
-            ##__VA_ARGS__,                   \
-            __FILE__,                        \
-            __LINE__);
 
 #ifdef __cplusplus
 extern "C" {
