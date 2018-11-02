@@ -62,7 +62,8 @@
 #define LOG_LOCAL7 (23u << 3u) /* reserved for local use */
 
 /**
- * An 'annotated' version of @c piksi_log which logs the formatted message with the function name, filename and line.
+ * An 'annotated' version of @c piksi_log which logs the formatted message with the function name,
+ * filename and line.
  *
  * An 'annotated' version of @c piksi_log which logs a message annotated as follows:
  *   `<function_name>: <formatted_message> (<file_name>:<file_line>)`.
