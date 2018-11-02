@@ -32,7 +32,7 @@
 
 #include <libpiksi/endpoint.h>
 
-// Maximum number of packets to service for one socket
+// Maximum number of reads to service for one socket
 #define ENDPOINT_SERVICE_MAX 32
 
 #define IPC_PREFIX "ipc://"
@@ -87,7 +87,7 @@ struct pk_endpoint_s {
   bool nonblock;                          /**< Set the socket to non-blocking mode */
   bool woke;                              /**< Has the socket been woken up */
   client_nodes_head_t client_nodes_head;  /**< The list of client nodes for a server socket */
-  removed_nodes_head_t removed_nodes_head; /**< The list of client nodes for a server socket */
+  removed_nodes_head_t removed_nodes_head;/**< The list of client nodes that need to removed and cleaned-up */
   int client_count;                       /**< The number of clients for a server socket */
   pk_loop_t *loop;                        /**< The event loop this endpoint is associated with */
   void *poll_handle;                      /**< The poll handle for this socket */
@@ -251,7 +251,7 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
     return;
   }
   pk_endpoint_t *pk_ept = *pk_ept_loc;
-  if (pk_ept->started) {
+  if (pk_ept->started && pk_ept->sock >= 0) {
     while (shutdown(pk_ept->sock, SHUT_RDWR) != 0) {
       if (errno == EINTR) continue;
       piksi_log(LOG_ERR, "Failed to shutdown endpoint: %s", pk_endpoint_strerror());
@@ -264,6 +264,7 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
       piksi_log(LOG_ERR, "Failed to close socket: %s", pk_endpoint_strerror());
       break;
     }
+    pk_ept->sock = -1;
   }
   while (!LIST_EMPTY(&pk_ept->client_nodes_head)) {
     client_node_t *node = LIST_FIRST(&pk_ept->client_nodes_head);
@@ -275,6 +276,7 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
       piksi_log(LOG_ERR, "Failed to close eventfd: %s", pk_endpoint_strerror());
       break;
     }
+    pk_ept->wakefd = -1;
   }
   free(pk_ept);
   *pk_ept_loc = NULL;
@@ -775,11 +777,8 @@ static void discard_read_data(client_context_t *ctx)
 {
   u8 read_buf[4096];
   size_t length = sizeof(read_buf);
-
   for (int count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
-
     if (ctx == NULL || ctx->node == NULL) break;
-
     if (recv_impl(ctx, read_buf, &length) != 0) {
       break;
     }
