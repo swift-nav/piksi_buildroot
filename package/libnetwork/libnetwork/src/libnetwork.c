@@ -888,7 +888,8 @@ static int network_upload_progress(void *data,
 
   if (ctx->debug) {
     piksi_log(LOG_DEBUG,
-              "connection type %d: up bytes (%" CURL_FORMAT_CURL_OFF_T  ") %" CURL_FORMAT_CURL_OFF_T  " of total %" CURL_FORMAT_CURL_OFF_T  ", stall count %lld",
+              "connection type %d: up bytes (%" CURL_FORMAT_CURL_OFF_T ") %" CURL_FORMAT_CURL_OFF_T
+              " of total %" CURL_FORMAT_CURL_OFF_T ", stall count %lld",
               ctx->type,
               ulnow,
               ctx->bytes_transfered,
@@ -948,7 +949,7 @@ static int network_sockopt(void *data, curl_socket_t fd, curlsocktype purpose)
   return CURL_SOCKOPT_OK;
 }
 
-void network_ctx_setup(network_context_t *ctx) 
+void network_ctx_setup(network_context_t *ctx)
 {
   ctx->shutdown_signaled = false;
 

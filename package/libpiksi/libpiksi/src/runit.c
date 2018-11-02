@@ -256,11 +256,13 @@ static runit_stat_t runit_stat(runit_config_t *cfg, pid_t *pid)
   return RUNIT_UNKNOWN;
 }
 
-runit_stat_t stat_runit_service(runit_config_t *cfg) {
+runit_stat_t stat_runit_service(runit_config_t *cfg)
+{
   return runit_stat(cfg, NULL);
 }
 
-runit_stat_t pid_runit_service(runit_config_t *cfg, pid_t *pid) {
+runit_stat_t pid_runit_service(runit_config_t *cfg, pid_t *pid)
+{
   return runit_stat(cfg, pid);
 }
 

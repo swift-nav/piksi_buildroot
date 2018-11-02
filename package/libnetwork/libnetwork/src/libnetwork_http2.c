@@ -16,11 +16,11 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-/* somewhat unix-specific */ 
+/* somewhat unix-specific */
 #include <sys/time.h>
 #include <unistd.h>
 
-/* curl stuff */ 
+/* curl stuff */
 #include <curl/curl.h>
 
 #include <libpiksi/logging.h>
@@ -30,84 +30,64 @@
 
 #define TIMEOUT_MAX_S 1
 
-static
-void dump(const char *text,
-          FILE *stream, unsigned char *ptr, size_t size)
+static void dump(const char *text, FILE *stream, unsigned char *ptr, size_t size)
 {
   size_t i;
   size_t c;
-  unsigned int width=0x10;
- 
-  fprintf(stream, "%s, %10.10ld bytes (0x%8.8lx)\n",
-          text, (long)size, (long)size);
- 
-  for(i=0; i<size; i+= width) {
+  unsigned int width = 0x10;
+
+  fprintf(stream, "%s, %10.10ld bytes (0x%8.8lx)\n", text, (long)size, (long)size);
+
+  for (i = 0; i < size; i += width) {
     fprintf(stream, "%4.4lx: ", (long)i);
- 
+
     /* show hex to the left */
-    for(c = 0; c < width; c++) {
-      if(i+c < size)
-        fprintf(stream, "%02x ", ptr[i+c]);
+    for (c = 0; c < width; c++) {
+      if (i + c < size)
+        fprintf(stream, "%02x ", ptr[i + c]);
       else
         fputs("   ", stream);
     }
- 
+
     /* show data on the right */
-    for(c = 0; (c < width) && (i+c < size); c++) {
-      char x = (ptr[i+c] >= 0x20 && ptr[i+c] < 0x80) ? ptr[i+c] : '.';
+    for (c = 0; (c < width) && (i + c < size); c++) {
+      char x = (ptr[i + c] >= 0x20 && ptr[i + c] < 0x80) ? ptr[i + c] : '.';
       fputc(x, stream);
     }
- 
+
     fputc('\n', stream); /* newline */
   }
 }
- 
-static
-int my_trace(CURL *handle, curl_infotype type,
-             char *data, size_t size,
-             void *userp)
+
+static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, void *userp)
 {
   const char *text;
   (void)handle; /* prevent compiler warning */
   (void)userp;
- 
+
   switch (type) {
   case CURLINFO_END:
-  case CURLINFO_TEXT:
-    fprintf(stderr, "== Info: %s", data);
-  default: /* in case a new one is introduced to shock us */
-    return 0;
- 
-  case CURLINFO_HEADER_OUT:
-    text = "=> Send header";
-    break;
-  case CURLINFO_DATA_OUT:
-    text = "=> Send data";
-    break;
-  case CURLINFO_SSL_DATA_OUT:
-    text = "=> Send SSL data";
-    break;
-  case CURLINFO_HEADER_IN:
-    text = "<= Recv header";
-    break;
-  case CURLINFO_DATA_IN:
-    text = "<= Recv data";
-    break;
-  case CURLINFO_SSL_DATA_IN:
-    text = "<= Recv SSL data";
-    break;
+  case CURLINFO_TEXT: fprintf(stderr, "== Info: %s", data);
+  default: /* in case a new one is introduced to shock us */ return 0;
+
+  case CURLINFO_HEADER_OUT: text = "=> Send header"; break;
+  case CURLINFO_DATA_OUT: text = "=> Send data"; break;
+  case CURLINFO_SSL_DATA_OUT: text = "=> Send SSL data"; break;
+  case CURLINFO_HEADER_IN: text = "<= Recv header"; break;
+  case CURLINFO_DATA_IN: text = "<= Recv data"; break;
+  case CURLINFO_SSL_DATA_IN: text = "<= Recv SSL data"; break;
   }
- 
+
   dump(text, stderr, (unsigned char *)data, size);
   return 0;
 }
 
 static void http2_setup(CURL *curl)
 {
-  //curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+  // curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
   curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2);
 
-  /* we use a self-signed test server, skip verification during debugging */ 
+  /* we use a self-signed test server, skip verification during debugging */
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
 
@@ -117,7 +97,9 @@ static void http2_setup(CURL *curl)
   curl_easy_setopt(curl, CURLOPT_PIPEWAIT, 1L);
 }
 
-static int http2_setup_download(network_context_t *ctx_down, CURL **curl, struct curl_slist **chunk_down)
+static int http2_setup_download(network_context_t *ctx_down,
+                                CURL **curl,
+                                struct curl_slist **chunk_down)
 {
   network_ctx_setup(ctx_down);
 
@@ -195,11 +177,11 @@ static void http2_timeout(CURLM *multi, struct timeval *timeout)
   long curl_timeo_ms = -1;
 
   curl_multi_timeout(multi, &curl_timeo_ms);
-  if(curl_timeo_ms >= 0 && curl_timeo_ms <  TIMEOUT_MAX_S * 1000) {
-    *timeout = (struct timeval){ .tv_sec = 0, .tv_usec = curl_timeo_ms * 1000 };
+  if (curl_timeo_ms >= 0 && curl_timeo_ms < TIMEOUT_MAX_S * 1000) {
+    *timeout = (struct timeval){.tv_sec = 0, .tv_usec = curl_timeo_ms * 1000};
   } else {
     /* Max timeout */
-    *timeout = (struct timeval){ .tv_sec = TIMEOUT_MAX_S, .tv_usec = 0 };
+    *timeout = (struct timeval){.tv_sec = TIMEOUT_MAX_S, .tv_usec = 0};
   }
 }
 
@@ -228,7 +210,7 @@ static void http2_loop(CURLM *multi)
       /* https://curl.haxx.se/libcurl/c/curl_multi_fdset.html
        * Recommended wait is 100 ms in this case.
        */
-      timeout = (struct timeval){ 0, 100 * 1000 };
+      timeout = (struct timeval){0, 100 * 1000};
       rc = select(0, NULL, NULL, NULL, &timeout);
     } else {
       http2_timeout(multi, &timeout);

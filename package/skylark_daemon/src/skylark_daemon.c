@@ -183,7 +183,7 @@ static int parse_options(int argc, char *argv[])
       puts("Missing url");
       return -1;
     }
-  } 
+  }
 
   return 0;
 }

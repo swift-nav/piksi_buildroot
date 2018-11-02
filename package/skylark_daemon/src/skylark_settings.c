@@ -35,10 +35,7 @@
 #define SKYLARK_URL                     "https://broker.skylark.swiftnav.com"
 // clang-format on
 
-static const char *const skylark_mode_enum_names[] = {"Disabled",
-                                                      "HTTP 1.1",
-                                                      "HTTP 2",
-                                                      NULL};
+static const char *const skylark_mode_enum_names[] = {"Disabled", "HTTP 1.1", "HTTP 2", NULL};
 
 enum {
   SKYLARK_MODE_DISABLED,
@@ -56,62 +53,61 @@ typedef struct {
 } skylark_process_t;
 
 static skylark_process_t procs[] = {
-  {
-    .cfg = {
-      .service_dir = SL_RUNIT_SERVICE_DIR SL_ADAPT_DL_RUNIT_SERVICE_NAME "/sv",
-      .service_name = SL_ADAPT_DL_RUNIT_SERVICE_NAME,
-      .command_line = NULL,
-      .custom_down = NULL,
-      .restart = NULL,
-    },
-    .modes = (1 << SKYLARK_MODE_HTTP_1_1) | (1 << SKYLARK_MODE_HTTP_2),
-    .base_cmd = "endpoint_adapter --name skylark_download -f sbp --file " DOWNLOAD_FIFO_FILE_PATH " -p ipc:///var/run/sockets/skylark.sub"
-  },
-  {
-    .cfg = {
-      .service_dir = SL_RUNIT_SERVICE_DIR SL_ADAPT_UL_RUNIT_SERVICE_NAME "/sv",
-      .service_name = SL_ADAPT_UL_RUNIT_SERVICE_NAME,
-      .command_line = NULL,
-      .custom_down = NULL,
-      .restart = NULL,
-    },
-    .modes = (1 << SKYLARK_MODE_HTTP_1_1) | (1 << SKYLARK_MODE_HTTP_2),
-    .base_cmd = "endpoint_adapter --name skylark_upload --file " UPLOAD_FIFO_FILE_PATH " -s ipc:///var/run/sockets/skylark.pub "
-               "--filter-out sbp --filter-out-config /etc/skylark_upload_filter_out_config"
-  },
-  {
-    .cfg = {
-      .service_dir = SL_RUNIT_SERVICE_DIR SL_HTTP1_DL_RUNIT_SERVICE_NAME "/sv",
-      .service_name = SL_HTTP1_DL_RUNIT_SERVICE_NAME,
-      .command_line = NULL,
-      .custom_down = NULL,
-      .restart = NULL,
-    },
-    .modes = (1 << SKYLARK_MODE_HTTP_1_1),
-    .base_cmd = "skylark_daemon --download --file-down " DOWNLOAD_FIFO_FILE_PATH " --url "
-  },
-  {
-    .cfg = {
-      .service_dir = SL_RUNIT_SERVICE_DIR SL_HTTP1_UL_RUNIT_SERVICE_NAME "/sv",
-      .service_name = SL_HTTP1_UL_RUNIT_SERVICE_NAME,
-      .command_line = NULL,
-      .custom_down = NULL,
-      .restart = NULL,
-    },
-    .modes = (1 << SKYLARK_MODE_HTTP_1_1),
-    .base_cmd = "skylark_daemon --upload --no-error-reporting --file-up " UPLOAD_FIFO_FILE_PATH " --url "
-  },
-  {
-    .cfg = {
-      .service_dir = SL_RUNIT_SERVICE_DIR SL_HTTP2_RUNIT_SERVICE_NAME "/sv",
-      .service_name = SL_HTTP2_RUNIT_SERVICE_NAME,
-      .command_line = NULL,
-      .custom_down = NULL,
-      .restart = NULL,
-    },
-    .modes = (1 << SKYLARK_MODE_HTTP_2),
-    .base_cmd = "skylark_daemon --debug --http2 --file-down " DOWNLOAD_FIFO_FILE_PATH " --file-up " UPLOAD_FIFO_FILE_PATH " --url "
-  },
+  {.cfg =
+     {
+       .service_dir = SL_RUNIT_SERVICE_DIR SL_ADAPT_DL_RUNIT_SERVICE_NAME "/sv",
+       .service_name = SL_ADAPT_DL_RUNIT_SERVICE_NAME,
+       .command_line = NULL,
+       .custom_down = NULL,
+       .restart = NULL,
+     },
+   .modes = (1 << SKYLARK_MODE_HTTP_1_1) | (1 << SKYLARK_MODE_HTTP_2),
+   .base_cmd = "endpoint_adapter --name skylark_download -f sbp --file " DOWNLOAD_FIFO_FILE_PATH
+               " -p ipc:///var/run/sockets/skylark.sub"},
+  {.cfg =
+     {
+       .service_dir = SL_RUNIT_SERVICE_DIR SL_ADAPT_UL_RUNIT_SERVICE_NAME "/sv",
+       .service_name = SL_ADAPT_UL_RUNIT_SERVICE_NAME,
+       .command_line = NULL,
+       .custom_down = NULL,
+       .restart = NULL,
+     },
+   .modes = (1 << SKYLARK_MODE_HTTP_1_1) | (1 << SKYLARK_MODE_HTTP_2),
+   .base_cmd = "endpoint_adapter --name skylark_upload --file " UPLOAD_FIFO_FILE_PATH
+               " -s ipc:///var/run/sockets/skylark.pub "
+               "--filter-out sbp --filter-out-config /etc/skylark_upload_filter_out_config"},
+  {.cfg =
+     {
+       .service_dir = SL_RUNIT_SERVICE_DIR SL_HTTP1_DL_RUNIT_SERVICE_NAME "/sv",
+       .service_name = SL_HTTP1_DL_RUNIT_SERVICE_NAME,
+       .command_line = NULL,
+       .custom_down = NULL,
+       .restart = NULL,
+     },
+   .modes = (1 << SKYLARK_MODE_HTTP_1_1),
+   .base_cmd = "skylark_daemon --download --file-down " DOWNLOAD_FIFO_FILE_PATH " --url "},
+  {.cfg =
+     {
+       .service_dir = SL_RUNIT_SERVICE_DIR SL_HTTP1_UL_RUNIT_SERVICE_NAME "/sv",
+       .service_name = SL_HTTP1_UL_RUNIT_SERVICE_NAME,
+       .command_line = NULL,
+       .custom_down = NULL,
+       .restart = NULL,
+     },
+   .modes = (1 << SKYLARK_MODE_HTTP_1_1),
+   .base_cmd =
+     "skylark_daemon --upload --no-error-reporting --file-up " UPLOAD_FIFO_FILE_PATH " --url "},
+  {.cfg =
+     {
+       .service_dir = SL_RUNIT_SERVICE_DIR SL_HTTP2_RUNIT_SERVICE_NAME "/sv",
+       .service_name = SL_HTTP2_RUNIT_SERVICE_NAME,
+       .command_line = NULL,
+       .custom_down = NULL,
+       .restart = NULL,
+     },
+   .modes = (1 << SKYLARK_MODE_HTTP_2),
+   .base_cmd = "skylark_daemon --debug --http2 --file-down " DOWNLOAD_FIFO_FILE_PATH
+               " --file-up " UPLOAD_FIFO_FILE_PATH " --url "},
 };
 
 static char *get_skylark_url(void)
@@ -130,13 +126,14 @@ static void skylark_stop_process(skylark_process_t *proc)
   if (stat_runit_service(&proc->cfg) != RUNIT_RUNNING) {
     return;
   }
-   
+
   if (stop_runit_service(&proc->cfg)) {
     piksi_log(LOG_ERR, "stop_runit_service failed for %s", proc->cfg.service_name);
   }
 }
 
-void skylark_stop_processes(void) {
+void skylark_stop_processes(void)
+{
   for (size_t i = 0; i < COUNT_OF(procs); i++) {
     skylark_stop_process(&procs[i]);
   }
