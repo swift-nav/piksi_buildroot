@@ -28,7 +28,7 @@
 
 #include "query_sys_state.h"
 
-#define EXTRACE_LOG "/var/log/extrace.log"
+#define EXTRACE_LOG "/var/run/resource_monitor/extrace.log"
 
 typedef struct {
 
