@@ -29,6 +29,7 @@
 #define PROTOCOL_LIBRARY_PATH "/usr/lib/endpoint_protocols"
 
 static bool debug = false;
+static bool can_enabled = false;
 
 static void usage(char *command)
 {
@@ -42,10 +43,12 @@ static int parse_options(int argc, char *argv[])
 {
   enum {
     OPT_ID_DEBUG = 1,
+    OPT_ID_CAN_ENABLE = 2,
   };
 
   const struct option long_opts[] = {
     {"debug", no_argument, 0, OPT_ID_DEBUG},
+    {"can-enable", no_argument, 0, OPT_ID_CAN_ENABLE},
     {0, 0, 0, 0},
   };
 
@@ -56,6 +59,10 @@ static int parse_options(int argc, char *argv[])
 
     case OPT_ID_DEBUG: {
       debug = true;
+    } break;
+
+    case OPT_ID_CAN_ENABLE: {
+      can_enabled = true;
     } break;
 
     default: {
@@ -76,7 +83,9 @@ static void settings_init(settings_ctx_t *s)
 
   if (serial_init(s) != 0) exit(EXIT_FAILURE);
 
-  if (can_init(s) != 0) exit(EXIT_FAILURE);
+  if (can_enabled) {
+    if (can_init(s) != 0) exit(EXIT_FAILURE);
+  }
 }
 
 int main(int argc, char *argv[])

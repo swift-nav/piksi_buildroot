@@ -182,7 +182,9 @@ static int bitrate_notify(void *context)
 int can_init(settings_ctx_t *settings_ctx)
 {
   can_configure(&cans[0]);
-  can_configure(&cans[1]);
+  if (!device_is_duro()) {
+    can_configure(&cans[1]);
+  }
 
   /* Register settings */
   settings_type_t settings_type_bitrate;
@@ -215,32 +217,34 @@ int can_init(settings_ctx_t *settings_ctx)
                     can_notify,
                     &cans[0]);
 
-  settings_register(settings_ctx,
-                    "can1",
-                    "bitrate",
-                    &cans[1].bitrate,
-                    sizeof(cans[1].bitrate),
-                    settings_type_bitrate,
-                    bitrate_notify,
-                    &cans[1]);
+  if (!device_is_duro()) {
+    settings_register(settings_ctx,
+                      "can1",
+                      "bitrate",
+                      &cans[1].bitrate,
+                      sizeof(cans[1].bitrate),
+                      settings_type_bitrate,
+                      bitrate_notify,
+                      &cans[1]);
 
-  settings_register(settings_ctx,
-                    "can1",
-                    "tx_id",
-                    &cans[1].id,
-                    sizeof(cans[1].id),
-                    SETTINGS_TYPE_INT,
-                    can_notify,
-                    &cans[1]);
+    settings_register(settings_ctx,
+                      "can1",
+                      "tx_id",
+                      &cans[1].id,
+                      sizeof(cans[1].id),
+                      SETTINGS_TYPE_INT,
+                      can_notify,
+                      &cans[1]);
 
-  settings_register(settings_ctx,
-                    "can1",
-                    "rx_id_filter",
-                    &cans[1].filter,
-                    sizeof(cans[1].filter),
-                    SETTINGS_TYPE_INT,
-                    can_notify,
-                    &cans[1]);
+    settings_register(settings_ctx,
+                      "can1",
+                      "rx_id_filter",
+                      &cans[1].filter,
+                      sizeof(cans[1].filter),
+                      SETTINGS_TYPE_INT,
+                      can_notify,
+                      &cans[1]);
+  }
 
   can_settings_initialized = true;
 

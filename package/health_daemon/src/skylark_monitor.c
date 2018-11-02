@@ -16,6 +16,7 @@
 #include <libnetwork.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/navigation.h>
@@ -37,24 +38,6 @@
 
 static health_monitor_t *skylark_monitor;
 static bool no_fix = true;
-
-static bool skylark_enabled()
-{
-
-  FILE *fp = fopen(SKYLARK_ENABLED_FILE_PATH, "r");
-  if (fp == NULL) {
-    piksi_log(LOG_ERR, "error opening %s", SKYLARK_ENABLED_FILE_PATH);
-    return false;
-  }
-
-  char buf[1] = {0};
-
-  (void)fread(buf, sizeof(buf), 1, fp);
-
-  if (buf[0] != '1') return false;
-
-  return true;
-}
 
 static int sbp_msg_pos_llh_callback(health_monitor_t *monitor,
                                     u16 sender_id,
@@ -86,7 +69,7 @@ static int skylark_timer_callback(health_monitor_t *monitor, void *context)
     return 0;
   }
 
-  if (!skylark_enabled()) {
+  if (!file_read_value(SKYLARK_ENABLED_FILE_PATH)) {
     DEBUG_LOG("%s: skylark is not enabled", __FUNCTION__);
     return 0;
   }
