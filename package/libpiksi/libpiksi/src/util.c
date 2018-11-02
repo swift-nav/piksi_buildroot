@@ -910,5 +910,3 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
 
 #undef ASSERT_FAIL_MSG
 }
-
-

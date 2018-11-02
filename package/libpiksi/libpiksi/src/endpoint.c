@@ -78,21 +78,22 @@ typedef LIST_HEAD(client_nodes_head, client_node) client_nodes_head_t;
 typedef LIST_HEAD(removed_nodes_head, removed_node) removed_nodes_head_t;
 
 struct pk_endpoint_s {
-  pk_endpoint_type type;                  /**< The type socket (e.g. {pub,sub}_server, pub/sub, req/rep*/
-  int sock;                               /**< The socket handle associated with this endpoint */
-  int wakefd;                             /**< An eventfd() handle for waking up the event loop or to unblock a call
-                                            to pk_endpoint_read */
-  bool started;                           /**< True if the socket was successfully started (e.g. connect()
-                                            or bind() succeeded). */
-  bool nonblock;                          /**< Set the socket to non-blocking mode */
-  bool woke;                              /**< Has the socket been woken up */
-  client_nodes_head_t client_nodes_head;  /**< The list of client nodes for a server socket */
-  removed_nodes_head_t removed_nodes_head;/**< The list of client nodes that need to removed and cleaned-up */
-  int client_count;                       /**< The number of clients for a server socket */
-  pk_loop_t *loop;                        /**< The event loop this endpoint is associated with */
-  void *poll_handle;                      /**< The poll handle for this socket */
-  void *poll_handle_read;                 /**< TODO: remove this? */
-  char path[PATH_MAX];                    /**< The path to the socket */
+  pk_endpoint_type type; /**< The type socket (e.g. {pub,sub}_server, pub/sub, req/rep*/
+  int sock;              /**< The socket handle associated with this endpoint */
+  int wakefd;            /**< An eventfd() handle for waking up the event loop or to unblock a call
+                           to pk_endpoint_read */
+  bool started;          /**< True if the socket was successfully started (e.g. connect()
+                           or bind() succeeded). */
+  bool nonblock;         /**< Set the socket to non-blocking mode */
+  bool woke;             /**< Has the socket been woken up */
+  client_nodes_head_t client_nodes_head; /**< The list of client nodes for a server socket */
+  removed_nodes_head_t
+    removed_nodes_head;   /**< The list of client nodes that need to removed and cleaned-up */
+  int client_count;       /**< The number of clients for a server socket */
+  pk_loop_t *loop;        /**< The event loop this endpoint is associated with */
+  void *poll_handle;      /**< The poll handle for this socket */
+  void *poll_handle_read; /**< TODO: remove this? */
+  char path[PATH_MAX];    /**< The path to the socket */
 };
 
 static int create_un_socket();
@@ -117,7 +118,11 @@ static int send_impl(client_context_t *ctx, const u8 *data, size_t length);
 
 static void discard_read_data(client_context_t *ctx);
 
-NESTED_FN_TYPEDEF(void, foreach_client_fn_t, pk_endpoint_t *pk_ept, client_node_t *client_node, void *context);
+NESTED_FN_TYPEDEF(void,
+                  foreach_client_fn_t,
+                  pk_endpoint_t *pk_ept,
+                  client_node_t *client_node,
+                  void *context);
 
 static void foreach_client(pk_endpoint_t *pk_ept, void *context, foreach_client_fn_t foreach_fn);
 
@@ -145,7 +150,7 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
     goto failure;
   }
 
-  *pk_ept = (pk_endpoint_t) {
+  *pk_ept = (pk_endpoint_t){
     .type = type,
     .sock = -1,
     .started = false,
@@ -349,16 +354,18 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 
     pk_ept->woke = false;
 
-    foreach_client(pk_ept, &length, NESTED_FN(void, (pk_endpoint_t *pk_ept, client_node_t *node, void *ctx), {
-      size_t *length_loc = ctx;
-      recv_impl(&node->val, buffer, length_loc);
-    }));
+    foreach_client(pk_ept,
+                   &length,
+                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                     size_t *length_loc = ctx;
+                     recv_impl(&node->val, buffer, length_loc);
+                   }));
 
   } else {
 
-    client_context_t client_context = (client_context_t) {
+    client_context_t client_context = (client_context_t){
       .ept = pk_ept,
-      .handle = pk_ept->sock, 
+      .handle = pk_ept->sock,
       .poll_handle = NULL,
       .node = NULL,
     };
@@ -402,12 +409,14 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
 
     pk_ept->woke = false;
 
-    foreach_client(pk_ept, NULL, NESTED_FN(void, (pk_endpoint_t *pk_ept, client_node_t *node, void *ctx), {
-      service_reads(&node->val, rx_cb, context);
-    }));
+    foreach_client(pk_ept,
+                   NULL,
+                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                     service_reads(&node->val, rx_cb, context);
+                   }));
 
   } else {
-    client_context_t ctx = (client_context_t) {
+    client_context_t ctx = (client_context_t){
       .ept = pk_ept,
       .handle = pk_ept->sock,
       .poll_handle = pk_ept->poll_handle,
@@ -431,7 +440,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   int rc = -1;
 
   if (pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_REQ) {
-    client_context_t ctx = (client_context_t) {
+    client_context_t ctx = (client_context_t){
       .ept = pk_ept,
       .handle = pk_ept->sock,
       .poll_handle = NULL,
@@ -439,11 +448,13 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
     };
     rc = send_impl(&ctx, data, length);
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
-    foreach_client(pk_ept, &rc, NESTED_FN(void, (pk_endpoint_t *pk_ept, client_node_t *node, void *ctx), {
-      // TODO: Why are we saving rc here, invalid clients will just be removed...
-      int *rc_loc = ctx;
-      *rc_loc = send_impl(&node->val, data, length);
-    }));
+    foreach_client(pk_ept,
+                   &rc,
+                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                     // TODO: Why are we saving rc here, invalid clients will just be removed...
+                     int *rc_loc = ctx;
+                     *rc_loc = send_impl(&node->val, data, length);
+                   }));
   }
 
   return rc;
@@ -629,7 +640,11 @@ static void teardown_client(client_context_t *ctx)
 
 static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
 {
-  ENDPOINT_DEBUG_LOG("handle: %d, ept: %p, poll_handle: %p, node: %p", ctx->handle, ctx->ept, ctx->poll_handle, ctx->node);
+  ENDPOINT_DEBUG_LOG("handle: %d, ept: %p, poll_handle: %p, node: %p",
+                     ctx->handle,
+                     ctx->ept,
+                     ctx->poll_handle,
+                     ctx->node);
 
   int err = 0;
   int length = 0;
@@ -707,7 +722,11 @@ static void send_close_socket_helper(client_context_t *ctx)
 
 static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 {
-  ENDPOINT_DEBUG_LOG("handle: %d, ept: %p, poll_handle: %p, node: %p", ctx->handle, ctx->ept, ctx->poll_handle, ctx->node);
+  ENDPOINT_DEBUG_LOG("handle: %d, ept: %p, poll_handle: %p, node: %p",
+                     ctx->handle,
+                     ctx->ept,
+                     ctx->poll_handle,
+                     ctx->node);
 
   struct iovec iov[1] = {0};
   struct msghdr msg = {0};
@@ -825,8 +844,8 @@ static void record_disconnect(client_node_t *node)
 
   --ept->client_count;
 
-  removed_node_t* removed_node = malloc(sizeof(removed_node_t));
-  *removed_node = (removed_node_t) { .client_node = node };
+  removed_node_t *removed_node = malloc(sizeof(removed_node_t));
+  *removed_node = (removed_node_t){.client_node = node};
 
   LIST_INSERT_HEAD(&ept->removed_nodes_head, removed_node, entries);
 
