@@ -33,7 +33,12 @@
 #include <libpiksi/endpoint.h>
 
 // Maximum number of reads to service for one socket
-#define ENDPOINT_SERVICE_MAX 32
+#define ENDPOINT_SERVICE_MAX (32u)
+
+#define CONNECT_RETRIES_MAX (3u)
+#define CONNECT_RETRY_SLEEP_MS (100u)
+
+#define MS_TO_US(MS) (MS*1000u)
 
 #define IPC_PREFIX "ipc://"
 
@@ -584,12 +589,26 @@ static int connect_un_socket(int fd, const char *path)
   struct sockaddr_un addr = {.sun_family = AF_UNIX};
   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
-  if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-    PK_LOG_ANNO(LOG_ERR, "connect error: %s (path: %s)", strerror(errno), path);
-    return -1;
+  int connect_errno = 0;
+  int rc = 0;
+
+  for (size_t retry = 0; retry < CONNECT_RETRIES_MAX; retry++) {
+
+    if (retry > 0) usleep(MS_TO_US(CONNECT_RETRY_SLEEP_MS));
+
+    rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+    connect_errno = errno;
+
+    if (rc == 0) break;
+
+    PK_LOG_ANNO(LOG_WARNING, "connection failed: '%s' for path: '%s'; retry %zu of %zu", strerror(connect_errno), path, retry, CONNECT_RETRIES_MAX);
   }
 
-  return 0;
+  if (rc != 0) {
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "connection failed: '%s' for path: '%s'", strerror(connect_errno), path);
+  }
+
+  return rc == 0 ? 0 : -1;
 }
 
 static bool valid_socket_type_for_read(pk_endpoint_t *pk_ept)
@@ -780,7 +799,7 @@ static void discard_read_data(client_context_t *ctx)
 {
   u8 read_buf[4096];
   size_t length = sizeof(read_buf);
-  for (int count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
+  for (size_t count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
     if (ctx == NULL || ctx->node == NULL) break;
     if (recv_impl(ctx, read_buf, &length) != 0) {
       break;
