@@ -163,7 +163,7 @@ static int router_setup(router_t *router, pk_loop_t *loop)
       return -1;
     }
 
-    pk_endpoint_loop_add(port->pub_ept, loop, NULL);
+    pk_endpoint_loop_add(port->pub_ept, loop);
 
     port->sub_ept = pk_endpoint_create(port->sub_addr, PK_ENDPOINT_SUB_SERVER);
     if (port->sub_ept == NULL) {
@@ -171,7 +171,7 @@ static int router_setup(router_t *router, pk_loop_t *loop)
       return -1;
     }
 
-    pk_endpoint_loop_add(port->sub_ept, loop, NULL);
+    pk_endpoint_loop_add(port->sub_ept, loop);
   }
 
   return 0;

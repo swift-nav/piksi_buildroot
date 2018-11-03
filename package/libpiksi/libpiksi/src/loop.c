@@ -436,7 +436,7 @@ void *pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
     return NULL;
   }
 
-  if (pk_endpoint_loop_add(pk_ept, pk_loop, poll_handle) < 0) {
+  if (pk_endpoint_loop_add(pk_ept, pk_loop) < 0) {
     PK_LOG_ANNO(LOG_ERR, "error adding loop to endpoint");
     return NULL;
   }

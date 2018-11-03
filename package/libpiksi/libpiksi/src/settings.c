@@ -1538,7 +1538,7 @@ static bool configure_control_socket(pk_loop_t *loop,
     return false;
   }
 
-  if (pk_endpoint_loop_add(*rep_socket, loop, NULL) < 0) {
+  if (pk_endpoint_loop_add(*rep_socket, loop) < 0) {
     piksi_log(LOG_ERR, "Error adding IPC socket to loop: %s", control_socket);
     return false;
   }

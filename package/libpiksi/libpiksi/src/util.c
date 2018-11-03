@@ -130,7 +130,6 @@ int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
-
 bool file_read_value(char *file_path)
 {
   /* Accommodate the terminating null char fgets always adds and a newline */

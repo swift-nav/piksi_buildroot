@@ -148,13 +148,13 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop));
   }
 
-  rc = pk_endpoint_loop_add(pub_ept, loop, NULL);
+  rc = pk_endpoint_loop_add(pub_ept, loop);
   if (rc < 0) {
     PK_LOG_ANNO(LOG_ERR, "failed to add endpoint to loop");
     exit(cleanup(EXIT_FAILURE, &loop));
   }
 
-  rc = pk_endpoint_loop_add(sub_ept, loop, NULL);
+  rc = pk_endpoint_loop_add(sub_ept, loop);
   if (rc < 0) {
     PK_LOG_ANNO(LOG_ERR, "failed to add endpoint to loop");
     exit(cleanup(EXIT_FAILURE, &loop));

@@ -167,12 +167,52 @@ int pk_endpoint_accept(pk_endpoint_t *pk_ept);
 int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
 
 /**
- * @brief Add a server socket to a loop for servicing.
+ * @brief   Add a server socket to a loop for servicing.
  *
- * @details Server sockets created with @c pk_endpoint_create need to be added
- *          to a loop in order to be serviced.
+ * @details
+ *   Server sockets created with @c pk_endpoint_create need to be added
+ *   to a loop in order to be serviced.  Other sockets may need this
+ *   in the future to support things like reconnection/retransmission.
+ *
+ *   For client sockets (PUB/SUB/REQ):
+ *
+ *   - *PUB*: the caller should service the data form this socket by
+ *     registering a reader with @c pk_loop_endpoint_reader_add and then
+ *     calling @c pk_endpoint_receive to receive data.
+ *
+ *   - *SUB*: these sockets do not produce data so they do not need to
+ *     be associated with a loop except for (later) we may use the loop
+ *     to do things like automatic reconnect.
+ *
+ *     TODO: for certain degenerate cases, a server could conceivably
+ *     write data to the SUB socket, a loop would be required to discard
+ *     this data or we could investigate using `shutdown()` to close
+ *     down the read side of the socket.
+ *
+ *   - *REQ*: similar to *PUB*
+ *
+ *   For server scokets (PUB_SERVER/SUB_SERVER/REP):
+ *
+ *   - *PUB_SERVER*: A loop is required in order to service new connections,
+ *     no data should be written to pub sockets, so any data written will
+ *     wake the event loop but it will be read and discarded.
+ *
+ *     TODO: investigate if we can use `shutdown()` to avoid having to
+ *     read and discard data.
+ *
+ *   - *SUB_SERVER*: A loop is required in order to service new connections,
+ *     the caller should register to receive data by using @c pk_loop_endpoint_reader_add 
+ *     and calling @c pk_endpoint_poll_handle_get to get the handle that
+ *     will wake when any client writes data.
+ *
+ *   - *REP*: similar to *PUB_SERVER*
+ *
+ * @param[in] pk_ept        Pointer to Piksi endpoint context to use
+ * @param[in] loop          The loop with which to associate
+ *
+ * @return  Zero on success, -1 on failure
  */
-int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle);
+int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop);
 
 #ifdef __cplusplus
 }

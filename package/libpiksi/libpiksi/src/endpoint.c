@@ -80,8 +80,9 @@ typedef LIST_HEAD(removed_nodes_head, removed_node) removed_nodes_head_t;
 struct pk_endpoint_s {
   pk_endpoint_type type; /**< The type socket (e.g. {pub,sub}_server, pub/sub, req/rep*/
   int sock;              /**< The socket handle associated with this endpoint */
-  int wakefd;            /**< An eventfd() handle for waking up the event loop or to unblock a call
-                           to pk_endpoint_read */
+  int wakefd;            /**< An eventfd() handle for waking up an event loop when any client writes to a 'sub'
+                              style server socket, this one handle collapses the collection of event handles
+                              from many client sockets into one event handle. */
   bool started;          /**< True if the socket was successfully started (e.g. connect()
                            or bind() succeeded). */
   bool nonblock;         /**< Set the socket to non-blocking mode */
@@ -92,7 +93,6 @@ struct pk_endpoint_s {
   int client_count;       /**< The number of clients for a server socket */
   pk_loop_t *loop;        /**< The event loop this endpoint is associated with */
   void *poll_handle;      /**< The poll handle for this socket */
-  void *poll_handle_read; /**< TODO: remove this? */
   char path[PATH_MAX];    /**< The path to the socket */
 };
 
@@ -160,7 +160,6 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
     .client_count = 0,
     .loop = NULL,
     .poll_handle = NULL,
-    .poll_handle_read = NULL,
   };
 
   strncpy(pk_ept->path, endpoint, sizeof(pk_ept->path));
@@ -507,49 +506,34 @@ int pk_endpoint_accept(pk_endpoint_t *pk_ept)
 /************* pk_endpoint_loop_add ***************************************/
 /**************************************************************************/
 
-int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop, void *poll_handle_read)
+int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
 {
-  // TODO: audit this code
+  ASSERT_TRACE(loop != NULL);
+
+  /* The endpoint must be non-blocking to be addociated with a loop */
   if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
 
   if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_PUB
       || pk_ept->type == PK_ENDPOINT_REQ) {
 
-    ASSERT_TRACE(poll_handle_read != NULL);
-    pk_ept->poll_handle = poll_handle_read;
+    pk_ept->poll_handle = NULL;
+
+    /* Later we may want to save the loop to do things like reconnecting? */
+    pk_ept->loop = loop;
 
     return 0;
   }
 
-  ASSERT_TRACE(loop != NULL);
-
-  if (pk_ept->loop == loop) {
-
-    /* If we're a server style SUB/REP socket, pk_loop_endpoint_reader_add will
-     * pass a poll_handle of NULL because someone else should be handling the
-     * read events for the socket.
-     */
-
-    ASSERT_TRACE(poll_handle_read != NULL);
-    ASSERT_TRACE(pk_ept->poll_handle_read == NULL);
-
-    ASSERT_TRACE(pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP);
-
-    pk_ept->poll_handle_read = poll_handle_read;
-
-    return 0;
+  if (pk_ept->loop != NULL) {
+    // We do not support changing the loop assication (for now)
+    PK_LOG_ANNO(LOG_ERR, "cannot change associate loop");
+    return pk_ept->loop == loop ? 0 : -1;
   }
 
   ASSERT_TRACE(pk_ept->loop == NULL);
   ASSERT_TRACE(pk_ept->poll_handle == NULL);
 
-  if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
-
   pk_ept->loop = loop;
-
-  ASSERT_TRACE(poll_handle_read == NULL);
-  ASSERT_TRACE(pk_ept->poll_handle == NULL);
-
   pk_ept->poll_handle = pk_loop_poll_add(loop, pk_ept->sock, accept_wake_handler, pk_ept);
 
   return pk_ept->poll_handle != NULL ? 0 : -1;

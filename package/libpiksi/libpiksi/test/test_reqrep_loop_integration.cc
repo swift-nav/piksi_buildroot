@@ -82,7 +82,7 @@ TEST_F(ReqrepLoopIntegrationTests, reqrepLoopIntegrationTest)
   rep_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_REP);
   ASSERT_NE(rep_ept, nullptr);
 
-  ASSERT_GE(pk_endpoint_loop_add(rep_ept, loop, NULL), 0);
+  ASSERT_GE(pk_endpoint_loop_add(rep_ept, loop), 0);
 
   req_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_REQ);
   ASSERT_NE(req_ept, nullptr);
