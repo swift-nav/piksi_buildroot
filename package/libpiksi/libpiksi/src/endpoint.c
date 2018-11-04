@@ -38,7 +38,7 @@
 #define CONNECT_RETRIES_MAX (3u)
 #define CONNECT_RETRY_SLEEP_MS (100u)
 
-#define MS_TO_US(MS) (MS*1000u)
+#define MS_TO_US(MS) (MS * 1000u)
 
 #define IPC_PREFIX "ipc://"
 
@@ -85,20 +85,20 @@ typedef LIST_HEAD(removed_nodes_head, removed_node) removed_nodes_head_t;
 struct pk_endpoint_s {
   pk_endpoint_type type; /**< The type socket (e.g. {pub,sub}_server, pub/sub, req/rep*/
   int sock;              /**< The socket handle associated with this endpoint */
-  int wakefd;            /**< An eventfd() handle for waking up an event loop when any client writes to a 'sub'
-                              style server socket, this one handle collapses the collection of event handles
-                              from many client sockets into one event handle. */
-  bool started;          /**< True if the socket was successfully started (e.g. connect()
-                           or bind() succeeded). */
-  bool nonblock;         /**< Set the socket to non-blocking mode */
-  bool woke;             /**< Has the socket been woken up */
+  int wakefd; /**< An eventfd() handle for waking up an event loop when any client writes to a 'sub'
+                   style server socket, this one handle collapses the collection of event handles
+                   from many client sockets into one event handle. */
+  bool started;  /**< True if the socket was successfully started (e.g. connect()
+                   or bind() succeeded). */
+  bool nonblock; /**< Set the socket to non-blocking mode */
+  bool woke;     /**< Has the socket been woken up */
   client_nodes_head_t client_nodes_head; /**< The list of client nodes for a server socket */
   removed_nodes_head_t
-    removed_nodes_head;   /**< The list of client nodes that need to removed and cleaned-up */
-  int client_count;       /**< The number of clients for a server socket */
-  pk_loop_t *loop;        /**< The event loop this endpoint is associated with */
-  void *poll_handle;      /**< The poll handle for this socket */
-  char path[PATH_MAX];    /**< The path to the socket */
+    removed_nodes_head; /**< The list of client nodes that need to removed and cleaned-up */
+  int client_count;     /**< The number of clients for a server socket */
+  pk_loop_t *loop;      /**< The event loop this endpoint is associated with */
+  void *poll_handle;    /**< The poll handle for this socket */
+  char path[PATH_MAX];  /**< The path to the socket */
 };
 
 static int create_un_socket();
@@ -601,11 +601,19 @@ static int connect_un_socket(int fd, const char *path)
 
     if (rc == 0) break;
 
-    PK_LOG_ANNO(LOG_WARNING, "connection failed: '%s' for path: '%s'; retry %zu of %zu", strerror(connect_errno), path, retry, CONNECT_RETRIES_MAX);
+    PK_LOG_ANNO(LOG_WARNING,
+                "connection failed: '%s' for path: '%s'; retry %zu of %zu",
+                strerror(connect_errno),
+                path,
+                retry,
+                CONNECT_RETRIES_MAX);
   }
 
   if (rc != 0) {
-    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "connection failed: '%s' for path: '%s'", strerror(connect_errno), path);
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP,
+                "connection failed: '%s' for path: '%s'",
+                strerror(connect_errno),
+                path);
   }
 
   return rc == 0 ? 0 : -1;

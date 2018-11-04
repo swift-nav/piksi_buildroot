@@ -201,7 +201,7 @@ int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
  *     read and discard data.
  *
  *   - *SUB_SERVER*: A loop is required in order to service new connections,
- *     the caller should register to receive data by using @c pk_loop_endpoint_reader_add 
+ *     the caller should register to receive data by using @c pk_loop_endpoint_reader_add
  *     and calling @c pk_endpoint_poll_handle_get to get the handle that
  *     will wake when any client writes data.
  *
