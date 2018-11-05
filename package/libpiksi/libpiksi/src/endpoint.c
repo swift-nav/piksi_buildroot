@@ -932,8 +932,12 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
     piksi_log(LOG_WARNING, "unable to add new client, closing connection");
     int clientfd = pk_endpoint_accept(ept);
 
-    shutdown(clientfd, SHUT_RDWR);
-    close(clientfd);
+    retry_on_eintr(NESTED_FN(int, (), { return shutdown(clientfd, SHUT_RDWR); }),
+                   LOG_WARNING,
+                   "Could not shutdown client socket");
+    retry_on_eintr(NESTED_FN(int, (), { return close(clientfd); }),
+                   LOG_WARNING,
+                   "Coult not close client socket");
 
     return;
   }
