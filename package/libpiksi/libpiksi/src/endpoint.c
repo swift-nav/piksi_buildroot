@@ -101,7 +101,7 @@ struct pk_endpoint_s {
   char path[PATH_MAX];  /**< The path to the socket */
 };
 
-static int create_un_socket();
+static int create_un_socket(void);
 
 static int bind_un_socket(int fd, const char *path);
 
@@ -140,6 +140,10 @@ static void record_disconnect(client_node_t *node);
 static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *context);
 
 static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void *context);
+
+NESTED_FN_TYPEDEF(int, eintr_fn_t);
+
+static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_message);
 
 /**********************************************************************/
 /************* pk_endpoint_create *************************************/
@@ -261,18 +265,14 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
   }
   pk_endpoint_t *pk_ept = *pk_ept_loc;
   if (pk_ept->started && pk_ept->sock >= 0) {
-    while (shutdown(pk_ept->sock, SHUT_RDWR) != 0) {
-      if (errno == EINTR) continue;
-      piksi_log(LOG_ERR, "Failed to shutdown endpoint: %s", pk_endpoint_strerror());
-      break;
-    }
+    retry_on_eintr(NESTED_FN(int, (), { return shutdown(pk_ept->sock, SHUT_RDWR); }),
+                   LOG_ERR,
+                   "Failed to shutdown endpoint");
   }
   if (pk_ept->sock >= 0) {
-    while (close(pk_ept->sock) != 0) {
-      if (errno == EINTR) continue;
-      piksi_log(LOG_ERR, "Failed to close socket: %s", pk_endpoint_strerror());
-      break;
-    }
+    retry_on_eintr(NESTED_FN(int, (), { return close(pk_ept->sock); }),
+                   LOG_ERR,
+                   "Failed to close socket");
     pk_ept->sock = -1;
   }
   while (!LIST_EMPTY(&pk_ept->client_nodes_head)) {
@@ -280,11 +280,9 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
     purge_client_node(node);
   }
   if (pk_ept->wakefd >= 0) {
-    while (close(pk_ept->wakefd) != 0) {
-      if (errno == EINTR) continue;
-      piksi_log(LOG_ERR, "Failed to close eventfd: %s", pk_endpoint_strerror());
-      break;
-    }
+    retry_on_eintr(NESTED_FN(int, (), { return close(pk_ept->wakefd); }),
+                   LOG_ERR,
+                   "Failed to close eventfd");
     pk_ept->wakefd = -1;
   }
   free(pk_ept);
@@ -548,7 +546,7 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
 /************* Helpers ****************************************************/
 /**************************************************************************/
 
-static int create_un_socket()
+static int create_un_socket(void)
 {
   int fd = -1;
 
@@ -643,8 +641,12 @@ static void teardown_client(client_context_t *ctx)
 
   if (ctx->handle == -1) return;
 
-  shutdown(ctx->handle, SHUT_RDWR);
-  close(ctx->handle);
+  retry_on_eintr(NESTED_FN(int, (), { return shutdown(ctx->handle, SHUT_RDWR); }),
+                 LOG_WARNING,
+                 "Could not shutdown client socket");
+  retry_on_eintr(NESTED_FN(int, (), { return close(ctx->handle); }),
+                 LOG_WARNING,
+                 "Coult not close client socket");
 
   ctx->handle = -1;
 }
@@ -964,4 +966,14 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
     pk_loop_poll_add(loop, clientfd, handle_client_wake, client_context);
 
   ASSERT_TRACE(client_context->poll_handle != NULL);
+}
+
+static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_message)
+{
+  while (the_func() != 0) {
+    if (errno == EINTR) continue;
+    piksi_log(priority, "%s: %s", error_message, pk_endpoint_strerror());
+    return false;
+  }
+  return true;
 }
