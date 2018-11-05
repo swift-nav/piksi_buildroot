@@ -542,7 +542,6 @@ const char *pk_loop_last_error(pk_loop_t *pk_loop)
 const char *pk_loop_describe_status(int status)
 {
   static char buf[128] = {0};
-  static char buf_succ[128] = {0};
   static char buf_read[128] = {0};
   static char buf_disco[128] = {0};
   static char buf_error[128] = {0};

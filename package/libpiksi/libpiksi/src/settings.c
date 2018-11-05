@@ -181,10 +181,11 @@ static int settings_deregister_read_resp_callback(settings_ctx_t *ctx);
 static int float_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)priv;
-
+  assert(slen >= 0);
   switch (blen) {
-  case 4: return snprintf(str, slen, "%.12g", (double)*(float *)blob);
-  case 8: return snprintf(str, slen, "%.12g", *(double *)blob);
+  case 4: return snprintf(str, (size_t)slen, "%.12g", (double)*(float *)blob);
+  case 8: return snprintf(str, (size_t)slen, "%.12g", *(double *)blob);
+  default: assert(false);
   }
   return -1;
 }
@@ -192,10 +193,10 @@ static int float_to_string(const void *priv, char *str, int slen, const void *bl
 static bool float_from_string(const void *priv, void *blob, int blen, const char *str)
 {
   (void)priv;
-
   switch (blen) {
   case 4: return sscanf(str, "%g", (float *)blob) == 1;
   case 8: return sscanf(str, "%lg", (double *)blob) == 1;
+  default: assert(false);
   }
   return false;
 }
@@ -203,11 +204,12 @@ static bool float_from_string(const void *priv, void *blob, int blen, const char
 static int int_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)priv;
-
+  assert(slen >= 0);
   switch (blen) {
-  case 1: return snprintf(str, slen, "%hhd", *(s8 *)blob);
-  case 2: return snprintf(str, slen, "%hd", *(s16 *)blob);
-  case 4: return snprintf(str, slen, "%ld", *(s32 *)blob);
+  case 1: return snprintf(str, (size_t)slen, "%hhd", *(s8 *)blob);
+  case 2: return snprintf(str, (size_t)slen, "%hd", *(s16 *)blob);
+  case 4: return snprintf(str, (size_t)slen, "%d", *(s32 *)blob);
+  default: assert(false);
   }
   return -1;
 }
@@ -215,19 +217,20 @@ static int int_to_string(const void *priv, char *str, int slen, const void *blob
 static bool int_from_string(const void *priv, void *blob, int blen, const char *str)
 {
   (void)priv;
-
   switch (blen) {
   case 1: {
     s16 tmp;
     /* Newlib's crappy sscanf doesn't understand %hhd */
     if (sscanf(str, "%hd", &tmp) == 1) {
-      *(s8 *)blob = tmp;
+      assert(INT8_MIN >= tmp && tmp <= INT8_MAX);
+      *(s8 *)blob = (s8)tmp;
       return true;
     }
     return false;
   }
   case 2: return sscanf(str, "%hd", (s16 *)blob) == 1;
-  case 4: return sscanf(str, "%ld", (s32 *)blob) == 1;
+  case 4: return sscanf(str, "%d", (s32 *)blob) == 1;
+  default: assert(false);
   }
   return false;
 }
@@ -236,29 +239,28 @@ static int str_to_string(const void *priv, char *str, int slen, const void *blob
 {
   (void)priv;
   (void)blen;
-
-  return snprintf(str, slen, "%s", blob);
+  assert(slen >= 0);
+  return snprintf(str, (size_t)slen, "%s", (char*)blob);
 }
 
 static bool str_from_string(const void *priv, void *blob, int blen, const char *str)
 {
   (void)priv;
-
-  int l = snprintf(blob, blen, "%s", str);
+  assert(blen >= 0);
+  int l = snprintf(blob, (size_t)blen, "%s", str);
   if ((l < 0) || (l >= blen)) {
     return false;
   }
-
   return true;
 }
 
 static int enum_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)blen;
-
+  assert(slen >= 0);
   const char *const *enum_names = priv;
   int index = *(u8 *)blob;
-  return snprintf(str, slen, "%s", enum_names[index]);
+  return snprintf(str, (size_t)slen, "%s", enum_names[index]);
 }
 
 static bool enum_from_string(const void *priv, void *blob, int blen, const char *str)
@@ -276,22 +278,24 @@ static bool enum_from_string(const void *priv, void *blob, int blen, const char 
     return false;
   }
 
-  *(u8 *)blob = i;
+  assert(i < UINT8_MAX);
+  *(u8 *)blob = (u8)i;
 
   return true;
 }
 
 static int enum_format_type(const void *priv, char *str, int slen)
 {
-  int n = 0;
   int l;
+  assert(slen >= 0);
 
   /* Print "enum:" header */
-  l = snprintf(&str[n], slen - n, "enum:");
+  l = snprintf(str, (size_t)slen, "enum:");
   if (l < 0) {
     return l;
   }
-  n += l;
+
+  int n = l;
 
   /* Print enum names separated by commas */
   for (const char *const *enum_names = priv; *enum_names; enum_names++) {
@@ -918,28 +922,6 @@ static int setting_send_write_response(settings_ctx_t *ctx,
                   (u8 *)write_response)
       != 0) {
     piksi_log(LOG_ERR, "error sending settings write response");
-    return -1;
-  }
-  return 0;
-}
-
-/**
- * @brief setting_send_read_response
- * @param ctx: settings context
- * @param read_response: pre-formatted read response sbp message
- * @param len: length of the message
- * @return zero on success, -1 if message failed to send
- */
-static int setting_send_read_response(settings_ctx_t *ctx,
-                                      msg_settings_read_resp_t *read_response,
-                                      u8 len)
-{
-  if (sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx->pubsub_ctx),
-                  SBP_MSG_SETTINGS_READ_RESP,
-                  len,
-                  (u8 *)read_response)
-      != 0) {
-    piksi_log(LOG_ERR, "error sending settings read response");
     return -1;
   }
   return 0;

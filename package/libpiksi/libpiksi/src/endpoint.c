@@ -101,7 +101,7 @@ struct pk_endpoint_s {
   char path[PATH_MAX];  /**< The path to the socket */
 };
 
-static int create_un_socket();
+static int create_un_socket(void);
 
 static int bind_un_socket(int fd, const char *path);
 
@@ -213,10 +213,12 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
     }
   }
 
-  int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
-                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len);
+  {
+    int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
+                     : connect_un_socket(pk_ept->sock, endpoint + prefix_len);
 
-  pk_ept->started = rc == 0;
+    pk_ept->started = rc == 0;
+  }
 
   if (!pk_ept->started) {
     piksi_log(LOG_ERR,
@@ -360,7 +362,8 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 
     foreach_client(pk_ept,
                    &length,
-                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                   NESTED_FN(void, (pk_endpoint_t *_e, client_node_t * node, void *ctx), {
+                     (void)_e;
                      size_t *length_loc = ctx;
                      recv_impl(&node->val, buffer, length_loc);
                    }));
@@ -379,7 +382,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 
   if (rc < 0) return rc;
 
-  return length;
+  return (ssize_t)length;
 }
 
 /**********************************************************************/
@@ -415,7 +418,9 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
 
     foreach_client(pk_ept,
                    NULL,
-                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                   NESTED_FN(void, (pk_endpoint_t *_e, client_node_t * node, void *_c), {
+                     (void)_e;
+                     (void)_c;
                      service_reads(&node->val, rx_cb, context);
                    }));
 
@@ -454,7 +459,8 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     foreach_client(pk_ept,
                    &rc,
-                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                   NESTED_FN(void, (pk_endpoint_t *_e, client_node_t * node, void *ctx), {
+                     (void) _e;
                      // TODO: Why are we saving rc here, invalid clients will just be removed...
                      int *rc_loc = ctx;
                      *rc_loc = send_impl(&node->val, data, length);
@@ -548,7 +554,7 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
 /************* Helpers ****************************************************/
 /**************************************************************************/
 
-static int create_un_socket()
+static int create_un_socket(void)
 {
   int fd = -1;
 
@@ -751,15 +757,15 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
   while (1) {
 
     int written = sendmsg(ctx->handle, &msg, 0);
-    int error = errno;
+    int sendmsg_error = errno;
 
     if (written != -1) {
       /* Break on success */
-      ASSERT_TRACE(written == length);
+      ASSERT_TRACE(written == (int)length);
       return 0;
     }
 
-    if (error == EAGAIN || error == EWOULDBLOCK) {
+    if (sendmsg_error == EAGAIN || sendmsg_error == EWOULDBLOCK) {
 
       int queued_input = -1;
       int error = ioctl(ctx->handle, SIOCINQ, &queued_input);
@@ -786,7 +792,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
       return 0;
     }
 
-    if (error == EINTR) {
+    if (sendmsg_error == EINTR) {
       /* Retry if interrupted */
       ENDPOINT_DEBUG_LOG("sendmsg returned with EINTR");
       continue;
@@ -794,8 +800,8 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
     send_close_socket_helper(ctx);
 
-    if (error != EPIPE && error != ECONNRESET) {
-      PK_LOG_ANNO(LOG_ERR, "error in sendmsg: %s", strerror(error));
+    if (sendmsg_error != EPIPE && sendmsg_error != ECONNRESET) {
+      PK_LOG_ANNO(LOG_ERR, "error in sendmsg: %s", strerror(sendmsg_error));
     }
 
     /* Return error */
