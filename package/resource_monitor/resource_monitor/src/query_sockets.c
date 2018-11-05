@@ -56,7 +56,7 @@ typedef enum {
 	SS_SYN_RECV    = 0x0004,
 	SS_FIN_WAIT1   = 0x0008,
 	SS_FIN_WAIT2   = 0x0010,
-	SS_TIME_WAIT   = 0x0020, 
+	SS_TIME_WAIT   = 0x0020,
 	SS_CLOSED      = 0x0040,
 	SS_CLOSE_WAIT  = 0x0080,
   SS_LAST_ACK    = 0x0100,
