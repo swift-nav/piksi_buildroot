@@ -2,8 +2,9 @@ TARGET=libpiksi
 SOURCES=$(notdir $(shell find . -name '*.c'))
 
 ARFLAGS=rcs $(LTO_PLUGIN)
-CFLAGS+=-std=gnu11 -fPIC -I../include -ggdb3 -rdynamic -funwind-tables -O3
-LDFLAGS+=-shared -rdynamic
+
+CFLAGS += -std=gnu11 -fPIC -I../include -ggdb3 -rdynamic -funwind-tables -O3 $(PBR_CC_WARNINGS)
+LDFLAGS += -shared -rdynamic
 
 CROSS=
 

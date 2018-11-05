@@ -354,7 +354,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
   int rc = read_and_receive_common(pk_ept, read_handler, &length);
   if (rc < 0) return rc;
 
-  return length;
+  return (ssize_t)length;
 }
 
 /**********************************************************************/
@@ -698,15 +698,15 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
   while (1) {
 
     int written = sendmsg(ctx->handle, &msg, 0);
-    int error = errno;
+    int sendmsg_error = errno;
 
     if (written != -1) {
       /* Break on success */
-      ASSERT_TRACE(written == length);
+      ASSERT_TRACE(written == (int)length);
       return 0;
     }
 
-    if (error == EAGAIN || error == EWOULDBLOCK) {
+    if (sendmsg_error == EAGAIN || sendmsg_error == EWOULDBLOCK) {
 
       int queued_input = -1;
       int error = ioctl(ctx->handle, SIOCINQ, &queued_input);
@@ -732,7 +732,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
       return 0;
     }
 
-    if (error == EINTR) {
+    if (sendmsg_error == EINTR) {
       /* Retry if interrupted */
       ENDPOINT_DEBUG_LOG("sendmsg returned with EINTR");
       continue;
@@ -740,8 +740,8 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
     send_close_socket_helper(ctx);
 
-    if (error != EPIPE && error != ECONNRESET) {
-      PK_LOG_ANNO(LOG_ERR, "error in sendmsg: %s", strerror(error));
+    if (sendmsg_error != EPIPE && sendmsg_error != ECONNRESET) {
+      PK_LOG_ANNO(LOG_ERR, "error in sendmsg: %s", strerror(sendmsg_error));
     }
 
     /* Return error */
@@ -1061,10 +1061,12 @@ static pk_endpoint_t *create_impl(const char *endpoint,
     }
   }
 
-  int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
-                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len, retry_connect);
+  {
+    int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
+                     : connect_un_socket(pk_ept->sock, endpoint + prefix_len, retry_connect);
 
-  pk_ept->started = rc == 0;
+    pk_ept->started = rc == 0;
+  }
 
   if (!pk_ept->started) {
     PK_LOG_ANNO(LOG_ERR,

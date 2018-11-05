@@ -30,7 +30,7 @@ LIBS= \
 LIBS_TESTERS= \
 	-luv -lpiksi -lsbp -ldl -lpthread
 
-CFLAGS=-std=gnu++11 -z muldefs -I. -I../include -L../src -ggdb3
+CFLAGS=-std=gnu++11 -z muldefs -I. -I../include -L../src -ggdb3 $(PBR_CC_WARNINGS)
 
 CROSS=
 
