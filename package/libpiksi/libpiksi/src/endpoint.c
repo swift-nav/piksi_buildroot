@@ -72,9 +72,14 @@
 
 // clang-format off
 PK_METRICS_TABLE(message_metrics_table, MI,
-  PK_METRICS_ENTRY("client/count", "total",  M_S32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  client_count),
-  PK_METRICS_ENTRY("send/close",   "count",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  send_close_count),
-  PK_METRICS_ENTRY("read/close",   "count",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  read_close_count)
+  PK_METRICS_ENTRY("client/count",       "total",       M_S32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  client_count),
+  PK_METRICS_ENTRY("client/wakes",       "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakes_per_s),
+  PK_METRICS_ENTRY("send/close",         "count",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  send_close_count),
+  PK_METRICS_ENTRY("read/close",         "count",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  read_close_count),
+  PK_METRICS_ENTRY("read/discard",       "count",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  read_discard_count),
+  PK_METRICS_ENTRY("accept/count",       "total",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  accept_count),
+  PK_METRICS_ENTRY("accept/error",       "total",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  accept_error),
+  PK_METRICS_ENTRY("disconnect/count",   "total",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  disconnect_count)
   )
 // clang-format on
 
@@ -120,6 +125,7 @@ struct pk_endpoint_s {
   char path[PATH_MAX];  /**< The path to the socket */
   pk_metrics_t *metrics;/**< The metrics object for this endpoint */
   void *metrics_timer;  /**< Handle of the metrics flush timer */
+  bool warned_on_discard;
   char identity[PATH_MAX];
 };
 
@@ -693,6 +699,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
 static void discard_read_data(client_context_t *ctx)
 {
+  PK_METRICS_UPDATE(MR(ctx->ept), MI.read_discard_count);
   u8 read_buf[READ_BUF_SIZE];
   size_t length = sizeof(read_buf);
   for (size_t count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
@@ -760,33 +767,40 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
   (void)handle;
 
   client_context_t *client_context = (client_context_t *)context;
+  pk_endpoint_t *ept = client_context->ept;
+
+  PK_METRICS_UPDATE(MR(ept), MI.wakes_per_s);
 
   if ((status & LOOP_ERROR) || (status & LOOP_DISCONNECTED)) {
 
     ENDPOINT_DEBUG_LOG("client disconnected: %s (%08x)", pk_loop_describe_status(status), status);
+    PK_METRICS_UPDATE(MR(ept), MI.disconnect_count);
 
     teardown_client(client_context);
     record_disconnect(client_context->node);
-    process_removed_clients(client_context->ept);
+    process_removed_clients(ept);
 
     return;
   }
 
-  if ((status & LOOP_READ) && client_context->ept->type == PK_ENDPOINT_PUB_SERVER) {
+  if ((status & LOOP_READ) && ept->type == PK_ENDPOINT_PUB_SERVER) {
 
-    piksi_log(LOG_WARNING, "discarding read data from pub server");
+    if (!ept->warned_on_discard) {
+      piksi_log(LOG_WARNING, "discarding read data from pub server");
+      ept->warned_on_discard = true;
+    }
+
     discard_read_data(client_context);
 
     return;
   }
 
   /* Don't wake-up loop again if one is already pending */
-  if (client_context->ept->woke) return;
-
-  client_context->ept->woke = true;
+  if (ept->woke) return;
+  ept->woke = true;
 
   int64_t incr_value = 1;
-  write(client_context->ept->wakefd, &incr_value, sizeof(incr_value));
+  write(ept->wakefd, &incr_value, sizeof(incr_value));
 }
 
 static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void *context)
@@ -794,6 +808,11 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
   (void)handle;
 
   ASSERT_TRACE(loop != NULL);
+
+  pk_endpoint_t *ept = (pk_endpoint_t *)context;
+  ASSERT_TRACE(ept != NULL);
+
+  PK_METRICS_UPDATE(MR(ept), MI.accept_count);
 
   if (!(status & LOOP_READ) && status != LOOP_SUCCESS) {
 
@@ -806,11 +825,10 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
       PK_LOG_ANNO(LOG_ERR, "status: %s", pk_loop_describe_status(status));
     }
 
+    PK_METRICS_UPDATE(MR(ept), MI.accept_error);
+
     return;
   }
-
-  pk_endpoint_t *ept = (pk_endpoint_t *)context;
-  ASSERT_TRACE(ept != NULL);
 
   client_node_t *client_node = (client_node_t *)malloc(sizeof(client_node_t));
 
@@ -825,6 +843,8 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
     retry_on_eintr(NESTED_FN(int, (), { return close(clientfd); }),
                    LOG_WARNING,
                    "Coult not close client socket");
+
+    PK_METRICS_UPDATE(MR(ept), MI.accept_error);
 
     return;
   }
@@ -935,6 +955,8 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
     .client_count = 0,
     .loop = NULL,
     .poll_handle = NULL,
+    .metrics_timer = NULL,
+    .warned_on_discard = false,
   };
 
   strncpy(pk_ept->path, endpoint, sizeof(pk_ept->path));
@@ -984,15 +1006,15 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
   }
 
   int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
-                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len, retry_start);
+                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len);
 
   pk_ept->started = rc == 0;
 
   if (!pk_ept->started) {
-    PK_LOG_ANNO(LOG_ERR,
-                "Failed to %s socket: %s",
-                do_bind ? "bind" : "connect",
-                pk_endpoint_strerror());
+    piksi_log(LOG_ERR,
+              "Failed to %s socket: %s",
+              do_bind ? "bind" : "connect",
+              pk_endpoint_strerror());
     goto failure;
   }
 
@@ -1019,10 +1041,6 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
   if (pk_ept->metrics == NULL) goto failure;
 
   return pk_ept;
-
-failure:
-  pk_endpoint_destroy(&pk_ept);
-  return NULL;
 }
 
 static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, void *context)
@@ -1032,6 +1050,8 @@ static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, vo
 
   pk_endpoint_t *pk_ept = context;
   pk_metrics_flush(MR(pk_ept));
+
+  pk_metrics_reset(MR(pk_ept), MI.wakes_per_s);
 
   pk_loop_timer_reset(handle);
 }
