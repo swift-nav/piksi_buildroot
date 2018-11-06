@@ -237,8 +237,7 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
   }
 
   if (pk_ept->metrics_timer != NULL) {
-    assert(pk_ept->loop != NULL);
-    pk_loop_poll_remove(pk_ept->loop, pk_ept->metrics_timer);
+    pk_loop_remove_handle(pk_ept->metrics_timer);
     pk_ept->metrics_timer = NULL;
   }
 
@@ -853,7 +852,7 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
               "client count exceeding expected maximum: %zu",
               ept->client_count);
   }
-  PK_METRICS_UPDATE(MR(ept), MI.client_count, PK_METRICS_VALUE(ept->client_count));
+  PK_METRICS_UPDATE(MR(ept), MI.client_count, PK_METRICS_VALUE((s32)ept->client_count));
 
   client_context->poll_handle =
     pk_loop_poll_add(loop, clientfd, handle_client_wake, client_context);
@@ -1013,6 +1012,11 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
       goto failure;
     }
   }
+
+  strncpy(pk_ept->identity, identity, sizeof(pk_ept->identity));
+  pk_ept->metrics = pk_metrics_setup("endpoint", pk_ept->identity, MT, COUNT_OF(MT));
+
+  if (pk_ept->metrics == NULL) goto failure;
 
   return pk_ept;
 
