@@ -135,10 +135,11 @@ static int send_from_wrap(void *ctx, uint16_t msg_type, uint8_t len, uint8_t *pa
   return sbp_tx_send_from(sbp_pubsub_tx_ctx_get(settings_ctx->pubsub_ctx), msg_type, len, payload, sbp_sender_id);
 }
 
-static void wait_wrap(void *ctx, int timeout_ms)
+static int wait_wrap(void *ctx, int timeout_ms)
 {
   settings_ctx_t *settings_ctx = (settings_ctx_t *)ctx;
-  pk_loop_run_simple_with_timeout(settings_ctx->loop, timeout_ms);
+
+  return pk_loop_run_simple_with_timeout(settings_ctx->loop, timeout_ms);
 }
 
 static void signal_wrap(void *ctx)
@@ -190,8 +191,8 @@ settings_ctx_t *settings_create(const char *ident)
   api.ctx = (void *)ctx;
   api.send = send_wrap;
   api.send_from = send_from_wrap;
-  api.wait_resp = wait_wrap;
-  api.signal_resp = signal_wrap;
+  api.wait = wait_wrap;
+  api.signal = signal_wrap;
   api.register_cb = reg_cb_wrap;
   api.unregister_cb = unreg_cb_wrap;
   api.log = piksi_log;
