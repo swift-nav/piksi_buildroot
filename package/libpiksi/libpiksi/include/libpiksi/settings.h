@@ -33,16 +33,6 @@ extern "C" {
 
 typedef struct settings_ctx_s settings_ctx_t;
 
-typedef bool (*handle_command_fn)();
-
-/**
- * @brief   Registers settings with the given context.
- *
- * @details Intended to be used with @c settings_loop to register the settings
- *          that the loop will be responsible for.
- */
-typedef void (*register_settings_fn)(settings_ctx_t *ctx);
-
 /**
  * @brief Called when a settings loop terminates (from an signal handler).
  */
@@ -52,25 +42,6 @@ typedef void (*settings_term_fn)(void);
  * @brief Called when a child process exits.
  */
 typedef void (*settings_child_fn)(void);
-
-/**
- * @brief   Create a settings context.
- * @details Create and initialize a settings context.
- *
- * @return                  Pointer to the created context, or NULL if the
- *                          operation failed.
- */
-settings_ctx_t *settings_create(void);
-
-/**
- * @brief   Destroy a settings context.
- * @details Deinitialize and destroy a settings context.
- *
- * @note    The context pointer will be set to NULL by this function.
- *
- * @param[inout] ctx        Double pointer to the context to destroy.
- */
-void settings_destroy(settings_ctx_t **ctx);
 
 /**
  * @brief   Create a settings context.
@@ -182,6 +153,36 @@ int settings_add_watch(settings_ctx_t *ctx, const char *section,
                        void *notify_context);
 
 /**
+ * @brief   Attach settings context to Piksi loop.
+ * @details Attach settings context to Piksi loop. Settings rx callbacks
+ *          will be executed to process pending messages when available.
+ *
+ * @param[in] ctx           Pointer to the context to use.
+ * @param[in] pk_loop       Pointer to the Piksi loop to use.
+ *
+ * @return                  The operation result.
+ * @retval 0                The settings reader was attached successfully.
+ * @retval -1               An error occurred.
+ */
+int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop);
+
+/**
+ * @brief   Registers settings with the given context.
+ *
+ * @details Intended to be used with @c settings_loop to register the settings
+ *          that the loop will be responsible for.
+ */
+typedef void (*register_settings_fn)(settings_ctx_t *ctx);
+
+/**
+ * @brief   Handles a control message for a @c settings_loop
+ *
+ * @details Intended to be used with @c settings_loop, this function is called
+ *          when the control command for the loop is received.
+ */
+typedef bool (*handle_command_fn)();
+
+/**
  * @brief   Start a settings loop with a control sock.
  * @details Starts a settings loop with a control socket, this is the main
  *          entry point for a daemon that handles settings and has a simple
@@ -230,20 +231,6 @@ bool settings_loop(const char *metrics_ident,
  * @retval -1               An error occurred
  */
 bool settings_loop_simple(const char *metrics_ident, register_settings_fn do_register_settings);
-
-/**
- * @brief   Attach settings context to Piksi loop.
- * @details Attach settings context to Piksi loop. Settings rx callbacks
- *          will be executed to process pending messages when available.
- *
- * @param[in] ctx           Pointer to the context to use.
- * @param[in] pk_loop       Pointer to the Piksi loop to use.
- *
- * @return                  The operation result.
- * @retval 0                The settings reader was attached successfully.
- * @retval -1               An error occurred.
- */
-int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop);
 
 /**
  * @brief   Send a control command to a running settings daemon
