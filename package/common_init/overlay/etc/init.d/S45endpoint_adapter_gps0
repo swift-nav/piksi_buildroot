@@ -40,6 +40,8 @@ setup_permissions()
 {
   add_service_user $user
   configure_dir_resource $user /var/run/gps_ntp 0770
+  configure_logrotate_file "${name}_log" $stdout_log
+  configure_logrotate_file "${name}_err" $stderr_log
 }
 
 do_start()
