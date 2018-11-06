@@ -78,7 +78,7 @@ void settings_destroy(settings_ctx_t **ctx);
  * @retval -1               An error occurred.
  */
 int settings_type_register_enum(settings_ctx_t *ctx,
-                                const char * const enum_names[],
+                                const char *const enum_names[],
                                 settings_type_t *type);
 
 /**
@@ -103,9 +103,13 @@ int settings_type_register_enum(settings_ctx_t *ctx,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_register(settings_ctx_t *ctx, const char *section,
-                      const char *name, void *var, size_t var_len,
-                      settings_type_t type, settings_notify_fn notify,
+int settings_register(settings_ctx_t *ctx,
+                      const char *section,
+                      const char *name,
+                      void *var,
+                      size_t var_len,
+                      settings_type_t type,
+                      settings_notify_fn notify,
                       void *notify_context);
 
 /**
@@ -124,9 +128,12 @@ int settings_register(settings_ctx_t *ctx, const char *section,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_register_readonly(settings_ctx_t *ctx, const char *section,
-                               const char *name, const void *var,
-                               size_t var_len, settings_type_t type);
+int settings_register_readonly(settings_ctx_t *ctx,
+                               const char *section,
+                               const char *name,
+                               const void *var,
+                               size_t var_len,
+                               settings_type_t type);
 
 /**
  * @brief   Create and add a watch only setting.
@@ -147,9 +154,13 @@ int settings_register_readonly(settings_ctx_t *ctx, const char *section,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_add_watch(settings_ctx_t *ctx, const char *section,
-                       const char *name, void *var, size_t var_len,
-                       settings_type_t type, settings_notify_fn notify,
+int settings_add_watch(settings_ctx_t *ctx,
+                       const char *section,
+                       const char *name,
+                       void *var,
+                       size_t var_len,
+                       settings_type_t type,
+                       settings_notify_fn notify,
                        void *notify_context);
 
 /**

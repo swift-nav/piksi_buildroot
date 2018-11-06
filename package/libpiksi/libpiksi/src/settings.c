@@ -129,10 +129,18 @@ static int send_wrap(void *ctx, uint16_t msg_type, uint8_t len, uint8_t *payload
   return sbp_tx_send(sbp_pubsub_tx_ctx_get(settings_ctx->pubsub_ctx), msg_type, len, payload);
 }
 
-static int send_from_wrap(void *ctx, uint16_t msg_type, uint8_t len, uint8_t *payload, uint16_t sbp_sender_id)
+static int send_from_wrap(void *ctx,
+                          uint16_t msg_type,
+                          uint8_t len,
+                          uint8_t *payload,
+                          uint16_t sbp_sender_id)
 {
   settings_ctx_t *settings_ctx = (settings_ctx_t *)ctx;
-  return sbp_tx_send_from(sbp_pubsub_tx_ctx_get(settings_ctx->pubsub_ctx), msg_type, len, payload, sbp_sender_id);
+  return sbp_tx_send_from(sbp_pubsub_tx_ctx_get(settings_ctx->pubsub_ctx),
+                          msg_type,
+                          len,
+                          payload,
+                          sbp_sender_id);
 }
 
 static int wait_wrap(void *ctx, int timeout_ms)
@@ -214,7 +222,7 @@ void settings_destroy(settings_ctx_t **ctx)
 }
 
 int settings_type_register_enum(settings_ctx_t *ctx,
-                                const char * const enum_names[],
+                                const char *const enum_names[],
                                 settings_type_t *type)
 {
   assert(ctx != NULL);
@@ -224,46 +232,38 @@ int settings_type_register_enum(settings_ctx_t *ctx,
   return setreg_add_enum(ctx->setreg, enum_names, type);
 }
 
-int settings_register(settings_ctx_t *ctx, const char *section,
-                      const char *name, void *var, size_t var_len,
-                      settings_type_t type, settings_notify_fn notify,
+int settings_register(settings_ctx_t *ctx,
+                      const char *section,
+                      const char *name,
+                      void *var,
+                      size_t var_len,
+                      settings_type_t type,
+                      settings_notify_fn notify,
                       void *notify_context)
 {
-  return setreg_add_setting(ctx->setreg,
-                            section,
-                            name,
-                            var,
-                            var_len,
-                            type,
-                            notify,
-                            notify_context);
+  return setreg_add_setting(ctx->setreg, section, name, var, var_len, type, notify, notify_context);
 }
 
-int settings_register_readonly(settings_ctx_t *ctx, const char *section,
-                               const char *name, const void *var,
-                               size_t var_len, settings_type_t type)
+int settings_register_readonly(settings_ctx_t *ctx,
+                               const char *section,
+                               const char *name,
+                               const void *var,
+                               size_t var_len,
+                               settings_type_t type)
 {
-  return setreg_add_readonly(ctx->setreg,
-                            section,
-                            name,
-                            (void *)var,
-                            var_len,
-                            type);
+  return setreg_add_readonly(ctx->setreg, section, name, (void *)var, var_len, type);
 }
 
-int settings_add_watch(settings_ctx_t *ctx, const char *section,
-                       const char *name, void *var, size_t var_len,
-                       settings_type_t type, settings_notify_fn notify,
+int settings_add_watch(settings_ctx_t *ctx,
+                       const char *section,
+                       const char *name,
+                       void *var,
+                       size_t var_len,
+                       settings_type_t type,
+                       settings_notify_fn notify,
                        void *notify_context)
 {
-  return setreg_add_watch(ctx->setreg,
-                          section,
-                          name,
-                          var,
-                          var_len,
-                          type,
-                          notify,
-                          notify_context);
+  return setreg_add_watch(ctx->setreg, section, name, var, var_len, type, notify, notify_context);
 }
 
 int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
