@@ -66,16 +66,17 @@
  * @date 2018-02-23
  */
 
-#include <sys/stat.h>
-#include <unistd.h>
 #include <errno.h>
+#include <unistd.h>
+
+#include <sys/stat.h>
 
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
-#include <libsbp/settings.h>
-
 #include <libpiksi/settings.h>
+
+#include <libsbp/settings.h>
 
 #define PUB_ENDPOINT "ipc:///var/run/sockets/settings_client.sub"
 #define SUB_ENDPOINT "ipc:///var/run/sockets/settings_client.pub"
@@ -1499,6 +1500,16 @@ static void control_handler(pk_loop_t *loop, void *handle, int status, void *con
   pk_endpoint_send(cmd_info->cmd_ept, &result, 1);
 }
 
+static const char* get_socket_ident(const char *usage)
+{
+  static char buffer[128] = {0};
+
+  static int count = 0;
+  snprintf(buffer, sizeof(buffer), "%s_%d_%d", usage, (int)getpid(), count++);
+
+  return buffer;
+}
+
 static bool configure_control_socket(pk_loop_t *loop,
                                      const char *control_socket,
                                      const char *control_socket_file,
@@ -1531,7 +1542,7 @@ static bool configure_control_socket(pk_loop_t *loop,
     return false;
   }
 
-  *rep_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REP);
+  *rep_socket = pk_endpoint_create(control_socket, get_socket_ident("control_server"), PK_ENDPOINT_REP);
   if (*rep_socket == NULL) {
     const char *err_msg = pk_endpoint_strerror();
     piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s", control_socket, err_msg);
@@ -1659,7 +1670,7 @@ int settings_loop_send_command(const char *target_description,
   piksi_log(LOG_INFO, CMD_INFO_MSG, command_description, target_description);
   printf(CMD_INFO_MSG "\n", command_description, target_description);
 
-  pk_endpoint_t *req_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REQ);
+  pk_endpoint_t *req_socket = pk_endpoint_create(control_socket, get_socket_ident("control_request"), PK_ENDPOINT_REQ);
   CHECK_PK_EPT_ERR(req_socket == NULL, pk_endpoint_create);
 
   int ret = 0;

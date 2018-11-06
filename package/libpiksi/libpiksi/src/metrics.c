@@ -85,7 +85,7 @@ pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
     if (strlen(metrics_suffix) > 0) {
       count = snprintf(metrics_folder,
                        sizeof(metrics_folder),
-                       "%s_%s/%s",
+                       "%s/%s/%s",
                        metrics_base_name,
                        metrics_suffix,
                        metrics_table[idx].folder);

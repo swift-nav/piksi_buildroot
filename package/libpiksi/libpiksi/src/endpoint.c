@@ -28,6 +28,7 @@
 #include <linux/sockios.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/metrics.h>
 #include <libpiksi/util.h>
 #include <libpiksi/loop.h>
 
@@ -61,7 +62,21 @@
 #  define ENDPOINT_DEBUG_LOG(...)
 #  define NDEBUG_UNUSED(X) (void)(X)
 #endif
+
 /* clang-format on */
+
+#define MI metrics_indexes
+#define MT message_metrics_table
+
+#define MR(X) (X->metrics)
+
+// clang-format off
+PK_METRICS_TABLE(message_metrics_table, MI,
+  PK_METRICS_ENTRY("client/count", "total",  M_S32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  client_count),
+  PK_METRICS_ENTRY("send/close",   "count",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  send_close_count),
+  PK_METRICS_ENTRY("read/close",   "count",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  read_close_count)
+  )
+// clang-format on
 
 typedef struct client_node client_node_t;
 typedef struct removed_node removed_node_t;
@@ -103,6 +118,9 @@ struct pk_endpoint_s {
   pk_loop_t *loop;      /**< The event loop this endpoint is associated with */
   void *poll_handle;    /**< The poll handle for this socket */
   char path[PATH_MAX];  /**< The path to the socket */
+  pk_metrics_t *metrics;/**< The metrics object for this endpoint */
+  void *metrics_timer;  /**< Handle of the metrics flush timer */
+  char identity[PATH_MAX];
 };
 
 static int create_un_socket(void);
@@ -155,13 +173,16 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept,
                                    read_handler_fn_t read_handler,
                                    void *ctx);
 
+
 static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, bool retry_start);
+
+static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, void *context);
 
 /**********************************************************************/
 /************* pk_endpoint_create *************************************/
 /**********************************************************************/
 
-pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
+pk_endpoint_t *pk_endpoint_create(const char *endpoint, const char *identity, pk_endpoint_type type)
 {
   return pk_endpoint_create_ex(endpoint, type, false);
 }
@@ -214,6 +235,14 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
     pk_loop_poll_remove(pk_ept->loop, pk_ept->poll_handle);
     pk_ept->poll_handle = NULL;
   }
+
+  if (pk_ept->metrics_timer != NULL) {
+    assert(pk_ept->loop != NULL);
+    pk_loop_poll_remove(pk_ept->loop, pk_ept->metrics_timer);
+    pk_ept->metrics_timer = NULL;
+  }
+
+  pk_metrics_destroy(&pk_ept->metrics);
 
   free(pk_ept);
   *pk_ept_loc = NULL;
@@ -402,6 +431,11 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
   pk_ept->loop = loop;
   pk_ept->poll_handle = pk_loop_poll_add(loop, pk_ept->sock, accept_wake_handler, pk_ept);
 
+  void *metrics_timer = pk_loop_timer_add(loop, 1000, flush_endpoint_metrics, pk_ept);
+  assert(metrics_timer != NULL);
+
+  pk_ept->metrics_timer = metrics_timer;
+
   return pk_ept->poll_handle != NULL ? 0 : -1;
 }
 
@@ -531,6 +565,7 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
       if (length == 0) {
         ENDPOINT_DEBUG_LOG("socket closed");
         if (ctx->node != NULL) record_disconnect(ctx->node);
+        PK_METRICS_UPDATE(MR(ctx->ept), MI.read_close_count);
         teardown_client(ctx);
       }
       /* TODO: we should probably auto reconnect here if we're a PUB/SUB/REQ */
@@ -582,6 +617,7 @@ static int service_reads(client_context_t *ctx, pk_endpoint_receive_cb rx_cb, vo
 static void send_close_socket_helper(client_context_t *ctx)
 {
   if (ctx->node != NULL) record_disconnect(ctx->node);
+  PK_METRICS_UPDATE(MR(ctx->ept), MI.send_close_count);
   teardown_client(ctx);
 }
 
@@ -707,6 +743,7 @@ static void record_disconnect(client_node_t *node)
   ASSERT_TRACE(node != NULL);
 
   --ept->client_count;
+  PK_METRICS_UPDATE(MR(ept), MI.client_count, PK_METRICS_VALUE((s32)ept->client_count));
 
   removed_node_t *removed_node = malloc(sizeof(removed_node_t));
   *removed_node = (removed_node_t){.client_node = node};
@@ -816,6 +853,7 @@ static void accept_wake_handler(pk_loop_t *loop, void *handle, int status, void 
               "client count exceeding expected maximum: %zu",
               ept->client_count);
   }
+  PK_METRICS_UPDATE(MR(ept), MI.client_count, PK_METRICS_VALUE(ept->client_count));
 
   client_context->poll_handle =
     pk_loop_poll_add(loop, clientfd, handle_client_wake, client_context);
@@ -981,4 +1019,15 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
 failure:
   pk_endpoint_destroy(&pk_ept);
   return NULL;
+}
+
+static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, void *context)
+{
+  (void) loop;
+  (void) status;
+
+  pk_endpoint_t *pk_ept = context;
+  pk_metrics_flush(MR(pk_ept));
+
+  pk_loop_timer_reset(handle);
 }
