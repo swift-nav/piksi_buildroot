@@ -29,11 +29,14 @@ typedef struct { /* NOLINT */
   bool next;
 } expected_event_t;
 
+static bool is_valid_metric_name(const char *s);
+
 static PROCESS_FN(router);
 static PROCESS_FN(router_name);
 static PROCESS_FN(ports);
 static PROCESS_FN(port);
 static PROCESS_FN(port_name);
+static PROCESS_FN(port_metric);
 static PROCESS_FN(pub_addr);
 static PROCESS_FN(sub_addr);
 static PROCESS_FN(forwarding_rules_);
@@ -66,6 +69,7 @@ static expected_event_t ports_events[] = {
 
 static expected_event_t port_events[] = {
   {YAML_SCALAR_EVENT, "name", process_port_name, true},
+  {YAML_SCALAR_EVENT, "metric", process_port_metric, true},
   {YAML_SCALAR_EVENT, "pub_addr", process_pub_addr, true},
   {YAML_SCALAR_EVENT, "sub_addr", process_sub_addr, true},
   {YAML_SCALAR_EVENT, "forwarding_rules", process_forwarding_rules_, true},
@@ -112,7 +116,7 @@ static int event_scalar_value_get(yaml_parser_t *parser, char **str)
 {
   yaml_event_t event;
   if (!yaml_parser_parse(parser, &event)) {
-    printf("YAML parser error: %d\n", parser->error);
+    router_log(LOG_ERR, "YAML parser error: %d\n", parser->error);
     return -1;
   }
 
@@ -151,7 +155,7 @@ static int handle_expected_events(yaml_parser_t *parser,
   while (expected_events[event_offset].event_type != YAML_NO_EVENT) {
 
     if (!yaml_parser_parse(parser, &event)) {
-      printf("YAML parser error: %d\n", parser->error);
+      router_log(LOG_ERR, "YAML parser error: %d\n", parser->error);
       return -1;
     }
 
@@ -184,7 +188,7 @@ static int handle_expected_events(yaml_parser_t *parser,
       if (expected_event->next) {
         i++;
       } else {
-        printf("unexpected event: %d\n", event.type);
+        router_log(LOG_ERR, "unexpected event: %d\n", event.type);
         goto error;
       }
     }
@@ -251,13 +255,15 @@ static filter_t *current_filter_get(router_t *router)
   return filter;
 }
 
-NESTED_FN_TYPEDEF(void, consume_str_fn_t, port_t *p, char *);
+NESTED_FN_TYPEDEF(int, consume_str_fn_t, port_t *p, char *);
 
 #define MAKE_CONSUME_FN(FuncName, TheField) \
-  consume_str_fn_t FuncName = NESTED_FN(void, (port_t * p, char *s), { p->TheField = s; });
+  consume_str_fn_t FuncName = NESTED_FN(int, (port_t * p, char *s), { p->TheField = s; return 0; });
 
 static int event_port_string(yaml_parser_t *parser, void *context, consume_str_fn_t consume_str_fn)
 {
+  int rc = 0;
+
   router_t *router = (router_t *)context;
   port_t *port = NULL;
 
@@ -267,7 +273,9 @@ static int event_port_string(yaml_parser_t *parser, void *context, consume_str_f
   port = current_port_get(router);
   if (port == NULL) goto error;
 
-  consume_str_fn(port, str);
+  rc = consume_str_fn(port, str);
+  if (rc != 0) return rc;
+
   return 0;
 
 error:
@@ -327,6 +335,7 @@ static PROCESS_FN(port)
 
   *port = (port_t){
     .name = "",
+    .metric = "",
     .pub_addr = "",
     .sub_addr = "",
     .pub_ept = NULL,
@@ -336,7 +345,15 @@ static PROCESS_FN(port)
   };
 
   *p_next = port;
-  return handle_expected_events(parser, port_events, context);
+
+  int rc = handle_expected_events(parser, port_events, context);
+  if (rc != 0) return rc;
+
+  if (!is_valid_metric_name(port->metric)) {
+    return -1;
+  }
+
+  return 0;
 }
 
 static PROCESS_FN(port_name)
@@ -345,6 +362,33 @@ static PROCESS_FN(port_name)
   debug_printf("%s\n", __FUNCTION__);
   MAKE_CONSUME_FN(assign_name, name);
   return event_port_string(parser, context, assign_name);
+}
+
+static bool is_valid_metric_name(const char *s)
+{
+  if (s == NULL) return false;
+
+  size_t s_size = strlen(s);
+  if (s_size == 0) return false;
+
+  for (size_t x = 0; x < s_size; x++) {
+    if (!isspace(s[x])) return true;
+  }
+
+  router_log(LOG_ERR, "metric name must be non-empty and not entirely whitespace\n");
+  return false;
+}
+
+static PROCESS_FN(port_metric)
+{
+  (void)event;
+  debug_printf("%s\n", __FUNCTION__);
+  consume_str_fn_t assign_metric = NESTED_FN(int, (port_t * p, char *s), {
+    if (!is_valid_metric_name(s)) return -1;
+    p->metric = s;
+    return 0;
+  });
+  return event_port_string(parser, context, assign_metric);
 }
 
 static PROCESS_FN(pub_addr)
@@ -560,7 +604,7 @@ static int dst_ports_set(router_t *router)
       }
 
       if (!found) {
-        printf("invalid dst_port: %s\n", forwarding_rule->dst_port_name);
+        router_log(LOG_ERR, "invalid dst_port: %s\n", forwarding_rule->dst_port_name);
         return -1;
       }
     }
@@ -576,19 +620,19 @@ router_t *router_load(const char *filename)
 
   yaml_parser_t parser;
   if (!yaml_parser_initialize(&parser)) {
-    printf("failed to initialize YAML parser\n");
+    router_log(LOG_ERR, "failed to initialize YAML parser\n");
     return NULL;
   }
 
   f = fopen(filename, "r");
   if (f == NULL) {
-    printf("failed to open %s\n", filename);
+    router_log(LOG_ERR, "failed to open %s\n", filename);
     goto error;
   }
 
   router = (router_t *)malloc(sizeof(*router));
   if (router == NULL) {
-    printf("error allocating router\n");
+    router_log(LOG_ERR, "error allocating router\n");
     goto error;
   }
 
@@ -600,7 +644,7 @@ router_t *router_load(const char *filename)
   yaml_parser_set_input_file(&parser, f);
 
   if (process_router(NULL, &parser, router) != 0) {
-    printf("error loading %s\n", filename);
+    router_log(LOG_ERR, "error loading %s\n", filename);
     goto error;
   }
 
@@ -673,6 +717,9 @@ static void ports_destroy(port_t **port_loc)
     next = port->next;
     if (port->name != NULL && port->name[0] != '\0') {
       free((void *)port->name);
+    }
+    if (port->metric != NULL && port->metric[0] != '\0') {
+      free((void *)port->metric);
     }
     if (port->pub_addr != NULL && port->pub_addr[0] != '\0') {
       free((void *)port->pub_addr);

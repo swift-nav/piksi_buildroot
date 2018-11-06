@@ -339,7 +339,7 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  pk_endpoint_t *pk_sub = pk_endpoint_create(pk_sub_endpoint, PK_ENDPOINT_SUB);
+  pk_endpoint_t *pk_sub = pk_endpoint_create(pk_sub_endpoint, "logging/sub", PK_ENDPOINT_SUB);
   if (pk_sub == nullptr) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(EXIT_FAILURE);

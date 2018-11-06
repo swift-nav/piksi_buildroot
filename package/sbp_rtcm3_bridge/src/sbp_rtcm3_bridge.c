@@ -26,7 +26,10 @@
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
 #define RTCM3_SUB_ENDPOINT "ipc:///var/run/sockets/rtcm3_internal.pub" /* RTCM3 Internal Out */
+#define RTCM3_SUB_METRICS "rctm3/sub"
+
 #define RTCM3_PUB_ENDPOINT "ipc:///var/run/sockets/rtcm3_internal.sub" /* RTCM3 Internal In */
+#define RTCM3_PUB_METRICS "rtcm3/pub"
 
 bool rtcm3_debug = false;
 
@@ -237,7 +240,7 @@ int main(int argc, char *argv[])
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  rtcm3_pub = pk_endpoint_create(RTCM3_PUB_ENDPOINT, PK_ENDPOINT_PUB);
+  rtcm3_pub = pk_endpoint_create(RTCM3_PUB_ENDPOINT, RTCM3_PUB_METRICS, PK_ENDPOINT_PUB);
   if (rtcm3_pub == NULL) {
     piksi_log(LOG_ERR, "error creating PUB socket");
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
@@ -248,7 +251,7 @@ int main(int argc, char *argv[])
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  rtcm3_sub = pk_endpoint_create(RTCM3_SUB_ENDPOINT, PK_ENDPOINT_SUB);
+  rtcm3_sub = pk_endpoint_create(RTCM3_SUB_ENDPOINT, RTCM3_SUB_METRICS, PK_ENDPOINT_SUB);
   if (rtcm3_sub == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));

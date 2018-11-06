@@ -33,6 +33,8 @@
 #define MAX_METRICS 32                  /**< Max metrics per pk_metrics_t */
 #define METRICS_PATH "/var/log/metrics" /**< Base metrics path */
 
+#define NEW_DIR_MODE (0777)
+
 typedef struct {
   pk_metrics_type_t type;
   pk_metrics_updater_fn_t update_fn;
@@ -169,7 +171,7 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
     return METRICS_STATUS_MEMORY_ERROR;
   }
 
-  int rc = mkpath(metric_dir_path, 0755);
+  int rc = mkpath(metric_dir_path, NEW_DIR_MODE);
   if (rc != 0) {
     return METRICS_STATUS_PATH_ERROR;
   }
@@ -522,7 +524,11 @@ static int mkpath(char *dir, mode_t mode)
 
   mkpath(dirname(strdupa(dir)), mode);
 
-  return mkdir(dir, mode);
+  mode_t previous_umask = umask(0);
+  int rc = mkdir(dir, mode);
+  umask(previous_umask);
+
+  return rc;
 }
 
 static void write_metric(const metrics_descriptor_t *desc)

@@ -25,6 +25,7 @@
 #define PROGRAM_NAME "nmea_daemon"
 
 #define NMEA_PUB_ENDPOINT "ipc:///var/run/sockets/nmea_external.pub" /* NMEA Pub */
+#define NMEA_METRIC_NAME "nmea/sub"
 
 #define BASE_DIRECTORY "/var/run/nmea"
 
@@ -167,7 +168,7 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  ctx.sub_ept = pk_endpoint_create(NMEA_PUB_ENDPOINT, PK_ENDPOINT_SUB);
+  ctx.sub_ept = pk_endpoint_create(NMEA_PUB_ENDPOINT, NMEA_METRIC_NAME, PK_ENDPOINT_SUB);
   if (ctx.sub_ept == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(cleanup(EXIT_FAILURE, &ctx));

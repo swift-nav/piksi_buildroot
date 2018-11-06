@@ -78,13 +78,14 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, const char *identity, pk
  * @details Create a Piksi Endpoint context
  *
  * @param[in] endpoint      Description of the endpoint that will be connected to.
+ * @param[in] identity      The identity of this endpoint for tracking metrics
  * @param[in] type          The type of endpoint to create.
  * @param[in] retry         Should we retry the initial connection.
  *
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-pk_endpoint_t *pk_endpoint_create_ex(const char *endpoint, pk_endpoint_type type, bool retry);
+pk_endpoint_t *pk_endpoint_create_ex(const char *endpoint, const char *identity, pk_endpoint_type type, bool retry);
 
 /**
  * @brief   Destroy a Piksi Endpoint context

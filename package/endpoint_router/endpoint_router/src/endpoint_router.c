@@ -2,7 +2,7 @@
  * Copyright (C) 2016-2018 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
- * This source is subject to the license found in the file 'LICENSE' which must
+ * This source is subject to the license found tn the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
  *
  * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
@@ -154,10 +154,14 @@ static int parse_options(int argc, char *argv[])
 
 static int router_setup(router_t *router, pk_loop_t *loop)
 {
+  char endpoint_metric[128] = {0};
+
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
 
-    port->pub_ept = pk_endpoint_create(port->pub_addr, PK_ENDPOINT_PUB_SERVER);
+    snprintf_assert(endpoint_metric, sizeof(endpoint_metric), "%s/pub_server", port->metric);
+
+    port->pub_ept = pk_endpoint_create(port->pub_addr, endpoint_metric, PK_ENDPOINT_PUB_SERVER);
     if (port->pub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
@@ -165,7 +169,9 @@ static int router_setup(router_t *router, pk_loop_t *loop)
 
     pk_endpoint_loop_add(port->pub_ept, loop);
 
-    port->sub_ept = pk_endpoint_create(port->sub_addr, PK_ENDPOINT_SUB_SERVER);
+    snprintf_assert(endpoint_metric, sizeof(endpoint_metric), "%s/sub_server", port->metric);
+
+    port->sub_ept = pk_endpoint_create(port->sub_addr, endpoint_metric, PK_ENDPOINT_SUB_SERVER);
     if (port->sub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
@@ -345,6 +351,18 @@ void debug_printf(const char *msg, ...)
   va_start(ap, msg);
   vprintf(msg, ap);
   va_end(ap);
+}
+
+void router_log(int priority, const char *msg, ...)
+{
+  va_list ap;
+  va_start(ap, msg);
+  va_list ap2;
+  va_copy(ap2, ap);
+  vprintf(msg, ap);
+  va_end(ap);
+  piksi_vlog(priority, msg, ap2);
+  va_end(ap2);
 }
 
 static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_metrics_t **metrics);

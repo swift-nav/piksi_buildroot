@@ -8,6 +8,7 @@
 name: SBP_ROUTER
 ports:
   - name: SBP_PORT_FIRMWARE
+    metric: "sbp/firmware"
     pub_addr: "ipc:///var/run/sockets/firmware.pub"
     sub_addr: "ipc:///var/run/sockets/firmware.sub"
     forwarding_rules:
@@ -75,6 +76,7 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
+    metric: "sbp/settings_daemon"
     pub_addr: "ipc:///var/run/sockets/settings_daemon.pub"
     sub_addr: "ipc:///var/run/sockets/settings_daemon.sub"
     forwarding_rules:
@@ -93,6 +95,7 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_EXTERNAL
+    metric: "sbp/external"
     pub_addr: "ipc:///var/run/sockets/external.pub"
     sub_addr: "ipc:///var/run/sockets/external.sub"
     forwarding_rules:
@@ -138,6 +141,7 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_FILEIO_FIRMWARE
+    metric: "sbp/fileio_fw"
     pub_addr: "ipc:///var/run/sockets/fileio_firmware.pub"
     sub_addr: "ipc:///var/run/sockets/fileio_firmware.sub"
     forwarding_rules:
@@ -146,6 +150,7 @@ ports:
           - { action: ACCEPT }
 
   - name: SBP_PORT_FILEIO_EXTERNAL
+    metric: "sbp/fileio_ex"
     pub_addr: "ipc:///var/run/sockets/fileio_external.pub"
     sub_addr: "ipc:///var/run/sockets/fileio_external.sub"
     forwarding_rules:
@@ -154,6 +159,7 @@ ports:
           - { action: ACCEPT }
 
   - name: SBP_PORT_INTERNAL
+    metric: "sbp/internal"
     pub_addr: "ipc:///var/run/sockets/internal.pub"
     sub_addr: "ipc:///var/run/sockets/internal.sub"
     forwarding_rules:
@@ -162,6 +168,7 @@ ports:
           - { action: ACCEPT }
 
   - name: SBP_PORT_SETTINGS_CLIENT
+    metric: "sbp/settings_client"
     pub_addr: "ipc:///var/run/sockets/settings_client.pub"
     sub_addr: "ipc:///var/run/sockets/settings_client.sub"
     forwarding_rules:
@@ -180,6 +187,7 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_SKYLARK
+    metric: "sbp/skylark"
     pub_addr: "ipc:///var/run/sockets/skylark.pub"
     sub_addr: "ipc:///var/run/sockets/skylark.sub"
     forwarding_rules:
@@ -199,6 +207,7 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_NAV_DAEMON  # Entire Section Smoothpose Change**
+    metric: "sbp/nav_daemon"
     pub_addr: "ipc:///var/run/sockets/nav_daemon.pub"
     sub_addr: "ipc:///var/run/sockets/nav_daemon.sub"
     forwarding_rules:
@@ -226,5 +235,6 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_NMEA_BRIDGE
+    metric: "sbp/nmea_bridge"
     pub_addr: "ipc:///var/run/sockets/nmea_bridge.pub"
     sub_addr: "ipc:///var/run/sockets/nmea_bridge.sub"

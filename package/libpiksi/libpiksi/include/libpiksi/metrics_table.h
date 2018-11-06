@@ -47,10 +47,10 @@
   },
 
 #define PK_METRICS_TABLE(MetricsTableName, SymbolTableName, ...)     \
-  struct {                                                           \
+  static struct {                                                    \
     _M_FOREACH((), _SYMBOL_TABLE_ENTRY, __VA_ARGS__)                 \
   } SymbolTableName;                                                 \
-  _pk_metrics_table_entry_t MetricsTableName[] = {                   \
+  static _pk_metrics_table_entry_t MetricsTableName[] = {            \
     _M_FOREACH((SymbolTableName), _METRICS_TABLE_ENTRY, __VA_ARGS__) \
   };
 

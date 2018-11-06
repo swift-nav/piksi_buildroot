@@ -62,16 +62,15 @@
 #  define ENDPOINT_DEBUG_LOG(...)
 #  define NDEBUG_UNUSED(X) (void)(X)
 #endif
-
 /* clang-format on */
 
-#define MI metrics_indexes
-#define MT message_metrics_table
+#define MI endpoint_metrics_indexes
+#define MT endpoint_metrics_table
 
 #define MR(X) (X->metrics)
 
 // clang-format off
-PK_METRICS_TABLE(message_metrics_table, MI,
+PK_METRICS_TABLE(endpoint_metrics_table, MI,
   PK_METRICS_ENTRY("client/count",       "total",       M_S32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  client_count),
   PK_METRICS_ENTRY("client/wakes",       "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakes_per_s),
   PK_METRICS_ENTRY("send/close",         "count",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  send_close_count),
@@ -180,7 +179,7 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept,
                                    void *ctx);
 
 
-static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, bool retry_start);
+static pk_endpoint_t *create_impl(const char *endpoint, const char *identity, pk_endpoint_type type, bool retry_start);
 
 static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, void *context);
 
@@ -190,12 +189,12 @@ static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, vo
 
 pk_endpoint_t *pk_endpoint_create(const char *endpoint, const char *identity, pk_endpoint_type type)
 {
-  return pk_endpoint_create_ex(endpoint, type, false);
+  return pk_endpoint_create_ex(endpoint, identity, type, false);
 }
 
-pk_endpoint_t *pk_endpoint_create_ex(const char *endpoint, pk_endpoint_type type, bool retry)
+pk_endpoint_t *pk_endpoint_create_ex(const char *endpoint, const char *identity, pk_endpoint_type type, bool retry)
 {
-  return create_impl(endpoint, type, retry);
+  return create_impl(endpoint, identity, type, retry);
 }
 
 /**********************************************************************/
@@ -502,6 +501,7 @@ static int connect_un_socket(int fd, const char *path, bool retry_start)
     connect_errno = errno;
 
     if (rc == 0 || !retry_start) break;
+   }
   }
 
   errno = connect_errno;
@@ -935,7 +935,7 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
   return rc;
 }
 
-static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, bool retry_start)
+static pk_endpoint_t *create_impl(const char *endpoint, const char *identity, pk_endpoint_type type, bool retry_start)
 {
   ASSERT_TRACE(endpoint != NULL);
 
@@ -1033,6 +1033,11 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
       PK_LOG_ANNO(LOG_ERR, "eventfd: %s", strerror(errno));
       goto failure;
     }
+  }
+
+  if (identity == NULL || strlen(identity) == 0) {
+    PK_LOG_ANNO(LOG_ERR, "socket cannot have a empty identity");
+    goto failure;
   }
 
   strncpy(pk_ept->identity, identity, sizeof(pk_ept->identity));
