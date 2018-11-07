@@ -56,9 +56,23 @@ enum {
 };
 
 typedef struct {
+  /**
+   * The address for the endpoint, for pk_endpoint, currently only unix domain sockets
+   * are supported, so an address must be specified as "ipc:///path/to/socket.foo"
+   */
   const char *endpoint;
+  /**
+   * The identity of this socket, used for metrics and to give a server socket a
+   * means to record the identity of incoming connections.
+   */
   const char *identity;
+  /**
+   * The type of this socket, see @c pk_endpoint_type.
+   */
   pk_endpoint_type type;
+  /**
+   * If the endpoint should try to reconnect when starting.
+   */
   bool retry_start;
 } pk_endpoint_config_t;
 

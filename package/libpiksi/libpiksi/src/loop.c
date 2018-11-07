@@ -41,6 +41,9 @@ struct pk_loop_s {
   uv_loop_t *uv_loop;
   uv_timer_t *timeout_timer;
   char uv_error_msg[MSG_BUF_SIZE];
+#ifdef UNIT_TEST_WORKAROUND
+  int uv_handle_copy;
+#endif
 };
 
 /* Forward declare of static - see definition below */
@@ -147,6 +150,10 @@ pk_loop_t *pk_loop_create(void)
     piksi_log(LOG_ERR, "error initializing uv_loop");
     goto failure;
   }
+#ifdef UNIT_TEST_WORKAROUND
+  pk_loop->uv_handle_copy = pk_loop->uv_loop->backend_fd;
+  pk_loop->uv_loop->backend_fd = dup(pk_loop->uv_loop->backend_fd);
+#endif
   uv_loop_set_data(pk_loop->uv_loop, pk_loop);
 
   pk_loop->timeout_timer = (uv_timer_t *)malloc(sizeof(uv_timer_t));
@@ -238,6 +245,9 @@ static void pk_loop_destroy_uv_loop(uv_loop_t *uv_loop)
     // Shouldn't need to get here but log if we do
     piksi_log(LOG_DEBUG, "Re-running loop to close pending handles");
   }
+#ifdef UNIT_TEST_WORKAROUND
+  fprintf(stderr, "%s: uv_loop->backend_fd = %d\n", __FUNCTION__, uv_loop->backend_fd);
+#endif
   uv_loop_close(uv_loop);
   free(uv_loop);
 }
@@ -251,6 +261,10 @@ void pk_loop_destroy(pk_loop_t **pk_loop_loc)
   pk_loop_t *pk_loop = (pk_loop_t *)(*pk_loop_loc);
   pk_loop_destroy_uv_handle((uv_handle_t *)pk_loop->timeout_timer);
   pk_loop_destroy_uv_loop(pk_loop->uv_loop);
+#ifdef UNIT_TEST_WORKAROUND
+  close(pk_loop->uv_handle_copy);
+#endif
+  pk_loop->uv_loop = NULL;
   free(pk_loop);
 
   *pk_loop_loc = NULL;
