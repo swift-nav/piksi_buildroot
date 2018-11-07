@@ -153,11 +153,12 @@ void *pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
 void *pk_loop_poll_add(pk_loop_t *pk_loop, int fd, pk_loop_cb callback, void *context);
 
 /**
- * @brief   add a poll handle for a given file descriptor
- * @details add a poll handle for a given file descriptor
+ * @brief   remove a poll handle for a given file descriptor
+ * @details remove a poll handle for a given file descriptor, the loop will no longer
+ *          wake up for events related to the file descriptor
  *
  * @param[in] pk_loop       pointer to the piksi loop to use.
- * @param[in] handle        the poll handle
+ * @param[in] handle        the poll handle to remove
  */
 void pk_loop_poll_remove(pk_loop_t *pk_loop, void *handle);
 
