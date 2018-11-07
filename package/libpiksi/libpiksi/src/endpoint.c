@@ -41,7 +41,7 @@
 #define CONNECT_RETRIES_MAX (300u)
 #define CONNECT_RETRY_SLEEP_MS (100u)
 
-#define MS_TO_NS(MS) ((MS)*1e6)
+#define MS_TO_NS(MS) ((MS) * 1e6)
 
 #define READ_BUF_SIZE 4096
 
@@ -67,9 +67,9 @@
 #define MI endpoint_metrics_indexes
 #define MT endpoint_metrics_table
 
-#define MR(X) (X->metrics)
+#define MR(X) ((X)->metrics)
 
-// clang-format off
+/* clang-format off */
 PK_METRICS_TABLE(endpoint_metrics_table, MI,
   PK_METRICS_ENTRY("client/count",       "total",       M_S32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  client_count),
   PK_METRICS_ENTRY("client/wakes",       "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakes_per_s),
@@ -80,7 +80,7 @@ PK_METRICS_TABLE(endpoint_metrics_table, MI,
   PK_METRICS_ENTRY("accept/error",       "total",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  accept_error),
   PK_METRICS_ENTRY("disconnect/count",   "total",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  disconnect_count)
   )
-// clang-format on
+/* clang-format on */
 
 typedef struct client_node client_node_t;
 typedef struct removed_node removed_node_t;
@@ -124,8 +124,8 @@ struct pk_endpoint_s {
   char path[PATH_MAX];   /**< The path to the socket */
   pk_metrics_t *metrics; /**< The metrics object for this endpoint */
   void *metrics_timer;   /**< Handle of the metrics flush timer */
-  bool warned_on_discard;
-  char identity[PATH_MAX];
+  bool warned_on_discard;/**< Warn only once for writes on read-only sockets */
+  char identity[PATH_MAX]; /**< The 'identity' of this socket, used for recording metrics */
 };
 
 static int create_un_socket(void);
@@ -590,8 +590,9 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
         PK_METRICS_UPDATE(MR(ctx->ept), MI.read_close_count);
         teardown_client(ctx);
       }
-      /* TODO: we should probably auto reconnect here if we're a PUB/SUB/REQ */
-      /*   (non-server socket). */
+      /* TODO: we should probably auto reconnect here if we're a PUB/SUB/REQ
+       *   (non-server socket).
+       */
       break;
     }
 
@@ -1143,7 +1144,7 @@ static pk_endpoint_t *create_impl(const char *endpoint,
     piksi_log(LOG_ERR, "Unsupported endpoint type");
     goto failure;
   } break;
-  } // end of switch
+  }
 
   size_t prefix_len = strstr(endpoint, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
 
@@ -1186,7 +1187,7 @@ static pk_endpoint_t *create_impl(const char *endpoint,
 
   if (identity != NULL) {
     strncpy(pk_ept->identity, identity, sizeof(pk_ept->identity));
-    pk_ept->metrics = pk_metrics_setup("endpoint", pk_ept->identity, MT, COUNT_OF(MT));
+    pk_ept->metrics = pk_metrics_setup("endpoint", pk_ept->identity, MT, COUNT_OF(MT)); /* NOLINT */
     if (pk_ept->metrics == NULL) goto failure;
   } else {
     pk_ept->identity[0] = '\0';
