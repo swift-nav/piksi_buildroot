@@ -577,7 +577,6 @@ const char *pk_loop_describe_status(int status)
   if (status & LOOP_ERROR) {
     snprintf(buf_error, sizeof(buf_error), "%s%sLOOP_ERROR", addbar ? buf : "", addbar ? "|" : "");
     snprintf(buf, sizeof(buf), "%s", buf_error);
-    addbar = true;
   }
 
   return buf;

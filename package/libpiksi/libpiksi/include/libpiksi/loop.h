@@ -207,8 +207,20 @@ int pk_loop_run_simple_with_timeout(pk_loop_t *pk_loop, u32 timeout_ms);
  */
 void pk_loop_stop(pk_loop_t *pk_loop);
 
+/**
+ * @brief Get a description of the last error that occured
+ *
+ * @details Gets an internal buffer which describes the last error that occurred
+ *
+ * @returns A static buffer which should be copied if rentention is needed.
+ */
 const char *pk_loop_last_error(pk_loop_t *pk_loop);
 
+/**
+ * @brief Get a human readable version of the LOOP_* constants.
+ *
+ * @returns A static buffer which should be copied if rentention is needed.
+ */
 const char *pk_loop_describe_status(int status);
 
 #ifdef __cplusplus
