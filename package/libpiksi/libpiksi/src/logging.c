@@ -11,6 +11,7 @@
  */
 
 #include <stdarg.h>
+#include <stdio.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
@@ -80,9 +81,11 @@ void sbp_log(int priority, const char *msg_text, ...)
 
 void sbp_vlog(int priority, const char *msg, va_list ap)
 {
+  printf("sbp_vlog: enter - <%d>, %s", priority, msg);
   sbp_tx_ctx_t *sbp_tx = sbp_tx_create(SBP_TX_ENDPOINT);
 
   if (NULL == sbp_tx) {
+    printf("sbp_vlog: fail tx create - <%d>, %s", priority, msg);
     piksi_log(LOG_ERR, "unable to initialize SBP tx endpoint.");
     return;
   }
@@ -94,6 +97,7 @@ void sbp_vlog(int priority, const char *msg, va_list ap)
   char buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 
   if (priority < 0 || priority > UINT8_MAX) {
+    printf("sbp_vlog: fail bad priority - <%d>, %s", priority, msg);
     piksi_log(LOG_ERR, "invalid SBP log level.");
     goto exit;
   }
@@ -103,14 +107,19 @@ void sbp_vlog(int priority, const char *msg, va_list ap)
 
   int n = vsnprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t), msg, ap);
 
-  if (n < 0) goto exit;
+  if (n < 0) {
+    printf("sbp_vlog: fail vsnprintf - <%d>, %s", priority, msg);
+    goto exit;
+  }
 
   n = SWFT_MIN(n, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t));
 
   if (0 != sbp_tx_send(sbp_tx, SBP_MSG_LOG, n + sizeof(msg_log_t), (uint8_t *)buf)) {
+    printf("sbp_vlog: fail tx send - <%d>, %s", priority, msg);
     piksi_log(LOG_ERR, "unable to transmit SBP message.");
   }
 
 exit:
   sbp_tx_destroy(&sbp_tx);
+  printf("sbp_vlog: destroy and exit - <%d>, %s", priority, msg);
 }
