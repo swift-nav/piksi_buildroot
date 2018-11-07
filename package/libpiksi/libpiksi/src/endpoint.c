@@ -39,7 +39,7 @@
 #define CONNECT_RETRIES_MAX (3u)
 #define CONNECT_RETRY_SLEEP_MS (100u)
 
-#define MS_TO_NS(MS) ((MS) * 1e6)
+#define MS_TO_NS(MS) ((MS)*1e6)
 
 #define IPC_PREFIX "ipc://"
 
@@ -148,7 +148,9 @@ static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_
 
 NESTED_FN_TYPEDEF(ssize_t, read_handler_fn_t, client_context_t *client_ctx, void *ctx);
 
-static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read_handler, void *ctx);
+static int read_and_receive_common(pk_endpoint_t *pk_ept,
+                                   read_handler_fn_t read_handler,
+                                   void *ctx);
 
 /**********************************************************************/
 /************* pk_endpoint_create *************************************/
@@ -337,7 +339,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
   ASSERT_TRACE(count > 0);
   size_t length = count;
 
-  read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t *client_ctx, void *ctx), {
+  read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t * client_ctx, void *ctx), {
     size_t *length_loc = ctx;
     return recv_impl(client_ctx, buffer, length_loc);
   });
@@ -357,7 +359,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
   ASSERT_TRACE(pk_ept->nonblock);
   ASSERT_TRACE(rx_cb != NULL);
 
-  read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t *client_ctx, void *ctx), {
+  read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t * client_ctx, void *ctx), {
     (void)ctx;
     return service_reads(client_ctx, rx_cb, context);
   });
@@ -525,8 +527,10 @@ static int connect_un_socket(int fd, const char *path)
 
   for (size_t retry = 0; retry < CONNECT_RETRIES_MAX; retry++) {
 
-    struct timespec ts = { .tv_nsec = MS_TO_NS(CONNECT_RETRY_SLEEP_MS) };
-    if (retry > 0) while(nanosleep(&ts, &ts));
+    struct timespec ts = {.tv_nsec = MS_TO_NS(CONNECT_RETRY_SLEEP_MS)};
+    if (retry > 0)
+      while (nanosleep(&ts, &ts) != 0 && errno == EINTR) /* retry */
+        ;
 
     rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     connect_errno = errno;
