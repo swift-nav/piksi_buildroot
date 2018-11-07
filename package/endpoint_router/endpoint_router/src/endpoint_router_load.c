@@ -37,7 +37,7 @@ static PROCESS_FN(port_name);
 static PROCESS_FN(pub_addr);
 static PROCESS_FN(sub_addr);
 static PROCESS_FN(forwarding_rules_);
-static PROCESS_FN(forwarding_rule);
+static PROCESS_FN(forwarding_rule_);
 static PROCESS_FN(dst_port);
 static PROCESS_FN(filters);
 static PROCESS_FN(filter);
@@ -74,7 +74,7 @@ static expected_event_t port_events[] =
 
 static expected_event_t forwarding_rules_events[] = {
   {YAML_SEQUENCE_START_EVENT, NULL, NULL, false},
-  {YAML_MAPPING_START_EVENT, NULL, process_forwarding_rule, true},
+  {YAML_MAPPING_START_EVENT, NULL, process_forwarding_rule_, true},
   {YAML_SEQUENCE_END_EVENT, NULL, NULL, false},
   {YAML_NO_EVENT, NULL, NULL, false},
 };
@@ -341,7 +341,7 @@ static PROCESS_FN(port)
 static PROCESS_FN(port_name)
 {
   (void)event;
-  debug_printf("process_port_name\n");
+  debug_printf("%s\n", __FUNCTION__);
   MAKE_CONSUME_FN(assign_name, name);
   return event_port_string(parser, context, assign_name);
 }
@@ -349,7 +349,7 @@ static PROCESS_FN(port_name)
 static PROCESS_FN(pub_addr)
 {
   (void)event;
-  debug_printf("process_pub_addr\n");
+  debug_printf("%s\n", __FUNCTION__);
   MAKE_CONSUME_FN(assign_pub_addr, pub_addr);
   return event_port_string(parser, context, assign_pub_addr);
 }
@@ -357,7 +357,7 @@ static PROCESS_FN(pub_addr)
 static PROCESS_FN(sub_addr)
 {
   (void)event;
-  debug_printf("process_sub_addr\n");
+  debug_printf("%s\n", __FUNCTION__);
   MAKE_CONSUME_FN(assign_sub_addr, sub_addr);
   return event_port_string(parser, context, assign_sub_addr);
 }
@@ -365,15 +365,15 @@ static PROCESS_FN(sub_addr)
 static PROCESS_FN(forwarding_rules_)
 {
   (void)event;
-  debug_printf("process_forwarding_rules\n");
+  debug_printf("%s\n", __FUNCTION__);
   return handle_expected_events(parser, forwarding_rules_events, context);
 }
 
-static PROCESS_FN(forwarding_rule)
+static PROCESS_FN(forwarding_rule_)
 {
   (void)event;
 
-  debug_printf("process_forwarding_rule\n");
+  debug_printf("%s\n", __FUNCTION__);
   router_t *router = (router_t *)context;
 
   port_t *port = current_port_get(router);
@@ -406,7 +406,7 @@ static PROCESS_FN(dst_port)
 {
   (void)event;
 
-  debug_printf("process_dst_port\n");
+  debug_printf("%s\n", __FUNCTION__);
   router_t *router = (router_t *)context;
 
   forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
@@ -427,7 +427,7 @@ static PROCESS_FN(filters)
 {
   (void)event;
 
-  debug_printf("process_filters\n");
+  debug_printf("%s\n", __FUNCTION__);
   return handle_expected_events(parser, filters_events, context);
 }
 
@@ -435,7 +435,7 @@ static PROCESS_FN(filter)
 {
   (void)event;
 
-  debug_printf("process_filter\n");
+  debug_printf("%s\n", __FUNCTION__);
   router_t *router = (router_t *)context;
 
   forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
@@ -468,7 +468,7 @@ static PROCESS_FN(action)
 {
   (void)event;
 
-  debug_printf("process_action\n");
+  debug_printf("%s\n", __FUNCTION__);
   router_t *router = (router_t *)context;
 
   filter_t *filter = current_filter_get(router);
@@ -498,7 +498,7 @@ static PROCESS_FN(prefix)
 {
   (void)event;
 
-  debug_printf("process_prefix\n");
+  debug_printf("%s\n", __FUNCTION__);
   return handle_expected_events(parser, prefix_events, context);
 }
 
@@ -507,7 +507,7 @@ static PROCESS_FN(prefix_element)
   (void)event;
   (void)parser;
 
-  debug_printf("process_prefix_element\n");
+  debug_printf("%s\n", __FUNCTION__);
   router_t *router = (router_t *)context;
 
   filter_t *filter = current_filter_get(router);

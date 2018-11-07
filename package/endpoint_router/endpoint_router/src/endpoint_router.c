@@ -35,7 +35,7 @@
 #define MT message_metrics_table
 #define MR router_metrics
 
-// clang-format off
+/* clang-format off */
 PK_METRICS_TABLE(message_metrics_table, MI,
 
   PK_METRICS_ENTRY("message/count",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
@@ -53,7 +53,7 @@ PK_METRICS_TABLE(message_metrics_table, MI,
   PK_METRICS_ENTRY("frame/count",      "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
   PK_METRICS_ENTRY("frame/leftover",   "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers)
  )
-// clang-format on
+/* clang-format on */
 
 static struct {
   const char *filename;
@@ -96,7 +96,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_SBP,
   };
 
-  // clang-format off
+  /* clang-format off */
   const struct option long_opts[] = {
     {"file",      required_argument, 0, 'f'},
     {"name",      required_argument, 0, OPT_ID_NAME},
@@ -105,7 +105,7 @@ static int parse_options(int argc, char *argv[])
     {"sbp",       no_argument,       0, OPT_ID_SBP},
     {0, 0, 0, 0},
   };
-  // clang-format on
+  /* clang-format on */
 
   int c;
   int opt_index;
@@ -190,8 +190,8 @@ static int router_attach(router_t *router, pk_loop_t *loop)
   return 0;
 }
 
-static void filter_match_process(forwarding_rule_t *forwarding_rule,
-                                 filter_t *filter,
+static void filter_match_process(const forwarding_rule_t *forwarding_rule,
+                                 const filter_t *filter,
                                  const u8 *data,
                                  size_t length)
 {
@@ -210,10 +210,10 @@ static void filter_match_process(forwarding_rule_t *forwarding_rule,
   }
 }
 
-void rule_process(forwarding_rule_t *forwarding_rule,
-                  const u8 *data,
-                  size_t length,
-                  match_fn_t match_fn)
+void process_forwarding_rule(const forwarding_rule_t *forwarding_rule,
+                             const u8 *data,
+                             size_t length,
+                             match_fn_t match_fn)
 {
   /* Iterate over filters for this rule */
   filter_t *filter;
@@ -271,13 +271,13 @@ static void process_buffer(port_t *port, const u8 *data, const size_t length)
   process_forwarding_rules(port->forwarding_rules_list, data, length, filter_match_process);
 }
 
-void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
+void process_forwarding_rules(const forwarding_rule_t *forwarding_rule,
                               const u8 *data,
                               const size_t length,
                               match_fn_t match_fn)
 {
   for (/*empty */; forwarding_rule != NULL; forwarding_rule = forwarding_rule->next) {
-    rule_process(forwarding_rule, data, length, match_fn);
+    process_forwarding_rule(forwarding_rule, data, length, match_fn);
   }
 }
 
@@ -398,7 +398,7 @@ int main(int argc, char *argv[])
       exit(EXIT_FAILURE);
     }
 
-    // TODO: Clean-up
+    /* TODO: Clean-up */
     framer_sbp = framer_create("sbp");
     assert(framer_sbp != NULL);
   }

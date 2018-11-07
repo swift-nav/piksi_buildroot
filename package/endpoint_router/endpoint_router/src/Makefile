@@ -7,7 +7,28 @@ SOURCES = \
 
 LIBS=-luv -lsbp -lpiksi -lyaml
 
-CFLAGS+=-O3 -ggdb3 -std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Wjump-misses-init -Werror -rdynamic -funwind-tables
+WARNING_FLAGS = \
+	-Wmissing-prototypes \
+	-Wimplicit \
+	-Wshadow \
+	-Wswitch-default \
+	-Wswitch-enum \
+	-Wundef \
+	-Wuninitialized \
+	-Wpointer-arith \
+	-Wstrict-prototypes \
+	-Wcast-align \
+	-Wformat=2 \
+	-Wimplicit-function-declaration \
+	-Wredundant-decls \
+	-Wformat-security \
+	-Wall \
+	-Wextra \
+	-Wno-strict-prototypes \
+	-Wjump-misses-init \
+	-Werror
+
+CFLAGS+=-O3 -ggdb3 -std=gnu11  -rdynamic -funwind-tables $(WARNING_FLAGS)
 
 ARFLAGS=rcs $(LTO_PLUGIN)
 

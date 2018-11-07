@@ -16,14 +16,15 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <sys/eventfd.h>
-#include <sys/types.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <sys/queue.h>
 
-#include <sys/ioctl.h>
 #include <linux/sockios.h>
 
 #include <libpiksi/logging.h>
@@ -32,23 +33,23 @@
 
 #include <libpiksi/endpoint.h>
 
-// Maximum number of reads to service for one socket
+/* Maximum number of reads to service for one socket */
 #define ENDPOINT_SERVICE_MAX (32u)
 
 #define CONNECT_RETRIES_MAX (3u)
 #define CONNECT_RETRY_SLEEP_MS (100u)
 
-#define MS_TO_US(MS) (MS * 1000u)
+#define MS_TO_NS(MS) ((MS) * 1e6)
 
 #define IPC_PREFIX "ipc://"
 
-// Maximum number of clients we expect to have per socket
+/* Maximum number of clients we expect to have per socket */
 #define MAX_CLIENTS 128
-// Maximum number of clients in the listen() backlog
+/* Maximum number of clients in the listen() backlog */
 #define MAX_BACKLOG 128
 
-// clang-format off
-//#define DEBUG_ENDPOINT
+/* clang-format off */
+/* #define DEBUG_ENDPOINT */
 #ifdef DEBUG_ENDPOINT
 #  define ENDPOINT_DEBUG_LOG(ThePattern, ...) \
      PK_LOG_ANNO(LOG_DEBUG, ThePattern, ##__VA_ARGS__)
@@ -57,7 +58,7 @@
 #  define ENDPOINT_DEBUG_LOG(...)
 #  define NDEBUG_UNUSED(X) (void)(X)
 #endif
-// clang-format on
+/* clang-format on */
 
 typedef struct client_node client_node_t;
 typedef struct removed_node removed_node_t;
@@ -145,6 +146,10 @@ NESTED_FN_TYPEDEF(int, eintr_fn_t);
 
 static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_message);
 
+NESTED_FN_TYPEDEF(ssize_t, read_handler_fn_t, client_context_t *client_ctx, void *ctx);
+
+static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read_handler, void *ctx);
+
 /**********************************************************************/
 /************* pk_endpoint_create *************************************/
 /**********************************************************************/
@@ -206,7 +211,7 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
     piksi_log(LOG_ERR, "Unsupported endpoint type");
     goto failure;
   } break;
-  } // end of switch
+  }
 
   size_t prefix_len = strstr(endpoint, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
 
@@ -329,55 +334,18 @@ int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
 
 ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 {
-  ASSERT_TRACE(pk_ept != NULL);
-  ASSERT_TRACE(buffer != NULL);
   ASSERT_TRACE(count > 0);
-
-  if (!valid_socket_type_for_read(pk_ept)) {
-    PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
-    return -1;
-  }
-
   size_t length = count;
-  int rc = 0;
 
-  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
+  read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t *client_ctx, void *ctx), {
+    size_t *length_loc = ctx;
+    return recv_impl(client_ctx, buffer, length_loc);
+  });
 
-    int64_t counter = 0;
-    ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
-
-    if (c != sizeof(counter)) {
-      PK_LOG_ANNO(LOG_ERR, "invalid read size from eventfd: %zd", c);
-      return -1;
-    }
-
-    ASSERT_TRACE(counter == 1);
-    ASSERT_TRACE(pk_ept->woke);
-
-    pk_ept->woke = false;
-
-    foreach_client(pk_ept,
-                   &length,
-                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
-                     size_t *length_loc = ctx;
-                     recv_impl(&node->val, buffer, length_loc);
-                   }));
-
-  } else {
-
-    client_context_t client_context = (client_context_t){
-      .ept = pk_ept,
-      .handle = pk_ept->sock,
-      .poll_handle = NULL,
-      .node = NULL,
-    };
-
-    rc = recv_impl(&client_context, buffer, &length);
-  }
-
+  int rc = read_and_receive_common(pk_ept, read_handler, &length);
   if (rc < 0) return rc;
 
-  return length;
+  return count;
 }
 
 /**********************************************************************/
@@ -386,48 +354,15 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 
 int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context)
 {
-  ASSERT_TRACE(pk_ept != NULL);
+  ASSERT_TRACE(pk_ept->nonblock);
   ASSERT_TRACE(rx_cb != NULL);
 
-  ASSERT_TRACE(pk_ept->nonblock);
+  read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t *client_ctx, void *ctx), {
+    (void)ctx;
+    return service_reads(client_ctx, rx_cb, context);
+  });
 
-  if (!valid_socket_type_for_read(pk_ept)) {
-    PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
-    return -1;
-  }
-
-  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
-
-    int64_t counter = 0;
-    ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
-
-    if (c != sizeof(counter)) {
-      PK_LOG_ANNO(LOG_ERR, "invalid read size from eventfd: %zd", c);
-      return -1;
-    }
-
-    ASSERT_TRACE(counter == 1);
-    ASSERT_TRACE(pk_ept->woke);
-
-    pk_ept->woke = false;
-
-    foreach_client(pk_ept,
-                   NULL,
-                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
-                     service_reads(&node->val, rx_cb, context);
-                   }));
-
-  } else {
-    client_context_t ctx = (client_context_t){
-      .ept = pk_ept,
-      .handle = pk_ept->sock,
-      .poll_handle = pk_ept->poll_handle,
-      .node = NULL,
-    };
-    service_reads(&ctx, rx_cb, context);
-  }
-
-  return 0;
+  return read_and_receive_common(pk_ept, read_handler, NULL);
 }
 
 /**********************************************************************/
@@ -453,7 +388,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
     foreach_client(pk_ept,
                    &rc,
                    NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
-                     // TODO: Why are we saving rc here, invalid clients will just be removed...
+                     /* TODO: Why are we saving rc here, invalid clients will just be removed... */
                      int *rc_loc = ctx;
                      *rc_loc = send_impl(&node->val, data, length);
                    }));
@@ -528,7 +463,7 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
   }
 
   if (pk_ept->loop != NULL) {
-    // We do not support changing the loop assication (for now)
+    /* We do not support changing the loop assication (for now) */
     PK_LOG_ANNO(LOG_ERR, "cannot change associate loop");
     return pk_ept->loop == loop ? 0 : -1;
   }
@@ -574,11 +509,9 @@ static int bind_un_socket(int fd, const char *path)
 static int start_un_listen(const char *path, int fd)
 {
   if (listen(fd, MAX_BACKLOG) == -1) {
-
     PK_LOG_ANNO(LOG_ERR, "listen() error for socket: %s (path: %s)", strerror(errno), path);
     return -1;
   }
-
   return 0;
 }
 
@@ -592,7 +525,8 @@ static int connect_un_socket(int fd, const char *path)
 
   for (size_t retry = 0; retry < CONNECT_RETRIES_MAX; retry++) {
 
-    if (retry > 0) usleep(MS_TO_US(CONNECT_RETRY_SLEEP_MS));
+    struct timespec ts = { .tv_nsec = MS_TO_NS(CONNECT_RETRY_SLEEP_MS) };
+    if (retry > 0) while(nanosleep(&ts, &ts));
 
     rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     connect_errno = errno;
@@ -681,8 +615,8 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
         if (ctx->node != NULL) record_disconnect(ctx->node);
         teardown_client(ctx);
       }
-      // TODO: we should probably auto reconnect here if we're a PUB/SUB/REQ
-      //   (non-server socket).
+      /* TODO: we should probably auto reconnect here if we're a PUB/SUB/REQ */
+      /*   (non-server socket). */
       break;
     }
 
@@ -693,7 +627,7 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
     }
 
     if (ctx->ept->nonblock && errno == EAGAIN) {
-      // An "expected" error, don't need to report an error
+      /* An "expected" error, don't need to report an error */
       return PKE_EAGAIN;
     }
 
@@ -781,7 +715,6 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
                   ctx->node,
                   queued_input,
                   queued_output);
-
 
       send_close_socket_helper(ctx);
 
@@ -893,7 +826,7 @@ static void handle_client_wake(pk_loop_t *loop, void *handle, int status, void *
     return;
   }
 
-  // Don't wake-up loop again if one is already pending
+  /* Don't wake-up loop again if one is already pending */
   if (client_context->ept->woke) return;
 
   client_context->ept->woke = true;
@@ -980,4 +913,51 @@ static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_
     return false;
   }
   return true;
+}
+
+static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read_handler, void *ctx)
+{
+  int rc = 0;
+
+  ASSERT_TRACE(pk_ept != NULL);
+
+  if (!valid_socket_type_for_read(pk_ept)) {
+    PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
+    return -1;
+  }
+
+  if (pk_ept->type == PK_ENDPOINT_SUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
+
+    int64_t counter = 0;
+    ssize_t c = read(pk_ept->wakefd, &counter, sizeof(counter));
+
+    if (c != sizeof(counter)) {
+      PK_LOG_ANNO(LOG_ERR, "invalid read size from eventfd: %zd", c);
+      return -1;
+    }
+
+    ASSERT_TRACE(counter == 1);
+    ASSERT_TRACE(pk_ept->woke);
+
+    pk_ept->woke = false;
+
+    foreach_client(pk_ept,
+                   ctx,
+                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                     read_handler(&node->val, ctx);
+                   }));
+
+  } else {
+
+    client_context_t client_ctx = (client_context_t){
+      .ept = pk_ept,
+      .handle = pk_ept->sock,
+      .poll_handle = pk_ept->poll_handle,
+      .node = NULL,
+    };
+
+    rc = read_handler(&client_ctx, ctx);
+  }
+
+  return rc;
 }

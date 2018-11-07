@@ -371,8 +371,8 @@ bool str_digits_only(const char *str);
 /**
  * Convert all elements of a string into a number.
  *
- * Verifies that all content of a string concerts to a number, only leading
- * and trailing whitespace is allowsed.  See @c strtoul for explanation
+ * Verifies that all content of a string converts to a number, only leading
+ * and trailing whitespace is allowed. See @c strtoul for explanation
  * of the `base` parameter.
  */
 bool strtoul_all(int base, const char *str, unsigned long *value);
@@ -380,8 +380,8 @@ bool strtoul_all(int base, const char *str, unsigned long *value);
 /**
  * Convert all elements of a string into a number.
  *
- * Verifies that all content of a string concerts to a number, only leading
- * and trailing whitespace is allowsed.  See @c strtod for explanation
+ * Verifies that all content of a string converts to a number, only leading
+ * and trailing whitespace is allowed. See @c strtod for explanation
  * of the `base` parameter.
  */
 bool strtod_all(const char *str, double *value);

@@ -59,19 +59,19 @@ typedef struct {
 
 void debug_printf(const char *msg, ...);
 
-typedef void (*match_fn_t)(forwarding_rule_t *forwarding_rule,
-                           filter_t *filter,
+typedef void (*match_fn_t)(const forwarding_rule_t *forwarding_rule,
+                           const filter_t *filter,
                            const u8 *data,
                            size_t length);
 
-void rule_process(forwarding_rule_t *forwarding_rule,
-                  const u8 *data,
-                  size_t length,
-                  match_fn_t match_fn);
+void process_forwarding_rule(const forwarding_rule_t *forwarding_rule,
+                             const u8 *data,
+                             size_t length,
+                             match_fn_t match_fn);
 
-void process_forwarding_rules(forwarding_rule_t *forwarding_rule,
+void process_forwarding_rules(const forwarding_rule_t *forwarding_rule,
                               const u8 *data,
-                              const size_t length,
+                              size_t length,
                               match_fn_t match_fn);
 
 #ifdef __cplusplus

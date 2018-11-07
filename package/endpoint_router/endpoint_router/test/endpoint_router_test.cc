@@ -37,13 +37,13 @@ TEST_F(EndpointRouterTests, BasicTest)
   forwarding_rule_t *rules = r->ports_list[0].forwarding_rules_list;
   const u8 data[] = {0x1, 0x2, 0x3};
 
-  auto match_fn = [](forwarding_rule_t *r, filter_t *f, const u8 *d, size_t l) {
+  auto match_fn = [](const forwarding_rule_t *r, const filter_t *f, const u8 *d, const size_t l) {
     if (f->action == FILTER_ACTION_ACCEPT) {
       match_fn_accept = true;
     }
   };
 
-  rule_process(rules, data, 3, match_fn);
+  process_forwarding_rule(rules, data, 3, match_fn);
   EXPECT_TRUE(match_fn_accept);
 
   router_teardown(&r);
@@ -75,7 +75,7 @@ TEST_F(EndpointRouterTests, FullTest)
 
   forwarding_rule_t *rules = r->ports_list[0].forwarding_rules_list;
 
-  auto match_fn = [](forwarding_rule_t *r, filter_t *f, const u8 *d, size_t l) {
+  auto match_fn = [](const forwarding_rule_t *r, const filter_t *f, const u8 *d, const size_t l) {
     if (f->action == FILTER_ACTION_ACCEPT) {
       strcpy(accept_ports[accept_count++], r->dst_port_name);
     } else if (f->action == FILTER_ACTION_REJECT) {
