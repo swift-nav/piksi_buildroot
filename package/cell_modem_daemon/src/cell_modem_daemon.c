@@ -27,6 +27,7 @@
 #include "cell_modem_settings.h"
 
 #define PROGRAM_NAME "cell_modem_daemon"
+#define SETTINGS_METRICS_NAME (PROGRAM_NAME "/settings")
 
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP Internal Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP Internal In */
@@ -179,7 +180,7 @@ int main(int argc, char *argv[])
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
     }
 
-    ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+    ctx = sbp_pubsub_create(PROGRAM_NAME, SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
     if (ctx == NULL) {
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
     }
@@ -193,7 +194,7 @@ int main(int argc, char *argv[])
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
     }
 
-    settings_ctx = settings_create();
+    settings_ctx = settings_create(SETTINGS_METRICS_NAME);
 
     if (settings_ctx == NULL) {
       piksi_log(LOG_ERR, "Error registering for settings!");

@@ -67,6 +67,11 @@ pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
                                _pk_metrics_table_entry_t metrics_table[],
                                size_t entry_count)
 {
+  if (metrics_base_name == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "invalid base name");
+    return NULL;
+  }
+
   size_t count = 0;
   char metrics_folder[PATH_MAX] = {0};
   const char *metrics_name = NULL;
@@ -125,7 +130,8 @@ pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
   return metrics;
 
 fail:
-  PK_LOG_ANNO(LOG_ERR, "metrics add for '%s/%s' failed: %s",
+  PK_LOG_ANNO(LOG_ERR,
+              "metrics add for '%s/%s' failed: %s",
               metrics_folder,
               metrics_name,
               pk_metrics_status_text(metrics_index));
@@ -183,6 +189,8 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
     return METRICS_STATUS_MEMORY_ERROR;
   }
 
+  // TODO: We can potentially open existing files hear to accumulate metrics across
+  // processes/invocations.
   int filedesc = open(metric_path, O_RDWR | O_CREAT | O_TRUNC, 0644);
   if (filedesc < 0) {
     return METRICS_STATUS_OPEN_ERROR;
@@ -318,11 +326,21 @@ pk_metrics_value_t pk_metrics_updater_sum(pk_metrics_type_t type,
     goto error;
   }
   switch (type) {
-  case METRICS_TYPE_U32: return (pk_metrics_value_t){.d.u32 = current_value.d.u32 + update.value.d.u32, .type = METRICS_TYPE_U32};
-  case METRICS_TYPE_S32: return (pk_metrics_value_t){.d.s32 = current_value.d.s32 + update.value.d.s32, .type = METRICS_TYPE_S32};
-  case METRICS_TYPE_U64: return (pk_metrics_value_t){.d.u64 = current_value.d.u64 + update.value.d.u64, .type = METRICS_TYPE_U64};
-  case METRICS_TYPE_S64: return (pk_metrics_value_t){.d.s64 = current_value.d.s64 + update.value.d.s64, .type = METRICS_TYPE_S64};
-  case METRICS_TYPE_F64: return (pk_metrics_value_t){.d.f64 = current_value.d.f64 + update.value.d.f64, .type = METRICS_TYPE_F64};
+  case METRICS_TYPE_U32:
+    return (pk_metrics_value_t){.d.u32 = current_value.d.u32 + update.value.d.u32,
+                                .type = METRICS_TYPE_U32};
+  case METRICS_TYPE_S32:
+    return (pk_metrics_value_t){.d.s32 = current_value.d.s32 + update.value.d.s32,
+                                .type = METRICS_TYPE_S32};
+  case METRICS_TYPE_U64:
+    return (pk_metrics_value_t){.d.u64 = current_value.d.u64 + update.value.d.u64,
+                                .type = METRICS_TYPE_U64};
+  case METRICS_TYPE_S64:
+    return (pk_metrics_value_t){.d.s64 = current_value.d.s64 + update.value.d.s64,
+                                .type = METRICS_TYPE_S64};
+  case METRICS_TYPE_F64:
+    return (pk_metrics_value_t){.d.f64 = current_value.d.f64 + update.value.d.f64,
+                                .type = METRICS_TYPE_F64};
   case METRICS_TYPE_TIME:
     return (pk_metrics_value_t){.d.time.ns = current_value.d.time.ns + update.value.d.time.ns};
   case METRICS_TYPE_UNKNOWN:
@@ -342,13 +360,24 @@ pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
     goto error;
   }
   switch (type) {
-  case METRICS_TYPE_U32: return (pk_metrics_value_t){.d.u32 = update.value.d.u32 - current_value.d.u32, .type = METRICS_TYPE_U32};
-  case METRICS_TYPE_S32: return (pk_metrics_value_t){.d.s32 = update.value.d.s32 - current_value.d.s32, .type = METRICS_TYPE_S32};
-  case METRICS_TYPE_U64: return (pk_metrics_value_t){.d.u64 = update.value.d.u64 - current_value.d.u64, .type = METRICS_TYPE_U64};
-  case METRICS_TYPE_S64: return (pk_metrics_value_t){.d.s64 = update.value.d.s64 - current_value.d.s64, .type = METRICS_TYPE_S64};
-  case METRICS_TYPE_F64: return (pk_metrics_value_t){.d.f64 = update.value.d.f64 - current_value.d.f64, .type = METRICS_TYPE_F64};
+  case METRICS_TYPE_U32:
+    return (pk_metrics_value_t){.d.u32 = update.value.d.u32 - current_value.d.u32,
+                                .type = METRICS_TYPE_U32};
+  case METRICS_TYPE_S32:
+    return (pk_metrics_value_t){.d.s32 = update.value.d.s32 - current_value.d.s32,
+                                .type = METRICS_TYPE_S32};
+  case METRICS_TYPE_U64:
+    return (pk_metrics_value_t){.d.u64 = update.value.d.u64 - current_value.d.u64,
+                                .type = METRICS_TYPE_U64};
+  case METRICS_TYPE_S64:
+    return (pk_metrics_value_t){.d.s64 = update.value.d.s64 - current_value.d.s64,
+                                .type = METRICS_TYPE_S64};
+  case METRICS_TYPE_F64:
+    return (pk_metrics_value_t){.d.f64 = update.value.d.f64 - current_value.d.f64,
+                                .type = METRICS_TYPE_F64};
   case METRICS_TYPE_TIME:
-    return (pk_metrics_value_t){.d.time = update.value.d.time.ns - current_value.d.time.ns, .type = METRICS_TYPE_TIME };
+    return (pk_metrics_value_t){.d.time = update.value.d.time.ns - current_value.d.time.ns,
+                                .type = METRICS_TYPE_TIME};
   case METRICS_TYPE_UNKNOWN:
   default: break;
   }
@@ -415,28 +444,33 @@ pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
   switch (type) {
   case METRICS_TYPE_U32: {
     u32 dom_value = (u32)get_denominator_value(dom_type, &dom);
-    return (pk_metrics_value_t){.d.u32 = dom_value == 0 ? 0 : (num.d.u32 / dom_value), .type = METRICS_TYPE_U32};
+    return (pk_metrics_value_t){.d.u32 = dom_value == 0 ? 0 : (num.d.u32 / dom_value),
+                                .type = METRICS_TYPE_U32};
   }
   case METRICS_TYPE_S32: {
     s32 dom_value = (s32)get_denominator_value(dom_type, &dom);
-    return (pk_metrics_value_t){.d.s32 = dom_value == 0 ? 0 : (num.d.s32 / dom_value), .type = METRICS_TYPE_S32};
+    return (pk_metrics_value_t){.d.s32 = dom_value == 0 ? 0 : (num.d.s32 / dom_value),
+                                .type = METRICS_TYPE_S32};
   }
   case METRICS_TYPE_U64: {
     u64 dom_value = (u64)get_denominator_value(dom_type, &dom);
-    return (pk_metrics_value_t){.d.u64 = dom_value == 0 ? 0 : (num.d.u64 / dom_value), .type = METRICS_TYPE_U64};
+    return (pk_metrics_value_t){.d.u64 = dom_value == 0 ? 0 : (num.d.u64 / dom_value),
+                                .type = METRICS_TYPE_U64};
   }
   case METRICS_TYPE_S64: {
     s64 dom_value = (s64)get_denominator_value(dom_type, &dom);
-    return (pk_metrics_value_t){.d.s64 = dom_value == 0 ? 0 : (num.d.s64 / dom_value), .type = METRICS_TYPE_S64};
+    return (pk_metrics_value_t){.d.s64 = dom_value == 0 ? 0 : (num.d.s64 / dom_value),
+                                .type = METRICS_TYPE_S64};
   }
   case METRICS_TYPE_F64: {
     double dom_value = (double)get_denominator_value(dom_type, &dom);
-    return (pk_metrics_value_t){.d.f64 = dom_value == 0 ? 0 : (num.d.f64 / dom_value), .type = METRICS_TYPE_F64};
+    return (pk_metrics_value_t){.d.f64 = dom_value == 0 ? 0 : (num.d.f64 / dom_value),
+                                .type = METRICS_TYPE_F64};
   }
   case METRICS_TYPE_TIME: {
     u64 dom_value = (u64)get_denominator_value(dom_type, &dom);
     return (pk_metrics_value_t){.d.time.ns = dom_value == 0 ? 0 : (num.d.time.ns / dom_value),
-      .type = METRICS_TYPE_TIME};
+                                .type = METRICS_TYPE_TIME};
   }
   case METRICS_TYPE_UNKNOWN:
   default: break;
@@ -457,17 +491,24 @@ pk_metrics_value_t pk_metrics_updater_max(pk_metrics_type_t type,
   }
   switch (type) {
   case METRICS_TYPE_U32:
-    return (pk_metrics_value_t){.d.u32 = SWFT_MAX(current_value.d.u32, update.value.d.u32), .type = METRICS_TYPE_U32};
+    return (pk_metrics_value_t){.d.u32 = SWFT_MAX(current_value.d.u32, update.value.d.u32),
+                                .type = METRICS_TYPE_U32};
   case METRICS_TYPE_S32:
-    return (pk_metrics_value_t){.d.s32 = SWFT_MAX(current_value.d.s32, update.value.d.s32), .type = METRICS_TYPE_S32};
+    return (pk_metrics_value_t){.d.s32 = SWFT_MAX(current_value.d.s32, update.value.d.s32),
+                                .type = METRICS_TYPE_S32};
   case METRICS_TYPE_U64:
-    return (pk_metrics_value_t){.d.u64 = SWFT_MAX(current_value.d.u64, update.value.d.u64), .type = METRICS_TYPE_U64};
+    return (pk_metrics_value_t){.d.u64 = SWFT_MAX(current_value.d.u64, update.value.d.u64),
+                                .type = METRICS_TYPE_U64};
   case METRICS_TYPE_S64:
-    return (pk_metrics_value_t){.d.s64 = SWFT_MAX(current_value.d.s64, update.value.d.s64), .type = METRICS_TYPE_S64};
+    return (pk_metrics_value_t){.d.s64 = SWFT_MAX(current_value.d.s64, update.value.d.s64),
+                                .type = METRICS_TYPE_S64};
   case METRICS_TYPE_F64:
-    return (pk_metrics_value_t){.d.f64 = SWFT_MAX(current_value.d.f64, update.value.d.f64), .type = METRICS_TYPE_F64};
+    return (pk_metrics_value_t){.d.f64 = SWFT_MAX(current_value.d.f64, update.value.d.f64),
+                                .type = METRICS_TYPE_F64};
   case METRICS_TYPE_TIME:
-    return (pk_metrics_value_t){.d.time.ns = SWFT_MAX(current_value.d.time.ns, update.value.d.time.ns), .type = METRICS_TYPE_TIME};
+    return (pk_metrics_value_t){.d.time.ns =
+                                  SWFT_MAX(current_value.d.time.ns, update.value.d.time.ns),
+                                .type = METRICS_TYPE_TIME};
   case METRICS_TYPE_UNKNOWN:
   default: break;
   }
@@ -483,11 +524,16 @@ pk_metrics_value_t pk_metrics_updater_count(pk_metrics_type_t type,
   (void)update;
 
   switch (type) {
-  case METRICS_TYPE_U32: return (pk_metrics_value_t){.d.u32 = current_value.d.u32 + 1, .type = METRICS_TYPE_U32};
-  case METRICS_TYPE_S32: return (pk_metrics_value_t){.d.s32 = current_value.d.s32 + 1, .type = METRICS_TYPE_S32};
-  case METRICS_TYPE_U64: return (pk_metrics_value_t){.d.u64 = current_value.d.u64 + 1, .type = METRICS_TYPE_U64};
-  case METRICS_TYPE_S64: return (pk_metrics_value_t){.d.s64 = current_value.d.s64 + 1, .type = METRICS_TYPE_S64};
-  case METRICS_TYPE_F64: return (pk_metrics_value_t){.d.f64 = current_value.d.f64 + 1, .type = METRICS_TYPE_F64};
+  case METRICS_TYPE_U32:
+    return (pk_metrics_value_t){.d.u32 = current_value.d.u32 + 1, .type = METRICS_TYPE_U32};
+  case METRICS_TYPE_S32:
+    return (pk_metrics_value_t){.d.s32 = current_value.d.s32 + 1, .type = METRICS_TYPE_S32};
+  case METRICS_TYPE_U64:
+    return (pk_metrics_value_t){.d.u64 = current_value.d.u64 + 1, .type = METRICS_TYPE_U64};
+  case METRICS_TYPE_S64:
+    return (pk_metrics_value_t){.d.s64 = current_value.d.s64 + 1, .type = METRICS_TYPE_S64};
+  case METRICS_TYPE_F64:
+    return (pk_metrics_value_t){.d.f64 = current_value.d.f64 + 1, .type = METRICS_TYPE_F64};
   case METRICS_TYPE_TIME:
   case METRICS_TYPE_UNKNOWN:
   default: break;

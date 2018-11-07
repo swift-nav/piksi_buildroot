@@ -159,9 +159,12 @@ static int router_setup(router_t *router, pk_loop_t *loop)
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
 
-    snprintf_assert(endpoint_metric, sizeof(endpoint_metric), "%s/pub_server", port->metric);
+    snprintf_assert(endpoint_metric, sizeof(endpoint_metric), "router/%s/pub_server", port->metric);
 
-    port->pub_ept = pk_endpoint_create(port->pub_addr, endpoint_metric, PK_ENDPOINT_PUB_SERVER);
+    port->pub_ept = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = port->pub_addr,
+                                                                 .identity = endpoint_metric,
+                                                                 .type = PK_ENDPOINT_PUB_SERVER,
+                                                                 .retry_start = false});
     if (port->pub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
@@ -169,9 +172,12 @@ static int router_setup(router_t *router, pk_loop_t *loop)
 
     pk_endpoint_loop_add(port->pub_ept, loop);
 
-    snprintf_assert(endpoint_metric, sizeof(endpoint_metric), "%s/sub_server", port->metric);
+    snprintf_assert(endpoint_metric, sizeof(endpoint_metric), "router/%s/sub_server", port->metric);
 
-    port->sub_ept = pk_endpoint_create(port->sub_addr, endpoint_metric, PK_ENDPOINT_SUB_SERVER);
+    port->sub_ept = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = port->sub_addr,
+                                                                 .identity = endpoint_metric,
+                                                                 .type = PK_ENDPOINT_SUB_SERVER,
+                                                                 .retry_start = false});
     if (port->sub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;

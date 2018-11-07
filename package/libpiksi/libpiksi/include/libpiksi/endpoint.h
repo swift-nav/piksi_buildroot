@@ -55,6 +55,13 @@ enum {
   PKE_EAGAIN = -3,
 };
 
+typedef struct {
+  const char *endpoint;
+  const char *identity;
+  pk_endpoint_type type;
+  bool retry_start;
+} pk_endpoint_config_t;
+
 /**
  * @brief   Piksi Endpoint Receive Callback Signature
  */
@@ -65,27 +72,23 @@ typedef int (*pk_endpoint_receive_cb)(const u8 *data, const size_t length, void 
  * @details Create a Piksi Endpoint context
  *
  * @param[in] endpoint      Description of the endpoint that will be connected to.
- * @param[in] identity      The identity of this endpoint for tracking metrics
  * @param[in] type          The type of endpoint to create.
  *
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-pk_endpoint_t *pk_endpoint_create(const char *endpoint, const char *identity, pk_endpoint_type type);
+pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type);
 
 /**
  * @brief   Create a Piksi Endpoint context
  * @details Create a Piksi Endpoint context
  *
- * @param[in] endpoint      Description of the endpoint that will be connected to.
- * @param[in] identity      The identity of this endpoint for tracking metrics
- * @param[in] type          The type of endpoint to create.
- * @param[in] retry         Should we retry the initial connection.
+ * @param[in] cfg           The config to use, see @c pk_endpoint_config_t
  *
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-pk_endpoint_t *pk_endpoint_create_ex(const char *endpoint, const char *identity, pk_endpoint_type type, bool retry);
+pk_endpoint_t *pk_endpoint_create_ex(pk_endpoint_config_t cfg);
 
 /**
  * @brief   Destroy a Piksi Endpoint context

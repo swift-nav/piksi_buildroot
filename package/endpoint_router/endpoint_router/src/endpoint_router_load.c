@@ -257,8 +257,11 @@ static filter_t *current_filter_get(router_t *router)
 
 NESTED_FN_TYPEDEF(int, consume_str_fn_t, port_t *p, char *);
 
-#define MAKE_CONSUME_FN(FuncName, TheField) \
-  consume_str_fn_t FuncName = NESTED_FN(int, (port_t * p, char *s), { p->TheField = s; return 0; });
+#define MAKE_CONSUME_FN(FuncName, TheField)                           \
+  consume_str_fn_t FuncName = NESTED_FN(int, (port_t * p, char *s), { \
+    p->TheField = s;                                                  \
+    return 0;                                                         \
+  });
 
 static int event_port_string(yaml_parser_t *parser, void *context, consume_str_fn_t consume_str_fn)
 {

@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  ctx = sbp_pubsub_create(pub_endpoint, sub_endpoint);
+  ctx = sbp_pubsub_create(PROGRAM_NAME, pub_endpoint, sub_endpoint);
   if (ctx == NULL) {
     goto cleanup;
   }

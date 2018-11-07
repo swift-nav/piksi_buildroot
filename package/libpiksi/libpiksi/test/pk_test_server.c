@@ -136,13 +136,19 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop));
   }
 
-  pub_ept = pk_endpoint_create(options.pub, "pub_test_svr", PK_ENDPOINT_PUB_SERVER);
+  pub_ept = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = options.pub,
+                                                         .identity = "pub_test_svr",
+                                                         .type = PK_ENDPOINT_PUB_SERVER,
+                                                         .retry_start = false});
   if (pub_ept == NULL) {
     PK_LOG_ANNO(LOG_ERR, "failed to create pub endpoint");
     exit(cleanup(EXIT_FAILURE, &loop));
   }
 
-  sub_ept = pk_endpoint_create(options.sub, "sub_test_svr", PK_ENDPOINT_SUB_SERVER);
+  sub_ept = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = options.sub,
+                                                         .identity = "sub_test_svr",
+                                                         .type = PK_ENDPOINT_SUB_SERVER,
+                                                         .retry_start = false});
   if (pub_ept == NULL) {
     PK_LOG_ANNO(LOG_ERR, "failed to create sub endpoint");
     exit(cleanup(EXIT_FAILURE, &loop));

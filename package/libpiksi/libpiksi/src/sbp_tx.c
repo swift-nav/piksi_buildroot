@@ -48,17 +48,17 @@ static int send_buffer_flush(sbp_tx_ctx_t *ctx)
   return result;
 }
 
-static const char* get_socket_ident()
+static const char *get_socket_ident(const char *ident)
 {
-  static char buffer[128] = {0};
+  if (ident == NULL) return NULL;
 
-  static int count = 0;
-  snprintf(buffer, sizeof(buffer), "sbp_tx_%d_%d", (int)getpid(), count++);
+  static char buffer[128] = {0};
+  snprintf(buffer, sizeof(buffer), "%s/sbp/tx", ident);
 
   return buffer;
 }
 
-sbp_tx_ctx_t *sbp_tx_create(const char *endpoint)
+sbp_tx_ctx_t *sbp_tx_create(const char *ident, const char *endpoint)
 {
   assert(endpoint != NULL);
 
@@ -68,7 +68,14 @@ sbp_tx_ctx_t *sbp_tx_create(const char *endpoint)
     goto failure;
   }
 
-  ctx->pk_ept = pk_endpoint_create(endpoint, get_socket_ident(), PK_ENDPOINT_PUB);
+  pk_endpoint_config_t cfg = (pk_endpoint_config_t){
+    .endpoint = endpoint,
+    .identity = get_socket_ident(ident),
+    .type = PK_ENDPOINT_PUB,
+    .retry_start = false,
+  };
+
+  ctx->pk_ept = pk_endpoint_create_ex(cfg);
   if (ctx->pk_ept == NULL) {
     piksi_log(LOG_ERR, "error creating PUB endpoint for tx ctx");
     goto failure;

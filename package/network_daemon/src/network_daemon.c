@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
     piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
   }
 
-  ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  ctx = sbp_pubsub_create(PROGRAM_NAME, SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (ctx == NULL) {
     return cleanup(&loop, &ctx, EXIT_FAILURE);
   }

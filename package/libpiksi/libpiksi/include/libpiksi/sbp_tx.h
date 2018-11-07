@@ -47,7 +47,7 @@ typedef struct sbp_tx_ctx_s sbp_tx_ctx_t;
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-sbp_tx_ctx_t *sbp_tx_create(const char *endpoint);
+sbp_tx_ctx_t *sbp_tx_create(const char *ident, const char *endpoint);
 
 /**
  * @brief   Destroy an SBP TX context.

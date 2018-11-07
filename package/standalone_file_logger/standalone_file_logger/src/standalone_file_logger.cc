@@ -339,7 +339,11 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  pk_endpoint_t *pk_sub = pk_endpoint_create(pk_sub_endpoint, "logging/sub", PK_ENDPOINT_SUB);
+  pk_endpoint_t *pk_sub =
+    pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = pk_sub_endpoint,
+                                                 .identity = "standalone_file_logger/sub",
+                                                 .type = PK_ENDPOINT_SUB,
+                                                 .retry_start = false});
   if (pk_sub == nullptr) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(EXIT_FAILURE);
@@ -351,7 +355,7 @@ int main(int argc, char *argv[])
   }
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = settings_create();
+  settings_ctx_t *settings_ctx = settings_create("standalone_file_logger/settings");
   if (settings_ctx == nullptr) {
     exit(EXIT_FAILURE);
   }

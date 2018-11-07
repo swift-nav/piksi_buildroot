@@ -36,6 +36,7 @@
 #include "base_num_sats_monitor.h"
 
 #define PROGRAM_NAME "health_daemon"
+#define SETTINGS_METRICS_NAME (PROGRAM_NAME "/settings")
 
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
@@ -137,7 +138,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  health_ctx.sbp_ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  health_ctx.sbp_ctx = sbp_pubsub_create(PROGRAM_NAME, SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (health_ctx.sbp_ctx == NULL) {
     status = EXIT_FAILURE;
     goto cleanup;
@@ -149,7 +150,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  health_ctx.settings_ctx = settings_create();
+  health_ctx.settings_ctx = settings_create(SETTINGS_METRICS_NAME);
   if (health_ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
     status = EXIT_FAILURE;

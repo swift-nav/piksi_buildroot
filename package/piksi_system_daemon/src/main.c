@@ -33,6 +33,7 @@
 #include <stdlib.h>
 
 #define PROGRAM_NAME "piksi_system_daemon"
+#define SETTINGS_METRICS_NAME (PROGRAM_NAME "/settings")
 
 #define PUB_ENDPOINT "ipc:///var/run/sockets/firmware.sub"
 #define SUB_ENDPOINT "ipc:///var/run/sockets/firmware.pub"
@@ -549,7 +550,7 @@ int main(void)
   }
 
   /* Set up SBP */
-  sbp_pubsub_ctx_t *pubsub_ctx = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
+  sbp_pubsub_ctx_t *pubsub_ctx = sbp_pubsub_create(PROGRAM_NAME, PUB_ENDPOINT, SUB_ENDPOINT);
   if (pubsub_ctx == NULL) {
     exit(EXIT_FAILURE);
   }
@@ -560,7 +561,7 @@ int main(void)
   }
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = settings_create();
+  settings_ctx_t *settings_ctx = settings_create(SETTINGS_METRICS_NAME);
   if (settings_ctx == NULL) {
     exit(EXIT_FAILURE);
   }

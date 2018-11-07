@@ -24,6 +24,7 @@
 
 #include "ntrip_settings.h"
 
+#define NTRIP_SETTINGS_METRICS "ntrip/settings"
 #define NTRIP_CONTROL_FILE "/var/run/ntrip/control/socket"
 #define NTRIP_CONTROL_SOCK "ipc://" NTRIP_CONTROL_FILE
 
@@ -270,7 +271,8 @@ static void settings_loop_terminate(void)
 
 static int ntrip_settings_loop(void)
 {
-  return settings_loop(NTRIP_CONTROL_SOCK,
+  return settings_loop(NTRIP_SETTINGS_METRICS,
+                       NTRIP_CONTROL_SOCK,
                        NTRIP_CONTROL_FILE,
                        NTRIP_CONTROL_COMMAND_RECONNECT,
                        ntrip_settings_init,
@@ -296,7 +298,8 @@ int main(int argc, char *argv[])
   case OP_MODE_NTRIP_CLIENT: ret = ntrip_client_loop(); break;
   case OP_MODE_SETTINGS_DAEMON: ret = ntrip_settings_loop(); break;
   case OP_MODE_REQ_RECONNECT:
-    ret = settings_loop_send_command("NTRIP client",
+    ret = settings_loop_send_command("ntrip",
+                                     "NTRIP client",
                                      NTRIP_CONTROL_COMMAND_RECONNECT,
                                      "reconnect",
                                      NTRIP_CONTROL_SOCK);

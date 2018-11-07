@@ -168,7 +168,10 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  ctx.sub_ept = pk_endpoint_create(NMEA_PUB_ENDPOINT, NMEA_METRIC_NAME, PK_ENDPOINT_SUB);
+  ctx.sub_ept = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = NMEA_PUB_ENDPOINT,
+                                                             .identity = NMEA_METRIC_NAME,
+                                                             .type = PK_ENDPOINT_SUB,
+                                                             .retry_start = false});
   if (ctx.sub_ept == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(cleanup(EXIT_FAILURE, &ctx));

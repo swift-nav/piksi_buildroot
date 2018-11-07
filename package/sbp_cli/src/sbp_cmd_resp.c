@@ -19,8 +19,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/sbp_tx.h>
 
-#define PROGRAM_NAME "sbp_cmb_resp"
-
+#define PROGRAM_NAME "sbp_cmd_resp"
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/firmware.sub"
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
@@ -81,7 +80,7 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  sbp_tx_ctx_t *ctx = sbp_tx_create(SBP_PUB_ENDPOINT);
+  sbp_tx_ctx_t *ctx = sbp_tx_create(PROGRAM_NAME, SBP_PUB_ENDPOINT);
   if (ctx == NULL) {
     exit(EXIT_FAILURE);
   }

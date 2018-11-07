@@ -119,7 +119,7 @@ int setting_parse_setting_text(const u8 *msg,
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-settings_ctx_t *settings_create();
+settings_ctx_t *settings_create(const char *ident);
 
 /**
  * @brief   Destroy a settings context.
@@ -284,7 +284,8 @@ typedef bool (*handle_command_fn)();
  * @retval 0                Successful exit
  * @retval -1               An error occurred
  */
-bool settings_loop(const char *control_socket,
+bool settings_loop(const char *metrics_ident,
+                   const char *control_socket,
                    const char *control_socket_file,
                    const char *control_command,
                    register_settings_fn do_register_settings,
@@ -292,7 +293,7 @@ bool settings_loop(const char *control_socket,
                    settings_term_fn do_handle_term,
                    settings_child_fn do_handle_child);
 
-bool settings_loop_simple(register_settings_fn do_register_settings);
+bool settings_loop_simple(const char *metrics_ident, register_settings_fn do_register_settings);
 
 /**
  * @brief   Send a control command to a running settings daemon
@@ -308,7 +309,8 @@ bool settings_loop_simple(register_settings_fn do_register_settings);
  * @return                  Result of the command, value depends on
  *                          the command invoked.
  */
-int settings_loop_send_command(const char *target_description,
+int settings_loop_send_command(const char *metrics_ident,
+                               const char *target_description,
                                const char *command,
                                const char *command_description,
                                const char *control_socket);
