@@ -392,10 +392,13 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
                   file_entry->fd_count,
                   file_entry->file_str);
 #endif
-      if ((SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_summary_t))
-          < (unsigned int)nBytes)
+      if ((SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_summary_t) - 1)
+          < (unsigned int)nBytes) {
+        nBytes = (SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_summary_t) - 1);
         break;
+      }
     }
+    fd_summary->most_opened[nBytes] = '\0';
     *len = (u8)(sizeof(msg_linux_process_fd_summary_t) + (unsigned)nBytes + 1);
     break;
   case SEND_DONE:
