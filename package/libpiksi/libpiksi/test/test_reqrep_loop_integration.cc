@@ -79,18 +79,20 @@ TEST_F(ReqrepLoopIntegrationTests, reqrepLoopIntegrationTest)
   loop = pk_loop_create();
   ASSERT_NE(loop, nullptr);
 
-  rep_ept = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = "ipc:///tmp/tmp.49010",
-                                                         .identity = "integ.rep",
-                                                         .type = PK_ENDPOINT_REP,
-                                                         .retry_start = false});
+  rep_ept = pk_endpoint_create(pk_endpoint_config()
+                                 .endpoint("ipc:///tmp/tmp.49010")
+                                 .identity("integ.rep")
+                                 .type(PK_ENDPOINT_REP)
+                                 .get());
   ASSERT_NE(rep_ept, nullptr);
 
   ASSERT_GE(pk_endpoint_loop_add(rep_ept, loop), 0);
 
-  req_ept = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = "ipc:///tmp/tmp.49010",
-                                                         .identity = "integ.req",
-                                                         .type = PK_ENDPOINT_REQ,
-                                                         .retry_start = false});
+  req_ept = pk_endpoint_create(pk_endpoint_config()
+                                 .endpoint("ipc:///tmp/tmp.49010")
+                                 .identity("integ.req")
+                                 .type(PK_ENDPOINT_REQ)
+                                 .get());
   ASSERT_NE(req_ept, nullptr);
 
   struct reqrep_ctx_s ctx = {.req_ept = req_ept,

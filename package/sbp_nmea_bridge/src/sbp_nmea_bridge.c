@@ -243,10 +243,11 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE));
   }
 
-  nmea_pub = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = NMEA_PUB_ENDPOINT,
-                                                          .identity = NMEA_METRIC_NAME,
-                                                          .type = PK_ENDPOINT_PUB,
-                                                          .retry_start = false});
+  nmea_pub = pk_endpoint_create(pk_endpoint_config()
+                                  .endpoint(NMEA_PUB_ENDPOINT)
+                                  .identity(NMEA_METRIC_NAME)
+                                  .type(PK_ENDPOINT_PUB)
+                                  .get());
   if (nmea_pub == NULL) {
     piksi_log(LOG_ERR, "error creating PUB socket");
     exit(cleanup(EXIT_FAILURE));

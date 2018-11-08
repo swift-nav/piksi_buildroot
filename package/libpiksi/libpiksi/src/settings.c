@@ -1541,11 +1541,11 @@ static bool configure_control_socket(const char *metrics_ident,
     return false;
   }
 
-  *rep_socket = pk_endpoint_create_ex(
-    (pk_endpoint_config_t){.endpoint = control_socket,
-                           .identity = get_socket_ident(metrics_ident, "control/rep"),
-                           .type = PK_ENDPOINT_REP,
-                           .retry_start = false});
+  *rep_socket = pk_endpoint_create(pk_endpoint_config()
+                                     .endpoint(control_socket)
+                                     .identity(get_socket_ident(metrics_ident, "control/rep"))
+                                     .type(PK_ENDPOINT_REP)
+                                     .get());
   if (*rep_socket == NULL) {
     const char *err_msg = pk_endpoint_strerror();
     piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s", control_socket, err_msg);
@@ -1676,11 +1676,12 @@ int settings_loop_send_command(const char *metrics_ident,
   piksi_log(LOG_INFO, CMD_INFO_MSG, command_description, target_description);
   printf(CMD_INFO_MSG "\n", command_description, target_description);
 
-  pk_endpoint_t *req_socket = pk_endpoint_create_ex(
-    (pk_endpoint_config_t){.endpoint = control_socket,
-                           .identity = get_socket_ident(metrics_ident, "control/req"),
-                           .type = PK_ENDPOINT_REQ,
-                           .retry_start = false});
+  pk_endpoint_t *req_socket =
+    pk_endpoint_create(pk_endpoint_config()
+                         .endpoint(control_socket)
+                         .identity(get_socket_ident(metrics_ident, "control/req"))
+                         .type(PK_ENDPOINT_REQ)
+                         .get());
   CHECK_PK_EPT_ERR(req_socket == NULL, pk_endpoint_create);
 
   int ret = 0;

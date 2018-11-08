@@ -240,10 +240,11 @@ int main(int argc, char *argv[])
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  rtcm3_pub = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = RTCM3_PUB_ENDPOINT,
-                                                           .identity = RTCM3_PUB_METRICS,
-                                                           .type = PK_ENDPOINT_PUB,
-                                                           .retry_start = false});
+  rtcm3_pub = pk_endpoint_create(pk_endpoint_config()
+                                   .endpoint(RTCM3_PUB_ENDPOINT)
+                                   .identity(RTCM3_PUB_METRICS)
+                                   .type(PK_ENDPOINT_PUB)
+                                   .get());
   if (rtcm3_pub == NULL) {
     piksi_log(LOG_ERR, "error creating PUB socket");
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
@@ -254,10 +255,11 @@ int main(int argc, char *argv[])
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  rtcm3_sub = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = RTCM3_SUB_ENDPOINT,
-                                                           .identity = RTCM3_SUB_METRICS,
-                                                           .type = PK_ENDPOINT_SUB,
-                                                           .retry_start = false});
+  rtcm3_sub = pk_endpoint_create(pk_endpoint_config()
+                                   .endpoint(RTCM3_SUB_ENDPOINT)
+                                   .identity(RTCM3_SUB_METRICS)
+                                   .type(PK_ENDPOINT_SUB)
+                                   .get());
   if (rtcm3_sub == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));

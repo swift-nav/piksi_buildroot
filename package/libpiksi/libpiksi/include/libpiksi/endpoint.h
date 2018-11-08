@@ -76,22 +76,26 @@ typedef struct {
   bool retry_start;
 } pk_endpoint_config_t;
 
+typedef struct pk_endpoint_config_builder_s pk_endpoint_config_builder_t;
+
+struct pk_endpoint_config_builder_s {
+
+  pk_endpoint_config_t config;
+
+  pk_endpoint_config_builder_t (*endpoint)(const char *endpoint);
+  pk_endpoint_config_builder_t (*identity)(const char *identity);
+  pk_endpoint_config_builder_t (*type)(pk_endpoint_type type);
+  pk_endpoint_config_builder_t (*retry_start)(bool retry_start);
+
+  pk_endpoint_config_t (*get)(void);
+};
+
 /**
  * @brief   Piksi Endpoint Receive Callback Signature
  */
 typedef int (*pk_endpoint_receive_cb)(const u8 *data, const size_t length, void *context);
 
-/**
- * @brief   Create a Piksi Endpoint context
- * @details Create a Piksi Endpoint context
- *
- * @param[in] endpoint      Description of the endpoint that will be connected to.
- * @param[in] type          The type of endpoint to create.
- *
- * @return                  Pointer to the created context, or NULL if the
- *                          operation failed.
- */
-pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type);
+pk_endpoint_config_builder_t pk_endpoint_config();
 
 /**
  * @brief   Create a Piksi Endpoint context
@@ -102,7 +106,7 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type);
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-pk_endpoint_t *pk_endpoint_create_ex(pk_endpoint_config_t cfg);
+pk_endpoint_t *pk_endpoint_create(pk_endpoint_config_t cfg);
 
 /**
  * @brief   Destroy a Piksi Endpoint context

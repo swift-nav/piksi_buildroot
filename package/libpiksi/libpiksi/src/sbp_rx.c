@@ -71,7 +71,7 @@ sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
     .retry_start = false,
   };
 
-  ctx->pk_ept = pk_endpoint_create_ex(cfg);
+  ctx->pk_ept = pk_endpoint_create(cfg);
   if (ctx->pk_ept == NULL) {
     piksi_log(LOG_ERR, "error creating SUB endpoint for rx ctx");
     goto failure;

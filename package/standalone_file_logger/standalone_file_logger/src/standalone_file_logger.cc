@@ -339,11 +339,11 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  pk_endpoint_t *pk_sub =
-    pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = pk_sub_endpoint,
-                                                 .identity = "standalone_file_logger/sub",
-                                                 .type = PK_ENDPOINT_SUB,
-                                                 .retry_start = false});
+  pk_endpoint_t *pk_sub = pk_endpoint_create(pk_endpoint_config()
+                                               .endpoint(pk_sub_endpoint)
+                                               .identity("standalone_file_logger/sub")
+                                               .type(PK_ENDPOINT_SUB)
+                                               .get());
   if (pk_sub == nullptr) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(EXIT_FAILURE);

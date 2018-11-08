@@ -72,19 +72,21 @@ TEST_F(PubsubLoopIntegrationTests, pubsubLoopIntegrationTest)
   ASSERT_NE(loop, nullptr);
 
   // this is cleaned up in TearDown
-  sub_ept = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = "ipc:///tmp/tmp.49010",
-                                                         .identity = "integ.sub.server",
-                                                         .type = PK_ENDPOINT_SUB_SERVER,
-                                                         .retry_start = false});
+  sub_ept = pk_endpoint_create(pk_endpoint_config()
+                                 .endpoint("ipc:///tmp/tmp.49010")
+                                 .identity("integ.sub.server")
+                                 .type(PK_ENDPOINT_SUB_SERVER)
+                                 .get());
   ASSERT_NE(sub_ept, nullptr);
 
   pk_endpoint_loop_add(sub_ept, loop);
 
   // this is cleaned up in TearDown
-  pub_ept = pk_endpoint_create_ex((pk_endpoint_config_t){.endpoint = "ipc:///tmp/tmp.49010",
-                                                         .identity = "integ.pub",
-                                                         .type = PK_ENDPOINT_PUB,
-                                                         .retry_start = false});
+  pub_ept = pk_endpoint_create(pk_endpoint_config()
+                                 .endpoint("ipc:///tmp/tmp.49010")
+                                 .identity("integ.pub")
+                                 .type(PK_ENDPOINT_PUB)
+                                 .get());
   ASSERT_NE(pub_ept, nullptr);
 
   struct snd_ctx_s snd_ctx = {.ept = pub_ept, .sent = 0};

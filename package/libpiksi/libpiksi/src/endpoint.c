@@ -41,7 +41,7 @@
 #define CONNECT_RETRIES_MAX (300u)
 #define CONNECT_RETRY_SLEEP_MS (100u)
 
-#define MS_TO_NS(MS) ((MS) * 1e6)
+#define MS_TO_NS(MS) ((MS)*1e6)
 
 #define READ_BUF_SIZE 4096
 
@@ -117,14 +117,14 @@ struct pk_endpoint_s {
   bool woke;     /**< Has the socket been woken up */
   client_nodes_head_t client_nodes_head; /**< The list of client nodes for a server socket */
   removed_nodes_head_t
-    removed_nodes_head;  /**< The list of client nodes that need to be removed and cleaned-up */
-  int client_count;      /**< The number of clients for a server socket */
-  pk_loop_t *loop;       /**< The event loop this endpoint is associated with */
-  void *poll_handle;     /**< The poll handle for this socket */
-  char path[PATH_MAX];   /**< The path to the socket */
-  pk_metrics_t *metrics; /**< The metrics object for this endpoint */
-  void *metrics_timer;   /**< Handle of the metrics flush timer */
-  bool warned_on_discard;/**< Warn only once for writes on read-only sockets */
+    removed_nodes_head;    /**< The list of client nodes that need to be removed and cleaned-up */
+  int client_count;        /**< The number of clients for a server socket */
+  pk_loop_t *loop;         /**< The event loop this endpoint is associated with */
+  void *poll_handle;       /**< The poll handle for this socket */
+  char path[PATH_MAX];     /**< The path to the socket */
+  pk_metrics_t *metrics;   /**< The metrics object for this endpoint */
+  void *metrics_timer;     /**< Handle of the metrics flush timer */
+  bool warned_on_discard;  /**< Warn only once for writes on read-only sockets */
   char identity[PATH_MAX]; /**< The 'identity' of this socket, used for recording metrics */
 };
 
@@ -189,26 +189,61 @@ static pk_endpoint_t *create_impl(const char *endpoint,
                                   bool retry_start);
 
 /**********************************************************************/
-/************* pk_endpoint_create *************************************/
+/************* pk_endpoint_config *************************************/
 /**********************************************************************/
 
-pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
-{
-  pk_endpoint_config_t cfg = (pk_endpoint_config_t){
-    .endpoint = endpoint,
-    .identity = NULL,
-    .type = type,
-    .retry_start = false,
-  };
+static pk_endpoint_config_builder_t config_builder;
 
-  return pk_endpoint_create_ex(cfg);
+static pk_endpoint_config_builder_t cfg_builder_endpoint(const char *endpoint)
+{
+  config_builder.config.endpoint = endpoint;
+  return config_builder;
+}
+
+static pk_endpoint_config_builder_t cfg_builder_identity(const char *identity)
+{
+  config_builder.config.identity = identity;
+  return config_builder;
+}
+
+static pk_endpoint_config_builder_t cfg_builder_type(pk_endpoint_type type)
+{
+  config_builder.config.type = type;
+  return config_builder;
+}
+
+static pk_endpoint_config_builder_t cfg_builder_retry_start(bool retry_start)
+{
+  config_builder.config.retry_start = retry_start;
+  return config_builder;
+}
+
+static pk_endpoint_config_t cfg_builder_get()
+{
+  return config_builder.config;
+}
+
+static __attribute__((constructor)) void setup_config_builder()
+{
+  config_builder.endpoint = cfg_builder_endpoint;
+  config_builder.identity = cfg_builder_identity;
+  config_builder.type = cfg_builder_type;
+  config_builder.retry_start = cfg_builder_retry_start;
+  config_builder.get = cfg_builder_get;
+}
+
+pk_endpoint_config_builder_t pk_endpoint_config()
+{
+  config_builder.config =
+    (pk_endpoint_config_t){.endpoint = NULL, .identity = NULL, .type = -1, .retry_start = false};
+  return config_builder;
 }
 
 /**********************************************************************/
-/************* pk_endpoint_create_ex **********************************/
+/************* pk_endpoint_create *************************************/
 /**********************************************************************/
 
-pk_endpoint_t *pk_endpoint_create_ex(pk_endpoint_config_t cfg)
+pk_endpoint_t *pk_endpoint_create(pk_endpoint_config_t cfg)
 {
   return create_impl(cfg.endpoint, cfg.identity, cfg.type, cfg.retry_start);
 }
