@@ -19,6 +19,7 @@
 
 #include "sbp.h"
 
+//#ifdef DEBUG_RESOURCE_QUERY
 
 typedef struct resq_node {
   bool init_success;
@@ -70,7 +71,9 @@ void resq_run_all(void)
     if (!node->init_success) continue;
     node->query->run_query(node->context);
     while (node->query->prepare_sbp(&msg_type, &msg_len, buf, node->context)) {
-      fprintf(stderr, "%s: sending sbp, type=%d, len=%d\n", __FUNCTION__, msg_type, msg_len);
+#ifdef DEBUG_RESOURCE_QUERY
+      PK_LOG_ANNO(LOG_DEBUG, "%s: sending sbp, type=%d, len=%d\n", __FUNCTION__, msg_type, msg_len);
+#endif
       sbp_tx_send(sbp_get_tx_ctx(), msg_type, msg_len, buf);
     }
   }

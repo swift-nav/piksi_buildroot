@@ -44,7 +44,8 @@ typedef enum {
   ST_UDP       = 0x0002,
   ST_UNIX_STR  = 0x0004,
   ST_UNIX_DGR  = 0x0008,
-  ST_NETLINK   = 0x0010,
+  ST_UNIX_SEQ  = 0x0010,
+  ST_NETLINK   = 0x0020,
   ST_UNKNOWN   = 0x8000,
 } socket_types_t;
 /* clang-format on */
@@ -260,12 +261,15 @@ static void process_ss_entry(resq_state_t *state,
     entry->socket_types |= ST_UNIX_STR;
   } else if (strcmp(socket_type_str, "u_dgr") == 0) {
     entry->socket_types |= ST_UNIX_DGR;
+  } else if (strcmp(socket_type_str, "u_seq") == 0) {
+    entry->socket_types |= ST_UNIX_SEQ;
   } else if (strcmp(socket_type_str, "tcp") == 0) {
     entry->socket_types |= ST_TCP;
   } else if (strcmp(socket_type_str, "udp") == 0) {
     entry->socket_types |= ST_UDP;
   } else {
     entry->socket_types |= ST_UNKNOWN;
+    /* TODO: only report once per socket type */
     PK_LOG_ANNO(LOG_WARNING, "unknown socket type: %s", socket_type_str);
   }
 
@@ -599,7 +603,8 @@ static void run_resource_query(void *context)
       return true;
     }
 
-    if (strstr(line, "u_str") == line || strstr(line, "u_dgr")) {
+    if (strstr(line, "u_str") == line || strstr(line, "u_dgr") == line
+        || strstr(line, "u_seq") == line) {
       if (!parse_uds_socket_line(state, line)) {
         PK_LOG_ANNO(LOG_WARNING, "failed to parse uds 'ss' line: %s", line);
       }
