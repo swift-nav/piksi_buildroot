@@ -116,6 +116,8 @@ int setting_parse_setting_text(const u8 *msg,
  * @brief   Create a settings context.
  * @details Create and initialize a settings context.
  *
+ * @param[in] loop          the loop that will be used to receive settings messages
+ *
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */

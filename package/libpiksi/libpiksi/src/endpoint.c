@@ -337,6 +337,7 @@ int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
 ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 {
   ASSERT_TRACE(count > 0);
+
   size_t length = count;
 
   read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t * client_ctx, void *ctx), {
@@ -347,7 +348,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
   int rc = read_and_receive_common(pk_ept, read_handler, &length);
   if (rc < 0) return rc;
 
-  return count;
+  return length;
 }
 
 /**********************************************************************/
@@ -360,11 +361,11 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
   ASSERT_TRACE(rx_cb != NULL);
 
   read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t * client_ctx, void *ctx), {
-    (void)ctx;
-    return service_reads(client_ctx, rx_cb, context);
+    service_reads(client_ctx, rx_cb, ctx);
+    return 0;
   });
 
-  return read_and_receive_common(pk_ept, read_handler, NULL);
+  return read_and_receive_common(pk_ept, read_handler, context);
 }
 
 /**********************************************************************/
@@ -655,7 +656,7 @@ static int service_reads(client_context_t *ctx, pk_endpoint_receive_cb rx_cb, vo
     int rc = recv_impl(ctx, buffer, &length);
     if (rc < 0) {
       if (rc == PKE_EAGAIN || rc == PKE_NOT_CONN) break;
-      piksi_log(LOG_ERR, "failed to receive message");
+      PK_LOG_ANNO(LOG_ERR, "failed to receive message");
       return -1;
     }
     if (length == 0) break;
