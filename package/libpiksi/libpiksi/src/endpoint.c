@@ -489,7 +489,7 @@ static int create_un_socket(void)
   int fd = -1;
 
   if ((fd = socket(AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
-    PK_LOG_ANNO(LOG_ERR, "socket error: %s", strerror(errno));
+    PK_LOG_ANNO(LOG_ERR, "socket() error: %s", strerror(errno));
     return -1;
   }
 
@@ -502,7 +502,7 @@ static int bind_un_socket(int fd, const char *path)
   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
   if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-    perror("bind error");
+    PK_LOG_ANNO(LOG_ERR, "bind() error for socket: %s (path: %s)", strerror(errno), path);
     return -1;
   }
 
@@ -529,9 +529,11 @@ static int connect_un_socket(int fd, const char *path)
   for (size_t retry = 0; retry < CONNECT_RETRIES_MAX; retry++) {
 
     struct timespec ts = {.tv_nsec = MS_TO_NS(CONNECT_RETRY_SLEEP_MS)};
-    if (retry > 0)
-      while (nanosleep(&ts, &ts) != 0 && errno == EINTR) /* retry */
-        ;
+    if (retry > 0) {
+      while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
+        /* no-op, just need to retry nanosleep */;
+      }
+    }
 
     rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     connect_errno = errno;
