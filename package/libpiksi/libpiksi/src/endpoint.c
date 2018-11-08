@@ -196,31 +196,31 @@ static pk_endpoint_config_builder_t config_builder;
 
 static pk_endpoint_config_builder_t cfg_builder_endpoint(const char *endpoint)
 {
-  config_builder.config.endpoint = endpoint;
+  config_builder._config.endpoint = endpoint;
   return config_builder;
 }
 
 static pk_endpoint_config_builder_t cfg_builder_identity(const char *identity)
 {
-  config_builder.config.identity = identity;
+  config_builder._config.identity = identity;
   return config_builder;
 }
 
 static pk_endpoint_config_builder_t cfg_builder_type(pk_endpoint_type type)
 {
-  config_builder.config.type = type;
+  config_builder._config.type = type;
   return config_builder;
 }
 
 static pk_endpoint_config_builder_t cfg_builder_retry_start(bool retry_start)
 {
-  config_builder.config.retry_start = retry_start;
+  config_builder._config.retry_start = retry_start;
   return config_builder;
 }
 
 static pk_endpoint_config_t cfg_builder_get()
 {
-  return config_builder.config;
+  return config_builder._config;
 }
 
 static __attribute__((constructor)) void setup_config_builder()
@@ -234,8 +234,9 @@ static __attribute__((constructor)) void setup_config_builder()
 
 pk_endpoint_config_builder_t pk_endpoint_config()
 {
-  config_builder.config =
+  config_builder._config =
     (pk_endpoint_config_t){.endpoint = NULL, .identity = NULL, .type = -1, .retry_start = false};
+
   return config_builder;
 }
 

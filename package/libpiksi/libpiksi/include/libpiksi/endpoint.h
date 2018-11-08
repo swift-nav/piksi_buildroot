@@ -78,15 +78,37 @@ typedef struct {
 
 typedef struct pk_endpoint_config_builder_s pk_endpoint_config_builder_t;
 
+/**
+ * A "builder pattern" object for constructing an endpoint config.
+ */
 struct pk_endpoint_config_builder_s {
 
-  pk_endpoint_config_t config;
+  pk_endpoint_config_t _config;
 
+  /**
+   * Set the endpoint path/address on the config.
+   */
   pk_endpoint_config_builder_t (*endpoint)(const char *endpoint);
+
+  /**
+   * Set the endpoint identity, usually used for metrics.
+   */
   pk_endpoint_config_builder_t (*identity)(const char *identity);
+
+  /**
+   * Set the endpoint type in the config.
+   */
   pk_endpoint_config_builder_t (*type)(pk_endpoint_type type);
+
+  /**
+   * Set the 'retry_start' parameter in the config, tells the endpoint to retry connecting during
+   * create.
+   */
   pk_endpoint_config_builder_t (*retry_start)(bool retry_start);
 
+  /**
+   * Returns a filled @c pk_endpoint_config_t object.
+   */
   pk_endpoint_config_t (*get)(void);
 };
 
