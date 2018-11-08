@@ -451,7 +451,7 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
 {
   ASSERT_TRACE(loop != NULL);
 
-  /* The endpoint must be non-blocking to be addociated with a loop */
+  /* The endpoint must be non-blocking to be associated with a loop */
   if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
 
   if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_PUB
