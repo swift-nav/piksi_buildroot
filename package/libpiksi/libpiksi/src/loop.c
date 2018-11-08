@@ -17,6 +17,8 @@
 #include <libpiksi/loop.h>
 #include <libpiksi/util.h>
 
+#define MSG_BUF_SIZE 128
+
 /**
  * @brief Loop Callback Context
  *
@@ -38,7 +40,7 @@ typedef struct pk_callback_ctx_s {
 struct pk_loop_s {
   uv_loop_t *uv_loop;
   uv_timer_t *timeout_timer;
-  char uv_error_msg[128];
+  char uv_error_msg[MSG_BUF_SIZE];
 };
 
 /* Forward declare of static - see definition below */
@@ -541,11 +543,11 @@ const char *pk_loop_last_error(pk_loop_t *pk_loop)
 
 const char *pk_loop_describe_status(int status)
 {
-  static char buf[128] = {0};
-  static char buf_succ[128] = {0};
-  static char buf_read[128] = {0};
-  static char buf_disco[128] = {0};
-  static char buf_error[128] = {0};
+  static char buf[MSG_BUF_SIZE] = {0};
+  static char buf_succ[MSG_BUF_SIZE] = {0};
+  static char buf_read[MSG_BUF_SIZE] = {0};
+  static char buf_disco[MSG_BUF_SIZE] = {0};
+  static char buf_error[MSG_BUF_SIZE] = {0};
   bool addbar = false;
 
   if (status == LOOP_UNKNOWN) {

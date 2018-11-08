@@ -116,7 +116,7 @@ void sbp_vlog(int priority, const char *msg, va_list ap)
     return;
   }
 
-  // Force main thread to sleep so libpiksi has a chance to setup...
+  /* Force main thread to sleep so libpiksi has a chance to setup... */
   usleep(1);
 
   msg_log_t *log;

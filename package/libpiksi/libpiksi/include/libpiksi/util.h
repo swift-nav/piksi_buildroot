@@ -526,7 +526,8 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
     _a < _b ? _a : _b;  \
   })
 
-#define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
+#define COUNT_OF(x) \
+  (((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x]))))) /* NOLINT */)
 
 #ifdef __cplusplus
 }

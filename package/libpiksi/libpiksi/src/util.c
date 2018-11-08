@@ -210,7 +210,7 @@ bool device_is_duro(void)
   char duro_eeprom_sig[DEVICE_DURO_MAX_CONTENTS_SIZE];
   /* DEVICE_DURO_EEPROM_PATH will be created by S18 whether
    * there is EEPROM or not */
-  for (int i; i < DEVICE_DURO_EEPROM_RETRY_TIMES; i++) {
+  for (int i = 0; i < DEVICE_DURO_EEPROM_RETRY_TIMES; i++) {
     if (access(DEVICE_DURO_EEPROM_PATH, F_OK) == 0) {
       break;
     }
@@ -691,8 +691,9 @@ bool strtoul_all(int base, const char *str, unsigned long *value)
 {
   char *endptr = NULL;
   *value = strtoul(str, &endptr, base);
-  while (isspace(*endptr))
+  while (isspace(*endptr)) {
     endptr++;
+  }
   if (*endptr != '\0') {
     return false;
   }
@@ -700,14 +701,15 @@ bool strtoul_all(int base, const char *str, unsigned long *value)
     return false;
   }
   return true;
-};
+}
 
 bool strtod_all(const char *str, double *value)
 {
   char *endptr = NULL;
   *value = strtod(str, &endptr);
-  while (isspace(*endptr))
+  while (isspace(*endptr)) {
     endptr++;
+  }
   if (*endptr != '\0') {
     return false;
   }
@@ -715,7 +717,7 @@ bool strtod_all(const char *str, double *value)
     return false;
   }
   return true;
-};
+}
 
 static pipeline_t *pipeline_cat(pipeline_t *r, const char *filename)
 {
@@ -723,7 +725,7 @@ static pipeline_t *pipeline_cat(pipeline_t *r, const char *filename)
 
   r->_filename = filename;
   return r;
-};
+}
 
 static pipeline_t *pipeline_pipe(pipeline_t *r)
 {
@@ -892,6 +894,11 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
 
   size = backtrace(array, 32);
   strings = backtrace_symbols(array, size);
+
+  if (strings == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "backtrace_symbols failed");
+    return;
+  }
 
 #define ASSERT_FAIL_MSG "ASSERT FAILURE: %s: %s (%s:%d), %zu backtrace entries:"
 

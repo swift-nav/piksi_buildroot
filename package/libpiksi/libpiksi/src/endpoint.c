@@ -41,6 +41,8 @@
 
 #define MS_TO_NS(MS) ((MS)*1e6)
 
+#define READ_BUF_SIZE 4096
+
 #define IPC_PREFIX "ipc://"
 
 /* Maximum number of clients we expect to have per socket */
@@ -284,7 +286,8 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
   }
   while (!LIST_EMPTY(&pk_ept->client_nodes_head)) {
     client_node_t *node = LIST_FIRST(&pk_ept->client_nodes_head);
-    purge_client_node(node);
+    /* clang-tidy thinks this is a use-after-free for some reason? */
+    purge_client_node(node); /* NOLINT */
   }
   if (pk_ept->wakefd >= 0) {
     retry_on_eintr(NESTED_FN(int, (), { return close(pk_ept->wakefd); }),
@@ -311,8 +314,6 @@ pk_endpoint_type pk_endpoint_type_get(pk_endpoint_t *pk_ept)
 
 int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
 {
-  ASSERT_TRACE(pk_ept != NULL);
-
   if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_REQ) {
     return pk_ept->sock;
   }
@@ -336,7 +337,7 @@ int pk_endpoint_poll_handle_get(pk_endpoint_t *pk_ept)
 
 ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 {
-  ASSERT_TRACE(count > 0);
+  if (count == 0) return 0;
 
   size_t length = count;
 
@@ -374,7 +375,6 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
 
 int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
 {
-  ASSERT_TRACE(pk_ept != NULL);
   ASSERT_TRACE(pk_ept->type != PK_ENDPOINT_SUB && pk_ept->type != PK_ENDPOINT_SUB_SERVER);
 
   int rc = -1;
@@ -415,9 +415,14 @@ const char *pk_endpoint_strerror(void)
 
 int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept)
 {
-  int status = -1;
+  int flags = fcntl(pk_ept->sock, F_GETFL, 0);
 
-  if ((status = fcntl(pk_ept->sock, F_SETFL, fcntl(pk_ept->sock, F_GETFL, 0) | O_NONBLOCK))) {
+  if (flags < 0) {
+    PK_LOG_ANNO(LOG_ERR, "fcntl error: %s", strerror(errno));
+    return -1;
+  }
+
+  if (fcntl(pk_ept->sock, F_SETFL, flags | O_NONBLOCK) < 0) {
     PK_LOG_ANNO(LOG_ERR, "fcntl error: %s", strerror(errno));
     return -1;
   }
@@ -490,7 +495,6 @@ static int create_un_socket(void)
 
   if ((fd = socket(AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
     PK_LOG_ANNO(LOG_ERR, "socket() error: %s", strerror(errno));
-    return -1;
   }
 
   return fd;
@@ -653,7 +657,7 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
 static int service_reads(client_context_t *ctx, pk_endpoint_receive_cb rx_cb, void *context)
 {
   for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
-    u8 buffer[4096] = {0};
+    u8 buffer[READ_BUF_SIZE] = {0};
     size_t length = sizeof(buffer);
     int rc = recv_impl(ctx, buffer, &length);
     if (rc < 0) {
@@ -747,7 +751,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
 static void discard_read_data(client_context_t *ctx)
 {
-  u8 read_buf[4096];
+  u8 read_buf[READ_BUF_SIZE];
   size_t length = sizeof(read_buf);
   for (size_t count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
     if (ctx == NULL || ctx->node == NULL) break;
@@ -925,8 +929,6 @@ static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_
 static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read_handler, void *ctx)
 {
   int rc = 0;
-
-  ASSERT_TRACE(pk_ept != NULL);
 
   if (!valid_socket_type_for_read(pk_ept)) {
     PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
