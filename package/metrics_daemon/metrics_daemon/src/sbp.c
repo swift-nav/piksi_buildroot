@@ -80,7 +80,7 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
     goto failure;
   }
 
-  ctx.settings_ctx = settings_create(ctx.loop);
+  ctx.settings_ctx = settings_create();
   if (ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
     goto failure;

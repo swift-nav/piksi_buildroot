@@ -1,5 +1,5 @@
-TARGET_TESTS					= run_libpiksi_tests
-TARGET_STR_TESTS			= run_libpiksi_str_tests
+TARGET_TESTS = run_libpiksi_tests
+TARGET_STR_TESTS = run_libpiksi_str_tests
 TARGET_PK_TEST_SERVER	= pk_test_server
 
 TARGETS =\

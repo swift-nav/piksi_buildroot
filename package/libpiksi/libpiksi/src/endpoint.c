@@ -97,7 +97,7 @@ struct pk_endpoint_s {
   bool woke;     /**< Has the socket been woken up */
   client_nodes_head_t client_nodes_head; /**< The list of client nodes for a server socket */
   removed_nodes_head_t
-    removed_nodes_head; /**< The list of client nodes that need to removed and cleaned-up */
+    removed_nodes_head; /**< The list of client nodes that need to be removed and cleaned-up */
   int client_count;     /**< The number of clients for a server socket */
   pk_loop_t *loop;      /**< The event loop this endpoint is associated with */
   void *poll_handle;    /**< The poll handle for this socket */
@@ -199,7 +199,7 @@ pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
   case PK_ENDPOINT_SUB: {
     pk_ept->sock = create_un_socket();
     if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK PUB/SUB socket: %s", pk_endpoint_strerror());
+      piksi_log(LOG_ERR, "error creating PK SUB socket: %s", pk_endpoint_strerror());
       goto failure;
     }
   } break;
@@ -459,6 +459,12 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
   /* The endpoint must be non-blocking to be associated with a loop */
   if (pk_endpoint_set_non_blocking(pk_ept) < 0) return -1;
 
+  if (pk_ept->loop != NULL) {
+    /* We do not support changing the loop assication (for now) */
+    PK_LOG_ANNO(LOG_ERR, "cannot change associate loop");
+    return pk_ept->loop == loop ? 0 : -1;
+  }
+
   if (pk_ept->type == PK_ENDPOINT_SUB || pk_ept->type == PK_ENDPOINT_PUB
       || pk_ept->type == PK_ENDPOINT_REQ) {
 
@@ -468,12 +474,6 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
     pk_ept->loop = loop;
 
     return 0;
-  }
-
-  if (pk_ept->loop != NULL) {
-    /* We do not support changing the loop assication (for now) */
-    PK_LOG_ANNO(LOG_ERR, "cannot change associate loop");
-    return pk_ept->loop == loop ? 0 : -1;
   }
 
   ASSERT_TRACE(pk_ept->loop == NULL);

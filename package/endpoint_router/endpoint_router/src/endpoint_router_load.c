@@ -64,13 +64,14 @@ static expected_event_t ports_events[] = {
   {YAML_NO_EVENT, NULL, NULL, false},
 };
 
-static expected_event_t port_events[] =
-  {{YAML_SCALAR_EVENT, "name", process_port_name, true},
-   {YAML_SCALAR_EVENT, "pub_addr", process_pub_addr, true},
-   {YAML_SCALAR_EVENT, "sub_addr", process_sub_addr, true},
-   {YAML_SCALAR_EVENT, "forwarding_rules", process_forwarding_rules_, true},
-   {YAML_MAPPING_END_EVENT, NULL, NULL, false},
-   {YAML_NO_EVENT, NULL, NULL, false}};
+static expected_event_t port_events[] = {
+  {YAML_SCALAR_EVENT, "name", process_port_name, true},
+  {YAML_SCALAR_EVENT, "pub_addr", process_pub_addr, true},
+  {YAML_SCALAR_EVENT, "sub_addr", process_sub_addr, true},
+  {YAML_SCALAR_EVENT, "forwarding_rules", process_forwarding_rules_, true},
+  {YAML_MAPPING_END_EVENT, NULL, NULL, false},
+  {YAML_NO_EVENT, NULL, NULL, false},
+};
 
 static expected_event_t forwarding_rules_events[] = {
   {YAML_SEQUENCE_START_EVENT, NULL, NULL, false},

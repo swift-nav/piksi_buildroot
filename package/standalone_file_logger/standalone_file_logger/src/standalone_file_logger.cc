@@ -351,7 +351,7 @@ int main(int argc, char *argv[])
   }
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = settings_create(loop);
+  settings_ctx_t *settings_ctx = settings_create();
   if (settings_ctx == nullptr) {
     exit(EXIT_FAILURE);
   }

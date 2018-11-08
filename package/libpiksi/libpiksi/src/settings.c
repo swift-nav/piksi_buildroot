@@ -38,7 +38,7 @@
  * Standard usage is as follow, initialize the settings context:
  * \code{.c}
  * // Create the settings context
- * settings_ctx_t *settings_ctx = settings_create(loop);
+ * settings_ctx_t *settings_ctx = settings_create();
  * \endcode
  * Add a reader to the main pk_loop (if applicable)
  * \code{.c}
@@ -1193,7 +1193,7 @@ static void destroy(settings_ctx_t **ctx)
   *ctx = NULL;
 }
 
-settings_ctx_t *settings_create(pk_loop_t *loop)
+settings_ctx_t *settings_create()
 {
   settings_ctx_t *ctx = (settings_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
@@ -1585,7 +1585,7 @@ bool settings_loop(const char *control_socket,
   bool ret = true;
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = settings_create(loop);
+  settings_ctx_t *settings_ctx = settings_create();
   if (settings_ctx == NULL) {
     ret = false;
     goto settings_loop_cleanup;

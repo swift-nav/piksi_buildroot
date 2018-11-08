@@ -49,7 +49,7 @@ int sbp_init(void)
     goto failure;
   }
 
-  ctx.settings_ctx = settings_create(ctx.loop);
+  ctx.settings_ctx = settings_create();
   if (ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
     goto failure;

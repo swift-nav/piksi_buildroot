@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
     }
 
-    settings_ctx = settings_create(loop);
+    settings_ctx = settings_create();
 
     if (settings_ctx == NULL) {
       piksi_log(LOG_ERR, "Error registering for settings!");

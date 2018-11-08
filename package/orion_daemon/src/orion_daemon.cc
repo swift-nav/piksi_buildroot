@@ -119,7 +119,7 @@ class Ctx {
 
 class SettingsCtx : public Ctx {
  public:
-  SettingsCtx() : settings_(settings_create(loop_))
+  SettingsCtx() : settings_(settings_create())
   {
     assert(settings_ != nullptr);
   }

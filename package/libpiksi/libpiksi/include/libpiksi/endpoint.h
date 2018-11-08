@@ -176,22 +176,25 @@ int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
  *
  *   For client sockets (PUB/SUB/REQ):
  *
- *   - *PUB*: the caller should service the data form this socket by
- *     registering a reader with @c pk_loop_endpoint_reader_add and then
- *     calling @c pk_endpoint_receive to receive data.
- *
- *   - *SUB*: these sockets do not produce data so they do not need to
- *     be associated with a loop except for (later) we may use the loop
+ *   - *PUB*: these sockets do not produce data (data is only sent / 
+ *     published to a server *SUB* socket)-- so they do not need to be
+ *     associatedwith a loop except for (later) we may use the loop
  *     to do things like automatic reconnect.
  *
  *     TODO: for certain degenerate cases, a server could conceivably
- *     write data to the SUB socket, a loop would be required to discard
+ *     write data to the PUB socket, a loop would be required to discard
  *     this data or we could investigate using `shutdown()` to close
  *     down the read side of the socket.
  *
+ *   - *SUB*: the caller should service the data form this socket by
+ *     registering a reader with @c pk_loop_endpoint_reader_add and then
+ *     calling @c pk_endpoint_receive to receive data.  Client *SUB*
+ *     sockets are connected to server *PUB* sockets and receive data
+ *     published from other clients.
+ *
  *   - *REQ*: similar to *PUB*
  *
- *   For server scokets (PUB_SERVER/SUB_SERVER/REP):
+ *   For server sockets (PUB_SERVER/SUB_SERVER/REP):
  *
  *   - *PUB_SERVER*: A loop is required in order to service new connections,
  *     no data should be written to pub sockets, so any data written will
