@@ -459,7 +459,7 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
 
     pk_ept->poll_handle = NULL;
 
-    /* Later we may want to save the loop to do things like reconnecting? */
+    /* Later we may want to use the loop to do things like reconnecting? */
     pk_ept->loop = loop;
 
     return 0;
