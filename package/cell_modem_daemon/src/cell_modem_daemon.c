@@ -27,7 +27,7 @@
 #include "cell_modem_settings.h"
 
 #define PROGRAM_NAME "cell_modem_daemon"
-#define SETTINGS_METRICS_NAME (PROGRAM_NAME "/settings")
+#define SETTINGS_METRICS_NAME ("settings/" PROGRAM_NAME)
 
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP Internal Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP Internal In */

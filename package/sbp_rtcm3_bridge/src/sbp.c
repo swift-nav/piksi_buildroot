@@ -18,7 +18,7 @@
 #include "sbp.h"
 
 #define METRICS_NAME "sbp_rtcm3_bridge"
-#define SETTINGS_METRICS_NAME (METRICS_NAME "/settings")
+#define SETTINGS_METRICS_NAME ("settings/" METRICS_NAME)
 
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
