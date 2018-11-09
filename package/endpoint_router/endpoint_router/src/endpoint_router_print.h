@@ -10,11 +10,20 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_ENDPOINT_ROUTER_LOAD_H
-#define SWIFTNAV_ENDPOINT_ROUTER_LOAD_H
+#ifndef SWIFTNAV_ENDPOINT_ROUTER_PRINT_H
+#define SWIFTNAV_ENDPOINT_ROUTER_PRINT_H
 
 #include "endpoint_router.h"
+#include <stdio.h>
 
-router_t *router_load(const char *filename);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#endif /* SWIFTNAV_ENDPOINT_ROUTER_LOAD_H */
+int router_print(FILE *f, const router_t *router);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SWIFTNAV_ENDPOINT_ROUTER_PRINT_H */

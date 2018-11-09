@@ -368,8 +368,22 @@ int run_with_stdin_file2(const char *input_file,
  */
 bool str_digits_only(const char *str);
 
+/**
+ * Convert all elements of a string into a number.
+ *
+ * Verifies that all content of a string converts to a number, only leading
+ * and trailing whitespace is allowed. See @c strtoul for explanation
+ * of the `base` parameter.
+ */
 bool strtoul_all(int base, const char *str, unsigned long *value);
 
+/**
+ * Convert all elements of a string into a number.
+ *
+ * Verifies that all content of a string converts to a number, only leading
+ * and trailing whitespace is allowed. See @c strtod for explanation
+ * of the `base` parameter.
+ */
 bool strtod_all(const char *str, double *value);
 
 typedef struct pipeline_s pipeline_t;
@@ -451,6 +465,30 @@ typedef struct pipeline_s {
 pipeline_t *create_pipeline(void);
 
 /**
+ * Print a backtrace from the current call stack.
+ *
+ * The current module must be compiled with appropriate information for the the `backtrace`
+ * and `backtrace_symbols` functions to produce human readable function names.  Typically
+ * this means compiling/linking with -rdynamic and -funwind-tables.
+ */
+void print_trace(const char *assert_str, const char *file, const char *func, int lineno);
+
+/**
+ * Assert a property of the code, if it fails print a backtrace before terminating.
+ *
+ * Uses the @c print_trace helper (which uses the `backtrace` and `backtrace_symbols` API)
+ * to print a trace of where the assertion happened before invoking `assert` and terminating
+ * the program.
+ */
+#define ASSERT_TRACE(TheAssert)                                           \
+  {                                                                       \
+    if (!(TheAssert)) {                                                   \
+      print_trace(__STRING(TheAssert), __FILE__, __FUNCTION__, __LINE__); \
+      assert((TheAssert));                                                \
+    }                                                                     \
+  }
+
+/**
  * Attached a clean-up function for a variable.
  *
  * The function that's attached to the variable will be called with a pointer
@@ -472,6 +510,7 @@ pipeline_t *create_pipeline(void);
  */
 #define SCRUB(TheVar, TheFunc) (TheVar) __attribute__((__cleanup__(TheFunc)))
 
+/** Type safe `max` macro */
 #define SWFT_MAX(a, b)  \
   ({                    \
     typeof(a) _a = (a); \
@@ -479,6 +518,7 @@ pipeline_t *create_pipeline(void);
     _a > _b ? _a : _b;  \
   })
 
+/** Type safe `min` macro */
 #define SWFT_MIN(a, b)  \
   ({                    \
     typeof(a) _a = (a); \
@@ -486,7 +526,8 @@ pipeline_t *create_pipeline(void);
     _a < _b ? _a : _b;  \
   })
 
-#define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
+#define COUNT_OF(x) \
+  (((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x]))))) /* NOLINT */)
 
 #ifdef __cplusplus
 }

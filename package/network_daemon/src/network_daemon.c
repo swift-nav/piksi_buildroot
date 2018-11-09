@@ -101,19 +101,22 @@ static void send_network_usage_update(sbp_pubsub_ctx_t *pubsub_ctx)
 /**
  * @brief usage_timer_callback - used to trigger usage updates
  */
-static void usage_timer_callback(pk_loop_t *loop, void *timer_handle, void *context)
+static void usage_timer_callback(pk_loop_t *loop, void *timer_handle, int status, void *context)
 {
   (void)loop;
   (void)timer_handle;
+  (void)status;
   sbp_pubsub_ctx_t *pubsub_ctx = (sbp_pubsub_ctx_t *)context;
   assert(pubsub_ctx != NULL);
 
   send_network_usage_update(pubsub_ctx);
 }
 
-static void signal_handler(pk_loop_t *pk_loop, void *handle, void *context)
+static void signal_handler(pk_loop_t *pk_loop, void *handle, int status, void *context)
 {
   (void)context;
+  (void)status;
+
   int signal_value = pk_loop_get_signal_from_handle(handle);
 
   piksi_log(LOG_DEBUG, "Caught signal: %d", signal_value);

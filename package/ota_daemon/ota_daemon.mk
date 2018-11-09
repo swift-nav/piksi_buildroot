@@ -8,7 +8,7 @@ OTA_DAEMON_VERSION = 0.1
 OTA_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/ota_daemon"
 OTA_DAEMON_SITE_METHOD = local
-OTA_DAEMON_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi libcurl libnetwork json-c
+OTA_DAEMON_DEPENDENCIES = libuv libsbp libpiksi libcurl libnetwork json-c
 
 define OTA_DAEMON_USERS
 	otad -1 otad -1 * - - -

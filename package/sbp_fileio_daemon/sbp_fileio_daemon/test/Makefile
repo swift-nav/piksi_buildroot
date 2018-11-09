@@ -4,7 +4,7 @@ SOURCES= \
 	run_sbp_fileio_daemon_tests.cc \
 
 LIBS= \
-	-luv -lnanomsg -lpiksi -lsbp -ldl -lpthread -lgtest \
+	-luv -lpiksi -lsbp -ldl -lpthread -lgtest \
 	../src/sbp_fileio_daemon.a 
 
 CFLAGS=-std=gnu++11 -z muldefs -I. -I../src -L../src

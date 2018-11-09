@@ -8,7 +8,7 @@ SBP_NMEA_BRIDGE_VERSION = 0.1
 SBP_NMEA_BRIDGE_SITE = \
 	"${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_nmea_bridge/src"
 SBP_NMEA_BRIDGE_SITE_METHOD = local
-SBP_NMEA_BRIDGE_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi gnss_convertors
+SBP_NMEA_BRIDGE_DEPENDENCIES = libuv libsbp libpiksi gnss_convertors
 
 define SBP_NMEA_BRIDGE_USERS
 	br_nmea -1 br_nmea -1 * - - -

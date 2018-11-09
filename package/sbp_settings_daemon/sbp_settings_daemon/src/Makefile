@@ -3,7 +3,7 @@ SOURCES= \
 	main.c \
 	settings.c \
 
-LIBS=-luv -lnanomsg -lsbp -lpiksi
+LIBS=-luv -lsbp -lpiksi
 
 CFLAGS+=-std=gnu11
 ARFLAGS=rcs	$(LTO_PLUGIN)

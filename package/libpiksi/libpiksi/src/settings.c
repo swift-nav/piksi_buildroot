@@ -1193,7 +1193,7 @@ static void destroy(settings_ctx_t **ctx)
   *ctx = NULL;
 }
 
-settings_ctx_t *settings_create(void)
+settings_ctx_t *settings_create()
 {
   settings_ctx_t *ctx = (settings_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
@@ -1212,18 +1212,6 @@ settings_ctx_t *settings_create(void)
   ctx->pubsub_ctx = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
   if (ctx->pubsub_ctx == NULL) {
     piksi_log(LOG_ERR, "error creating PUBSUB context");
-    destroy(&ctx);
-    return ctx;
-  }
-
-  ctx->loop = pk_loop_create();
-  if (ctx->loop == NULL) {
-    piksi_log(LOG_ERR, "error creating internal loop");
-    destroy(&ctx);
-    return ctx;
-  }
-
-  if (settings_attach(ctx, ctx->loop) != 0) {
     destroy(&ctx);
     return ctx;
   }
@@ -1422,12 +1410,13 @@ int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop)
   assert(ctx != NULL);
   assert(pk_loop != NULL);
 
+  ctx->loop = pk_loop;
+
   return sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx->pubsub_ctx), pk_loop);
 }
 
 static void signal_handler_extended(int signum, siginfo_t *info, void *ucontext)
 {
-
   (void)ucontext;
 
   if (signum == SIGINT || signum == SIGTERM) {
@@ -1481,8 +1470,11 @@ static int command_receive_callback(const u8 *data, const size_t length, void *c
   return 0;
 }
 
-static void control_handler(pk_loop_t *loop, void *handle, void *context)
+static void control_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
+  (void)loop;
+  (void)status;
+
   control_command_t *cmd_info = (control_command_t *)context;
 
   u8 data = 0;
@@ -1543,6 +1535,11 @@ static bool configure_control_socket(pk_loop_t *loop,
   if (*rep_socket == NULL) {
     const char *err_msg = pk_endpoint_strerror();
     piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s", control_socket, err_msg);
+    return false;
+  }
+
+  if (pk_endpoint_loop_add(*rep_socket, loop) < 0) {
+    piksi_log(LOG_ERR, "Error adding IPC socket to loop: %s", control_socket);
     return false;
   }
 
@@ -1647,6 +1644,13 @@ int settings_loop_send_command(const char *target_description,
               __FILE__,                      \
               __LINE__,                      \
               pk_endpoint_strerror());       \
+    fprintf(stderr,                          \
+            "%s: error in %s (%s:%d): %s",   \
+            __FUNCTION__,                    \
+            __STRING(FUNC),                  \
+            __FILE__,                        \
+            __LINE__,                        \
+            pk_endpoint_strerror());         \
     return -1;                               \
   }
 
@@ -1658,17 +1662,19 @@ int settings_loop_send_command(const char *target_description,
   pk_endpoint_t *req_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REQ);
   CHECK_PK_EPT_ERR(req_socket == NULL, pk_endpoint_create);
 
-  int ret = pk_endpoint_send(req_socket, command, strlen(command));
-  CHECK_PK_EPT_ERR(ret != 0, pk_endpoint_send);
-
+  int ret = 0;
   u8 result = 0;
-  ret = pk_endpoint_receive(req_socket, command_receive_callback, &result);
-  CHECK_PK_EPT_ERR(ret != 0, pk_endpoint_receive);
+
+  ret = pk_endpoint_send(req_socket, command, strlen(command));
+  CHECK_PK_EPT_ERR(ret < 0, pk_endpoint_send);
+
+  ret = pk_endpoint_read(req_socket, &result, sizeof(result));
+  CHECK_PK_EPT_ERR(ret < 0, pk_endpoint_read);
 
 #define CMD_RESULT_MSG "Result of '%s' command: %hhu"
 
-  piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, result);
-  printf(CMD_RESULT_MSG "\n", command_description, result);
+  piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, ret);
+  printf(CMD_RESULT_MSG "\n", command_description, ret);
 
   pk_endpoint_destroy(&req_socket);
 

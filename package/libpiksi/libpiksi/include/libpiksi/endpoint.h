@@ -23,6 +23,7 @@
 #define LIBPIKSI_ENDPOINT_H
 
 #include <libpiksi/common.h>
+#include <libpiksi/loop.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,6 +47,13 @@ typedef enum {
   PK_ENDPOINT_REP,
   PK_ENDPOINT_REQ
 } pk_endpoint_type;
+
+enum {
+  PKE_SUCCESS = 0,
+  PKE_ERROR = -1,
+  PKE_NOT_CONN = -2,
+  PKE_EAGAIN = -3,
+};
 
 /**
  * @brief   Piksi Endpoint Receive Callback Signature
@@ -138,7 +146,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
  * @retval 0                Send operation was successful.
  * @retval -1               An error occurred.
  */
-int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length);
+int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, size_t length);
 
 /**
  * @brief   Get specific error string following and operation that failed
@@ -147,6 +155,67 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
  * @return                  Pointer to a const string buffer with description
  */
 const char *pk_endpoint_strerror(void);
+
+/**
+ * @brief For server sockets, accept an incoming connection.
+ */
+int pk_endpoint_accept(pk_endpoint_t *pk_ept);
+
+/**
+ * @brief Configure a socket to be non-blocking
+ */
+int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
+
+/**
+ * @brief   Add a server socket to a loop for servicing.
+ *
+ * @details
+ *   Server sockets created with @c pk_endpoint_create need to be added
+ *   to a loop in order to be serviced.  Other sockets may need this
+ *   in the future to support things like reconnection/retransmission.
+ *
+ *   For client sockets (PUB/SUB/REQ):
+ *
+ *   - *PUB*: these sockets do not produce data (data is only sent /
+ *     published to a server *SUB* socket)-- so they do not need to be
+ *     associatedwith a loop except for (later) we may use the loop
+ *     to do things like automatic reconnect.
+ *
+ *     TODO: for certain degenerate cases, a server could conceivably
+ *     write data to the PUB socket, a loop would be required to discard
+ *     this data or we could investigate using `shutdown()` to close
+ *     down the read side of the socket.
+ *
+ *   - *SUB*: the caller should service the data form this socket by
+ *     registering a reader with @c pk_loop_endpoint_reader_add and then
+ *     calling @c pk_endpoint_receive to receive data.  Client *SUB*
+ *     sockets are connected to server *PUB* sockets and receive data
+ *     published from other clients.
+ *
+ *   - *REQ*: similar to *PUB*
+ *
+ *   For server sockets (PUB_SERVER/SUB_SERVER/REP):
+ *
+ *   - *PUB_SERVER*: A loop is required in order to service new connections,
+ *     no data should be written to pub sockets, so any data written will
+ *     wake the event loop but it will be read and discarded.
+ *
+ *     TODO: investigate if we can use `shutdown()` to avoid having to
+ *     read and discard data.
+ *
+ *   - *SUB_SERVER*: A loop is required in order to service new connections,
+ *     the caller should register to receive data by using @c pk_loop_endpoint_reader_add
+ *     and calling @c pk_endpoint_poll_handle_get to get the handle that
+ *     will wake when any client writes data.
+ *
+ *   - *REP*: similar to *PUB_SERVER*
+ *
+ * @param[in] pk_ept        Pointer to Piksi endpoint context to use
+ * @param[in] loop          The loop with which to associate
+ *
+ * @return  Zero on success, -1 on failure
+ */
+int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop);
 
 #ifdef __cplusplus
 }

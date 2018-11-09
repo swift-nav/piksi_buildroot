@@ -22,9 +22,11 @@ struct reqrep_ctx_s {
   int last_req;
 };
 
-static void test_req_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_req_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
+  (void)status;
+
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
 
   u8 req_value = 0;
@@ -37,22 +39,29 @@ static void test_req_cb(pk_loop_t *loop, void *handle, void *context)
   }
 }
 
-static void test_rep_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_rep_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
+  (void)status;
+
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
 
   u8 rep_value = 0;
   int result = pk_endpoint_read(ctx->rep_ept, &rep_value, sizeof(rep_value));
+
+  if (result == PKE_NOT_CONN) return;
+
   EXPECT_EQ(result, 1);
   result = pk_endpoint_send(ctx->rep_ept, &rep_value, sizeof(rep_value));
   EXPECT_EQ(result, 0);
 }
 
-static void test_timeout_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_timeout_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
+  (void)status;
+
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
   if (ctx->sent == ctx->recvd) {
     u8 simple_message = ctx->sent + 1;
@@ -73,6 +82,8 @@ TEST_F(ReqrepLoopIntegrationTests, reqrepLoopIntegrationTest)
   rep_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_REP);
   ASSERT_NE(rep_ept, nullptr);
 
+  ASSERT_GE(pk_endpoint_loop_add(rep_ept, loop), 0);
+
   req_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_REQ);
   ASSERT_NE(req_ept, nullptr);
 
@@ -81,8 +92,10 @@ TEST_F(ReqrepLoopIntegrationTests, reqrepLoopIntegrationTest)
                              .sent = 0,
                              .recvd = 0,
                              .last_req = 0};
+
   ASSERT_NE(pk_loop_endpoint_reader_add(loop, ctx.req_ept, test_req_cb, &ctx), nullptr);
   ASSERT_NE(pk_loop_endpoint_reader_add(loop, ctx.rep_ept, test_rep_cb, &ctx), nullptr);
+
   ASSERT_NE(pk_loop_timer_add(loop, 100, test_timeout_cb, &ctx), nullptr);
 
   pk_loop_run_simple_with_timeout(loop, 2000);

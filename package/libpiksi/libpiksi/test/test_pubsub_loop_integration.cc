@@ -35,10 +35,11 @@ static int test_simple_recv_cb(const u8 *data, const size_t length, void *contex
   return 0;
 }
 
-static void test_timeout_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_timeout_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
+  (void)status;
   struct snd_ctx_s *snd_ctx = (struct snd_ctx_s *)context;
   const char *simple_message = SIMPLE_RECV_MSG;
   size_t msg_len = strlen(simple_message);
@@ -48,9 +49,11 @@ static void test_timeout_cb(pk_loop_t *loop, void *handle, void *context)
   if (result == 0) snd_ctx->sent++;
 }
 
-static void test_poll_cb(pk_loop_t *loop, void *handle, void *context)
+static void test_poll_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
+  (void)status;
+
   struct recv_ctx_s *recv_ctx = (struct recv_ctx_s *)context;
 
   // use expect here so that we exit gracefully after the timer expires
@@ -71,6 +74,8 @@ TEST_F(PubsubLoopIntegrationTests, pubsubLoopIntegrationTest)
   // this is cleaned up in TearDown
   sub_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_SUB_SERVER);
   ASSERT_NE(sub_ept, nullptr);
+
+  pk_endpoint_loop_add(sub_ept, loop);
 
   // this is cleaned up in TearDown
   pub_ept = pk_endpoint_create("ipc:///tmp/tmp.49010", PK_ENDPOINT_PUB);

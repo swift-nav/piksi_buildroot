@@ -19,7 +19,7 @@ remove the need for external, host-provided network connectivity.
 The `skylark_daemon` listens for Skylark configuration and starts and stops
 itself in upload and download mode as necessary. The upload and download daemons
 run independently for improved robustness and simplicity, pulling and pushing
-SBP data to two Skylark-specific Nanomsg ports that are exposed on the Linux host
+SBP data to two Skylark-specific message queues that are exposed on the Linux host
 are routed to the firmware: `ipc:///var/run/sockets/skylark.pub` and `ipc:///var/run/sockets/skylark.sub`,
 respectively. Taken together, these run with:
 

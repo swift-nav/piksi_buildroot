@@ -8,7 +8,7 @@ ORION_DAEMON_VERSION = 0.1
 ORION_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/orion_daemon"
 ORION_DAEMON_SITE_METHOD = local
-ORION_DAEMON_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi gflags protobuf_custom grpc_custom
+ORION_DAEMON_DEPENDENCIES = libuv libsbp libpiksi gflags protobuf_custom grpc_custom
 
 define ORION_DAEMON_USERS
 	oriond -1 oriond -1 * - - -

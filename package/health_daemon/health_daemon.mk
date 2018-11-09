@@ -8,7 +8,7 @@ HEALTH_DAEMON_VERSION = 0.1
 HEALTH_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/health_daemon/src"
 HEALTH_DAEMON_SITE_METHOD = local
-HEALTH_DAEMON_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi libnetwork libcurl
+HEALTH_DAEMON_DEPENDENCIES = libuv libsbp libpiksi libnetwork libcurl
 
 define HEALTH_DAEMON_USERS
 	healthd -1 healthd -1 * - - -

@@ -8,7 +8,7 @@ SBP_FILEIO_DAEMON_VERSION = 0.1
 SBP_FILEIO_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_fileio_daemon/sbp_fileio_daemon"
 SBP_FILEIO_DAEMON_SITE_METHOD = local
-SBP_FILEIO_DAEMON_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
+SBP_FILEIO_DAEMON_DEPENDENCIES = libuv libsbp libpiksi
 
 ifeq ($(BR2_BUILD_TESTS),y)
 	SBP_FILEIO_DEPENDENCIES += gtest

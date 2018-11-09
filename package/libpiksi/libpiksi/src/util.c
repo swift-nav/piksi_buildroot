@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2017-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -11,6 +11,7 @@
  */
 
 #include <ctype.h>
+#include <execinfo.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -129,7 +130,6 @@ int file_read_string(const char *filename, char *str, size_t str_size)
   return 0;
 }
 
-
 bool file_read_value(char *file_path)
 {
   /* Accommodate the terminating null char fgets always adds and a newline */
@@ -210,7 +210,7 @@ bool device_is_duro(void)
   char duro_eeprom_sig[DEVICE_DURO_MAX_CONTENTS_SIZE];
   /* DEVICE_DURO_EEPROM_PATH will be created by S18 whether
    * there is EEPROM or not */
-  for (int i; i < DEVICE_DURO_EEPROM_RETRY_TIMES; i++) {
+  for (int i = 0; i < DEVICE_DURO_EEPROM_RETRY_TIMES; i++) {
     if (access(DEVICE_DURO_EEPROM_PATH, F_OK) == 0) {
       break;
     }
@@ -667,13 +667,65 @@ int run_with_stdin_file2(const char *input_file,
   return status;
 }
 
+bool str_digits_only(const char *str)
+{
+  if (str == NULL) {
+    return false;
+  }
+
+  /* Empty string */
+  if (!(*str)) {
+    return false;
+  }
+
+  while (*str) {
+    if (isdigit(*str++) == 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool strtoul_all(int base, const char *str, unsigned long *value)
+{
+  char *endptr = NULL;
+  *value = strtoul(str, &endptr, base);
+  while (isspace(*endptr)) {
+    endptr++;
+  }
+  if (*endptr != '\0') {
+    return false;
+  }
+  if (str == endptr) {
+    return false;
+  }
+  return true;
+}
+
+bool strtod_all(const char *str, double *value)
+{
+  char *endptr = NULL;
+  *value = strtod(str, &endptr);
+  while (isspace(*endptr)) {
+    endptr++;
+  }
+  if (*endptr != '\0') {
+    return false;
+  }
+  if (str == endptr) {
+    return false;
+  }
+  return true;
+}
+
 static pipeline_t *pipeline_cat(pipeline_t *r, const char *filename)
 {
   if (r->_is_nil) return r;
 
   r->_filename = filename;
   return r;
-};
+}
 
 static pipeline_t *pipeline_pipe(pipeline_t *r)
 {
@@ -833,52 +885,34 @@ pipeline_t *create_pipeline(void)
   return pipeline;
 }
 
-bool str_digits_only(const char *str)
+void print_trace(const char *assert_str, const char *file, const char *func, int lineno)
 {
-  if (str == NULL) {
-    return false;
+  void *array[32];
+  size_t size;
+  char **strings;
+  size_t i;
+
+  size = backtrace(array, 32);
+  strings = backtrace_symbols(array, size);
+
+  if (strings == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "backtrace_symbols failed");
+    return;
   }
 
-  /* Empty string */
-  if (!(*str)) {
-    return false;
+#define ASSERT_FAIL_MSG "ASSERT FAILURE: %s: %s (%s:%d), %zu backtrace entries:"
+
+  piksi_log(LOG_ERR, ASSERT_FAIL_MSG, func, assert_str, file, lineno, size);
+  for (i = 0; i < size; i++) {
+    piksi_log(LOG_ERR, "backtrace: %s", strings[i]);
   }
 
-  while (*str) {
-    if (isdigit(*str++) == 0) {
-      return false;
-    }
+  fprintf(stderr, ASSERT_FAIL_MSG "\n", func, assert_str, file, lineno, size);
+  for (i = 0; i < size; i++) {
+    fprintf(stderr, "backtrace: %s\n", strings[i]);
   }
 
-  return true;
+  free(strings);
+
+#undef ASSERT_FAIL_MSG
 }
-
-bool strtoul_all(int base, const char *str, unsigned long *value)
-{
-  char *endptr = NULL;
-  *value = strtoul(str, &endptr, base);
-  while (isspace(*endptr))
-    endptr++;
-  if (*endptr != '\0') {
-    return false;
-  }
-  if (str == endptr) {
-    return false;
-  }
-  return true;
-};
-
-bool strtod_all(const char *str, double *value)
-{
-  char *endptr = NULL;
-  *value = strtod(str, &endptr);
-  while (isspace(*endptr))
-    endptr++;
-  if (*endptr != '\0') {
-    return false;
-  }
-  if (str == endptr) {
-    return false;
-  }
-  return true;
-};

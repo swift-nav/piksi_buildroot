@@ -35,7 +35,7 @@
 #define MT message_metrics_table
 #define MR router_metrics
 
-// clang-format off
+/* clang-format off */
 PK_METRICS_TABLE(message_metrics_table, MI,
 
   PK_METRICS_ENTRY("message/count",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
@@ -53,7 +53,7 @@ PK_METRICS_TABLE(message_metrics_table, MI,
   PK_METRICS_ENTRY("frame/count",      "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
   PK_METRICS_ENTRY("frame/leftover",   "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers)
  )
-// clang-format on
+/* clang-format on */
 
 static struct {
   const char *filename;
@@ -72,7 +72,7 @@ static struct {
 static pk_metrics_t *router_metrics = NULL;
 static framer_t *framer_sbp = NULL;
 
-static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context);
+static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void *context);
 static void process_buffer(port_t *port, const u8 *data, const size_t length);
 static void process_buffer_via_framer(port_t *port, const u8 *data, const size_t length);
 
@@ -96,7 +96,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_SBP,
   };
 
-  // clang-format off
+  /* clang-format off */
   const struct option long_opts[] = {
     {"file",      required_argument, 0, 'f'},
     {"name",      required_argument, 0, OPT_ID_NAME},
@@ -105,7 +105,7 @@ static int parse_options(int argc, char *argv[])
     {"sbp",       no_argument,       0, OPT_ID_SBP},
     {0, 0, 0, 0},
   };
-  // clang-format on
+  /* clang-format on */
 
   int c;
   int opt_index;
@@ -152,96 +152,26 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static void filters_destroy(filter_t **filter_loc)
-{
-  if (filter_loc == NULL || *filter_loc == NULL) {
-    return;
-  }
-  filter_t *filter = *filter_loc;
-  filter_t *next = NULL;
-  while (filter != NULL) {
-    next = filter->next;
-    if (filter->data != NULL) free(filter->data);
-    free(filter);
-    filter = next;
-  }
-  *filter_loc = NULL;
-}
-
-static void forwarding_rules_destroy(forwarding_rule_t **forwarding_rule_loc)
-{
-  if (forwarding_rule_loc == NULL || *forwarding_rule_loc == NULL) {
-    return;
-  }
-  forwarding_rule_t *forwarding_rule = *forwarding_rule_loc;
-  forwarding_rule_t *next = NULL;
-  while (forwarding_rule != NULL) {
-    next = forwarding_rule->next;
-    if (forwarding_rule->dst_port_name != NULL && forwarding_rule->dst_port_name[0] != '\0') {
-      free((void *)forwarding_rule->dst_port_name);
-    }
-    filters_destroy(&forwarding_rule->filters_list);
-    free(forwarding_rule);
-    forwarding_rule = next;
-  }
-  *forwarding_rule_loc = NULL;
-}
-
-static void ports_destroy(port_t **port_loc)
-{
-  if (port_loc == NULL || *port_loc == NULL) {
-    return;
-  }
-  port_t *port = *port_loc;
-  port_t *next = NULL;
-  while (port != NULL) {
-    next = port->next;
-    if (port->name != NULL && port->name[0] != '\0') {
-      free((void *)port->name);
-    }
-    if (port->pub_addr != NULL && port->pub_addr[0] != '\0') {
-      free((void *)port->pub_addr);
-    }
-    if (port->sub_addr != NULL && port->sub_addr[0] != '\0') {
-      free((void *)port->sub_addr);
-    }
-    pk_endpoint_destroy(&port->pub_ept);
-    pk_endpoint_destroy(&port->sub_ept);
-    forwarding_rules_destroy(&port->forwarding_rules_list);
-    free(port);
-    port = next;
-  }
-  free(port);
-  *port_loc = NULL;
-}
-
-static void router_teardown(router_t **router_loc)
-{
-  if (router_loc == NULL || *router_loc == NULL) {
-    return;
-  }
-  router_t *router = *router_loc;
-  if (router->name != NULL) free((void *)router->name);
-  ports_destroy(&router->ports_list);
-  free(router);
-  *router_loc = NULL;
-}
-
-static int router_setup(router_t *router)
+static int router_setup(router_t *router, pk_loop_t *loop)
 {
   port_t *port;
   for (port = router->ports_list; port != NULL; port = port->next) {
+
     port->pub_ept = pk_endpoint_create(port->pub_addr, PK_ENDPOINT_PUB_SERVER);
     if (port->pub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
 
+    pk_endpoint_loop_add(port->pub_ept, loop);
+
     port->sub_ept = pk_endpoint_create(port->sub_addr, PK_ENDPOINT_SUB_SERVER);
     if (port->sub_ept == NULL) {
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
+
+    pk_endpoint_loop_add(port->sub_ept, loop);
   }
 
   return 0;
@@ -260,8 +190,8 @@ static int router_attach(router_t *router, pk_loop_t *loop)
   return 0;
 }
 
-static void filter_match_process(forwarding_rule_t *forwarding_rule,
-                                 filter_t *filter,
+static void filter_match_process(const forwarding_rule_t *forwarding_rule,
+                                 const filter_t *filter,
                                  const u8 *data,
                                  size_t length)
 {
@@ -280,7 +210,10 @@ static void filter_match_process(forwarding_rule_t *forwarding_rule,
   }
 }
 
-static void rule_process(forwarding_rule_t *forwarding_rule, const u8 *data, size_t length)
+void process_forwarding_rule(const forwarding_rule_t *forwarding_rule,
+                             const u8 *data,
+                             size_t length,
+                             match_fn_t match_fn)
 {
   /* Iterate over filters for this rule */
   filter_t *filter;
@@ -298,7 +231,7 @@ static void rule_process(forwarding_rule_t *forwarding_rule, const u8 *data, siz
     }
 
     if (match) {
-      filter_match_process(forwarding_rule, filter, data, length);
+      match_fn(forwarding_rule, filter, data, length);
 
       /* Done with this rule after finding a filter match */
       break;
@@ -335,11 +268,16 @@ static void process_buffer_via_framer(port_t *port, const u8 *data, const size_t
 
 static void process_buffer(port_t *port, const u8 *data, const size_t length)
 {
-  /* Iterate over forwarding rules */
-  forwarding_rule_t *forwarding_rule;
-  for (forwarding_rule = port->forwarding_rules_list; forwarding_rule != NULL;
-       forwarding_rule = forwarding_rule->next) {
-    rule_process(forwarding_rule, data, length);
+  process_forwarding_rules(port->forwarding_rules_list, data, length, filter_match_process);
+}
+
+void process_forwarding_rules(const forwarding_rule_t *forwarding_rule,
+                              const u8 *data,
+                              const size_t length,
+                              match_fn_t match_fn)
+{
+  for (/*empty */; forwarding_rule != NULL; forwarding_rule = forwarding_rule->next) {
+    process_forwarding_rule(forwarding_rule, data, length, match_fn);
   }
 }
 
@@ -384,10 +322,12 @@ static void post_receive_metrics()
   PK_METRICS_UPDATE(router_metrics, MI.latency_total, current_latency);
 }
 
-static void loop_reader_callback(pk_loop_t *loop, void *handle, void *context)
+static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
+  (void)status;
+
   port_t *port = (port_t *)context;
 
   pre_receive_metrics();
@@ -409,8 +349,12 @@ void debug_printf(const char *msg, ...)
 
 static int cleanup(int result, pk_loop_t **loop_loc, router_t **router_loc, pk_metrics_t **metrics);
 
-static void loop_1s_metrics(pk_loop_t *loop, void *handle, void *context)
+static void loop_1s_metrics(pk_loop_t *loop, void *handle, int status, void *context)
 {
+  (void)loop;
+  (void)status;
+  (void)context;
+
   PK_METRICS_UPDATE(MR, MI.size);
   PK_METRICS_UPDATE(MR, MI.latency);
 
@@ -454,7 +398,7 @@ int main(int argc, char *argv[])
       exit(EXIT_FAILURE);
     }
 
-    // TODO: Clean-up
+    /* TODO: Clean-up */
     framer_sbp = framer_create("sbp");
     assert(framer_sbp != NULL);
   }
@@ -473,14 +417,14 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  /* Set up router data */
-  if (router_setup(router) != 0) {
-    exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
-  }
-
   /* Create loop */
   loop = pk_loop_create();
   if (loop == NULL) {
+    exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
+  }
+
+  /* Set up router data */
+  if (router_setup(router, loop) != 0) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 

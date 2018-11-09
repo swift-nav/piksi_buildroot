@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <time.h>
 
+#include <libpiksi/endpoint.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
 #include <libpiksi/util.h>
