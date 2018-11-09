@@ -39,16 +39,27 @@ static int ota_notify_enable(void *context)
   char cmd[sizeof(OTA_BASE_CMD) + sizeof(OTA_DBG_SWITCH) + sizeof(OTA_URL_SWITCH)
            + sizeof(ota_url)] = {0};
 
-  strncat(cmd, OTA_BASE_CMD, sizeof(OTA_BASE_CMD));
+  ssize_t cmd_size = sizeof(cmd) - 1;
+
+  strncat(cmd, OTA_BASE_CMD, cmd_size);
+  cmd_size -= strlen(OTA_BASE_CMD);
 
   if (ota_debug) {
-    strncat(cmd, OTA_DBG_SWITCH, sizeof(OTA_DBG_SWITCH));
+
+    strncat(cmd, OTA_DBG_SWITCH, cmd_size);
+    cmd_size -= strlen(OTA_DBG_SWITCH);
   }
 
   if (strlen(ota_url) > 0) {
-    strncat(cmd, OTA_URL_SWITCH, sizeof(OTA_URL_SWITCH));
-    strncat(cmd, ota_url, sizeof(ota_url));
+
+    strncat(cmd, OTA_URL_SWITCH, cmd_size);
+    cmd_size -= strlen(OTA_URL_SWITCH);
+
+    strncat(cmd, ota_url, cmd_size);
+    cmd_size -= strlen(ota_url);
   }
+
+  assert(cmd_size >= 0);
 
   runit_cfg.command_line = cmd;
 
