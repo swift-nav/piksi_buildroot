@@ -19,7 +19,7 @@
 #include "sbp.h"
 
 #define METRICS_NAME "resource_monitor"
-#define SETTINGS_METRICS_NAME (METRICS_NAME "/settings")
+#define SETTINGS_METRICS_NAME ("settings/" METRICS_NAME)
 
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub"
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub"

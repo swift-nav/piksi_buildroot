@@ -25,7 +25,7 @@
 #include "serial.h"
 
 #define PROGRAM_NAME "ports_daemon"
-#define SETTINGS_METRICS (PROGRAM_NAME "/settings")
+#define SETTINGS_METRICS ("settings/" PROGRAM_NAME)
 
 #define PROTOCOL_LIBRARY_PATH "/usr/lib/endpoint_protocols"
 

@@ -33,7 +33,7 @@
 #include <stdlib.h>
 
 #define PROGRAM_NAME "piksi_system_daemon"
-#define SETTINGS_METRICS_NAME (PROGRAM_NAME "/settings")
+#define SETTINGS_METRICS_NAME ("settings/" PROGRAM_NAME)
 
 #define PUB_ENDPOINT "ipc:///var/run/sockets/firmware.sub"
 #define SUB_ENDPOINT "ipc:///var/run/sockets/firmware.pub"

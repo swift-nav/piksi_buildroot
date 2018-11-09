@@ -37,7 +37,7 @@
 #define OTA_IMAGE_FILE_PATH "/data/ota/image"
 #define OTA_IMAGE_SHA256SUM_FILE_PATH "/data/ota/image_sha256sum"
 #define OTA_DEFAULT_URL "https://upgrader.skylark.swiftnav.com/images"
-#define OTA_ENDPOINT_METRICS "ota/settings"
+#define OTA_ENDPOINT_METRICS "settings/ota"
 
 /* Timeout is one hour with 15 % jitter */
 #define OTA_TIMEOUT_AVG_S (3600)

@@ -36,7 +36,7 @@
 #include "base_num_sats_monitor.h"
 
 #define PROGRAM_NAME "health_daemon"
-#define SETTINGS_METRICS_NAME (PROGRAM_NAME "/settings")
+#define SETTINGS_METRICS_NAME ("settings/" PROGRAM_NAME)
 
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */

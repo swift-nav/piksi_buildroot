@@ -27,7 +27,7 @@
 #include "skylark_settings.h"
 
 #define PROGRAM_NAME "skylark_daemon"
-#define SKYLARK_SETTINGS_METRICS "skylark/settings"
+#define SKYLARK_SETTINGS_METRICS ("settings/" PROGRAM_NAME)
 
 #define SKYLARK_CONTROL_FILE "/var/run/skylark/control/socket"
 #define SKYLARK_CONTROL_SOCK "ipc://" SKYLARK_CONTROL_FILE

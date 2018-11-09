@@ -24,13 +24,13 @@
 
 #include "ntrip_settings.h"
 
-#define NTRIP_SETTINGS_METRICS "ntrip/settings"
+#define PROGRAM_NAME "ntrip_daemon"
+
+#define NTRIP_SETTINGS_METRICS ("settings/" PROGRAM_NAME)
 #define NTRIP_CONTROL_FILE "/var/run/ntrip/control/socket"
 #define NTRIP_CONTROL_SOCK "ipc://" NTRIP_CONTROL_FILE
 
 #define NTRIP_CONTROL_COMMAND_RECONNECT "r"
-
-#define PROGRAM_NAME "ntrip_daemon"
 
 static bool debug = false;
 static const char *fifo_file_path = NULL;

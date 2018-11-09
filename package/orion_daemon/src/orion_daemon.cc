@@ -27,7 +27,7 @@
 
 static const char *PROGRAM_NAME = "orion_daemon";
 
-static const char *SETTINGS_METRICS_NAME = "orion_daemon/settings";
+static const char *SETTINGS_METRICS_NAME = "settings/orion_daemon";
 
 static const char *PUB_ENDPOINT = "ipc:///var/run/sockets/skylark.sub";
 
