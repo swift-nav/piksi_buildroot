@@ -155,9 +155,7 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept,
                                    read_handler_fn_t read_handler,
                                    void *ctx);
 
-static pk_endpoint_t *create_impl(const char *endpoint,
-                                  pk_endpoint_type type,
-                                  bool retry_start);
+static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, bool retry_start);
 
 /**********************************************************************/
 /************* pk_endpoint_create *************************************/
@@ -880,9 +878,7 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
   return rc;
 }
 
-static pk_endpoint_t *create_impl(const char *endpoint,
-                                  pk_endpoint_type type,
-                                  bool retry_start)
+static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, bool retry_start)
 {
   ASSERT_TRACE(endpoint != NULL);
 
