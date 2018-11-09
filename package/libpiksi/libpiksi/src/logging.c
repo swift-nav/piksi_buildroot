@@ -109,7 +109,7 @@ void sbp_log(int priority, const char *msg_text, ...)
 
 void sbp_vlog(int priority, const char *msg, va_list ap)
 {
-  // TODO: Need to make metrics read pre-existing files before this will work
+  /* TODO: Need to make metrics read pre-existing files before this will work */
   sbp_tx_ctx_t *sbp_tx = sbp_tx_create(NULL, SBP_TX_ENDPOINT);
 
   if (NULL == sbp_tx) {
