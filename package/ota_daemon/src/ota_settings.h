@@ -22,11 +22,11 @@
 #ifndef SWIFTNAV_OTA_H
 #define SWIFTNAV_OTA_H
 
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 
 #define OTA_RUNIT_SERVICE_DIR "/var/run/ota_daemon/sv"
 #define OTA_RUNIT_SERVICE_NAME "ota_daemon"
 
-void ota_settings(settings_ctx_t *ctx);
+void ota_settings(sd_ctx_t *ctx);
 
 #endif /* SWIFTNAV_OTA_H */

@@ -90,14 +90,14 @@ static int uart_configure(const uart_t *uart)
   int fd = open(uart->tty_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0) {
     piksi_log(LOG_ERR, "error opening tty device");
-    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+    return SETTINGS_WR_SERVICE_FAILED;
   }
 
   struct termios tio;
   if (tcgetattr(fd, &tio) != 0) {
     piksi_log(LOG_ERR, "error in tcgetattr()");
     close(fd);
-    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+    return SETTINGS_WR_SERVICE_FAILED;
   }
 
   cfmakeraw(&tio);
@@ -113,7 +113,7 @@ static int uart_configure(const uart_t *uart)
   if (tcgetattr(fd, &tio) != 0) {
     piksi_log(LOG_ERR, "error in tcgetattr()");
     close(fd);
-    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+    return SETTINGS_WR_SERVICE_FAILED;
   }
 
   close(fd);
@@ -123,10 +123,10 @@ static int uart_configure(const uart_t *uart)
       || ((tio.c_cflag & CRTSCTS) ? (uart->flow_control != FLOW_CONTROL_RTS_CTS)
                                   : (uart->flow_control != FLOW_CONTROL_NONE))) {
     piksi_log(LOG_ERR, "error configuring tty");
-    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+    return SETTINGS_WR_SERVICE_FAILED;
   }
 
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int baudrate_notify(void *context)
@@ -141,7 +141,7 @@ static int flow_control_notify(void *context)
   return uart_configure(uart);
 }
 
-int serial_init(settings_ctx_t *settings_ctx)
+int serial_init(sd_ctx_t *settings_ctx)
 {
   char new_path[PATH_MAX];
 
@@ -167,42 +167,42 @@ int serial_init(settings_ctx_t *settings_ctx)
 
   /* Register settings */
   settings_type_t settings_type_baudrate;
-  settings_type_register_enum(settings_ctx, baudrate_enum_names, &settings_type_baudrate);
-  settings_register(settings_ctx,
-                    "uart0",
-                    "baudrate",
-                    &uart0.baudrate,
-                    sizeof(uart0.baudrate),
-                    settings_type_baudrate,
-                    baudrate_notify,
-                    &uart0);
-  settings_register(settings_ctx,
-                    "uart1",
-                    "baudrate",
-                    &uart1.baudrate,
-                    sizeof(uart1.baudrate),
-                    settings_type_baudrate,
-                    baudrate_notify,
-                    &uart1);
+  sd_register_enum(settings_ctx, baudrate_enum_names, &settings_type_baudrate);
+  sd_register(settings_ctx,
+              "uart0",
+              "baudrate",
+              &uart0.baudrate,
+              sizeof(uart0.baudrate),
+              settings_type_baudrate,
+              baudrate_notify,
+              &uart0);
+  sd_register(settings_ctx,
+              "uart1",
+              "baudrate",
+              &uart1.baudrate,
+              sizeof(uart1.baudrate),
+              settings_type_baudrate,
+              baudrate_notify,
+              &uart1);
 
   settings_type_t settings_type_flow_control;
-  settings_type_register_enum(settings_ctx, flow_control_enum_names, &settings_type_flow_control);
-  settings_register(settings_ctx,
-                    "uart0",
-                    "flow_control",
-                    &uart0.flow_control,
-                    sizeof(uart0.flow_control),
-                    settings_type_flow_control,
-                    flow_control_notify,
-                    &uart0);
-  settings_register(settings_ctx,
-                    "uart1",
-                    "flow_control",
-                    &uart1.flow_control,
-                    sizeof(uart1.flow_control),
-                    settings_type_flow_control,
-                    flow_control_notify,
-                    &uart1);
+  sd_register_enum(settings_ctx, flow_control_enum_names, &settings_type_flow_control);
+  sd_register(settings_ctx,
+              "uart0",
+              "flow_control",
+              &uart0.flow_control,
+              sizeof(uart0.flow_control),
+              settings_type_flow_control,
+              flow_control_notify,
+              &uart0);
+  sd_register(settings_ctx,
+              "uart1",
+              "flow_control",
+              &uart1.flow_control,
+              sizeof(uart1.flow_control),
+              settings_type_flow_control,
+              flow_control_notify,
+              &uart1);
 
   return 0;
 }

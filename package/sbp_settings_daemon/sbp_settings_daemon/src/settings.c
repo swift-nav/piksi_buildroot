@@ -11,8 +11,8 @@
  */
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
 #include <libsbp/settings.h>
+#include <libsettings/settings.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -350,7 +350,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
 
   piksi_log(LOG_ERR, "Setting %s.%s rejected", section, setting);
 
-  u8 resp[] = {SBP_SETTINGS_WRITE_STATUS_SETTING_REJECTED};
+  u8 resp[] = {SETTINGS_WR_SETTING_REJECTED};
   /* Reply with write response rejecting this setting */
   sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, sizeof(resp), resp, SBP_SENDER_ID);
 }

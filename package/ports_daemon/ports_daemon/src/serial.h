@@ -13,8 +13,8 @@
 #ifndef SWIFTNAV_SERIAL_H
 #define SWIFTNAV_SERIAL_H
 
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 
-int serial_init(settings_ctx_t *settings_ctx);
+int serial_init(sd_ctx_t *settings_ctx);
 
 #endif /* SWIFTNAV_SERIAL_H */

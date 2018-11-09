@@ -24,7 +24,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 #include <libpiksi/sha256.h>
 #include <libpiksi/util.h>
 #include <libpiksi/version.h>

@@ -12,7 +12,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/sbp_pubsub.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 
 #include "health_monitor.h"
 
@@ -85,7 +85,7 @@ int health_monitor_add_setting_watch(health_monitor_t *monitor,
                                      settings_notify_fn notify,
                                      void *notify_context)
 {
-  return settings_add_watch(health_context_get_settings_ctx(monitor->health_ctx),
+  return sd_register_watch(health_context_get_settings_ctx(monitor->health_ctx),
                             section,
                             name,
                             var,

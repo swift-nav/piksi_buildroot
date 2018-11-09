@@ -92,56 +92,56 @@ static int notify_gpgga_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gpgga_rate(gpgga_rate, &state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int notify_gprmc_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gprmc_rate(gprmc_rate, &state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int notify_gpvtg_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gpvtg_rate(gpvtg_rate, &state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int notify_gphdt_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gphdt_rate(gphdt_rate, &state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int notify_gpgll_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gpgll_rate(gpgll_rate, &state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int notify_gpzda_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gpzda_rate(gpzda_rate, &state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int notify_gsa_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gsa_rate(gsa_rate, &state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int notify_soln_freq_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_soln_freq(soln_freq, &state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
@@ -225,7 +225,7 @@ static int cleanup(int status);
 
 int main(int argc, char *argv[])
 {
-  settings_ctx_t *settings_ctx = NULL;
+  sd_ctx_t *settings_ctx = NULL;
 
   logging_init(PROGRAM_NAME);
 
@@ -295,77 +295,77 @@ int main(int argc, char *argv[])
 
   settings_ctx = sbp_get_settings_ctx();
 
-  settings_register(settings_ctx,
-                    "nmea",
-                    "gpgga_msg_rate",
-                    &gpgga_rate,
-                    sizeof(gpgga_rate),
-                    SETTINGS_TYPE_INT,
-                    notify_gpgga_rate_changed,
-                    NULL);
+  sd_register(settings_ctx,
+              "nmea",
+              "gpgga_msg_rate",
+              &gpgga_rate,
+              sizeof(gpgga_rate),
+              SETTINGS_TYPE_INT,
+              notify_gpgga_rate_changed,
+              NULL);
 
-  settings_register(settings_ctx,
-                    "nmea",
-                    "gprmc_msg_rate",
-                    &gprmc_rate,
-                    sizeof(gprmc_rate),
-                    SETTINGS_TYPE_INT,
-                    notify_gprmc_rate_changed,
-                    NULL);
+  sd_register(settings_ctx,
+              "nmea",
+              "gprmc_msg_rate",
+              &gprmc_rate,
+              sizeof(gprmc_rate),
+              SETTINGS_TYPE_INT,
+              notify_gprmc_rate_changed,
+              NULL);
 
-  settings_register(settings_ctx,
-                    "nmea",
-                    "gpvtg_msg_rate",
-                    &gpvtg_rate,
-                    sizeof(gpvtg_rate),
-                    SETTINGS_TYPE_INT,
-                    notify_gpvtg_rate_changed,
-                    NULL);
+  sd_register(settings_ctx,
+              "nmea",
+              "gpvtg_msg_rate",
+              &gpvtg_rate,
+              sizeof(gpvtg_rate),
+              SETTINGS_TYPE_INT,
+              notify_gpvtg_rate_changed,
+              NULL);
 
-  settings_register(settings_ctx,
-                    "nmea",
-                    "gphdt_msg_rate",
-                    &gphdt_rate,
-                    sizeof(gphdt_rate),
-                    SETTINGS_TYPE_INT,
-                    notify_gphdt_rate_changed,
-                    NULL);
+  sd_register(settings_ctx,
+              "nmea",
+              "gphdt_msg_rate",
+              &gphdt_rate,
+              sizeof(gphdt_rate),
+              SETTINGS_TYPE_INT,
+              notify_gphdt_rate_changed,
+              NULL);
 
-  settings_register(settings_ctx,
-                    "nmea",
-                    "gpgll_msg_rate",
-                    &gpgll_rate,
-                    sizeof(gpgll_rate),
-                    SETTINGS_TYPE_INT,
-                    notify_gpgll_rate_changed,
-                    NULL);
+  sd_register(settings_ctx,
+              "nmea",
+              "gpgll_msg_rate",
+              &gpgll_rate,
+              sizeof(gpgll_rate),
+              SETTINGS_TYPE_INT,
+              notify_gpgll_rate_changed,
+              NULL);
 
-  settings_register(settings_ctx,
-                    "nmea",
-                    "gpzda_msg_rate",
-                    &gpzda_rate,
-                    sizeof(gpzda_rate),
-                    SETTINGS_TYPE_INT,
-                    notify_gpzda_rate_changed,
-                    NULL);
+  sd_register(settings_ctx,
+              "nmea",
+              "gpzda_msg_rate",
+              &gpzda_rate,
+              sizeof(gpzda_rate),
+              SETTINGS_TYPE_INT,
+              notify_gpzda_rate_changed,
+              NULL);
 
-  settings_register(settings_ctx,
-                    "nmea",
-                    "gsa_msg_rate",
-                    &gsa_rate,
-                    sizeof(gsa_rate),
-                    SETTINGS_TYPE_INT,
-                    notify_gsa_rate_changed,
-                    NULL);
+  sd_register(settings_ctx,
+              "nmea",
+              "gsa_msg_rate",
+              &gsa_rate,
+              sizeof(gsa_rate),
+              SETTINGS_TYPE_INT,
+              notify_gsa_rate_changed,
+              NULL);
 
-  settings_add_watch(settings_ctx,
-                     "solution",
-                     "soln_freq",
-                     &soln_freq,
-                     sizeof(soln_freq),
-                     SETTINGS_TYPE_FLOAT,
-                     notify_soln_freq_changed,
-                     NULL);
+  sd_register_watch(settings_ctx,
+                    "solution",
+                    "soln_freq",
+                    &soln_freq,
+                    sizeof(soln_freq),
+                    SETTINGS_TYPE_FLOAT,
+                    notify_soln_freq_changed,
+                    NULL);
   sbp_run();
 
   exit(cleanup(EXIT_SUCCESS));

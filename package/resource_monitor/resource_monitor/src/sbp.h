@@ -14,14 +14,14 @@
 #define SWIFTNAV_SBP_H
 
 #include <libsbp/sbp.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 
 typedef struct sbp_tx_ctx_s sbp_tx_ctx_t;
 
 int sbp_init(unsigned int timer_interval, pk_loop_cb callback);
 void sbp_deinit(void);
 
-settings_ctx_t *sbp_get_settings_ctx(void);
+sd_ctx_t *sbp_get_settings_ctx(void);
 sbp_tx_ctx_t *sbp_get_tx_ctx(void);
 
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);

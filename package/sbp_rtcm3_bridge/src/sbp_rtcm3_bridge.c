@@ -15,7 +15,7 @@
 #include <getopt.h>
 #include <gnss-converters/rtcm3_sbp.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
 #include <stdint.h>
@@ -221,10 +221,10 @@ static int notify_rtcm_out_output_mode_changed(void *context)
   case RTCM_OUT_MODE_LEGACY: sbp2rtcm_set_rtcm_out_mode(MSM_UNKNOWN, &sbp_to_rtcm3_state); break;
   case RTCM_OUT_MODE_MSM4: sbp2rtcm_set_rtcm_out_mode(MSM4, &sbp_to_rtcm3_state); break;
   case RTCM_OUT_MODE_MSM5: sbp2rtcm_set_rtcm_out_mode(MSM5, &sbp_to_rtcm3_state); break;
-  default: return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
+  default: return SETTINGS_WR_VALUE_REJECTED;
   }
 
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int notify_ant_height_changed(void *context)
@@ -248,7 +248,7 @@ static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
 
 int main(int argc, char *argv[])
 {
-  settings_ctx_t *settings_ctx = NULL;
+  sd_ctx_t *settings_ctx = NULL;
   pk_loop_t *loop = NULL;
   pk_endpoint_t *rtcm3_sub = NULL;
 
@@ -336,25 +336,25 @@ int main(int argc, char *argv[])
 
   settings_ctx = sbp_get_settings_ctx();
 
-  settings_add_watch(settings_ctx,
-                     "simulator",
-                     "enabled",
-                     &simulator_enabled_watch,
-                     sizeof(simulator_enabled_watch),
-                     SETTINGS_TYPE_BOOL,
-                     notify_simulator_enable_changed,
-                     NULL);
+  sd_register_watch(settings_ctx,
+                    "simulator",
+                    "enabled",
+                    &simulator_enabled_watch,
+                    sizeof(simulator_enabled_watch),
+                    SETTINGS_TYPE_BOOL,
+                    notify_simulator_enable_changed,
+                    NULL);
 
   settings_type_t settings_type_rtcm_out_mode;
-  settings_type_register_enum(settings_ctx, rtcm_out_modes, &settings_type_rtcm_out_mode);
-  settings_register(settings_ctx,
-                    "rtcm_out",
-                    "output_mode",
-                    &rtcm_out_mode,
-                    sizeof(rtcm_out_mode),
-                    settings_type_rtcm_out_mode,
-                    notify_rtcm_out_output_mode_changed,
-                    &rtcm_out_mode);
+  sd_register_enum(settings_ctx, rtcm_out_modes, &settings_type_rtcm_out_mode);
+  sd_register(settings_ctx,
+              "rtcm_out",
+              "output_mode",
+              &rtcm_out_mode,
+              sizeof(rtcm_out_mode),
+              settings_type_rtcm_out_mode,
+              notify_rtcm_out_output_mode_changed,
+              &rtcm_out_mode);
 
   settings_register(settings_ctx,
                     "rtcm_out",

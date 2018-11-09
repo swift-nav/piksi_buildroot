@@ -15,7 +15,7 @@
 
 #include <libpiksi/loop.h>
 #include <libpiksi/sbp_pubsub.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 
 /*
  * Shared context for use by health monitors
@@ -40,6 +40,6 @@ sbp_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx);
 /*
  * Get settings_ctx from health context
  */
-settings_ctx_t *health_context_get_settings_ctx(health_ctx_t *health_ctx);
+sd_ctx_t *health_context_get_settings_ctx(health_ctx_t *health_ctx);
 
 #endif /* __HEALTH_CONTEXT_H */

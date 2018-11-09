@@ -13,7 +13,7 @@
 #ifndef __HEALTH_THREAD_H
 #define __HEALTH_THREAD_H
 
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 #include "health_context.h"
 
 typedef struct health_monitor_s health_monitor_t;

@@ -22,7 +22,7 @@
 #ifndef LIBPIKSI_SETTINGS_H
 #define LIBPIKSI_SETTINGS_H
 
-#include <libsettings/settings_register.h>
+#include <libsettings/settings.h>
 
 #include <libpiksi/common.h>
 #include <libpiksi/sbp_rx.h>
@@ -31,17 +31,17 @@
 extern "C" {
 #endif
 
-typedef struct settings_ctx_s settings_ctx_t;
+typedef struct sd_ctx_s sd_ctx_t;
 
 /**
  * @brief Called when a settings loop terminates (from an signal handler).
  */
-typedef void (*settings_term_fn)(void);
+typedef void (*sd_term_fn)(void);
 
 /**
  * @brief Called when a child process exits.
  */
-typedef void (*settings_child_fn)(void);
+typedef void (*sd_child_fn)(void);
 
 /**
  * @brief   Create a settings context.
@@ -62,7 +62,7 @@ settings_ctx_t *settings_create(const char *ident);
  *
  * @param[inout] ctx        Double pointer to the context to destroy.
  */
-void settings_destroy(settings_ctx_t **ctx);
+void sd_destroy(sd_ctx_t **ctx);
 
 /**
  * @brief   Register an enum type.
@@ -77,9 +77,7 @@ void settings_destroy(settings_ctx_t **ctx);
  * @retval 0                The enum type was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_type_register_enum(settings_ctx_t *ctx,
-                                const char *const enum_names[],
-                                settings_type_t *type);
+int sd_register_enum(sd_ctx_t *ctx, const char *const enum_names[], settings_type_t *type);
 
 /**
  * @brief   Register a setting.
@@ -103,14 +101,14 @@ int settings_type_register_enum(settings_ctx_t *ctx,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_register(settings_ctx_t *ctx,
-                      const char *section,
-                      const char *name,
-                      void *var,
-                      size_t var_len,
-                      settings_type_t type,
-                      settings_notify_fn notify,
-                      void *notify_context);
+int sd_register(sd_ctx_t *ctx,
+                const char *section,
+                const char *name,
+                void *var,
+                size_t var_len,
+                settings_type_t type,
+                settings_notify_fn notify,
+                void *notify_context);
 
 /**
  * @brief   Register a read-only setting.
@@ -128,12 +126,12 @@ int settings_register(settings_ctx_t *ctx,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_register_readonly(settings_ctx_t *ctx,
-                               const char *section,
-                               const char *name,
-                               const void *var,
-                               size_t var_len,
-                               settings_type_t type);
+int sd_register_readonly(sd_ctx_t *ctx,
+                         const char *section,
+                         const char *name,
+                         const void *var,
+                         size_t var_len,
+                         settings_type_t type);
 
 /**
  * @brief   Create and add a watch only setting.
@@ -154,14 +152,14 @@ int settings_register_readonly(settings_ctx_t *ctx,
  * @retval 0                The setting was registered successfully.
  * @retval -1               An error occurred.
  */
-int settings_add_watch(settings_ctx_t *ctx,
-                       const char *section,
-                       const char *name,
-                       void *var,
-                       size_t var_len,
-                       settings_type_t type,
-                       settings_notify_fn notify,
-                       void *notify_context);
+int sd_register_watch(sd_ctx_t *ctx,
+                      const char *section,
+                      const char *name,
+                      void *var,
+                      size_t var_len,
+                      settings_type_t type,
+                      settings_notify_fn notify,
+                      void *notify_context);
 
 /**
  * @brief   Attach settings context to Piksi loop.
@@ -175,20 +173,20 @@ int settings_add_watch(settings_ctx_t *ctx,
  * @retval 0                The settings reader was attached successfully.
  * @retval -1               An error occurred.
  */
-int settings_attach(settings_ctx_t *ctx, pk_loop_t *pk_loop);
+int sd_attach(sd_ctx_t *ctx, pk_loop_t *pk_loop);
 
 /**
  * @brief   Registers settings with the given context.
  *
- * @details Intended to be used with @c settings_loop to register the settings
+ * @details Intended to be used with @c sd_loop to register the settings
  *          that the loop will be responsible for.
  */
-typedef void (*register_settings_fn)(settings_ctx_t *ctx);
+typedef void (*register_sd_fn)(sd_ctx_t *ctx);
 
 /**
- * @brief   Handles a control message for a @c settings_loop
+ * @brief   Handles a control message for a @c sd_loop
  *
- * @details Intended to be used with @c settings_loop, this function is called
+ * @details Intended to be used with @c sd_loop, this function is called
  *          when the control command for the loop is received.
  */
 typedef bool (*handle_command_fn)();
@@ -246,7 +244,7 @@ bool settings_loop_simple(const char *metrics_ident, register_settings_fn do_reg
 /**
  * @brief   Send a control command to a running settings daemon
  * @details Sends a control command to a daemon running with
- *          a control socket setup by @c settings_loop
+ *          a control socket setup by @c sd_loop
  *
  * @param[in] metrics_ident        The identity the settings endpoint,
  *                                 typically used for metrics.

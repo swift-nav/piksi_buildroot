@@ -29,7 +29,7 @@ static uv_timer_t *uv_timer = NULL;
 static struct {
   pk_loop_t *loop;
   sbp_pubsub_ctx_t *pubsub_ctx;
-  settings_ctx_t *settings_ctx;
+  sd_ctx_t *settings_ctx;
 } ctx = {
   .loop = NULL,
   .pubsub_ctx = NULL,
@@ -97,7 +97,7 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
     goto failure;
   }
 
-  if (settings_attach(ctx.settings_ctx, ctx.loop) != 0) {
+  if (sd_attach(ctx.settings_ctx, ctx.loop) != 0) {
     piksi_log(LOG_ERR, "Error registering for settings read!");
     goto failure;
   }
@@ -118,11 +118,11 @@ void sbp_deinit(void)
     sbp_pubsub_destroy(&ctx.pubsub_ctx);
   }
   if (ctx.settings_ctx != NULL) {
-    settings_destroy(&ctx.settings_ctx);
+    sd_destroy(&ctx.settings_ctx);
   }
 }
 
-settings_ctx_t *sbp_get_settings_ctx(void)
+sd_ctx_t *sbp_get_settings_ctx(void)
 {
   return ctx.settings_ctx;
 }

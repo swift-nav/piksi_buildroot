@@ -17,7 +17,7 @@
 #include <errno.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 #include <libpiksi/util.h>
 
 #include <libnetwork.h>

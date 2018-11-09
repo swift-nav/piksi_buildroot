@@ -13,9 +13,9 @@
 #ifndef __SKYLARK_H
 #define __SKYLARK_H
 
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_daemon.h>
 
-void skylark_init(settings_ctx_t *settings_ctx);
+void skylark_init(sd_ctx_t *settings_ctx);
 bool skylark_reconnect_dl(void);
 void skylark_stop_processes(void);
 void skylark_record_exit(pid_t pid);
