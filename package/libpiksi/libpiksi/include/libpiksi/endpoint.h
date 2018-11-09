@@ -176,7 +176,7 @@ int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
  *
  *   For client sockets (PUB/SUB/REQ):
  *
- *   - *PUB*: these sockets do not produce data (data is only sent / 
+ *   - *PUB*: these sockets do not produce data (data is only sent /
  *     published to a server *SUB* socket)-- so they do not need to be
  *     associatedwith a loop except for (later) we may use the loop
  *     to do things like automatic reconnect.
