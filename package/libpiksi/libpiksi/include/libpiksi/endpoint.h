@@ -73,6 +73,19 @@ typedef int (*pk_endpoint_receive_cb)(const u8 *data, const size_t length, void 
 pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type);
 
 /**
+ * @brief   Create a Piksi Endpoint context
+ * @details Create a Piksi Endpoint context
+ *
+ * @param[in] endpoint      Description of the endpoint that will be connected to.
+ * @param[in] type          The type of endpoint to create.
+ * @param[in] retry         Should we retry the initial connection.
+ *
+ * @return                  Pointer to the created context, or NULL if the
+ *                          operation failed.
+ */
+pk_endpoint_t *pk_endpoint_create_ex(const char *endpoint, pk_endpoint_type type, bool retry);
+
+/**
  * @brief   Destroy a Piksi Endpoint context
  * @details Destroy a Piksi Endpoint context
  *
