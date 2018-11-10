@@ -36,7 +36,8 @@
 /* Maximum number of reads to service for one socket */
 #define ENDPOINT_SERVICE_MAX (32u)
 
-#define CONNECT_RETRIES_MAX (3u)
+/* 300 * 100ms = 30s of retries */
+#define CONNECT_RETRIES_MAX (300u)
 #define CONNECT_RETRY_SLEEP_MS (100u)
 
 #define MS_TO_NS(MS) ((MS)*1e6)
@@ -110,7 +111,7 @@ static int bind_un_socket(int fd, const char *path);
 
 static int start_un_listen(const char *path, int fd);
 
-static int connect_un_socket(int fd, const char *path);
+static int connect_un_socket(int fd, const char *path, bool retry_start);
 
 static bool valid_socket_type_for_read(pk_endpoint_t *pk_ept);
 
@@ -154,113 +155,20 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept,
                                    read_handler_fn_t read_handler,
                                    void *ctx);
 
+static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, bool retry_start);
+
 /**********************************************************************/
 /************* pk_endpoint_create *************************************/
 /**********************************************************************/
 
 pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type)
 {
-  ASSERT_TRACE(endpoint != NULL);
+  return pk_endpoint_create_ex(endpoint, type, false);
+}
 
-  pk_endpoint_t *pk_ept = (pk_endpoint_t *)malloc(sizeof(pk_endpoint_t));
-  if (pk_ept == NULL) {
-    piksi_log(LOG_ERR, "Failed to allocate PK endpoint");
-    goto failure;
-  }
-
-  *pk_ept = (pk_endpoint_t){
-    .type = type,
-    .sock = -1,
-    .started = false,
-    .nonblock = false,
-    .woke = false,
-    .wakefd = -1,
-    .client_count = 0,
-    .loop = NULL,
-    .poll_handle = NULL,
-  };
-
-  strncpy(pk_ept->path, endpoint, sizeof(pk_ept->path));
-
-  LIST_INIT(&pk_ept->client_nodes_head);
-  LIST_INIT(&pk_ept->removed_nodes_head);
-
-  bool do_bind = false;
-  switch (pk_ept->type) {
-  case PK_ENDPOINT_PUB_SERVER: do_bind = true;
-  case PK_ENDPOINT_PUB: {
-    pk_ept->sock = create_un_socket();
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK PUB socket: %s", pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-  case PK_ENDPOINT_SUB_SERVER: do_bind = true;
-  case PK_ENDPOINT_SUB: {
-    pk_ept->sock = create_un_socket();
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK SUB socket: %s", pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-  case PK_ENDPOINT_REP: do_bind = true;
-  case PK_ENDPOINT_REQ: {
-    pk_ept->sock = create_un_socket();
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK REQ/REP socket: %s", pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-  default: {
-    piksi_log(LOG_ERR, "Unsupported endpoint type");
-    goto failure;
-  } break;
-  }
-
-  size_t prefix_len = strstr(endpoint, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
-
-  if (do_bind) {
-    int rc = unlink(endpoint + prefix_len);
-    if (rc != 0 && errno != ENOENT) {
-      PK_LOG_ANNO(LOG_WARNING, "unlink: %s", strerror(errno));
-    }
-  }
-
-  int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
-                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len);
-
-  pk_ept->started = rc == 0;
-
-  if (!pk_ept->started) {
-    piksi_log(LOG_ERR,
-              "Failed to %s socket: %s",
-              do_bind ? "bind" : "connect",
-              pk_endpoint_strerror());
-    goto failure;
-  }
-
-  if (do_bind) {
-
-    if (start_un_listen(endpoint, pk_ept->sock) < 0) goto failure;
-
-    int rc = chmod(endpoint + prefix_len, 0777);
-    if (rc != 0) {
-      PK_LOG_ANNO(LOG_WARNING, "chmod: %s", strerror(errno));
-    }
-
-    pk_ept->wakefd = eventfd(0, EFD_NONBLOCK);
-
-    if (pk_ept->wakefd < 0) {
-      PK_LOG_ANNO(LOG_ERR, "eventfd: %s", strerror(errno));
-      goto failure;
-    }
-  }
-
-  return pk_ept;
-
-failure:
-  pk_endpoint_destroy(&pk_ept);
-  return NULL;
+pk_endpoint_t *pk_endpoint_create_ex(const char *endpoint, pk_endpoint_type type, bool retry)
+{
+  return create_impl(endpoint, type, retry);
 }
 
 /**********************************************************************/
@@ -272,29 +180,41 @@ void pk_endpoint_destroy(pk_endpoint_t **pk_ept_loc)
   if (pk_ept_loc == NULL || *pk_ept_loc == NULL) {
     return;
   }
+
   pk_endpoint_t *pk_ept = *pk_ept_loc;
+
   if (pk_ept->started && pk_ept->sock >= 0) {
     retry_on_eintr(NESTED_FN(int, (), { return shutdown(pk_ept->sock, SHUT_RDWR); }),
                    LOG_ERR,
                    "Failed to shutdown endpoint");
   }
+
   if (pk_ept->sock >= 0) {
     retry_on_eintr(NESTED_FN(int, (), { return close(pk_ept->sock); }),
                    LOG_ERR,
                    "Failed to close socket");
     pk_ept->sock = -1;
   }
+
   while (!LIST_EMPTY(&pk_ept->client_nodes_head)) {
     client_node_t *node = LIST_FIRST(&pk_ept->client_nodes_head);
     /* clang-tidy thinks this is a use-after-free for some reason? */
     purge_client_node(node); /* NOLINT */
   }
+
   if (pk_ept->wakefd >= 0) {
     retry_on_eintr(NESTED_FN(int, (), { return close(pk_ept->wakefd); }),
                    LOG_ERR,
                    "Failed to close eventfd");
     pk_ept->wakefd = -1;
   }
+
+  if (pk_ept->poll_handle != NULL) {
+    assert(pk_ept->loop != NULL);
+    pk_loop_poll_remove(pk_ept->loop, pk_ept->poll_handle);
+    pk_ept->poll_handle = NULL;
+  }
+
   free(pk_ept);
   *pk_ept_loc = NULL;
 }
@@ -461,7 +381,7 @@ int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop)
 
   if (pk_ept->loop != NULL) {
     /* We do not support changing the loop assication (for now) */
-    PK_LOG_ANNO(LOG_ERR, "cannot change associate loop");
+    if (pk_ept->loop != loop) PK_LOG_ANNO(LOG_ERR, "cannot change associate loop");
     return pk_ept->loop == loop ? 0 : -1;
   }
 
@@ -522,7 +442,7 @@ static int start_un_listen(const char *path, int fd)
   return 0;
 }
 
-static int connect_un_socket(int fd, const char *path)
+static int connect_un_socket(int fd, const char *path, bool retry_start)
 {
   struct sockaddr_un addr = {.sun_family = AF_UNIX};
   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
@@ -530,7 +450,7 @@ static int connect_un_socket(int fd, const char *path)
   int connect_errno = 0;
   int rc = 0;
 
-  for (size_t retry = 0; retry < CONNECT_RETRIES_MAX; retry++) {
+  for (size_t retry = 0; retry <= CONNECT_RETRIES_MAX; retry++) {
 
     struct timespec ts = {.tv_nsec = MS_TO_NS(CONNECT_RETRY_SLEEP_MS)};
     if (retry > 0) {
@@ -542,23 +462,10 @@ static int connect_un_socket(int fd, const char *path)
     rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     connect_errno = errno;
 
-    if (rc == 0) break;
-
-    PK_LOG_ANNO(LOG_WARNING,
-                "connection failed: '%s' for path: '%s'; retry %zu of %zu",
-                strerror(connect_errno),
-                path,
-                retry,
-                CONNECT_RETRIES_MAX);
+    if (rc == 0 || !retry_start) break;
   }
 
-  if (rc != 0) {
-    PK_LOG_ANNO(LOG_ERR | LOG_SBP,
-                "connection failed: '%s' for path: '%s'",
-                strerror(connect_errno),
-                path);
-  }
-
+  errno = connect_errno;
   return rc == 0 ? 0 : -1;
 }
 
@@ -969,4 +876,109 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
   }
 
   return rc;
+}
+
+static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, bool retry_start)
+{
+  ASSERT_TRACE(endpoint != NULL);
+
+  pk_endpoint_t *pk_ept = (pk_endpoint_t *)malloc(sizeof(pk_endpoint_t));
+  if (pk_ept == NULL) {
+    piksi_log(LOG_ERR, "Failed to allocate PK endpoint");
+    goto failure;
+  }
+
+  *pk_ept = (pk_endpoint_t){
+    .type = type,
+    .sock = -1,
+    .started = false,
+    .nonblock = false,
+    .woke = false,
+    .wakefd = -1,
+    .client_count = 0,
+    .loop = NULL,
+    .poll_handle = NULL,
+  };
+
+  strncpy(pk_ept->path, endpoint, sizeof(pk_ept->path));
+
+  LIST_INIT(&pk_ept->client_nodes_head);
+  LIST_INIT(&pk_ept->removed_nodes_head);
+
+  bool do_bind = false;
+  switch (pk_ept->type) {
+  case PK_ENDPOINT_PUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_PUB: {
+    pk_ept->sock = create_un_socket();
+    if (pk_ept->sock < 0) {
+      piksi_log(LOG_ERR, "error creating PK PUB socket: %s", pk_endpoint_strerror());
+      goto failure;
+    }
+  } break;
+  case PK_ENDPOINT_SUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_SUB: {
+    pk_ept->sock = create_un_socket();
+    if (pk_ept->sock < 0) {
+      piksi_log(LOG_ERR, "error creating PK SUB socket: %s", pk_endpoint_strerror());
+      goto failure;
+    }
+  } break;
+  case PK_ENDPOINT_REP: do_bind = true;
+  case PK_ENDPOINT_REQ: {
+    pk_ept->sock = create_un_socket();
+    if (pk_ept->sock < 0) {
+      piksi_log(LOG_ERR, "error creating PK REQ/REP socket: %s", pk_endpoint_strerror());
+      goto failure;
+    }
+  } break;
+  default: {
+    piksi_log(LOG_ERR, "Unsupported endpoint type");
+    goto failure;
+  } break;
+  }
+
+  size_t prefix_len = strstr(endpoint, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
+
+  if (do_bind) {
+    int rc = unlink(endpoint + prefix_len);
+    if (rc != 0 && errno != ENOENT) {
+      PK_LOG_ANNO(LOG_WARNING, "unlink: %s", strerror(errno));
+    }
+  }
+
+  int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
+                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len, retry_start);
+
+  pk_ept->started = rc == 0;
+
+  if (!pk_ept->started) {
+    PK_LOG_ANNO(LOG_ERR,
+                "Failed to %s socket: %s",
+                do_bind ? "bind" : "connect",
+                pk_endpoint_strerror());
+    goto failure;
+  }
+
+  if (do_bind) {
+
+    if (start_un_listen(endpoint, pk_ept->sock) < 0) goto failure;
+
+    int rc = chmod(endpoint + prefix_len, 0777);
+    if (rc != 0) {
+      PK_LOG_ANNO(LOG_WARNING, "chmod: %s", strerror(errno));
+    }
+
+    pk_ept->wakefd = eventfd(0, EFD_NONBLOCK);
+
+    if (pk_ept->wakefd < 0) {
+      PK_LOG_ANNO(LOG_ERR, "eventfd: %s", strerror(errno));
+      goto failure;
+    }
+  }
+
+  return pk_ept;
+
+failure:
+  pk_endpoint_destroy(&pk_ept);
+  return NULL;
 }
