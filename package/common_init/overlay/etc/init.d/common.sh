@@ -104,6 +104,27 @@ configure_file_resource2()
   chmod "$perm" "$path"
 }
 
+configure_logrotate_file()
+{
+  local conf_tag=$1 ; shift # must be unique!
+  local rotate_file=$1 ; shift
+
+  _validate_not_empty conf_tag     || return 1
+  _validate_not_empty rotate_file  || return 1
+
+  path="/etc/logrotate.d/$conf_tag"
+  [[ ! -e "$path" ]] || return 1
+
+  touch "$path"
+  echo "$rotate_file {"     >  "$path"
+  echo "      su root root" >> "$path"
+  echo "      size 5k"      >> "$path"
+  echo "      copytruncate" >> "$path"
+  echo "      rotate 5"     >> "$path"
+  echo "      missingok"    >> "$path"
+  echo "}" >> "$path"
+}
+
 _setup_permissions()
 {
   if type setup_permissions | grep -q "shell function"; then

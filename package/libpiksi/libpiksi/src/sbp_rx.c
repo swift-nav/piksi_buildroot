@@ -87,9 +87,11 @@ void sbp_rx_destroy(sbp_rx_ctx_t **ctx_loc)
   *ctx_loc = NULL;
 }
 
-static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, void *context)
+static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, int status, void *context)
 {
   (void)handle;
+  (void)status;
+
   sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;
   sbp_rx_reader_interrupt_reset(rx_ctx);
   sbp_rx_read(rx_ctx);

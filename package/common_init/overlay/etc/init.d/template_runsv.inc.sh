@@ -74,6 +74,8 @@ do_start()
 {
   _setup_permissions
   _setup_svdir
+  configure_logrotate_file "${name}_log" $stdout_log
+  configure_logrotate_file "${name}_err" $stderr_log
 
   sv start "/var/service/${name}"
 

@@ -55,10 +55,12 @@ static void rtcm3_out_callback(u8 *buffer, u16 length, void *context)
   }
 }
 
-static void rtcm3_reader_handler(pk_loop_t *loop, void *handle, void *context)
+static void rtcm3_reader_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
+  (void)status;
+
   pk_endpoint_t *rtcm_sub_ept = (pk_endpoint_t *)context;
   if (pk_endpoint_receive(rtcm_sub_ept, rtcm2sbp_decode_frame_shim, &rtcm3_to_sbp_state) != 0) {
     piksi_log(LOG_ERR,

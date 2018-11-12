@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2017-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -61,6 +61,13 @@
 #define LOG_LOCAL6 (22u << 3u) /* reserved for local use */
 #define LOG_LOCAL7 (23u << 3u) /* reserved for local use */
 
+/**
+ * An 'annotated' version of @c piksi_log which logs the formatted message with the function name,
+ * filename and line.
+ *
+ * An 'annotated' version of @c piksi_log which logs a message annotated as follows:
+ *   `<function_name>: <formatted_message> (<file_name>:<file_line>)`.
+ */
 #define PK_LOG_ANNO(Pri, Msg, ...)                                                          \
   do {                                                                                      \
     piksi_log(Pri, "%s: " Msg " (%s:%d)", __FUNCTION__, ##__VA_ARGS__, __FILE__, __LINE__); \
@@ -70,7 +77,7 @@
  * Add to piksi_log to send the log message to SBP as well as
  *   the system log (syslog).
  *
- *  E.g. `piksi_log(LOG_SBP|LOG_ERROR, "Some message");`
+ *  E.g. `piksi_log(LOG_SBP|LOG_ERR, "Some message");`
  */
 #define LOG_SBP LOG_LOCAL1
 
@@ -119,6 +126,17 @@ void piksi_log(int priority, const char *format, ...);
  * @param[in] ap            Variable argument list for printf().
  */
 void piksi_vlog(int priority, const char *format, va_list ap);
+
+/**
+ * @brief   Dump a binary blob in xxd format
+ * @details Dump a binary blob in xxd format to facilitate debugging.
+ *
+ * @param[in] priority    Priority level as defined in <syslog.h>.
+ * @param[in] header      Header used to describe data being dumped
+ * @param[in] buffer      The data being dumped
+ * @param[in] len         Length of the input buffer
+ */
+void piksi_log_xxd(int priority, const char *header, const u8 *buffer, size_t len);
 
 /**
  * @brief   Send a log message over SBP

@@ -291,10 +291,11 @@ static int parse_options(int argc, char *argv[])
 /**
  * @brief used to trigger usage updates
  */
-static void run_routine_function(pk_loop_t *loop, void *timer_handle, void *context)
+static void run_routine_function(pk_loop_t *loop, void *timer_handle, int status, void *context)
 {
   (void)loop;
   (void)timer_handle;
+  (void)status;
   (void)context;
   write_metrics_to_file();
 }

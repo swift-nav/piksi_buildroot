@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2017-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -24,6 +24,8 @@
 
 #define FACILITY LOG_LOCAL0
 #define OPTIONS (LOG_CONS | LOG_PID | LOG_NDELAY)
+
+#define MAX_XXD_DUMP 512
 
 static bool log_stdout_only = false;
 
@@ -70,6 +72,33 @@ void piksi_vlog(int priority, const char *format, va_list ap)
   vsyslog(priority, format, ap);
 }
 
+/* Adapted from: https://www.libssh2.org/mail/libssh2-devel-archive-2011-07/att-0011/xxd.c */
+void piksi_log_xxd(int priority, const char *header, const u8 *buf_in, size_t len)
+{
+  piksi_log(priority, "%s", header);
+  char buf_start[128] = {0};
+  if (len >= MAX_XXD_DUMP) {
+    piksi_log(priority, "<... buffer too large for %s ...>", __FUNCTION__);
+    return;
+  }
+  char *buf = buf_start;
+  size_t i, j;
+  for (i = 0; i < len; i += 16) {
+    buf += sprintf(buf, "%06x: ", (unsigned int)i);
+    for (j = 0; j < 16; j++)
+      if (i + j < len)
+        buf += sprintf(buf, " %02x", buf_in[i + j]);
+      else
+        buf += sprintf(buf, "   ");
+    buf += sprintf(buf, "  ");
+    for (j = 0; j < 16 && i + j < len; j++)
+      buf += sprintf(buf, "%c", isprint(buf_in[i + j]) ? buf_in[i + j] : '.');
+    piksi_log(priority, "%s", buf_start);
+    buf = buf_start;
+    buf[0] = '\0';
+  }
+}
+
 void sbp_log(int priority, const char *msg_text, ...)
 {
   va_list ap;
@@ -87,7 +116,7 @@ void sbp_vlog(int priority, const char *msg, va_list ap)
     return;
   }
 
-  // Force main thread to sleep so nanomsg has a chance to setup...
+  /* Force main thread to sleep so libpiksi has a chance to setup... */
   usleep(1);
 
   msg_log_t *log;

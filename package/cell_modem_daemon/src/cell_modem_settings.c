@@ -71,9 +71,10 @@ void cell_modem_set_dev(char *dev, enum modem_type type)
     cell_modem_notify(NULL);
 }
 
-void pppd_respawn(pk_loop_t *loop, void *timer_handle, void *context)
+void pppd_respawn(pk_loop_t *loop, void *timer_handle, int status, void *context)
 {
   (void)context;
+  (void)status;
   inotify_ctx = async_wait_for_tty(loop);
   pk_loop_remove_handle(timer_handle);
 }
@@ -135,9 +136,10 @@ static int cell_modem_notify(void *context)
   return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
-void override_probe_retry(pk_loop_t *loop, void *timer_handle, void *context)
+void override_probe_retry(pk_loop_t *loop, void *timer_handle, int status, void *context)
 {
   (void)loop;
+  (void)status;
   static uint32_t probe_retries = 0;
   inotify_ctx_t *ctx = (inotify_ctx_t *)context;
   if (cell_modem_get_dev_override() != NULL && cell_modem_dev == NULL

@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Directly copied from github.com/logrotate/logrotate/blob/master/examples/logrotate.cron
+
+/usr/sbin/logrotate /etc/logrotate.conf
+EXITVALUE=$?
+if [ $EXITVALUE != 0 ]; then
+    /usr/bin/logger -t logrotate "ALERT exited abnormally with [$EXITVALUE]"
+fi
+exit $EXITVALUE

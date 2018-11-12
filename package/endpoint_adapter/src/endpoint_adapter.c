@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <time.h>
 
+#include <libpiksi/endpoint.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
 #include <libpiksi/util.h>
@@ -133,6 +134,8 @@ static pid_t *pids[] = {
   &sub_pid,
 };
 
+static bool retry_pubsub = false;
+
 static void usage(char *command)
 {
   fprintf(stderr, "Usage: %s\n", command);
@@ -170,6 +173,8 @@ static void usage(char *command)
   fprintf(stderr, "\t--debug\n");
   fprintf(stderr, "\t--outq <n>\n");
   fprintf(stderr, "\t\tmax tty output queue size (bytes)\n");
+  fprintf(stderr, "\t--retry\n");
+  fprintf(stderr, "\t\tretry pub/sub endpoint connections\n");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -193,6 +198,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_OUTQ,
     OPT_ID_CAN,
     OPT_ID_CAN_FILTER,
+    OPT_ID_RETRY_PUBSUB,
   };
 
   // clang-format off
@@ -217,6 +223,7 @@ static int parse_options(int argc, char *argv[])
     {"outq",              required_argument, 0, OPT_ID_OUTQ},
     {"can",               required_argument, 0, OPT_ID_CAN},
     {"can-f",             required_argument, 0, OPT_ID_CAN_FILTER},
+    {"retry",             no_argument,       0, OPT_ID_RETRY_PUBSUB},
     {0, 0, 0, 0},
     // clang-format on
   };
@@ -332,6 +339,10 @@ static int parse_options(int argc, char *argv[])
       }
     } break;
 
+    case OPT_ID_RETRY_PUBSUB: {
+      retry_pubsub = true;
+    } break;
+
     default: {
       fprintf(stderr, "invalid option\n");
       return -1;
@@ -432,7 +443,7 @@ static pk_endpoint_t *pk_endpoint_start(int type)
   } break;
   }
 
-  pk_endpoint_t *pk_ept = pk_endpoint_create(addr, type);
+  pk_endpoint_t *pk_ept = pk_endpoint_create_ex(addr, type, true);
   if (pk_ept == NULL) {
     debug_printf("pk_endpoint_create returned NULL\n");
     return NULL;

@@ -33,10 +33,11 @@ static int resource_monitor_interval_s = DEFAULT_UPDATE_INTERVAL;
 /**
  * @brief used to trigger usage updates
  */
-static void update_metrics(pk_loop_t *loop, void *timer_handle, void *context)
+static void update_metrics(pk_loop_t *loop, void *timer_handle, int status, void *context)
 {
   (void)loop;
   (void)timer_handle;
+  (void)status;
   (void)context;
 
   resq_run_all();

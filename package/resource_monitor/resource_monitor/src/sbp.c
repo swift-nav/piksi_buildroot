@@ -33,9 +33,10 @@ static struct {
   .settings_ctx = NULL,
 };
 
-static void signal_cb(pk_loop_t *pk_loop, void *handle, void *context)
+static void signal_cb(pk_loop_t *pk_loop, void *handle, int status, void *context)
 {
   (void)handle;
+  (void)status;
   (void)context;
 
   piksi_log(LOG_DEBUG, "Received interrupt! Exiting...");

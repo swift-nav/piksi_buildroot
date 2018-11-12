@@ -12,10 +12,12 @@
 
 #include <uv.h>
 
-#include <libpiksi/util.h>
+#include <libpiksi/endpoint.h>
 #include <libpiksi/logging.h>
-
 #include <libpiksi/loop.h>
+#include <libpiksi/util.h>
+
+#define MSG_BUF_SIZE 128
 
 /**
  * @brief Loop Callback Context
@@ -38,6 +40,7 @@ typedef struct pk_callback_ctx_s {
 struct pk_loop_s {
   uv_loop_t *uv_loop;
   uv_timer_t *timeout_timer;
+  char uv_error_msg[MSG_BUF_SIZE];
 };
 
 /* Forward declare of static - see definition below */
@@ -158,6 +161,8 @@ pk_loop_t *pk_loop_create(void)
     goto failure;
   }
 
+  pk_loop->uv_error_msg[0] = '\0';
+
   return pk_loop;
 
 failure:
@@ -271,7 +276,7 @@ static void signal_handler(uv_signal_t *signal, int signum)
   assert(signum == pk_loop_get_signal_from_handle(signal));
 
   if (cb_ctx->callback != NULL) {
-    cb_ctx->callback(loop, handle, cb_ctx->data);
+    cb_ctx->callback(loop, handle, LOOP_SUCCESS, cb_ctx->data);
   }
 }
 
@@ -318,7 +323,7 @@ static void timer_handler(uv_timer_t *timer)
   pk_callback_ctx_t *cb_ctx = pk_callback_context_from_uv_handle(handle);
 
   if (cb_ctx->callback != NULL) {
-    cb_ctx->callback(loop, handle, cb_ctx->data);
+    cb_ctx->callback(loop, handle, LOOP_SUCCESS, cb_ctx->data);
   }
 }
 
@@ -379,21 +384,34 @@ int pk_loop_timer_reset(void *handle)
  */
 static void uv_loop_poll_handler(uv_poll_t *poller, int status, int events)
 {
+  int loop_status = LOOP_SUCCESS;
+  bool remove = false;
+
   uv_handle_t *handle = (uv_handle_t *)poller;
   pk_loop_t *loop = pk_loop_from_uv_handle(handle);
   pk_callback_ctx_t *cb_ctx = pk_callback_context_from_uv_handle(handle);
 
   if (status < 0) {
-    piksi_log(LOG_ERR, "UV_ERROR %s", uv_strerror(status));
-    return;
+    loop_status |= LOOP_ERROR;
+    strncpy(loop->uv_error_msg, uv_strerror(status), sizeof(loop->uv_error_msg));
+    remove = true;
   }
+
+  if (events & UV_READABLE) {
+    loop_status |= LOOP_READ;
+  }
+
   if (events & UV_DISCONNECT) {
-    piksi_log(LOG_ERR, "uv_poll_event - UV_DISCONNECT");
-    return;
+    loop_status |= LOOP_DISCONNECTED;
+    remove = true;
+  }
+
+  if (remove) {
+    pk_loop_poll_remove(loop, handle);
   }
 
   if (cb_ctx->callback != NULL) {
-    cb_ctx->callback(loop, handle, cb_ctx->data);
+    cb_ctx->callback(loop, handle, loop_status, cb_ctx->data);
   }
 }
 
@@ -406,7 +424,26 @@ void *pk_loop_endpoint_reader_add(pk_loop_t *pk_loop,
   assert(pk_ept != NULL);
   assert(callback != NULL);
 
-  return pk_loop_poll_add(pk_loop, pk_endpoint_poll_handle_get(pk_ept), callback, context);
+  int poll_fd = pk_endpoint_poll_handle_get(pk_ept);
+
+  if (poll_fd < 0) {
+    PK_LOG_ANNO(LOG_WARNING, "error fetching poll fd");
+    return NULL;
+  }
+
+  void *poll_handle = pk_loop_poll_add(pk_loop, poll_fd, callback, context);
+
+  if (poll_handle == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "error adding poll fd to loop");
+    return NULL;
+  }
+
+  if (pk_endpoint_loop_add(pk_ept, pk_loop) < 0) {
+    PK_LOG_ANNO(LOG_ERR, "error adding loop to endpoint");
+    return NULL;
+  }
+
+  return poll_handle;
 }
 
 void *pk_loop_poll_add(pk_loop_t *pk_loop, int fd, pk_loop_cb callback, void *context)
@@ -441,6 +478,15 @@ void *pk_loop_poll_add(pk_loop_t *pk_loop, int fd, pk_loop_cb callback, void *co
 failure:
   pk_loop_destroy_uv_handle((uv_handle_t *)uv_poll);
   return NULL;
+}
+
+void pk_loop_poll_remove(pk_loop_t *pk_loop, void *handle)
+{
+  (void)pk_loop;
+
+  if (!uv_is_closing((uv_handle_t *)handle)) uv_poll_stop((uv_poll_t *)handle);
+
+  pk_loop_remove_handle((uv_handle_t *)handle);
 }
 
 int pk_loop_remove_handle(void *handle)
@@ -488,4 +534,52 @@ int pk_loop_run_simple_with_timeout(pk_loop_t *pk_loop, u32 timeout_ms)
 void pk_loop_stop(pk_loop_t *pk_loop)
 {
   uv_stop(pk_loop->uv_loop);
+}
+
+const char *pk_loop_last_error(pk_loop_t *pk_loop)
+{
+  return pk_loop->uv_error_msg;
+}
+
+const char *pk_loop_describe_status(int status)
+{
+  static char buf[MSG_BUF_SIZE] = {0};
+  static char buf_succ[MSG_BUF_SIZE] = {0};
+  static char buf_read[MSG_BUF_SIZE] = {0};
+  static char buf_disco[MSG_BUF_SIZE] = {0};
+  static char buf_error[MSG_BUF_SIZE] = {0};
+  bool addbar = false;
+
+  if (status == LOOP_UNKNOWN) {
+    snprintf(buf, sizeof(buf), "LOOP_UNKNOWN");
+    return buf;
+  }
+
+  if (status == LOOP_SUCCESS) {
+    snprintf(buf, sizeof(buf), "LOOP_SUCCESS");
+    return buf;
+  }
+
+  if (status & LOOP_READ) {
+    snprintf(buf_read, sizeof(buf_read), "%s%sLOOP_READ", addbar ? buf : "", addbar ? "|" : "");
+    snprintf(buf, sizeof(buf), "%s", buf_read);
+    addbar = true;
+  }
+
+  if (status & LOOP_DISCONNECTED) {
+    snprintf(buf_disco,
+             sizeof(buf_disco),
+             "%s%sLOOP_DISCONNECTED",
+             addbar ? buf : "",
+             addbar ? "|" : "");
+    snprintf(buf, sizeof(buf), "%s", buf_disco);
+    addbar = true;
+  }
+
+  if (status & LOOP_ERROR) {
+    snprintf(buf_error, sizeof(buf_error), "%s%sLOOP_ERROR", addbar ? buf : "", addbar ? "|" : "");
+    snprintf(buf, sizeof(buf), "%s", buf_error);
+  }
+
+  return buf;
 }
