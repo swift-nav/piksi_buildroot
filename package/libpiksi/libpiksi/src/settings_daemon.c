@@ -83,14 +83,6 @@
 #define PUB_ENDPOINT "ipc:///var/run/sockets/settings_client.sub"
 #define SUB_ENDPOINT "ipc:///var/run/sockets/settings_client.pub"
 
-#define REGISTER_TIMEOUT_MS 100
-#define REGISTER_TRIES 5
-
-#define WATCH_INIT_TIMEOUT_MS 100
-#define WATCH_INIT_TRIES 5
-
-#define SBP_PAYLOAD_SIZE_MAX 255
-
 typedef struct {
   pk_endpoint_t *cmd_ept;
   const char *command;
@@ -477,7 +469,8 @@ bool sd_loop(const char *control_socket,
   if (loop == NULL) {
     goto sd_loop_cleanup;
   }
-  // Install our own signal handlers
+
+  /* Install our own signal handlers */
   setup_signal_handlers();
 
   pk_endpoint_t *rep_socket = NULL;
