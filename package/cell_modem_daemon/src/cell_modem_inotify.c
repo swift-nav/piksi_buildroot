@@ -45,7 +45,7 @@ typedef struct inotify_ctx_s {
   enum modem_type modem_type;
 } inotify_ctx_t;
 
-static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, void *context);
+static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, int status, void *context);
 
 inotify_ctx_t *inotify_ctx_create(const char *path,
                                   int inotify_init_flags,
@@ -176,10 +176,11 @@ int cell_modem_scan_for_modem(inotify_ctx_t *ctx)
   return result;
 }
 
-static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, void *context)
+static void inotify_output_cb(pk_loop_t *loop, void *poll_handle, int status, void *context)
 {
   (void)loop;
   (void)poll_handle;
+  (void)status;
 
   inotify_ctx_t *ctx = (inotify_ctx_t *)context;
 

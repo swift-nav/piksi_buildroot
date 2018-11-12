@@ -1,5 +1,7 @@
 #!/bin/sh
 
+source /etc/init.d/common.sh
+
 name="network_poll"
 cmd="/etc/init.d/network_poll.sh"
 dir="/"
@@ -17,6 +19,7 @@ setup_permissions()
   configure_file_resource $user $piksi_sys_dir/enable_ping_logging 0644
 
   configure_file_resource $user /var/log/ping.log 0644
+  configure_logrotate_file $name /var/log/ping.log
 }
 
 source /etc/init.d/template_process.inc.sh

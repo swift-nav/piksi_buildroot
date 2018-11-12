@@ -19,8 +19,7 @@ static int print_filter(FILE *f, const char *prefix, const filter_t *filter)
   const char *filter_action_str = filter->action == FILTER_ACTION_ACCEPT ? "ACCEPT" : "REJECT";
   fprintf(f, "%s%s ", prefix, filter_action_str);
 
-  int i;
-  for (i = 0; i < filter->len; i++) {
+  for (size_t i = 0; i < filter->len; i++) {
     fprintf(f, "0x%02X ", filter->data[i]);
   }
 

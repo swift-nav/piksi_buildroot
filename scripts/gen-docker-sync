@@ -29,6 +29,7 @@ syncs:
       - "-ignore='Path buildroot/output/target'"
       - "-ignore='Path buildroot/output/host'"
       - "-ignore='Path buildroot/output/staging'"
+      - "-ignore='Path buildroot/host_output'"
       - "-ignore='Path buildroot/dl'"
       - "-ignore='Path .docker-sync*'"
       - "-ignore='Path .docker-compose.yml'"
@@ -39,6 +40,7 @@ syncs:
       - 'buildroot/output/target'
       - 'buildroot/output/host'
       - 'buildroot/output/staging'
+      - 'buildroot/host_output'
       - 'buildroot/dl'
 EOF
 

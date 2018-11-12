@@ -1,0 +1,12 @@
+name: HOST_TEST
+ports:
+  - name: TEST_PORT
+    pub_addr: "ipc:///tmp/pub"
+    sub_addr: "ipc:///tmp/sub"
+    forwarding_rules:
+      - dst_port: TEST_PORT2
+        filters:
+          - { action: ACCEPT }
+  - name: TEST_PORT2
+    pub_addr: "ipc:///tmp/pub2"
+    sub_addr: "ipc:///tmp/sub2"
