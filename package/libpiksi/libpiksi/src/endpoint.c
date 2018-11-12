@@ -179,7 +179,10 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept,
                                    void *ctx);
 
 
-static pk_endpoint_t *create_impl(const char *endpoint, const char *identity, pk_endpoint_type type, bool retry_start);
+static pk_endpoint_t *create_impl(const char *endpoint,
+                                  const char *identity,
+                                  pk_endpoint_type type,
+                                  bool retry_start);
 
 static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, void *context);
 
@@ -1117,4 +1120,3 @@ static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, vo
 
   pk_loop_timer_reset(handle);
 }
-
