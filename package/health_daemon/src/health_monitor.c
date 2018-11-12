@@ -86,13 +86,13 @@ int health_monitor_add_setting_watch(health_monitor_t *monitor,
                                      void *notify_context)
 {
   return sd_register_watch(health_context_get_settings_ctx(monitor->health_ctx),
-                            section,
-                            name,
-                            var,
-                            var_len,
-                            type,
-                            notify,
-                            notify_context);
+                           section,
+                           name,
+                           var,
+                           var_len,
+                           type,
+                           notify,
+                           notify_context);
 }
 
 /*

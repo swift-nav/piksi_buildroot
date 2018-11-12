@@ -108,13 +108,13 @@ int main(int argc, char *argv[])
   sd_ctx_t *settings_ctx = sbp_get_settings_ctx();
 
   sd_register(settings_ctx,
-                    "system",
-                    "resource_monitor_update_interval",
-                    &resource_monitor_interval_s,
-                    sizeof(resource_monitor_interval_s),
-                    SETTINGS_TYPE_INT,
-                    notify_interval_changed,
-                    NULL);
+              "system",
+              "resource_monitor_update_interval",
+              &resource_monitor_interval_s,
+              sizeof(resource_monitor_interval_s),
+              SETTINGS_TYPE_INT,
+              notify_interval_changed,
+              NULL);
 
   sbp_run();
 
