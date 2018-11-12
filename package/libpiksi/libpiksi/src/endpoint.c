@@ -183,11 +183,6 @@ static pk_endpoint_t *create_impl(const char *endpoint, const char *identity, pk
 
 static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, void *context);
 
-static pk_endpoint_t *create_impl(const char *endpoint,
-                                  const char *identity,
-                                  pk_endpoint_type type,
-                                  bool retry_start);
-
 /**********************************************************************/
 /************* pk_endpoint_config *************************************/
 /**********************************************************************/
@@ -989,134 +984,6 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
   return rc;
 }
 
-static pk_endpoint_t *create_impl(const char *endpoint, const char *identity, pk_endpoint_type type, bool retry_start)
-{
-  ASSERT_TRACE(endpoint != NULL);
-
-  pk_endpoint_t *pk_ept = (pk_endpoint_t *)malloc(sizeof(pk_endpoint_t));
-  if (pk_ept == NULL) {
-    piksi_log(LOG_ERR, "Failed to allocate PK endpoint");
-    goto failure;
-  }
-
-  *pk_ept = (pk_endpoint_t){
-    .type = type,
-    .sock = -1,
-    .started = false,
-    .nonblock = false,
-    .woke = false,
-    .wakefd = -1,
-    .client_count = 0,
-    .loop = NULL,
-    .poll_handle = NULL,
-    .metrics_timer = NULL,
-    .warned_on_discard = false,
-  };
-
-  strncpy(pk_ept->path, endpoint, sizeof(pk_ept->path));
-
-  LIST_INIT(&pk_ept->client_nodes_head);
-  LIST_INIT(&pk_ept->removed_nodes_head);
-
-  bool do_bind = false;
-  switch (pk_ept->type) {
-  case PK_ENDPOINT_PUB_SERVER: do_bind = true;
-  case PK_ENDPOINT_PUB: {
-    pk_ept->sock = create_un_socket();
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK PUB socket: %s", pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-  case PK_ENDPOINT_SUB_SERVER: do_bind = true;
-  case PK_ENDPOINT_SUB: {
-    pk_ept->sock = create_un_socket();
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK SUB socket: %s", pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-  case PK_ENDPOINT_REP: do_bind = true;
-  case PK_ENDPOINT_REQ: {
-    pk_ept->sock = create_un_socket();
-    if (pk_ept->sock < 0) {
-      piksi_log(LOG_ERR, "error creating PK REQ/REP socket: %s", pk_endpoint_strerror());
-      goto failure;
-    }
-  } break;
-  default: {
-    piksi_log(LOG_ERR, "Unsupported endpoint type");
-    goto failure;
-  } break;
-  }
-
-  size_t prefix_len = strstr(endpoint, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
-
-  if (do_bind) {
-    int rc = unlink(endpoint + prefix_len);
-    if (rc != 0 && errno != ENOENT) {
-      PK_LOG_ANNO(LOG_WARNING, "unlink: %s", strerror(errno));
-    }
-  }
-
-  int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
-                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len);
-
-  pk_ept->started = rc == 0;
-
-  if (!pk_ept->started) {
-    piksi_log(LOG_ERR,
-              "Failed to %s socket: %s",
-              do_bind ? "bind" : "connect",
-              pk_endpoint_strerror());
-    goto failure;
-  }
-
-  if (do_bind) {
-
-    if (start_un_listen(endpoint, pk_ept->sock) < 0) goto failure;
-
-    int rc = chmod(endpoint + prefix_len, 0777);
-    if (rc != 0) {
-      PK_LOG_ANNO(LOG_WARNING, "chmod: %s", strerror(errno));
-    }
-
-    pk_ept->wakefd = eventfd(0, EFD_NONBLOCK);
-
-    if (pk_ept->wakefd < 0) {
-      PK_LOG_ANNO(LOG_ERR, "eventfd: %s", strerror(errno));
-      goto failure;
-    }
-  }
-
-  if (identity == NULL || strlen(identity) == 0) {
-    PK_LOG_ANNO(LOG_ERR, "socket cannot have a empty identity");
-    goto failure;
-  }
-
-  strncpy(pk_ept->identity, identity, sizeof(pk_ept->identity));
-  pk_ept->metrics = pk_metrics_setup("endpoint", pk_ept->identity, MT, COUNT_OF(MT));
-
-  if (pk_ept->metrics == NULL) goto failure;
-
-  return pk_ept;
-}
-
-static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, void *context)
-{
-  (void)loop;
-  (void)status;
-
-  pk_endpoint_t *pk_ept = context;
-
-  if (MR(pk_ept) != NULL) {
-    pk_metrics_flush(MR(pk_ept));
-    pk_metrics_reset(MR(pk_ept), MI.wakes_per_s);
-  }
-
-  pk_loop_timer_reset(handle);
-}
-
 static pk_endpoint_t *create_impl(const char *endpoint,
                                   const char *identity,
                                   pk_endpoint_type type,
@@ -1235,3 +1102,19 @@ failure:
   pk_endpoint_destroy(&pk_ept);
   return NULL;
 }
+
+static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, void *context)
+{
+  (void)loop;
+  (void)status;
+
+  pk_endpoint_t *pk_ept = context;
+
+  if (MR(pk_ept) != NULL) {
+    pk_metrics_flush(MR(pk_ept));
+    pk_metrics_reset(MR(pk_ept), MI.wakes_per_s);
+  }
+
+  pk_loop_timer_reset(handle);
+}
+
