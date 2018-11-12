@@ -16,14 +16,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <search.h>
-
 #include <libsbp/linux.h>
 #include <dirent.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libpiksi/runit.h>
 #include <libpiksi/table.h>
-
 #include "query_sys_state.h"
 #include "resource_monitor.h"
 #include "resource_query.h"
@@ -32,10 +30,11 @@
 //#define DEBUG_QUERY_FD_TAB
 
 #define ITEM_COUNT 10
-#define MAX_PROCESS_COUNT 1024
+#define MAX_PROCESS_COUNT 2048
 #define MAX_FILE_COUNT 4096
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define LSOF_CMD_BUF_LENGTH 1024 * 128
+
 typedef enum {
   SEND_FD_COUNTS_0,
   SEND_FD_COUNTS_1,
@@ -62,8 +61,8 @@ typedef struct {
   u16 fd_count;
 } file_entry_t;
 
-MAKE_TABLE_WRAPPER(pid, pid_entry_t)
-MAKE_TABLE_WRAPPER(file, file_entry_t)
+MAKE_TABLE_WRAPPER(pid, pid_entry_t);
+MAKE_TABLE_WRAPPER(file, file_entry_t);
 
 typedef struct {
   send_state_t send_state;
@@ -102,35 +101,23 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
   if (entry == NULL) {
     pid_entry_t new_entry = {0};
     int s = snprintf(new_entry.id_str, sizeof(entry->id_str), "%s", id_str);
-
     if (s < 0 || (size_t)s >= sizeof(entry->id_str)) {
-#ifdef DEBUG_QUERY_FD_TAB
-      PK_LOG_ANNO(LOG_ERR, "file descriptor query: failed to copy pid string");
-#endif
+      PK_LOG_ANNO(LOG_WARNING, "file descriptor query: failed to copy pid string");
       return false;
     }
-
     unsigned long pid = 0;
     if (!strtoul_all(10, id_str, &pid)) {
-#ifdef DEBUG_QUERY_FD_TAB
-      PK_LOG_ANNO(LOG_ERR,
+      PK_LOG_ANNO(LOG_WARNING,
                   "file descriptor query: failed to convert pid str to number: %s",
                   strerror(errno));
-#endif
       return false;
     }
-
     new_entry.pid = (u16)pid;
-
     entry = calloc(1, sizeof(pid_entry_t));
     *entry = new_entry;
-
     bool added = pid_table_put(state->pid_table, id_str, entry);
-
     if (!added) {
-#ifdef DEBUG_QUERY_FD_TAB
-      PK_LOG_ANNO(LOG_ERR, "failed add entry for pid '%s'", id_str);
-#endif
+      PK_LOG_ANNO(LOG_ERR | LOG_SBP, "failed add entry for pid '%s'", id_str);
       free(entry);
       return false;
     }
@@ -141,24 +128,15 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
     if (file_entry == NULL) {
       file_entry_t new_entry = {0};
       int s = snprintf(new_entry.file_str, sizeof(new_entry.file_str), "%s", file_str);
-
       if (s < 0 || (size_t)s >= sizeof(file_entry->file_str)) {
-#ifdef DEBUG_QUERY_FD_TAB
-        PK_LOG_ANNO(LOG_ERR, "file descriptor query: failed to copy file string");
-#endif
+        PK_LOG_ANNO(LOG_WARNING, "file descriptor query: failed to copy file string : %s", file_str);
         return false;
       }
-
-
       file_entry = calloc(1, sizeof(file_entry_t));
       *file_entry = new_entry;
-
       bool added = file_table_put(state->file_table, file_str, file_entry);
-
       if (!added) {
-#ifdef DEBUG_QUERY_FD_TAB
-        PK_LOG_ANNO(LOG_ERR, "file descriptor query:failed add entry for pid '%s'", file_str);
-#endif
+        PK_LOG_ANNO(LOG_WARNING, "file descriptor query: failed add entry for file string '%s'", file_str);
         free(file_entry);
         return false;
       }
@@ -213,10 +191,7 @@ static bool parse_fd_line(resq_state_t *state, const char *line)
 static void destroy_table_entry(table_t *table, void **entry)
 {
   (void)table;
-
-  pid_entry_t *pid_entry = *entry;
-  free(pid_entry);
-
+  free(*entry);
   *entry = NULL;
 }
 
@@ -230,27 +205,24 @@ static int compare_counts(const void *ptc1, const void *ptc2)
 static void run_resource_query(void *context)
 {
   resq_state_t *state = context;
-
   if (state->pid_table != NULL) {
     table_destroy(&state->pid_table);
   }
   if (state->file_table != NULL) {
     table_destroy(&state->file_table);
   }
+  char leftover_buffer[4096] = {0};
+  leftover_t NESTED_AXX(leftover) = {.buf = leftover_buffer};
   state->send_state = SEND_FD_COUNTS_0;
   state->pid_table = table_create(MAX_PROCESS_COUNT, destroy_table_entry);
   state->file_table = table_create(MAX_FILE_COUNT, destroy_table_entry);
   state->total_fd_count = 0;
   if (state->pid_table == NULL) {
-#ifdef DEBUG_QUERY_FD_TAB
     PK_LOG_ANNO(LOG_ERR, "file descriptor query: pid table creation failed");
-#endif
     return;
   }
   if (state->file_table == NULL) {
-#ifdef DEBUG_QUERY_FD_TAB
     PK_LOG_ANNO(LOG_ERR, "file descriptor query: file table creation failed");
-#endif
     return;
   }
   const char *argv[] = {"sudo", "/usr/bin/lsof", NULL};
@@ -264,8 +236,22 @@ static void run_resource_query(void *context)
 #endif
     return;
   }
-
   char *line_ctx = NULL;
+  line_fn_t line_func = NESTED_FN(bool, (const char *line), {
+	if (!parse_fd_line(state, line)) {
+		#ifdef DEBUG_QUERY_FD_TAB
+		      PK_LOG_ANNO(LOG_ERR, "file descriptor query: parse_fd_line failed ");
+		#endif
+		      return false;
+		}
+	return true;
+   });
+  ssize_t consumed = foreach_line(buf, &leftover, line_func);
+  if (consumed < 0) {
+    PK_LOG_ANNO(LOG_WARNING, "there was an error parsing the 'ss' output");
+    return;
+  }
+
 
   for (char *line = strtok_r(buf, "\n", &line_ctx); line != NULL;
        line = strtok_r(NULL, "\n", &line_ctx)) {
@@ -277,7 +263,6 @@ static void run_resource_query(void *context)
     }
   }
   size_t pid_count = table_count(state->pid_table);
-
   id_to_count_t *NESTED_AXX(pid_to_count) = alloca(pid_count * sizeof(id_to_count_t));
 
   table_foreach_key(state->pid_table,
@@ -285,21 +270,15 @@ static void run_resource_query(void *context)
                     NESTED_FN(bool,
                               (table_t * table, const char *key, size_t index, void *context1),
                               {
-
                                 (void)context1;
-
                                 pid_entry_t *entry = pid_table_get(table, key);
-
                                 pid_to_count[index].id = key;
                                 pid_to_count[index].count = entry->fd_count;
-
                                 return true;
                               }));
 
   qsort(pid_to_count, pid_count, sizeof(id_to_count_t), compare_counts);
-
   size_t file_count = table_count(state->file_table);
-
   id_to_count_t *NESTED_AXX(file_to_count) = alloca(file_count * sizeof(id_to_count_t));
 
   table_foreach_key(state->file_table,
@@ -307,20 +286,14 @@ static void run_resource_query(void *context)
                     NESTED_FN(bool,
                               (table_t * table, const char *key, size_t index, void *context1),
                               {
-
                                 (void)context1;
-
                                 file_entry_t *entry = file_table_get(table, key);
-
                                 file_to_count[index].id = key;
                                 file_to_count[index].count = entry->fd_count;
-
                                 return true;
                               }));
 
   qsort(file_to_count, file_count, sizeof(id_to_count_t), compare_counts);
-
-
   for (size_t i = 0; i < ITEM_COUNT && i < pid_count; i++) {
     state->top10_pid_counts[i] = pid_to_count[i].id;
 #ifdef DEBUG_QUERY_FD_TAB
@@ -338,9 +311,8 @@ static void run_resource_query(void *context)
 static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
 {
   resq_state_t *state = context;
-
   if (state->send_state == SEND_DONE) return false;
-
+  assert(0 == SEND_FD_COUNTS_0);
   size_t index = (size_t)state->send_state;
   switch (state->send_state) {
   case SEND_FD_COUNTS_0:
@@ -374,7 +346,6 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
     fd_summary->sys_fd_count = state->total_fd_count;
     int nBytes = 0;
     for (int i = 0; i < ITEM_COUNT; i++) {
-
       unsigned int buf_space =
         (unsigned int)(SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_summary_t)
                        - (unsigned int)nBytes);
@@ -398,14 +369,12 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
         break;
       }
     }
-    fd_summary->most_opened[nBytes] = '\0';
+    fd_summary->most_opened[nBytes] = '\0'; // set two NULL to indicate termination
     *len = (u8)(sizeof(msg_linux_process_fd_summary_t) + (unsigned)nBytes + 1);
     break;
   case SEND_DONE:
   default: {
-#ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_ERR, "file descriptor query: Invalid state value: %d", state->send_state);
-#endif
+    PK_LOG_ANNO(LOG_ERR, "file descriptor query: invalid state value: %d", state->send_state);
     return false;
   }
   }
@@ -416,34 +385,26 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
 static void *init_resource_query()
 {
   u16 pid_count = 0;
-
   resq_state_t *state = calloc(1, sizeof(resq_state_t));
   resq_read_property_t read_prop = {.id = QUERY_SYS_PROP_PID_COUNT, .type = RESQ_PROP_U16};
-
   if (!resq_read_property(QUERY_SYS_STATE_NAME, &read_prop)) {
-#ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_ERR,
+    PK_LOG_ANNO(LOG_WARNING,
                 "failed to read 'pid count' property from '%s' module",
                 QUERY_SYS_STATE_NAME);
-#endif
     goto error;
   }
-
   pid_count = read_prop.property.u16;
 #ifdef DEBUG_QUERY_FD_TAB
-  PK_LOG_ANNO(LOG_ERR,
+  PK_LOG_ANNO(LOG_DEBUG,
               "'%s' module reported %d processes on the system",
               QUERY_SYS_STATE_NAME,
               pid_count);
 #endif
-
   if (pid_count > MAX_PROCESS_COUNT) {
-#ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_ERR,
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP,
                 "detected more than %d processes on the system: %d",
                 MAX_PROCESS_COUNT,
                 pid_count);
-#endif
     goto error;
   }
 
@@ -463,13 +424,13 @@ static const char *describe_query(void)
 static void teardown_resource_query(void **context)
 {
   if (context == NULL || *context == NULL) return;
-
   resq_state_t *state = *context;
-
   if (state->pid_table != NULL) {
     table_destroy(&state->pid_table);
   }
-
+  if (state->file_table != NULL) {
+    table_destroy(&state->file_table);
+  }
   free(state);
   *context = NULL;
 }
