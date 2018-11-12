@@ -129,14 +129,18 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
       file_entry_t new_entry = {0};
       int s = snprintf(new_entry.file_str, sizeof(new_entry.file_str), "%s", file_str);
       if (s < 0 || (size_t)s >= sizeof(file_entry->file_str)) {
-        PK_LOG_ANNO(LOG_WARNING, "file descriptor query: failed to copy file string : %s", file_str);
+        PK_LOG_ANNO(LOG_WARNING,
+                    "file descriptor query: failed to copy file string : %s",
+                    file_str);
         return false;
       }
       file_entry = calloc(1, sizeof(file_entry_t));
       *file_entry = new_entry;
       bool added = file_table_put(state->file_table, file_str, file_entry);
       if (!added) {
-        PK_LOG_ANNO(LOG_WARNING, "file descriptor query: failed add entry for file string '%s'", file_str);
+        PK_LOG_ANNO(LOG_WARNING,
+                    "file descriptor query: failed add entry for file string '%s'",
+                    file_str);
         free(file_entry);
         return false;
       }
@@ -238,14 +242,14 @@ static void run_resource_query(void *context)
   }
   char *line_ctx = NULL;
   line_fn_t line_func = NESTED_FN(bool, (const char *line), {
-	if (!parse_fd_line(state, line)) {
-		#ifdef DEBUG_QUERY_FD_TAB
-		      PK_LOG_ANNO(LOG_ERR, "file descriptor query: parse_fd_line failed ");
-		#endif
-		      return false;
-		}
-	return true;
-   });
+    if (!parse_fd_line(state, line)) {
+#ifdef DEBUG_QUERY_FD_TAB
+      PK_LOG_ANNO(LOG_ERR, "file descriptor query: parse_fd_line failed ");
+#endif
+      return false;
+    }
+    return true;
+  });
   ssize_t consumed = foreach_line(buf, &leftover, line_func);
   if (consumed < 0) {
     PK_LOG_ANNO(LOG_WARNING, "there was an error parsing the 'ss' output");
