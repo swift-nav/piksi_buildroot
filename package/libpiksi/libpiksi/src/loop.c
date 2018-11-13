@@ -149,7 +149,7 @@ pk_loop_t *pk_loop_create(void)
     goto failure;
   }
 
-  *pk_loop = (pk_loop_t) {
+  *pk_loop = (pk_loop_t){
     .uv_loop = NULL,
     .timeout_timer = NULL,
     .uv_error_msg = "",
