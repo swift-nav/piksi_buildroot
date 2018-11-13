@@ -294,7 +294,10 @@ pipeline {
         always {
             // Common post-run function from ci-jenkins shared libs.
             // Used to e.g. notify slack.
-            commonPostPipeline()
+            script {
+                context.slackNotify()
+                context.postCommon()
+            }
         }
     }
 }
