@@ -59,13 +59,13 @@ typedef struct {
 typedef struct pk_metrics_value_s {
   pk_metrics_type_t type;
   union {
-    s32 s32;
-    s64 s64;
-    u32 u32;
-    u64 u64;
-    double f64;
-    pk_metrics_time_t time;
-  } d;
+    s32 as_s32;
+    s64 as_s64;
+    u32 as_u32;
+    u64 as_u64;
+    double as_f64;
+    pk_metrics_time_t as_time;
+  } data;
 } pk_metrics_value_t;
 
 typedef struct {
@@ -164,7 +164,7 @@ const char *pk_metrics_status_text(pk_metrics_status_t status);
 #define _DEF_METRICS_CONV_FUNC(TheType, TheParamType, TheEnumType)      \
   __attribute__((always_inline)) inline pk_metrics_value_t              \
   pk_metrics_ ## TheType (TheParamType v) { return (pk_metrics_value_t) \
-    { .type = TheEnumType, .d.TheType = v }; \
+    { .type = TheEnumType, .data.as_##TheType = v }; \
   }
 
 _DEF_METRICS_CONV_FUNC(u32,  u32, METRICS_TYPE_U32)
