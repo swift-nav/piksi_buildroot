@@ -2,7 +2,7 @@
 
 # Allow override of ccache dir from env var
 ifeq ($(CCACHE_DIR),)
-CCACHE_DIR := $(CURDIR)/.buildroot-ccache
+CCACHE_DIR := $(CURDIR)/buildroot/output/ccache
 endif
 
 ifneq ($(CCACHE_READONLY),)
