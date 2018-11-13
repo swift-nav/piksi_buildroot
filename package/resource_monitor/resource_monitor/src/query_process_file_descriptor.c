@@ -117,7 +117,7 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
     *entry = new_entry;
     bool added = pid_table_put(state->pid_table, id_str, entry);
     if (!added) {
-      PK_LOG_ANNO(LOG_ERR | LOG_SBP, "failed add entry for pid '%s'", id_str);
+      PK_LOG_ANNO(LOG_ERR | LOG_SBP, "failed to add entry for pid '%s'", id_str);
       free(entry);
       return false;
     }
@@ -130,7 +130,7 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
       int s = snprintf(new_entry.file_str, sizeof(new_entry.file_str), "%s", file_str);
       if (s < 0 || (size_t)s >= sizeof(file_entry->file_str)) {
         PK_LOG_ANNO(LOG_WARNING,
-                    "file descriptor query: failed to copy file string : %s",
+                    "file descriptor query: failed to copy file string '%s'",
                     file_str);
         return false;
       }
@@ -139,7 +139,7 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
       bool added = file_table_put(state->file_table, file_str, file_entry);
       if (!added) {
         PK_LOG_ANNO(LOG_WARNING,
-                    "file descriptor query: failed add entry for file string '%s'",
+                    "file descriptor query: failed to add entry for file string '%s'",
                     file_str);
         free(file_entry);
         return false;
