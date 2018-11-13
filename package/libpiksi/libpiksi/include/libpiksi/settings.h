@@ -116,6 +116,8 @@ int setting_parse_setting_text(const u8 *msg,
  * @brief   Create a settings context.
  * @details Create and initialize a settings context.
  *
+ * @param[in] ident         The identity the settings endpoint, typically used for metrics.
+ *
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
@@ -266,6 +268,8 @@ typedef bool (*handle_command_fn)();
  *          entry point for a daemon that handles settings and has a simple
  *          (one command) control socket.
  *
+ * @param[in] metrics_ident        The identity the settings endpoint,
+ *                                 typically used for metrics.
  * @param[in] control_socket       The control socket URL (in ZMQ format),
  *                                 such as ipc://path/socket.unix
  * @param[in] control_socket_file  The path of the control socket on the file
@@ -293,6 +297,19 @@ bool settings_loop(const char *metrics_ident,
                    settings_term_fn do_handle_term,
                    settings_child_fn do_handle_child);
 
+/**
+ * @brief   Start a settings loop (with no control socket).
+ * @details Starts a settings loop without a control socket (see @c settings_loop),
+ *          this is the main entry point for a daemon that just handles settings.
+ *
+ * @param[in] metrics_ident        The identity the settings endpoint,
+ *                                 typically used for metrics.
+ *
+ * @return                  Settings loop exit status
+ *
+ * @retval 0                Successful exit
+ * @retval -1               An error occurred
+ */
 bool settings_loop_simple(const char *metrics_ident, register_settings_fn do_register_settings);
 
 /**
@@ -300,6 +317,8 @@ bool settings_loop_simple(const char *metrics_ident, register_settings_fn do_reg
  * @details Sends a control command to a daemon running with
  *          a control socket setup by @c settings_loop
  *
+ * @param[in] metrics_ident        The identity the settings endpoint,
+ *                                 typically used for metrics.
  * @param[in] target_description   Description of the target for logging
  * @param[in] command              The command to send
  * @param[in] command_description  Description of the command for logging

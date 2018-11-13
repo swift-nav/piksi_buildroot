@@ -43,6 +43,7 @@
 #define ENDPOINT_RESTART_RETRY_DELAY_ms 1
 #define FRAMER_NONE_NAME "none"
 #define FILTER_NONE_NAME "none"
+#define METRIC_NAME_LEN 128
 
 #define PROGRAM_NAME "endpoint_adapter"
 
@@ -428,7 +429,7 @@ static int handle_init(handle_t *handle,
 
 static pk_endpoint_t *pk_endpoint_start(int type)
 {
-  char metric_name[128] = {0};
+  char metric_name[METRIC_NAME_LEN] = {0};
   const char *addr = NULL;
 
   switch (type) {
