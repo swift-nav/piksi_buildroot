@@ -13,8 +13,9 @@
 #include <assert.h>
 #include <getopt.h>
 
-#include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
+#include <libpiksi/sbp_pubsub.h>
 
 #include "sbp_fileio.h"
 #include "fio_debug.h"
@@ -22,6 +23,8 @@
 #define PROGRAM_NAME "sbp_fileio_daemon"
 
 bool fio_debug = false;
+
+static const char *fileio_name = NULL;
 
 static const char *pub_endpoint = NULL;
 static const char *sub_endpoint = NULL;
@@ -36,6 +39,7 @@ static void usage(char *command)
   printf("Usage: %s\n", command);
 
   puts("-h, --help            Print this message");
+  puts("-n, --name    <name>  The name of this fileio daemon");
   puts("-p, --pub     <addr>  The address on which we should write the results of");
   puts("                      MSG_FILEIO_* messages");
   puts("-s, --sub     <addr>  The address on which we should listen for MSG_FILEIO_*");
@@ -55,6 +59,7 @@ static int parse_options(int argc, char *argv[])
 
   // clang-format off
   const struct option long_opts[] = {
+    {"name",     required_argument, 0, 'n'},
     {"pub",      required_argument, 0, 'p'},
     {"sub",      required_argument, 0, 's'},
     {"basedir",  required_argument, 0, 'b'},
@@ -70,6 +75,10 @@ static int parse_options(int argc, char *argv[])
   int opt_index;
   while ((c = getopt_long(argc, argv, "p:s:b:midh", long_opts, &opt_index)) != -1) {
     switch (c) {
+
+    case 'n': {
+      fileio_name = optarg;
+    } break;
 
     case 'p': {
       pub_endpoint = optarg;
@@ -126,6 +135,7 @@ int main(int argc, char *argv[])
 {
   pk_loop_t *loop = NULL;
   sbp_pubsub_ctx_t *ctx = NULL;
+  char identity[128] = {0};
 
   int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
@@ -143,7 +153,9 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  ctx = sbp_pubsub_create(PROGRAM_NAME, pub_endpoint, sub_endpoint);
+  snprintf_assert(identity, sizeof(identity), "%s/%s", PROGRAM_NAME, fileio_name);
+
+  ctx = sbp_pubsub_create(identity, pub_endpoint, sub_endpoint);
   if (ctx == NULL) {
     goto cleanup;
   }

@@ -68,7 +68,7 @@ sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
     .endpoint = endpoint,
     .identity = get_socket_ident(ident),
     .type = PK_ENDPOINT_SUB,
-    .retry_start = false,
+    .retry_connect = false,
   };
 
   ctx->pk_ept = pk_endpoint_create(cfg);

@@ -73,7 +73,7 @@ typedef struct {
   /**
    * If the endpoint should try to reconnect when starting.
    */
-  bool retry_start;
+  bool retry_connect;
 } pk_endpoint_config_t;
 
 typedef struct pk_endpoint_config_builder_s pk_endpoint_config_builder_t;
@@ -101,10 +101,10 @@ struct pk_endpoint_config_builder_s {
   pk_endpoint_config_builder_t (*type)(pk_endpoint_type type);
 
   /**
-   * Set the 'retry_start' parameter in the config, tells the endpoint to retry connecting during
+   * Set the 'retry_connect' parameter in the config, tells the endpoint to retry connecting during
    * create.
    */
-  pk_endpoint_config_builder_t (*retry_start)(bool retry_start);
+  pk_endpoint_config_builder_t (*retry_connect)(bool retry_connect);
 
   /**
    * Returns a filled @c pk_endpoint_config_t object.

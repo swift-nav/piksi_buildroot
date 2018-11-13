@@ -134,7 +134,7 @@ static int bind_un_socket(int fd, const char *path);
 
 static int start_un_listen(const char *path, int fd);
 
-static int connect_un_socket(int fd, const char *path, bool retry_start);
+static int connect_un_socket(int fd, const char *path, bool retry_connect);
 
 static bool valid_socket_type_for_read(pk_endpoint_t *pk_ept);
 
@@ -182,7 +182,7 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept,
 static pk_endpoint_t *create_impl(const char *endpoint,
                                   const char *identity,
                                   pk_endpoint_type type,
-                                  bool retry_start);
+                                  bool retry_connect);
 
 static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, void *context);
 
@@ -210,9 +210,9 @@ static pk_endpoint_config_builder_t cfg_builder_type(pk_endpoint_type type)
   return config_builder;
 }
 
-static pk_endpoint_config_builder_t cfg_builder_retry_start(bool retry_start)
+static pk_endpoint_config_builder_t cfg_builder_retry_connect(bool retry_connect)
 {
-  config_builder._config.retry_start = retry_start;
+  config_builder._config.retry_connect = retry_connect;
   return config_builder;
 }
 
@@ -226,14 +226,14 @@ static __attribute__((constructor)) void setup_config_builder()
   config_builder.endpoint = cfg_builder_endpoint;
   config_builder.identity = cfg_builder_identity;
   config_builder.type = cfg_builder_type;
-  config_builder.retry_start = cfg_builder_retry_start;
+  config_builder.retry_connect = cfg_builder_retry_connect;
   config_builder.get = cfg_builder_get;
 }
 
 pk_endpoint_config_builder_t pk_endpoint_config()
 {
   config_builder._config =
-    (pk_endpoint_config_t){.endpoint = NULL, .identity = NULL, .type = -1, .retry_start = false};
+    (pk_endpoint_config_t){.endpoint = NULL, .identity = NULL, .type = -1, .retry_connect = false};
 
   return config_builder;
 }
@@ -244,7 +244,7 @@ pk_endpoint_config_builder_t pk_endpoint_config()
 
 pk_endpoint_t *pk_endpoint_create(pk_endpoint_config_t cfg)
 {
-  return create_impl(cfg.endpoint, cfg.identity, cfg.type, cfg.retry_start);
+  return create_impl(cfg.endpoint, cfg.identity, cfg.type, cfg.retry_connect);
 }
 
 /**********************************************************************/
@@ -532,7 +532,7 @@ static int start_un_listen(const char *path, int fd)
   return 0;
 }
 
-static int connect_un_socket(int fd, const char *path, bool retry_start)
+static int connect_un_socket(int fd, const char *path, bool retry_connect)
 {
   struct sockaddr_un addr = {.sun_family = AF_UNIX};
   strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
@@ -552,7 +552,7 @@ static int connect_un_socket(int fd, const char *path, bool retry_start)
     rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     connect_errno = errno;
 
-    if (rc == 0 || !retry_start) break;
+    if (rc == 0 || !retry_connect) break;
   }
 
   errno = connect_errno;
@@ -990,7 +990,7 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
 static pk_endpoint_t *create_impl(const char *endpoint,
                                   const char *identity,
                                   pk_endpoint_type type,
-                                  bool retry_start)
+                                  bool retry_connect)
 {
   ASSERT_TRACE(endpoint != NULL);
 
@@ -1062,7 +1062,7 @@ static pk_endpoint_t *create_impl(const char *endpoint,
   }
 
   int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
-                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len, retry_start);
+                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len, retry_connect);
 
   pk_ept->started = rc == 0;
 

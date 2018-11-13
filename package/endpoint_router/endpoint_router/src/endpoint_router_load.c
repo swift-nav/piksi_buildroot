@@ -265,8 +265,6 @@ NESTED_FN_TYPEDEF(int, consume_str_fn_t, port_t *p, char *);
 
 static int event_port_string(yaml_parser_t *parser, void *context, consume_str_fn_t consume_str_fn)
 {
-  int rc = 0;
-
   router_t *router = (router_t *)context;
   port_t *port = NULL;
 
@@ -276,10 +274,7 @@ static int event_port_string(yaml_parser_t *parser, void *context, consume_str_f
   port = current_port_get(router);
   if (port == NULL) goto error;
 
-  rc = consume_str_fn(port, str);
-  if (rc != 0) return rc;
-
-  return 0;
+  return consume_str_fn(port, str);
 
 error:
   if (str != NULL) free(str);

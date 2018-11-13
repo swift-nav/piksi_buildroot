@@ -451,7 +451,7 @@ static pk_endpoint_t *pk_endpoint_start(int type)
                                                .endpoint(addr)
                                                .identity(metric_name)
                                                .type(type)
-                                               .retry_start(retry_pubsub)
+                                               .retry_connect(retry_pubsub)
                                                .get());
   if (pk_ept == NULL) {
     debug_printf("pk_endpoint_create returned NULL\n");
