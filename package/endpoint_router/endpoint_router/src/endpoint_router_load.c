@@ -367,7 +367,6 @@ static bool is_valid_metric_name(const char *s)
   if (s == NULL) return false;
 
   size_t s_size = strlen(s);
-  if (s_size == 0) return false;
 
   for (size_t x = 0; x < s_size; x++) {
     if (!isspace(s[x])) return true;
