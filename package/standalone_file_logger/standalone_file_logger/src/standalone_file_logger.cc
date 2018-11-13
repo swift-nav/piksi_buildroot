@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
   }
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = settings_create("standalone_file_logger/settings");
+  settings_ctx_t *settings_ctx = settings_create("settings/standalone_file_logger");
   if (settings_ctx == nullptr) {
     exit(EXIT_FAILURE);
   }
