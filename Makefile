@@ -269,6 +269,9 @@ docker-cp:
 	docker cp $(DOCKER_TAG)-copy:$(SRC) $(DST) || :
 	docker stop $(DOCKER_TAG)-copy
 
+docker-jenkins:
+	docker-compose --file scripts/docker-compose.yml --project-directory ${PWD} run pbr
+
 help:
 	@[[ -x $(shell which less) ]] && \
 		less $(CURDIR)/scripts/make_help.txt || \

@@ -12,5 +12,3 @@ services:
     volumes:
       - ${PWD}:/mnt/workspace:delegated
       - ${HOME}/.ssh/id_rsa:/home/jenkins/.ssh/id_rsa
-      - ${HOME}/.ccache:/home/jenkins/.ccache:delegated
-      - ${HOME}/.aws:/home/jenkins/.aws
