@@ -42,6 +42,8 @@
 
 #define STR_BUFFER_SIZE 64
 #define DATE_STR_BUFFER_SIZE 128
+#define DEFAULT_HW_VERSION "0.0"
+
 static double network_polling_frequency = 0.1;
 static double network_polling_retry_frequency = 1;
 static bool log_ping_activity = false;
@@ -349,20 +351,32 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
 static void hardware_info_settings_setup(settings_ctx_t *settings_ctx)
 {
   static char info_string[STR_BUFFER_SIZE] = {0};
+  size_t info_string_size = sizeof(info_string);
 
-  if (hw_version_string_get(info_string, sizeof(info_string)) != 0) {
-    piksi_log(LOG_WARNING, "Failed to get hw_version for system_info registration");
-  } else if (settings_register_readonly(settings_ctx,
-                                        "system_info",
-                                        "hw_version",
-                                        info_string,
-                                        strlen(info_string) + 1,
-                                        SETTINGS_TYPE_STRING)
-             != 0) {
+  if (hw_version_string_get(info_string, info_string_size) != 0) {
+    const char *default_str = DEFAULT_HW_VERSION;
+    piksi_log(LOG_WARNING,
+              "Failed to get hw_version for system_info registration, setting to default: %s",
+              default_str);
+    if (strlen(default_str) < info_string_size) {
+      strncpy(info_string, default_str, info_string_size);
+    } else {
+      piksi_log(LOG_ERR,
+                "Default version string too large for buffer (size of intended string: %d)",
+                strlen(default_str));
+    }
+  }
+  if (settings_register_readonly(settings_ctx,
+                                 "system_info",
+                                 "hw_version",
+                                 info_string,
+                                 strlen(info_string) + 1,
+                                 SETTINGS_TYPE_STRING)
+      != 0) {
     piksi_log(LOG_WARNING, "Failed to register hw_version in system_info");
   }
 
-  if (hw_revision_string_get(info_string, sizeof(info_string)) != 0) {
+  if (hw_revision_string_get(info_string, info_string_size) != 0) {
     piksi_log(LOG_WARNING, "Failed to get hw_revision for system_info registration");
   } else if (settings_register_readonly(settings_ctx,
                                         "system_info",
@@ -374,7 +388,7 @@ static void hardware_info_settings_setup(settings_ctx_t *settings_ctx)
     piksi_log(LOG_WARNING, "Failed to register hw_revision in system_info");
   }
 
-  if (hw_variant_string_get(info_string, sizeof(info_string)) != 0) {
+  if (hw_variant_string_get(info_string, info_string_size) != 0) {
     piksi_log(LOG_WARNING, "Failed to get hw_variant for system_info registration");
   } else if (settings_register_readonly(settings_ctx,
                                         "system_info",
@@ -386,7 +400,7 @@ static void hardware_info_settings_setup(settings_ctx_t *settings_ctx)
     piksi_log(LOG_WARNING, "Failed to register hw_variant in system_info");
   }
 
-  if (product_id_string_get(info_string, sizeof(info_string)) != 0) {
+  if (product_id_string_get(info_string, info_string_size) != 0) {
     piksi_log(LOG_WARNING, "Failed to get product_id for system_info registration");
   } else if (settings_register_readonly(settings_ctx,
                                         "system_info",
