@@ -118,6 +118,11 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
+  if (fileio_name == NULL) {
+    fprintf(stderr, "A --name parameter must be specified\n");
+    return -1;
+  }
+
   if ((pub_endpoint == NULL) || (sub_endpoint == NULL)) {
     fprintf(stderr, "Endpoints not specified\n");
     return -1;
