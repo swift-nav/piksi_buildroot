@@ -3,7 +3,7 @@
 // Use 'ci-jenkins@somebranch' to pull shared lib from a different branch than the default.
 // Default is configured in Jenkins and should be from "stable" tag.
 // TODO: Remove the branch name here once lib support is merged and tagged
-@Library("ci-jenkins@master") import com.swiftnav.ci.*
+@Library("ci-jenkins@klaus/post-build") import com.swiftnav.ci.*
 
 String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
