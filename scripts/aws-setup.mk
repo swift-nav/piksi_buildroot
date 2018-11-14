@@ -1,6 +1,6 @@
 # File: aws-setup.mk
 
-BUILD_VARIANT = $(call qstrip,$(subst _defconfig,,$(notdir $(BR2_DEFCONFIG))))
+BUILD_VARIANT = $(call qstrip,$(subst piksi_nano,nano,$(subst _defconfig,,$(notdir $(BR2_DEFCONFIG))))
 PBR_S3_BUCKET = swiftnav-artifacts
 
 ### Macro pbr_s3_url

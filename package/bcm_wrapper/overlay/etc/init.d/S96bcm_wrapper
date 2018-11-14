@@ -1,0 +1,10 @@
+#!/bin/sh
+
+name="bcm_wrapper"
+cmd="bcm_wrapper"
+dir="/"
+user="bcmd"
+
+export name cmd dir user
+
+. /etc/init.d/template_runsv.inc.sh
