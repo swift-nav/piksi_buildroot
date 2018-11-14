@@ -18,7 +18,7 @@ define BCM_WRAPPER_PRE_DOWNLOAD_FIXUP
 endef
 
 define BCM_WRAPPER_USERS
-	strlngd -1 strlngd -1 * - - -
+	bcmd -1 bcmd -1 * - - -
 endef
 
 BCM_WRAPPER_PRE_DOWNLOAD_HOOKS += BCM_WRAPPER_PRE_DOWNLOAD_FIXUP

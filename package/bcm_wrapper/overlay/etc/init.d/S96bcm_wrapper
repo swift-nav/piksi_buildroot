@@ -1,7 +1,7 @@
 #!/bin/sh
 
 name="bcm_wrapper"
-cmd="bcm_wrapper"
+cmd="bcm_wrapper -g /dev/gc/a/nstandby /dev/ttymxc4"
 dir="/"
 user="bcmd"
 
