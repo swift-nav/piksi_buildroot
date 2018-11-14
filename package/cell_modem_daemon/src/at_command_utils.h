@@ -74,8 +74,7 @@ void at_serial_port_command_destroy(at_serial_port_command_t **at_command_loc);
  * @param at_command: at command context to apply
  * @return 0 if nominal, -1 if a failure occured
  */
-int at_serial_port_execute_command(at_serial_port_t *port,
-                                   at_serial_port_command_t *at_command);
+int at_serial_port_execute_command(at_serial_port_t *port, at_serial_port_command_t *at_command);
 
 /**
  * @brief at_serial_port_command_result - retrieve the full command response

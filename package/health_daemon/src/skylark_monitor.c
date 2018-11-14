@@ -16,6 +16,7 @@
 #include <libnetwork.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/navigation.h>
@@ -35,26 +36,8 @@
 #define DEBUG_LOG(...)
 #endif
 
-static health_monitor_t* skylark_monitor;
+static health_monitor_t *skylark_monitor;
 static bool no_fix = true;
-
-static bool skylark_enabled() {
-
-  FILE* fp = fopen(SKYLARK_ENABLED_FILE_PATH, "r");
-  if (fp == NULL) {
-    piksi_log(LOG_ERR, "error opening %s", SKYLARK_ENABLED_FILE_PATH);
-    return false;
-  }
-
-  char buf[1] = {0};
-
-  (void) fread(buf, sizeof(buf), 1, fp);
-
-  if (buf[0] != '1')
-    return false;
-
-  return true;
-}
 
 static int sbp_msg_pos_llh_callback(health_monitor_t *monitor,
                                     u16 sender_id,
@@ -67,7 +50,7 @@ static int sbp_msg_pos_llh_callback(health_monitor_t *monitor,
   (void)len;
   (void)ctx;
 
-  msg_pos_llh_t *pos = (msg_pos_llh_t*)msg_;
+  msg_pos_llh_t *pos = (msg_pos_llh_t *)msg_;
   if (pos->flags != NO_FIX) {
     no_fix = false;
     return 0;
@@ -86,7 +69,7 @@ static int skylark_timer_callback(health_monitor_t *monitor, void *context)
     return 0;
   }
 
-  if (!skylark_enabled()) {
+  if (!file_read_value(SKYLARK_ENABLED_FILE_PATH)) {
     DEBUG_LOG("%s: skylark is not enabled", __FUNCTION__);
     return 0;
   }
@@ -94,17 +77,17 @@ static int skylark_timer_callback(health_monitor_t *monitor, void *context)
   int status = 0;
   network_status_t req_status = libnetwork_request_health(SKYLARK_CONTROL_PAIR, &status);
 
-  if(NETWORK_STATUS_SUCCESS != req_status) {
+  if (NETWORK_STATUS_SUCCESS != req_status) {
     piksi_log(LOG_WARNING, "%s: error requesting skylark health status: %d", __FUNCTION__, status);
     return 0;
   }
 
   DEBUG_LOG("%s: skylark health status code: %d", __FUNCTION__, status);
 
-  if (status != 404 && status != 504)
-    return 0;
+  if (status != 404 && status != 504) return 0;
 
-  sbp_log(LOG_WARNING, "Skylark Correction Service - the service cannot function without position fix");
+  sbp_log(LOG_WARNING,
+          "Skylark Correction Service - the service cannot function without position fix");
 
   return 0;
 }

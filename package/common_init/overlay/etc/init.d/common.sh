@@ -16,15 +16,62 @@ is_running()
   [ -f "$pid_file" ] && [ -d "/proc/$(get_pid $pid_file)" ] > /dev/null 2>&1
 }
 
+_validate_not_empty()
+{
+  [[ -n "$(eval echo \${$1:-})" ]] || {
+    echo "Error: the '$1' variable must not be empty" >&2
+    return 1
+  }
+}
+
 configure_dir_resource()
 {
   local user=$1; shift
   local path=$1; shift
   local perm=$1; shift
 
-  mkdir -p $path
-  chown $user:$user $path
-  chmod $perm $path
+  _validate_not_empty user || return 1
+  _validate_not_empty path || return 1
+  _validate_not_empty perm || return 1
+
+  configure_dir_resource2 $user $user $path $perm
+}
+
+configure_dir_resource2()
+{
+  local user=$1 ; shift
+  local group=$1; shift
+  local path=$1 ; shift
+  local perm=$1 ; shift
+
+  _validate_not_empty user  || return 1
+  _validate_not_empty group || return 1
+  _validate_not_empty path  || return 1
+  _validate_not_empty perm  || return 1
+
+  mkdir -p "$path"
+  chown "$user:$group" "$path"
+  chmod "$perm" "$path"
+}
+
+configure_dir_resource_rec()
+{
+  local user=$1; shift
+  local path=$1; shift
+  local dir_perm=$1; shift
+  local file_perm=$1; shift
+
+  _validate_not_empty user      || return 1
+  _validate_not_empty path      || return 1
+  _validate_not_empty dir_perm  || return 1
+  _validate_not_empty file_perm || return 1
+
+  configure_dir_resource2 "$user" "$user" "$path" "$dir_perm"
+
+  find "$path" -type d -exec chmod "$dir_perm" {} \;
+  find "$path" -type f -exec chmod "$file_perm" {} \;
+
+  find "$path" -exec chown "$user:$user" {} \;
 }
 
 configure_file_resource()
@@ -33,9 +80,49 @@ configure_file_resource()
   local path=$1; shift
   local perm=$1; shift
 
-  touch $path
-  chown $user:$user $path
-  chmod $perm $path
+  _validate_not_empty user || return 1
+  _validate_not_empty path || return 1
+  _validate_not_empty perm || return 1
+
+  configure_file_resource2 "$user" "$user" "$path" "$perm"
+}
+
+configure_file_resource2()
+{
+  local user=$1 ; shift
+  local group=$1; shift
+  local path=$1 ; shift
+  local perm=$1 ; shift
+
+  _validate_not_empty user  || return 1
+  _validate_not_empty group || return 1
+  _validate_not_empty path  || return 1
+  _validate_not_empty perm  || return 1
+
+  touch "$path"
+  chown "$user:$group" "$path"
+  chmod "$perm" "$path"
+}
+
+configure_logrotate_file()
+{
+  local conf_tag=$1 ; shift # must be unique!
+  local rotate_file=$1 ; shift
+
+  _validate_not_empty conf_tag     || return 1
+  _validate_not_empty rotate_file  || return 1
+
+  path="/etc/logrotate.d/$conf_tag"
+  [[ ! -e "$path" ]] || return 1
+
+  touch "$path"
+  echo "$rotate_file {"     >  "$path"
+  echo "      su root root" >> "$path"
+  echo "      size 5k"      >> "$path"
+  echo "      copytruncate" >> "$path"
+  echo "      rotate 5"     >> "$path"
+  echo "      missingok"    >> "$path"
+  echo "}" >> "$path"
 }
 
 _setup_permissions()
@@ -47,15 +134,28 @@ _setup_permissions()
 
 has_user()
 {
-  id -u $1 &>/dev/null;
+  id -u $1 &>/dev/null
+}
+
+has_group()
+{
+  grep -q $1 /etc/group
 }
 
 add_service_user()
 {
   local user=$1; shift
 
-  has_user $user || addgroup -S $user
-  has_user $user || adduser -S -D -H -G $user $user
+  add_service_user2 $user $user
+}
+
+add_service_user2()
+{
+  local user=$1; shift
+  local group=$1; shift
+
+  has_group $user || addgroup -S $group
+  has_user $user || adduser -S -D -H -G $group $user
 }
 
 _release_lockdown=/etc/release_lockdown

@@ -48,6 +48,8 @@ enum port {
   PORT_UDP_SERVER1,
   PORT_UDP_CLIENT0,
   PORT_UDP_CLIENT1,
+  PORT_CAN0,
+  PORT_CAN1,
   PORT_MAX
 };
 
@@ -56,6 +58,7 @@ typedef struct {
   char wl[256];
 } port_whitelist_config_t;
 
+// clang-format off
 static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   [PORT_UART0] = {
     .name = "uart0",
@@ -74,7 +77,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
   },
   [PORT_UART1] = {
     .name = "uart1",
-    .wl = "23,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+    .wl = "23,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2305,2306,30583,65280,65282,65535"
     /*  This filter represents the messages in use by the console.
         It removes all ECEF nav messages as well as parts of nav msg.
         MsgThreadState                23
@@ -426,17 +429,25 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgStartup                 65280
         MsgDgnssStatus             65282
         MsgHeartbeat               65535 */
-  }
+  },
+  [PORT_CAN0] = {
+    .name = "can0",
+    .wl = "23,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+  },
+  [PORT_CAN1] = {
+    .name = "can1",
+    .wl = "23,65,72,74,81,97,117,134,136,137,138,139,144,149,163,165,166,167,171,175,181,185,187,188,189,190,257,258,259,520,522,524,526,527,528,1025,2304,2305,2306,30583,65280,65282,65535"
+  },
 };
+// clang-format on
 
 int whitelist_notify(void *context)
 {
-  port_whitelist_config_t *port_whitelist_config_ =
-      (port_whitelist_config_t *)context;
+  port_whitelist_config_t *port_whitelist_config_ = (port_whitelist_config_t *)context;
 
   char *c = port_whitelist_config_->wl;
   unsigned tmp;
-  enum {PARSE_ID, PARSE_AFTER_ID, PARSE_DIV, PARSE_AFTER_DIV} state = PARSE_ID;
+  enum { PARSE_ID, PARSE_AFTER_ID, PARSE_DIV, PARSE_AFTER_DIV } state = PARSE_ID;
   struct {
     unsigned id;
     unsigned div;
@@ -458,12 +469,11 @@ int whitelist_notify(void *context)
         break;
       case PARSE_DIV:
         state = PARSE_AFTER_DIV;
-        whitelist[entries-1].div = tmp;
+        whitelist[entries - 1].div = tmp;
         break;
       case PARSE_AFTER_DIV:
       case PARSE_AFTER_ID:
-      default:
-        return -1;
+      default: return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
       }
       break;
 
@@ -473,7 +483,7 @@ int whitelist_notify(void *context)
         state = PARSE_DIV;
         c++;
       } else {
-        return -1;
+        return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
       }
       break;
 
@@ -483,18 +493,21 @@ int whitelist_notify(void *context)
         state = PARSE_ID;
         c++;
       } else {
-        return -1;
+        return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
       }
       break;
 
     /* Ignore whitespace */
-    case ' ': case '\t': case '\n': case '\r': case '\v':
+    case ' ':
+    case '\t':
+    case '\n':
+    case '\r':
+    case '\v':
       c++;
       break;
 
     /* Invalid token, parse error */
-    default:
-      return -1;
+    default: return SBP_SETTINGS_WRITE_STATUS_PARSE_FAILED;
     }
   }
 
@@ -504,22 +517,27 @@ int whitelist_notify(void *context)
   FILE *cfg = fopen(fn, "w");
   if (cfg == NULL) {
     piksi_log(LOG_ERR, "Error opening file: %s (error: %s)", fn, strerror(errno));
-    return -1;
+    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
   }
   for (int i = 0; i < entries; i++) {
     fprintf(cfg, "%x %x\n", whitelist[i].id, whitelist[i].div);
   }
   fclose(cfg);
 
-  return 0;
+  return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
 int whitelists_init(settings_ctx_t *settings_ctx)
 {
   for (int i = 0; i < PORT_MAX; i++) {
-    int rc = settings_register(settings_ctx, port_whitelist_config[i].name, "enabled_sbp_messages",
-                               port_whitelist_config[i].wl, sizeof(port_whitelist_config[i].wl),
-                               SETTINGS_TYPE_STRING, whitelist_notify, &port_whitelist_config[i]);
+    int rc = settings_register(settings_ctx,
+                               port_whitelist_config[i].name,
+                               "enabled_sbp_messages",
+                               port_whitelist_config[i].wl,
+                               sizeof(port_whitelist_config[i].wl),
+                               SETTINGS_TYPE_STRING,
+                               whitelist_notify,
+                               &port_whitelist_config[i]);
     if (rc != 0) {
       return rc;
     }

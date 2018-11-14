@@ -1,0 +1,2 @@
+config BR2_PACKAGE_BUILD_TOOLS
+  bool "build_tools"

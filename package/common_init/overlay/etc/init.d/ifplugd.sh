@@ -28,7 +28,6 @@ run_ifplugd()
   local opts=
 
   opts="$opts -I "             # Don't exit on nonzero exit code from script
-  opts="$opts -a "             # Don't up interface at each link probe
   opts="$opts -q "             # Don't run "down" script on exit
   opts="$opts -p "             # Don't run "up" script on start-up
   opts="$opts -n "             # Don't daemonize
@@ -36,6 +35,8 @@ run_ifplugd()
   opts="$opts -t $poll_delay " # How often to poll the device
   opts="$opts -u $up_delay "   # How long to wait before running "up" script
   opts="$opts -d $down_delay " # How long to wait before running "down" script
+  opts="$opts -M "             # Monitor creation/destruction of interface
+                               # (otherwise it must exist)
 
   sudo ifplugd $opts
 }

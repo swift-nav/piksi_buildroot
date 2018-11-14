@@ -28,11 +28,15 @@
 #define SKYLARK_REP_FIFO_NAME "/var/run/skylark/control/dl.resp"
 
 typedef struct {
-  const char* req_fifo_name;
-  const char* rep_fifo_name;
+  const char *req_fifo_name;
+  const char *rep_fifo_name;
 } control_pair_t;
 
-#define SKYLARK_CONTROL_PAIR (control_pair_t){ SKYLARK_REQ_FIFO_NAME, SKYLARK_REP_FIFO_NAME }
+#define SKYLARK_CONTROL_PAIR                     \
+  (control_pair_t)                               \
+  {                                              \
+    SKYLARK_REQ_FIFO_NAME, SKYLARK_REP_FIFO_NAME \
+  }
 
 #define CONTROL_COMMAND_STATUS "s"
 
@@ -46,8 +50,11 @@ typedef enum {
   NETWORK_TYPE_NTRIP_DOWNLOAD,   /**< Context for an ntrip download session  */
   NETWORK_TYPE_SKYLARK_UPLOAD,   /**< Context for a skylark upload session   */
   NETWORK_TYPE_SKYLARK_DOWNLOAD, /**< Context for a skylark download session */
+  NETWORK_TYPE_OTA,              /**< Context for a ota session */
+  NETWORK_TYPE_ALL
 } network_type_t;
 
+// clang-format off
 /**
  * @brief   Error type
  */
@@ -61,6 +68,9 @@ typedef enum {
   NETWORK_STATUS_READ_ERROR         = -7, /** < There was an error reading from a FIFO */
   NETWORK_STATUS_SUCCESS            =  0,  /** < The operation was successful          */
 } network_status_t;
+// clang-format on
+
+const char *libnetwork_status_text(network_status_t status);
 
 /**
  * @brief Create a context for a libnetwork session
@@ -69,7 +79,7 @@ typedef enum {
  *
  * @return                  The network_context_t that was created, NULL on error.
  */
-network_context_t* libnetwork_create(network_type_t type);
+network_context_t *libnetwork_create(network_type_t type);
 
 /**
  * @brief   Destroy a libnetwork context.
@@ -86,44 +96,45 @@ void libnetwork_destroy(network_context_t **ctx);
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_fd(network_context_t* context, int fd);
+network_status_t libnetwork_set_fd(network_context_t *context, int fd);
 
 /**
  * @brief Set the username for this context
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_username(network_context_t* context, const char* username);
+network_status_t libnetwork_set_username(network_context_t *context, const char *username);
 
 /**
  * @brief Set the password for this context
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_password(network_context_t* context, const char* password);
+network_status_t libnetwork_set_password(network_context_t *context, const char *password);
 
 /**
  * @brief Set the url for this context
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_url(network_context_t* context, const char* url);
+network_status_t libnetwork_set_url(network_context_t *context, const char *url);
 
 /**
  * @brief Set the debug flag for this context
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_debug(network_context_t* context, bool debug);
+network_status_t libnetwork_set_debug(network_context_t *context, bool debug);
 
 /**
- * @brief Set the NTRIP GGA upload frequency for this context, this is only valid for session created with type LIBNETWORK_NTRIP_DOWNLOAD
+ * @brief Set the NTRIP GGA upload frequency for this context, this is only valid for session
+ * created with type LIBNETWORK_NTRIP_DOWNLOAD
  *
  * @param[in] gga_interval   The GGA upload interval in seconds.
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_gga_upload_interval(network_context_t* context, int gga_interval);
+network_status_t libnetwork_set_gga_upload_interval(network_context_t *context, int gga_interval);
 
 /**
  * @brief Set the NTRIP GGA upload style to NTRIP 1.0
@@ -132,7 +143,27 @@ network_status_t libnetwork_set_gga_upload_interval(network_context_t* context, 
  *
  * @return                   The operation result.  See @ref network_status_t.
  */
-network_status_t libnetwork_set_gga_upload_rev1(network_context_t* context, bool use_rev1);
+network_status_t libnetwork_set_gga_upload_rev1(network_context_t *context, bool use_rev1);
+
+/**
+ * @brief Set continuous or oneshot read and write
+ *
+ * @param[in] continuous     If true, write/read continues indefinitely
+ *
+ * @return                   The operation result.  See @ref network_status_t.
+ */
+network_status_t libnetwork_set_continuous(network_context_t *context, bool continuous);
+
+/**
+ * @brief Set maximum number of bytes to download or upload
+ *
+ * @param[in] max            Number of bytes, shall be less than SIZE_MAX
+ *
+ * @return                   The operation result.  See @ref network_status_t.
+ */
+network_status_t libnetwork_set_max_bytes(network_context_t *context, size_t max);
+
+bool libnetwork_shutdown_signaled(network_context_t *context);
 
 /**
  * @brief   Download from ntrip.
@@ -159,12 +190,32 @@ void skylark_download(network_context_t *ctx);
 void skylark_upload(network_context_t *ctx);
 
 /**
+ * @brief   Enquire information on latest FW available.
+ * @details TBD
+ *
+ * @param[in] config        Pointer to the config to use.
+ *
+ * @return                  true if no errors
+ */
+bool ota_enquire(network_context_t *ctx);
+
+/**
+ * @brief   Download new firmware.
+ * @details TBD
+ *
+ * @param[in] config        Pointer to the config to use.
+ *
+ * @return                  true if no errors
+ */
+bool ota_download(network_context_t *ctx);
+
+/**
  * @brief Graceful termination handler for libnetwork daemons.
  *
  * @details Grafcefully stop the upload/download loops started by
  * ntrip_download, skylark_download, or skylark_upload.
  */
-void libnetwork_shutdown(void);
+void libnetwork_shutdown(network_type_t type);
 
 /**
  * @brief Cycle (reconnect) the current network connection

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+# Touch these files prior to running so they'll have
+#   the correct owner/group (otherwise docker will create them as root)
+touch "$HOME/.aws/credentials"
+touch "$HOME/.aws/config"
+touch "$HOME/.aws/saml_cache.xml"
+
+[[ -n "$GOOGLE_USERNAME" ]] || GOOGLE_USERNAME=$USER@swift-nav.com
+
+[[ -n "$GOOGLE_IDP_ID" ]] || \
+  { echo "ERROR: Environment variable GOOGLE_IDP_ID not defined" >&2; exit 1; }
+
+[[ -n "$GOOGLE_SP_ID" ]] || \
+  { echo "ERROR: Environment variable GOOGLE_SP_ID not defined" >&2; exit 1; }
+
+docker run -v "$HOME/.aws:/root/.aws" \
+  --rm \
+  --interactive \
+  --tty \
+  -e "GOOGLE_USERNAME=$GOOGLE_USERNAME" \
+  -e "GOOGLE_IDP_ID=$GOOGLE_IDP_ID" \
+  -e "GOOGLE_SP_ID=$GOOGLE_SP_ID" \
+  -e AWS_DEFAULT_REGION=us-west-2 \
+  -e AWS_PROFILE=default \
+  cevoaustralia/aws-google-auth

@@ -8,10 +8,10 @@ SBP_SETTINGS_DAEMON_VERSION = 0.1
 SBP_SETTINGS_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_settings_daemon/sbp_settings_daemon"
 SBP_SETTINGS_DAEMON_SITE_METHOD = local
-SBP_SETTINGS_DAEMON_DEPENDENCIES = libuv nanomsg_custom libsbp libpiksi
+SBP_SETTINGS_DAEMON_DEPENDENCIES = libuv libsbp libpiksi
 
 define SBP_SETTINGS_DAEMON_USERS
-	configd -1 configd -1 * - - -
+	configd -1 fileio -1 * - - -
 endef
 
 ifeq ($(BR2_BUILD_TESTS),y)

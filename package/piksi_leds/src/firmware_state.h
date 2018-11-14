@@ -35,7 +35,7 @@ enum dgnss_mode {
 
 enum ins_mode {
   INS_MODE_NONE,
-  INS_MODE_INS_USED
+  INS_MODE_INS_USED,
 };
 
 struct soln_state {

@@ -1,15 +1,29 @@
 #!/bin/sh
 
 FILEIO_DIR=/data/
+PERSIST_DIR=/persistent/
+MEDIA_DIR=/media/
+
+DIR_PERM=0755
+FILE_PERM=0644
 
 name="sbp_fileio_daemon_external"
-cmd="sbp_fileio_daemon -p 'ipc:///var/run/sockets/fileio_external.sub' -s 'ipc:///var/run/sockets/fileio_external.pub' --basedir $FILEIO_DIR --imageset"
+cmd="sbp_fileio_daemon \
+-p 'ipc:///var/run/sockets/fileio_external.sub' \
+-s 'ipc:///var/run/sockets/fileio_external.pub' \
+--basedir $FILEIO_DIR \
+--basedir $PERSIST_DIR \
+--basedir $MEDIA_DIR \
+--imageset"
+
 dir="/"
-user="fio_ex"
+user="fileio"
 
 setup_permissions()
 {
-  configure_dir_resource $user $FILEIO_DIR 0700
+  configure_dir_resource_rec "$user" "$FILEIO_DIR"  "$DIR_PERM" "$FILE_PERM"
+  configure_dir_resource_rec "$user" "$PERSIST_DIR" "$DIR_PERM" "$FILE_PERM"
+  configure_dir_resource_rec "$user" "$MEDIA_DIR"   "$DIR_PERM" "$FILE_PERM"
 }
 
 source /etc/init.d/template_runsv.inc.sh

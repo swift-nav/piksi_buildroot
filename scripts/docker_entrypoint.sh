@@ -41,6 +41,9 @@ sudo find /root -type f -exec chmod g+rw {} \;
     sudo chown $USER:$GID /home/$USER/.bash_history;
   }
 
+[ -d "/piksi_buildroot" ] && \
+  sudo chown "$USER:$GID" "/piksi_buildroot"
+
 [ -d "/piksi_buildroot/buildroot" ] && \
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot"
 

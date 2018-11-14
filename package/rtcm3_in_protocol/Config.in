@@ -1,0 +1,2 @@
+config BR2_PACKAGE_RTCM3_IN_PROTOCOL
+	bool "rtcm3_in_protocol"

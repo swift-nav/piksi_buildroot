@@ -1,3 +1,5 @@
+#!/bin/ash
+
 # /etc/init.d template for processes
 
 # name=""
@@ -8,6 +10,11 @@
 
 source /etc/init.d/common.sh
 
+[[ -n "$name" ]] || {
+  echo "Error: the 'name' variable must not be empty" >&2
+  exit 1
+}
+
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
 
@@ -17,7 +24,7 @@ fac=daemon
 _setup_svdir()
 {
   if [[ -e "/var/service/${name}" ]]; then
-    break
+    return
   fi
 
   mkdir -p "/etc/sv/${name}/control"
@@ -31,11 +38,15 @@ _setup_svdir()
     priority=0
   fi
 
+  if [[ -z "$group" ]]; then
+    group=$user
+  fi
+
   echo "#!/bin/ash"                                            > "/etc/sv/${name}/run"
   echo "cd ${dir}"                                            >> "/etc/sv/${name}/run"
   echo "echo Starting ${name}... \\"                          >> "/etc/sv/${name}/run"
   echo "  | logger -t ${tag} -p ${fac}.info"                  >> "/etc/sv/${name}/run"
-  echo "exec nice -n $priority chpst -u $user:$user $cmd \\"  >> "/etc/sv/${name}/run"
+  echo "exec nice -n $priority chpst -u $user:$group $cmd \\" >> "/etc/sv/${name}/run"
   echo "  1>>${stdout_log} \\"                                >> "/etc/sv/${name}/run"
   echo "  2>>${stderr_log}"                                   >> "/etc/sv/${name}/run"
 
@@ -63,10 +74,12 @@ do_start()
 {
   _setup_permissions
   _setup_svdir
+  configure_logrotate_file "${name}_log" $stdout_log
+  configure_logrotate_file "${name}_err" $stderr_log
 
   sv start "/var/service/${name}"
 
-  for i in $(seq 1 10); do
+  for _ in $(seq 1 10); do
     if sv_is_running "$name"; then
       break
     fi

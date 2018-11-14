@@ -23,8 +23,6 @@ fi
 bold=$(tput rev 2>/dev/null || :)
 normal=$(tput sgr0 2>/dev/null || :)
 
-BUILD_TOOLS_REPO=git@github.com:swift-nav/piksi_build_tools.git
-
 CFG=piksiv3_$HW_CONFIG
 get_git_string_script="$(dirname "$0")"/get_git_string.sh
 GIT_STRING=$($get_git_string_script)
@@ -44,8 +42,8 @@ UBOOT_BASE_DIR=$(find $BUILD_DIR -maxdepth 1 -type d -name "uboot_custom-${UBOOT
 DEV_BIN_PATH=$OUTPUT_DIR/PiksiMulti-DEV-$FILE_GIT_STRING.bin
 FAILSAFE_BIN_PATH=$OUTPUT_DIR/PiksiMulti-FAILSAFE-$FILE_GIT_STRING.bin
 INTERNAL_BIN_PATH=$OUTPUT_DIR/PiksiMulti-INTERNAL-$FILE_GIT_STRING.bin
-REL_OPEN_BIN_PATH=$OUTPUT_DIR/PiksiMulti-$FILE_GIT_STRING.bin
-REL_PROT_BIN_PATH=$OUTPUT_DIR/PiksiMulti-PROTECTED-$FILE_GIT_STRING.bin
+REL_OPEN_BIN_PATH=$OUTPUT_DIR/PiksiMulti-UNPROTECTED-$FILE_GIT_STRING.bin
+REL_PROT_BIN_PATH=$OUTPUT_DIR/PiksiMulti-$FILE_GIT_STRING.bin
 
 if [[ -z "${UBOOT_BASE_DIR:-}" ]]; then
   echo "ERROR: Could not find uboot directory" >&2
@@ -167,16 +165,16 @@ generate_failsafe()
 
 encrypt_and_sign()
 {
-  if ! git ls-remote ${BUILD_TOOLS_REPO} &>/dev/null; then
-    echo "*** ERROR: No access to build tools repository, cannot create protected image ***"
+  local encr_tool=${HOST_DIR}/usr/bin/encrypt_and_sign
+
+  if [[ ! -f "$encr_tool" ]]; then
+
+    echo "ERROR: 'encrypt_and_sign' tool not found at path: $encr_tool" >&2
     exit 1
   fi
 
-  git clone ${BUILD_TOOLS_REPO} ${HOST_DIR}/piksi_build_tools
-  ${HOST_DIR}/piksi_build_tools/bin/encrypt_and_sign $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
-
+  $encr_tool $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
   rm ${INTERNAL_BIN_PATH}
-  rm -rf ${HOST_DIR}/piksi_build_tools
 }
 
 mkdir -p $OUTPUT_DIR

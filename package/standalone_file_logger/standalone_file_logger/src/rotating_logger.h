@@ -24,24 +24,26 @@
 class RotatingLogger {
 
   /* Pad new files out to minimize filesystem updates */
-  static const size_t NEW_FILE_PAD_SIZE = 15*1024*1024;
+  static const size_t NEW_FILE_PAD_SIZE = 15 * 1024 * 1024;
 
  public:
   typedef std::function<void(int, const char *)> LogCall;
-  RotatingLogger(const std::string& out_dir, size_t slice_duration,
-                 size_t poll_period, size_t disk_full_threshold,
+  RotatingLogger(const std::string &out_dir,
+                 size_t slice_duration,
+                 size_t poll_period,
+                 size_t disk_full_threshold,
                  LogCall logging_callback = LogCall());
 
   ~RotatingLogger();
   /*
    * try to log a data frame
    */
-  void frame_handler(const uint8_t* data, size_t size);
+  void frame_handler(const uint8_t *data, size_t size);
 
   /*
    * Update output directory. Subsequent files will use this path.
    */
-  void update_dir(const std::string& out_dir);
+  void update_dir(const std::string &out_dir);
 
   /*
    * Update fill threshold. Subsequent files will check this threshold.
@@ -80,7 +82,7 @@ class RotatingLogger {
    * print if _verbose_logging
    */
   void log_msg(int priority, const std::string &msg);
-  /* 
+  /*
    * Flush and close the current file
    */
   void close_current_file();
@@ -89,7 +91,7 @@ class RotatingLogger {
    */
   void pad_new_file();
 
-  void log_errno_warning(const char* msg);
+  void log_errno_warning(const char *msg);
 
   bool _dest_available;
   size_t _session_count;
@@ -101,8 +103,8 @@ class RotatingLogger {
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
 
-  FILE* _cur_file;
+  FILE *_cur_file;
   size_t _bytes_written;
 };
 
-#endif  // SWIFTNAV_ROTATING_LOGGER_H
+#endif // SWIFTNAV_ROTATING_LOGGER_H

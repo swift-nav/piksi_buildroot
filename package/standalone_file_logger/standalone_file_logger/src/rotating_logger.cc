@@ -40,16 +40,18 @@
 static const std::string LOG_SUFFIX = ".sbp";
 static const size_t LOG_NAME_LEN = 4 + 1 + 5 + 4;
 
-void RotatingLogger::log_msg(int priority, const std::string &msg) {
+void RotatingLogger::log_msg(int priority, const std::string &msg)
+{
   if (_logging_callback) {
     _logging_callback(priority, msg.c_str());
   }
 }
 
-void RotatingLogger::close_current_file() {
+void RotatingLogger::close_current_file()
+{
   if (_cur_file != nullptr) {
 
-    if ( _bytes_written < NEW_FILE_PAD_SIZE ) {
+    if (_bytes_written < NEW_FILE_PAD_SIZE) {
       ftruncate(fileno(_cur_file), _bytes_written);
     }
 
@@ -62,36 +64,39 @@ void RotatingLogger::close_current_file() {
   }
 }
 
-void RotatingLogger::log_errno_warning(const char* msg) {
-    log_msg(LOG_WARNING, std::string(msg) + ":" + strerror(errno));
+void RotatingLogger::log_errno_warning(const char *msg)
+{
+  log_msg(LOG_WARNING, std::string(msg) + ":" + strerror(errno));
 }
 
-void RotatingLogger::pad_new_file() {
+void RotatingLogger::pad_new_file()
+{
 
   if (_cur_file != nullptr) {
 
     if (ftruncate(fileno(_cur_file), NEW_FILE_PAD_SIZE) != 0)
       log_errno_warning("Error while padding new file");
 
-    if (fsync(fileno(_cur_file)) != 0)
-      log_errno_warning("Error while syncing newly padded file");
+    if (fsync(fileno(_cur_file)) != 0) log_errno_warning("Error while syncing newly padded file");
   }
 }
 
-int RotatingLogger::check_disk_full() {
+int RotatingLogger::check_disk_full()
+{
   struct statvfs fs_stats;
   if (statvfs(_out_dir.c_str(), &fs_stats)) {
     return -1;
   }
-  double percent_full = double(fs_stats.f_blocks - fs_stats.f_bavail) /
-                        double(fs_stats.f_blocks) * 100.;
+  double percent_full =
+    double(fs_stats.f_blocks - fs_stats.f_bavail) / double(fs_stats.f_blocks) * 100.;
   if (percent_full < _disk_full_threshold) {
     return 0;
   }
   return 1;
 }
 
-bool RotatingLogger::open_new_file() {
+bool RotatingLogger::open_new_file()
+{
   if (_session_count >= 9999) {
     perror("Max session exceeded");
     return false;
@@ -109,8 +114,7 @@ bool RotatingLogger::open_new_file() {
     _minute_count = 0;
     _session_count++;
   }
-  sprintf(log_name_buf, "%04lu-%05lu%s", _session_count, _minute_count,
-          LOG_SUFFIX.c_str());
+  sprintf(log_name_buf, "%04lu-%05lu%s", _session_count, _minute_count, LOG_SUFFIX.c_str());
 
   _cur_file = fopen((_out_dir + "/" + log_name_buf).c_str(), "wb");
 
@@ -134,7 +138,8 @@ bool RotatingLogger::open_new_file() {
   return _dest_available;
 }
 
-bool RotatingLogger::check_slice_time() {
+bool RotatingLogger::check_slice_time()
+{
   double diff_minutes = get_time_passed() / 60. - _minute_count;
   size_t periods = diff_minutes / _slice_duration;
   if (periods <= 0) {
@@ -146,9 +151,10 @@ bool RotatingLogger::check_slice_time() {
   return open_new_file();
 }
 
-bool RotatingLogger::start_new_session() {
-  DIR* dirp = opendir(_out_dir.c_str());
-  struct dirent* dp = nullptr;
+bool RotatingLogger::start_new_session()
+{
+  DIR *dirp = opendir(_out_dir.c_str());
+  struct dirent *dp = nullptr;
   if (dirp == nullptr) {
     log_msg(LOG_WARNING, "Target dir unavailable");
     return false;
@@ -159,8 +165,8 @@ bool RotatingLogger::start_new_session() {
   _minute_count = 0;
   _session_start_time = std::chrono::steady_clock::now();
   while ((dp = readdir(dirp)) != nullptr) {
-    if (strlen(dp->d_name) == LOG_NAME_LEN &&
-        std::string(dp->d_name).find(LOG_SUFFIX) != std::string::npos) {
+    if (strlen(dp->d_name) == LOG_NAME_LEN
+        && std::string(dp->d_name).find(LOG_SUFFIX) != std::string::npos) {
       size_t file_count = strtol(dp->d_name, nullptr, 10);
       if (file_count < 9999 && file_count > _session_count) {
         _session_count = file_count;
@@ -172,18 +178,19 @@ bool RotatingLogger::start_new_session() {
   return open_new_file();
 }
 
-double RotatingLogger::get_time_passed() {
-  return std::chrono::duration_cast<std::chrono::seconds>(
-             std::chrono::steady_clock::now() - _session_start_time)
-      .count();
+double RotatingLogger::get_time_passed()
+{
+  return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()
+                                                          - _session_start_time)
+    .count();
 }
 
-void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
+void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
+{
   if (!_dest_available) {
     // check imediately on startup for path availability. Subsequently, check
     // periodically
-    if (_session_start_time.time_since_epoch().count() != 0 &&
-        get_time_passed() < _poll_period) {
+    if (_session_start_time.time_since_epoch().count() != 0 && get_time_passed() < _poll_period) {
       return;
     }
     _session_start_time = std::chrono::steady_clock::now();
@@ -211,7 +218,7 @@ void RotatingLogger::frame_handler(const uint8_t* data, size_t size) {
   _bytes_written += size;
 }
 
-void RotatingLogger::update_dir(const std::string& out_dir)
+void RotatingLogger::update_dir(const std::string &out_dir)
 {
   _out_dir = out_dir;
 }
@@ -226,25 +233,20 @@ void RotatingLogger::update_slice_duration(size_t slice_duration)
   _slice_duration = slice_duration;
 }
 
-RotatingLogger::RotatingLogger(const std::string& out_dir,
-                               size_t slice_duration, size_t poll_period,
+RotatingLogger::RotatingLogger(const std::string &out_dir,
+                               size_t slice_duration,
+                               size_t poll_period,
                                size_t disk_full_threshold,
                                LogCall logging_callback)
-    : _dest_available(false),
-      _session_count(0),
-      _minute_count(0),
-      _out_dir(out_dir),
-      _slice_duration(slice_duration),
-      _poll_period(poll_period),
-      _disk_full_threshold(disk_full_threshold),
-      _logging_callback(logging_callback),
-      // init to 0
-      _session_start_time(),
-      _cur_file(nullptr),
-      _bytes_written(0)
+  : _dest_available(false), _session_count(0), _minute_count(0), _out_dir(out_dir),
+    _slice_duration(slice_duration), _poll_period(poll_period),
+    _disk_full_threshold(disk_full_threshold), _logging_callback(logging_callback),
+    // init to 0
+    _session_start_time(), _cur_file(nullptr), _bytes_written(0)
 {
 }
 
-RotatingLogger::~RotatingLogger() {
+RotatingLogger::~RotatingLogger()
+{
   close_current_file();
 }

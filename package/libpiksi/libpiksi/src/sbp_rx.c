@@ -19,12 +19,12 @@ struct sbp_rx_ctx_s {
   pk_endpoint_t *pk_ept;
   sbp_state_t sbp_state;
   const u8 *receive_buffer;
-  u32 receive_buffer_length;
+  s32 receive_buffer_length;
   bool reader_interrupt;
   void *reader_handle;
 };
 
-static u32 receive_buffer_read(u8 *buff, u32 n, void *context)
+static s32 receive_buffer_read(u8 *buff, u32 n, void *context)
 {
   sbp_rx_ctx_t *ctx = (sbp_rx_ctx_t *)context;
   u32 len = SWFT_MIN(n, ctx->receive_buffer_length);
@@ -57,8 +57,8 @@ sbp_rx_ctx_t *sbp_rx_create(const char *endpoint)
     goto failure;
   }
 
-  ctx->pk_ept  = pk_endpoint_create(endpoint, PK_ENDPOINT_SUB);
-  if (ctx->pk_ept  == NULL) {
+  ctx->pk_ept = pk_endpoint_create(endpoint, PK_ENDPOINT_SUB);
+  if (ctx->pk_ept == NULL) {
     piksi_log(LOG_ERR, "error creating SUB endpoint for rx ctx");
     goto failure;
   }
@@ -87,9 +87,11 @@ void sbp_rx_destroy(sbp_rx_ctx_t **ctx_loc)
   *ctx_loc = NULL;
 }
 
-static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, void *context)
+static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, int status, void *context)
 {
   (void)handle;
+  (void)status;
+
   sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;
   sbp_rx_reader_interrupt_reset(rx_ctx);
   sbp_rx_read(rx_ctx);
@@ -103,10 +105,8 @@ int sbp_rx_attach(sbp_rx_ctx_t *ctx, pk_loop_t *pk_loop)
   assert(ctx != NULL);
   assert(pk_loop != NULL);
 
-  ctx->reader_handle = pk_loop_endpoint_reader_add(pk_loop,
-                                                   ctx->pk_ept,
-                                                   rx_ctx_reader_loop_callback,
-                                                   ctx);
+  ctx->reader_handle =
+    pk_loop_endpoint_reader_add(pk_loop, ctx->pk_ept, rx_ctx_reader_loop_callback, ctx);
   if (ctx->reader_handle == NULL) {
     piksi_log(LOG_ERR, "error adding rx_ctx reader to loop");
     return -1;
@@ -145,8 +145,7 @@ int sbp_rx_callback_register(sbp_rx_ctx_t *ctx,
     return -1;
   }
 
-  if (sbp_register_callback(&ctx->sbp_state, msg_type, cb, context, n)
-      != SBP_OK) {
+  if (sbp_register_callback(&ctx->sbp_state, msg_type, cb, context, n) != SBP_OK) {
     piksi_log(LOG_ERR, "error registering SBP callback");
     free(n);
     return -1;

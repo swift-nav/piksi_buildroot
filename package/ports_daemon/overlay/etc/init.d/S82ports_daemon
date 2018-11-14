@@ -23,4 +23,9 @@ setup_permissions() {
   chown -R ${user}:${user} /var/run/${name}
 }
 
+can_ports_enabled=$(cat /etc/flags/can_ports 2>/dev/null)
+if [[ "$can_ports_enabled" == "1" ]]; then
+  cmd="${cmd} --can-enable"
+fi
+
 source /etc/init.d/template_runsv.inc.sh

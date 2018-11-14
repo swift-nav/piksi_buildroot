@@ -26,15 +26,15 @@
 
 typedef struct {
   /** The top-level runit dir where dynamic services will be located. */
-  const char* service_dir;
+  const char *service_dir;
   /** The name of the dynamic service */
-  const char* service_name;
+  const char *service_name;
   /** The command line to run for the service */
-  const char* command_line;
+  const char *command_line;
   /** A custom "down" command, if any, this is run when the service receives a request to stop. */
-  const char* custom_down;
+  const char *custom_down;
   /** A custom "finish" command, if any, this is run after the service stops. */
-  const char* finish_command;
+  const char *finish_command;
   /** True if this service should be relaunched if it stops. */
   bool restart;
 } runit_config_t;
@@ -76,7 +76,7 @@ runit_stat_t stat_runit_service(runit_config_t *cfg);
 
 /** @brief Convert @c runit_stat_t to human readable string.
  */
-const char* runit_status_str(runit_stat_t status);
+const char *runit_status_str(runit_stat_t status);
 
 /**
  * @brief   Stop a runit service

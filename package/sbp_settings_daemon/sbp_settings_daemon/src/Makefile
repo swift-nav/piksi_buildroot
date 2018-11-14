@@ -1,10 +1,9 @@
 TARGET=sbp_settings_daemon
 SOURCES= \
 	main.c \
-	minIni/minIni.c \
 	settings.c \
 
-LIBS=-luv -lnanomsg -lsbp -lpiksi
+LIBS=-luv -lsbp -lpiksi
 
 CFLAGS+=-std=gnu11
 ARFLAGS=rcs	$(LTO_PLUGIN)

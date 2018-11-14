@@ -13,6 +13,8 @@ let
     bzip2
     cacert
     ccache
+    clang
+    clang-tools
     cmake
     coreutils
     cpio
@@ -20,8 +22,7 @@ let
     db
     file
     flex
-    gcc6
-    gcc-arm-embedded
+    gcc
     git
     glibc
     glibc.dev
@@ -31,6 +32,7 @@ let
     gnused
     gnutar
     gdb
+    libcxx
     mercurial
     ncurses5
     ncurses5.dev
@@ -40,6 +42,7 @@ let
     patch
     patchelf
     perl
+    proot
     python3
     python27Full
     readline
@@ -52,6 +55,7 @@ let
     vim
     wget
     which
+    valgrind
     xz
     zlib
   ];
@@ -80,7 +84,8 @@ let
 
     # Make sure buildroot Python loads dynamic modules from the right place
     export LD_LIBRARY_PATH=$PWD/buildroot/output/host/usr/lib:/lib:/usr/lib
-    export PATH=$PWD/scripts/wrappers/bin:$PWD/buildroot/output/host/bin:$PATH
+    export PATH=$PWD/scripts/wrappers/bin:$PWD/buildroot/host_output/host/bin:$PWD/buildroot/output/host/bin:$PATH
+    export LD_LIBRARY_PATH=$PWD/buildroot/host_output/host/usr/lib:$LD_LIBRARY_PATH
 
     # See note about hardeningDisable above
     export hardeningDisable=all

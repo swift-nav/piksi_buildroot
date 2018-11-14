@@ -22,7 +22,8 @@
 
 #define PROGRAM_NAME "libpiksi_tests"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
   ::testing::InitGoogleTest(&argc, argv);
   logging_init(PROGRAM_NAME);
   logging_log_to_stdout_only(true);

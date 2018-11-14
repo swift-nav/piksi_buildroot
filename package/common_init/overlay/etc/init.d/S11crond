@@ -1,0 +1,5 @@
+# Borrowed from this conversation: http://lists.busybox.net/pipermail/buildroot/2016-February/151270.html
+# /var/spool is link to /tmp => crontabs are not persistent over boot
+mkdir -p /var/spool/cron/crontabs
+cp /root/crontab /var/spool/cron/crontabs/root
+start-stop-daemon -S -q -p /var/run/crond.pid --exec /usr/sbin/crond -- -l 9

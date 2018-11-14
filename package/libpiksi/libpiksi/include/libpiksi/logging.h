@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2017-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -25,11 +25,59 @@
 #include <libpiksi/common.h>
 #include <syslog.h>
 
+#undef LOG_EMERG
+#undef LOG_ALERT
+#undef LOG_CRIT
+#undef LOG_ERR
+#undef LOG_WARNING
+#undef LOG_NOTICE
+#undef LOG_INFO
+#undef LOG_DEBUG
+
+#undef LOG_LOCAL0
+#undef LOG_LOCAL1
+#undef LOG_LOCAL2
+#undef LOG_LOCAL3
+#undef LOG_LOCAL4
+#undef LOG_LOCAL5
+#undef LOG_LOCAL6
+#undef LOG_LOCAL7
+
+#define LOG_EMERG 0u   /* system is unusable */
+#define LOG_ALERT 1u   /* action must be taken immediately */
+#define LOG_CRIT 2u    /* critical conditions */
+#define LOG_ERR 3u     /* error conditions */
+#define LOG_WARNING 4u /* warning conditions */
+#define LOG_NOTICE 5u  /* normal but significant condition */
+#define LOG_INFO 6u    /* informational */
+#define LOG_DEBUG 7u   /* debug-level messages */
+
+#define LOG_LOCAL0 (16u << 3u) /* reserved for local use */
+#define LOG_LOCAL1 (17u << 3u) /* reserved for local use */
+#define LOG_LOCAL2 (18u << 3u) /* reserved for local use */
+#define LOG_LOCAL3 (19u << 3u) /* reserved for local use */
+#define LOG_LOCAL4 (20u << 3u) /* reserved for local use */
+#define LOG_LOCAL5 (21u << 3u) /* reserved for local use */
+#define LOG_LOCAL6 (22u << 3u) /* reserved for local use */
+#define LOG_LOCAL7 (23u << 3u) /* reserved for local use */
+
+/**
+ * An 'annotated' version of @c piksi_log which logs the formatted message with the function name,
+ * filename and line.
+ *
+ * An 'annotated' version of @c piksi_log which logs a message annotated as follows:
+ *   `<function_name>: <formatted_message> (<file_name>:<file_line>)`.
+ */
+#define PK_LOG_ANNO(Pri, Msg, ...)                                                          \
+  do {                                                                                      \
+    piksi_log(Pri, "%s: " Msg " (%s:%d)", __FUNCTION__, ##__VA_ARGS__, __FILE__, __LINE__); \
+  } while (false)
+
 /**
  * Add to piksi_log to send the log message to SBP as well as
  *   the system log (syslog).
  *
- *  E.g. `piksi_log(LOG_SBP|LOG_ERROR, "Some message");`
+ *  E.g. `piksi_log(LOG_SBP|LOG_ERR, "Some message");`
  */
 #define LOG_SBP LOG_LOCAL1
 
@@ -80,6 +128,17 @@ void piksi_log(int priority, const char *format, ...);
 void piksi_vlog(int priority, const char *format, va_list ap);
 
 /**
+ * @brief   Dump a binary blob in xxd format
+ * @details Dump a binary blob in xxd format to facilitate debugging.
+ *
+ * @param[in] priority    Priority level as defined in <syslog.h>.
+ * @param[in] header      Header used to describe data being dumped
+ * @param[in] buffer      The data being dumped
+ * @param[in] len         Length of the input buffer
+ */
+void piksi_log_xxd(int priority, const char *header, const u8 *buffer, size_t len);
+
+/**
  * @brief   Send a log message over SBP
  *
  * @param[in] priority      Priority level as defined in <syslog.h>.
@@ -88,13 +147,28 @@ void piksi_vlog(int priority, const char *format, va_list ap);
 void sbp_log(int priority, const char *msg_text, ...);
 
 /**
-  * @brief   Send a log message over SBP
-  *
-  * @param[in] priority      Priority level as defined in <syslog.h>.
-  * @param[in] msg_text      The log message text to send.
-  * @param[in] ap            variable argument list for printf().
-  */
+ * @brief   Send a log message over SBP
+ *
+ * @param[in] priority      Priority level as defined in <syslog.h>.
+ * @param[in] msg_text      The log message text to send.
+ * @param[in] ap            variable argument list for printf().
+ */
 void sbp_vlog(int priority, const char *msg_text, va_list ap);
+
+#define log_assert(TheExpr)                         \
+  ({                                                \
+    bool result = false;                            \
+    if (!(TheExpr)) {                               \
+      piksi_log(LOG_ERR | LOG_SBP,                  \
+                "%s: assertion failed: %s (%s:%d)", \
+                __FUNCTION__,                       \
+                #TheExpr,                           \
+                __FILE__,                           \
+                __LINE__);                          \
+      result = true;                                \
+    };                                              \
+    result;                                         \
+  })
 
 #ifdef __cplusplus
 } // extern "C"

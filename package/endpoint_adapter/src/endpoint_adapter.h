@@ -32,15 +32,21 @@
 
 
 void io_loop_start(int read_fd, int write_fd);
+void io_loop_start_can(int read_fd, int write_fd);
 void io_loop_wait(void);
 void io_loop_wait_one(void);
 void io_loop_terminate(void);
 
 extern bool debug;
 
-#define debug_printf(format, ...) \
-  if (debug) \
-    fprintf(stdout, "[PID %d] %s+%d(%s) " format, getpid(), \
-      __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__);
+#define debug_printf(format, ...)         \
+  if (debug)                              \
+    fprintf(stdout,                       \
+            "[PID %d] %s+%d(%s) " format, \
+            getpid(),                     \
+            __FILE__,                     \
+            __LINE__,                     \
+            __FUNCTION__,                 \
+            ##__VA_ARGS__);
 
 #endif /* SWIFTNAV_ENDPOINT_ADAPTER_H */

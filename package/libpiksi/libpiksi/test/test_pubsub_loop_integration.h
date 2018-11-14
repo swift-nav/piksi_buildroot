@@ -18,17 +18,19 @@
 #include <libpiksi/endpoint.h>
 
 class PubsubLoopIntegrationTests : public ::testing::Test {
-  protected:
-    virtual void SetUp() {
-      loop = nullptr;
-      sub_ept = nullptr;
-      pub_ept = nullptr;
-    }
-    virtual void TearDown() {
-      pk_endpoint_destroy(&sub_ept);
-      pk_endpoint_destroy(&pub_ept);
-      pk_loop_destroy(&loop);
-    }
+ protected:
+  virtual void SetUp()
+  {
+    loop = nullptr;
+    sub_ept = nullptr;
+    pub_ept = nullptr;
+  }
+  virtual void TearDown()
+  {
+    pk_endpoint_destroy(&sub_ept);
+    pk_endpoint_destroy(&pub_ept);
+    pk_loop_destroy(&loop);
+  }
 
   pk_loop_t *loop;
   pk_endpoint_t *sub_ept;

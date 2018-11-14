@@ -10,6 +10,7 @@ endif
 .PHONY: all firmware config image clean host-config host-image host-clean     \
         docker-setup docker-make-image docker-make-clean                      \
         docker-make-host-image docker-make-host-clean docker-run              \
+        docker-shell \
         docker-host-config docker-config pkg-% docker-pkg-%                   \
         docker-rebuild-changed rebuild-changed _rebuild_changed               \
 				docker-host-pkg-%                                                     \
@@ -54,6 +55,12 @@ define _release_ins_build
 			$(MAKE) pkg-piksi_ins-rebuild
 endef
 
+define _starling_daemon_build
+	[ -z "$(BR2_BUILD_STARLING_DAEMON)" ] || \
+		$(BUILD_ENV_ARGS) \
+			$(MAKE) pkg-starling_daemon-rebuild
+endef
+
 image-release-open: export BR2_BUILD_RELEASE_OPEN=y
 image-release-open: config
 	$(call _release_build,:)
@@ -67,6 +74,7 @@ image-release-ins:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) image-release-protected
 
+image: export BR2_BUILD_STARLING_DAEMON=y
 image: export BR2_BUILD_PIKSI_INS=y
 image: config
 	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
@@ -74,6 +82,7 @@ image: config
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) dev-tools-clean dev-tools-build
 	$(_release_ins_build)
+	$(_starling_daemon_build)
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
 
@@ -138,7 +147,7 @@ nano-clean:
 rebuild-changed: export BUILD_TEMP=/tmp SINCE=$(SINCE)
 rebuild-changed: _rebuild_changed
 
-REBUILD_CHANGED_IGNORE := release_lockdown|piksi_ins|sample_daemon|llvm_o|llvm_v
+REBUILD_CHANGED_IGNORE := release_lockdown|piksi_ins|sample_daemon|llvm_o|llvm_v|build_tools
 
 _rebuild_changed:
 	$(BUILD_ENV_ARGS) \
@@ -239,9 +248,9 @@ docker-pkg-%: docker-config
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make -C buildroot $* O=output
 
-docker-run:
+docker-shell docker-run:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) \
-		--tty --interactive $(DOCKER_TAG) || :
+		--tty --interactive $(DOCKER_TAG) $(ARGS) || :
 
 docker-exec:
 	docker exec $(DOCKER_ENV_ARGS) --interactive --tty \
@@ -265,8 +274,33 @@ help:
 		less $(CURDIR)/scripts/make_help.txt || \
 		cat $(CURDIR)/scripts/make_help.txt
 
-clang-complete:
+clang-complete-config:
 	@./scripts/gen-clang-complete
+
+docker-clang-complete-config:
+	@docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		./scripts/gen-clang-complete
+
+run-clang-tidy:
+	@./scripts/run-clang-tidy $(ARGS)
+
+docker-run-clang-tidy:
+	@docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		./scripts/run-clang-tidy $(ARGS)
+
+run-clang:
+	@./scripts/run-clang $(ARGS)
+
+docker-run-clang:
+	docker run $(DOCKER_ARGS) -e CLANG_STDIN=$(CLANG_STDIN) $(DOCKER_TAG) \
+		./scripts/run-clang $(ARGS)
+
+clang-format:
+	@./scripts/run-clang-format
+
+docker-clang-format:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		./scripts/run-clang-format
 
 docker-make-sdk:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
@@ -318,5 +352,27 @@ host-ccache-archive:
 docker-host-ccache-archive:
 	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make host-ccache-archive
+
+docker-sync-setup:
+	@./scripts/check-docker-sync
+	@./scripts/gen-docker-sync $(DOCKER_BUILD_VOLUME) $(UID) $(DOCKER_HOST)
+	@docker volume create --name=$(DOCKER_BUILD_VOLUME)-sync
+	@echo "Done, run: make docker-start-sync"
+
+docker-sync-start:
+	@docker-sync start -c .docker-sync.yml
+
+docker-sync-logs:
+	@docker-sync logs -c .docker-sync.yml
+
+docker-sync-stop:
+	@docker-sync stop -c .docker-sync.yml
+
+docker-sync-clean:
+	@docker-sync clean -c .docker-sync.yml
+	@rm -f .docker-compose.yml .docker-sync.yml 
+
+docker-aws-google-auth:
+	@./scripts/run-aws-google-auth
 
 .PHONY: help

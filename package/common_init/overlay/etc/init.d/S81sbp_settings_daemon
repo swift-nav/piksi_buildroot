@@ -4,12 +4,14 @@ name="sbp_settings_daemon"
 cmd="sbp_settings_daemon"
 dir="/"
 user="configd"
+group="fileio"
 
 SETTINGS_FILE="/persistent/config.ini"
+SETTINGS_PERM=0664
 
 setup_permissions()
 {
-  configure_file_resource $user $SETTINGS_FILE 0600
+  configure_file_resource2 $user $group $SETTINGS_FILE $SETTINGS_PERM
 }
 
 source /etc/init.d/template_runsv.inc.sh

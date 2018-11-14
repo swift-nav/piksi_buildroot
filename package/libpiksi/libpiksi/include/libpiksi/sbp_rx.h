@@ -18,6 +18,10 @@
 #include <libpiksi/endpoint.h>
 #include <libpiksi/loop.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct sbp_rx_ctx_s sbp_rx_ctx_t;
 
 /**
@@ -160,6 +164,10 @@ void sbp_rx_reader_interrupt_reset(sbp_rx_ctx_t *ctx);
  * @return bool             True if the interrupt was requested.
  */
 bool sbp_rx_reader_interrupt_requested(sbp_rx_ctx_t *ctx);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* LIBPIKSI_SBP_RX_H */
 

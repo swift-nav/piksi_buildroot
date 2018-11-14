@@ -19,8 +19,7 @@ struct sbp_pubsub_ctx_s {
   sbp_rx_ctx_t *rx_ctx;
 };
 
-sbp_pubsub_ctx_t *sbp_pubsub_create(const char *pub_ept,
-                                    const char *sub_ept)
+sbp_pubsub_ctx_t *sbp_pubsub_create(const char *pub_ept, const char *sub_ept)
 {
   assert(pub_ept != NULL);
   assert(sub_ept != NULL);
@@ -62,17 +61,16 @@ void sbp_pubsub_destroy(sbp_pubsub_ctx_t **ctx_loc)
   *ctx_loc = NULL;
 }
 
-sbp_tx_ctx_t * sbp_pubsub_tx_ctx_get(sbp_pubsub_ctx_t *ctx)
+sbp_tx_ctx_t *sbp_pubsub_tx_ctx_get(sbp_pubsub_ctx_t *ctx)
 {
   assert(ctx != NULL);
 
   return ctx->tx_ctx;
 }
 
-sbp_rx_ctx_t * sbp_pubsub_rx_ctx_get(sbp_pubsub_ctx_t *ctx)
+sbp_rx_ctx_t *sbp_pubsub_rx_ctx_get(sbp_pubsub_ctx_t *ctx)
 {
   assert(ctx != NULL);
 
   return ctx->rx_ctx;
 }
-

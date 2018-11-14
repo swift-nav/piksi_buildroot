@@ -21,6 +21,16 @@ after_script:
 matrix:
   include:
 
+    # Check formatting
+    - env:
+        - TRAVIS_TARGET=format
+      script:
+        - ./scripts/travis.sh script
+      after_success:
+        - ./scripts/travis.sh after_success
+      after_failure:
+        - ./scripts/travis.sh after_failure
+
     # Check if docker base image needs to be re-built
     - env:
         - TRAVIS_TARGET=docker
@@ -85,6 +95,7 @@ matrix:
 
 env:
   global:
+    - DOCKER_SUFFIX=travis
     - PIKSI_NON_INTERACTIVE_BUILD=y
     # Secure keys below are encrypted with travis encrypt gem
     # Example encryption: travis encrypt AWS_SECRET_ACCESS_KEY=foo

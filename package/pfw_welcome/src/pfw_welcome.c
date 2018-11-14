@@ -29,21 +29,21 @@
 
 #define PROGRAM_NAME "pfw_welcome"
 
-#define SBP_SUB_ENDPOINT    "ipc:///var/run/sockets/external.pub"  /* SBP External Out */
-#define SBP_PUB_ENDPOINT    "ipc:///var/run/sockets/external.sub"  /* SBP External In */
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
 
 static pk_loop_t *loop = NULL;
 
 static void heartbeat_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) sender_id;
-  (void) len;
-  (void) context;
+  (void)sender_id;
+  (void)len;
+  (void)context;
 
-  msg_heartbeat_t *msg_hb = (msg_heartbeat_t*) msg;
+  msg_heartbeat_t *msg_hb = (msg_heartbeat_t *)msg;
 
   if (msg_hb->flags & 0x7) {
-    piksi_log(LOG_ERR|LOG_SBP, "firmware claiming an error state: 0x%08x", msg_hb->flags);
+    piksi_log(LOG_ERR | LOG_SBP, "firmware claiming an error state: 0x%08x", msg_hb->flags);
   }
 
   pk_loop_stop(loop);
@@ -51,8 +51,8 @@ static void heartbeat_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 
 int main(int argc, char *argv[])
 {
-  (void) argc;
-  (void) argv;
+  (void)argc;
+  (void)argv;
 
   int status = EXIT_SUCCESS;
   sbp_pubsub_ctx_t *ctx = NULL;
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
   sbp_rx_ctx_t *rx_ctx = sbp_pubsub_rx_ctx_get(ctx);
 
   if ((NULL == rx_ctx)) {
-    piksi_log(LOG_ERR|LOG_SBP, "Error initializing SBP!");
+    piksi_log(LOG_ERR | LOG_SBP, "Error initializing SBP!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
   }
 
   if (sbp_rx_callback_register(rx_ctx, SBP_MSG_HEARTBEAT, heartbeat_callback, ctx, NULL) != 0) {
-    piksi_log(LOG_ERR|LOG_SBP, "Error setting SBP_MSG_HEARTBEAT callback!");
+    piksi_log(LOG_ERR | LOG_SBP, "Error setting SBP_MSG_HEARTBEAT callback!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
