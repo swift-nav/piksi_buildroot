@@ -43,6 +43,7 @@ define SBP_FILEIO_DAEMON_INSTALL_TARGET_CMDS_TESTS
 	$(INSTALL) -D -m 0755 $(@D)/test/run_sbp_fileio_daemon_tests $(TARGET_DIR)/usr/bin
 	sudo mkdir -p $(TARGET_DIR)/fake_data
 	sudo mkdir -p $(TARGET_DIR)/fake_persist/blah
+	sudo chmod -R 0777 $(TARGET_DIR)/fake_data $(TARGET_DIR)/fake_persist
 	sudo chroot $(TARGET_DIR) run_sbp_fileio_daemon_tests
 endef
 endif

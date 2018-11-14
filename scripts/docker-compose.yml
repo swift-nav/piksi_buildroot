@@ -1,0 +1,14 @@
+version: '3.1'
+
+services:
+  pbr:
+    build:
+      dockerfile: scripts/Dockerfile.jenkins
+      context: .
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    volumes:
+      - ${PWD}:/mnt/workspace:delegated
+      - ${HOME}/.ssh/id_rsa:/home/jenkins/.ssh/id_rsa
