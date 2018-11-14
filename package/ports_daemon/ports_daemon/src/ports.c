@@ -410,66 +410,70 @@ static int setting_udp_client_address_notify(void *context)
   return port_configure(port_config, false);
 }
 
-static int setting_mode_register(sd_ctx_t *settings_ctx,
+static int setting_mode_register(pk_settings_ctx_t *settings_ctx,
                                  settings_type_t settings_type,
                                  port_config_t *port_config)
 {
-  return sd_register(settings_ctx,
-                     port_config->name,
-                     "mode",
-                     &port_config->mode,
-                     sizeof(port_config->mode),
-                     settings_type,
-                     setting_mode_notify,
-                     port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "mode",
+                              &port_config->mode,
+                              sizeof(port_config->mode),
+                              settings_type,
+                              setting_mode_notify,
+                              port_config);
 }
 
-static int setting_tcp_server_port_register(sd_ctx_t *settings_ctx, port_config_t *port_config)
+static int setting_tcp_server_port_register(pk_settings_ctx_t *settings_ctx,
+                                            port_config_t *port_config)
 {
-  return sd_register(settings_ctx,
-                     port_config->name,
-                     "port",
-                     &port_config->opts_data.tcp_server_data.port,
-                     sizeof(&port_config->opts_data.tcp_server_data.port),
-                     SETTINGS_TYPE_INT,
-                     setting_tcp_server_port_notify,
-                     port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "port",
+                              &port_config->opts_data.tcp_server_data.port,
+                              sizeof(&port_config->opts_data.tcp_server_data.port),
+                              SETTINGS_TYPE_INT,
+                              setting_tcp_server_port_notify,
+                              port_config);
 }
 
-static int setting_tcp_client_address_register(sd_ctx_t *settings_ctx, port_config_t *port_config)
+static int setting_tcp_client_address_register(pk_settings_ctx_t *settings_ctx,
+                                               port_config_t *port_config)
 {
-  return sd_register(settings_ctx,
-                     port_config->name,
-                     "address",
-                     port_config->opts_data.tcp_client_data.address,
-                     sizeof(port_config->opts_data.tcp_client_data.address),
-                     SETTINGS_TYPE_STRING,
-                     setting_tcp_client_address_notify,
-                     port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "address",
+                              port_config->opts_data.tcp_client_data.address,
+                              sizeof(port_config->opts_data.tcp_client_data.address),
+                              SETTINGS_TYPE_STRING,
+                              setting_tcp_client_address_notify,
+                              port_config);
 }
 
-static int setting_udp_server_port_register(sd_ctx_t *settings_ctx, port_config_t *port_config)
+static int setting_udp_server_port_register(pk_settings_ctx_t *settings_ctx,
+                                            port_config_t *port_config)
 {
-  return sd_register(settings_ctx,
-                     port_config->name,
-                     "port",
-                     &port_config->opts_data.udp_server_data.port,
-                     sizeof(&port_config->opts_data.udp_server_data.port),
-                     SETTINGS_TYPE_INT,
-                     setting_udp_server_port_notify,
-                     port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "port",
+                              &port_config->opts_data.udp_server_data.port,
+                              sizeof(&port_config->opts_data.udp_server_data.port),
+                              SETTINGS_TYPE_INT,
+                              setting_udp_server_port_notify,
+                              port_config);
 }
 
-static int setting_udp_client_address_register(sd_ctx_t *settings_ctx, port_config_t *port_config)
+static int setting_udp_client_address_register(pk_settings_ctx_t *settings_ctx,
+                                               port_config_t *port_config)
 {
-  return sd_register(settings_ctx,
-                     port_config->name,
-                     "address",
-                     port_config->opts_data.udp_client_data.address,
-                     sizeof(port_config->opts_data.udp_client_data.address),
-                     SETTINGS_TYPE_STRING,
-                     setting_udp_client_address_notify,
-                     port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "address",
+                              port_config->opts_data.udp_client_data.address,
+                              sizeof(port_config->opts_data.udp_client_data.address),
+                              SETTINGS_TYPE_STRING,
+                              setting_udp_client_address_notify,
+                              port_config);
 }
 
 static int mode_enum_names_get(const char ***mode_enum_names)
@@ -517,7 +521,7 @@ static int mode_lookup(const char *mode_name, u8 *mode)
   return -1;
 }
 
-int ports_init(sd_ctx_t *settings_ctx)
+int ports_init(pk_settings_ctx_t *settings_ctx)
 {
   size_t i;
 
@@ -543,7 +547,7 @@ int ports_init(sd_ctx_t *settings_ctx)
 
   /* Register settings types */
   settings_type_t settings_type_mode;
-  sd_register_enum(settings_ctx, mode_enum_names, &settings_type_mode);
+  pk_settings_register_enum(settings_ctx, mode_enum_names, &settings_type_mode);
 
   /* Register settings */
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {

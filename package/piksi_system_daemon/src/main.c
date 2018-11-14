@@ -11,7 +11,7 @@
  */
 
 #include <libpiksi/sbp_pubsub.h>
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/loop.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
@@ -242,7 +242,7 @@ static int date_string_get(const char *timestamp_string, char *date_string, size
   return 0;
 }
 
-static void img_tbl_settings_setup(sd_ctx_t *settings_ctx)
+static void img_tbl_settings_setup(pk_settings_ctx_t *settings_ctx)
 {
   char name_string[STR_BUFFER_SIZE];
   char uimage_string[STR_BUFFER_SIZE];
@@ -255,12 +255,12 @@ static void img_tbl_settings_setup(sd_ctx_t *settings_ctx)
 
     static char imageset_build_id[STR_BUFFER_SIZE];
     strncpy(imageset_build_id, name_string, STR_BUFFER_SIZE);
-    sd_register_readonly(settings_ctx,
-                         "system_info",
-                         "imageset_build_id",
-                         imageset_build_id,
-                         sizeof(imageset_build_id),
-                         SETTINGS_TYPE_STRING);
+    pk_settings_register_readonly(settings_ctx,
+                                  "system_info",
+                                  "imageset_build_id",
+                                  imageset_build_id,
+                                  sizeof(imageset_build_id),
+                                  SETTINGS_TYPE_STRING);
 
     /* If image_table version starts with DEV, we booted a DEV build
      * If we have DEV:
@@ -285,12 +285,12 @@ static void img_tbl_settings_setup(sd_ctx_t *settings_ctx)
       }
     }
 
-    sd_register_readonly(settings_ctx,
-                         "system_info",
-                         "firmware_build_id",
-                         firmware_build_id,
-                         sizeof(firmware_build_id),
-                         SETTINGS_TYPE_STRING);
+    pk_settings_register_readonly(settings_ctx,
+                                  "system_info",
+                                  "firmware_build_id",
+                                  firmware_build_id,
+                                  sizeof(firmware_build_id),
+                                  SETTINGS_TYPE_STRING);
 
     /* firmware_version contains everything before the git hash */
     static char firmware_version[STR_BUFFER_SIZE];
@@ -299,12 +299,12 @@ static void img_tbl_settings_setup(sd_ctx_t *settings_ctx)
     if (sep != NULL) {
       *sep = 0;
     }
-    sd_register_readonly(settings_ctx,
-                         "system_info",
-                         "firmware_version",
-                         firmware_version,
-                         sizeof(firmware_version),
-                         SETTINGS_TYPE_STRING);
+    pk_settings_register_readonly(settings_ctx,
+                                  "system_info",
+                                  "firmware_version",
+                                  firmware_version,
+                                  sizeof(firmware_version),
+                                  SETTINGS_TYPE_STRING);
   }
   char timestamp_string[STR_BUFFER_SIZE];
   if (file_read_string(is_dev ? "/uimage_ver/timestamp" : "/img_tbl/boot/timestamp",
@@ -313,12 +313,12 @@ static void img_tbl_settings_setup(sd_ctx_t *settings_ctx)
       == 0) {
     static char firmware_build_date[DATE_STR_BUFFER_SIZE];
     if (date_string_get(timestamp_string, firmware_build_date, DATE_STR_BUFFER_SIZE) == 0) {
-      sd_register_readonly(settings_ctx,
-                           "system_info",
-                           "firmware_build_date",
-                           firmware_build_date,
-                           sizeof(firmware_build_date),
-                           SETTINGS_TYPE_STRING);
+      pk_settings_register_readonly(settings_ctx,
+                                    "system_info",
+                                    "firmware_build_date",
+                                    firmware_build_date,
+                                    sizeof(firmware_build_date),
+                                    SETTINGS_TYPE_STRING);
     }
   }
 
@@ -326,12 +326,12 @@ static void img_tbl_settings_setup(sd_ctx_t *settings_ctx)
   if (file_read_string("/img_tbl/loader/name", loader_name_string, STR_BUFFER_SIZE) == 0) {
     static char loader_build_id[STR_BUFFER_SIZE];
     strncpy(loader_build_id, loader_name_string, STR_BUFFER_SIZE);
-    sd_register_readonly(settings_ctx,
-                         "system_info",
-                         "loader_build_id",
-                         loader_build_id,
-                         sizeof(loader_build_id),
-                         SETTINGS_TYPE_STRING);
+    pk_settings_register_readonly(settings_ctx,
+                                  "system_info",
+                                  "loader_build_id",
+                                  loader_build_id,
+                                  sizeof(loader_build_id),
+                                  SETTINGS_TYPE_STRING);
   }
 
   char loader_timestamp_string[STR_BUFFER_SIZE];
@@ -339,17 +339,17 @@ static void img_tbl_settings_setup(sd_ctx_t *settings_ctx)
       == 0) {
     static char loader_build_date[DATE_STR_BUFFER_SIZE];
     if (date_string_get(loader_timestamp_string, loader_build_date, DATE_STR_BUFFER_SIZE) == 0) {
-      sd_register_readonly(settings_ctx,
-                           "system_info",
-                           "loader_build_date",
-                           loader_build_date,
-                           sizeof(loader_build_date),
-                           SETTINGS_TYPE_STRING);
+      pk_settings_register_readonly(settings_ctx,
+                                    "system_info",
+                                    "loader_build_date",
+                                    loader_build_date,
+                                    sizeof(loader_build_date),
+                                    SETTINGS_TYPE_STRING);
     }
   }
 }
 
-static void hardware_info_settings_setup(sd_ctx_t *settings_ctx)
+static void hardware_info_settings_setup(pk_settings_ctx_t *settings_ctx)
 {
   static char info_string[STR_BUFFER_SIZE] = {0};
   size_t info_string_size = sizeof(info_string);
@@ -367,48 +367,48 @@ static void hardware_info_settings_setup(sd_ctx_t *settings_ctx)
                 strlen(default_str));
     }
   }
-  if (settings_register_readonly(settings_ctx,
-                                 "system_info",
-                                 "hw_version",
-                                 info_string,
-                                 strlen(info_string) + 1,
-                                 SETTINGS_TYPE_STRING)
+  if (pk_settings_register_readonly(settings_ctx,
+                                    "system_info",
+                                    "hw_version",
+                                    info_string,
+                                    strlen(info_string) + 1,
+                                    SETTINGS_TYPE_STRING)
       != 0) {
     piksi_log(LOG_WARNING, "Failed to register hw_version in system_info");
   }
 
   if (hw_revision_string_get(info_string, info_string_size) != 0) {
     piksi_log(LOG_WARNING, "Failed to get hw_revision for system_info registration");
-  } else if (sd_register_readonly(settings_ctx,
-                                  "system_info",
-                                  "hw_revision",
-                                  info_string,
-                                  strlen(info_string) + 1,
-                                  SETTINGS_TYPE_STRING)
+  } else if (pk_settings_register_readonly(settings_ctx,
+                                           "system_info",
+                                           "hw_revision",
+                                           info_string,
+                                           strlen(info_string) + 1,
+                                           SETTINGS_TYPE_STRING)
              != 0) {
     piksi_log(LOG_WARNING, "Failed to register hw_revision in system_info");
   }
 
   if (hw_variant_string_get(info_string, info_string_size) != 0) {
     piksi_log(LOG_WARNING, "Failed to get hw_variant for system_info registration");
-  } else if (sd_register_readonly(settings_ctx,
-                                  "system_info",
-                                  "hw_variant",
-                                  info_string,
-                                  strlen(info_string) + 1,
-                                  SETTINGS_TYPE_STRING)
+  } else if (pk_settings_register_readonly(settings_ctx,
+                                           "system_info",
+                                           "hw_variant",
+                                           info_string,
+                                           strlen(info_string) + 1,
+                                           SETTINGS_TYPE_STRING)
              != 0) {
     piksi_log(LOG_WARNING, "Failed to register hw_variant in system_info");
   }
 
   if (product_id_string_get(info_string, info_string_size) != 0) {
     piksi_log(LOG_WARNING, "Failed to get product_id for system_info registration");
-  } else if (sd_register_readonly(settings_ctx,
-                                  "system_info",
-                                  "product_id",
-                                  info_string,
-                                  strlen(info_string) + 1,
-                                  SETTINGS_TYPE_STRING)
+  } else if (pk_settings_register_readonly(settings_ctx,
+                                           "system_info",
+                                           "product_id",
+                                           info_string,
+                                           strlen(info_string) + 1,
+                                           SETTINGS_TYPE_STRING)
              != 0) {
     piksi_log(LOG_WARNING, "Failed to register product_id in system_info");
   }
@@ -561,85 +561,85 @@ int main(void)
   }
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = settings_create(SETTINGS_METRICS_NAME);
+  pk_settings_ctx_t *settings_ctx = pk_settings_create(SETTINGS_METRICS_NAME);
   if (settings_ctx == NULL) {
     exit(EXIT_FAILURE);
   }
 
-  if (sd_attach(settings_ctx, loop) != 0) {
+  if (pk_settings_attach(settings_ctx, loop) != 0) {
     exit(EXIT_FAILURE);
   }
 
   settings_type_t settings_type_ip_mode;
-  sd_register_enum(settings_ctx, ip_mode_enum_names, &settings_type_ip_mode);
-  sd_register(settings_ctx,
-              "ethernet",
-              "ip_config_mode",
-              &eth_ip_mode,
-              sizeof(eth_ip_mode),
-              settings_type_ip_mode,
-              eth_ip_mode_notify,
-              &eth_ip_mode);
-  sd_register(settings_ctx,
-              "ethernet",
-              "ip_address",
-              &eth_ip_addr,
-              sizeof(eth_ip_addr),
-              SETTINGS_TYPE_STRING,
-              eth_ip_config_notify,
-              &eth_ip_addr);
-  sd_register(settings_ctx,
-              "ethernet",
-              "netmask",
-              &eth_netmask,
-              sizeof(eth_netmask),
-              SETTINGS_TYPE_STRING,
-              eth_ip_config_notify,
-              &eth_netmask);
-  sd_register(settings_ctx,
-              "ethernet",
-              "gateway",
-              &eth_gateway,
-              sizeof(eth_gateway),
-              SETTINGS_TYPE_STRING,
-              eth_ip_config_notify,
-              &eth_gateway);
+  pk_settings_register_enum(settings_ctx, ip_mode_enum_names, &settings_type_ip_mode);
+  pk_settings_register(settings_ctx,
+                       "ethernet",
+                       "ip_config_mode",
+                       &eth_ip_mode,
+                       sizeof(eth_ip_mode),
+                       settings_type_ip_mode,
+                       eth_ip_mode_notify,
+                       &eth_ip_mode);
+  pk_settings_register(settings_ctx,
+                       "ethernet",
+                       "ip_address",
+                       &eth_ip_addr,
+                       sizeof(eth_ip_addr),
+                       SETTINGS_TYPE_STRING,
+                       eth_ip_config_notify,
+                       &eth_ip_addr);
+  pk_settings_register(settings_ctx,
+                       "ethernet",
+                       "netmask",
+                       &eth_netmask,
+                       sizeof(eth_netmask),
+                       SETTINGS_TYPE_STRING,
+                       eth_ip_config_notify,
+                       &eth_netmask);
+  pk_settings_register(settings_ctx,
+                       "ethernet",
+                       "gateway",
+                       &eth_gateway,
+                       sizeof(eth_gateway),
+                       SETTINGS_TYPE_STRING,
+                       eth_ip_config_notify,
+                       &eth_gateway);
 
   settings_type_t settings_type_time_source;
-  sd_register_enum(settings_ctx, system_time_sources, &settings_type_time_source);
-  sd_register(settings_ctx,
-              "system",
-              "system_time",
-              &system_time_src,
-              sizeof(system_time_src),
-              settings_type_time_source,
-              system_time_src_notify,
-              &system_time_src);
+  pk_settings_register_enum(settings_ctx, system_time_sources, &settings_type_time_source);
+  pk_settings_register(settings_ctx,
+                       "system",
+                       "system_time",
+                       &system_time_src,
+                       sizeof(system_time_src),
+                       settings_type_time_source,
+                       system_time_src_notify,
+                       &system_time_src);
 
-  sd_register(settings_ctx,
-              "system",
-              "connectivity_check_frequency",
-              &network_polling_frequency,
-              sizeof(network_polling_frequency),
-              SETTINGS_TYPE_FLOAT,
-              network_polling_notify,
-              NULL);
-  sd_register(settings_ctx,
-              "system",
-              "connectivity_retry_frequency",
-              &network_polling_retry_frequency,
-              sizeof(network_polling_retry_frequency),
-              SETTINGS_TYPE_FLOAT,
-              network_polling_notify,
-              NULL);
-  sd_register(settings_ctx,
-              "system",
-              "log_ping_activity",
-              &log_ping_activity,
-              sizeof(log_ping_activity),
-              SETTINGS_TYPE_BOOL,
-              network_polling_notify,
-              NULL);
+  pk_settings_register(settings_ctx,
+                       "system",
+                       "connectivity_check_frequency",
+                       &network_polling_frequency,
+                       sizeof(network_polling_frequency),
+                       SETTINGS_TYPE_FLOAT,
+                       network_polling_notify,
+                       NULL);
+  pk_settings_register(settings_ctx,
+                       "system",
+                       "connectivity_retry_frequency",
+                       &network_polling_retry_frequency,
+                       sizeof(network_polling_retry_frequency),
+                       SETTINGS_TYPE_FLOAT,
+                       network_polling_notify,
+                       NULL);
+  pk_settings_register(settings_ctx,
+                       "system",
+                       "log_ping_activity",
+                       &log_ping_activity,
+                       sizeof(log_ping_activity),
+                       SETTINGS_TYPE_BOOL,
+                       network_polling_notify,
+                       NULL);
 
   sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
                            SBP_MSG_RESET,
@@ -669,6 +669,6 @@ int main(void)
 
   pk_loop_destroy(&loop);
   sbp_pubsub_destroy(&pubsub_ctx);
-  sd_destroy(&settings_ctx);
+  pk_settings_destroy(&settings_ctx);
   exit(EXIT_SUCCESS);
 }

@@ -17,7 +17,7 @@
 #include <errno.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
 
 #include <libnetwork.h>
@@ -258,12 +258,12 @@ static int ntrip_client_loop(void)
   return 0;
 }
 
-static void settings_loop_sigchild()
+static void ntrip_loop_sigchild()
 {
   reap_children(debug, ntrip_record_exit);
 }
 
-static void settings_loop_terminate(void)
+static void ntrip_loop_terminate(void)
 {
   ntrip_stop_processes();
   reap_children(debug, NULL);
@@ -271,14 +271,14 @@ static void settings_loop_terminate(void)
 
 static int ntrip_settings_loop(void)
 {
-  return settings_loop(NTRIP_SETTINGS_METRICS,
-                       NTRIP_CONTROL_SOCK,
-                       NTRIP_CONTROL_FILE,
-                       NTRIP_CONTROL_COMMAND_RECONNECT,
-                       ntrip_settings_init,
-                       ntrip_reconnect,
-                       settings_loop_terminate,
-                       settings_loop_sigchild)
+  return pk_settings_loop(NTRIP_SETTINGS_METRICS,
+                          NTRIP_CONTROL_SOCK,
+                          NTRIP_CONTROL_FILE,
+                          NTRIP_CONTROL_COMMAND_RECONNECT,
+                          ntrip_settings_init,
+                          ntrip_reconnect,
+                          ntrip_loop_terminate,
+                          ntrip_loop_sigchild)
            ? 0
            : -1;
 }
@@ -298,11 +298,11 @@ int main(int argc, char *argv[])
   case OP_MODE_NTRIP_CLIENT: ret = ntrip_client_loop(); break;
   case OP_MODE_SETTINGS_DAEMON: ret = ntrip_settings_loop(); break;
   case OP_MODE_REQ_RECONNECT:
-    ret = settings_loop_send_command("ntrip",
-                                     "NTRIP client",
-                                     NTRIP_CONTROL_COMMAND_RECONNECT,
-                                     "reconnect",
-                                     NTRIP_CONTROL_SOCK);
+    ret = pk_settings_loop_send_command("ntrip",
+                                        "NTRIP client",
+                                        NTRIP_CONTROL_COMMAND_RECONNECT,
+                                        "reconnect",
+                                        NTRIP_CONTROL_SOCK);
     break;
   default: assert(false);
   }

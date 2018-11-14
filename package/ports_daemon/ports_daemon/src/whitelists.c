@@ -527,17 +527,17 @@ int whitelist_notify(void *context)
   return SETTINGS_WR_OK;
 }
 
-int whitelists_init(sd_ctx_t *settings_ctx)
+int whitelists_init(pk_settings_ctx_t *settings_ctx)
 {
   for (int i = 0; i < PORT_MAX; i++) {
-    int rc = sd_register(settings_ctx,
-                         port_whitelist_config[i].name,
-                         "enabled_sbp_messages",
-                         port_whitelist_config[i].wl,
-                         sizeof(port_whitelist_config[i].wl),
-                         SETTINGS_TYPE_STRING,
-                         whitelist_notify,
-                         &port_whitelist_config[i]);
+    int rc = pk_settings_register(settings_ctx,
+                                  port_whitelist_config[i].name,
+                                  "enabled_sbp_messages",
+                                  port_whitelist_config[i].wl,
+                                  sizeof(port_whitelist_config[i].wl),
+                                  SETTINGS_TYPE_STRING,
+                                  whitelist_notify,
+                                  &port_whitelist_config[i]);
     if (rc != 0) {
       return rc;
     }

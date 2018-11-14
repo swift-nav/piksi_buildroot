@@ -22,7 +22,7 @@
 #include <signal.h>
 #include <stdbool.h>
 
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
 #include <libsbp/logging.h>
@@ -182,40 +182,40 @@ static int cell_modem_notify_dev_override(void *context)
   return SETTINGS_WR_OK;
 }
 
-int cell_modem_init(pk_loop_t *loop, sd_ctx_t *settings_ctx)
+int cell_modem_init(pk_loop_t *loop, pk_settings_ctx_t *settings_ctx)
 {
-  sd_register(settings_ctx,
-              "cell_modem",
-              "APN",
-              &cell_modem_apn,
-              sizeof(cell_modem_apn),
-              SETTINGS_TYPE_STRING,
-              cell_modem_notify,
-              NULL);
-  sd_register(settings_ctx,
-              "cell_modem",
-              "enable",
-              &cell_modem_enabled_,
-              sizeof(cell_modem_enabled_),
-              SETTINGS_TYPE_BOOL,
-              cell_modem_notify,
-              NULL);
-  sd_register(settings_ctx,
-              "cell_modem",
-              "debug",
-              &cell_modem_debug,
-              sizeof(cell_modem_debug),
-              SETTINGS_TYPE_BOOL,
-              NULL,
-              NULL);
-  sd_register(settings_ctx,
-              "cell_modem",
-              "device_override",
-              &cell_modem_dev_override,
-              sizeof(cell_modem_dev_override),
-              SETTINGS_TYPE_STRING,
-              cell_modem_notify_dev_override,
-              &inotify_ctx);
+  pk_settings_register(settings_ctx,
+                       "cell_modem",
+                       "APN",
+                       &cell_modem_apn,
+                       sizeof(cell_modem_apn),
+                       SETTINGS_TYPE_STRING,
+                       cell_modem_notify,
+                       NULL);
+  pk_settings_register(settings_ctx,
+                       "cell_modem",
+                       "enable",
+                       &cell_modem_enabled_,
+                       sizeof(cell_modem_enabled_),
+                       SETTINGS_TYPE_BOOL,
+                       cell_modem_notify,
+                       NULL);
+  pk_settings_register(settings_ctx,
+                       "cell_modem",
+                       "debug",
+                       &cell_modem_debug,
+                       sizeof(cell_modem_debug),
+                       SETTINGS_TYPE_BOOL,
+                       NULL,
+                       NULL);
+  pk_settings_register(settings_ctx,
+                       "cell_modem",
+                       "device_override",
+                       &cell_modem_dev_override,
+                       sizeof(cell_modem_dev_override),
+                       SETTINGS_TYPE_STRING,
+                       cell_modem_notify_dev_override,
+                       &inotify_ctx);
   inotify_ctx = async_wait_for_tty(loop);
   return 0;
 }

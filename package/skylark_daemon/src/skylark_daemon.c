@@ -171,7 +171,7 @@ static void network_terminate_handler(int signum, siginfo_t *info, void *ucontex
   libnetwork_shutdown(NETWORK_TYPE_ALL);
 }
 
-static void settings_loop_sigchild()
+static void skylark_loop_sigchild()
 {
   reap_children(debug, skylark_record_exit);
 }
@@ -275,7 +275,7 @@ static void skylark_download_mode()
   libnetwork_destroy(&network_context);
 }
 
-static void settings_loop_terminate()
+static void skylark_loop_terminate()
 {
   skylark_stop_processes();
   reap_children(debug, NULL);
@@ -283,14 +283,14 @@ static void settings_loop_terminate()
 
 static void skylark_settings_loop(void)
 {
-  settings_loop(SKYLARK_SETTINGS_METRICS,
-                SKYLARK_CONTROL_SOCK,
-                SKYLARK_CONTROL_FILE,
-                SKYLARK_CONTROL_COMMAND_RECONNECT,
-                skylark_init,
-                skylark_reconnect_dl,
-                settings_loop_terminate,
-                settings_loop_sigchild);
+  pk_settings_loop(SKYLARK_SETTINGS_METRICS,
+                   SKYLARK_CONTROL_SOCK,
+                   SKYLARK_CONTROL_FILE,
+                   SKYLARK_CONTROL_COMMAND_RECONNECT,
+                   skylark_init,
+                   skylark_reconnect_dl,
+                   skylark_loop_terminate,
+                   skylark_loop_sigchild);
 }
 
 int main(int argc, char *argv[])
@@ -310,11 +310,11 @@ int main(int argc, char *argv[])
   case OP_MODE_UPLOAD: skylark_upload_mode(); break;
   case OP_MODE_GET_HEALTH: exit_status = skylark_request_health(); break;
   case OP_MODE_RECONNECT_DL:
-    settings_loop_send_command("skylark",
-                               "Skylark upload client",
-                               SKYLARK_CONTROL_COMMAND_RECONNECT,
-                               "reconnect",
-                               SKYLARK_CONTROL_SOCK);
+    pk_settings_loop_send_command("skylark",
+                                  "Skylark upload client",
+                                  SKYLARK_CONTROL_COMMAND_RECONNECT,
+                                  "reconnect",
+                                  SKYLARK_CONTROL_SOCK);
     break;
   case OP_MODE_NONE:
   default: {

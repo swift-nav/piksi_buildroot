@@ -23,7 +23,7 @@
 #include <netdb.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
@@ -181,43 +181,43 @@ int main(int argc, char *argv[])
   }
 
   /* Set up settings */
-  sd_ctx_t *settings_ctx = sbp_get_settings_ctx();
+  pk_settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
 
-  sd_register(settings_ctx,
-              "sample_daemon",
-              "enable_broadcast",
-              &enable_broadcast,
-              sizeof(enable_broadcast),
-              SETTINGS_TYPE_BOOL,
-              notify_settings_changed,
-              NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "enable_broadcast",
+                       &enable_broadcast,
+                       sizeof(enable_broadcast),
+                       SETTINGS_TYPE_BOOL,
+                       notify_settings_changed,
+                       NULL);
 
-  sd_register(settings_ctx,
-              "sample_daemon",
-              "offset",
-              &offset,
-              sizeof(offset),
-              SETTINGS_TYPE_FLOAT,
-              notify_settings_changed,
-              NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "offset",
+                       &offset,
+                       sizeof(offset),
+                       SETTINGS_TYPE_FLOAT,
+                       notify_settings_changed,
+                       NULL);
 
-  sd_register(settings_ctx,
-              "sample_daemon",
-              "broadcast_port",
-              &broadcast_port,
-              sizeof(broadcast_port),
-              SETTINGS_TYPE_INT,
-              notify_settings_changed,
-              NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "broadcast_port",
+                       &broadcast_port,
+                       sizeof(broadcast_port),
+                       SETTINGS_TYPE_INT,
+                       notify_settings_changed,
+                       NULL);
 
-  sd_register(settings_ctx,
-              "sample_daemon",
-              "broadcast_hostname",
-              &broadcast_hostname,
-              sizeof(broadcast_hostname),
-              SETTINGS_TYPE_STRING,
-              notify_settings_changed,
-              NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "broadcast_hostname",
+                       &broadcast_hostname,
+                       sizeof(broadcast_hostname),
+                       SETTINGS_TYPE_STRING,
+                       notify_settings_changed,
+                       NULL);
 
   sd_add_watch(settings_ctx,
                "ntrip",

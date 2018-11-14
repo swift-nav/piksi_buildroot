@@ -14,7 +14,7 @@
 #define SWIFTNAV_SBP_H
 
 #include <libsbp/sbp.h>
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 
 // clang-format off
 #define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
@@ -23,7 +23,7 @@
 
 int sbp_init(void);
 void sbp_deinit(void);
-sd_ctx_t *sbp_get_settings_ctx(void);
+pk_settings_ctx_t *sbp_get_settings_ctx(void);
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context);
 int sbp_run(void);
 

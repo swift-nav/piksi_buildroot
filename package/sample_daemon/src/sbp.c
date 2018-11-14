@@ -25,7 +25,7 @@
 static struct {
   pk_loop_t *loop;
   sbp_pubsub_ctx_t *pubsub_ctx;
-  sd_ctx_t *settings_ctx;
+  pk_settings_ctx_t *settings_ctx;
 } ctx = {
   .loop = NULL,
   .pubsub_ctx = NULL,
@@ -63,7 +63,7 @@ int sbp_init(void)
     goto failure;
   }
 
-  ctx.settings_ctx = settings_create(SETTINGS_METRICS_NAME);
+  ctx.settings_ctx = pk_settings_create(SETTINGS_METRICS_NAME);
   if (ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
     goto failure;
@@ -90,11 +90,11 @@ void sbp_deinit(void)
     sbp_pubsub_destroy(&ctx.pubsub_ctx);
   }
   if (ctx.settings_ctx != NULL) {
-    sd_destroy(&ctx.settings_ctx);
+    pk_settings_destroy(&ctx.settings_ctx);
   }
 }
 
-sd_ctx_t *sbp_get_settings_ctx(void)
+pk_settings_ctx_t *sbp_get_settings_ctx(void)
 {
   return ctx.settings_ctx;
 }

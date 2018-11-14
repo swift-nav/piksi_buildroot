@@ -21,7 +21,7 @@
 #include <sys/wait.h>
 
 #include <libpiksi/loop.h>
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/logging.h>
 
 #include "rotating_logger.h"
@@ -355,72 +355,70 @@ int main(int argc, char *argv[])
   }
 
   /* Set up settings */
-<<<<<<< 6802ba4b3aa224f66a7220af7463e95b413c102e
-  settings_ctx_t *settings_ctx = settings_create("settings/standalone_file_logger");
-=======
-  sd_ctx_t *settings_ctx = sd_create();
->>>>>>> Settings naming rework
+  pk_settings_ctx_t *settings_ctx = pk_settings_create("settings/standalone_file_logger");
   if (settings_ctx == nullptr) {
     exit(EXIT_FAILURE);
   }
-  if (sd_attach(settings_ctx, loop) != 0) {
+  if (pk_settings_attach(settings_ctx, loop) != 0) {
     piksi_log(LOG_ERR, "error adding settings reader");
     exit(EXIT_FAILURE);
   }
 
   /* Register settings */
-  sd_register(settings_ctx,
-              "standalone_logging",
-              "enable",
-              &setting_usb_logging_enable,
-              sizeof(setting_usb_logging_enable),
-              SETTINGS_TYPE_BOOL,
-              &setting_usb_logging_notify,
-              nullptr);
-  sd_register(settings_ctx,
-              "standalone_logging",
-              "output_directory",
-              &setting_usb_logging_dir,
-              sizeof(setting_usb_logging_dir),
-              SETTINGS_TYPE_STRING,
-              &setting_usb_logging_notify,
-              nullptr);
-  sd_register(settings_ctx,
-              "standalone_logging",
-              "max_fill",
-              &setting_usb_logging_max_fill,
-              sizeof(setting_usb_logging_max_fill),
-              SETTINGS_TYPE_INT,
-              &setting_usb_logging_notify,
-              nullptr);
-  sd_register(settings_ctx,
-              "standalone_logging",
-              "file_duration",
-              &setting_usb_logging_slice_duration,
-              sizeof(setting_usb_logging_slice_duration),
-              SETTINGS_TYPE_INT,
-              &setting_usb_logging_notify,
-              nullptr);
+  pk_settings_register(settings_ctx,
+                       "standalone_logging",
+                       "enable",
+                       &setting_usb_logging_enable,
+                       sizeof(setting_usb_logging_enable),
+                       SETTINGS_TYPE_BOOL,
+                       &setting_usb_logging_notify,
+                       nullptr);
+  pk_settings_register(settings_ctx,
+                       "standalone_logging",
+                       "output_directory",
+                       &setting_usb_logging_dir,
+                       sizeof(setting_usb_logging_dir),
+                       SETTINGS_TYPE_STRING,
+                       &setting_usb_logging_notify,
+                       nullptr);
+  pk_settings_register(settings_ctx,
+                       "standalone_logging",
+                       "max_fill",
+                       &setting_usb_logging_max_fill,
+                       sizeof(setting_usb_logging_max_fill),
+                       SETTINGS_TYPE_INT,
+                       &setting_usb_logging_notify,
+                       nullptr);
+  pk_settings_register(settings_ctx,
+                       "standalone_logging",
+                       "file_duration",
+                       &setting_usb_logging_slice_duration,
+                       sizeof(setting_usb_logging_slice_duration),
+                       SETTINGS_TYPE_INT,
+                       &setting_usb_logging_notify,
+                       nullptr);
 
   settings_type_t settings_type_logging_filesystem;
-  sd_register_enum(settings_ctx, logging_filesystem_names, &settings_type_logging_filesystem);
+  pk_settings_register_enum(settings_ctx,
+                            logging_filesystem_names,
+                            &settings_type_logging_filesystem);
 
-  sd_register(settings_ctx,
-              "standalone_logging",
-              "logging_file_system",
-              &logging_fs_type,
-              sizeof(logging_fs_type),
-              settings_type_logging_filesystem,
-              logging_filesystem_notify,
-              nullptr);
-  sd_register(settings_ctx,
-              "standalone_logging",
-              "copy_system_logs",
-              &copy_system_logs_enable,
-              sizeof(copy_system_logs_enable),
-              SETTINGS_TYPE_BOOL,
-              &copy_system_logs_notify,
-              nullptr);
+  pk_settings_register(settings_ctx,
+                       "standalone_logging",
+                       "logging_file_system",
+                       &logging_fs_type,
+                       sizeof(logging_fs_type),
+                       settings_type_logging_filesystem,
+                       logging_filesystem_notify,
+                       nullptr);
+  pk_settings_register(settings_ctx,
+                       "standalone_logging",
+                       "copy_system_logs",
+                       &copy_system_logs_enable,
+                       sizeof(copy_system_logs_enable),
+                       SETTINGS_TYPE_BOOL,
+                       &copy_system_logs_notify,
+                       nullptr);
 
   process_log_callback(LOG_DEBUG, "Starting");
 
@@ -428,7 +426,7 @@ int main(int argc, char *argv[])
 
   pk_loop_destroy(&loop);
   pk_endpoint_destroy(&pk_sub);
-  sd_destroy(&settings_ctx);
+  pk_settings_destroy(&settings_ctx);
 
   exit(EXIT_SUCCESS);
 }

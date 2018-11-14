@@ -19,7 +19,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
 #include <libpiksi/sbp_pubsub.h>
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
 #include <grpcpp/create_channel.h>
@@ -121,41 +121,41 @@ class Ctx {
 
 class SettingsCtx : public Ctx {
  public:
-  SettingsCtx() : settings_(settings_create(SETTINGS_METRICS_NAME))
+  SettingsCtx() : settings_(pk_settings_create(SETTINGS_METRICS_NAME))
   {
     assert(settings_ != nullptr);
   }
 
   ~SettingsCtx()
   {
-    sd_destroy(&settings_);
+    pk_settings_destroy(&settings_);
   }
 
   bool setup()
   {
-    return sd_attach(settings_, loop_) == 0
-           && sd_register(settings_,
-                          "orion",
-                          "enable",
-                          &enable,
-                          sizeof(enable),
-                          SETTINGS_TYPE_BOOL,
-                          settings_callback,
-                          nullptr)
+    return pk_settings_attach(settings_, loop_) == 0
+           && pk_settings_register(settings_,
+                                   "orion",
+                                   "enable",
+                                   &enable,
+                                   sizeof(enable),
+                                   SETTINGS_TYPE_BOOL,
+                                   settings_callback,
+                                   nullptr)
                 == 0
-           && sd_register(settings_,
-                          "orion",
-                          "port",
-                          &port,
-                          sizeof(port),
-                          SETTINGS_TYPE_STRING,
-                          settings_callback,
-                          nullptr)
+           && pk_settings_register(settings_,
+                                   "orion",
+                                   "port",
+                                   &port,
+                                   sizeof(port),
+                                   SETTINGS_TYPE_STRING,
+                                   settings_callback,
+                                   nullptr)
                 == 0;
   }
 
  private:
-  sd_ctx_t *settings_;
+  pk_settings_ctx_t *settings_;
 };
 
 class SbpCtx : public Ctx {

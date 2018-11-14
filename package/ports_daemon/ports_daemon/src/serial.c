@@ -141,7 +141,7 @@ static int flow_control_notify(void *context)
   return uart_configure(uart);
 }
 
-int serial_init(sd_ctx_t *settings_ctx)
+int serial_init(pk_settings_ctx_t *settings_ctx)
 {
   char new_path[PATH_MAX];
 
@@ -167,42 +167,42 @@ int serial_init(sd_ctx_t *settings_ctx)
 
   /* Register settings */
   settings_type_t settings_type_baudrate;
-  sd_register_enum(settings_ctx, baudrate_enum_names, &settings_type_baudrate);
-  sd_register(settings_ctx,
-              "uart0",
-              "baudrate",
-              &uart0.baudrate,
-              sizeof(uart0.baudrate),
-              settings_type_baudrate,
-              baudrate_notify,
-              &uart0);
-  sd_register(settings_ctx,
-              "uart1",
-              "baudrate",
-              &uart1.baudrate,
-              sizeof(uart1.baudrate),
-              settings_type_baudrate,
-              baudrate_notify,
-              &uart1);
+  pk_settings_register_enum(settings_ctx, baudrate_enum_names, &settings_type_baudrate);
+  pk_settings_register(settings_ctx,
+                       "uart0",
+                       "baudrate",
+                       &uart0.baudrate,
+                       sizeof(uart0.baudrate),
+                       settings_type_baudrate,
+                       baudrate_notify,
+                       &uart0);
+  pk_settings_register(settings_ctx,
+                       "uart1",
+                       "baudrate",
+                       &uart1.baudrate,
+                       sizeof(uart1.baudrate),
+                       settings_type_baudrate,
+                       baudrate_notify,
+                       &uart1);
 
   settings_type_t settings_type_flow_control;
-  sd_register_enum(settings_ctx, flow_control_enum_names, &settings_type_flow_control);
-  sd_register(settings_ctx,
-              "uart0",
-              "flow_control",
-              &uart0.flow_control,
-              sizeof(uart0.flow_control),
-              settings_type_flow_control,
-              flow_control_notify,
-              &uart0);
-  sd_register(settings_ctx,
-              "uart1",
-              "flow_control",
-              &uart1.flow_control,
-              sizeof(uart1.flow_control),
-              settings_type_flow_control,
-              flow_control_notify,
-              &uart1);
+  pk_settings_register_enum(settings_ctx, flow_control_enum_names, &settings_type_flow_control);
+  pk_settings_register(settings_ctx,
+                       "uart0",
+                       "flow_control",
+                       &uart0.flow_control,
+                       sizeof(uart0.flow_control),
+                       settings_type_flow_control,
+                       flow_control_notify,
+                       &uart0);
+  pk_settings_register(settings_ctx,
+                       "uart1",
+                       "flow_control",
+                       &uart1.flow_control,
+                       sizeof(uart1.flow_control),
+                       settings_type_flow_control,
+                       flow_control_notify,
+                       &uart1);
 
   return 0;
 }

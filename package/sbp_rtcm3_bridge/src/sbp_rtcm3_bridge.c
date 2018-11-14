@@ -15,7 +15,7 @@
 #include <getopt.h>
 #include <gnss-converters/rtcm3_sbp.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
 #include <stdint.h>
@@ -248,7 +248,7 @@ static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
 
 int main(int argc, char *argv[])
 {
-  sd_ctx_t *settings_ctx = NULL;
+  pk_settings_ctx_t *settings_ctx = NULL;
   pk_loop_t *loop = NULL;
   pk_endpoint_t *rtcm3_sub = NULL;
 
@@ -336,25 +336,25 @@ int main(int argc, char *argv[])
 
   settings_ctx = sbp_get_settings_ctx();
 
-  sd_register_watch(settings_ctx,
-                    "simulator",
-                    "enabled",
-                    &simulator_enabled_watch,
-                    sizeof(simulator_enabled_watch),
-                    SETTINGS_TYPE_BOOL,
-                    notify_simulator_enable_changed,
-                    NULL);
+  pk_settings_register_watch(settings_ctx,
+                             "simulator",
+                             "enabled",
+                             &simulator_enabled_watch,
+                             sizeof(simulator_enabled_watch),
+                             SETTINGS_TYPE_BOOL,
+                             notify_simulator_enable_changed,
+                             NULL);
 
   settings_type_t settings_type_rtcm_out_mode;
-  sd_register_enum(settings_ctx, rtcm_out_modes, &settings_type_rtcm_out_mode);
-  sd_register(settings_ctx,
-              "rtcm_out",
-              "output_mode",
-              &rtcm_out_mode,
-              sizeof(rtcm_out_mode),
-              settings_type_rtcm_out_mode,
-              notify_rtcm_out_output_mode_changed,
-              &rtcm_out_mode);
+  pk_settings_register_enum(settings_ctx, rtcm_out_modes, &settings_type_rtcm_out_mode);
+  pk_settings_register(settings_ctx,
+                       "rtcm_out",
+                       "output_mode",
+                       &rtcm_out_mode,
+                       sizeof(rtcm_out_mode),
+                       settings_type_rtcm_out_mode,
+                       notify_rtcm_out_output_mode_changed,
+                       &rtcm_out_mode);
 
   settings_register(settings_ctx,
                     "rtcm_out",

@@ -20,7 +20,7 @@
 #include <json-c/json.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
 
 #include "sbp.h"
@@ -356,24 +356,24 @@ int main(int argc, char *argv[])
     return cleanup(EXIT_FAILURE);
   }
 
-  sd_ctx_t *settings_ctx = sbp_get_settings_ctx();
+  pk_settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
 
-  sd_register(settings_ctx,
-              "metrics_daemon",
-              "enable_log_to_file",
-              &enable_log_to_file,
-              sizeof(enable_log_to_file),
-              SETTINGS_TYPE_BOOL,
-              notify_log_settings_changed,
-              NULL);
-  sd_register(settings_ctx,
-              "metrics_daemon",
-              "metrics_update_interval",
-              &metrics_update_interval,
-              sizeof(metrics_update_interval),
-              SETTINGS_TYPE_INT,
-              notify_log_settings_changed,
-              NULL);
+  pk_settings_register(settings_ctx,
+                       "metrics_daemon",
+                       "enable_log_to_file",
+                       &enable_log_to_file,
+                       sizeof(enable_log_to_file),
+                       SETTINGS_TYPE_BOOL,
+                       notify_log_settings_changed,
+                       NULL);
+  pk_settings_register(settings_ctx,
+                       "metrics_daemon",
+                       "metrics_update_interval",
+                       &metrics_update_interval,
+                       sizeof(metrics_update_interval),
+                       SETTINGS_TYPE_INT,
+                       notify_log_settings_changed,
+                       NULL);
   sbp_run();
 
   piksi_log(LOG_DEBUG, "Metrics Daemon: Normal Exit");

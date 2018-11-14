@@ -38,23 +38,23 @@
  * Standard usage is as follow, initialize the settings context:
  * \code{.c}
  * // Create the settings context
- * sd_ctx_t *sd_ctx = sd_create();
+ * pk_settings_ctx_t *pk_settings_ctx = pk_settings_create();
  * \endcode
  * Add a reader to the main pk_loop (if applicable)
  * \code{.c}
  * // Depending on your implementation this will vary
- * sd_attach(sd_ctx, loop);
+ * pk_settings_attach(pk_settings_ctx, loop);
  * \endcode
  * For settings owners, a setting is registered as follows:
  * \code{.c}
- * settings(sd_ctx, "sample_process", "sample_setting",
+ * settings(pk_settings_ctx, "sample_process", "sample_setting",
                      &sample_setting_data, sizeof(sample_setting_data),
                      SETTINGS_TYPE_BOOL,
                      optional_notify_callback, optional_callback_data);
  * \endcode
  * For a process that is tracking a non-owned setting, the process is similar:
  * \code{.c}
- * sd_register_watch(sd_ctx, "sample_process", "sample_setting",
+ * pk_settings_register_watch(pk_settings_ctx, "sample_process", "sample_setting",
                       &sample_setting_data, sizeof(sample_setting_data),
                       SETTINGS_TYPE_BOOL,
                       optional_notify_callback, optional_callback_data);
@@ -74,7 +74,7 @@
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/settings_daemon.h>
+#include <libpiksi/settings_client.h>
 
 #include <libsbp/settings.h>
 
@@ -97,16 +97,16 @@ typedef struct {
  * as well as the list of types and settings necessary to perform
  * the registration, watching and callback functionality of the client.
  */
-struct sd_ctx_s {
+struct pk_settings_ctx_s {
   pk_loop_t *loop;
   sbp_pubsub_ctx_t *pubsub_ctx;
   settings_t *settings;
 };
 
-static sd_term_fn sd_term_handler = NULL;
-static sd_child_fn sd_child_handler = NULL;
+static pk_settings_term_fn pk_settings_term_handler = NULL;
+static pk_settings_child_fn pk_settings_child_handler = NULL;
 
-static void destroy(sd_ctx_t **ctx)
+static void destroy(pk_settings_ctx_t **ctx)
 {
   free(*ctx);
   *ctx = NULL;
@@ -114,8 +114,8 @@ static void destroy(sd_ctx_t **ctx)
 
 static int send_wrap(void *ctx, uint16_t msg_type, uint8_t len, uint8_t *payload)
 {
-  sd_ctx_t *sd_ctx = (sd_ctx_t *)ctx;
-  return sbp_tx_send(sbp_pubsub_tx_ctx_get(sd_ctx->pubsub_ctx), msg_type, len, payload);
+  pk_settings_ctx_t *pk_settings_ctx = (pk_settings_ctx_t *)ctx;
+  return sbp_tx_send(sbp_pubsub_tx_ctx_get(pk_settings_ctx->pubsub_ctx), msg_type, len, payload);
 }
 
 static int send_from_wrap(void *ctx,
@@ -124,8 +124,8 @@ static int send_from_wrap(void *ctx,
                           uint8_t *payload,
                           uint16_t sbp_sender_id)
 {
-  sd_ctx_t *sd_ctx = (sd_ctx_t *)ctx;
-  return sbp_tx_send_from(sbp_pubsub_tx_ctx_get(sd_ctx->pubsub_ctx),
+  pk_settings_ctx_t *pk_settings_ctx = (pk_settings_ctx_t *)ctx;
+  return sbp_tx_send_from(sbp_pubsub_tx_ctx_get(pk_settings_ctx->pubsub_ctx),
                           msg_type,
                           len,
                           payload,
@@ -134,15 +134,15 @@ static int send_from_wrap(void *ctx,
 
 static int wait_wrap(void *ctx, int timeout_ms)
 {
-  sd_ctx_t *sd_ctx = (sd_ctx_t *)ctx;
+  pk_settings_ctx_t *pk_settings_ctx = (pk_settings_ctx_t *)ctx;
 
-  return pk_loop_run_simple_with_timeout(sd_ctx->loop, timeout_ms);
+  return pk_loop_run_simple_with_timeout(pk_settings_ctx->loop, timeout_ms);
 }
 
 static void signal_wrap(void *ctx)
 {
-  sd_ctx_t *sd_ctx = (sd_ctx_t *)ctx;
-  sbp_rx_reader_interrupt(sbp_pubsub_rx_ctx_get(sd_ctx->pubsub_ctx));
+  pk_settings_ctx_t *pk_settings_ctx = (pk_settings_ctx_t *)ctx;
+  sbp_rx_reader_interrupt(sbp_pubsub_rx_ctx_get(pk_settings_ctx->pubsub_ctx));
 }
 
 static int reg_cb_wrap(void *ctx,
@@ -151,8 +151,8 @@ static int reg_cb_wrap(void *ctx,
                        void *cb_context,
                        sbp_msg_callbacks_node_t **node)
 {
-  sd_ctx_t *sd_ctx = (sd_ctx_t *)ctx;
-  sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(sd_ctx->pubsub_ctx),
+  pk_settings_ctx_t *pk_settings_ctx = (pk_settings_ctx_t *)ctx;
+  sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pk_settings_ctx->pubsub_ctx),
                            msg_type,
                            cb,
                            cb_context,
@@ -161,17 +161,13 @@ static int reg_cb_wrap(void *ctx,
 
 static int unreg_cb_wrap(void *ctx, sbp_msg_callbacks_node_t **node)
 {
-  sd_ctx_t *sd_ctx = (sd_ctx_t *)ctx;
-  return sbp_rx_callback_remove(sbp_pubsub_rx_ctx_get(sd_ctx->pubsub_ctx), node);
+  pk_settings_ctx_t *pk_settings_ctx = (pk_settings_ctx_t *)ctx;
+  return sbp_rx_callback_remove(sbp_pubsub_rx_ctx_get(pk_settings_ctx->pubsub_ctx), node);
 }
 
-<<<<<<< 6802ba4b3aa224f66a7220af7463e95b413c102e:package/libpiksi/libpiksi/src/settings.c
-settings_ctx_t *settings_create(const char *ident)
-=======
-sd_ctx_t *sd_create(void)
->>>>>>> Settings naming rework:package/libpiksi/libpiksi/src/settings_daemon.c
+pk_settings_ctx_t *pk_settings_create(const char *ident)
 {
-  sd_ctx_t *ctx = (sd_ctx_t *)malloc(sizeof(*ctx));
+  pk_settings_ctx_t *ctx = (pk_settings_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
     piksi_log(LOG_ERR, "error allocating context");
     return ctx;
@@ -206,7 +202,7 @@ sd_ctx_t *sd_create(void)
   return ctx;
 }
 
-void sd_destroy(sd_ctx_t **ctx)
+void pk_settings_destroy(pk_settings_ctx_t **ctx)
 {
   if (ctx == NULL || *ctx == NULL) {
     return;
@@ -217,7 +213,9 @@ void sd_destroy(sd_ctx_t **ctx)
   destroy(ctx);
 }
 
-int sd_register_enum(sd_ctx_t *ctx, const char *const enum_names[], settings_type_t *type)
+int pk_settings_register_enum(pk_settings_ctx_t *ctx,
+                              const char *const enum_names[],
+                              settings_type_t *type)
 {
   assert(ctx != NULL);
   assert(enum_names != NULL);
@@ -226,14 +224,14 @@ int sd_register_enum(sd_ctx_t *ctx, const char *const enum_names[], settings_typ
   return settings_register_enum(ctx->settings, enum_names, type);
 }
 
-int sd_register(sd_ctx_t *ctx,
-                const char *section,
-                const char *name,
-                void *var,
-                size_t var_len,
-                settings_type_t type,
-                settings_notify_fn notify,
-                void *notify_context)
+int pk_settings_register(pk_settings_ctx_t *ctx,
+                         const char *section,
+                         const char *name,
+                         void *var,
+                         size_t var_len,
+                         settings_type_t type,
+                         settings_notify_fn notify,
+                         void *notify_context)
 {
   return settings_register_setting(ctx->settings,
                                    section,
@@ -245,24 +243,24 @@ int sd_register(sd_ctx_t *ctx,
                                    notify_context);
 }
 
-int sd_register_readonly(sd_ctx_t *ctx,
-                         const char *section,
-                         const char *name,
-                         const void *var,
-                         size_t var_len,
-                         settings_type_t type)
+int pk_settings_register_readonly(pk_settings_ctx_t *ctx,
+                                  const char *section,
+                                  const char *name,
+                                  const void *var,
+                                  size_t var_len,
+                                  settings_type_t type)
 {
   return settings_register_readonly(ctx->settings, section, name, (void *)var, var_len, type);
 }
 
-int sd_register_watch(sd_ctx_t *ctx,
-                      const char *section,
-                      const char *name,
-                      void *var,
-                      size_t var_len,
-                      settings_type_t type,
-                      settings_notify_fn notify,
-                      void *notify_context)
+int pk_settings_register_watch(pk_settings_ctx_t *ctx,
+                               const char *section,
+                               const char *name,
+                               void *var,
+                               size_t var_len,
+                               settings_type_t type,
+                               settings_notify_fn notify,
+                               void *notify_context)
 {
   return settings_register_watch(ctx->settings,
                                  section,
@@ -274,7 +272,7 @@ int sd_register_watch(sd_ctx_t *ctx,
                                  notify_context);
 }
 
-int sd_attach(sd_ctx_t *ctx, pk_loop_t *pk_loop)
+int pk_settings_attach(pk_settings_ctx_t *ctx, pk_loop_t *pk_loop)
 {
   assert(ctx != NULL);
   assert(pk_loop != NULL);
@@ -300,16 +298,16 @@ static void signal_handler_extended(int signum, siginfo_t *info, void *ucontext)
                 info->si_pid);
     }
 
-    if (sd_term_handler != NULL) {
-      sd_term_handler();
+    if (pk_settings_term_handler != NULL) {
+      pk_settings_term_handler();
     }
 
     exit(EXIT_SUCCESS);
 
   } else if (signum == SIGCHLD) {
 
-    if (sd_child_handler != NULL) {
-      sd_child_handler();
+    if (pk_settings_child_handler != NULL) {
+      pk_settings_child_handler();
     }
   }
 }
@@ -441,33 +439,23 @@ static bool configure_control_socket(const char *metrics_ident,
   return true;
 }
 
-<<<<<<< 6802ba4b3aa224f66a7220af7463e95b413c102e:package/libpiksi/libpiksi/src/settings.c
-bool settings_loop(const char *metrics_ident,
-                   const char *control_socket,
-                   const char *control_socket_file,
-                   const char *control_command,
-                   register_settings_fn do_settings_register,
-                   handle_command_fn do_handle_command,
-                   settings_term_fn do_handle_term,
-                   settings_child_fn do_handle_child)
-=======
-bool sd_loop(const char *control_socket,
-             const char *control_socket_file,
-             const char *control_command,
-             register_sd_fn do_sd_register,
-             handle_command_fn do_handle_command,
-             sd_term_fn do_handle_term,
-             sd_child_fn do_handle_child)
->>>>>>> Settings naming rework:package/libpiksi/libpiksi/src/settings_daemon.c
+bool pk_settings_loop(const char *metrics_ident,
+                      const char *control_socket,
+                      const char *control_socket_file,
+                      const char *control_command,
+                      pk_settings_register_fn do_settings_register,
+                      handle_command_fn do_handle_command,
+                      pk_settings_term_fn do_handle_term,
+                      pk_settings_child_fn do_handle_child)
 {
   piksi_log(LOG_INFO, "Starting daemon mode for settings...");
 
-  sd_term_handler = do_handle_term;
-  sd_child_handler = do_handle_child;
+  pk_settings_term_handler = do_handle_term;
+  pk_settings_child_handler = do_handle_child;
 
   pk_loop_t *loop = pk_loop_create();
   if (loop == NULL) {
-    goto sd_loop_cleanup;
+    goto pk_settings_loop_cleanup;
   }
 
   /* Install our own signal handlers */
@@ -479,23 +467,18 @@ bool sd_loop(const char *control_socket,
   bool ret = true;
 
   /* Set up settings */
-<<<<<<< 6802ba4b3aa224f66a7220af7463e95b413c102e:package/libpiksi/libpiksi/src/settings.c
-  settings_ctx_t *settings_ctx = settings_create(metrics_ident);
+  pk_settings_ctx_t *settings_ctx = pk_settings_create(metrics_ident);
   if (settings_ctx == NULL) {
-=======
-  sd_ctx_t *sd_ctx = sd_create();
-  if (sd_ctx == NULL) {
->>>>>>> Settings naming rework:package/libpiksi/libpiksi/src/settings_daemon.c
     ret = false;
-    goto sd_loop_cleanup;
+    goto pk_settings_loop_cleanup;
   }
 
-  if (sd_attach(sd_ctx, loop) != 0) {
+  if (pk_settings_attach(settings_ctx, loop) != 0) {
     ret = false;
-    goto sd_loop_cleanup;
+    goto pk_settings_loop_cleanup;
   }
 
-  do_sd_register(sd_ctx);
+  do_settings_register(settings_ctx);
 
   if (control_socket != NULL) {
     bool control_sock_configured = configure_control_socket(metrics_ident,
@@ -508,45 +491,34 @@ bool sd_loop(const char *control_socket,
                                                             &cmd_info);
     if (!control_sock_configured) {
       ret = false;
-      goto sd_loop_cleanup;
+      goto pk_settings_loop_cleanup;
     }
   }
 
   pk_loop_run_simple(loop);
 
-sd_loop_cleanup:
+pk_settings_loop_cleanup:
   if (rep_socket != NULL) pk_endpoint_destroy(&rep_socket);
 
   if (cmd_info != NULL) free(cmd_info);
 
-  sd_destroy(&sd_ctx);
+  pk_settings_destroy(&settings_ctx);
   pk_loop_destroy(&loop);
 
   return ret;
 }
 
-<<<<<<< 6802ba4b3aa224f66a7220af7463e95b413c102e:package/libpiksi/libpiksi/src/settings.c
-bool settings_loop_simple(const char *metrics_ident, register_settings_fn do_settings_register)
+bool pk_settings_loop_simple(const char *metrics_ident,
+                             pk_settings_register_fn do_settings_register)
 {
-  return settings_loop(metrics_ident, NULL, NULL, NULL, do_settings_register, NULL, NULL, NULL);
+  return pk_settings_loop(metrics_ident, NULL, NULL, NULL, do_settings_register, NULL, NULL, NULL);
 }
 
-int settings_loop_send_command(const char *metrics_ident,
-                               const char *target_description,
-                               const char *command,
-                               const char *command_description,
-                               const char *control_socket)
-=======
-bool sd_loop_simple(register_sd_fn do_sd_register)
-{
-  return sd_loop(NULL, NULL, NULL, do_sd_register, NULL, NULL, NULL);
-}
-
-int sd_loop_send_command(const char *target_description,
-                         const char *command,
-                         const char *command_description,
-                         const char *control_socket)
->>>>>>> Settings naming rework:package/libpiksi/libpiksi/src/settings_daemon.c
+int pk_settings_loop_send_command(const char *metrics_ident,
+                                  const char *target_description,
+                                  const char *command,
+                                  const char *command_description,
+                                  const char *control_socket)
 {
 #define CHECK_PK_EPT_ERR(COND, FUNC)         \
   if (COND) {                                \
