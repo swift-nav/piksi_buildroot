@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  ctx = sbp_pubsub_create(PROGRAM_NAME, SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (ctx == NULL) {
     status = EXIT_FAILURE;
     goto cleanup;

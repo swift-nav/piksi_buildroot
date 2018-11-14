@@ -27,6 +27,7 @@
 #include "skylark_settings.h"
 
 #define PROGRAM_NAME "skylark_daemon"
+#define SKYLARK_SETTINGS_METRICS ("settings/" PROGRAM_NAME)
 
 #define SKYLARK_CONTROL_FILE "/var/run/skylark/control/socket"
 #define SKYLARK_CONTROL_SOCK "ipc://" SKYLARK_CONTROL_FILE
@@ -282,7 +283,8 @@ static void settings_loop_terminate()
 
 static void skylark_settings_loop(void)
 {
-  settings_loop(SKYLARK_CONTROL_SOCK,
+  settings_loop(SKYLARK_SETTINGS_METRICS,
+                SKYLARK_CONTROL_SOCK,
                 SKYLARK_CONTROL_FILE,
                 SKYLARK_CONTROL_COMMAND_RECONNECT,
                 skylark_init,
@@ -308,7 +310,8 @@ int main(int argc, char *argv[])
   case OP_MODE_UPLOAD: skylark_upload_mode(); break;
   case OP_MODE_GET_HEALTH: exit_status = skylark_request_health(); break;
   case OP_MODE_RECONNECT_DL:
-    settings_loop_send_command("Skylark upload client",
+    settings_loop_send_command("skylark",
+                               "Skylark upload client",
                                SKYLARK_CONTROL_COMMAND_RECONNECT,
                                "reconnect",
                                SKYLARK_CONTROL_SOCK);

@@ -27,6 +27,7 @@
 #define PROGRAM_NAME "sbp_nmea_bridge"
 
 #define NMEA_PUB_ENDPOINT "ipc:///var/run/sockets/nmea_internal.sub" /* NMEA Internal In */
+#define NMEA_METRIC_NAME "nmea/pub"
 
 bool nmea_debug = false;
 
@@ -242,7 +243,11 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE));
   }
 
-  nmea_pub = pk_endpoint_create(NMEA_PUB_ENDPOINT, PK_ENDPOINT_PUB);
+  nmea_pub = pk_endpoint_create(pk_endpoint_config()
+                                  .endpoint(NMEA_PUB_ENDPOINT)
+                                  .identity(NMEA_METRIC_NAME)
+                                  .type(PK_ENDPOINT_PUB)
+                                  .get());
   if (nmea_pub == NULL) {
     piksi_log(LOG_ERR, "error creating PUB socket");
     exit(cleanup(EXIT_FAILURE));

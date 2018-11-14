@@ -9,8 +9,9 @@ FILE_PERM=0644
 
 name="sbp_fileio_daemon_external"
 cmd="sbp_fileio_daemon \
--p 'ipc:///var/run/sockets/fileio_external.sub' \
--s 'ipc:///var/run/sockets/fileio_external.pub' \
+--name external \
+--pub ipc:///var/run/sockets/fileio_external.sub \
+--sub ipc:///var/run/sockets/fileio_external.pub \
 --basedir $FILEIO_DIR \
 --basedir $PERSIST_DIR \
 --basedir $MEDIA_DIR \
@@ -26,4 +27,7 @@ setup_permissions()
   configure_dir_resource_rec "$user" "$MEDIA_DIR"   "$DIR_PERM" "$FILE_PERM"
 }
 
-source /etc/init.d/template_runsv.inc.sh
+export name cmd dir user
+
+# shellcheck disable=SC1091
+. /etc/init.d/template_runsv.inc.sh

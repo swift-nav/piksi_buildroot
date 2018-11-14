@@ -24,7 +24,7 @@ int main(void)
   int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
 
-  sbp_pubsub_ctx_t *ctx = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
+  sbp_pubsub_ctx_t *ctx = sbp_pubsub_create(PROGRAM_NAME, PUB_ENDPOINT, SUB_ENDPOINT);
   if (ctx == NULL) {
     goto settings_cleanup;
   }

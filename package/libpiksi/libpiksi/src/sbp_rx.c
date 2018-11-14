@@ -47,7 +47,14 @@ static int receive_process(const u8 *buff, size_t length, void *context)
   return 0;
 }
 
-sbp_rx_ctx_t *sbp_rx_create(const char *endpoint)
+static const char *get_socket_ident(const char *ident)
+{
+  static char buffer[128] = {0};
+  snprintf_assert(buffer, sizeof(buffer), "%s/sbp/rx", ident);
+  return buffer;
+}
+
+sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
 {
   assert(endpoint != NULL);
 
@@ -57,7 +64,14 @@ sbp_rx_ctx_t *sbp_rx_create(const char *endpoint)
     goto failure;
   }
 
-  ctx->pk_ept = pk_endpoint_create(endpoint, PK_ENDPOINT_SUB);
+  pk_endpoint_config_t cfg = (pk_endpoint_config_t){
+    .endpoint = endpoint,
+    .identity = get_socket_ident(ident),
+    .type = PK_ENDPOINT_SUB,
+    .retry_connect = false,
+  };
+
+  ctx->pk_ept = pk_endpoint_create(cfg);
   if (ctx->pk_ept == NULL) {
     piksi_log(LOG_ERR, "error creating SUB endpoint for rx ctx");
     goto failure;

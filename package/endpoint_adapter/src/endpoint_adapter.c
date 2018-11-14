@@ -43,6 +43,7 @@
 #define ENDPOINT_RESTART_RETRY_DELAY_ms 1
 #define FRAMER_NONE_NAME "none"
 #define FILTER_NONE_NAME "none"
+#define METRIC_NAME_LEN 128
 
 #define PROGRAM_NAME "endpoint_adapter"
 
@@ -428,22 +429,31 @@ static int handle_init(handle_t *handle,
 
 static pk_endpoint_t *pk_endpoint_start(int type)
 {
+  char metric_name[METRIC_NAME_LEN] = {0};
   const char *addr = NULL;
+
   switch (type) {
   case PK_ENDPOINT_PUB: {
     addr = pub_addr;
+    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s/pub", port_name);
   } break;
 
   case PK_ENDPOINT_SUB: {
     addr = sub_addr;
+    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s/sub", port_name);
   } break;
 
   default: {
-    syslog(LOG_ERR, "unknown endpoint type");
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "unknown endpoint type");
   } break;
   }
 
-  pk_endpoint_t *pk_ept = pk_endpoint_create_ex(addr, type, true);
+  pk_endpoint_t *pk_ept = pk_endpoint_create(pk_endpoint_config()
+                                               .endpoint(addr)
+                                               .identity(metric_name)
+                                               .type(type)
+                                               .retry_connect(retry_pubsub)
+                                               .get());
   if (pk_ept == NULL) {
     debug_printf("pk_endpoint_create returned NULL\n");
     return NULL;

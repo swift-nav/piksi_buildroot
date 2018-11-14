@@ -44,6 +44,7 @@ typedef struct forwarding_rule_s {
 
 typedef struct port_s {
   const char *name;
+  const char *metric;
   const char *pub_addr;
   const char *sub_addr;
   pk_endpoint_t *pub_ept;
@@ -58,6 +59,7 @@ typedef struct {
 } router_t;
 
 void debug_printf(const char *msg, ...);
+void router_log(int priority, const char *msg, ...);
 
 typedef void (*match_fn_t)(const forwarding_rule_t *forwarding_rule,
                            const filter_t *filter,

@@ -2,6 +2,7 @@
 name: NMEA_ROUTER
 ports:
   - name: NMEA_PORT_FIRMWARE
+    metric: "nmea/firmware"
     pub_addr: "ipc:///var/run/sockets/nmea_firmware.pub" # /tmp/tmp.44010"
     sub_addr: "ipc:///var/run/sockets/nmea_firmware.sub" # /tmp/tmp.44011"
     forwarding_rules:
@@ -10,6 +11,7 @@ ports:
           - { action: ACCEPT }
 
   - name: NMEA_PORT_INTERNAL
+    metric: "nmea/internal"
     pub_addr: "ipc:///var/run/sockets/nmea_internal.pub"
     sub_addr: "ipc:///var/run/sockets/nmea_internal.sub"
     forwarding_rules:
@@ -18,5 +20,6 @@ ports:
           - { action: ACCEPT }
 
   - name: NMEA_PORT_EXTERNAL
+    metric: "nmea/external"
     pub_addr: "ipc:///var/run/sockets/nmea_external.pub" # /tmp/tmp.44030"
     sub_addr: "ipc:///var/run/sockets/nmea_external.sub" # /tmp/tmp.44031"

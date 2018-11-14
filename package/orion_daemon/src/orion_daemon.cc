@@ -27,6 +27,8 @@
 
 static const char *PROGRAM_NAME = "orion_daemon";
 
+static const char *SETTINGS_METRICS_NAME = "settings/orion_daemon";
+
 static const char *PUB_ENDPOINT = "ipc:///var/run/sockets/skylark.sub";
 
 static const char *SUB_ENDPOINT = "ipc:///var/run/sockets/skylark.pub";
@@ -119,7 +121,7 @@ class Ctx {
 
 class SettingsCtx : public Ctx {
  public:
-  SettingsCtx() : settings_(settings_create())
+  SettingsCtx() : settings_(settings_create(SETTINGS_METRICS_NAME))
   {
     assert(settings_ != nullptr);
   }
@@ -158,7 +160,7 @@ class SettingsCtx : public Ctx {
 
 class SbpCtx : public Ctx {
  public:
-  SbpCtx() : pubsub_(sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT))
+  SbpCtx() : pubsub_(sbp_pubsub_create(PROGRAM_NAME, PUB_ENDPOINT, SUB_ENDPOINT))
   {
     assert(pubsub_ != nullptr);
   }

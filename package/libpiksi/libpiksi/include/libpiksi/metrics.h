@@ -56,13 +56,16 @@ typedef struct {
   u64 ns;
 } pk_metrics_time_t;
 
-typedef union pk_metrics_value_s {
-  s32 s32;
-  s64 s64;
-  u32 u32;
-  u64 u64;
-  double f64;
-  pk_metrics_time_t time;
+typedef struct pk_metrics_value_s {
+  pk_metrics_type_t type;
+  union {
+    s32 as_s32;
+    s64 as_s64;
+    u32 as_u32;
+    u64 as_u64;
+    double as_f64;
+    pk_metrics_time_t as_time;
+  } data;
 } pk_metrics_value_t;
 
 typedef struct {
@@ -158,16 +161,18 @@ const char *pk_metrics_status_text(pk_metrics_status_t status);
 #define PK_METRICS_UPDATE(TheMetrics, MetricIndex, ...) \
   _pk_metrics_update(TheMetrics, MetricIndex, NARGS(__VA_ARGS__), ## __VA_ARGS__)
 
-#define _DEF_METRICS_CONV_FUNC(TheType, TheParamType)         \
+#define _DEF_METRICS_CONV_FUNC(TheType, TheParamType, TheEnumType)      \
   __attribute__((always_inline)) inline pk_metrics_value_t              \
-  pk_metrics_ ## TheType (TheParamType v) { return (pk_metrics_value_t) { .TheType = v }; }
+  pk_metrics_ ## TheType (TheParamType v) { return (pk_metrics_value_t) \
+    { .type = TheEnumType, .data.as_##TheType = v }; \
+  }
 
-_DEF_METRICS_CONV_FUNC(u32,  u32)
-_DEF_METRICS_CONV_FUNC(u64,  u64)
-_DEF_METRICS_CONV_FUNC(s32,  s32)
-_DEF_METRICS_CONV_FUNC(s64,  s64)
-_DEF_METRICS_CONV_FUNC(f64,  double)
-_DEF_METRICS_CONV_FUNC(time, pk_metrics_time_t)
+_DEF_METRICS_CONV_FUNC(u32,  u32, METRICS_TYPE_U32)
+_DEF_METRICS_CONV_FUNC(u64,  u64, METRICS_TYPE_U64)
+_DEF_METRICS_CONV_FUNC(s32,  s32, METRICS_TYPE_S32)
+_DEF_METRICS_CONV_FUNC(s64,  s64, METRICS_TYPE_S64)
+_DEF_METRICS_CONV_FUNC(f64,  double, METRICS_TYPE_F64)
+_DEF_METRICS_CONV_FUNC(time, pk_metrics_time_t, METRICS_TYPE_TIME)
 
 #undef _DEF_METRICS_CONV_FUNC
 
