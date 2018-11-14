@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-BCM_WRAPPER_VERSION = v0.3.6
+BCM_WRAPPER_VERSION = v0.3.8
 BCM_WRAPPER_PREFIX = bcm_wrapper
 BCM_WRAPPER_ASSET = bcm_wrapper.tar.gz
 BCM_WRAPPER_S3 = $(call pbr_s3_url,$(BCM_WRAPPER_PREFIX),$(BCM_WRAPPER_VERSION),$(BCM_WRAPPER_ASSET))
