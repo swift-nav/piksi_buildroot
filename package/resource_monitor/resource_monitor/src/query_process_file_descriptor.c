@@ -30,9 +30,9 @@
 
 #define ITEM_COUNT 10
 #define MAX_PROCESS_COUNT 2048
-#define MAX_FILE_COUNT 4096
+#define MAX_FILE_COUNT 1024 * 16
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
-#define LSOF_CMD_BUF_LENGTH 1024 * 128
+#define LSOF_CMD_BUF_LENGTH 1024 * 16
 
 typedef enum {
   SEND_FD_COUNTS_0,
@@ -101,14 +101,18 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
     pid_entry_t new_entry = {0};
     int s = snprintf(new_entry.id_str, sizeof(entry->id_str), "%s", id_str);
     if (s < 0 || (size_t)s >= sizeof(entry->id_str)) {
+#ifdef DEBUG_QUERY_FD_TAB
       PK_LOG_ANNO(LOG_WARNING, "file descriptor query: failed to copy pid string");
+#endif
       return false;
     }
     unsigned long pid = 0;
     if (!strtoul_all(10, id_str, &pid)) {
+#ifdef DEBUG_QUERY_FD_TAB
       PK_LOG_ANNO(LOG_WARNING,
                   "file descriptor query: failed to convert pid str to number: %s",
                   strerror(errno));
+#endif
       return false;
     }
     new_entry.pid = (u16)pid;
@@ -116,7 +120,7 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
     *entry = new_entry;
     bool added = pid_table_put(state->pid_table, id_str, entry);
     if (!added) {
-      PK_LOG_ANNO(LOG_ERR | LOG_SBP, "failed to add entry for pid '%s'", id_str);
+      PK_LOG_ANNO(LOG_ERR, "failed to add entry for pid '%s'", id_str);
       free(entry);
       return false;
     }
@@ -128,18 +132,22 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
       file_entry_t new_entry = {0};
       int s = snprintf(new_entry.file_str, sizeof(new_entry.file_str), "%s", file_str);
       if (s < 0 || (size_t)s >= sizeof(file_entry->file_str)) {
+#ifdef DEBUG_QUERY_FD_TAB
         PK_LOG_ANNO(LOG_WARNING,
                     "file descriptor query: failed to copy file string '%s'",
                     file_str);
+#endif
         return false;
       }
       file_entry = calloc(1, sizeof(file_entry_t));
       *file_entry = new_entry;
       bool added = file_table_put(state->file_table, file_str, file_entry);
       if (!added) {
+#ifdef DEBUG_QUERY_FD_TAB
         PK_LOG_ANNO(LOG_WARNING,
                     "file descriptor query: failed to add entry for file string '%s'",
                     file_str);
+#endif
         free(file_entry);
         return false;
       }
@@ -152,8 +160,8 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
 static bool parse_fd_line(resq_state_t *state, const char *line)
 {
   char id_str[16] = {0};
-  char exe_str[32] = {0};
-  char file_str[64] = {0};
+  char exe_str[64] = {0};
+  char file_str[128] = {0};
   line_spec_t line_specs[FD_STATE_COUNT] = {[FD_STATE_ID_STR] =
                                               (line_spec_t){
                                                 .type = FT_STR,
@@ -184,7 +192,7 @@ static bool parse_fd_line(resq_state_t *state, const char *line)
 
   if (!parse_tab_line(line, FD_STATE_ID_STR, FD_STATE_DONE, line_specs, "\t")) {
 #ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_ERR, "file descriptor query: parse_tab_line failed ");
+    PK_LOG_ANNO(LOG_ERR, "file descriptor query: parse_tab_line failed :%s\n", line);
 #endif
     return false;
   }
@@ -215,7 +223,8 @@ static void run_resource_query(void *context)
     table_destroy(&state->file_table);
   }
   char leftover_buffer[4096] = {0};
-  leftover_t NESTED_AXX(leftover) = {.buf = leftover_buffer};
+  leftover_t NESTED_AXX(leftover) = {.buf = leftover_buffer, .size = 0};
+  size_t NESTED_AXX(no_line_count) = 0;
   state->send_state = SEND_FD_COUNTS_0;
   state->pid_table = table_create(MAX_PROCESS_COUNT, destroy_table_entry);
   state->file_table = table_create(MAX_FILE_COUNT, destroy_table_entry);
@@ -228,17 +237,7 @@ static void run_resource_query(void *context)
     PK_LOG_ANNO(LOG_ERR, "file descriptor query: file table creation failed");
     return;
   }
-  const char *argv[] = {"sudo", "/usr/bin/lsof", NULL};
-  char buf[LSOF_CMD_BUF_LENGTH] = {0};
-  int rc = run_with_stdin_file(NULL, "sudo", argv, buf, sizeof(buf));
-  if (rc != 0) {
-#ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_ERR,
-                "file descriptor query: error running 'lsof' command: %s",
-                strerror(errno));
-#endif
-    return;
-  }
+
   line_fn_t line_func = NESTED_FN(bool, (const char *line), {
     if (!parse_fd_line(state, line)) {
 #ifdef DEBUG_QUERY_FD_TAB
@@ -248,13 +247,57 @@ static void run_resource_query(void *context)
     }
     return true;
   });
-  ssize_t consumed = foreach_line(buf, &leftover, line_func);
-  if (consumed < 0) {
-    PK_LOG_ANNO(LOG_WARNING, "there was an error parsing the 'ss' output");
+
+  buffer_fn_t buffer_fn = NESTED_FN(ssize_t, (char *buffer, size_t length, void *ctx), {
+
+    (void)ctx;
+
+    /* foreach_line requires a null terminated string */
+    buffer[length] = '\0';
+#ifdef DEBUG_QUERY_FD_TAB
+    PK_LOG_ANNO(LOG_DEBUG, "length: %d, buffer: <<%s>>", length, buffer);
+#endif
+
+    ssize_t consumed = foreach_line(buffer, &leftover, line_func);
+    if (consumed < 0) {
+      PK_LOG_ANNO(LOG_WARNING, "there was an error parsing the 'ss' output");
+      return -1;
+    }
+
+    if (leftover.line_count == 0 && ++no_line_count >= 2) {
+#ifdef DEBUG_QUERY_FD_TAB
+      PK_LOG_ANNO(LOG_WARNING, "command output had no newlines");
+#endif
+      return -1;
+    }
+
+#ifdef DEBUG_QUERY_FD_TAB
+    if (leftover.size > 0) {
+      PK_LOG_ANNO(LOG_DEBUG, "leftover: '%s'", leftover.buf);
+    }
+#endif
+    no_line_count = 0;
+
+    return (ssize_t)length;
+  });
+
+  //  const char *argv[] = {"sudo", "/usr/bin/lsof", NULL};
+  char buf[LSOF_CMD_BUF_LENGTH] = {0};
+  //  int rc = run_with_stdin_file(NULL, "sudo", argv, buf, sizeof(buf));
+  run_command_t run_config = {.input = NULL,
+                              .context = NULL,
+                              .argv = (const char *[]){"sudo", "/usr/bin/lsof", NULL},
+                              .buffer = buf,
+                              .length = sizeof(leftover_buffer) - 1,
+                              .func = buffer_fn};
+  if (run_command(&run_config) != 0) {
+    PK_LOG_ANNO(LOG_ERR,
+                "file descriptor query: error running 'lsof' command: %s",
+                strerror(errno));
     return;
   }
-
   size_t pid_count = table_count(state->pid_table);
+  if (pid_count < ITEM_COUNT) return;
   id_to_count_t *NESTED_AXX(pid_to_count) = alloca(pid_count * sizeof(id_to_count_t));
 
   table_foreach_key(state->pid_table,
@@ -271,6 +314,7 @@ static void run_resource_query(void *context)
 
   qsort(pid_to_count, pid_count, sizeof(id_to_count_t), compare_counts);
   size_t file_count = table_count(state->file_table);
+  if (file_count < ITEM_COUNT) return;
   id_to_count_t *NESTED_AXX(file_to_count) = alloca(file_count * sizeof(id_to_count_t));
 
   table_foreach_key(state->file_table,
@@ -289,13 +333,19 @@ static void run_resource_query(void *context)
   for (size_t i = 0; i < ITEM_COUNT && i < pid_count; i++) {
     state->top10_pid_counts[i] = pid_to_count[i].id;
 #ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_DEBUG, "TOP 10 FD PID : %s : %d", pid_to_count[i].id, pid_to_count[i].count);
+    PK_LOG_ANNO(LOG_DEBUG,
+                "TOP 10 FD PID : %s : %d",
+                pid_to_count[i].id,
+                pid_to_count[i].count);
 #endif
   }
   for (size_t i = 0; i < ITEM_COUNT && i < file_count; i++) {
     state->top10_file_counts[i] = file_to_count[i].id;
 #ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_DEBUG, "TOP 10 FD FILE : %s : %d", file_to_count[i].id, file_to_count[i].count);
+    PK_LOG_ANNO(LOG_DEBUG,
+                "TOP 10 FD FILE : %s : %d",
+                file_to_count[i].id,
+                file_to_count[i].count);
 #endif
   }
 }
@@ -304,6 +354,12 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
 {
   resq_state_t *state = context;
   if (state->send_state == SEND_DONE) return false;
+  if (table_count(state->pid_table) < 10 || table_count(state->file_table) < 10)
+  // Handle the case that lsof command failed
+  {
+    *len = 0;
+    return false;
+  }
   assert(0 == SEND_FD_COUNTS_0);
   size_t index = (size_t)state->send_state;
   switch (state->send_state) {
@@ -366,7 +422,9 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
     break;
   case SEND_DONE:
   default: {
-    PK_LOG_ANNO(LOG_ERR, "file descriptor query: invalid state value: %d", state->send_state);
+    PK_LOG_ANNO(LOG_ERR,
+                "file descriptor query: invalid state value: %d",
+                state->send_state);
     return false;
   }
   }
@@ -393,7 +451,7 @@ static void *init_resource_query()
               pid_count);
 #endif
   if (pid_count > MAX_PROCESS_COUNT) {
-    PK_LOG_ANNO(LOG_ERR | LOG_SBP,
+    PK_LOG_ANNO(LOG_ERR,
                 "detected more than %d processes on the system: %d",
                 MAX_PROCESS_COUNT,
                 pid_count);
