@@ -17,7 +17,6 @@
 #include <string.h>
 #include <search.h>
 #include <libsbp/linux.h>
-#include <dirent.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libpiksi/runit.h>
@@ -240,7 +239,6 @@ static void run_resource_query(void *context)
 #endif
     return;
   }
-  char *line_ctx = NULL;
   line_fn_t line_func = NESTED_FN(bool, (const char *line), {
     if (!parse_fd_line(state, line)) {
 #ifdef DEBUG_QUERY_FD_TAB
@@ -256,16 +254,6 @@ static void run_resource_query(void *context)
     return;
   }
 
-
-  for (char *line = strtok_r(buf, "\n", &line_ctx); line != NULL;
-       line = strtok_r(NULL, "\n", &line_ctx)) {
-    if (!parse_fd_line(state, line)) {
-#ifdef DEBUG_QUERY_FD_TAB
-      PK_LOG_ANNO(LOG_ERR, "file descriptor query: parse_fd_line failed ");
-#endif
-      return;
-    }
-  }
   size_t pid_count = table_count(state->pid_table);
   id_to_count_t *NESTED_AXX(pid_to_count) = alloca(pid_count * sizeof(id_to_count_t));
 
