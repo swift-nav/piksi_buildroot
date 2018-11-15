@@ -1,0 +1,38 @@
+#!/bin/ash
+# shellcheck disable=SC1091,SC2169
+
+set -e
+
+name=$1             ; shift
+failed_restarts=$1  ; shift
+run_status=$1       ; shift
+
+# How long to sleep in between service restarts
+restart_sleep_time=0.5
+
+export log_tag=piksi-runsv
+. /etc/init.d/logging.sh
+
+restarts_file="/var/run/${name}.restarts"
+
+if [[ -f "$restarts_file" ]]; then
+  restarts=$(cat "$restarts_file")
+else
+  restarts=0
+fi
+
+if [[ "$run_status" -ne 0 ]]; then
+  logw "Service $name exited (status: $run_status, failed starts: $restarts)..."
+  restarts=$(( restarts + 1 ))
+  echo "$restarts" >"$restarts_file"
+else
+  logi "Service $name exited cleanly"
+  rm "$restarts_file"
+fi
+
+if [[ "$restarts" -ge "$failed_restarts" ]]; then
+  loge --sbp "Stopping service $name after $restarts failed restarts..."
+  sv down "/var/service/$name"
+fi
+
+sleep "$restart_sleep_time"

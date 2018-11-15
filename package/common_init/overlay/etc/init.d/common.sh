@@ -1,3 +1,5 @@
+# shellcheck disable=SC1091,SC2169,SC2039
+
 get_pid()
 {
   local pid_file=$1; shift
@@ -13,12 +15,12 @@ sudo_get_pid()
 is_running()
 {
   local pid_file=$1; shift
-  [ -f "$pid_file" ] && [ -d "/proc/$(get_pid $pid_file)" ] > /dev/null 2>&1
+  [ -f "$pid_file" ] && [ -d "/proc/$(get_pid "$pid_file")" ] > /dev/null 2>&1
 }
 
 _validate_not_empty()
 {
-  [[ -n "$(eval echo \${$1:-})" ]] || {
+  [[ -n "$(eval echo '${'"$1"':-}')" ]] || {
     echo "Error: the '$1' variable must not be empty" >&2
     return 1
   }
@@ -34,7 +36,7 @@ configure_dir_resource()
   _validate_not_empty path || return 1
   _validate_not_empty perm || return 1
 
-  configure_dir_resource2 $user $user $path $perm
+  configure_dir_resource2 "$user" "$user" "$path" "$perm"
 }
 
 configure_dir_resource2()
@@ -116,13 +118,17 @@ configure_logrotate_file()
   [[ ! -e "$path" ]] || return 1
 
   touch "$path"
-  echo "$rotate_file {"     >  "$path"
-  echo "      su root root" >> "$path"
-  echo "      size 5k"      >> "$path"
-  echo "      copytruncate" >> "$path"
-  echo "      rotate 5"     >> "$path"
-  echo "      missingok"    >> "$path"
-  echo "}" >> "$path"
+
+  {
+    echo "$rotate_file {"     ;
+    echo "      su root root" ;
+    echo "      size 5k"      ;
+    echo "      copytruncate" ;
+    echo "      rotate 5"     ;
+    echo "      missingok"    ;
+    echo "}"
+
+  } >"$path"
 }
 
 _setup_permissions()
@@ -134,19 +140,19 @@ _setup_permissions()
 
 has_user()
 {
-  id -u $1 &>/dev/null
+  id -u "$1" &>/dev/null
 }
 
 has_group()
 {
-  grep -q $1 /etc/group
+  grep -q "$1" /etc/group
 }
 
 add_service_user()
 {
   local user=$1; shift
 
-  add_service_user2 $user $user
+  add_service_user2 "$user" "$user"
 }
 
 add_service_user2()
@@ -154,8 +160,8 @@ add_service_user2()
   local user=$1; shift
   local group=$1; shift
 
-  has_group $user || addgroup -S $group
-  has_user $user || adduser -S -D -H -G $group $user
+  has_group "$user" || addgroup -S "$group"
+  has_user "$user" || adduser -S -D -H -G "$group" "$user"
 }
 
 _release_lockdown=/etc/release_lockdown
