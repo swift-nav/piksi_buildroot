@@ -390,7 +390,7 @@ def uploadArtifactsToS3(Map args) {
     } else {
         if (args.context.isPrPush()) {
             bucket = "swiftnav-artifacts-pull-requests-jenkins"
-            path += "pr-" + args.context.prNumber + "/" + args.context.gitDescribe() + "/"
+            path += "pr-" + args.context.prNumber() + "/" + args.context.gitDescribe() + "/"
             upload = true
         } else {
             // TODO remove the 'klaus.*-release' which is here to test uploads
