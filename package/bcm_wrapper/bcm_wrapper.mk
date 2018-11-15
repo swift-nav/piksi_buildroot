@@ -4,6 +4,8 @@
 #
 ################################################################################
 
+ifeq ($(BR2_PACKAGE_BCM_WRAPPER),y)
+
 BCM_WRAPPER_VERSION = v0.3.8
 BCM_WRAPPER_PREFIX = bcm_wrapper
 BCM_WRAPPER_ASSET = bcm_wrapper.tar.gz
@@ -50,3 +52,5 @@ BCM_WRAPPER_OVERLAY = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/bcm_wrapper/
 BR2_ROOTFS_OVERLAY += "${BCM_WRAPPER_OVERLAY}"
 
 $(eval $(generic-package))
+
+endif
