@@ -137,6 +137,7 @@ nano-config:
 	BR2_EXTERNAL=$(BR2_EXTERNAL) \
 		$(MAKE) -C buildroot O=nano_output piksi_nano_defconfig
 
+nano-image: export BR2_BUILD_STARLING_DAEMON=y
 nano-image: nano-config
 	BR2_EXTERNAL=$(BR2_EXTERNAL) \
 		$(MAKE) -C buildroot O=nano_output
