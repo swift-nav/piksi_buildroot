@@ -7,4 +7,10 @@ user="bcmd"
 
 export name cmd dir user
 
+setup_permissions()
+{
+  chown $user:$user /dev/ttymxc4
+  chown --dereference $user:$user /dev/gc/a/nstandby
+}
+
 . /etc/init.d/template_runsv.inc.sh
