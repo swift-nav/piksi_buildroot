@@ -2,7 +2,7 @@
 
 // Use 'ci-jenkins@somebranch' to pull shared lib from a different branch than the default.
 // Default is configured in Jenkins and should be from "stable" tag.
-@Library("ci-jenkins") import com.swiftnav.ci.*
+@Library("ci-jenkins@klaus/ccache") import com.swiftnav.ci.*
 
 String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
@@ -24,7 +24,6 @@ pipeline {
     }
 
     parameters {
-        string(name: "REF", defaultValue: "master", description: "git ref for piksi_buildroot repo")
         choice(name: "LOG_LEVEL", choices: ['info', 'debug', 'warning', 'error'])
         booleanParam(name: "UPLOAD_TO_S3",
                 defaultValue: true,
@@ -99,11 +98,9 @@ pipeline {
                         gitPrep()
                         crlKeyAdd()
 
-                        script {
-                            builder.make(target: "firmware")
-                            builder.make(target: "image-release-open")
-                            builder.make(target: "image-release-ins")
-                        }
+                        runMake(target: "firmware")
+                        runMake(target: "image-release-open")
+                        runMake(target: "image-release-ins")
                     }
                     post {
                         success {
@@ -138,16 +135,14 @@ pipeline {
                         gitPrep()
                         crlKeyAdd()
 
-                        script {
-                            builder.make(target: "firmware")
-                            builder.make(target: "image")
-                        }
+                        runMake(target: "firmware")
+                        runMake(target: "image")
                     }
                     post {
                         success {
                             archivePatterns(
                                 context: context,
-                                patterns: ['buildroot/output/images/piksiv3_prod/*.bin'],
+                                patterns: ['buildroot/output/images/piksiv3_prod/'],
                                 addPath: 'v3/prod',
                                 allowEmpty: true)
                         }
@@ -174,9 +169,7 @@ pipeline {
                         gitPrep()
                         crlKeyAdd()
 
-                        script {
-                            builder.make(target: "host-image")
-                        }
+                        runMake(target: "host-image")
                     }
                     post {
                         always {
@@ -202,10 +195,8 @@ pipeline {
                         gitPrep()
                         crlKeyAdd()
 
-                        script {
-                            builder.make(target: "nano-config")
-                            builder.make(target: "nano-image")
-                        }
+                        runMake(target: "nano-config")
+                        runMake(target: "nano-image")
                     }
                     post {
                         success {
@@ -241,11 +232,9 @@ pipeline {
                         gitPrep()
                         crlKeyAdd()
 
-                        script {
-                            builder.make(target: "firmware")
-                            builder.make(target: "image")
-                            builder.make(target: "sdk")
-                        }
+                        runMake(target: "firmware")
+                        runMake(target: "image")
+                        runMake(target: "sdk")
                     }
                     post {
                         success {
@@ -448,4 +437,56 @@ def cleanUp() {
         patterns: [[pattern: 'buildroot/host_output/target/fake_persist', type: 'INCLUDE'],
                    [pattern: 'buildroot/host_output/target/persistent', type: 'INCLUDE'],
         ])
+}
+
+/**
+ * Wrapper for running a make target in pbr.
+ * @param args
+ *      args.target: make target; defaults to empty string
+ * @return
+ */
+def runMake(Map args=[:]) {
+    def context = new Context(context: this)
+    def logger = context.getLogger()
+
+    /**
+     * By default, run with a ccache in readonly mode, to avoid conflicts
+     * with too many parallel writes to a shared ccache in EFS.
+     *
+     * Update the ccache only if
+     * a) CCACHE_WRITE is set to true (as job parameter)
+     * b) or - the pipeline is triggered by a push to master or release branches
+     */
+    if (env.CCACHE_WRITE && env.CCACHE_WRITE == "true") {
+        logger.debug("Enabling ccache write because CCACHE_WRITE is set to true")
+        readonly = false
+    } else {
+        if (context.isBranchPush(branches: ['master', 'v.*-release'])) {
+            logger.debug("Enabling ccache write because this is for a master/release branch")
+            readonly = false
+        } else {
+            readonly = true
+        }
+    }
+
+    /**
+     * If the ccache dir within the workspace doesn't exist yet, then make it a
+     * symlink to the EFS share.
+     */
+    logger.debug("Creating symlink for ccache")
+    sh("""/bin/bash -ex
+        | if [ ! -e "buildroot/output/ccache" ]; then
+        |   mkdir -p "buildroot/output"
+        |   ln -s "/mnt/efs/buildroot/ccache" "buildroot/output/ccache"
+        |   echo "Symlink created buildroot/output/ccache -> /mnt/efs/buildroot/ccache"
+        | else
+        |   echo "Not symlinking - buildroot/output/ccache already exists"
+        | fi
+        |""".stripMargin())
+
+    context.builder.make(
+            target: args.target,
+            ccacheReadonly: readonly,
+            gtestOut: args.gtestOut,
+            makej: 4)
 }

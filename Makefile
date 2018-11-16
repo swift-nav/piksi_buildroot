@@ -135,6 +135,7 @@ nano-pkg-%: nano-config
 
 nano-config:
 	BR2_EXTERNAL=$(BR2_EXTERNAL) \
+		$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=nano_output piksi_nano_defconfig
 
 nano-image: nano-config
