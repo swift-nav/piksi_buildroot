@@ -147,7 +147,7 @@ pipeline {
                         success {
                             archivePatterns(
                                 context: context,
-                                patterns: ['buildroot/output/images/piksiv3_prod/**'],
+                                patterns: ['buildroot/output/images/piksiv3_prod/*'],
                                 addPath: 'v3/prod',
                                 allowEmpty: true)
                         }
