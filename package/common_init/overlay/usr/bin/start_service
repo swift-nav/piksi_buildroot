@@ -17,5 +17,8 @@ export log_tag=piksi-runsv
 
 logi "Starting ${name}..."
 
+started_file="/var/run/${name}.started"
+cat /proc/uptime >"$started_file"
+
 exec chpst -0 -n "$priority" -/ "$dir" -u "$user":"$group" -U "$user":"$group" \
   ash -c "exec 1>\"${stdout_log}\"; exec 2>\"${stderr_log}\"; exec $cmd"
