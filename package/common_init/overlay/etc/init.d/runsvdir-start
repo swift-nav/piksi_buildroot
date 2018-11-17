@@ -2,28 +2,21 @@
 
 name=runit
 
-svc_dir=/etc/sv
 run_dir=/var/service
 
 stdout=/var/run/fifos/$name.stdout
 stderr=/var/run/fifos/$name.stderr
-
-mkdir -p $run_dir
-
-ls -1 $svc_dir | while read -r svc; do
-   ln -sf $svc_dir/$svc $run_dir/$svc
-done
 
 cleanup()
 {
   rm $stdout
   rm $stderr
 
-  kill -HUP $pid $stderr_pid $stdout_pid
-  kill -TERM $pid $stderr_pid $stdout_pid
+  kill -HUP "$pid" "$stderr_pid" "$stdout_pid"
+  kill -TERM "$pid" "$stderr_pid" "$stdout_pid"
 }
 
-trap 'cleanup; exit 0' HUP TERM STOP EXIT
+trap 'cleanup; exit 0' HUP TERM EXIT
 
 rm -f $stdout $stderr
 mkfifo $stdout $stderr

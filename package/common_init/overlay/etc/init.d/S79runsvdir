@@ -1,26 +1,33 @@
 #!/bin/sh
 
+svc_dir=/etc/sv
+run_dir=/var/service
+
 do_start()
 {
+  mkdir -p $run_dir
+
+  find $svc_dir -type d -maxdepth 1 -exec basename {} \; | \
+  while read -r svc; do
+     ln -sf "$svc_dir/$svc" "$run_dir/$svc"
+  done
+
   start-stop-daemon -p /var/run/runit.pid -m -b -a /bin/ash -S -- \
     -c "exec /etc/init.d/runsvdir-start"
 }
 
-do_stop()
+error_not_supported()
 {
-  start-stop-daemon -p /var/run/runit.pid -K
+  echo "ERROR: $1 not supported" >&2
+  exit 1
 }
 
 case "$1" in
   start)
     do_start
     ;;
-  stop)
-    do_stop
-    ;;
-  restart|reload)
-    do_stop
-    do_start
+  stop|restart|reload)
+    error_not_supported "$1"
     ;;
   *)
     echo "Usage: $0 {start|stop|restart}"
