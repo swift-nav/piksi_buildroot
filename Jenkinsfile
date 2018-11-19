@@ -68,15 +68,27 @@ pipeline {
                     }
                     post {
                         success {
-                            archivePatterns(
-                                    context: context,
-                                    patterns:
-                                            ['dummy_*.txt',
-                                             'a/b/c/*.bin',
-                                             'a/b/c/',
-                                             'a/b/c/**'],
-                                    addPath: 'v3/dummy',
-                                    allowEmpty: false)
+                            s3Upload(
+                                    bucket: 'swiftnav-artifacts-jenkins',
+                                    path: 'delete_me',
+                                    includePathPattern: '*.txt'
+                            )
+                            s3Upload(
+                                    bucket: 'swiftnav-artifacts-jenkins',
+                                    path: 'delete_me',
+                                    includePathPattern: '*.bin',
+                                    workingDir: 'a/b/c'
+                            )
+
+//                            archivePatterns(
+//                                    context: context,
+//                                    patterns:
+//                                            ['dummy_*.txt',
+//                                             'a/b/c/*.bin',
+//                                             'a/b/c/',
+//                                             'a/b/c/**'],
+//                                    addPath: 'v3/dummy',
+//                                    allowEmpty: false)
                         }
                         always {
                             cleanUp()
