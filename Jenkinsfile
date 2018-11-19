@@ -2,7 +2,7 @@
 
 // Use 'ci-jenkins@somebranch' to pull shared lib from a different branch than the default.
 // Default is configured in Jenkins and should be from "stable" tag.
-@Library("ci-jenkins@klaus/ccache") import com.swiftnav.ci.*
+@Library("ci-jenkins@klaus/s3test") import com.swiftnav.ci.*
 
 String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
@@ -69,14 +69,11 @@ pipeline {
                     post {
                         success {
                             script {
-                                def files = findFiles(glob: 'a/b/c/*.bin')
-                                files.each {
-                                    s3Upload(
-                                            file: "${it}",
-                                            bucket: 'swiftnav-artifacts-jenkins',
-                                            path: 'delete_me5',
-                                    )
-                                }
+                                context.archivePatterns(
+                                        patterns: ['a/b/c/*.bin'],
+                                        repo: 'piksi_buildroot',
+                                        addPath: 'dummy/addme'
+                                )
                             }
                         }
                         always {
@@ -85,213 +82,213 @@ pipeline {
                     }
                 }
 
-                stage('Release') {
-                    when {
-                        expression {
-                            context.isStageIncluded(name: 'Release')
-                        }
-                    }
-                    agent {
-                        dockerfile {
-                            filename dockerFile
-                            args dockerMountArgs
-                        }
-                    }
-                    steps {
-                        stageStart()
-                        gitPrep()
-                        crlKeyAdd()
-
-                        runMake(target: "firmware")
-                        runMake(target: "image-release-open")
-                        runMake(target: "image-release-ins")
-                    }
-                    post {
-                        success {
-                            archivePatterns(
-                                context: context,
-                                patterns:
-                                    ['buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin',
-                                     'buildroot/output/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin'],
-                                addPath: 'v3/prod',
-                                allowEmpty: false)
-                        }
-                        always {
-                            cleanUp()
-                        }
-                    }
-                }
-
-                stage('Internal') {
-                    when {
-                        expression {
-                            context.isStageIncluded()
-                        }
-                    }
-                    agent {
-                        dockerfile {
-                            filename dockerFile
-                            args dockerMountArgs
-                        }
-                    }
-                    steps {
-                        stageStart()
-                        gitPrep()
-                        crlKeyAdd()
-
-                        runMake(target: "firmware")
-                        runMake(target: "image")
-                    }
-                    post {
-                        success {
-                            archivePatterns(
-                                context: context,
-                                patterns: ['buildroot/output/images/piksiv3_prod/PiksiMulti*',
-                                           'buildroot/output/images/piksiv3_prod/uImage*'],
-                                addPath: 'v3/prod',
-                                allowEmpty: false)
-                        }
-                        always {
-                            cleanUp()
-                        }
-                    }
-                }
-
-                stage('Host') {
-                    when {
-                        expression {
-                            context.isStageIncluded()
-                        }
-                    }
-                    agent {
-                        dockerfile {
-                            filename dockerFile
-                            args dockerMountArgs + " " + dockerSecArgs
-                        }
-                    }
-                    steps {
-                        stageStart()
-                        gitPrep()
-                        crlKeyAdd()
-
-                        runMake(target: "host-image")
-                    }
-                    post {
-                        always {
-                            cleanUp()
-                        }
-                    }
-                }
-
-                stage('Nano') {
-                    when {
-                        expression {
-                            context.isStageIncluded()
-                        }
-                    }
-                    agent {
-                        dockerfile {
-                            filename dockerFile
-                            args dockerMountArgs
-                        }
-                    }
-                    steps {
-                        stageStart()
-                        gitPrep()
-                        crlKeyAdd()
-
-                        runMake(target: "nano-config")
-                        runMake(target: "nano-image")
-                    }
-                    post {
-                        success {
-                            archivePatterns(
-                                context: context,
-                                patterns: ['buildroot/nano_output/images/sdcard.img'],
-                                addPath: "nano")
-                        }
-                        always {
-                            cleanUp()
-                        }
-                    }
-                }
-
-                stage('SDK') {
-                    when {
-                        expression {
-                            context.isStageIncluded()
-                        }
-                    }
-                    agent {
-                        dockerfile {
-                            filename dockerFile
-                            args dockerMountArgs
-                        }
-                    }
-                    environment {
-                        BR2_BUILD_SAMPLE_DAEMON = "y"
-                        BR2_BUILD_PIKSI_INS_REF = "y"
-                    }
-                    steps {
-                        stageStart()
-                        gitPrep()
-                        crlKeyAdd()
-
-                        runMake(target: "firmware")
-                        runMake(target: "image")
-                        runMake(target: "sdk")
-                    }
-                    post {
-                        success {
-                            archivePatterns(
-                                    context: context,
-                                    patterns: ['piksi_sdk.txz'],
-                                    addPath: "v3/prod")
-                        }
-                        always {
-                            cleanUp()
-                        }
-                    }
-                }
-
-                stage('Format Check') {
-                    when {
-                        expression {
-                            context.isStageIncluded()
-                        }
-                    }
-                    agent {
-                        dockerfile {
-                            filename dockerFile
-                            args dockerMountArgs
-                        }
-                    }
-                    steps {
-                        stageStart()
-                        gitPrep()
-                        crlKeyAdd()
-
-                        // Ensure that the docker tag in docker_version_tag is same as in Dockerfile.jenkins
-                        script {
-                            String dockerVersionTag = readFile(file: 'scripts/docker_version_tag').trim()
-                            sh("""grep "FROM .*:${dockerVersionTag}" scripts/Dockerfile.jenkins""")
-                            builder.make(target: "clang-format")
-                            sh('''
-                                | git --no-pager diff --name-only HEAD > /tmp/clang-format-diff
-                                | if [ -s "/tmp/clang-format-diff" ]; then
-                                |     echo "clang-format warning found"
-                                |     git --no-pager diff
-                                |     exit 1
-                                | fi
-                              '''.stripMargin())
-                        }
-                    }
-                    post {
-                        always {
-                            cleanUp()
-                        }
-                    }
-                }
+//                stage('Release') {
+//                    when {
+//                        expression {
+//                            context.isStageIncluded(name: 'Release')
+//                        }
+//                    }
+//                    agent {
+//                        dockerfile {
+//                            filename dockerFile
+//                            args dockerMountArgs
+//                        }
+//                    }
+//                    steps {
+//                        stageStart()
+//                        gitPrep()
+//                        crlKeyAdd()
+//
+//                        runMake(target: "firmware")
+//                        runMake(target: "image-release-open")
+//                        runMake(target: "image-release-ins")
+//                    }
+//                    post {
+//                        success {
+//                            archivePatterns(
+//                                context: context,
+//                                patterns:
+//                                    ['buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin',
+//                                     'buildroot/output/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin'],
+//                                addPath: 'v3/prod',
+//                                allowEmpty: false)
+//                        }
+//                        always {
+//                            cleanUp()
+//                        }
+//                    }
+//                }
+//
+//                stage('Internal') {
+//                    when {
+//                        expression {
+//                            context.isStageIncluded()
+//                        }
+//                    }
+//                    agent {
+//                        dockerfile {
+//                            filename dockerFile
+//                            args dockerMountArgs
+//                        }
+//                    }
+//                    steps {
+//                        stageStart()
+//                        gitPrep()
+//                        crlKeyAdd()
+//
+//                        runMake(target: "firmware")
+//                        runMake(target: "image")
+//                    }
+//                    post {
+//                        success {
+//                            archivePatterns(
+//                                context: context,
+//                                patterns: ['buildroot/output/images/piksiv3_prod/PiksiMulti*',
+//                                           'buildroot/output/images/piksiv3_prod/uImage*'],
+//                                addPath: 'v3/prod',
+//                                allowEmpty: false)
+//                        }
+//                        always {
+//                            cleanUp()
+//                        }
+//                    }
+//                }
+//
+//                stage('Host') {
+//                    when {
+//                        expression {
+//                            context.isStageIncluded()
+//                        }
+//                    }
+//                    agent {
+//                        dockerfile {
+//                            filename dockerFile
+//                            args dockerMountArgs + " " + dockerSecArgs
+//                        }
+//                    }
+//                    steps {
+//                        stageStart()
+//                        gitPrep()
+//                        crlKeyAdd()
+//
+//                        runMake(target: "host-image")
+//                    }
+//                    post {
+//                        always {
+//                            cleanUp()
+//                        }
+//                    }
+//                }
+//
+//                stage('Nano') {
+//                    when {
+//                        expression {
+//                            context.isStageIncluded()
+//                        }
+//                    }
+//                    agent {
+//                        dockerfile {
+//                            filename dockerFile
+//                            args dockerMountArgs
+//                        }
+//                    }
+//                    steps {
+//                        stageStart()
+//                        gitPrep()
+//                        crlKeyAdd()
+//
+//                        runMake(target: "nano-config")
+//                        runMake(target: "nano-image")
+//                    }
+//                    post {
+//                        success {
+//                            archivePatterns(
+//                                context: context,
+//                                patterns: ['buildroot/nano_output/images/sdcard.img'],
+//                                addPath: "nano")
+//                        }
+//                        always {
+//                            cleanUp()
+//                        }
+//                    }
+//                }
+//
+//                stage('SDK') {
+//                    when {
+//                        expression {
+//                            context.isStageIncluded()
+//                        }
+//                    }
+//                    agent {
+//                        dockerfile {
+//                            filename dockerFile
+//                            args dockerMountArgs
+//                        }
+//                    }
+//                    environment {
+//                        BR2_BUILD_SAMPLE_DAEMON = "y"
+//                        BR2_BUILD_PIKSI_INS_REF = "y"
+//                    }
+//                    steps {
+//                        stageStart()
+//                        gitPrep()
+//                        crlKeyAdd()
+//
+//                        runMake(target: "firmware")
+//                        runMake(target: "image")
+//                        runMake(target: "sdk")
+//                    }
+//                    post {
+//                        success {
+//                            archivePatterns(
+//                                    context: context,
+//                                    patterns: ['piksi_sdk.txz'],
+//                                    addPath: "v3/prod")
+//                        }
+//                        always {
+//                            cleanUp()
+//                        }
+//                    }
+//                }
+//
+//                stage('Format Check') {
+//                    when {
+//                        expression {
+//                            context.isStageIncluded()
+//                        }
+//                    }
+//                    agent {
+//                        dockerfile {
+//                            filename dockerFile
+//                            args dockerMountArgs
+//                        }
+//                    }
+//                    steps {
+//                        stageStart()
+//                        gitPrep()
+//                        crlKeyAdd()
+//
+//                        // Ensure that the docker tag in docker_version_tag is same as in Dockerfile.jenkins
+//                        script {
+//                            String dockerVersionTag = readFile(file: 'scripts/docker_version_tag').trim()
+//                            sh("""grep "FROM .*:${dockerVersionTag}" scripts/Dockerfile.jenkins""")
+//                            builder.make(target: "clang-format")
+//                            sh('''
+//                                | git --no-pager diff --name-only HEAD > /tmp/clang-format-diff
+//                                | if [ -s "/tmp/clang-format-diff" ]; then
+//                                |     echo "clang-format warning found"
+//                                |     git --no-pager diff
+//                                |     exit 1
+//                                | fi
+//                              '''.stripMargin())
+//                        }
+//                    }
+//                    post {
+//                        always {
+//                            cleanUp()
+//                        }
+//                    }
+//                }
             }
         }
     }
@@ -324,124 +321,6 @@ def crlKeyAdd() {
             ssh-add /home/jenkins/.ssh/id_rsa
             ssh-add -l
            """)
-    }
-}
-
-/**
- * Archive the specified files both to jenkins and to S3.
- * Consider moving this off to the shared libs.
- * @param args
- *   args.patterns: List of file patterns
- * @return
- */
-def archivePatterns(Map args) {
-    archiveArtifacts(artifacts: args.patterns.join(','))
-
-    if (shouldUploadToS3(args)) {
-        args.patterns.each() {
-            uploadArtifactsToS3(args + [includePattern: it])
-        }
-    }
-}
-
-/**
- * Upload to S3 if the UPLOAD_TO_S3 parameter is enabled or does not exist;
- * this may be extended with more criteria later.
- *
- * Note that S3 upload is skipped for non-tag/pr/release builds.
- * @return
- */
-boolean shouldUploadToS3(Map args=[:]) {
-    if (env.UPLOAD_TO_S3 && env.UPLOAD_TO_S3 == "false") {
-        return false
-    } else {
-        return true
-    }
-}
-
-/**
- * Upload artifacts to S3. Determine the bucket and path based on whether this
- * is a PR, a branch, or a tag push.
- * @param args
- *   args.context
- *   args.path
- *   args.bucket
- *   args.addPath
- * @return
- */
-def uploadArtifactsToS3(Map args) {
-    // Initially, use a bucket separate from travis so we can run both in parallel without conflict.
-    assert args.context
-    def logger = args.context.getLogger()
-
-    boolean upload = false
-    String bucket
-    String path = "piksi_buildroot/"
-
-    if (args.context.isTagPush()) {
-        bucket = "swiftnav-artifacts-jenkins"
-        path += context.gitDescribe() + "/"
-        upload = true
-    } else {
-        if (args.context.isPrPush()) {
-            bucket = "swiftnav-artifacts-pull-requests-jenkins"
-            path += "pr-" + args.context.prNumber() + "/" + args.context.gitDescribe() + "/"
-            upload = true
-        } else {
-            // TODO remove the 'klaus.*-release' which is here to test uploads
-            if (args.context.isBranchPush(branches: ['master', 'v.*-release', 'klaus.*-release'])) {
-                bucket = "swiftnav-artifacts-jenkins"
-                path += args.context.branchName() + "/" + args.context.gitDescribe() + "/"
-                upload = true
-            } else {
-                logger.info("Neither a tag, PR, or master/release branch push - not publishing artifacts to S3")
-                upload = false
-            }
-        }
-    }
-
-    if (env.S3_BUCKET_OVERWRITE && env.S3_BUCKET_OVERWRITE != '') {
-        upload = true
-        bucket = env.S3_BUCKET_OVERWRITE
-    }
-
-    // You can override the bucket/path via arg
-    if (args.bucket) {
-        bucket = args.bucket
-    }
-    if (args.path) {
-        path = args.path
-    }
-    if (!path) {
-        path = context.gitDescribe() + "/"
-    }
-
-    // Append to the path if specified
-    if (args.addPath) {
-        path += args.addPath + "/"
-    }
-
-    if (upload) {
-        assert bucket
-        assert path
-        String pattern = args.includePattern ?: "**"
-
-        logger.debug("Include pattern: ${pattern}")
-
-        /**
-         * 'includePathPattern doesn't seem to work correctly for s3Upload.
-         * See https://issues.jenkins-ci.org/browse/JENKINS-47046.
-         * Use findFiles as suggested in
-         * https://stackoverflow.com/questions/46074059/upload-multiple-files-using-s3upload-in-jenkins-pipeline
-         */
-        def files = findFiles(glob: pattern)
-        files.each {
-            s3Upload(
-                    file: "${it}"
-                    bucket: bucket,
-                    path: path,
-                    acl: 'BucketOwnerFullControl')
-        }
     }
 }
 
