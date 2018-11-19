@@ -88,13 +88,15 @@ pipeline {
 ////                                    file: 'a/b/c/*.bin',
 //                                    includePathPattern: 'a/b/c/*.bin',
 //                            )
-                            def files = findFiles(glob: 'a/b/c/*.bin')
-                            files.each {
-                                s3Upload(
-                                        file: "${it}",
-                                        bucket: 'swiftnav-artifacts-jenkins',
-                                        path: 'delete_me5',
-                                )
+                            script {
+                                def files = findFiles(glob: 'a/b/c/*.bin')
+                                files.each {
+                                    s3Upload(
+                                            file: "${it}",
+                                            bucket: 'swiftnav-artifacts-jenkins',
+                                            path: 'delete_me5',
+                                    )
+                                }
                             }
 //                            archivePatterns(
 //                                    context: context,
