@@ -384,7 +384,7 @@ def uploadArtifactsToS3(Map args) {
             upload = true
         } else {
             // TODO remove the 'klaus.*-release' which is here to test uploads
-            if (args.context.isBranchPush(branches: ['master', 'v.*-release', 'klaus.*-release'])) {
+            if (args.context.isBranchPush(branches: ['master', 'v.*-release', 'klaus.*-release', 'klaus/s3test'])) {
                 bucket = "swiftnav-artifacts-jenkins"
                 path += args.context.branchName() + "/" + args.context.gitDescribe() + "/"
                 upload = true
