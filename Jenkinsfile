@@ -75,6 +75,7 @@ pipeline {
                             )
                             s3Upload(
                                     bucket: 'swiftnav-artifacts-jenkins',
+                                    pathStyleAccessEnabled: true,
                                     path: 'delete_me3/',
                                     includePathPattern: '**/*.bin',
                                     workingDir: 'a/b/c'
