@@ -70,12 +70,12 @@ pipeline {
                         success {
                             s3Upload(
                                     bucket: 'swiftnav-artifacts-jenkins',
-                                    path: 'delete_me',
+                                    path: 'delete_me2/',
                                     includePathPattern: '*.txt'
                             )
                             s3Upload(
                                     bucket: 'swiftnav-artifacts-jenkins',
-                                    path: 'delete_me',
+                                    path: 'delete_me2/',
                                     includePathPattern: '*.bin',
                                     workingDir: 'a/b/c'
                             )
