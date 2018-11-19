@@ -71,7 +71,10 @@ pipeline {
                             archivePatterns(
                                     context: context,
                                     patterns:
-                                            ['a/b/c/*.bin'],
+                                            ['dummy_file.txt',
+                                             'a/b/c/*.bin',
+                                             'a/b/c/',
+                                             'a/b/c/**'],
                                     addPath: 'v3/dummy',
                                     allowEmpty: false)
                         }
