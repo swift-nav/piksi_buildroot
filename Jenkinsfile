@@ -77,7 +77,7 @@ pipeline {
                                     bucket: 'swiftnav-artifacts-jenkins',
                                     pathStyleAccessEnabled: true,
                                     path: 'delete_me3/',
-                                    includePathPattern: '**/*.bin',
+                                    includePathPattern: '*.bin',
                                     workingDir: 'a/b/c'
                             )
 
