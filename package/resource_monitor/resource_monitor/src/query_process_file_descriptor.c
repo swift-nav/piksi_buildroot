@@ -333,19 +333,13 @@ static void run_resource_query(void *context)
   for (size_t i = 0; i < ITEM_COUNT && i < pid_count; i++) {
     state->top10_pid_counts[i] = pid_to_count[i].id;
 #ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_DEBUG,
-                "TOP 10 FD PID : %s : %d",
-                pid_to_count[i].id,
-                pid_to_count[i].count);
+    PK_LOG_ANNO(LOG_DEBUG, "TOP 10 FD PID : %s : %d", pid_to_count[i].id, pid_to_count[i].count);
 #endif
   }
   for (size_t i = 0; i < ITEM_COUNT && i < file_count; i++) {
     state->top10_file_counts[i] = file_to_count[i].id;
 #ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_DEBUG,
-                "TOP 10 FD FILE : %s : %d",
-                file_to_count[i].id,
-                file_to_count[i].count);
+    PK_LOG_ANNO(LOG_DEBUG, "TOP 10 FD FILE : %s : %d", file_to_count[i].id, file_to_count[i].count);
 #endif
   }
 }
@@ -422,9 +416,7 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
     break;
   case SEND_DONE:
   default: {
-    PK_LOG_ANNO(LOG_ERR,
-                "file descriptor query: invalid state value: %d",
-                state->send_state);
+    PK_LOG_ANNO(LOG_ERR, "file descriptor query: invalid state value: %d", state->send_state);
     return false;
   }
   }

@@ -47,7 +47,7 @@ bool parse_tab_line(const char *line,
                 "%s: found too many fields (in state: %s): %s",
                 __FUNCTION__,
                 line_specs[state].desc,
-				field);
+                field);
       return false;
     }
 
@@ -107,7 +107,7 @@ bool parse_tab_line(const char *line,
     piksi_log(LOG_WARNING,
               "%s: did not find enough fields (last state: %s)",
               __FUNCTION__,
-			  line_specs[state].desc);
+              line_specs[state].desc);
     return false;
   }
 
