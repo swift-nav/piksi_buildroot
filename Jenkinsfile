@@ -68,26 +68,34 @@ pipeline {
                     }
                     post {
                         success {
-                            s3Upload(
-                                    bucket: 'swiftnav-artifacts-jenkins',
-                                    path: 'delete_me2/',
-                                    includePathPattern: '*.txt'
-                            )
-                            s3Upload(
-                                    bucket: 'swiftnav-artifacts-jenkins',
-                                    pathStyleAccessEnabled: true,
-                                    path: 'delete_me3/',
-                                    includePathPattern: '*.bin',
-                                    workingDir: 'a/b/c'
-                            )
-                            s3Upload(
-                                    bucket: 'swiftnav-artifacts-jenkins',
-                                    path: 'delete_me4',
+//                            s3Upload(
+//                                    bucket: 'swiftnav-artifacts-jenkins',
+//                                    path: 'delete_me2/',
+//                                    includePathPattern: '*.txt'
+//                            )
+//                            s3Upload(
+//                                    bucket: 'swiftnav-artifacts-jenkins',
 //                                    pathStyleAccessEnabled: true,
-//                                    file: 'a/b/c/*.bin',
-                                    includePathPattern: 'a/b/c/*.bin',
-                            )
-
+//                                    path: 'delete_me3/',
+//                                    includePathPattern: '*.bin',
+//                                    workingDir: 'a/b/c'
+//                            )
+//
+//                            s3Upload(
+//                                    bucket: 'swiftnav-artifacts-jenkins',
+//                                    path: 'delete_me4',
+////                                    pathStyleAccessEnabled: true,
+////                                    file: 'a/b/c/*.bin',
+//                                    includePathPattern: 'a/b/c/*.bin',
+//                            )
+                            def files = findFiles(glob: 'a/b/c/*.bin')
+                            files.each {
+                                s3Upload(
+                                        file: "${it}",
+                                        bucket: 'swiftnav-artifacts-jenkins',
+                                        path: 'delete_me5',
+                                )
+                            }
 //                            archivePatterns(
 //                                    context: context,
 //                                    patterns:
