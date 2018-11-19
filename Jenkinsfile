@@ -84,8 +84,8 @@ pipeline {
                                     bucket: 'swiftnav-artifacts-jenkins',
                                     path: 'delete_me4',
 //                                    pathStyleAccessEnabled: true,
-                                    file: 'a/b/c/*.bin',
-//                                    includePathPattern: '*.bin',
+//                                    file: 'a/b/c/*.bin',
+                                    includePathPattern: 'a/b/c/*.bin',
                             )
 
 //                            archivePatterns(
