@@ -80,6 +80,12 @@ pipeline {
                                     includePathPattern: '*.bin',
                                     workingDir: 'a/b/c'
                             )
+                            s3Upload(
+                                    bucket: 'swiftnav-artifacts-jenkins',
+                                    path: 'delete_me4',
+//                                    pathStyleAccessEnabled: true,
+                                    file: 'a/b/c',
+                            )
 
 //                            archivePatterns(
 //                                    context: context,
