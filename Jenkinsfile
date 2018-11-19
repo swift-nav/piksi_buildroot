@@ -8,8 +8,10 @@ String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
 
 String dockerSecArgs = "--cap-add=SYS_PTRACE --security-opt seccomp=unconfined"
+
 def context = new Context(context: this)
-context.repo = "piksi_buildroot"
+context.setRepo("piksi_buildroot")
+
 def builder = context.getBuilder()
 def logger = context.getLogger()
 
