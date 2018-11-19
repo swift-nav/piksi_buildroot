@@ -396,6 +396,11 @@ def uploadArtifactsToS3(Map args) {
         }
     }
 
+    if (env.S3_BUCKET_OVERWRITE && env.S3_BUCKET_OVERWRITE != '') {
+        upload = true
+        bucket = env.S3_BUCKET_OVERWRITE
+    }
+
     // You can override the bucket/path via arg
     if (args.bucket) {
         bucket = args.bucket
@@ -409,14 +414,19 @@ def uploadArtifactsToS3(Map args) {
         path += args.addPath + "/"
     }
 
-    String pattern = args.includePattern ?: "**"
+    if (upload) {
+        assert bucket
+        assert path
+        String pattern = args.includePattern ?: "**"
 
-    logger.debug("Include pattern: ${pattern}")
-    s3Upload(
-            includePathPattern: args.pattern,
-            bucket: bucket,
-            path: path,
-            acl: 'BucketOwnerFullControl')
+        logger.debug("Include pattern: ${pattern}")
+
+        s3Upload(
+                includePathPattern: args.pattern,
+                bucket: bucket,
+                path: path,
+                acl: 'BucketOwnerFullControl')
+    }
 }
 
 /**
