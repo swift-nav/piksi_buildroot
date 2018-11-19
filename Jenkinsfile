@@ -425,7 +425,7 @@ def uploadArtifactsToS3(Map args) {
         logger.debug("Include pattern: ${pattern}")
 
         s3Upload(
-                includePathPattern: args.pattern,
+                includePathPattern: pattern,
                 bucket: bucket,
                 path: path,
                 acl: 'BucketOwnerFullControl')
