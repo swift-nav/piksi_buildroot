@@ -25,10 +25,6 @@ pipeline {
 
     parameters {
         choice(name: "LOG_LEVEL", choices: ['info', 'debug', 'warning', 'error'])
-        booleanParam(name: "UPLOAD_TO_S3",
-                defaultValue: true,
-                description: "Artifacts get uploaded to S3 if build is a tag/PR/master/release build. "
-                        + "Uncheck this flag to prevent all S3 uploading.")
     }
 
     environment {
