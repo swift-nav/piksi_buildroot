@@ -408,6 +408,9 @@ def uploadArtifactsToS3(Map args) {
     if (args.path) {
         path = args.path
     }
+    if (!path) {
+        path = context.gitDescribe() + "/"
+    }
 
     // Append to the path if specified
     if (args.addPath) {
