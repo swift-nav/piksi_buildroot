@@ -410,7 +410,7 @@ def uploadArtifactsToS3(Map args) {
 
     String pattern = args.includePattern ?: "**"
 
-    logger.debug("Include pattern: ${pattern}")
+    args.context.logger.debug("Include pattern: ${pattern}")
     s3Upload(
             includePathPattern: args.pattern,
             bucket: bucket,
