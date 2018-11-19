@@ -368,6 +368,7 @@ boolean shouldUploadToS3(Map args=[:]) {
 def uploadArtifactsToS3(Map args) {
     // Initially, use a bucket separate from travis so we can run both in parallel without conflict.
     assert args.context
+    def logger = args.context.getLogger()
 
     boolean upload = false
     String bucket
@@ -410,7 +411,7 @@ def uploadArtifactsToS3(Map args) {
 
     String pattern = args.includePattern ?: "**"
 
-    args.context.logger.debug("Include pattern: ${pattern}")
+    logger.debug("Include pattern: ${pattern}")
     s3Upload(
             includePathPattern: args.pattern,
             bucket: bucket,
