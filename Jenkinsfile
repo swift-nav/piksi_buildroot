@@ -64,7 +64,7 @@ pipeline {
                         crlKeyAdd()
 
                         // create a dummy file that we can save later
-                        sh("mkdir -p a/b/c && touch dummy_file.txt a/b/c/PiksiMulti_1.bin a/b/c/PiksiMulti_2.bin")
+                        sh("mkdir -p a/b/c && touch dummy_file.txt a/b/c/PiksiMulti_1.bin a/b/c/PiksiMulti_2.bin a/b/c/somefile.txt")
                     }
                     post {
                         success {
@@ -85,6 +85,7 @@ pipeline {
                                     path: 'delete_me4',
 //                                    pathStyleAccessEnabled: true,
                                     file: 'a/b/c',
+                                    includePathPattern: '*.bin',
                             )
 
 //                            archivePatterns(
