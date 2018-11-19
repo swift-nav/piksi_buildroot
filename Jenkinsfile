@@ -410,20 +410,12 @@ def uploadArtifactsToS3(Map args) {
 
     String pattern = args.includePattern ?: "**"
 
-    if (upload && shouldUploadToS3()) {
-        if (args.includePattern) {
-            s3Upload(
-                    includePathPattern: args.includePattern,
-                    bucket: bucket,
-                    path: path,
-                    acl: 'BucketOwnerFullControl')
-        } else {
-            // s3Upload is provided by the Jenkins S3 plugin
-            s3Upload(
-                    bucket: bucket,
-                    path: path,
-                    acl: 'BucketOwnerFullControl')
-        }
+    logger.debug("Include pattern: ${pattern}")
+    s3Upload(
+            includePathPattern: args.pattern,
+            bucket: bucket,
+            path: path,
+            acl: 'BucketOwnerFullControl')
 }
 
 /**
