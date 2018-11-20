@@ -26,7 +26,7 @@
 #include "resource_query.h"
 #include "resmon_common.h"
 
-//#define DEBUG_QUERY_FD_TAB
+#define DEBUG_QUERY_FD_TAB
 
 #define ITEM_COUNT 10
 #define MAX_PROCESS_COUNT 2048
@@ -47,6 +47,7 @@ typedef enum {
   SEND_FD_COUNTS_9,
   SEND_FD_SUMMARY,
   SEND_DONE,
+  SEND_ERROR
 } send_state_t;
 
 typedef struct {
@@ -65,6 +66,7 @@ MAKE_TABLE_WRAPPER(file, file_entry_t);
 
 typedef struct {
   send_state_t send_state;
+  u8 error_code;
   u32 total_fd_count;
   table_t *pid_table;
   table_t *file_table;
@@ -225,16 +227,21 @@ static void run_resource_query(void *context)
   char leftover_buffer[4096] = {0};
   leftover_t NESTED_AXX(leftover) = {.buf = leftover_buffer, .size = 0};
   size_t NESTED_AXX(no_line_count) = 0;
+  state->error_code = 0;
   state->send_state = SEND_FD_COUNTS_0;
   state->pid_table = table_create(MAX_PROCESS_COUNT, destroy_table_entry);
   state->file_table = table_create(MAX_FILE_COUNT, destroy_table_entry);
   state->total_fd_count = 0;
   if (state->pid_table == NULL) {
     PK_LOG_ANNO(LOG_ERR, "file descriptor query: pid table creation failed");
+    state->error_code = 1;
+    state->send_state = SEND_ERROR;
     return;
   }
   if (state->file_table == NULL) {
     PK_LOG_ANNO(LOG_ERR, "file descriptor query: file table creation failed");
+    state->error_code = 2;
+    state->send_state = SEND_ERROR;
     return;
   }
 
@@ -281,9 +288,7 @@ static void run_resource_query(void *context)
     return (ssize_t)length;
   });
 
-  //  const char *argv[] = {"sudo", "/usr/bin/lsof", NULL};
   char buf[LSOF_CMD_BUF_LENGTH] = {0};
-  //  int rc = run_with_stdin_file(NULL, "sudo", argv, buf, sizeof(buf));
   run_command_t run_config = {.input = NULL,
                               .context = NULL,
                               .argv = (const char *[]){"sudo", "/usr/bin/lsof", NULL},
@@ -294,6 +299,8 @@ static void run_resource_query(void *context)
     PK_LOG_ANNO(LOG_ERR,
                 "file descriptor query: error running 'lsof' command: %s",
                 strerror(errno));
+    state->error_code = 3;
+    state->send_state = SEND_ERROR;
     return;
   }
   size_t pid_count = table_count(state->pid_table);
@@ -348,11 +355,9 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
 {
   resq_state_t *state = context;
   if (state->send_state == SEND_DONE) return false;
-  if (table_count(state->pid_table) < 10 || table_count(state->file_table) < 10)
-  // Handle the case that lsof command failed
-  {
-    *len = 0;
-    return false;
+  if (table_count(state->pid_table) < ITEM_COUNT || table_count(state->file_table) < ITEM_COUNT) {
+    state->error_code = 4;
+    state->send_state = SEND_ERROR;
   }
   assert(0 == SEND_FD_COUNTS_0);
   size_t index = (size_t)state->send_state;
@@ -414,6 +419,10 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
     fd_summary->most_opened[nBytes] = '\0'; // set two NULL to indicate termination
     *len = (u8)(sizeof(msg_linux_process_fd_summary_t) + (unsigned)nBytes + 1);
     break;
+  case SEND_ERROR:
+    PK_LOG_ANNO(LOG_ERR, "file descriptor query failed, error code: %d", state->error_code);
+    *len = 0;
+    return false;
   case SEND_DONE:
   default: {
     PK_LOG_ANNO(LOG_ERR, "file descriptor query: invalid state value: %d", state->send_state);
