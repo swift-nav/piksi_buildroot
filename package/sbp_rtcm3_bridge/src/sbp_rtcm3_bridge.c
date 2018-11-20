@@ -40,9 +40,19 @@ bool simulator_enabled_watch = false;
 
 pk_endpoint_t *rtcm3_pub = NULL;
 
+/* settings */
+
 static const char *const rtcm_out_modes[] = {"Legacy", "MSM4", "MSM5", NULL};
 enum { RTCM_OUT_MODE_LEGACY, RTCM_OUT_MODE_MSM4, RTCM_OUT_MODE_MSM5 };
 static u8 rtcm_out_mode = (u8)RTCM_OUT_MODE_MSM5;
+
+static float ant_height = 0.0;
+
+/* Antenna descriptor */
+static char ant_descriptor[RTCM_MAX_STRING_LEN] = "HXCGPS500       DOME";
+
+/* TODO: fill in the actual IGS code when assigned */
+static char rcv_descriptor[RTCM_MAX_STRING_LEN] = "PIKSI";
 
 static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void *context)
 {
@@ -214,6 +224,16 @@ static int notify_rtcm_out_output_mode_changed(void *context)
   return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
+static int notify_ant_height_changed(void *context)
+{
+  (void)context;
+  if (ant_height < 0.0) {
+    return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
+  }
+  sbp2rtcm_set_ant_height(ant_height, &sbp_to_rtcm3_state);
+  return SBP_SETTINGS_WRITE_STATUS_OK;
+}
+
 static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
 
 int main(int argc, char *argv[])
@@ -234,6 +254,9 @@ int main(int argc, char *argv[])
      we get SBP in */
   rtcm2sbp_init(&rtcm3_to_sbp_state, sbp_message_send, sbp_base_obs_invalid, NULL);
   sbp2rtcm_init(&sbp_to_rtcm3_state, rtcm3_out_callback, NULL);
+
+  /* Init the default values for receiver and antenna descriptors */
+  sbp2rtcm_set_rcv_ant_descriptors(ant_descriptor, rcv_descriptor, &sbp_to_rtcm3_state);
 
   if (sbp_init() != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
@@ -325,6 +348,15 @@ int main(int argc, char *argv[])
                     settings_type_rtcm_out_mode,
                     notify_rtcm_out_output_mode_changed,
                     &rtcm_out_mode);
+
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "antenna_height",
+                    &ant_height,
+                    sizeof(ant_height),
+                    SETTINGS_TYPE_FLOAT,
+                    notify_ant_height_changed,
+                    NULL);
 
   sbp_run();
 
