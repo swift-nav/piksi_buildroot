@@ -8,7 +8,10 @@ String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
 
 String dockerSecArgs = "--cap-add=SYS_PTRACE --security-opt seccomp=unconfined"
+
 def context = new Context(context: this)
+context.setRepo("piksi_buildroot")
+
 def builder = context.getBuilder()
 def logger = context.getLogger()
 
@@ -26,10 +29,6 @@ pipeline {
     parameters {
         string(name: "REF", defaultValue: "master", description: "git ref for piksi_buildroot repo")
         choice(name: "LOG_LEVEL", choices: ['info', 'debug', 'warning', 'error'])
-        booleanParam(name: "UPLOAD_TO_S3",
-                defaultValue: true,
-                description: "Artifacts get uploaded to S3 if build is a tag/PR/master/release build. "
-                        + "Uncheck this flag to prevent all S3 uploading.")
     }
 
     environment {
@@ -65,16 +64,16 @@ pipeline {
                         crlKeyAdd()
 
                         // create a dummy file that we can save later
-                        sh("date > dummy_file.txt")
+                        sh("mkdir -p a/b/c && touch dummy_file.txt a/b/c/PiksiMulti_1.bin a/b/c/PiksiMulti_2.bin a/b/c/somefile.txt")
                     }
                     post {
                         success {
-                            archivePatterns(
-                                    context: context,
-                                    patterns:
-                                            ['dummy_file.txt'],
-                                    addPath: 'v3/dummy',
-                                    allowEmpty: false)
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['a/b/c/*.bin'],
+                                        addPath: 'dummy/addme'
+                                )
+                            }
                         }
                         always {
                             cleanUp()
@@ -107,13 +106,13 @@ pipeline {
                     }
                     post {
                         success {
-                            archivePatterns(
-                                context: context,
-                                patterns:
-                                    ['buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin',
-                                     'buildroot/output/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin'],
-                                addPath: 'v3/prod',
-                                allowEmpty: true)
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin',
+                                                   'buildroot/output/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin'],
+                                        addPath: 'v3/prod'
+                                )
+                            }
                         }
                         always {
                             cleanUp()
@@ -145,11 +144,13 @@ pipeline {
                     }
                     post {
                         success {
-                            archivePatterns(
-                                context: context,
-                                patterns: ['buildroot/output/images/piksiv3_prod/*.bin'],
-                                addPath: 'v3/prod',
-                                allowEmpty: true)
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['buildroot/output/images/piksiv3_prod/PiksiMulti*',
+                                                   'buildroot/output/images/piksiv3_prod/uImage*'],
+                                        addPath: 'v3/prod'
+                                )
+                            }
                         }
                         always {
                             cleanUp()
@@ -209,10 +210,12 @@ pipeline {
                     }
                     post {
                         success {
-                            archivePatterns(
-                                context: context,
-                                patterns: ['buildroot/nano_output/images/sdcard.img'],
-                                addPath: "nano")
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['buildroot/nano_output/images/sdcard.img'],
+                                        addPath: 'v3/prod'
+                                )
+                            }
                         }
                         always {
                             cleanUp()
@@ -249,10 +252,12 @@ pipeline {
                     }
                     post {
                         success {
-                            archivePatterns(
-                                    context: context,
-                                    patterns: ['piksi_sdk.txz'],
-                                    addPath: "v3/prod")
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['piksi_sdk.txz'],
+                                        addPath: 'v3/prod'
+                                )
+                            }
                         }
                         always {
                             cleanUp()
@@ -330,103 +335,6 @@ def crlKeyAdd() {
             ssh-add /home/jenkins/.ssh/id_rsa
             ssh-add -l
            """)
-    }
-}
-
-/**
- * Archive the specified files both to jenkins and to S3.
- * Consider moving this off to the shared libs.
- * @param args
- *   args.patterns: List of file patterns
- * @return
- */
-def archivePatterns(Map args) {
-    archiveArtifacts(artifacts: args.patterns.join(','))
-
-    if (shouldUploadToS3(args)) {
-        args.patterns.each() {
-            uploadArtifactsToS3(args + [includePattern: it])
-        }
-    }
-}
-
-/**
- * Upload to S3 if the UPLOAD_TO_S3 parameter is enabled or does not exist;
- * this may be extended with more criteria later.
- *
- * Note that S3 upload is skipped for non-tag/pr/release builds.
- * @return
- */
-boolean shouldUploadToS3(Map args=[:]) {
-    if (env.UPLOAD_TO_S3 && env.UPLOAD_TO_S3 == "false") {
-        return false
-    } else {
-        return true
-    }
-}
-
-/**
- * Upload artifacts to S3. Determine the bucket and path based on whether this
- * is a PR, a branch, or a tag push.
- * @param args
- *   args.context
- *   args.path
- *   args.bucket
- *   args.addPath
- * @return
- */
-def uploadArtifactsToS3(Map args) {
-    // Initially, use a bucket separate from travis so we can run both in parallel without conflict.
-    assert args.context
-
-    boolean upload = false
-    String bucket
-    String path = "piksi_buildroot/"
-
-    if (args.context.isTagPush()) {
-        bucket = "swiftnav-artifacts-jenkins"
-        path += context.gitDescribe() + "/"
-        upload = true
-    } else {
-        if (args.context.isPrPush()) {
-            bucket = "swiftnav-artifacts-pull-requests-jenkins"
-            path += "pr-" + args.context.prNumber() + "/" + args.context.gitDescribe() + "/"
-            upload = true
-        } else {
-            // TODO remove the 'klaus.*-release' which is here to test uploads
-            if (args.context.isBranchPush(branches: ['master', 'v.*-release', 'klaus.*-release'])) {
-                bucket = "swiftnav-artifacts-jenkins"
-                path += args.context.branchName() + "/" + args.context.gitDescribe() + "/"
-                upload = true
-            } else {
-                logger.info("Neither a tag, PR, or master/release branch push - not publishing artifacts to S3")
-                upload = false
-            }
-        }
-    }
-
-    // You can override the bucket/path via arg
-    if (args.bucket) {
-        bucket = args.bucket
-    }
-    if (args.path) {
-        path = args.path
-    }
-
-    // Append to the path if specified
-    if (args.addPath) {
-        path += args.addPath + "/"
-    }
-
-    String pattern = args.includePattern ?: "**"
-
-    if (upload && shouldUploadToS3()) {
-        // s3Upload is provided by the Jenkins S3 plugin
-        s3Upload(
-                includePathPattern: pattern,
-                bucket: bucket,
-                path: path,
-                acl: 'BucketOwnerFullControl')
     }
 }
 
