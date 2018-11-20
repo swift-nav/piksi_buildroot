@@ -1,8 +1,10 @@
 #!groovy
 
-// Use 'ci-jenkins@somebranch' to pull shared lib from a different branch than the default.
+// Use 'ci-jenkins@someref' to pull shared lib from a different branch/tag than the default.
 // Default is configured in Jenkins and should be from "stable" tag.
-@Library("ci-jenkins@klaus/ccache") import com.swiftnav.ci.*
+
+//TODO: Remove the s3fix tag before merge to master
+@Library("ci-jenkins@s3fix") import com.swiftnav.ci.*
 
 String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
