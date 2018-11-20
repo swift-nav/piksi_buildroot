@@ -234,6 +234,13 @@ static int notify_ant_height_changed(void *context)
   return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
+static int notify_rcv_ant_descriptor_changed(void *context)
+{
+  (void)context;
+  sbp2rtcm_set_rcv_ant_descriptors(ant_descriptor, rcv_descriptor, &sbp_to_rtcm3_state);
+  return SBP_SETTINGS_WRITE_STATUS_OK;
+}
+
 static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
 
 int main(int argc, char *argv[])
@@ -356,6 +363,24 @@ int main(int argc, char *argv[])
                     sizeof(ant_height),
                     SETTINGS_TYPE_FLOAT,
                     notify_ant_height_changed,
+                    NULL);
+
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "ant_descriptor",
+                    &ant_descriptor,
+                    sizeof(ant_descriptor),
+                    SETTINGS_TYPE_STRING,
+                    notify_rcv_ant_descriptor_changed,
+                    NULL);
+
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "rcv_descriptor",
+                    &rcv_descriptor,
+                    sizeof(rcv_descriptor),
+                    SETTINGS_TYPE_STRING,
+                    notify_rcv_ant_descriptor_changed,
                     NULL);
 
   sbp_run();
