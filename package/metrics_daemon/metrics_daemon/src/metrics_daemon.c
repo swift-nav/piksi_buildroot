@@ -116,8 +116,9 @@ struct json_object *loop_through_folder_name(const char *process_path,
                                    key,
                                    val) // for each subfolder, search the name as key in json tree
         {
-          if (strncmp((start_ptr), key, substr_len) == 0) // if find the folder name, continue on
-                                                          // the loop with the new current node
+          if (strncmp((start_ptr), key, substr_len) == 0
+              && strlen(key) == substr_len) // if find the folder name, continue on
+                                            // the loop with the new current node
           {
             json_current = val;
             found_target = true;
