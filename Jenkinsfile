@@ -215,7 +215,7 @@ pipeline {
                             script {
                                 context.archivePatterns(
                                         patterns: ['buildroot/nano_output/images/sdcard.img'],
-                                        addPath: 'v3/prod'
+                                        addPath: 'nano/evt0'
                                 )
                             }
                         }
