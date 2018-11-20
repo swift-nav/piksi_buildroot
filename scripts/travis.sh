@@ -60,7 +60,7 @@ trigger_external_systems()
   # Generate data required by HITL and kick-off a smoke test run
   ./scripts/travis_pr_describe.sh
   ./scripts/generate_requirements.sh
-  ./scripts/hitl_smoke_test.sh
+  ./scripts/hitl_smoke_test
 
   # Push a comment to Slack #github channel
   SLACK_CHANNEL=github \
