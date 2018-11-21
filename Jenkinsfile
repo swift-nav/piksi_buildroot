@@ -149,7 +149,8 @@ pipeline {
                             script {
                                 context.archivePatterns(
                                         patterns: ['buildroot/output/images/piksiv3_prod/PiksiMulti*',
-                                                   'buildroot/output/images/piksiv3_prod/uImage*'],
+                                                   'buildroot/output/images/piksiv3_prod/uImage*',
+                                                   'buildroot/output/images/piksiv3_prod/boot.bin'],
                                         addPath: 'v3/prod'
                                 )
                             }
