@@ -37,9 +37,19 @@ bool simulator_enabled_watch = false;
 
 pk_endpoint_t *rtcm3_pub = NULL;
 
+/* settings */
+
 static const char *const rtcm_out_modes[] = {"Legacy", "MSM4", "MSM5", NULL};
 enum { RTCM_OUT_MODE_LEGACY, RTCM_OUT_MODE_MSM4, RTCM_OUT_MODE_MSM5 };
 static u8 rtcm_out_mode = (u8)RTCM_OUT_MODE_MSM5;
+
+static float ant_height = 0.0;
+
+/* Antenna descriptor */
+static char ant_descriptor[RTCM_MAX_STRING_LEN] = "HXCGPS500       NONE";
+
+/* TODO: fill in the actual IGS code when assigned */
+static char rcv_descriptor[RTCM_MAX_STRING_LEN] = "PIKSI";
 
 static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void *context)
 {
@@ -211,6 +221,23 @@ static int notify_rtcm_out_output_mode_changed(void *context)
   return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
+static int notify_ant_height_changed(void *context)
+{
+  (void)context;
+  if (ant_height < 0.0) {
+    return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
+  }
+  sbp2rtcm_set_ant_height(ant_height, &sbp_to_rtcm3_state);
+  return SBP_SETTINGS_WRITE_STATUS_OK;
+}
+
+static int notify_rcv_ant_descriptor_changed(void *context)
+{
+  (void)context;
+  sbp2rtcm_set_rcv_ant_descriptors(ant_descriptor, rcv_descriptor, &sbp_to_rtcm3_state);
+  return SBP_SETTINGS_WRITE_STATUS_OK;
+}
+
 static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
 
 int main(int argc, char *argv[])
@@ -314,6 +341,33 @@ int main(int argc, char *argv[])
                     settings_type_rtcm_out_mode,
                     notify_rtcm_out_output_mode_changed,
                     &rtcm_out_mode);
+
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "antenna_height",
+                    &ant_height,
+                    sizeof(ant_height),
+                    SETTINGS_TYPE_FLOAT,
+                    notify_ant_height_changed,
+                    NULL);
+
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "ant_descriptor",
+                    &ant_descriptor,
+                    sizeof(ant_descriptor),
+                    SETTINGS_TYPE_STRING,
+                    notify_rcv_ant_descriptor_changed,
+                    NULL);
+
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "rcv_descriptor",
+                    &rcv_descriptor,
+                    sizeof(rcv_descriptor),
+                    SETTINGS_TYPE_STRING,
+                    notify_rcv_ant_descriptor_changed,
+                    NULL);
 
   sbp_run();
 
