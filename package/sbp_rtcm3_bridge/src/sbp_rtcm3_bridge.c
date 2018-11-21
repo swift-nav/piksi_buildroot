@@ -262,9 +262,6 @@ int main(int argc, char *argv[])
   rtcm2sbp_init(&rtcm3_to_sbp_state, sbp_message_send, sbp_base_obs_invalid, NULL);
   sbp2rtcm_init(&sbp_to_rtcm3_state, rtcm3_out_callback, NULL);
 
-  /* Init the default values for receiver and antenna descriptors */
-  sbp2rtcm_set_rcv_ant_descriptors(ant_descriptor, rcv_descriptor, &sbp_to_rtcm3_state);
-
   if (sbp_init() != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
