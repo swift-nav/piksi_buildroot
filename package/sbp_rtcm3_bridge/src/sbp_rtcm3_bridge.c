@@ -49,7 +49,7 @@ static u8 rtcm_out_mode = (u8)RTCM_OUT_MODE_MSM5;
 static float ant_height = 0.0;
 
 /* Antenna descriptor */
-static char ant_descriptor[RTCM_MAX_STRING_LEN] = "HXCGPS500       DOME";
+static char ant_descriptor[RTCM_MAX_STRING_LEN] = "HXCGPS500       NONE";
 
 /* TODO: fill in the actual IGS code when assigned */
 static char rcv_descriptor[RTCM_MAX_STRING_LEN] = "PIKSI";
