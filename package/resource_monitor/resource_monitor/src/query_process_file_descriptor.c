@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <search.h>
+#include <limits.h>
 #include <libsbp/linux.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
@@ -32,7 +33,7 @@
 #define MAX_PROCESS_COUNT 2048
 #define MAX_FILE_COUNT 1024 * 16
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
-#define LSOF_CMD_BUF_LENGTH 1024 * 16
+#define LSOF_CMD_BUF_LENGTH 1024 * 4
 
 typedef enum {
   SEND_FD_COUNTS_0,
@@ -162,8 +163,8 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
 static bool parse_fd_line(resq_state_t *state, const char *line)
 {
   char id_str[16] = {0};
-  char exe_str[64] = {0};
-  char file_str[128] = {0};
+  char exe_str[NAME_MAX] = {0};
+  char file_str[PATH_MAX] = {0};
   line_spec_t line_specs[FD_STATE_COUNT] = {[FD_STATE_ID_STR] =
                                               (line_spec_t){
                                                 .type = FT_STR,
@@ -224,7 +225,7 @@ static void run_resource_query(void *context)
   if (state->file_table != NULL) {
     table_destroy(&state->file_table);
   }
-  char leftover_buffer[4096] = {0};
+  char leftover_buffer[LSOF_CMD_BUF_LENGTH] = {0};
   leftover_t NESTED_AXX(leftover) = {.buf = leftover_buffer, .size = 0};
   size_t NESTED_AXX(no_line_count) = 0;
   state->error_code = 0;
