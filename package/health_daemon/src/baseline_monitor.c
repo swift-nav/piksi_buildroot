@@ -32,7 +32,7 @@
 #define FIXED_POSITION 4
 #define POSITION_MODE_MASK 0x07 /* Bits 0-2 */
 
-#define BASELINE_THRESHOLD_M (80000.0f)   /* m */
+#define BASELINE_THRESHOLD_M (80000.0f)    /* m */
 #define BASELINE_ALERT_RATE_LIMIT (10000u) /* ms */
 
 #define MM_TO_M_FLOAT(val_in_mm) ((float)(val_in_mm) / 1000.0f)
