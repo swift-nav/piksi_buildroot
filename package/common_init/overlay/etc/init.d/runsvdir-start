@@ -2,28 +2,23 @@
 
 name=runit
 
-svc_dir=/etc/sv
 run_dir=/var/service
 
 stdout=/var/run/fifos/$name.stdout
 stderr=/var/run/fifos/$name.stderr
 
-mkdir -p $run_dir
-
-ls -1 $svc_dir | while read -r svc; do
-   ln -sf $svc_dir/$svc $run_dir/$svc
-done
+started_socket=/var/run/runit.socket
 
 cleanup()
 {
   rm $stdout
   rm $stderr
 
-  kill -HUP $pid $stderr_pid $stdout_pid
-  kill -TERM $pid $stderr_pid $stdout_pid
+  kill -HUP "$pid" "$stderr_pid" "$stdout_pid"
+  kill -TERM "$pid" "$stderr_pid" "$stdout_pid"
 }
 
-trap 'cleanup; exit 0' HUP TERM STOP EXIT
+trap 'cleanup; exit 0' HUP TERM EXIT
 
 rm -f $stdout $stderr
 mkfifo $stdout $stderr
@@ -35,6 +30,7 @@ chpst -u pk_log logger -t $name -p daemon.err  <$stderr &
 stderr_pid=$!
 
 runsvdir $run_dir 1>$stdout 2>$stderr &
+echo y | socat -u STDIN "UNIX-CONNECT:$started_socket"
 
 pid=$!
 wait $pid
