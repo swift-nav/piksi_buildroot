@@ -270,6 +270,7 @@ static void img_tbl_settings_setup(settings_ctx_t *settings_ctx)
 
     static char imageset_build_id[STR_BUFFER_SIZE];
     strncpy(imageset_build_id, name_string, STR_BUFFER_SIZE);
+  
     settings_register_readonly(settings_ctx, "system_info", "imageset_build_id",
                                imageset_build_id, sizeof(imageset_build_id),
                                SETTINGS_TYPE_STRING);
