@@ -1,16 +1,21 @@
 #!groovy
 
-// Use 'ci-jenkins@somebranch' to pull shared lib from a different branch than the default.
+// Use 'ci-jenkins@someref' to pull shared lib from a different branch/tag than the default.
 // Default is configured in Jenkins and should be from "stable" tag.
-// TODO: Remove the branch name here once lib support is merged and tagged
-@Library("ci-jenkins@klaus/post-build") import com.swiftnav.ci.*
+
+//TODO: Remove the s3fix tag before merge to master
+@Library("ci-jenkins@s3fix") import com.swiftnav.ci.*
 
 String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
 
 String dockerSecArgs = "--cap-add=SYS_PTRACE --security-opt seccomp=unconfined"
+
 def context = new Context(context: this)
+context.setRepo("piksi_buildroot")
+
 def builder = context.getBuilder()
+def logger = context.getLogger()
 
 pipeline {
     // Override agent in each stage to make sure we don't share containers among stages.
@@ -25,8 +30,7 @@ pipeline {
 
     parameters {
         string(name: "REF", defaultValue: "master", description: "git ref for piksi_buildroot repo")
-        choice(name: "LOG_LEVEL", choices: ['INFO', 'DEBUG', 'WARNING', 'ERROR'])
-        booleanParam(name: "UPLOAD_TO_S3", defaultValue: true, description: "Enable if artifacts should be uploaded to S3")
+        choice(name: "LOG_LEVEL", choices: ['info', 'debug', 'warning', 'error'])
     }
 
     environment {
@@ -62,16 +66,16 @@ pipeline {
                         crlKeyAdd()
 
                         // create a dummy file that we can save later
-                        sh("date > dummy_file.txt")
+                        sh("mkdir -p a/b/c && touch dummy_file.txt a/b/c/PiksiMulti_1.bin a/b/c/PiksiMulti_2.bin a/b/c/somefile.txt")
                     }
                     post {
                         success {
-                            archivePatterns(
-                                    context: context,
-                                    patterns:
-                                            ['dummy_file.txt'],
-                                    addPath: 'v3/dummy',
-                                    allowEmpty: false)
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['a/b/c/*.bin'],
+                                        addPath: 'dummy/addme'
+                                )
+                            }
                         }
                         always {
                             cleanUp()
@@ -104,13 +108,13 @@ pipeline {
                     }
                     post {
                         success {
-                            archivePatterns(
-                                context: context,
-                                patterns:
-                                    ['buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin',
-                                     'buildroot/output/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin'],
-                                addPath: 'v3/prod',
-                                allowEmpty: true)
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin',
+                                                   'buildroot/output/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin'],
+                                        addPath: 'v3/prod'
+                                )
+                            }
                         }
                         always {
                             cleanUp()
@@ -142,11 +146,14 @@ pipeline {
                     }
                     post {
                         success {
-                            archivePatterns(
-                                context: context,
-                                patterns: ['buildroot/output/images/piksiv3_prod/'],
-                                addPath: 'v3/prod',
-                                allowEmpty: true)
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['buildroot/output/images/piksiv3_prod/PiksiMulti*',
+                                                   'buildroot/output/images/piksiv3_prod/uImage*',
+                                                   'buildroot/output/images/piksiv3_prod/boot.bin'],
+                                        addPath: 'v3/prod'
+                                )
+                            }
                         }
                         always {
                             cleanUp()
@@ -206,10 +213,12 @@ pipeline {
                     }
                     post {
                         success {
-                            archivePatterns(
-                                context: context,
-                                patterns: ['buildroot/nano_output/images/sdcard.img'],
-                                addPath: "nano")
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['buildroot/nano_output/images/sdcard.img'],
+                                        addPath: 'nano/evt0'
+                                )
+                            }
                         }
                         always {
                             cleanUp()
@@ -239,10 +248,20 @@ pipeline {
                         crlKeyAdd()
 
                         script {
-                            builder.make(target: "nano-image")
+                            builder.make(target: "firmware")
+                            builder.make(target: "image")
+                            builder.make(target: "sdk")
                         }
                     }
                     post {
+                        success {
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['piksi_sdk.txz'],
+                                        addPath: 'v3/prod'
+                                )
+                            }
+                        }
                         always {
                             cleanUp()
                         }
@@ -323,98 +342,20 @@ def crlKeyAdd() {
 }
 
 /**
- * Archive the specified files both to jenkins and to S3.
- * Consider moving this off to the shared libs.
- * @param args
- *   args.patterns: List of file patterns
- * @return
- */
-def archivePatterns(Map args) {
-    archiveArtifacts(artifacts: args.patterns.join(','))
-
-    if (shouldUploadToS3(args)) {
-        args.patterns.each() {
-            uploadArtifactsToS3(args + [includePattern: it])
-        }
-    }
-}
-
-/**
- * Upload to S3 if the UPLOAD_TO_S3 parameter is enabled;
- * this may be extended with more criteria later.
- * @return
- */
-boolean shouldUploadToS3(Map args=[:]) {
-    if (env.UPLOAD_TO_S3 && env.UPLOAD_TO_S3 == "true") {
-        return true
-    } else {
-        return false
-    }
-}
-
-/**
- * Upload artifacts to S3. Determin ethe bucket and path bvased on whether this
- * is a PR, a branch, or a tag push.
- * @param args
- *   args.context
- *   args.path
- *   args.bucket
- *   args.addPath
- * @return
- */
-def uploadArtifactsToS3(Map args) {
-    // Initially, use a bucket separate from travis so we can run both in parallel without conflict.
-    String bucket
-    String path
-    if (args.context.isPrPush()) {
-        bucket = "swiftnav-artifacts-pull-requests-jenkins"
-        path = "piksi_buildroot/" + args.context.gitDescribe() + "/"
-    } else {
-        if (args.context.isBranchPush(branches: ['master', '*-release'])) {
-            bucket = "swiftnav-artifacts-jenkins"
-            path = "piksi_buildroot/" + args.context.gitDescribe() + "/"
-        } else {
-            // TODO: Handle the tag pushes
-            bucket = "swiftnav-artifacts-jenkins"
-            path = "piksi_buildroot_notype/" + args.context.gitDescribe() + "/"
-        }
-    }
-
-    // You can override the bucket/path via arg
-    if (args.bucket) {
-        bucket = args.bucket
-    }
-    if (args.path) {
-        path = args.path
-    }
-
-    // Append to the path if specified
-    if (args.addPath) {
-        path += args.addPath + "/"
-    }
-
-    String pattern = args.includePattern ?: "**"
-
-    // s3Upload is provided by the Jenkins S3 plugin
-    s3Upload(
-        includePathPattern: pattern,
-        bucket: bucket,
-        path: path,
-        acl: 'BucketOwnerFullControl')
-}
-
-/**
  * Clean up some file generated with wrong permissions during the build.
  * This is needed so that a workspace clean is able to remove all files.
  * @return
  */
 def cleanUp() {
-    // The persistent files get created with root permissions during the build, so
-    // the regular 'workspace wipe' is not able to delete them.
-    // Remove them explicitly at the end of a build stage.
+    /**
+     * The persistent files get created with root permissions during the build, so
+     * the regular 'workspace wipe' is not able to delete them.
+     * Remove them explicitly at the end of a build stage.
+     * Fail build if cleanup fails, so that we can find out what had created
+     * the undeletable files/dirs.
+     */
     cleanWs(
         externalDelete: 'sudo rm -rf %s',
-        notFailBuild: true,
         patterns: [[pattern: 'buildroot/host_output/target/fake_persist', type: 'INCLUDE'],
                    [pattern: 'buildroot/host_output/target/persistent', type: 'INCLUDE'],
         ])

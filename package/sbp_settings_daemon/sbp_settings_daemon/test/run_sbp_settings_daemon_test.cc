@@ -45,6 +45,8 @@ TEST_F(SbpSettingsDaemonTests, empty_ini_field)
 
   system("rm -rf /persistent");
   system("mkdir /persistent");
+  // Set to world-writable as to allow workspace cleanup by non-root user
+  system("chmod 0777 /persistent");
 
   std::ofstream config_ini("/persistent/config.ini");
   std::string config_ini_content("[uart0]\nenabled_sbp_messages=\n");
