@@ -27,13 +27,14 @@
 #include "resource_query.h"
 #include "resmon_common.h"
 
-#define DEBUG_QUERY_FD_TAB
+//#define DEBUG_QUERY_FD_TAB
 
 #define ITEM_COUNT 10
 #define MAX_PROCESS_COUNT 2048
 #define MAX_FILE_COUNT 1024 * 16
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 #define LSOF_CMD_BUF_LENGTH 1024 * 4
+#define COMMAND_LINE_MAX (256u)
 
 typedef enum {
   SEND_FD_COUNTS_0,
@@ -55,6 +56,7 @@ typedef struct {
   char id_str[16];
   u16 pid;
   u16 fd_count;
+  char cmdline[COMMAND_LINE_MAX];
 } pid_entry_t;
 
 typedef struct {
@@ -119,16 +121,51 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
       return false;
     }
     new_entry.pid = (u16)pid;
-    entry = calloc(1, sizeof(pid_entry_t));
-    *entry = new_entry;
-    bool added = pid_table_put(state->pid_table, id_str, entry);
-    if (!added) {
-      PK_LOG_ANNO(LOG_ERR, "failed to add entry for pid '%s'", id_str);
-      free(entry);
+    size_t file_path_len = (size_t)(15 + s);
+    char cmdline_file[file_path_len];
+    s = snprintf(&cmdline_file[0], file_path_len, "/proc/%s/cmdline", id_str);
+    if (s < 0 || (size_t)s >= file_path_len) {
+#ifdef DEBUG_QUERY_FD_TAB
+      PK_LOG_ANNO(LOG_WARNING,
+                  "file descriptor query: failed to cmdline file string : %s",
+                  cmdline_file);
+#endif
       return false;
     }
+    cmdline_file[file_path_len - 1] = '\0';
+    buffer_fn_t copy_cmdline = NESTED_FN(ssize_t, (char *buffer, size_t length, void *ctx), {
+      (void)ctx;
+      strncpy(&new_entry.cmdline[0], buffer, length);
+      for (unsigned int i = 0; i < length; i++) {
+        if (new_entry.cmdline[i] == '^' || new_entry.cmdline[i] == '@') {
+          new_entry.cmdline[i] = ' ';
+        }
+      }
+      return (ssize_t)length;
+    });
+
+    char buf[COMMAND_LINE_MAX] = {0};
+    run_command_t run_config = {.input = NULL,
+                                .context = NULL,
+                                .argv =
+                                  (const char *[]){"sudo", "/bin/cat", cmdline_file, "-v", NULL},
+                                .buffer = buf,
+                                .length = sizeof(buf) - 1,
+                                .func = copy_cmdline};
+    if (run_command(&run_config) == 0) {
+      entry = calloc(1, sizeof(pid_entry_t));
+      *entry = new_entry;
+      bool added = pid_table_put(state->pid_table, id_str, entry);
+      if (!added) {
+        PK_LOG_ANNO(LOG_ERR, "failed to add entry for pid '%s'", id_str);
+        free(entry);
+        return false;
+      }
+    }
   }
-  entry->fd_count++;
+  if (entry != NULL) {
+    entry->fd_count++;
+  }
   if (is_real_file_path(file_str)) {
     file_entry_t *file_entry = file_table_get(state->file_table, file_str);
     if (file_entry == NULL) {
@@ -234,13 +271,13 @@ static void run_resource_query(void *context)
   state->file_table = table_create(MAX_FILE_COUNT, destroy_table_entry);
   state->total_fd_count = 0;
   if (state->pid_table == NULL) {
-    PK_LOG_ANNO(LOG_ERR, "file descriptor query: pid table creation failed");
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "file descriptor query: pid table creation failed");
     state->error_code = 1;
     state->send_state = SEND_ERROR;
     return;
   }
   if (state->file_table == NULL) {
-    PK_LOG_ANNO(LOG_ERR, "file descriptor query: file table creation failed");
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "file descriptor query: file table creation failed");
     state->error_code = 2;
     state->send_state = SEND_ERROR;
     return;
@@ -379,12 +416,14 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
     fd_counts->index = (u8)index;
     fd_counts->pid = entry->pid;
     fd_counts->fd_count = entry->fd_count;
+    strcpy(fd_counts->cmdline, entry->cmdline);
 #ifdef DEBUG_QUERY_FD_TAB
     PK_LOG_ANNO(LOG_DEBUG,
-                "index : %d pid: %d : fd_count : %d\n",
+                "index : %d pid: %d : fd_count : %d cmd line : %s",
                 fd_counts->index,
                 fd_counts->pid,
-                fd_counts->fd_count);
+                fd_counts->fd_count,
+                fd_counts->cmdline);
 #endif
     *len = sizeof(msg_linux_process_fd_count_t);
   } break;
@@ -400,10 +439,10 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
       file_entry_t *file_entry = file_table_get(state->file_table, state->top10_file_counts[i]);
       nBytes += snprintf(&fd_summary->most_opened[nBytes],
                          buf_space,
-                         "%d%c%s",
+                         "%d%s%c",
                          file_entry->fd_count,
-                         '\0',
-                         file_entry->file_str);
+                         file_entry->file_str,
+                         '\0');
 #ifdef DEBUG_QUERY_FD_TAB
       PK_LOG_ANNO(LOG_DEBUG,
                   "Summary:%d : %d %s bytes",
