@@ -197,7 +197,10 @@ static void glo_bias_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
-  sbp2rtcm_sbp_obs_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  /* do not relay base observations (sender_id 0) */
+  if (sender_id > 0) {
+    sbp2rtcm_sbp_obs_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  }
 }
 
 static int notify_simulator_enable_changed(void *context)
