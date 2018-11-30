@@ -219,14 +219,14 @@ int main(int argc, char *argv[])
                        notify_settings_changed,
                        NULL);
 
-  sd_add_watch(settings_ctx,
-               "ntrip",
-               "enable",
-               &ntrip_enable,
-               sizeof(ntrip_enable),
-               SETTINGS_TYPE_BOOL,
-               notify_settings_changed,
-               NULL);
+  pk_settings_register_watch(settings_ctx,
+                             "ntrip",
+                             "enable",
+                             &ntrip_enable,
+                             sizeof(ntrip_enable),
+                             SETTINGS_TYPE_BOOL,
+                             notify_settings_changed,
+                             NULL);
 
   piksi_log(LOG_INFO | LOG_SBP, "Ready!");
   sbp_run();
