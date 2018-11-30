@@ -231,17 +231,17 @@ static int notify_ant_height_changed(void *context)
 {
   (void)context;
   if (ant_height < 0.0) {
-    return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
+    return SETTINGS_WR_VALUE_REJECTED;
   }
   sbp2rtcm_set_ant_height(ant_height, &sbp_to_rtcm3_state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int notify_rcv_ant_descriptor_changed(void *context)
 {
   (void)context;
   sbp2rtcm_set_rcv_ant_descriptors(ant_descriptor, rcv_descriptor, &sbp_to_rtcm3_state);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
