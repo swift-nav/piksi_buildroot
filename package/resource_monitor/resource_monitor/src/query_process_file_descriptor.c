@@ -417,10 +417,9 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
     fd_counts->pid = entry->pid;
     fd_counts->fd_count = entry->fd_count;
     size_t cmdline_len = strlen(entry->cmdline);
-    if (cmdline_len + sizeof(msg_linux_process_fd_count_t) + 1 > SBP_FRAMING_MAX_PAYLOAD_SIZE)
-      cmdline_len = SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_count_t) - 1;
+    if (cmdline_len + sizeof(msg_linux_process_fd_count_t) > SBP_FRAMING_MAX_PAYLOAD_SIZE)
+      cmdline_len = SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_count_t);
     strncpy(fd_counts->cmdline, entry->cmdline, cmdline_len);
-    fd_counts->cmdline[cmdline_len] = '\0';
 #ifdef DEBUG_QUERY_FD_TAB
     PK_LOG_ANNO(LOG_DEBUG,
                 "index : %d pid: %d : fd_count : %d cmd line : %s",
@@ -429,7 +428,7 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
                 fd_counts->fd_count,
                 fd_counts->cmdline);
 #endif
-    *len = (u8)(sizeof(msg_linux_process_fd_count_t) + cmdline_len + 1);
+    *len = (u8)(sizeof(msg_linux_process_fd_count_t) + cmdline_len);
   } break;
   case SEND_FD_SUMMARY:
     *msg_type = SBP_MSG_LINUX_PROCESS_FD_SUMMARY;
