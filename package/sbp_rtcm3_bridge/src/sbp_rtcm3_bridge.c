@@ -362,32 +362,32 @@ int main(int argc, char *argv[])
                        notify_rtcm_out_output_mode_changed,
                        &rtcm_out_mode);
 
-  settings_register(settings_ctx,
-                    "rtcm_out",
-                    "antenna_height",
-                    &ant_height,
-                    sizeof(ant_height),
-                    SETTINGS_TYPE_FLOAT,
-                    notify_ant_height_changed,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "rtcm_out",
+                       "antenna_height",
+                       &ant_height,
+                       sizeof(ant_height),
+                       SETTINGS_TYPE_FLOAT,
+                       notify_ant_height_changed,
+                       NULL);
 
-  settings_register(settings_ctx,
-                    "rtcm_out",
-                    "ant_descriptor",
-                    &ant_descriptor,
-                    sizeof(ant_descriptor),
-                    SETTINGS_TYPE_STRING,
-                    notify_rcv_ant_descriptor_changed,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "rtcm_out",
+                       "ant_descriptor",
+                       &ant_descriptor,
+                       sizeof(ant_descriptor),
+                       SETTINGS_TYPE_STRING,
+                       notify_rcv_ant_descriptor_changed,
+                       NULL);
 
-  settings_register(settings_ctx,
-                    "rtcm_out",
-                    "rcv_descriptor",
-                    &rcv_descriptor,
-                    sizeof(rcv_descriptor),
-                    SETTINGS_TYPE_STRING,
-                    notify_rcv_ant_descriptor_changed,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "rtcm_out",
+                       "rcv_descriptor",
+                       &rcv_descriptor,
+                       sizeof(rcv_descriptor),
+                       SETTINGS_TYPE_STRING,
+                       notify_rcv_ant_descriptor_changed,
+                       NULL);
 
   sbp_run();
 
