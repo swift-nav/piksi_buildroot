@@ -10,18 +10,24 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "sbp.h"
 #include <assert.h>
 #include <getopt.h>
-#include <gnss-converters/rtcm3_sbp.h>
-#include <libpiksi/logging.h>
-#include <libpiksi/settings_client.h>
-#include <libsbp/navigation.h>
-#include <libsbp/sbp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <gnss-converters/rtcm3_sbp.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/settings_client.h>
+
+#include <libsbp/navigation.h>
+#include <libsbp/sbp.h>
+
+#include <libsettings/settings.h>
+
+#include "sbp.h"
 
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
