@@ -180,15 +180,15 @@ int pk_settings_attach(pk_settings_ctx_t *ctx, pk_loop_t *pk_loop);
 /**
  * @brief   Registers settings with the given context.
  *
- * @details Intended to be used with @c sd_loop to register the settings
+ * @details Intended to be used with @c pk_settings_loop to register the settings
  *          that the loop will be responsible for.
  */
 typedef void (*pk_settings_register_fn)(pk_settings_ctx_t *ctx);
 
 /**
- * @brief   Handles a control message for a @c sd_loop
+ * @brief   Handles a control message for a @c pk_settings_loop
  *
- * @details Intended to be used with @c sd_loop, this function is called
+ * @details Intended to be used with @c pk_settings_loop, this function is called
  *          when the control command for the loop is received.
  */
 typedef bool (*handle_command_fn)();
@@ -247,7 +247,7 @@ bool pk_settings_loop_simple(const char *metrics_ident,
 /**
  * @brief   Send a control command to a running settings daemon
  * @details Sends a control command to a daemon running with
- *          a control socket setup by @c sd_loop
+ *          a control socket setup by @c pk_settings_loop
  *
  * @param[in] metrics_ident        The identity the settings endpoint,
  *                                 typically used for metrics.
