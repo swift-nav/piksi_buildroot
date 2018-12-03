@@ -135,9 +135,9 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
     cmdline_file[file_path_len - 1] = '\0';
     buffer_fn_t copy_cmdline = NESTED_FN(ssize_t, (char *buffer, size_t length, void *ctx), {
       (void)ctx;
-      strncpy(&new_entry.cmdline[0], buffer, length);
+      memcpy(&new_entry.cmdline[0], buffer, length);
       for (unsigned int i = 0; i < length; i++) {
-        if (new_entry.cmdline[i] == '^' || new_entry.cmdline[i] == '@') {
+        if (new_entry.cmdline[i] == '\0') {
           new_entry.cmdline[i] = ' ';
         }
       }
@@ -147,8 +147,7 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
     char buf[COMMAND_LINE_MAX] = {0};
     run_command_t run_config = {.input = NULL,
                                 .context = NULL,
-                                .argv =
-                                  (const char *[]){"sudo", "/bin/cat", cmdline_file, "-v", NULL},
+                                .argv = (const char *[]){"sudo", "/bin/cat", cmdline_file, NULL},
                                 .buffer = buf,
                                 .length = sizeof(buf) - 1,
                                 .func = copy_cmdline};
