@@ -48,13 +48,14 @@ typedef struct sbp_pubsub_ctx_s sbp_pubsub_ctx_t;
  *          @li SBP PUB socket, associated with the TX context
  *          @li SBP SUB socket, associated with the RX context
  *
+ * @param[in] ident         The identity of this pub/sub pair, typically used for metrics.
  * @param[in] pub_ept       String describing the SBP PUB endpoint to use.
  * @param[in] sub_ept       String describing the SBP SUB endpoint to use.
  *
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-sbp_pubsub_ctx_t *sbp_pubsub_create(const char *pub_ept, const char *sub_ept);
+sbp_pubsub_ctx_t *sbp_pubsub_create(const char *ident, const char *pub_ept, const char *sub_ept);
 
 /**
  * @brief   Destroy an SBP PUB/SUB context.

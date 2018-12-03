@@ -270,6 +270,9 @@ docker-cp:
 	docker cp $(DOCKER_TAG)-copy:$(SRC) $(DST) || :
 	docker stop $(DOCKER_TAG)-copy
 
+docker-jenkins:
+	docker-compose --file scripts/docker-compose.yml --project-directory ${PWD} run pbr
+
 help:
 	@[[ -x $(shell which less) ]] && \
 		less $(CURDIR)/scripts/make_help.txt || \
@@ -358,7 +361,7 @@ docker-sync-setup:
 	@./scripts/check-docker-sync
 	@./scripts/gen-docker-sync $(DOCKER_BUILD_VOLUME) $(UID) $(DOCKER_HOST)
 	@docker volume create --name=$(DOCKER_BUILD_VOLUME)-sync
-	@echo "Done, run: make docker-start-sync"
+	@echo "Done, run: make docker-sync-start"
 
 docker-sync-start:
 	@docker-sync start -c .docker-sync.yml

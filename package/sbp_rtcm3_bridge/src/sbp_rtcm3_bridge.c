@@ -26,7 +26,10 @@
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
 #define RTCM3_SUB_ENDPOINT "ipc:///var/run/sockets/rtcm3_internal.pub" /* RTCM3 Internal Out */
+#define RTCM3_SUB_METRICS "rctm3/sub"
+
 #define RTCM3_PUB_ENDPOINT "ipc:///var/run/sockets/rtcm3_internal.sub" /* RTCM3 Internal In */
+#define RTCM3_PUB_METRICS "rtcm3/pub"
 
 bool rtcm3_debug = false;
 
@@ -37,9 +40,19 @@ bool simulator_enabled_watch = false;
 
 pk_endpoint_t *rtcm3_pub = NULL;
 
+/* settings */
+
 static const char *const rtcm_out_modes[] = {"Legacy", "MSM4", "MSM5", NULL};
 enum { RTCM_OUT_MODE_LEGACY, RTCM_OUT_MODE_MSM4, RTCM_OUT_MODE_MSM5 };
 static u8 rtcm_out_mode = (u8)RTCM_OUT_MODE_MSM5;
+
+static float ant_height = 0.0;
+
+/* Antenna descriptor */
+static char ant_descriptor[RTCM_MAX_STRING_LEN] = "HXCGPS500       NONE";
+
+/* TODO: fill in the actual IGS code when assigned */
+static char rcv_descriptor[RTCM_MAX_STRING_LEN] = "PIKSI";
 
 static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void *context)
 {
@@ -187,7 +200,10 @@ static void glo_bias_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
-  sbp2rtcm_sbp_obs_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  /* do not relay base observations (sender_id 0) */
+  if (sender_id > 0) {
+    sbp2rtcm_sbp_obs_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  }
 }
 
 static int notify_simulator_enable_changed(void *context)
@@ -208,6 +224,23 @@ static int notify_rtcm_out_output_mode_changed(void *context)
   default: return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
   }
 
+  return SBP_SETTINGS_WRITE_STATUS_OK;
+}
+
+static int notify_ant_height_changed(void *context)
+{
+  (void)context;
+  if (ant_height < 0.0) {
+    return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
+  }
+  sbp2rtcm_set_ant_height(ant_height, &sbp_to_rtcm3_state);
+  return SBP_SETTINGS_WRITE_STATUS_OK;
+}
+
+static int notify_rcv_ant_descriptor_changed(void *context)
+{
+  (void)context;
+  sbp2rtcm_set_rcv_ant_descriptors(ant_descriptor, rcv_descriptor, &sbp_to_rtcm3_state);
   return SBP_SETTINGS_WRITE_STATUS_OK;
 }
 
@@ -237,7 +270,11 @@ int main(int argc, char *argv[])
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  rtcm3_pub = pk_endpoint_create(RTCM3_PUB_ENDPOINT, PK_ENDPOINT_PUB);
+  rtcm3_pub = pk_endpoint_create(pk_endpoint_config()
+                                   .endpoint(RTCM3_PUB_ENDPOINT)
+                                   .identity(RTCM3_PUB_METRICS)
+                                   .type(PK_ENDPOINT_PUB)
+                                   .get());
   if (rtcm3_pub == NULL) {
     piksi_log(LOG_ERR, "error creating PUB socket");
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
@@ -248,7 +285,11 @@ int main(int argc, char *argv[])
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
   }
 
-  rtcm3_sub = pk_endpoint_create(RTCM3_SUB_ENDPOINT, PK_ENDPOINT_SUB);
+  rtcm3_sub = pk_endpoint_create(pk_endpoint_config()
+                                   .endpoint(RTCM3_SUB_ENDPOINT)
+                                   .identity(RTCM3_SUB_METRICS)
+                                   .type(PK_ENDPOINT_SUB)
+                                   .get());
   if (rtcm3_sub == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
@@ -314,6 +355,33 @@ int main(int argc, char *argv[])
                     settings_type_rtcm_out_mode,
                     notify_rtcm_out_output_mode_changed,
                     &rtcm_out_mode);
+
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "antenna_height",
+                    &ant_height,
+                    sizeof(ant_height),
+                    SETTINGS_TYPE_FLOAT,
+                    notify_ant_height_changed,
+                    NULL);
+
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "ant_descriptor",
+                    &ant_descriptor,
+                    sizeof(ant_descriptor),
+                    SETTINGS_TYPE_STRING,
+                    notify_rcv_ant_descriptor_changed,
+                    NULL);
+
+  settings_register(settings_ctx,
+                    "rtcm_out",
+                    "rcv_descriptor",
+                    &rcv_descriptor,
+                    sizeof(rcv_descriptor),
+                    SETTINGS_TYPE_STRING,
+                    notify_rcv_ant_descriptor_changed,
+                    NULL);
 
   sbp_run();
 

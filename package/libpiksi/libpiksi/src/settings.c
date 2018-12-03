@@ -66,16 +66,17 @@
  * @date 2018-02-23
  */
 
-#include <sys/stat.h>
-#include <unistd.h>
 #include <errno.h>
+#include <unistd.h>
+
+#include <sys/stat.h>
 
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
-#include <libsbp/settings.h>
-
 #include <libpiksi/settings.h>
+
+#include <libsbp/settings.h>
 
 #define PUB_ENDPOINT "ipc:///var/run/sockets/settings_client.sub"
 #define SUB_ENDPOINT "ipc:///var/run/sockets/settings_client.pub"
@@ -1193,7 +1194,7 @@ static void destroy(settings_ctx_t **ctx)
   *ctx = NULL;
 }
 
-settings_ctx_t *settings_create()
+settings_ctx_t *settings_create(const char *ident)
 {
   settings_ctx_t *ctx = (settings_ctx_t *)malloc(sizeof(*ctx));
   if (ctx == NULL) {
@@ -1209,7 +1210,7 @@ settings_ctx_t *settings_create()
   ctx->write_resp_callback_registered = false;
   ctx->read_resp_callback_registered = false;
 
-  ctx->pubsub_ctx = sbp_pubsub_create(PUB_ENDPOINT, SUB_ENDPOINT);
+  ctx->pubsub_ctx = sbp_pubsub_create(ident, PUB_ENDPOINT, SUB_ENDPOINT);
   if (ctx->pubsub_ctx == NULL) {
     piksi_log(LOG_ERR, "error creating PUBSUB context");
     destroy(&ctx);
@@ -1499,7 +1500,16 @@ static void control_handler(pk_loop_t *loop, void *handle, int status, void *con
   pk_endpoint_send(cmd_info->cmd_ept, &result, 1);
 }
 
-static bool configure_control_socket(pk_loop_t *loop,
+static const char *get_socket_ident(const char *metrics_ident, const char *usage)
+{
+  static char buffer[128] = {0};
+  snprintf(buffer, sizeof(buffer), "%s/%s", metrics_ident, usage);
+
+  return buffer;
+}
+
+static bool configure_control_socket(const char *metrics_ident,
+                                     pk_loop_t *loop,
                                      const char *control_socket,
                                      const char *control_socket_file,
                                      const char *control_command,
@@ -1531,7 +1541,11 @@ static bool configure_control_socket(pk_loop_t *loop,
     return false;
   }
 
-  *rep_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REP);
+  *rep_socket = pk_endpoint_create(pk_endpoint_config()
+                                     .endpoint(control_socket)
+                                     .identity(get_socket_ident(metrics_ident, "control/rep"))
+                                     .type(PK_ENDPOINT_REP)
+                                     .get());
   if (*rep_socket == NULL) {
     const char *err_msg = pk_endpoint_strerror();
     piksi_log(LOG_ERR, "Error creating IPC control path: %s, error: %s", control_socket, err_msg);
@@ -1559,7 +1573,8 @@ static bool configure_control_socket(pk_loop_t *loop,
   return true;
 }
 
-bool settings_loop(const char *control_socket,
+bool settings_loop(const char *metrics_ident,
+                   const char *control_socket,
                    const char *control_socket_file,
                    const char *control_command,
                    register_settings_fn do_settings_register,
@@ -1585,7 +1600,7 @@ bool settings_loop(const char *control_socket,
   bool ret = true;
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = settings_create();
+  settings_ctx_t *settings_ctx = settings_create(metrics_ident);
   if (settings_ctx == NULL) {
     ret = false;
     goto settings_loop_cleanup;
@@ -1599,7 +1614,8 @@ bool settings_loop(const char *control_socket,
   do_settings_register(settings_ctx);
 
   if (control_socket != NULL) {
-    bool control_sock_configured = configure_control_socket(loop,
+    bool control_sock_configured = configure_control_socket(metrics_ident,
+                                                            loop,
                                                             control_socket,
                                                             control_socket_file,
                                                             control_command,
@@ -1625,12 +1641,13 @@ settings_loop_cleanup:
   return ret;
 }
 
-bool settings_loop_simple(register_settings_fn do_settings_register)
+bool settings_loop_simple(const char *metrics_ident, register_settings_fn do_settings_register)
 {
-  return settings_loop(NULL, NULL, NULL, do_settings_register, NULL, NULL, NULL);
+  return settings_loop(metrics_ident, NULL, NULL, NULL, do_settings_register, NULL, NULL, NULL);
 }
 
-int settings_loop_send_command(const char *target_description,
+int settings_loop_send_command(const char *metrics_ident,
+                               const char *target_description,
                                const char *command,
                                const char *command_description,
                                const char *control_socket)
@@ -1659,7 +1676,12 @@ int settings_loop_send_command(const char *target_description,
   piksi_log(LOG_INFO, CMD_INFO_MSG, command_description, target_description);
   printf(CMD_INFO_MSG "\n", command_description, target_description);
 
-  pk_endpoint_t *req_socket = pk_endpoint_create(control_socket, PK_ENDPOINT_REQ);
+  pk_endpoint_t *req_socket =
+    pk_endpoint_create(pk_endpoint_config()
+                         .endpoint(control_socket)
+                         .identity(get_socket_ident(metrics_ident, "control/req"))
+                         .type(PK_ENDPOINT_REQ)
+                         .get());
   CHECK_PK_EPT_ERR(req_socket == NULL, pk_endpoint_create);
 
   int ret = 0;

@@ -25,6 +25,7 @@
 #include "serial.h"
 
 #define PROGRAM_NAME "ports_daemon"
+#define SETTINGS_METRICS ("settings/" PROGRAM_NAME)
 
 #define PROTOCOL_LIBRARY_PATH "/usr/lib/endpoint_protocols"
 
@@ -104,7 +105,7 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  bool ret = settings_loop_simple(settings_init);
+  bool ret = settings_loop_simple(SETTINGS_METRICS, settings_init);
 
   logging_deinit();
 

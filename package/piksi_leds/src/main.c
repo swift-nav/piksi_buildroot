@@ -27,7 +27,7 @@ int main(void)
   int ret = EXIT_FAILURE;
   logging_init(PROGRAM_NAME);
 
-  sbp_rx_ctx_t *ctx = sbp_rx_create(SUB_ENDPOINT_EXTERNAL_SBP);
+  sbp_rx_ctx_t *ctx = sbp_rx_create(PROGRAM_NAME, SUB_ENDPOINT_EXTERNAL_SBP);
   if (ctx == NULL) {
     goto cleanup;
   }

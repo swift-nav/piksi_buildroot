@@ -17,6 +17,9 @@
 
 #include "sbp.h"
 
+#define METRICS_NAME "metrics_daemon"
+#define SETTINGS_METRICS_NAME ("settings/" METRICS_NAME)
+
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
 
@@ -70,7 +73,7 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
     goto failure;
   }
 
-  ctx.pubsub_ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  ctx.pubsub_ctx = sbp_pubsub_create(METRICS_NAME, SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (ctx.pubsub_ctx == NULL) {
     goto failure;
   }
@@ -80,7 +83,7 @@ int sbp_init(unsigned int timer_interval, pk_loop_cb callback)
     goto failure;
   }
 
-  ctx.settings_ctx = settings_create();
+  ctx.settings_ctx = settings_create(SETTINGS_METRICS_NAME);
   if (ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
     goto failure;

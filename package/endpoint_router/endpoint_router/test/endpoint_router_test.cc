@@ -14,9 +14,13 @@
 
 #include <gtest/gtest.h>
 
+#include <libpiksi/logging.h>
+
 #include "endpoint_router.h"
 #include "endpoint_router_load.h"
 #include "endpoint_router_print.h"
+
+#define PROGRAM_NAME "router"
 
 static char *test_data_dir;
 
@@ -45,6 +49,11 @@ TEST_F(EndpointRouterTests, BasicTest)
 
   process_forwarding_rule(rules, data, 3, match_fn);
   EXPECT_TRUE(match_fn_accept);
+
+  EXPECT_STREQ(r->ports_list->metric, "sbp/firmware");
+
+  EXPECT_NE(r->ports_list->next, nullptr);
+  EXPECT_STREQ(r->ports_list->next->metric, "sbp/settings");
 
   router_teardown(&r);
 }
@@ -137,11 +146,16 @@ TEST_F(EndpointRouterTests, FullTest)
 
 int main(int argc, char **argv)
 {
-
   ::testing::InitGoogleTest(&argc, argv);
+
+  logging_init(PROGRAM_NAME);
+  logging_log_to_stdout_only(true);
 
   test_data_dir = getenv("TEST_DATA_DIR");
   assert(test_data_dir != NULL);
 
-  return RUN_ALL_TESTS();
+  int rc = RUN_ALL_TESTS();
+
+  logging_deinit();
+  return rc;
 }

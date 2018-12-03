@@ -55,35 +55,80 @@ enum {
   PKE_EAGAIN = -3,
 };
 
+typedef struct {
+  /**
+   * The address for the endpoint, for pk_endpoint, currently only unix domain sockets
+   * are supported, so an address must be specified as "ipc:///path/to/socket.foo"
+   */
+  const char *endpoint;
+  /**
+   * The identity of this socket, used for metrics and to give a server socket a
+   * means to record the identity of incoming connections.
+   */
+  const char *identity;
+  /**
+   * The type of this socket, see @c pk_endpoint_type.
+   */
+  pk_endpoint_type type;
+  /**
+   * If the endpoint should try to reconnect when starting.
+   */
+  bool retry_connect;
+} pk_endpoint_config_t;
+
+typedef struct pk_endpoint_config_builder_s pk_endpoint_config_builder_t;
+
+/**
+ * A "builder pattern" object for constructing an endpoint config.
+ */
+struct pk_endpoint_config_builder_s {
+
+  pk_endpoint_config_t _config;
+
+  /**
+   * Set the endpoint path/address on the config.
+   */
+  pk_endpoint_config_builder_t (*endpoint)(const char *endpoint);
+
+  /**
+   * Set the endpoint identity, usually used for metrics.
+   */
+  pk_endpoint_config_builder_t (*identity)(const char *identity);
+
+  /**
+   * Set the endpoint type in the config.
+   */
+  pk_endpoint_config_builder_t (*type)(pk_endpoint_type type);
+
+  /**
+   * Set the 'retry_connect' parameter in the config, tells the endpoint to retry connecting during
+   * create.
+   */
+  pk_endpoint_config_builder_t (*retry_connect)(bool retry_connect);
+
+  /**
+   * Returns a filled @c pk_endpoint_config_t object.
+   */
+  pk_endpoint_config_t (*get)(void);
+};
+
 /**
  * @brief   Piksi Endpoint Receive Callback Signature
  */
 typedef int (*pk_endpoint_receive_cb)(const u8 *data, const size_t length, void *context);
 
-/**
- * @brief   Create a Piksi Endpoint context
- * @details Create a Piksi Endpoint context
- *
- * @param[in] endpoint      Description of the endpoint that will be connected to.
- * @param[in] type          The type of endpoint to create.
- *
- * @return                  Pointer to the created context, or NULL if the
- *                          operation failed.
- */
-pk_endpoint_t *pk_endpoint_create(const char *endpoint, pk_endpoint_type type);
+pk_endpoint_config_builder_t pk_endpoint_config();
 
 /**
  * @brief   Create a Piksi Endpoint context
  * @details Create a Piksi Endpoint context
  *
- * @param[in] endpoint      Description of the endpoint that will be connected to.
- * @param[in] type          The type of endpoint to create.
- * @param[in] retry         Should we retry the initial connection.
+ * @param[in] cfg           The config to use, see @c pk_endpoint_config_t
  *
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-pk_endpoint_t *pk_endpoint_create_ex(const char *endpoint, pk_endpoint_type type, bool retry);
+pk_endpoint_t *pk_endpoint_create(pk_endpoint_config_t cfg);
 
 /**
  * @brief   Destroy a Piksi Endpoint context

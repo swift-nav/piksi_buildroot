@@ -19,7 +19,7 @@ struct sbp_pubsub_ctx_s {
   sbp_rx_ctx_t *rx_ctx;
 };
 
-sbp_pubsub_ctx_t *sbp_pubsub_create(const char *pub_ept, const char *sub_ept)
+sbp_pubsub_ctx_t *sbp_pubsub_create(const char *ident, const char *pub_ept, const char *sub_ept)
 {
   assert(pub_ept != NULL);
   assert(sub_ept != NULL);
@@ -30,13 +30,13 @@ sbp_pubsub_ctx_t *sbp_pubsub_create(const char *pub_ept, const char *sub_ept)
     goto failure;
   }
 
-  ctx->tx_ctx = sbp_tx_create(pub_ept);
+  ctx->tx_ctx = sbp_tx_create(ident, pub_ept);
   if (ctx->tx_ctx == NULL) {
     piksi_log(LOG_ERR, "error creating SBP TX context");
     goto failure;
   }
 
-  ctx->rx_ctx = sbp_rx_create(sub_ept);
+  ctx->rx_ctx = sbp_rx_create(ident, sub_ept);
   if (ctx->rx_ctx == NULL) {
     piksi_log(LOG_ERR, "error creating SBP RX context");
     goto failure;

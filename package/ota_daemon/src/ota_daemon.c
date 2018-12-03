@@ -37,6 +37,7 @@
 #define OTA_IMAGE_FILE_PATH "/data/ota/image"
 #define OTA_IMAGE_SHA256SUM_FILE_PATH "/data/ota/image_sha256sum"
 #define OTA_DEFAULT_URL "https://upgrader.skylark.swiftnav.com/images"
+#define OTA_ENDPOINT_METRICS "settings/ota"
 
 /* Timeout is one hour with 15 % jitter */
 #define OTA_TIMEOUT_AVG_S (3600)
@@ -466,7 +467,9 @@ int main(int argc, char *argv[])
 
   switch (op_mode) {
   case OP_MODE_OTA_CLIENT: ret = ota_client_loop(); break;
-  case OP_MODE_SETTINGS_DAEMON: ret = settings_loop_simple(ota_settings); break;
+  case OP_MODE_SETTINGS_DAEMON:
+    ret = settings_loop_simple(OTA_ENDPOINT_METRICS, ota_settings);
+    break;
   case OP_MODE_COUNT:
   default: ret = false;
   }

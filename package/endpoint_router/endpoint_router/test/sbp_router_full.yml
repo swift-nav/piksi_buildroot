@@ -3,6 +3,7 @@ ports:
   - name: SBP_PORT_FIRMWARE
     pub_addr: "tcp://127.0.0.1:43010"
     sub_addr: "tcp://127.0.0.1:43011"
+    metric: "sbp/firmware"
     forwarding_rules:
       - dst_port: SBP_PORT_SETTINGS_DAEMON
         filters:
@@ -49,6 +50,7 @@ ports:
   - name: SBP_PORT_SETTINGS_DAEMON
     pub_addr: "tcp://127.0.0.1:43020"
     sub_addr: "tcp://127.0.0.1:43021"
+    metric: "sbp/settings"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -67,6 +69,7 @@ ports:
   - name: SBP_PORT_EXTERNAL
     pub_addr: "tcp://127.0.0.1:43030"
     sub_addr: "tcp://127.0.0.1:43031"
+    metric: "sbp/external"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -96,6 +99,7 @@ ports:
   - name: SBP_PORT_FILEIO_FIRMWARE
     pub_addr: "tcp://127.0.0.1:43040"
     sub_addr: "tcp://127.0.0.1:43041"
+    metric: "sbp/fileio_fw"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -104,6 +108,7 @@ ports:
   - name: SBP_PORT_FILEIO_EXTERNAL
     pub_addr: "tcp://127.0.0.1:43050"
     sub_addr: "tcp://127.0.0.1:43051"
+    metric: "sbp/fileio_ex"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
@@ -112,6 +117,7 @@ ports:
   - name: SBP_PORT_INTERNAL
     pub_addr: "tcp://127.0.0.1:43060"
     sub_addr: "tcp://127.0.0.1:43061"
+    metric: "sbp/internal"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
@@ -120,6 +126,7 @@ ports:
   - name: SBP_PORT_SETTINGS_CLIENT
     pub_addr: "tcp://127.0.0.1:43070"
     sub_addr: "tcp://127.0.0.1:43071"
+    metric: "sbp/settings_client"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
@@ -136,6 +143,7 @@ ports:
   - name: SBP_PORT_SKYLARK
     pub_addr: "tcp://127.0.0.1:43080"
     sub_addr: "tcp://127.0.0.1:43081"
+    metric: "sbp/skylark"
     forwarding_rules:
       - dst_port: SBP_PORT_FIRMWARE
         filters:
@@ -151,6 +159,7 @@ ports:
   - name: SBP_PORT_NAV_DAEMON  # Entire Section Smoothpose Change**
     pub_addr: "tcp://127.0.0.1:43090"
     sub_addr: "tcp://127.0.0.1:43091"
+    metric: "sbp/nav_daemon"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
         filters:

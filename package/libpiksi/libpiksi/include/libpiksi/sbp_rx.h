@@ -36,12 +36,13 @@ typedef struct sbp_rx_ctx_s sbp_rx_ctx_t;
  * @details Create and initialize an SBP RX context used to receive SBP
  *          messages.
  *
+ * @param[in] ident         The identity of this pub/sub pair, typically used for metrics.
  * @param[in] endpoint      Description of endpoint to connect to.
  *
  * @return                  Pointer to the created context, or NULL if the
  *                          operation failed.
  */
-sbp_rx_ctx_t *sbp_rx_create(const char *endpoint);
+sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint);
 
 /**
  * @brief   Destroy an SBP RX context.

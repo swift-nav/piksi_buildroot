@@ -25,9 +25,12 @@
 int main(int argc, char **argv)
 {
   ::testing::InitGoogleTest(&argc, argv);
+
   logging_init(PROGRAM_NAME);
   logging_log_to_stdout_only(true);
+
   auto ret = RUN_ALL_TESTS();
   logging_deinit();
+
   return ret;
 }
