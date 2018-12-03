@@ -46,7 +46,7 @@ service_up()
 
 services_up()
 {
-  service_up uart0 && service_up uart1
+  service_up uart1
 }
 
 wait_services()
