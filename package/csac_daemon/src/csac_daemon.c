@@ -53,7 +53,7 @@ Steer,ATune,Phase,DiscOK,TOD,LTime,Ver" in CSAC firmware version v1.10 */
 
 u8 *port_name = NULL;
 u8 *command_string = NULL;
-bool csac_telemetry_enabled = false;
+bool csac_telemetry_enabled = true;
 
 struct csac_ctx_s {
   sbp_pubsub_ctx_t *sbp_ctx;
