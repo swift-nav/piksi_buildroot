@@ -64,10 +64,10 @@ void piksi_vlog(int priority, const char *format, va_list ap)
     }
     return;
   }
-  if ((priority & LOG_FACMASK) == LOG_SBP) {
+  //if ((priority & LOG_FACMASK) == LOG_SBP) {
     priority &= ~LOG_FACMASK;
     sbp_vlog(priority, format, ap);
-  }
+  //}
 
   vsyslog(priority, format, ap);
 }
