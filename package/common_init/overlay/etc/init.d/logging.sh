@@ -15,6 +15,7 @@ log_base()
     esac
   done
   [[ -z "$send_sbp" ]] || { echo $* | sbp_log --"${_log_level}"; }
+  echo "$log_tag [${log_fac}.${_log_level}]: $*" | tee /dev/kmsg;
   logger -t $log_tag -p ${log_fac}.${_log_level} $*;
 }
 
