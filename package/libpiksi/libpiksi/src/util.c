@@ -21,6 +21,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include <libpiksi/cast_check.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 
@@ -55,6 +56,9 @@
 
 #define PIPE_READ_SIDE 0
 #define PIPE_WRITE_SIDE 1
+
+//#define DEBUG_RUN_WITH_STDIN
+
 
 void snprintf_assert(char *s, size_t n, const char *format, ...)
 {
@@ -111,7 +115,7 @@ int file_read_string(const char *filename, char *str, size_t str_size)
     return -1;
   }
 
-  if (fgets(str, str_size, fp) == NULL) {
+  if (fgets(str, sizet_to_int(str_size), fp) == NULL) {
     fclose(fp);
     piksi_log(LOG_ERR, "%s: error reading %s", __FUNCTION__, filename);
     return -1;
@@ -184,7 +188,12 @@ u16 sbp_sender_id_get(void)
   char sbp_sender_id_string[32];
   if (file_read_string(SBP_SENDER_ID_FILE_PATH, sbp_sender_id_string, sizeof(sbp_sender_id_string))
       == 0) {
-    sbp_sender_id = strtoul(sbp_sender_id_string, NULL, 10);
+    unsigned long ul_value = strtoul(sbp_sender_id_string, NULL, 10);
+    if (ul_value > ((u16) ~0u)) {
+      piksi_log(LOG_WARNING, "invalid value for SBP sender id: %s (from file '%s')", sbp_sender_id_string,
+        SBP_SENDER_ID_FILE_PATH);
+    }
+    sbp_sender_id = (u16)ul_value;
   }
 
   return sbp_sender_id;
@@ -249,14 +258,14 @@ int hw_version_string_get(char *hw_version_string, size_t size)
               sizeof(raw_hw_ver_string));
     return -1;
   }
-  u16 major_ver = hw_version >> 16;
-  u16 minor_ver = hw_version & 0xFFFF;
+  u16 major_ver = (u16)((hw_version >> 16) & 0xFFFF);
+  u16 minor_ver = (u16)((hw_version >>  0) & 0xFFFF);
   int written = snprintf(hw_version_string, size, "%d.%d", major_ver, minor_ver);
   if (written < 0) {
     piksi_log(LOG_ERR, "Error writing hardware version string to buffer");
     return -1;
   }
-  if (written >= size) {
+  if (int_to_sizet(written) >= size) {
     piksi_log(
       LOG_ERR,
       "Hardware version string truncated when writing to buffer (size of intended string: %d)",
@@ -333,8 +342,6 @@ int hw_variant_string_get(char *hw_variant_string, size_t size)
 
 int product_id_string_get(char *product_id_string, size_t size)
 {
-  const char *s = NULL;
-
   int written = snprintf(product_id_string,
                          size,
                          "%s%s",
@@ -344,7 +351,7 @@ int product_id_string_get(char *product_id_string, size_t size)
     piksi_log(LOG_ERR, "Error writing product id string to buffer");
     return -1;
   }
-  if (written >= size) {
+  if (int_to_sizet(written) >= size) {
     piksi_log(LOG_ERR,
               "Product id string truncated when writing to buffer (size of intended string: %d)",
               written);
@@ -517,8 +524,9 @@ int run_sigtimedwait(sigwait_params_t *params)
 bool is_file(int fd)
 {
   errno = 0;
-  int ret = lseek(fd, 0, SEEK_CUR);
-  return !(-1 == ret && errno == ESPIPE);
+  off_t offset = lseek(fd, 0, SEEK_CUR);
+
+  return !(-1 == offset && errno == ESPIPE);
 }
 
 static int _run_with_stdin_file(int fd_stdin,
@@ -624,32 +632,37 @@ int run_with_stdin_file2(const char *input_file,
     size_t read_size = 0;
     size_t read_size_orig = 0;
     do {
-      read_size = read_size_orig = read(stdout_pipe, output, output_size);
-      //      PK_LOG_ANNO(LOG_DEBUG, "read: %d", read_size_orig);
+      ssize_t read_result = read(stdout_pipe, output, output_size);
+      if (read_result < 0) break;
+      read_size = read_size_orig = ssizet_to_sizet(read_result);
+#ifdef DEBUG_RUN_WITH_STDIN
+      PK_LOG_ANNO(LOG_DEBUG, "read: %d", read_size_orig);
+#endif
       assert(read_size <= output_size);
       size_t offset = 0;
       while (read_size > 0) {
         //        PK_LOG_ANNO(LOG_DEBUG, "call buffer_fn...");
-        ssize_t consumed = buffer_fn(&output[offset], read_size, context);
-        if (consumed < 0) break;
-        if (consumed < read_size) {
-          offset += consumed;
-          read_size -= consumed;
+        ssize_t consumed_result = buffer_fn(&output[offset], read_size, context);
+        if (consumed_result < 0) break;
+        size_t consumed_count = ssizet_to_sizet(consumed_result);
+        if (consumed_count < read_size) {
+          offset += consumed_count;
+          read_size -= consumed_count;
         } else {
           read_size = 0;
         }
-        //        PK_LOG_ANNO(LOG_DEBUG, "read_size: %d", read_size);
+#ifdef DEBUG_RUN_WITH_STDIN
+        PK_LOG_ANNO(LOG_DEBUG, "read_size: %d", read_size);
+#endif
       }
     } while (read_size_orig > 0);
   } else {
     size_t total = 0;
     while (output_size > total) {
-      ssize_t ret = read(stdout_pipe, output + total, output_size - total);
-      if (ret > 0) {
-        total += ret;
-      } else {
-        break;
-      }
+      ssize_t read_result = read(stdout_pipe, output + total, output_size - total);
+      if (read_result < 0) break;
+      size_t read_count = ssizet_to_sizet(read_result);
+      total += read_count;
     }
     /* Guarantee null terminated output */
     if (total >= output_size) {
@@ -780,8 +793,6 @@ static pipeline_t *pipeline_call(pipeline_t *r, const char *proc_path, const cha
 {
   if (r->_is_nil) return r;
 
-  size_t index = 0;
-
   r->_proc_path = proc_path;
   r->_proc_args = argv;
 
@@ -814,12 +825,10 @@ static pipeline_t *pipeline_wait(pipeline_t *r)
   char *output = r->stdout_buffer;
 
   while (output_size > total) {
-    ssize_t ret = read(out_fd, output + total, output_size - total);
-    if (ret > 0) {
-      total += ret;
-    } else {
-      break;
-    }
+    ssize_t read_result = read(out_fd, output + total, output_size - total);
+    if (read_result < 0) break;
+    size_t read_count = ssizet_to_sizet(read_result);
+    total += read_count;
   }
 
   /* Guarantee null terminated output */
@@ -888,9 +897,9 @@ pipeline_t *create_pipeline(void)
 void print_trace(const char *assert_str, const char *file, const char *func, int lineno)
 {
   void *array[32];
-  size_t size;
+  int size;
   char **strings;
-  size_t i;
+  int i;
 
   size = backtrace(array, 32);
   strings = backtrace_symbols(array, size);
