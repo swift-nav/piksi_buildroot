@@ -14,7 +14,7 @@
 #define __CELL_MODEM_SETTINGS_H
 
 #include <libpiksi/loop.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 
 enum modem_type {
   MODEM_TYPE_INVALID,
@@ -22,7 +22,7 @@ enum modem_type {
   MODEM_TYPE_CDMA,
 };
 
-int cell_modem_init(pk_loop_t *loop, settings_ctx_t *settings_ctx);
+int cell_modem_init(pk_loop_t *loop, pk_settings_ctx_t *settings_ctx);
 void cell_modem_deinit(void);
 void cell_modem_set_dev(char *dev, enum modem_type type);
 void pppd_respawn(pk_loop_t *loop, void *timer_handle, int status, void *context);

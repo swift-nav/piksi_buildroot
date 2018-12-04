@@ -360,7 +360,7 @@ docker-sync-setup:
 	@./scripts/check-docker-sync
 	@./scripts/gen-docker-sync $(DOCKER_BUILD_VOLUME) $(UID) $(DOCKER_HOST)
 	@docker volume create --name=$(DOCKER_BUILD_VOLUME)-sync
-	@echo "Done, run: make docker-start-sync"
+	@echo "Done, run: make docker-sync-start"
 
 docker-sync-start:
 	@docker-sync start -c .docker-sync.yml

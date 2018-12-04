@@ -34,7 +34,7 @@ typedef struct {
   uint8_t send_buffer[SBP_MSG_LEN_MAX];
 } framer_sbp_state_t;
 
-static ssize_t sbp_read(u8 *buff, u32 n, void *context)
+static s32 sbp_read(u8 *buff, u32 n, void *context)
 {
   sbp_io_context_t *c = (sbp_io_context_t *)context;
 
@@ -48,7 +48,7 @@ static ssize_t sbp_read(u8 *buff, u32 n, void *context)
   return count;
 }
 
-static ssize_t sbp_write(u8 *buff, u32 n, void *context)
+static s32 sbp_write(u8 *buff, u32 n, void *context)
 {
   sbp_io_context_t *c = (sbp_io_context_t *)context;
 

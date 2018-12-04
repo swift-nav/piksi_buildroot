@@ -4,7 +4,7 @@ SOURCES= \
 	sbp_fileio.c \
 	path_validator.c \
 
-LIBS=-luv -lsbp -lpiksi
+LIBS=-luv -lsbp -lpiksi -lsettings
 
 ARFLAGS=rcs $(LTO_PLUGIN)
 
