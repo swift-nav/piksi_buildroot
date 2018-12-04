@@ -251,7 +251,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   s = settings_lookup(section, setting);
   if (s == NULL) {
     piksi_log(LOG_WARNING,
-              "Error in settings read message: setting not found (%s.%s)",
+              "Bad settings read request: setting not found (%s.%s)",
               section,
               setting);
     return;
