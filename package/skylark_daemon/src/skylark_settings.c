@@ -16,7 +16,7 @@
 #include <sys/stat.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
 
 #include "skylark_settings.h"
@@ -177,7 +177,7 @@ static int skylark_notify(void *context)
     }
   }
 
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 bool skylark_reconnect_dl(void)
@@ -212,27 +212,27 @@ bool skylark_reconnect_dl(void)
   return true;
 }
 
-void skylark_init(settings_ctx_t *settings_ctx)
+void skylark_init(pk_settings_ctx_t *settings_ctx)
 {
   mkfifo(UPLOAD_FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
   mkfifo(DOWNLOAD_FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-  settings_add_watch(settings_ctx,
-                     "skylark",
-                     "enable",
-                     &skylark_enabled,
-                     sizeof(skylark_enabled),
-                     SETTINGS_TYPE_BOOL,
-                     skylark_notify,
-                     NULL);
+  pk_settings_register(settings_ctx,
+                       "skylark",
+                       "enable",
+                       &skylark_enabled,
+                       sizeof(skylark_enabled),
+                       SETTINGS_TYPE_BOOL,
+                       skylark_notify,
+                       NULL);
 
-  settings_register(settings_ctx,
-                    "skylark",
-                    "url",
-                    &skylark_url,
-                    sizeof(skylark_url),
-                    SETTINGS_TYPE_STRING,
-                    skylark_notify,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "skylark",
+                       "url",
+                       &skylark_url,
+                       sizeof(skylark_url),
+                       SETTINGS_TYPE_STRING,
+                       skylark_notify,
+                       NULL);
 }

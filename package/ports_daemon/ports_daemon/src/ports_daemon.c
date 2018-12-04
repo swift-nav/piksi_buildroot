@@ -16,7 +16,7 @@
 #include <unistd.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 
 #include "can.h"
 #include "ports.h"
@@ -76,7 +76,7 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
-static void settings_init(settings_ctx_t *s)
+static void settings_init(pk_settings_ctx_t *s)
 {
   if (whitelists_init(s) != 0) exit(EXIT_FAILURE);
 
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  bool ret = settings_loop_simple(SETTINGS_METRICS, settings_init);
+  bool ret = pk_settings_loop_simple(SETTINGS_METRICS, settings_init);
 
   logging_deinit();
 

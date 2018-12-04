@@ -6,7 +6,7 @@ SBP_CMD_RESP_SOURCES=sbp_cmd_resp.c
 
 TARGETS=$(SBP_LOG_TARGET) $(SBP_CMD_RESP_TARGET)
 
-LIBS=-luv -lsbp -lpiksi
+LIBS=-luv -lsbp -lpiksi -lsettings
 CFLAGS=-std=gnu11
 
 CROSS=

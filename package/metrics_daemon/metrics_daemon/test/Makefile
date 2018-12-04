@@ -4,7 +4,7 @@ SOURCES= \
 	run_metrics_daemon_test.cc
 
 LIBS= \
-	-ljson-c -luv -lsbp -lpiksi -ldl -lpthread -lgtest \
+	-ljson-c -luv -lsbp -lpiksi -ldl -lpthread -lsettings -lgtest \
 	../src/metrics_daemon.a
 
 CFLAGS=-std=gnu++11 -z muldefs -I../src

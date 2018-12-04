@@ -23,7 +23,7 @@
 #include <netdb.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
@@ -146,7 +146,7 @@ static int notify_settings_changed(void *context)
 
   if (enable_broadcast) open_udp_broadcast_socket(&udp_context, broadcast_hostname, broadcast_port);
 
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 int main(int argc, char *argv[])
@@ -181,52 +181,52 @@ int main(int argc, char *argv[])
   }
 
   /* Set up settings */
-  settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
+  pk_settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
 
-  settings_register(settings_ctx,
-                    "sample_daemon",
-                    "enable_broadcast",
-                    &enable_broadcast,
-                    sizeof(enable_broadcast),
-                    SETTINGS_TYPE_BOOL,
-                    notify_settings_changed,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "enable_broadcast",
+                       &enable_broadcast,
+                       sizeof(enable_broadcast),
+                       SETTINGS_TYPE_BOOL,
+                       notify_settings_changed,
+                       NULL);
 
-  settings_register(settings_ctx,
-                    "sample_daemon",
-                    "offset",
-                    &offset,
-                    sizeof(offset),
-                    SETTINGS_TYPE_FLOAT,
-                    notify_settings_changed,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "offset",
+                       &offset,
+                       sizeof(offset),
+                       SETTINGS_TYPE_FLOAT,
+                       notify_settings_changed,
+                       NULL);
 
-  settings_register(settings_ctx,
-                    "sample_daemon",
-                    "broadcast_port",
-                    &broadcast_port,
-                    sizeof(broadcast_port),
-                    SETTINGS_TYPE_INT,
-                    notify_settings_changed,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "broadcast_port",
+                       &broadcast_port,
+                       sizeof(broadcast_port),
+                       SETTINGS_TYPE_INT,
+                       notify_settings_changed,
+                       NULL);
 
-  settings_register(settings_ctx,
-                    "sample_daemon",
-                    "broadcast_hostname",
-                    &broadcast_hostname,
-                    sizeof(broadcast_hostname),
-                    SETTINGS_TYPE_STRING,
-                    notify_settings_changed,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "broadcast_hostname",
+                       &broadcast_hostname,
+                       sizeof(broadcast_hostname),
+                       SETTINGS_TYPE_STRING,
+                       notify_settings_changed,
+                       NULL);
 
-  settings_add_watch(settings_ctx,
-                     "ntrip",
-                     "enable",
-                     &ntrip_enable,
-                     sizeof(ntrip_enable),
-                     SETTINGS_TYPE_BOOL,
-                     notify_settings_changed,
-                     NULL);
+  pk_settings_register_watch(settings_ctx,
+                             "ntrip",
+                             "enable",
+                             &ntrip_enable,
+                             sizeof(ntrip_enable),
+                             SETTINGS_TYPE_BOOL,
+                             notify_settings_changed,
+                             NULL);
 
   piksi_log(LOG_INFO | LOG_SBP, "Ready!");
   sbp_run();

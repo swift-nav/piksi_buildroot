@@ -20,7 +20,7 @@
 #include <json-c/json.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
 
 #include "sbp.h"
@@ -335,7 +335,7 @@ static int notify_log_settings_changed(void *context)
             enable_log_to_file,
             metrics_update_interval);
   sbp_update_timer_interval(TO_MILLISECONDS(metrics_update_interval), run_routine_function);
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 int main(int argc, char *argv[])
@@ -356,24 +356,24 @@ int main(int argc, char *argv[])
     return cleanup(EXIT_FAILURE);
   }
 
-  settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
+  pk_settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
 
-  settings_register(settings_ctx,
-                    "metrics_daemon",
-                    "enable_log_to_file",
-                    &enable_log_to_file,
-                    sizeof(enable_log_to_file),
-                    SETTINGS_TYPE_BOOL,
-                    notify_log_settings_changed,
-                    NULL);
-  settings_register(settings_ctx,
-                    "metrics_daemon",
-                    "metrics_update_interval",
-                    &metrics_update_interval,
-                    sizeof(metrics_update_interval),
-                    SETTINGS_TYPE_INT,
-                    notify_log_settings_changed,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "metrics_daemon",
+                       "enable_log_to_file",
+                       &enable_log_to_file,
+                       sizeof(enable_log_to_file),
+                       SETTINGS_TYPE_BOOL,
+                       notify_log_settings_changed,
+                       NULL);
+  pk_settings_register(settings_ctx,
+                       "metrics_daemon",
+                       "metrics_update_interval",
+                       &metrics_update_interval,
+                       sizeof(metrics_update_interval),
+                       SETTINGS_TYPE_INT,
+                       notify_log_settings_changed,
+                       NULL);
   sbp_run();
 
   piksi_log(LOG_DEBUG, "Metrics Daemon: Normal Exit");
