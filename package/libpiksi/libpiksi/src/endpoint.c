@@ -396,7 +396,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
     foreach_client(pk_ept,
                    &rc,
                    NESTED_FN(void, (pk_endpoint_t * _ept, client_node_t * node, void *ctx), {
-										 (void) _ept;
+                     (void)_ept;
                      /* TODO: Why are we saving rc here, invalid clients will just be removed... */
                      int *rc_loc = ctx;
                      *rc_loc = send_impl(&node->val, data, length);
@@ -943,7 +943,9 @@ static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_
   return true;
 }
 
-static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read_handler, void *ctx_in)
+static int read_and_receive_common(pk_endpoint_t *pk_ept,
+                                   read_handler_fn_t read_handler,
+                                   void *ctx_in)
 {
   int rc = 0;
 
@@ -970,7 +972,7 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
     foreach_client(pk_ept,
                    ctx_in,
                    NESTED_FN(void, (pk_endpoint_t * _ept, client_node_t * node, void *ctx), {
-										 (void) _ept;
+                     (void)_ept;
                      read_handler(&node->val, ctx);
                    }));
 

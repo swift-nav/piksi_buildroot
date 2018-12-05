@@ -230,7 +230,7 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
 
   size_t metrics_count = metrics->count++;
   if (metrics_count > SSIZE_MAX) {
-     return METRICS_STATUS_TOO_MANY_METRICS;
+    return METRICS_STATUS_TOO_MANY_METRICS;
   }
 
   return sizet_to_ssizet(metrics->count++);

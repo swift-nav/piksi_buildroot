@@ -190,8 +190,10 @@ u16 sbp_sender_id_get(void)
       == 0) {
     unsigned long ul_value = strtoul(sbp_sender_id_string, NULL, 10);
     if (ul_value > UINT16_MAX) {
-      piksi_log(LOG_WARNING, "invalid value for SBP sender id: %s (from file '%s')", sbp_sender_id_string,
-        SBP_SENDER_ID_FILE_PATH);
+      piksi_log(LOG_WARNING,
+                "invalid value for SBP sender id: %s (from file '%s')",
+                sbp_sender_id_string,
+                SBP_SENDER_ID_FILE_PATH);
     }
     sbp_sender_id = (u16)ul_value;
   }
@@ -259,7 +261,7 @@ int hw_version_string_get(char *hw_version_string, size_t size)
     return -1;
   }
   u16 major_ver = (u16)((hw_version >> 16) & 0xFFFF);
-  u16 minor_ver = (u16)((hw_version >>  0) & 0xFFFF);
+  u16 minor_ver = (u16)((hw_version >> 0) & 0xFFFF);
   int written = snprintf(hw_version_string, size, "%d.%d", major_ver, minor_ver);
   if (written < 0) {
     piksi_log(LOG_ERR, "Error writing hardware version string to buffer");
