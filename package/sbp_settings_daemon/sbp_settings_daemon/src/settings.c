@@ -11,8 +11,8 @@
  */
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
 #include <libsbp/settings.h>
+#include <libsettings/settings.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -151,8 +151,9 @@ static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *con
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   const char *section = NULL, *setting = NULL, *value = NULL, *type = NULL;
-  if (!settings_parse_setting(len, msg, &section, &setting, &value, &type))
+  if (!settings_parse_setting(len, msg, &section, &setting, &value, &type)) {
     piksi_log(LOG_WARNING, "Error in register message");
+  }
 
   struct setting *s = settings_lookup(section, setting);
   /* Only register setting if it doesn't already exist */
@@ -161,9 +162,14 @@ static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *con
     strncpy(s->section, section, BUFSIZE);
     strncpy(s->name, setting, BUFSIZE);
     strncpy(s->value, value, BUFSIZE);
-    if (type != NULL) strncpy(s->type, type, BUFSIZE);
+
+    if (type != NULL) {
+      strncpy(s->type, type, BUFSIZE);
+    }
 
     setting_register(s);
+  } else {
+    piksi_log(LOG_WARNING, "Setting %s.%s already registered", s->section, s->name);
   }
 
   /* Reply with write message with our value */
@@ -342,7 +348,9 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
     return;
   }
 
-  u8 resp[] = {SBP_SETTINGS_WRITE_STATUS_SETTING_REJECTED};
+  piksi_log(LOG_ERR, "Setting %s.%s rejected", section, setting);
+
+  u8 resp[] = {SETTINGS_WR_SETTING_REJECTED};
   /* Reply with write response rejecting this setting */
   sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, sizeof(resp), resp, SBP_SENDER_ID);
 }

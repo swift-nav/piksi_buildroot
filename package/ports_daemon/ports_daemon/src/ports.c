@@ -335,7 +335,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   if (!updating_mode && port_config->first_start) {
     // Wait for mode settings to be updated before launching the port, the
     //   'mode' setting should be sent last because it's registered last.
-    return SBP_SETTINGS_WRITE_STATUS_OK;
+    return SETTINGS_WR_OK;
   }
 
   if (port_config->first_start) {
@@ -352,13 +352,13 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   }
 
   if (port_config->mode == MODE_DISABLED) {
-    return SBP_SETTINGS_WRITE_STATUS_OK;
+    return SETTINGS_WR_OK;
   }
 
   int protocol_index = mode_to_protocol_index(port_config->mode);
   const protocol_t *protocol = protocols_get(protocol_index);
   if (protocol == NULL) {
-    return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
+    return SETTINGS_WR_VALUE_REJECTED;
   }
 
   /* Prepare the command used to launch endpoint_adapter. */
@@ -375,9 +375,9 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   piksi_log(LOG_DEBUG, "Starting endpoint_adapter: %s", cmd);
 
   if (start_runit_service(&cfg) != 0) {
-    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+    return SETTINGS_WR_SERVICE_FAILED;
   }
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int setting_mode_notify(void *context)
@@ -410,70 +410,70 @@ static int setting_udp_client_address_notify(void *context)
   return port_configure(port_config, false);
 }
 
-static int setting_mode_register(settings_ctx_t *settings_ctx,
+static int setting_mode_register(pk_settings_ctx_t *settings_ctx,
                                  settings_type_t settings_type,
                                  port_config_t *port_config)
 {
-  return settings_register(settings_ctx,
-                           port_config->name,
-                           "mode",
-                           &port_config->mode,
-                           sizeof(port_config->mode),
-                           settings_type,
-                           setting_mode_notify,
-                           port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "mode",
+                              &port_config->mode,
+                              sizeof(port_config->mode),
+                              settings_type,
+                              setting_mode_notify,
+                              port_config);
 }
 
-static int setting_tcp_server_port_register(settings_ctx_t *settings_ctx,
+static int setting_tcp_server_port_register(pk_settings_ctx_t *settings_ctx,
                                             port_config_t *port_config)
 {
-  return settings_register(settings_ctx,
-                           port_config->name,
-                           "port",
-                           &port_config->opts_data.tcp_server_data.port,
-                           sizeof(&port_config->opts_data.tcp_server_data.port),
-                           SETTINGS_TYPE_INT,
-                           setting_tcp_server_port_notify,
-                           port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "port",
+                              &port_config->opts_data.tcp_server_data.port,
+                              sizeof(&port_config->opts_data.tcp_server_data.port),
+                              SETTINGS_TYPE_INT,
+                              setting_tcp_server_port_notify,
+                              port_config);
 }
 
-static int setting_tcp_client_address_register(settings_ctx_t *settings_ctx,
+static int setting_tcp_client_address_register(pk_settings_ctx_t *settings_ctx,
                                                port_config_t *port_config)
 {
-  return settings_register(settings_ctx,
-                           port_config->name,
-                           "address",
-                           port_config->opts_data.tcp_client_data.address,
-                           sizeof(port_config->opts_data.tcp_client_data.address),
-                           SETTINGS_TYPE_STRING,
-                           setting_tcp_client_address_notify,
-                           port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "address",
+                              port_config->opts_data.tcp_client_data.address,
+                              sizeof(port_config->opts_data.tcp_client_data.address),
+                              SETTINGS_TYPE_STRING,
+                              setting_tcp_client_address_notify,
+                              port_config);
 }
 
-static int setting_udp_server_port_register(settings_ctx_t *settings_ctx,
+static int setting_udp_server_port_register(pk_settings_ctx_t *settings_ctx,
                                             port_config_t *port_config)
 {
-  return settings_register(settings_ctx,
-                           port_config->name,
-                           "port",
-                           &port_config->opts_data.udp_server_data.port,
-                           sizeof(&port_config->opts_data.udp_server_data.port),
-                           SETTINGS_TYPE_INT,
-                           setting_udp_server_port_notify,
-                           port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "port",
+                              &port_config->opts_data.udp_server_data.port,
+                              sizeof(&port_config->opts_data.udp_server_data.port),
+                              SETTINGS_TYPE_INT,
+                              setting_udp_server_port_notify,
+                              port_config);
 }
 
-static int setting_udp_client_address_register(settings_ctx_t *settings_ctx,
+static int setting_udp_client_address_register(pk_settings_ctx_t *settings_ctx,
                                                port_config_t *port_config)
 {
-  return settings_register(settings_ctx,
-                           port_config->name,
-                           "address",
-                           port_config->opts_data.udp_client_data.address,
-                           sizeof(port_config->opts_data.udp_client_data.address),
-                           SETTINGS_TYPE_STRING,
-                           setting_udp_client_address_notify,
-                           port_config);
+  return pk_settings_register(settings_ctx,
+                              port_config->name,
+                              "address",
+                              port_config->opts_data.udp_client_data.address,
+                              sizeof(port_config->opts_data.udp_client_data.address),
+                              SETTINGS_TYPE_STRING,
+                              setting_udp_client_address_notify,
+                              port_config);
 }
 
 static int mode_enum_names_get(const char ***mode_enum_names)
@@ -521,7 +521,7 @@ static int mode_lookup(const char *mode_name, u8 *mode)
   return -1;
 }
 
-int ports_init(settings_ctx_t *settings_ctx)
+int ports_init(pk_settings_ctx_t *settings_ctx)
 {
   size_t i;
 
@@ -547,7 +547,7 @@ int ports_init(settings_ctx_t *settings_ctx)
 
   /* Register settings types */
   settings_type_t settings_type_mode;
-  settings_type_register_enum(settings_ctx, mode_enum_names, &settings_type_mode);
+  pk_settings_register_enum(settings_ctx, mode_enum_names, &settings_type_mode);
 
   /* Register settings */
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {

@@ -16,7 +16,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/loop.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/observation.h>
@@ -45,7 +45,7 @@ struct health_ctx_s {
   bool health_debug;
   pk_loop_t *loop;
   sbp_pubsub_ctx_t *sbp_ctx;
-  settings_ctx_t *settings_ctx;
+  pk_settings_ctx_t *settings_ctx;
 };
 
 bool health_context_get_debug(health_ctx_t *health_ctx)
@@ -63,7 +63,7 @@ sbp_pubsub_ctx_t *health_context_get_sbp_ctx(health_ctx_t *health_ctx)
   return health_ctx->sbp_ctx;
 }
 
-settings_ctx_t *health_context_get_settings_ctx(health_ctx_t *health_ctx)
+pk_settings_ctx_t *health_context_get_settings_ctx(health_ctx_t *health_ctx)
 {
   return health_ctx->settings_ctx;
 }
@@ -150,14 +150,14 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  health_ctx.settings_ctx = settings_create(SETTINGS_METRICS_NAME);
+  health_ctx.settings_ctx = pk_settings_create(SETTINGS_METRICS_NAME);
   if (health_ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
 
-  if (settings_attach(health_ctx.settings_ctx, health_ctx.loop) != 0) {
+  if (pk_settings_attach(health_ctx.settings_ctx, health_ctx.loop) != 0) {
     piksi_log(LOG_ERR, "Error registering for settings read!");
     status = EXIT_FAILURE;
     goto cleanup;
@@ -180,7 +180,7 @@ cleanup:
   piksi_log(LOG_DEBUG, "Shutdown...");
   pk_loop_destroy(&health_ctx.loop);
   sbp_pubsub_destroy(&health_ctx.sbp_ctx);
-  settings_destroy(&health_ctx.settings_ctx);
+  pk_settings_destroy(&health_ctx.settings_ctx);
   logging_deinit();
 
   exit(status);

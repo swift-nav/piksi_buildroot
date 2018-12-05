@@ -18,7 +18,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/loop.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 
 #include "resource_query.h"
 #include "sbp.h"
@@ -105,16 +105,16 @@ int main(int argc, char *argv[])
     return cleanup(EXIT_FAILURE);
   }
 
-  settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
+  pk_settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
 
-  settings_register(settings_ctx,
-                    "system",
-                    "resource_monitor_update_interval",
-                    &resource_monitor_interval_s,
-                    sizeof(resource_monitor_interval_s),
-                    SETTINGS_TYPE_INT,
-                    notify_interval_changed,
-                    NULL);
+  pk_settings_register(settings_ctx,
+                       "system",
+                       "resource_monitor_update_interval",
+                       &resource_monitor_interval_s,
+                       sizeof(resource_monitor_interval_s),
+                       SETTINGS_TYPE_INT,
+                       notify_interval_changed,
+                       NULL);
 
   sbp_run();
 

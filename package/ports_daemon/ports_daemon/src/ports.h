@@ -17,9 +17,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/wait.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 
-int ports_init(settings_ctx_t *settings_ctx);
+int ports_init(pk_settings_ctx_t *settings_ctx);
 bool port_is_enabled(const char *name);
 
 #endif /* SWIFTNAV_PORTS_H */

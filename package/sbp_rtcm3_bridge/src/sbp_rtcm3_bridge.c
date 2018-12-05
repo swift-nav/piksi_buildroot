@@ -10,18 +10,24 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "sbp.h"
 #include <assert.h>
 #include <getopt.h>
-#include <gnss-converters/rtcm3_sbp.h>
-#include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
-#include <libsbp/navigation.h>
-#include <libsbp/sbp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <gnss-converters/rtcm3_sbp.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/settings_client.h>
+
+#include <libsbp/navigation.h>
+#include <libsbp/sbp.h>
+
+#include <libsettings/settings.h>
+
+#include "sbp.h"
 
 #define PROGRAM_NAME "sbp_rtcm3_bridge"
 
@@ -40,9 +46,19 @@ bool simulator_enabled_watch = false;
 
 pk_endpoint_t *rtcm3_pub = NULL;
 
+/* settings */
+
 static const char *const rtcm_out_modes[] = {"Legacy", "MSM4", "MSM5", NULL};
 enum { RTCM_OUT_MODE_LEGACY, RTCM_OUT_MODE_MSM4, RTCM_OUT_MODE_MSM5 };
 static u8 rtcm_out_mode = (u8)RTCM_OUT_MODE_MSM5;
+
+static float ant_height = 0.0;
+
+/* Antenna descriptor */
+static char ant_descriptor[RTCM_MAX_STRING_LEN] = "HXCGPS500       NONE";
+
+/* TODO: fill in the actual IGS code when assigned */
+static char rcv_descriptor[RTCM_MAX_STRING_LEN] = "PIKSI";
 
 static int rtcm2sbp_decode_frame_shim(const u8 *data, const size_t length, void *context)
 {
@@ -190,7 +206,10 @@ static void glo_bias_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
-  sbp2rtcm_sbp_obs_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  /* do not relay base observations (sender_id 0) */
+  if (sender_id > 0) {
+    sbp2rtcm_sbp_obs_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  }
 }
 
 static int notify_simulator_enable_changed(void *context)
@@ -208,17 +227,34 @@ static int notify_rtcm_out_output_mode_changed(void *context)
   case RTCM_OUT_MODE_LEGACY: sbp2rtcm_set_rtcm_out_mode(MSM_UNKNOWN, &sbp_to_rtcm3_state); break;
   case RTCM_OUT_MODE_MSM4: sbp2rtcm_set_rtcm_out_mode(MSM4, &sbp_to_rtcm3_state); break;
   case RTCM_OUT_MODE_MSM5: sbp2rtcm_set_rtcm_out_mode(MSM5, &sbp_to_rtcm3_state); break;
-  default: return SBP_SETTINGS_WRITE_STATUS_VALUE_REJECTED;
+  default: return SETTINGS_WR_VALUE_REJECTED;
   }
 
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
+}
+
+static int notify_ant_height_changed(void *context)
+{
+  (void)context;
+  if (ant_height < 0.0) {
+    return SETTINGS_WR_VALUE_REJECTED;
+  }
+  sbp2rtcm_set_ant_height(ant_height, &sbp_to_rtcm3_state);
+  return SETTINGS_WR_OK;
+}
+
+static int notify_rcv_ant_descriptor_changed(void *context)
+{
+  (void)context;
+  sbp2rtcm_set_rcv_ant_descriptors(ant_descriptor, rcv_descriptor, &sbp_to_rtcm3_state);
+  return SETTINGS_WR_OK;
 }
 
 static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
 
 int main(int argc, char *argv[])
 {
-  settings_ctx_t *settings_ctx = NULL;
+  pk_settings_ctx_t *settings_ctx = NULL;
   pk_loop_t *loop = NULL;
   pk_endpoint_t *rtcm3_sub = NULL;
 
@@ -306,25 +342,52 @@ int main(int argc, char *argv[])
 
   settings_ctx = sbp_get_settings_ctx();
 
-  settings_add_watch(settings_ctx,
-                     "simulator",
-                     "enabled",
-                     &simulator_enabled_watch,
-                     sizeof(simulator_enabled_watch),
-                     SETTINGS_TYPE_BOOL,
-                     notify_simulator_enable_changed,
-                     NULL);
+  pk_settings_register_watch(settings_ctx,
+                             "simulator",
+                             "enabled",
+                             &simulator_enabled_watch,
+                             sizeof(simulator_enabled_watch),
+                             SETTINGS_TYPE_BOOL,
+                             notify_simulator_enable_changed,
+                             NULL);
 
   settings_type_t settings_type_rtcm_out_mode;
-  settings_type_register_enum(settings_ctx, rtcm_out_modes, &settings_type_rtcm_out_mode);
-  settings_register(settings_ctx,
-                    "rtcm_out",
-                    "output_mode",
-                    &rtcm_out_mode,
-                    sizeof(rtcm_out_mode),
-                    settings_type_rtcm_out_mode,
-                    notify_rtcm_out_output_mode_changed,
-                    &rtcm_out_mode);
+  pk_settings_register_enum(settings_ctx, rtcm_out_modes, &settings_type_rtcm_out_mode);
+  pk_settings_register(settings_ctx,
+                       "rtcm_out",
+                       "output_mode",
+                       &rtcm_out_mode,
+                       sizeof(rtcm_out_mode),
+                       settings_type_rtcm_out_mode,
+                       notify_rtcm_out_output_mode_changed,
+                       &rtcm_out_mode);
+
+  pk_settings_register(settings_ctx,
+                       "rtcm_out",
+                       "antenna_height",
+                       &ant_height,
+                       sizeof(ant_height),
+                       SETTINGS_TYPE_FLOAT,
+                       notify_ant_height_changed,
+                       NULL);
+
+  pk_settings_register(settings_ctx,
+                       "rtcm_out",
+                       "ant_descriptor",
+                       &ant_descriptor,
+                       sizeof(ant_descriptor),
+                       SETTINGS_TYPE_STRING,
+                       notify_rcv_ant_descriptor_changed,
+                       NULL);
+
+  pk_settings_register(settings_ctx,
+                       "rtcm_out",
+                       "rcv_descriptor",
+                       &rcv_descriptor,
+                       sizeof(rcv_descriptor),
+                       SETTINGS_TYPE_STRING,
+                       notify_rcv_ant_descriptor_changed,
+                       NULL);
 
   sbp_run();
 

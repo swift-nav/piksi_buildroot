@@ -11,7 +11,7 @@
  */
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/runit.h>
 
 #include "ota_settings.h"
@@ -62,9 +62,9 @@ static int ota_notify_enable(void *context)
   runit_cfg.command_line = NULL;
 
   if (ret != 0) {
-    return SBP_SETTINGS_WRITE_STATUS_SERVICE_FAILED;
+    return SETTINGS_WR_SERVICE_FAILED;
   }
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int ota_notify_generic(void *context)
@@ -73,38 +73,38 @@ static int ota_notify_generic(void *context)
 
   if (stat_runit_service(&runit_cfg) == RUNIT_RUNNING) {
     sbp_log(LOG_WARNING, "OTA must be disabled to modify settings");
-    return SBP_SETTINGS_WRITE_STATUS_MODIFY_DISABLED;
+    return SETTINGS_WR_MODIFY_DISABLED;
   }
 
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
-void ota_settings(settings_ctx_t *ctx)
+void ota_settings(pk_settings_ctx_t *ctx)
 {
-  settings_register(ctx,
-                    "system",
-                    "ota_enabled",
-                    &ota_enabled,
-                    sizeof(ota_enabled),
-                    SETTINGS_TYPE_BOOL,
-                    ota_notify_enable,
-                    NULL);
+  pk_settings_register(ctx,
+                       "system",
+                       "ota_enabled",
+                       &ota_enabled,
+                       sizeof(ota_enabled),
+                       SETTINGS_TYPE_BOOL,
+                       ota_notify_enable,
+                       NULL);
 
-  settings_register(ctx,
-                    "system",
-                    "ota_debug",
-                    &ota_debug,
-                    sizeof(ota_debug),
-                    SETTINGS_TYPE_BOOL,
-                    ota_notify_generic,
-                    NULL);
+  pk_settings_register(ctx,
+                       "system",
+                       "ota_debug",
+                       &ota_debug,
+                       sizeof(ota_debug),
+                       SETTINGS_TYPE_BOOL,
+                       ota_notify_generic,
+                       NULL);
 
-  settings_register(ctx,
-                    "system",
-                    "ota_url",
-                    &ota_url,
-                    sizeof(ota_url),
-                    SETTINGS_TYPE_STRING,
-                    ota_notify_generic,
-                    NULL);
+  pk_settings_register(ctx,
+                       "system",
+                       "ota_url",
+                       &ota_url,
+                       sizeof(ota_url),
+                       SETTINGS_TYPE_STRING,
+                       ota_notify_generic,
+                       NULL);
 }
