@@ -1,0 +1,15 @@
+# Use NMEA reference clock in addition to NTP servers
+# http://support.ntp.org/bin/view/Support/ConfiguringNMEARefclocks
+# Mode bit 3 - Use ZDA sentence as time source
+# Mode bit 25 - Trust receiver's handling of week rollover
+server 127.127.20.0 mode 0x02000008 prefer
+server 0.pool.ntp.org iburst
+server 1.pool.ntp.org iburst
+server 2.pool.ntp.org iburst
+server 3.pool.ntp.org iburst
+
+# Allow only time queries, at a limited rate, sending KoD when in excess.
+# Allow all local queries (IPv4, IPv6)
+restrict default nomodify nopeer noquery limited kod
+restrict 127.0.0.1
+restrict [::1]

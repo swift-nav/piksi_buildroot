@@ -1,0 +1,144 @@
+#!/bin/sh
+
+name="usb_gadget" # required by template_command.inc.sh
+
+source /etc/init.d/common.sh
+
+log_tag=$name # required by logging.sh
+source /etc/init.d/logging.sh
+
+setup_loggers
+
+CONFIGURE_NETWORKING="/persistent/usb_gadget_networking"
+
+net() {
+    [[ -f "$CONFIGURE_NETWORKING" ]]
+}
+
+VENDOR_ID="0x2E69"
+PRODUCT_ID="0x1001"
+MANUFACTURER="Swift Navigation"
+PRODUCT="Piksi Multi"
+SERIAL_NUMBER=`cat /factory/uuid`
+
+if lockdown; then
+  ACM="2xACM"
+else
+  ACM="3xACM"
+fi
+
+CONFIGURATION="CDC ${ACM}"
+CONFIGURATION1="CDC ${ACM}+ECM"
+CONFIGURATION2="CDC ${ACM}+RNDIS"
+
+start() {
+  # Create gadget
+  cd /sys/kernel/config/usb_gadget
+  mkdir g1
+  cd g1
+  echo "$VENDOR_ID" > idVendor
+  echo "$PRODUCT_ID" > idProduct
+
+  # Strings
+  mkdir strings/0x409
+  echo "$MANUFACTURER" > strings/0x409/manufacturer
+  echo "$PRODUCT" > strings/0x409/product
+  echo "$SERIAL_NUMBER" > strings/0x409/serialnumber
+
+  # Functions
+  mkdir functions/acm.GS0
+  lockdown || mkdir functions/acm.GS1
+  mkdir functions/acm.GS2
+
+  net && mkdir functions/rndis.usb0
+  net && mkdir functions/ecm.usb0
+
+  # Configurations (linux, osx)
+  mkdir configs/c.1
+  mkdir configs/c.1/strings/0x409
+
+  net && echo "$CONFIGURATION1" > configs/c.1/strings/0x409/configuration
+  net || echo "$CONFIGURATION" > configs/c.1/strings/0x409/configuration
+
+  ln -s functions/acm.GS0 configs/c.1
+  lockdown || ln -s functions/acm.GS1 configs/c.1
+  ln -s functions/acm.GS2 configs/c.1
+
+  net && ln -s functions/ecm.usb0 configs/c.1
+
+  if net; then
+    # Configurations (win10 friendly)
+    mkdir configs/c.2
+    mkdir configs/c.2/strings/0x409
+    echo "$CONFIGURATION2" > configs/c.2/strings/0x409/configuration
+    ln -s functions/acm.GS0 configs/c.2
+    [[ -f /etc/release_lockdown ]] || ln -s functions/acm.GS1 configs/c.2
+    ln -s functions/acm.GS2 configs/c.2
+    ln -s functions/rndis.usb0 configs/c.2
+
+    # Make Windows10 prefer config c.2 by creating Microsoft OS Descriptor
+    # https://docs.microsoft.com/en-us/windows-hardware/drivers/usbcon/microsoft-defined-usb-descriptors
+    # https://wiki.kucia.net/doku.php?id=projects:winusb
+    # https://github.com/ev3dev/ev3-systemd/blob/ev3dev-jessie/scripts/ev3-usb.sh
+    MS_VENDOR_CODE="0xCD"
+    MS_QW_SIGN="MSFT100"
+    MS_COMPAT_ID="RNDIS"
+    MS_SUBCOMPAT_ID="5162001" # matches Windows RNDIS 6.0 Driver, better than 5.1 from:
+                              # https://www.kernel.org/doc/Documentation/usb/linux.inf
+    echo "1" > os_desc/use # Make linux present this os_desc to usb hosts
+    echo "$MS_VENDOR_CODE" > os_desc/b_vendor_code
+    echo "$MS_QW_SIGN" > os_desc/qw_sign
+    echo "$MS_COMPAT_ID" > functions/rndis.usb0/os_desc/interface.rndis/compatible_id
+    echo "$MS_SUBCOMPAT_ID" > functions/rndis.usb0/os_desc/interface.rndis/sub_compatible_id
+
+    # Link config c.2 to os_desc for Windows10 selection of c.2 composite config
+    ln -s configs/c.2 os_desc
+
+    # RNDIS Windows hack
+    echo 0xEF > /sys/kernel/config/usb_gadget/g1/bDeviceClass
+    echo 0x02 > /sys/kernel/config/usb_gadget/g1/bDeviceSubClass
+    echo 0x01 > /sys/kernel/config/usb_gadget/g1/bDeviceProtocol
+
+    # The above bDeviceClass, bDeviceSubClass and bDeviceProtocol
+    # will likely need to be something different that matches an
+    # existing Windows 10 Usbccgp.sys-based .inf file, but we have
+    # not yet learned those magic values or created our own
+    # swift-piksi.inf
+  fi
+
+  # Attach
+  for dev in /sys/class/udc/*; do
+    echo `basename "$dev"` > UDC
+  done
+
+  if lockdown; then
+    if [[ -c /dev/ttyGS0 ]] && [[ -c /dev/ttyGS1 ]]; then
+      if [[ -c /dev/ttyGS2 ]]; then
+        loge --sbp "invalid configuration, only expected 2 gadget serial devices, found 3"
+      else
+        logi "configuring USB serial symlinks for lockdown mode..."
+      fi
+    else
+      loge --sbp "invalid configuration, only expected 2 gadget serial devices"
+    fi
+    ln -sf /dev/ttyGS0 /dev/tty.usb0
+    ln -sf /dev/ttyGS1 /dev/tty.usb2
+  else
+    if [[ -c /dev/ttyGS0 ]] && [[ -c /dev/ttyGS1 ]] && [[ -c /dev/ttyGS2 ]]; then
+      logi "configuring USB serial symlinks for open mode..."
+    else
+      loge --sbp "invalid configuration, expected 3 gadget serial devices"
+    fi
+    ln -sf /dev/ttyGS0 /dev/tty.usb0
+    ln -sf /dev/ttyGS2 /dev/tty.usb2
+  fi
+}
+
+stop() {
+  echo "" > UDC
+  # To remove acm.GS0 and acm.GS1 and acm.GS2 from the functions directory
+  #  1. stop the getty spawned by init
+  #  2. stop SBP service
+}
+
+source /etc/init.d/template_command.inc.sh

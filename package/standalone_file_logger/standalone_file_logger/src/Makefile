@@ -3,9 +3,9 @@ SOURCES= \
 	rotating_logger.cc \
 	standalone_file_logger.cc
 
-LIBS=-lczmq -lzmq -lsbp -lpiksi
+LIBS=-luv -lsbp -lpiksi -lsettings
 CFLAGS=-std=gnu++11
-ARFLAGS=rcs
+ARFLAGS=rcs $(LTO_PLUGIN)
 
 CROSS=
 

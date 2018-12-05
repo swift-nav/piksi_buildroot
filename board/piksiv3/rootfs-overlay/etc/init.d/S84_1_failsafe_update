@@ -1,0 +1,112 @@
+#!/bin/ash
+
+source /etc/init.d/common.sh
+
+name="failsafe_update"
+log_tag=$name
+
+source /etc/init.d/logging.sh
+setup_loggers
+
+_sizeof_uint32_t=4
+_sizeof_name=32
+
+# typedef struct {
+#    uint32_t _signature;
+_signature_offset=0
+#    uint32_t _version;
+_version_offset=$((    $_signature_offset  + $_sizeof_uint32_t))
+#    uint32_t _timestamp;
+_timestamp_offset=$((  $_version_offset    + $_sizeof_uint32_t))
+#    uint32_t _hardware;
+_hardware_offset=$((   $_timestamp_offset  + $_sizeof_uint32_t))
+#    uint8_t  _name[32];
+_name_offset=$((       $_hardware_offset   + $_sizeof_uint32_t))
+#    uint32_t _reserved0[20];
+#    image_descriptor_t descriptors[IMAGE_SET_DESCRIPTORS_COUNT];
+#    uint32_t _reserved1[30];
+#    uint32_t _seq_num;
+#    uint32_t _crc;
+#} image_set_t;
+
+staged_failsafe=/lib/firmware/PiksiMulti-FAILSAFE.bin
+current_failsafe=/img_tbl/failsafe/image_set
+
+get_image_timestamp()
+{
+  local filepath=$1; shift
+  echo $(od -A none -tx1 -j $_timestamp_offset -N $_sizeof_uint32_t $filepath)
+}
+
+get_image_name()
+{
+  local filepath=$1; shift
+  echo $(od -A none -tx1 -j $_name_offset -N $_sizeof_name $filepath)
+}
+
+get_staged_failsafe_ver()
+{
+  echo $(get_image_name $staged_failsafe) $(get_image_timestamp $staged_failsafe)
+}
+
+get_current_failsafe_ver()
+{
+  echo $(get_image_name $current_failsafe) $(get_image_timestamp $current_failsafe)
+}
+
+already_updated()
+{
+  [[ "$(get_current_failsafe_ver)" == "$(get_staged_failsafe_ver)" ]]
+}
+
+run_upgrade_tool()
+{
+  /etc/init.d/S95watchdog_disable start
+  upgrade_tool --debug --failsafe $staged_failsafe
+}
+
+do_failsafe_update()
+{
+  logi "Checking failsafe bootloader..."
+
+  if ! lockdown; then
+    logi "Not a locked down image, do not need to upgrade failsafe..."
+    return 0
+  fi
+
+  if ! [[ -f "$staged_failsafe" ]]; then
+    loge --sbp "Error this is a locked down image, but there's no staged failsafe image..."
+    return 0
+  fi
+
+  if already_updated; then
+    logi "The failsafe bootloader is already up-to-date..."
+    return 0
+  fi
+
+  logi "Starting update of failsafe bootloader..."
+
+  run_upgrade_tool
+  upgrade_tool_status=$?
+
+  if [[ $upgrade_tool_status -ne 0 ]]; then
+    loge --sbp "The failesafe upgrade failed (error code: $upgrade_tool_status)..."
+  else
+    logi "Update of failsafe bootloader succeeded..."
+  fi
+}
+
+case "$1" in
+  start)
+    do_failsafe_update
+  ;;
+  stop)
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?

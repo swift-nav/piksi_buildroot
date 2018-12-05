@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Close stdin
+exec <&-
+
+nc -w 30 -p 44445 -l -e "/usr/bin/dump_syslog_helper" &

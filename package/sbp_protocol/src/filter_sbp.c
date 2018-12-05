@@ -22,10 +22,12 @@
 #include <libsbp/sbp.h>
 #include <syslog.h>
 
+// clang-format off
 #define SBP_MSG_TYPE_OFFSET 1
 #define SBP_MSG_SIZE_MIN    6
 
 #define RULES_COUNT_INIT  256
+// clang-format on
 
 typedef struct {
   uint16_t type;
@@ -64,7 +66,7 @@ static void filter_sbp_load_config(filter_sbp_state_t *s)
 
   /* Allocate buffer for rules */
   s->rules = malloc(rules_buffer_count * sizeof(filter_sbp_rule_t));
-  if (s->rules  == NULL) {
+  if (s->rules == NULL) {
     syslog(LOG_ERR, "error allocating buffer for rules");
     rules_buffer_count = 0;
     return;
@@ -94,9 +96,8 @@ static void filter_sbp_load_config(filter_sbp_state_t *s)
     /* Reallocate rules buffer if required */
     if (s->rules_count >= rules_buffer_count) {
       rules_buffer_count *= 2;
-      s->rules = realloc(s->rules,
-                         rules_buffer_count * sizeof(filter_sbp_rule_t));
-      if (s->rules  == NULL) {
+      s->rules = realloc(s->rules, rules_buffer_count * sizeof(filter_sbp_rule_t));
+      if (s->rules == NULL) {
         syslog(LOG_ERR, "error reallocating buffer for rules");
         rules_buffer_count = 0;
         error = true;
@@ -120,7 +121,7 @@ static void filter_sbp_load_config(filter_sbp_state_t *s)
   }
 }
 
-void * filter_create(const char *filename)
+void *filter_create(const char *filename)
 {
   filter_sbp_state_t *s = (filter_sbp_state_t *)malloc(sizeof(*s));
   if (s == NULL) {
@@ -160,7 +161,7 @@ int filter_process(void *state, const uint8_t *msg, uint32_t msg_length)
 
   /* Reload config if changed */
   char buf[sizeof(struct inotify_event) + NAME_MAX + 1]
-    __attribute__ ((aligned(__alignof__(struct inotify_event))));
+    __attribute__((aligned(__alignof__(struct inotify_event))));
   if (read(s->config_inotify, buf, sizeof(buf)) > 0) {
     /* Any events on the config file trigger a reload.
      * We only subscribe to modify events. */

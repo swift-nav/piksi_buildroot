@@ -1,0 +1,23 @@
+#!/bin/ash
+
+interface_name=$1 ; shift
+tty_device=$1     ; shift
+speed=$1          ; shift
+local_ip=$1       ; shift
+
+echo "pppd ip-down script invoked" | sbp_log --debug
+
+route del default
+
+if [ "$USEPEERDNS" = "1" ]; then
+
+  echo "pppd ip-down script restoring /etc/resolv.conf" | sbp_log --debug
+  cat /etc/resolv.conf.head >/etc/resolv.conf
+fi
+
+/etc/init.d/S83ifplugd stop
+sleep 1
+
+/etc/init.d/S83ifplugd start
+
+# vim: ft=sh:

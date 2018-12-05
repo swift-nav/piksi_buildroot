@@ -3,6 +3,13 @@
 export FIRMWARE="/media/sda*/PiksiMulti-*.bin"
 export LOGLEVEL="--warn"
 
+UT_RET=UPGRADE_ERROR_UNKNOWN,UPGRADE_ERROR_OPTIONS
+UT_RET=${UT_RET},UPGRADE_ERROR_IN_PROGRESS,UPGRADE_ERROR_PART_INFO_POP
+UT_RET=${UT_RET},UPGRADE_ERROR_PART_INFO_VERIFY,UPGRADE_ERROR_TARGET_PARAMS_GET
+UT_RET=${UT_RET},UPGRADE_ERROR_DATA_LOAD,UPGRADE_ERROR_DATA_VERIFY,UPGRADE_ERROR_FACTORY_DATA
+UT_RET=${UT_RET},UPGRADE_ERROR_INVALID_HARDWARE,UPGRADE_ERROR_IMAGE_TABLE
+UT_RET=${UT_RET},UPGRADE_ERROR_IMAGE_POPULATE,UPGRADE_ERROR_UPGRADE_INSTALL
+
 _dir_wait () {
     [[ $# -lt 3 ]] && {
         echo "Usage: ${FUNCNAME} <num_timeout> <len_timeout_ms> <path>"; return 1
@@ -36,11 +43,14 @@ echo "New firmware image set detected: `ls $FIRMWARE`" | sbp_log $LOGLEVEL
 echo "New firmware image set detected: `ls $FIRMWARE`"
 echo "Performing upgrade..." |  sbp_log $LOGLEVEL
 echo "Performing upgrade..."
-# Killing monit and USB logger
-monit stop standalone_file_logger
-monit stop zmq_adapter_rpmsg_piksi100
-upgrade_tool $FIRMWARE | sbp_log $LOGLEVEL
+# Killing realtime fw messages and USB logger
+/etc/init.d/S83endpoint_adapter_rpmsg_piksi100 stop
+/etc/init.d/S83standalone_file_logger stop
+printf "V" > /dev/watchdog
+upgrade_tool_output=$(upgrade_tool $FIRMWARE) 
 RETVAL=$?
+echo $upgrade_tool_output | sbp_log $LOGLEVEL
+echo $upgrade_tool_output
 umount /media/sda1
 sync
 if [ $RETVAL -eq 0 ]; then
@@ -52,8 +62,8 @@ if [ $RETVAL -eq 0 ]; then
 fi
 if [ $RETVAL -ne 0 ]; then
   while [ 1 ]; do
-    echo "ERROR: Upgrade was unsuccessful. Please verify the image and try again."  | sbp_log $LOGLEVEL
-    echo "ERROR: Upgrade was unsuccessful. Please verify the image and try again."
+    echo "$(echo ${UT_RET} | cut -d',' -f$RETVAL): Upgrade was unsuccessful. Please verify the image and reboot."  | sbp_log $LOGLEVEL
+    echo "$(echo ${UT_RET} | cut -d',' -f$RETVAL): Upgrade was unsuccessful. Please verify the image and reboot."
     sleep 1
   done
 fi

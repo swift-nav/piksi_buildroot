@@ -41,6 +41,9 @@ sudo find /root -type f -exec chmod g+rw {} \;
     sudo chown $USER:$GID /home/$USER/.bash_history;
   }
 
+[ -d "/piksi_buildroot" ] && \
+  sudo chown "$USER:$GID" "/piksi_buildroot"
+
 [ -d "/piksi_buildroot/buildroot" ] && \
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot"
 
@@ -50,14 +53,18 @@ sudo find /root -type f -exec chmod g+rw {} \;
 [ -d "/piksi_buildroot/buildroot/output/images" ] && \
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/output/images"
 
+[ -d "/piksi_buildroot/buildroot/nano_output" ] && \
+  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/nano_output"
+
+[ -d "/piksi_buildroot/buildroot/nano_output/images" ] && \
+  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/nano_output/images"
+
 sudo --preserve-env --user="$USER" --shell -- "$@"
 err_code=$?
 
 [ -e "/home/$USER/.bash_history" ] \
   && sudo cp /home/$USER/.bash_history /host/tmp/piksi_buildroot_bash_history \
   || true
-
-echo ">>> Exit status: $err_code"
 
 exit $err_code
 

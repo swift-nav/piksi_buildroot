@@ -1,0 +1,33 @@
+#!/bin/sh
+
+name="piksi_fpga"
+
+start() {
+  bit="/lib/firmware/piksi_fpga.bit"
+  if [ -f "$bit" ]; then
+    tries=1
+    while [ $tries -le 3 ]; do
+      cat "$bit" > /dev/xdevcfg
+      prog_done=`cat /sys/devices/soc0/amba/f8007000.devcfg/prog_done`
+      if [ "$prog_done" -eq "1" ]; then
+        break
+      else
+        echo "ERROR: FPGA configuration failed" | logger
+        echo "ERROR: FPGA configuration failed" | sbp_log --error
+        echo "ERROR: FPGA configuration failed"
+      fi
+      tries=`expr $tries + 1`
+    done
+  else
+    echo "ERROR: FPGA bitstream not found" | logger
+    echo "ERROR: FPGA bitstream not found" | sbp_log --error
+    echo "ERROR: FPGA bitstream not found"
+  fi
+}
+
+stop() {
+  :
+}
+
+source /etc/init.d/template_command.inc.sh
+

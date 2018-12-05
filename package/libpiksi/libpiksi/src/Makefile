@@ -1,8 +1,9 @@
 TARGET=libpiksi
-SOURCES=sbp_zmq_tx.c sbp_zmq_rx.c sbp_zmq_pubsub.c settings.c util.c logging.c
-CFLAGS=-std=gnu11 -fPIC -I../include
-ARFLAGS=rcs
-LDFLAGS=-shared
+SOURCES=$(notdir $(shell find . -name '*.c'))
+
+ARFLAGS=rcs $(LTO_PLUGIN)
+CFLAGS+=-std=gnu11 -fPIC -I../include -ggdb3 -rdynamic -funwind-tables -O3
+LDFLAGS+=-shared -rdynamic
 
 CROSS=
 

@@ -1,0 +1,2 @@
+celld ALL=(ALL) NOPASSWD: /usr/sbin/pppd
+celld ALL=(ALL) NOPASSWD: /etc/init.d/kill_pppd_service

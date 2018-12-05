@@ -12,10 +12,13 @@ ROOTFS=$1
 FIRMWARE_DIR_ROOTFS=$ROOTFS/lib/firmware
 FIRMWARE_DIR=$BASE_DIR/../../firmware
 
-(
-  cd $FIRMWARE_DIR_ROOTFS
-  ln -s piksi_firmware.elf rproc-1b000000.remoteproc-fw
-)
+VERSION_DIR=$ROOTFS/uimage_ver
+mkdir -p $VERSION_DIR
+get_git_string_script="$(dirname "$0")"/get_git_string.sh
+GIT_STRING=$($get_git_string_script)
+TIMESTAMP=$(date +%s)
+echo -n $GIT_STRING > $VERSION_DIR/name
+echo -n $TIMESTAMP > $VERSION_DIR/timestamp
 
 # Create firmware directory in the rootfs
 mkdir -p $FIRMWARE_DIR_ROOTFS
@@ -29,7 +32,10 @@ if [ -e $FIRMWARE_DIR/$HW_CONFIG/piksi_firmware.elf ] && \
    [ -e $FIRMWARE_DIR/$HW_CONFIG/piksi_fpga.bit ]; then
   cp $FIRMWARE_DIR/$HW_CONFIG/piksi_firmware.elf $FIRMWARE_DIR_ROOTFS/piksi_firmware.elf
   cp $FIRMWARE_DIR/$HW_CONFIG/piksi_fpga.bit $FIRMWARE_DIR_ROOTFS/piksi_fpga.bit
+  (
+    cd $FIRMWARE_DIR_ROOTFS
+    ln -s piksi_firmware.elf rproc-1b000000.remoteproc-fw
+  )
 else
   echo "*** NO FIRMWARE FILES FOUND, SKIPPING ***"
 fi
-

@@ -22,13 +22,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include <czmq.h>
-
 #include <libpiksi/logging.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
-#include <libpiksi/sbp_zmq_rx.h>
-#include <libpiksi/settings.h>
-#include <libpiksi/util.h>
+#include <libpiksi/settings_client.h>
 
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
@@ -39,13 +34,11 @@
 
 #define PROGRAM_NAME "sample_daemon"
 
-#define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43030"  /* SBP External Out */
-#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43031"  /* SBP External In */
-
 static double offset = 0;
 static bool enable_broadcast = false;
 static int broadcast_port = 56666;
 static char broadcast_hostname[256] = "255.255.255.255";
+static bool ntrip_enable = false;
 
 static udp_broadcast_context udp_context;
 
@@ -59,9 +52,7 @@ static void usage(char *command)
 
 static int parse_options(int argc, char *argv[])
 {
-  enum {
-    OPT_ID_OFFSET = 1
-  };
+  enum { OPT_ID_OFFSET = 1 };
 
   const struct option long_opts[] = {
     {"offset", required_argument, 0, OPT_ID_OFFSET},
@@ -71,16 +62,14 @@ static int parse_options(int argc, char *argv[])
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
-      case OPT_ID_OFFSET: {
-        offset = atof(optarg);
-      }
-      break;
+    case OPT_ID_OFFSET: {
+      offset = atof(optarg);
+    } break;
 
-      default: {
-        puts("Invalid option");
-        return -1;
-      }
-      break;
+    default: {
+      puts("Invalid option");
+      return -1;
+    } break;
     }
   }
 
@@ -89,20 +78,25 @@ static int parse_options(int argc, char *argv[])
 
 static void heartbeat_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) context;
+  (void)context;
 
-  sbp_log(LOG_DEBUG, "Got piksi heartbeat...");
+  piksi_log(LOG_DEBUG | LOG_SBP, "Got piksi heartbeat...");
 
   if (enable_broadcast) {
-    sbp_send_message(&udp_context.sbp_state, SBP_MSG_HEARTBEAT, sender_id, len, msg, udp_write_callback);
+    sbp_send_message(&udp_context.sbp_state,
+                     SBP_MSG_HEARTBEAT,
+                     sender_id,
+                     len,
+                     msg,
+                     udp_write_callback);
     udp_flush_buffer(&udp_context);
   }
 }
 
 static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) context;
-  msg_pos_llh_t *pos = (msg_pos_llh_t*)msg;
+  (void)context;
+  msg_pos_llh_t *pos = (msg_pos_llh_t *)msg;
 
   double adjusted = pos->height - offset;
 
@@ -111,8 +105,12 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 
   if (last_log_msg_time == 0 || now - last_log_msg_time >= 1L) {
 
-    sbp_log(LOG_DEBUG, "SBP_MSG_POS_LLH: lat = %f lon = %f height = %f adjusted height = %f",
-              pos->lat, pos->lon, pos->height, adjusted);
+    piksi_log(LOG_DEBUG | LOG_SBP,
+              "SBP_MSG_POS_LLH: lat = %f lon = %f height = %f adjusted height = %f",
+              pos->lat,
+              pos->lon,
+              pos->height,
+              adjusted);
 
     last_log_msg_time = time(NULL);
   }
@@ -123,7 +121,12 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   }
 
   if (enable_broadcast) {
-    sbp_send_message(&udp_context.sbp_state, SBP_MSG_POS_LLH, sender_id, len, msg, udp_write_callback);
+    sbp_send_message(&udp_context.sbp_state,
+                     SBP_MSG_POS_LLH,
+                     sender_id,
+                     len,
+                     msg,
+                     udp_write_callback);
     udp_flush_buffer(&udp_context);
   }
 }
@@ -132,21 +135,23 @@ static int notify_settings_changed(void *context)
 {
   (void)context;
 
-  sbp_log(LOG_DEBUG, "Settings changed: enable_broadcast = %d, broadcast port = %d, offset = %04.04f", enable_broadcast, broadcast_port, offset);
+  piksi_log(LOG_DEBUG | LOG_SBP,
+            "Settings changed: enable_broadcast = %d, broadcast port = %d, offset = %04.04f",
+            enable_broadcast,
+            broadcast_port,
+            offset);
+  piksi_log(LOG_DEBUG | LOG_SBP, "Settings watched: ntrip_enable= %d", ntrip_enable);
 
   close_udp_broadcast_socket(&udp_context);
 
-  if (enable_broadcast)
-    open_udp_broadcast_socket(&udp_context, broadcast_hostname, broadcast_port);
+  if (enable_broadcast) open_udp_broadcast_socket(&udp_context, broadcast_hostname, broadcast_port);
 
-  return 0;
+  return SETTINGS_WR_OK;
 }
 
 int main(int argc, char *argv[])
 {
   int status = EXIT_SUCCESS;
-  settings_ctx_t *settings_ctx = NULL;
-  sbp_zmq_pubsub_ctx_t *ctx = NULL;
 
   logging_init(PROGRAM_NAME);
 
@@ -156,82 +161,81 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  sbp_log(LOG_INFO, "Launched, default offset: %02.04f", offset);
-
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
-  ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
-  if (ctx == NULL) {
-    status = EXIT_FAILURE;
-    goto cleanup;
-  }
-
-  if (sbp_init(sbp_zmq_pubsub_rx_ctx_get(ctx),
-               sbp_zmq_pubsub_tx_ctx_get(ctx)) != 0) {
-    sbp_log(LOG_ERR, "Error initializing SBP!");
+  piksi_log(LOG_INFO | LOG_SBP, "Launched, default offset: %02.04f", offset);
+  if (sbp_init() != 0) {
+    piksi_log(LOG_ERR | LOG_SBP, "Error initializing SBP!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
 
   if (sbp_callback_register(SBP_MSG_HEARTBEAT, heartbeat_callback, NULL) != 0) {
-    sbp_log(LOG_ERR, "Error setting MSG_HEARTBEAT callback!");
+    piksi_log(LOG_ERR | LOG_SBP, "Error setting MSG_HEARTBEAT callback!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
 
   if (sbp_callback_register(SBP_MSG_POS_LLH, pos_llh_callback, NULL) != 0) {
-    sbp_log(LOG_ERR, "Error setting MSG_POS_LLH callback!");
+    piksi_log(LOG_ERR | LOG_SBP, "Error setting MSG_POS_LLH callback!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
 
   /* Set up settings */
-  settings_ctx = settings_create();
+  pk_settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
 
-  if (settings_ctx == NULL) {
-    sbp_log(LOG_ERR, "Error registering for settings!");
-    status = EXIT_FAILURE;
-    goto cleanup;
-  }
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "enable_broadcast",
+                       &enable_broadcast,
+                       sizeof(enable_broadcast),
+                       SETTINGS_TYPE_BOOL,
+                       notify_settings_changed,
+                       NULL);
 
-  if (settings_reader_add(settings_ctx,
-                          sbp_zmq_pubsub_zloop_get(ctx)) != 0) {
-    sbp_log(LOG_ERR, "Error registering for settings read!");
-    status = EXIT_FAILURE;
-    goto cleanup;
-  }
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "offset",
+                       &offset,
+                       sizeof(offset),
+                       SETTINGS_TYPE_FLOAT,
+                       notify_settings_changed,
+                       NULL);
 
-  settings_register(settings_ctx, "sample_daemon", "enable_broadcast",
-                    &enable_broadcast, sizeof(enable_broadcast),
-                    SETTINGS_TYPE_BOOL,
-                    notify_settings_changed, NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "broadcast_port",
+                       &broadcast_port,
+                       sizeof(broadcast_port),
+                       SETTINGS_TYPE_INT,
+                       notify_settings_changed,
+                       NULL);
 
-  settings_register(settings_ctx, "sample_daemon", "offset",
-                    &offset, sizeof(offset),
-                    SETTINGS_TYPE_FLOAT,
-                    notify_settings_changed, NULL);
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "broadcast_hostname",
+                       &broadcast_hostname,
+                       sizeof(broadcast_hostname),
+                       SETTINGS_TYPE_STRING,
+                       notify_settings_changed,
+                       NULL);
 
-  settings_register(settings_ctx, "sample_daemon", "broadcast_port",
-                    &broadcast_port, sizeof(broadcast_port),
-                    SETTINGS_TYPE_INT,
-                    notify_settings_changed, NULL);
+  pk_settings_register_watch(settings_ctx,
+                             "ntrip",
+                             "enable",
+                             &ntrip_enable,
+                             sizeof(ntrip_enable),
+                             SETTINGS_TYPE_BOOL,
+                             notify_settings_changed,
+                             NULL);
 
-  settings_register(settings_ctx, "sample_daemon", "broadcast_hostname",
-                    &broadcast_hostname, sizeof(broadcast_hostname),
-                    SETTINGS_TYPE_STRING,
-                    notify_settings_changed, NULL);
-
-  sbp_log(LOG_INFO, "Ready!");
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
+  piksi_log(LOG_INFO | LOG_SBP, "Ready!");
+  sbp_run();
 
 cleanup:
-  sbp_zmq_pubsub_destroy(&ctx);
-  settings_destroy(&settings_ctx);
+  sbp_deinit();
   logging_deinit();
 
-  if (enable_broadcast)
-    close_udp_broadcast_socket(&udp_context);
+  if (enable_broadcast) close_udp_broadcast_socket(&udp_context);
 
   return status;
 }

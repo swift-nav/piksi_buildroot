@@ -1,0 +1,2 @@
+otad ALL=(ALL) NOPASSWD: /usr/bin/upgrade_tool --debug /data/ota/image
+otad ALL=(ALL) NOPASSWD: /etc/init.d/do_sbp_msg_reset

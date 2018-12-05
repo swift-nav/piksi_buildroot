@@ -1,9 +1,0 @@
-#!/bin/sh
-
-name="sbp_rtcm3_bridge"
-cmd="sbp_rtcm3_bridge"
-dir="/"
-user=""
-
-source /etc/init.d/template_process.inc.sh
-

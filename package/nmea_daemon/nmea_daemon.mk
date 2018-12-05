@@ -8,7 +8,11 @@ NMEA_DAEMON_VERSION = 0.1
 NMEA_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/nmea_daemon/src"
 NMEA_DAEMON_SITE_METHOD = local
-NMEA_DAEMON_DEPENDENCIES = czmq libpiksi
+NMEA_DAEMON_DEPENDENCIES = libuv libpiksi
+
+define NMEA_DAEMON_USERS
+	nmead -1 nmead -1 * - - -
+endef
 
 define NMEA_DAEMON_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all

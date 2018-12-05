@@ -21,11 +21,12 @@ const char *setting_name = "SBP";
 
 int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
 {
-  return snprintf(buf, buf_size,
+  return snprintf(buf,
+                  buf_size,
                   "-f sbp "
                   "--filter-out sbp "
-                  "--filter-out-config /etc/%s_filter_out_config "
-                  "-p >tcp://127.0.0.1:43031 "
-                  "-s >tcp://127.0.0.1:43030",
+                  "--filter-out-config /etc/filter_out_config/%s "
+                  "-p 'ipc:///var/run/sockets/external.sub' "
+                  "-s 'ipc:///var/run/sockets/external.pub'",
                   port_name);
 }

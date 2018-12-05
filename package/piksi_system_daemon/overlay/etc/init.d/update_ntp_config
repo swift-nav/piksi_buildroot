@@ -1,0 +1,7 @@
+#!/bin/sh
+
+ntp_cfg="$1"; shift
+
+rm /etc/ntp.conf
+ln -sf "$ntp_cfg" /etc/ntp.conf
+/etc/init.d/S49ntp restart

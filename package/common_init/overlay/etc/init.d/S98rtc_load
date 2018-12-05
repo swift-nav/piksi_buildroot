@@ -1,0 +1,16 @@
+#!/bin/sh
+
+name="rtc_load"
+
+start()
+{
+  modprobe rtc-m41t80
+  hwclock -s
+}
+
+stop()
+{
+  rmmod rtc-m41t80
+}
+
+source /etc/init.d/template_command.inc.sh

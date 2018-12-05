@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="standalone_file_logger"
+cmd="standalone_file_logger -d /media/sda1/ -s 'ipc:///var/run/sockets/external.pub'"
+dir="/"
+user="stndfl"
+
+source /etc/init.d/template_runsv.inc.sh

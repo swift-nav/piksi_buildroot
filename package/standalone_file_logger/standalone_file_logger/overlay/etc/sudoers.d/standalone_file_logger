@@ -1,0 +1,4 @@
+stndfl ALL=(ALL) NOPASSWD:SETENV: /etc/init.d/S98copy_sys_logs
+
+Defaults:stndfl env_keep += "COPY_SYS_LOGS"
+Defaults:root env_keep += "COPY_SYS_LOGS"

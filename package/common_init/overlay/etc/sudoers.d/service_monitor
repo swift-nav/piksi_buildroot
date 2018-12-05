@@ -1,0 +1,5 @@
+svcmon ALL=(ALL) NOPASSWD: /etc/init.d/S50dropbear start
+svcmon ALL=(ALL) NOPASSWD: /etc/init.d/S01logging start
+svcmon ALL=(ALL) NOPASSWD: /bin/cat /var/run/dropbear.pid
+
+Defaults:svcmon !syslog

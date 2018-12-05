@@ -1,0 +1,3 @@
+config BR2_PACKAGE_LIBSETTINGS
+	bool "libsettings"
+	select BR2_PACKAGE_LIBSBP

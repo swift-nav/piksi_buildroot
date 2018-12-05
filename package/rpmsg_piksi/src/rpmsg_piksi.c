@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2016-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -39,17 +39,21 @@
 #define NUM_ENDPOINTS 3
 
 #define RPMSG_DATA_SIZE_MAX (512 - 16)
-#define RX_FIFO_SIZE (16384)
+#define RX_FIFO_SIZE (16 * 1024)
 #define TX_BUFF_SIZE (RPMSG_DATA_SIZE_MAX)
 
+#define MAX_BUF_SUBMIT (4096)
+
+// clang-format off
 #define IOCTL_CMD_GET_KFIFO_SIZE      1
 #define IOCTL_CMD_GET_AVAIL_DATA_SIZE 2
 #define IOCTL_CMD_GET_FREE_BUFF_SIZE  3
+// clang-format on
 
 static const u32 endpoint_addr_config[NUM_ENDPOINTS] = {
   100,
   101,
-  102
+  102,
 };
 
 struct ept_params {
@@ -82,18 +86,20 @@ static struct dev_params *dev_params = NULL;
 static int ept_cdev_open(struct inode *inode, struct file *p_file)
 {
   /* Initialize file descriptor with pointer to associated endpoint params */
-  struct ept_params *ept_params = container_of(inode->i_cdev,
-                                               struct ept_params, cdev);
+  struct ept_params *ept_params = container_of(inode->i_cdev, struct ept_params, cdev);
   p_file->private_data = ept_params;
   return 0;
 }
 
-static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
-                              size_t len, loff_t *p_off)
+static ssize_t ept_cdev_write(struct file *p_file,
+                              const char __user *ubuff,
+                              size_t len,
+                              loff_t *p_off)
 {
   struct ept_params *ept_params = p_file->private_data;
   unsigned int size;
   ssize_t retval;
+  size_t offset = 0;
 
   /* Acquire TX / rpmsg lock */
   retval = mutex_lock_interruptible(&ept_params->tx_rpmsg_lock);
@@ -107,38 +113,48 @@ static ssize_t ept_cdev_write(struct file *p_file, const char __user *ubuff,
     goto done_locked;
   }
 
-  if (len <= sizeof(ept_params->tx_buff)) {
-    size = len;
-  } else {
-    dev_err(ept_params->device, "rpmsg truncated (len = %d)\n", len);
-    size = sizeof(ept_params->tx_buff);
+  while (len > 0) {
+
+    if (len <= sizeof(ept_params->tx_buff)) {
+      size = len;
+    } else {
+      size = sizeof(ept_params->tx_buff);
+    }
+
+    if (offset + size > MAX_BUF_SUBMIT) {
+      break;
+    }
+
+    if (copy_from_user(ept_params->tx_buff, &ubuff[offset], size)) {
+      dev_err(ept_params->device, "User to kernel buff copy error.\n");
+      retval = -1;
+      goto done_locked;
+    }
+
+    /* TODO: support non-blocking write */
+    retval = rpmsg_sendto(ept_params->rpmsg_ept, ept_params->tx_buff, size, ept_params->addr);
+
+    if (retval) {
+      dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n", size, retval);
+      goto done_locked;
+    }
+
+    len -= size;
+    offset += size;
   }
 
-  if (copy_from_user(ept_params->tx_buff, ubuff, size)) {
-    dev_err(ept_params->device, "User to kernel buff copy error.\n");
-    retval = -1;
-    goto done_locked;
+  if (len != 0) {
+    dev_err(ept_params->device, "rpmsg truncated (len = %d)\n", offset);
   }
 
-  /* TODO: support non-blocking write */
-  retval = rpmsg_sendto(ept_params->rpmsg_ept, ept_params->tx_buff,
-                        size, ept_params->addr);
-
-  if (retval) {
-    dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n",
-            size, retval);
-    goto done_locked;
-  }
-
-  retval = size;
+  retval = offset;
 
 done_locked:
   mutex_unlock(&ept_params->tx_rpmsg_lock);
   return retval;
 }
 
-static ssize_t ept_cdev_read(struct file *p_file, char __user *ubuff,
-                             size_t len, loff_t *p_off)
+static ssize_t ept_cdev_read(struct file *p_file, char __user *ubuff, size_t len, loff_t *p_off)
 {
   struct ept_params *ept_params = p_file->private_data;
   ssize_t retval;
@@ -159,8 +175,8 @@ static ssize_t ept_cdev_read(struct file *p_file, char __user *ubuff,
     }
 
     /* Block the calling context until data becomes available */
-    retval = wait_event_interruptible(ept_params->rx_wait_queue,
-                                      !kfifo_is_empty(&ept_params->rx_fifo));
+    retval =
+      wait_event_interruptible(ept_params->rx_wait_queue, !kfifo_is_empty(&ept_params->rx_fifo));
     if (retval) {
       return retval;
     }
@@ -180,8 +196,7 @@ static ssize_t ept_cdev_read(struct file *p_file, char __user *ubuff,
   return retval ? retval : bytes_copied;
 }
 
-static unsigned int ept_cdev_poll(struct file *p_file,
-                                  struct poll_table_struct *poll_table)
+static unsigned int ept_cdev_poll(struct file *p_file, struct poll_table_struct *poll_table)
 {
   struct ept_params *ept_params = p_file->private_data;
   unsigned int result = 0;
@@ -198,40 +213,36 @@ static unsigned int ept_cdev_poll(struct file *p_file,
   return result;
 }
 
-static long ept_cdev_ioctl(struct file *p_file, unsigned int cmd,
-                           unsigned long arg)
+static long ept_cdev_ioctl(struct file *p_file, unsigned int cmd, unsigned long arg)
 {
   struct ept_params *ept_params = p_file->private_data;
   unsigned int tmp;
 
   switch (cmd) {
-    case IOCTL_CMD_GET_KFIFO_SIZE: {
-      tmp = kfifo_size(&ept_params->rx_fifo);
-      if (copy_to_user((unsigned int *)arg, &tmp, sizeof(int))) {
-        return -EACCES;
-      }
+  case IOCTL_CMD_GET_KFIFO_SIZE: {
+    tmp = kfifo_size(&ept_params->rx_fifo);
+    if (copy_to_user((unsigned int *)arg, &tmp, sizeof(int))) {
+      return -EACCES;
     }
-    break;
+  } break;
 
-    case IOCTL_CMD_GET_AVAIL_DATA_SIZE: {
-      tmp = kfifo_len(&ept_params->rx_fifo);
-      if (copy_to_user((unsigned int *)arg, &tmp, sizeof(int))) {
-        return -EACCES;
-      }
+  case IOCTL_CMD_GET_AVAIL_DATA_SIZE: {
+    tmp = kfifo_len(&ept_params->rx_fifo);
+    if (copy_to_user((unsigned int *)arg, &tmp, sizeof(int))) {
+      return -EACCES;
     }
-    break;
+  } break;
 
-    case IOCTL_CMD_GET_FREE_BUFF_SIZE: {
-      tmp = kfifo_avail(&ept_params->rx_fifo);
-      if (copy_to_user((unsigned int *)arg, &tmp, sizeof(int))) {
-        return -EACCES;
-      }
+  case IOCTL_CMD_GET_FREE_BUFF_SIZE: {
+    tmp = kfifo_avail(&ept_params->rx_fifo);
+    if (copy_to_user((unsigned int *)arg, &tmp, sizeof(int))) {
+      return -EACCES;
     }
-    break;
+  } break;
 
-    default: {
-      return -EINVAL;
-    }
+  default: {
+    return -EINVAL;
+  }
   }
 
   return 0;
@@ -252,6 +263,7 @@ static const struct file_operations ept_cdev_fops = {
   .release = ept_cdev_release,
 };
 
+<<<<<<< HEAD
 static int ept_rpmsg_default_cb(struct rpmsg_device *rpdev, void *data,
                                  int len, void *priv, u32 src)
 {
@@ -260,6 +272,17 @@ static int ept_rpmsg_default_cb(struct rpmsg_device *rpdev, void *data,
 
 static int ept_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
                          int len, void *priv, u32 src)
+=======
+static void ept_rpmsg_default_cb(struct rpmsg_channel *rpdev,
+                                 void *data,
+                                 int len,
+                                 void *priv,
+                                 u32 src)
+{
+}
+
+static void ept_rpmsg_cb(struct rpmsg_channel *rpdev, void *data, int len, void *priv, u32 src)
+>>>>>>> origin/master
 {
   struct ept_params *ept_params = priv;
   int len_in;
@@ -300,8 +323,12 @@ static struct rpmsg_driver rpmsg_driver = {
   .callback = ept_rpmsg_default_cb,
 };
 
+<<<<<<< HEAD
 static int ept_rpmsg_setup(struct ept_params *ept_params,
                            struct rpmsg_device *rpdev)
+=======
+static int ept_rpmsg_setup(struct ept_params *ept_params, struct rpmsg_channel *rpdev)
+>>>>>>> origin/master
 {
   int retval;
   struct rpmsg_channel_info chinfo = {};
@@ -319,8 +346,13 @@ static int ept_rpmsg_setup(struct ept_params *ept_params,
   chinfo.dst = RPMSG_ADDR_ANY;
 
   /* Create rpmsg endpoint */
+<<<<<<< HEAD
   ept_params->rpmsg_ept = rpmsg_create_ept(rpdev, ept_rpmsg_cb,
                                            ept_params, chinfo);
+=======
+  ept_params->rpmsg_ept =
+    rpmsg_create_ept(ept_params->rpmsg_chnl, ept_rpmsg_cb, ept_params, ept_params->addr);
+>>>>>>> origin/master
   if (ept_params->rpmsg_ept == NULL) {
     dev_err(&rpdev->dev, "Failed to create rpmsg endpoint.\n");
     retval = -ENODEV;
@@ -371,8 +403,8 @@ static int ept_cdev_setup(struct ept_params *ept_params, dev_t dev, u32 addr)
   }
 
   /* Create device */
-  ept_params->device = device_create(dev_class, NULL, ept_params->dev, NULL,
-                                     DEV_CLASS_NAME "%u", ept_params->addr);
+  ept_params->device =
+    device_create(dev_class, NULL, ept_params->dev, NULL, DEV_CLASS_NAME "%u", ept_params->addr);
   if (ept_params->device == NULL) {
     printk(KERN_ERR "Failed to create device.\n");
     goto error1;
@@ -398,7 +430,7 @@ static void ept_cdevs_remove(struct dev_params *dev_params)
 {
   int i;
 
-  for (i=0; i<NUM_ENDPOINTS; i++) {
+  for (i = 0; i < NUM_ENDPOINTS; i++) {
     ept_cdev_remove(&dev_params->epts[i]);
   }
 }
@@ -423,7 +455,7 @@ static int drv_probe(struct rpmsg_device *rpdev)
   dev_set_drvdata(&rpdev->dev, dev_params);
 
   /* Create and attach rpmsg endpoints */
-  for (i=0; i<NUM_ENDPOINTS; i++) {
+  for (i = 0; i < NUM_ENDPOINTS; i++) {
     status = ept_rpmsg_setup(&dev_params->epts[i], rpdev);
     if (status) {
       /* Remove any endpoints that were successfully set up */
@@ -444,7 +476,7 @@ static void drv_remove(struct rpmsg_device *rpdev)
   int i;
   struct dev_params *dev_params = dev_get_drvdata(&rpdev->dev);
 
-  for (i=0; i<NUM_ENDPOINTS; i++) {
+  for (i = 0; i < NUM_ENDPOINTS; i++) {
     ept_rpmsg_remove(&dev_params->epts[i]);
   }
 
@@ -472,13 +504,12 @@ static int __init init(void)
 
   /* Allocate character device region for this driver */
   if (alloc_chrdev_region(&dev_start, 0, NUM_ENDPOINTS, DEV_CLASS_NAME)) {
-    printk(KERN_ERR "Failed to allocate character device region for "
-           DEV_CLASS_NAME ".\n");
+    printk(KERN_ERR "Failed to allocate character device region for " DEV_CLASS_NAME ".\n");
     goto error2;
   }
 
   /* Create character devices */
-  for (i=0; i<NUM_ENDPOINTS; i++) {
+  for (i = 0; i < NUM_ENDPOINTS; i++) {
     status = ept_cdev_setup(&dev_params->epts[i],
                             MKDEV(MAJOR(dev_start), MINOR(dev_start) + i),
                             endpoint_addr_config[i]);

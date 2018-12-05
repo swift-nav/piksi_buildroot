@@ -1,3 +1,0 @@
-mkdir /tmp/cores
-chmod a+rwx /tmp/cores
-/sbin/sysctl -p /etc/sysctl.conf

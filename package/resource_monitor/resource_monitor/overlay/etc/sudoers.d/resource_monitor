@@ -1,0 +1,4 @@
+resmond ALL=(ALL) NOPASSWD: /sbin/ss
+resmond ALL=(ALL) NOPASSWD: /usr/bin/lsof
+resmond ALL=(ALL) NOPASSWD: /bin/cat
+Defaults:resmond !syslog

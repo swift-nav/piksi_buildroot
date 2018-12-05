@@ -1,0 +1,14 @@
+#!/bin/sh
+
+name="piksi_leds"
+cmd="piksi_leds"
+dir="/"
+user="ledd"
+
+setup_permissions()
+{
+  chown $user:$user /dev/i2c-0
+  chown $user:$user /dev/i2c-1
+}
+
+source /etc/init.d/template_runsv.inc.sh

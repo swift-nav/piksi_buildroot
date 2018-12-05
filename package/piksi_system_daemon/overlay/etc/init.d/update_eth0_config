@@ -1,0 +1,78 @@
+#!/bin/sh
+
+mode="$1"; shift
+
+log_tag=update_eth0_config
+source /etc/init.d/logging.sh
+
+setup_loggers
+
+if [[ "$mode" == "static" ]]; then
+  ip_addr="$1"; shift
+  netmask="$1"; shift
+  gateway="$1"; shift
+fi
+
+interfaces=/etc/network/interfaces
+deny_interfaces="denyinterfaces eth0"
+dhcpcd_conf=/etc/dhcpcd.conf
+
+interfaces_tmp=$(mktemp)
+trap "rm -f $interfaces_tmp; cleanup_loggers; exit 0" EXIT TERM STOP HUP
+
+config_dhcp()
+{
+  cat >$interfaces_tmp <<EOF
+auto lo
+iface lo inet loopback
+iface eth0 inet dhcp
+EOF
+
+  if grep -q "$deny_interfaces" $dhcpcd_conf; then
+    sed -i -e '/denyinterfaces eth0/d' /etc/dhcpcd.conf
+  fi
+}
+
+config_static()
+{
+  cat >$interfaces_tmp <<EOF
+auto lo
+iface lo inet loopback
+iface eth0 inet static
+	address $ip_addr
+	netmask $netmask
+	gateway $gateway
+EOF
+
+  if ! grep -q "$deny_interfaces" $dhcpcd_conf; then
+    echo $deny_interfaces >>$dhcpcd_conf
+  fi
+}
+
+if [[ "$mode" == "dhcp" ]]; then
+  config_dhcp
+elif [[ "$mode" == "static" ]]; then
+  config_static
+else
+  loge "Unknown network mode"
+fi
+
+if diff -q $interfaces_tmp $interfaces &>/dev/null; then
+  logi "Interface config unchanged, exiting"
+  exit 0
+fi
+
+logi "Interface config changed, reconfiguring..."
+
+/etc/init.d/S83ifplugd stop
+/etc/init.d/S41dhcpcd stop
+
+ifdown -f eth0
+
+mv $interfaces_tmp $interfaces
+chmod 0644 $interfaces
+
+/etc/init.d/S83ifplugd start
+/etc/init.d/S41dhcpcd start
+
+ifup -f eth0

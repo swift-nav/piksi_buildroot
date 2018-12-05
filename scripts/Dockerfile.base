@@ -1,11 +1,33 @@
 FROM debian:stretch-slim
 
+RUN echo "deb http://httpredir.debian.org/debian stretch-backports main non-free" \
+      >/etc/apt/sources.list.d/backports.list
+
 RUN apt-get update
+
+RUN apt-get --no-install-recommends -y --force-yes install python-dev python-setuptools python-pip && \
+    apt-get -y --force-yes purge python-pip && \
+    easy_install pip  && \
+    pip install --upgrade pip && \ 
+    pip install --upgrade setuptools && \ 
+    pip install --upgrade aws-google-auth
+
 RUN \
-  apt-get -y --force-yes install \
+  apt-get --no-install-recommends -y --force-yes install \
       build-essential \
+      wget
+
+RUN \
+  pwd && mkdir -p cmake-build && cd cmake-build && \
+  wget https://cmake.org/files/v3.10/cmake-3.10.1.tar.gz && \
+  tar -xvzf cmake-3.10.1.tar.gz && \
+  cd cmake-3.10.1 && ./configure && \
+  make -j4 install && \
+  cd ../.. && rm -rf cmake-build
+
+RUN \
+  apt-get --no-install-recommends -y --force-yes install \
       git \
-      wget \
       python \
       unzip \
       bc \
@@ -24,14 +46,19 @@ RUN \
       sudo \
       gdb-multiarch \
       awscli \
-      checkinstall \
+      m4 \
+      rsync \
+      openssh-client \
+      ccache \
+      less \
+      procps \
+      file \
+      clang-format-5.0 \
+      valgrind \
+      proot \
+      iputils-ping \
+      socat \
       && \
-  mkdir -p cmake-build && cd cmake-build && \
-  wget https://cmake.org/files/v3.10/cmake-3.10.1.tar.gz && \
-  tar -xvzf cmake-3.10.1.tar.gz && \
-  cd cmake-3.10.1 && ./configure && \
-  make -j4 && checkinstall -yD make install && \
-  apt-get -y --force-yes remove checkinstall && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 

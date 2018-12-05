@@ -1,0 +1,7 @@
+#!/bin/ash
+
+name=cell_modem_daemon
+service=${name}_runsvdir
+user=celld
+
+source /etc/init.d/template_svdir.sh

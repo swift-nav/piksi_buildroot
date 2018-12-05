@@ -1,0 +1,394 @@
+From 27e96801492fb9c850356408f3863d1fd3db8fb1 Mon Sep 17 00:00:00 2001
+From: Jason Mobarak <jason@swiftnav.com>
+Date: Wed, 18 Apr 2018 22:36:52 -0700
+Subject: [PATCH] Use inotify instead of hardcoding wait time
+
+---
+ runit/runsv.c    |  32 +++++++---
+ runit/runsvdir.c | 191 +++++++++++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 203 insertions(+), 20 deletions(-)
+
+diff --git a/runit/runsv.c b/runit/runsv.c
+index e0e31508a..c022b9a7a 100644
+--- a/runit/runsv.c
++++ b/runit/runsv.c
+@@ -343,7 +343,7 @@ static void startservice(struct svdir *s)
+ 		stopservice(s); /* should never happen */
+ 	while ((p = vfork()) == -1) {
+ 		warn_cannot("vfork, sleeping");
+-		sleep(5);
++		usleep(100e3); // sleep(5);
+ 	}
+ 	if (p == 0) {
+ 		/* child */
+@@ -455,6 +455,20 @@ static int ctrl(struct svdir *s, char c)
+ 	return 1;
+ }
+ 
++static int tscmp(const struct timespec *t1, const struct timespec *t2)
++{
++  if (t1->tv_sec < t2->tv_sec)
++    return (-1);
++  else if (t1->tv_sec > t2->tv_sec)
++    return (1);
++  else if (t1->tv_nsec < t2->tv_nsec)
++    return (-1);
++  else if (t1->tv_nsec > t2->tv_nsec)
++    return (1);
++  else
++    return (0);
++}
++
+ int runsv_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+ int runsv_main(int argc UNUSED_PARAM, char **argv)
+ {
+@@ -578,7 +592,7 @@ int runsv_main(int argc UNUSED_PARAM, char **argv)
+ 	}
+ 	for (;;) {
+ 		struct pollfd x[3];
+-		unsigned deadline;
++    struct timespec deadline;
+ 		char ch;
+ 
+ 		if (haslog)
+@@ -628,11 +642,12 @@ int runsv_main(int argc UNUSED_PARAM, char **argv)
+ 					}
+ 				}
+ 				svd[0].state = S_DOWN;
+-				deadline = svd[0].start.tv_sec + 1;
++				deadline.tv_sec = svd[0].start.tv_sec;
++				deadline.tv_nsec = svd[0].start.tv_nsec + 100e6;
+ 				gettimeofday_ns(&svd[0].start);
+ 				update_status(&svd[0]);
+-				if (LESS(svd[0].start.tv_sec, deadline))
+-					sleep(1);
++				if (tscmp(&svd[0].start, &deadline) < 0)
++					usleep(100e3); // sleep(1);
+ 			}
+ 			if (haslog) {
+ 				if (child == svd[1].pid) {
+@@ -641,11 +656,12 @@ int runsv_main(int argc UNUSED_PARAM, char **argv)
+ 					pidchanged = 1;
+ 					svd[1].state = S_DOWN;
+ 					svd[1].ctrl &= ~C_TERM;
+-					deadline = svd[1].start.tv_sec + 1;
++					deadline.tv_sec = svd[1].start.tv_sec;
++					deadline.tv_nsec = svd[1].start.tv_nsec + 100e6;
+ 					gettimeofday_ns(&svd[1].start);
+ 					update_status(&svd[1]);
+-					if (LESS(svd[1].start.tv_sec, deadline))
+-						sleep(1);
++					if (tscmp(&svd[1].start, &deadline) < 0)
++						usleep(100e3); // sleep(1);
+ 				}
+ 			}
+ 		} /* for (;;) */
+diff --git a/runit/runsvdir.c b/runit/runsvdir.c
+index 84916e929..72f3b2e3b 100644
+--- a/runit/runsvdir.c
++++ b/runit/runsvdir.c
+@@ -55,6 +55,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ //usage:     "\n	-P		Put each runsv in a new session"
+ //usage:     "\n	-s SCRIPT	Run SCRIPT <signo> after signal is processed"
+ 
++#include <assert.h>
++#include <sys/inotify.h>
+ #include <sys/file.h>
+ #include "libbb.h"
+ #include "common_bufsiz.h"
+@@ -65,6 +67,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ /* Should be not needed - all dirs are on same FS, right? */
+ #define CHECK_DEVNO_TOO 0
+ 
++#define NUM_BUFS 10
++#define BUF_LEN (NUM_BUFS * (sizeof(struct inotify_event) + NAME_MAX + 1))
++
++//#define DEBUG_RUNSVDIR
++
+ struct service {
+ #if CHECK_DEVNO_TOO
+ 	dev_t dev;
+@@ -74,6 +81,9 @@ struct service {
+ 	smallint isgone;
+ };
+ 
++char new_dirs[NUM_BUFS][NAME_MAX];
++size_t dirs_idx;
++
+ struct globals {
+ 	struct service *sv;
+ 	char *svdir;
+@@ -157,6 +167,8 @@ static NOINLINE int do_rescan(void)
+ 	int i;
+ 	struct stat s;
+ 	int need_rescan = 0;
++	bool nodirs = false;
++	const char* the_dir = NULL;
+ 
+ 	dir = opendir(".");
+ 	if (!dir) {
+@@ -168,14 +180,32 @@ static NOINLINE int do_rescan(void)
+ 
+ 	while (1) {
+ 		errno = 0;
+-		d = readdir(dir);
+-		if (!d)
+-			break;
+-		if (d->d_name[0] == '.')
+-			continue;
+-		if (stat(d->d_name, &s) == -1) {
+-			warn2_cannot("stat ", d->d_name);
+-			continue;
++		if (!nodirs) {
++			d = readdir(dir);
++			if (!d) {
++				nodirs = true;
++				continue;
++			}
++			if (d->d_name[0] == '.')
++				continue;
++#ifdef DEBUG_RUNSVDIR
++			fprintf(stderr, "Found %s\n", d->d_name);
++#endif
++			if (stat(d->d_name, &s) == -1) {
++				warn2_cannot("stat ", d->d_name);
++				continue;
++			}
++		} else {
++			if (dirs_idx == 0)
++				break;
++			the_dir = new_dirs[--dirs_idx];
++#ifdef DEBUG_RUNSVDIR
++			fprintf(stderr, "Found (new_dir) %s\n", the_dir);
++#endif
++			if (stat(the_dir, &s) == -1) {
++				warn2_cannot("stat ", the_dir);
++				continue;
++			}
+ 		}
+ 		if (!S_ISDIR(s.st_mode))
+ 			continue;
+@@ -232,6 +262,126 @@ static NOINLINE int do_rescan(void)
+ 	return need_rescan;
+ }
+ 
++static int wait_sv_create(char* the_dir, int deadline)
++{
++	int need_rescan = 0;
++	bool need_sleep_fallback = true;
++
++	int inotify_fd = -1, watch_fd = -1, rv;
++	ssize_t buflen;
++
++	char inotify_buf[BUF_LEN] __attribute__ ((aligned(__alignof__(struct inotify_event))));
++
++	struct pollfd pfds[1];
++	inotify_fd = inotify_init1(IN_NONBLOCK);
++
++	if (inotify_fd < 0) {
++		//bb_perror_msg("wait_sv_create: inotify init failed");
++		goto cleanup;
++	}
++
++#ifdef DEBUG_RUNSVDIR
++	fprintf(stderr, "wait_sv_create: the_dir: %s\n", the_dir);
++#endif
++	watch_fd = inotify_add_watch(inotify_fd, the_dir, IN_CREATE|IN_DELETE|IN_MOVE);
++
++	if (watch_fd < 0) {
++#ifdef DEBUG_RUNSVDIR
++		bb_perror_msg("wait_sv_create: inotify add failed");
++#endif
++		goto cleanup;
++	}
++
++	pfds[0].fd = inotify_fd;
++	pfds[0].events = POLLIN|POLLERR;
++
++	rv = poll(pfds, 1, deadline*1000);
++	if (rv == 0) {
++#ifdef DEBUG_RUNSVDIR
++		fprintf(stderr, "wait_sv_create: timeout\n");
++#endif
++		need_sleep_fallback = false;
++		goto cleanup; // timeout
++	}
++
++	if (pfds[0].revents & POLLERR) {
++		bb_error_msg("wait_sv_create: inotify fd error state signaled");
++		goto cleanup;
++	}
++
++	if (rv < 0) {
++		bb_perror_msg("wait_sv_create: poll command failed");
++		goto cleanup;
++	}
++
++	buflen = read(inotify_fd, inotify_buf, BUF_LEN);
++	need_sleep_fallback = false;
++
++	if (buflen < 0) {
++		bb_perror_msg("wait_sv_create: inotify read failed");
++		goto cleanup;
++	}
++
++	if (buflen == 0) {
++		bb_error_msg("wait_sv_create: inotify read eof");
++		goto cleanup;
++	}
++
++	for (char* p = inotify_buf; p < inotify_buf + buflen; ) {
++
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wcast-align"
++		struct inotify_event *event = (struct inotify_event *) p;
++#pragma GCC diagnostic pop
++
++		assert(dirs_idx < NUM_BUFS);
++
++		if (event->mask & IN_CREATE) {
++#ifdef DEBUG_RUNSVDIR
++			fprintf(stderr, "wait_sv_create: got notification that '%s' was created\n", event->name);
++#endif
++			strncpy(new_dirs[dirs_idx++], event->name, PATH_MAX);
++			need_rescan = 1;
++		} else if (event->mask & IN_DELETE) {
++#ifdef DEBUG_RUNSVDIR
++			fprintf(stderr, "wait_sv_create: got notification that '%s' was deleted\n", event->name);
++#endif
++		} else if (event->mask & IN_MOVE) {
++#ifdef DEBUG_RUNSVDIR
++			fprintf(stderr, "wait_sv_create: got notification that '%s' was moved\n", event->name);
++#endif
++			strncpy(new_dirs[dirs_idx++], event->name, PATH_MAX);
++			need_rescan = 1;
++		} else {
++			bb_error_msg("wait_sv_create: unhandled inotify event");
++		}
++
++		p += sizeof(struct inotify_event) + event->len;
++	}
++
++cleanup:
++	if (inotify_fd >= 0 && watch_fd >= 0) {
++		rv = inotify_rm_watch(inotify_fd, watch_fd);
++		if (rv < 0)
++			bb_perror_msg("wait_sv_create: inotify_rm_watch failed");
++	}
++
++	if (inotify_fd >= 0) {
++		rv = close(inotify_fd);
++		if (rv < 0)
++			bb_perror_msg("wait_sv_create: closing inotify fd failed");
++	}
++
++	if (need_sleep_fallback) {
++#ifdef DEBUG_RUNSVDIR
++		bb_error_msg("wait_sv_create: using sleep fallback");
++#endif
++		usleep(100000);
++	}
++
++	return need_rescan;
++}
++
+ int runsvdir_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
+ {
+@@ -240,7 +390,9 @@ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
+ 	ino_t last_ino = last_ino; /* for gcc */
+ 	time_t last_mtime;
+ 	int curdir;
++#ifdef RUNSVDIR_WAIT
+ 	unsigned stampcheck;
++#endif
+ 	int i;
+ 	int need_rescan;
+ 	bool i_am_init;
+@@ -304,12 +456,16 @@ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
+ 		fatal2_cannot("open current directory", "");
+ 	close_on_exec_on(curdir);
+ 
++#ifdef RUNSVDIR_WAIT
+ 	stampcheck = monotonic_sec();
++#endif
+ 	need_rescan = 1;
+ 	last_mtime = 0;
+ 
+ 	for (;;) {
++#ifdef RUNSVDIR_WAIT
+ 		unsigned now;
++#endif
+ 		unsigned sig;
+ 
+ 		/* collect children */
+@@ -325,12 +481,12 @@ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
+ 				}
+ 			}
+ 		}
+-
++#ifdef RUNSVDIR_WAIT
+ 		now = monotonic_sec();
+ 		if ((int)(now - stampcheck) >= 0) {
+ 			/* wait at least a second */
+ 			stampcheck = now + 1;
+-
++#endif
+ 			if (stat(svdir, &s) != -1) {
+ 				if (need_rescan || s.st_mtime != last_mtime
+ 				 || s.st_ino != last_ino || s.st_dev != last_dev
+@@ -340,15 +496,17 @@ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
+ 						last_mtime = s.st_mtime;
+ 						last_dev = s.st_dev;
+ 						last_ino = s.st_ino;
++#ifdef RUNSVDIR_WAIT
+ 						/* if the svdir changed this very second, wait until the
+ 						 * next second, because we won't be able to detect more
+ 						 * changes within this second */
+ 						while (time(NULL) == last_mtime)
+ 							usleep(100000);
++#endif
+ 						need_rescan = do_rescan();
+ 						while (fchdir(curdir) == -1) {
+ 							warn2_cannot("change directory, pausing", "");
+-							sleep(5);
++							usleep(100000);
+ 						}
+ 					} else {
+ 						warn2_cannot("change directory to ", svdir);
+@@ -357,14 +515,20 @@ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
+ 			} else {
+ 				warn2_cannot("stat ", svdir);
+ 			}
++#ifdef RUNSVDIR_WAIT
+ 		}
++#endif
+ 
+ #if ENABLE_FEATURE_RUNSVDIR_LOG
+ 		if (rplog) {
++#ifdef RUNSVDIR_WAIT
+ 			if ((int)(now - stamplog) >= 0) {
++#endif
+ 				write(logpipe.wr, ".", 1);
+ 				stamplog = now + 900;
++#ifdef RUNSVDIR_WAIT
+ 			}
++#endif
+ 		}
+ 		pfd[0].revents = 0;
+ #endif
+@@ -375,7 +539,10 @@ int runsvdir_main(int argc UNUSED_PARAM, char **argv)
+ 				poll(pfd, 1, deadline*1000);
+ 			else
+ #endif
+-				sleep(deadline);
++			need_rescan = wait_sv_create(svdir, deadline);
++#ifdef DEBUG_RUNSVDIR
++			fprintf(stderr, "need_rescan = %d\n", need_rescan);
++#endif
+ 		}
+ 
+ #if ENABLE_FEATURE_RUNSVDIR_LOG
+-- 
+2.15.0
+

@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import subprocess
+
+os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+uname = subprocess.check_output('uname').strip()
+
+if uname == 'Darwin':
+
+    argv = [ A.replace(os.getcwd(), '/piksi_buildroot') for A in sys.argv[1:] ]
+
+    with open('.clang_complete') as fp:
+        clang_args = fp.read().splitlines()
+
+    p = subprocess.Popen(['make'] + ['docker-run-clang-tidy', 
+        'ARGS=' + str.join(' ', argv) + ' ' + str.join(' ', ['--'] + clang_args)],
+        stdout=subprocess.PIPE)
+
+    stdin_data = p.stdout.read()
+    sys.stdout.write(stdin_data.replace('/piksi_buildroot/', os.getcwd() + '/'))
+
+    sys.exit(p.wait())
+
+else:
+    os.execvp('make', ['make'] + ['run-clang-tidy', 
+        'ARGS=' + str.join(' ', sys.argv[1:]) + ''])

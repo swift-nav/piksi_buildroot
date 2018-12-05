@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="ifplugd_svc"
+cmd="/etc/init.d/ifplugd.sh"
+dir="/"
+user="ifplugd"
+
+source /etc/init.d/template_runsv.inc.sh

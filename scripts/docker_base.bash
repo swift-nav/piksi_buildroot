@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -15,15 +15,26 @@ trap 'rm -rfv $build_dir' EXIT
 cp -v "$D/Dockerfile.base" "${build_dir}"
 cd "${build_dir}"
 
-docker build \
-  --force-rm \
-  --no-cache \
-  -f Dockerfile.base \
-  -t "$DOCKER_REPO_NAME:$VERSION_TAG" \
-  .
+echo '>>> Running docker build command...'
+
+if [[ -z "${USE_CACHE:-}" ]];then
+  docker build \
+    --force-rm \
+    --no-cache \
+    -f Dockerfile.base \
+    -t "$DOCKER_REPO_NAME:$VERSION_TAG" \
+    .
+else
+  docker build \
+    -f Dockerfile.base \
+    -t "$DOCKER_REPO_NAME:$VERSION_TAG" \
+    .
+fi
+
+echo '>>> Pushing build to Docker Hub...'
 
 if [[ -n "${DOCKER_PASS:-}" ]]; then
-  docker login --username="${DOCKER_USER:-swiftnav}" --password="$DOCKER_PASS"
+  echo "$DOCKER_PASS" | docker login --username="${DOCKER_USER:-swiftnav}" --password-stdin
   docker push "$DOCKER_REPO_NAME:$VERSION_TAG"
 else
   echo "WARNING: Not pushing new image to Docker Hub"

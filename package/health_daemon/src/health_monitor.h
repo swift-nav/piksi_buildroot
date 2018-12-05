@@ -13,6 +13,7 @@
 #ifndef __HEALTH_THREAD_H
 #define __HEALTH_THREAD_H
 
+#include <libpiksi/settings_client.h>
 #include "health_context.h"
 
 typedef struct health_monitor_s health_monitor_t;
@@ -31,8 +32,7 @@ typedef int (*health_msg_callback_t)(health_monitor_t *monitor,
                                      u8 msg[],
                                      void *context);
 
-typedef int (*health_timer_callback_t)(health_monitor_t *monitor,
-                                       void *context);
+typedef int (*health_timer_callback_t)(health_monitor_t *monitor, void *context);
 
 /*
  * Set Timer Resolution in ms (Global Value)
@@ -61,8 +61,19 @@ int health_monitor_register_message_handler(health_monitor_t *monitor,
 /*
  * Register a callback to handle settings changes
  */
-int health_monitor_register_setting_handler(health_monitor_t *monitor,
-                                            sbp_msg_callback_t callback);
+int health_monitor_register_setting_handler(health_monitor_t *monitor, sbp_msg_callback_t callback);
+
+/*
+ * Register a callback to handle settings changes
+ */
+int health_monitor_add_setting_watch(health_monitor_t *monitor,
+                                     const char *section,
+                                     const char *name,
+                                     void *var,
+                                     size_t var_len,
+                                     settings_type_t type,
+                                     settings_notify_fn notify,
+                                     void *notify_context);
 
 /*
  * Allocate Monitor
@@ -81,7 +92,7 @@ int health_monitor_init(health_monitor_t *monitor,
                         health_ctx_t *health_ctx,
                         u16 msg_type,
                         health_msg_callback_t msg_cb,
-                        u32 timer_period,
+                        u64 timer_period,
                         health_timer_callback_t timer_cb,
                         void *user_data);
 

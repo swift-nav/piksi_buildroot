@@ -1,0 +1,13 @@
+#!/bin/ash
+
+name="service_monitor"
+cmd="/etc/init.d/service_monitor.sh"
+dir="/"
+user="svcmon"
+
+setup_permissions()
+{
+  add_service_user svcmon
+}
+
+source /etc/init.d/template_runsv.inc.sh

@@ -1,0 +1,20 @@
+
+name: RTCM3_ROUTER
+ports:
+  - name: RTCM3_PORT_INTERNAL
+    metric: "rtcm3/internal"
+    pub_addr: "ipc:///var/run/sockets/rtcm3_internal.pub"
+    sub_addr: "ipc:///var/run/sockets/rtcm3_internal.sub"
+    forwarding_rules:
+      - dst_port: RTCM3_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT }
+
+  - name: RTCM3_PORT_EXTERNAL
+    metric: "rtcm3/external"
+    pub_addr: "ipc:///var/run/sockets/rtcm3_external.pub"
+    sub_addr: "ipc:///var/run/sockets/rtcm3_external.sub"
+    forwarding_rules:
+      - dst_port: RTCM3_PORT_INTERNAL
+        filters:
+          - { action: ACCEPT }

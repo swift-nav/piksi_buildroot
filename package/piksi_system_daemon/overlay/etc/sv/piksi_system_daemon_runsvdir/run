@@ -1,0 +1,7 @@
+#!/bin/sh
+
+name=piksi_system_daemon
+user=piksi_sys
+service=${name}_runsvdir
+
+source /etc/init.d/template_svdir.sh

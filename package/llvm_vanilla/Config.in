@@ -1,0 +1,2 @@
+config BR2_PACKAGE_LLVM_VANILLA
+	bool "llvm_vanilla"

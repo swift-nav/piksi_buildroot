@@ -1,9 +1,28 @@
 #!/bin/sh
 
+FLAG_DIR="/etc/flags/"
+NDB_DIR="/persistent/ndb/"
+MTD_FILE="/factory/mtd"
+
 name="sbp_fileio_daemon_firmware"
-cmd="sbp_fileio_daemon -p >tcp://localhost:43041 -s >tcp://localhost:43040"
+cmd="sbp_fileio_daemon \
+--name firmware \
+--pub ipc:///var/run/sockets/fileio_firmware.sub \
+--sub ipc:///var/run/sockets/fileio_firmware.pub \
+--basedir $NDB_DIR \
+--basedir $FLAG_DIR \
+--mtd"
 dir="/"
-user=""
+user="fileio"
 
-source /etc/init.d/template_process.inc.sh
+setup_permissions()
+{
+  configure_file_resource $user $MTD_FILE 0640
+  configure_dir_resource_rec $user $NDB_DIR 0755 0644
+  configure_dir_resource_rec $user $FLAG_DIR 0555 0444
+}
 
+export name cmd dir user
+
+# shellcheck disable=SC1091
+. /etc/init.d/template_runsv.inc.sh

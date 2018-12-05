@@ -1,0 +1,17 @@
+#!/bin/sh
+
+name="nmea_daemon"
+cmd="nmea_daemon"
+dir="/"
+user="nmead"
+
+_base_dir=/var/run/nmea
+_gga_file=/var/run/nmea/GGA
+
+setup_permissions()
+{
+  configure_dir_resource $user $_base_dir 755
+  configure_file_resource $user $_gga_file 644
+}
+
+source /etc/init.d/template_runsv.inc.sh

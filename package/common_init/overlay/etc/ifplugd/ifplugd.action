@@ -1,0 +1,52 @@
+#!/bin/ash
+
+interface=$1
+shift
+
+action=$1
+shift
+
+log_tag=ifplugd_action
+source /etc/init.d/logging.sh
+
+setup_loggers
+
+has_dhcp()
+{
+  grep -q dhcp /etc/network/interfaces
+}
+
+has_dhcp_yn()
+{
+  has_dhcp && echo y || echo n
+}
+
+env
+
+case "$action" in
+  up)
+    logi "bringing interface '$interface' up (dhcp: $(has_dhcp_yn))"
+    ifup $interface; status=$?
+    if [[ $status -ne 0 ]] ; then
+      logw "ifup reported non-zero exit status: $status"
+    fi
+    if has_dhcp; then
+      dhcpcd --rebind $interface
+    fi
+    break
+  ;;
+  down)
+    logi "bringing interface '$interface' down"
+    ifdown $interface; status=$?
+    if [[ $status -ne 0 ]] ; then
+      logw "ifdown reported non-zero exit status: $?"
+    fi
+    break;
+  ;;
+  *)
+    logw "unknown action for interface '$interface': $action"
+    break;
+  ;;
+esac
+
+# vim: ft=sh:

@@ -1,0 +1,16 @@
+#!/bin/sh
+
+name="endpoint_adapter_rpmsg_piksi101"
+cmd="endpoint_adapter --name rpmsg_piksi101 --file /dev/rpmsg_piksi101 -p 'ipc:///var/run/sockets/nmea_firmware.sub' -s 'ipc:///var/run/sockets/nmea_firmware.pub'"
+dir="/"
+user="ad_r101"
+priority="-18"
+
+setup_permissions()
+{
+  add_service_user $user
+  chown $user:$user /dev/rpmsg_piksi101
+}
+
+source /etc/init.d/template_runsv.inc.sh
+

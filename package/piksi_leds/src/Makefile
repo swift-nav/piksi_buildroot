@@ -5,7 +5,7 @@ SOURCES= \
 	main.c \
 	manage_led.c \
 
-LIBS=-lczmq -lsbp -lpiksi -lpthread
+LIBS=-luv -lsbp -lpiksi -lpthread -lsettings
 
 CFLAGS=-std=gnu11
 

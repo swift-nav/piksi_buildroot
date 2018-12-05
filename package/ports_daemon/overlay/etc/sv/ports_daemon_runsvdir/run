@@ -1,0 +1,7 @@
+#!/bin/sh
+
+name=ports_daemon
+service=${name}_runsvdir
+user=portsd
+
+source /etc/init.d/template_svdir.sh

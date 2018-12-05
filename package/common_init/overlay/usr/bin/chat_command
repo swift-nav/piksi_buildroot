@@ -1,0 +1,14 @@
+#!/bin/ash
+
+set -e
+
+network_type=$1; shift
+apn=$1
+
+echo $$ >/var/run/chat_command.pid
+
+if [[ "$network_type" == "gsm" ]]; then
+  exec /usr/sbin/chat -v -T $apn -f /etc/ppp/chatscript-gsm
+else
+  exec /usr/sbin/chat -v -f /etc/ppp/chatscript-cdma
+fi

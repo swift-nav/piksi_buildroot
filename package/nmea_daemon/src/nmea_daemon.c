@@ -15,76 +15,82 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 
-#include <czmq.h>
-
-#include <libpiksi/util.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/endpoint.h>
+#include <libpiksi/loop.h>
 
-#define PROGRAM_NAME      "nmea_daemon"
+#define PROGRAM_NAME "nmea_daemon"
 
-#define NMEA_PUB_ENDPOINT ">tcp://127.0.0.1:44030"  /* NMEA Pub */
+#define NMEA_PUB_ENDPOINT "ipc:///var/run/sockets/nmea_external.pub" /* NMEA Pub */
+#define NMEA_METRIC_NAME "nmea/sub"
 
-#define BASE_DIRECTORY    "/var/run"
+#define BASE_DIRECTORY "/var/run/nmea"
 
-const char*const NMEA_GGA_OUTPUT_PATH = BASE_DIRECTORY "/nmea_GGA";
+#define NO_FIX_GGA "$GPGGA,,,,,,0,,,,M,,M,,*66"
+
+const char *const NMEA_GGA_OUTPUT_PATH = BASE_DIRECTORY "/GGA";
 
 bool nmea_debug = false;
+
+typedef struct nmea_ctx_s {
+  pk_endpoint_t *sub_ept;
+  pk_loop_t *loop;
+  int result;
+} nmea_ctx_t;
+
+static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void *context);
 
 #define MAX_BUFFER 2048
 
 char buffer[MAX_BUFFER];
 
-static int nmea_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
+static void nmea_reader_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
-  (void)zloop;
-  (void)arg;
+  (void)loop;
+  (void)handle;
+  (void)status;
 
-  zmsg_t *msg;
+  nmea_ctx_t *ctx = (nmea_ctx_t *)context;
 
-  while (1) {
-    msg = zmsg_recv(zsock);
-    if (msg != NULL) {
-      /* Break on success */
-      break;
-    } else if (errno == EINTR) {
-      /* Retry if interrupted */
-      continue;
-    } else {
-      sbp_log(LOG_ERR, "error in zmsg_recv()");
-      exit(EXIT_FAILURE);
-    }
+  if (pk_endpoint_receive(ctx->sub_ept, handle_frame_cb, ctx) != 0) {
+    piksi_log(LOG_ERR, "endpoint receive failed, stopping loop...");
+    ctx->result = EXIT_FAILURE;
   }
-
-  size_t frame_count = zmsg_size(msg);
-
-  if (frame_count != 1) {
-    sbp_log(LOG_ERR, "zmsg frame count was invalid");
-    exit(EXIT_FAILURE);
+  if (ctx->result == EXIT_FAILURE) {
+    piksi_log(LOG_ERR, "nmea frame handler failed, stopping loop...");
+    pk_loop_stop(loop);
   }
+}
 
-  zframe_t *frame = zmsg_first(msg);
-  size_t frame_length = 0;
+static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void *context)
+{
+  nmea_ctx_t *ctx = (nmea_ctx_t *)context;
+
+  if (ctx->result == EXIT_FAILURE) {
+    sbp_log(LOG_ERR, "previous frame result was failure, skipping frame");
+    return -1;
+  }
 
   {
-    const char *frame_data = (char*) zframe_data(frame);
-    frame_length = zframe_size(frame);
-
     // Bounds check: MAX_BUFFER-1 so we can always null terminate the string
-    if (frame_length == 0 || frame_length > (MAX_BUFFER-1)) {
+    if (frame_length == 0 || frame_length > (MAX_BUFFER - 1)) {
       sbp_log(LOG_ERR, "invalid frame size: %lu", frame_length);
-      exit(EXIT_FAILURE);
+      ctx->result = EXIT_FAILURE;
+      return -1;
     }
 
-    memcpy(buffer, frame_data, MAX_BUFFER-1);
+    memcpy(buffer, frame_data, MAX_BUFFER - 1);
     buffer[frame_length] = '\0';
   }
 
-  if(strstr(buffer, "GGA") == NULL) {
+  if (strstr(buffer, "GGA") == NULL) {
     if (nmea_debug) {
       piksi_log(LOG_DEBUG, "ignoring non-GGA message");
     }
-    goto exit_success;
+    return 0;
   }
 
   if (nmea_debug) {
@@ -94,13 +100,15 @@ static int nmea_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
   char tmp_file_name[] = BASE_DIRECTORY "/temp_nmea_gga.XXXXXX";
 
   int fd_temp = mkstemp(tmp_file_name);
+  fchmod(fd_temp, 0644);
 
   if (fd_temp < 0) {
-    sbp_log(LOG_ERR, "error creating temp file");
-    exit(EXIT_FAILURE);
+    sbp_log(LOG_ERR, "error creating temp file: %s", strerror(errno));
+    ctx->result = EXIT_FAILURE;
+    return -1;
   }
 
-  FILE* fp = fdopen(fd_temp, "w+");
+  FILE *fp = fdopen(fd_temp, "w+");
 
   if (strstr(buffer, "\r\n") != NULL) {
     fprintf(fp, "%s", buffer);
@@ -112,11 +120,8 @@ static int nmea_reader_handler(zloop_t *zloop, zsock_t *zsock, void *arg)
 
   if (rename(tmp_file_name, NMEA_GGA_OUTPUT_PATH) < 0) {
     sbp_log(LOG_WARNING, "rename failed: %s", strerror(errno));
-    return 0;
   }
 
-exit_success:
-  zmsg_destroy(&msg);
   return 0;
 }
 
@@ -135,59 +140,72 @@ static int parse_options(int argc, char *argv[])
   };
 
   const struct option long_opts[] = {
-    {"debug", no_argument,       0, OPT_ID_DEBUG},
+    {"debug", no_argument, 0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
   };
 
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
-      case OPT_ID_DEBUG:
-        nmea_debug = true;
-        break;
-      default:
-        puts("Invalid option");
-        return -1;
+    case OPT_ID_DEBUG: nmea_debug = true; break;
+    default: puts("Invalid option"); return -1;
     }
   }
   return 0;
 }
 
+static int cleanup(int result, nmea_ctx_t *ctx);
+
 int main(int argc, char *argv[])
 {
+  nmea_ctx_t ctx = {.sub_ept = NULL, .loop = NULL, .result = EXIT_SUCCESS};
+
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
     usage(argv[0]);
-    exit(EXIT_FAILURE);
+    exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
-  zsock_t * zmq_sub = zsock_new_sub(NMEA_PUB_ENDPOINT, "");
-  if (zmq_sub == NULL) {
+  ctx.sub_ept = pk_endpoint_create(pk_endpoint_config()
+                                     .endpoint(NMEA_PUB_ENDPOINT)
+                                     .identity(NMEA_METRIC_NAME)
+                                     .type(PK_ENDPOINT_SUB)
+                                     .get());
+  if (ctx.sub_ept == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
-    exit(EXIT_FAILURE);
+    exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  zloop_t* loop = zloop_new();
-
-  if (loop == NULL) {
-    piksi_log(LOG_ERR, "error creating looper");
-    exit(EXIT_FAILURE);
+  ctx.loop = pk_loop_create();
+  if (ctx.loop == NULL) {
+    piksi_log(LOG_ERR, "error creating loop");
+    exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  if(zloop_reader(loop, zmq_sub, nmea_reader_handler, NULL) < 0) {
+  if (pk_loop_endpoint_reader_add(ctx.loop, ctx.sub_ept, nmea_reader_handler, &ctx) == NULL) {
     piksi_log(LOG_ERR, "error registering reader");
-    exit(EXIT_FAILURE);
+    exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  if(zmq_simple_loop(loop) < 0) {
-    exit(EXIT_FAILURE);
+  FILE *fp = fopen(NMEA_GGA_OUTPUT_PATH, "w");
+  if (fp != NULL) {
+    fprintf(fp, "%s\r\n", NO_FIX_GGA);
+    fclose(fp);
+  } else {
+    piksi_log(LOG_SBP | LOG_ERR, "unable to open '%s'");
+    exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  zsock_destroy(&zmq_sub);
-  exit(EXIT_SUCCESS);
+  pk_loop_run_simple(ctx.loop);
+
+  exit(cleanup(ctx.result, &ctx));
+}
+
+static int cleanup(int result, nmea_ctx_t *ctx)
+{
+  pk_loop_destroy(&ctx->loop);
+  pk_endpoint_destroy(&ctx->sub_ept);
+  return result;
 }
