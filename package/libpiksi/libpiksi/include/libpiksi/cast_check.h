@@ -115,4 +115,52 @@ _DEFINE_HELPER_VAR(int, size_t);
 #define int_to_sizet(s) \
   (CHECK_INT_TO_SIZET(s), INT_TO_SIZET(s))
 
+/* size_t -> u8 */
+
+#define CHECK_SIZET_TO_UINT8(var) \
+  _CHECK_CAST_UNSIGNED(var, size_t, uint8_t, UINT8_MAX)
+
+#define SIZET_TO_UINT8(var) ((uint8_t)(var))
+
+_DEFINE_HELPER_VAR(size_t, uint8_t);
+
+#define sizet_to_uint8(s) \
+  (CHECK_SIZET_TO_UINT8(s), SIZET_TO_UINT8(s))
+
+/* int -> uint8_t */
+
+#define CHECK_INT_TO_UINT8(var) \
+  (_CHECK_CAST_SIGNED(var, int, uint8_t), _CHECK_CAST_UNSIGNED(var, int, uint8_t, UINT8_MAX))
+
+_DEFINE_HELPER_VAR(int, uint8_t);
+
+#define INT_TO_UINT8(var) ((uint8_t)(var))
+
+#define int_to_uint8(s) \
+  (CHECK_INT_TO_UINT8(s), INT_TO_UINT8(s))
+
+/* int -> uint32_t */
+
+#define CHECK_INT_TO_UINT32(var) \
+  _CHECK_CAST_SIGNED(var, int, uint32_t)
+
+_DEFINE_HELPER_VAR(int, uint32_t);
+
+#define INT_TO_UINT32(var) ((uint32_t)(var))
+
+#define int_to_uint32(s) \
+  (CHECK_INT_TO_UINT32(s), INT_TO_UINT32(s))
+
+/* uint32_t -> int32_t */
+
+#define CHECK_UINT32_TO_INT32(var) \
+  _CHECK_CAST_UNSIGNED(var, uint32_t, int32_t, INT32_MAX)
+
+_DEFINE_HELPER_VAR(uint32_t, int32_t);
+
+#define UINT32_TO_INT32(var) ((int32_t)(var))
+
+#define uint32_to_int32(s) \
+  (CHECK_UINT32_TO_INT32(s), UINT32_TO_INT32(s))
+
 #endif
