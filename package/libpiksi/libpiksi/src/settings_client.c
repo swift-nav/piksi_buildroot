@@ -515,7 +515,7 @@ bool pk_settings_loop_simple(const char *metrics_ident,
 
 int pk_settings_loop_send_command(const char *metrics_ident,
                                   const char *target_description,
-                                  const u8 *command,
+                                  const char *command,
                                   const char *command_description,
                                   const char *control_socket)
 {
@@ -554,7 +554,7 @@ int pk_settings_loop_send_command(const char *metrics_ident,
   int ret = 0;
   u8 result = 0;
 
-  ret = pk_endpoint_send(req_socket, command, strlen((char *)command));
+  ret = pk_endpoint_send(req_socket, (u8 *)command, strlen(command));
   CHECK_PK_EPT_ERR(ret < 0, pk_endpoint_send);
 
   ret = pk_endpoint_read(req_socket, &result, sizeof(result));
