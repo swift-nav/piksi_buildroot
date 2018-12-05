@@ -10,8 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/util.h>
+#include <libpiksi/cast_check.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include <libpiksi/sbp_tx.h>
 
@@ -33,10 +34,10 @@ static void send_buffer_reset(sbp_tx_ctx_t *ctx)
 static s32 send_buffer_write(u8 *buff, u32 n, void *context)
 {
   sbp_tx_ctx_t *ctx = (sbp_tx_ctx_t *)context;
-  s32 len = SWFT_MIN(sizeof(ctx->send_buffer) - ctx->send_buffer_length, n);
+  u32 len = SWFT_MIN(sizeof(ctx->send_buffer) - ctx->send_buffer_length, n);
   memcpy(&ctx->send_buffer[ctx->send_buffer_length], buff, len);
   ctx->send_buffer_length += len;
-  return len;
+  return uint32_to_int32(len);
 }
 
 static int send_buffer_flush(sbp_tx_ctx_t *ctx)

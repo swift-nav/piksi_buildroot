@@ -25,6 +25,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <libpiksi/cast_check.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 
@@ -72,7 +73,7 @@ pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
     return NULL;
   }
 
-  size_t count = 0;
+  int res = 0;
   char metrics_folder[PATH_MAX] = {0};
   const char *metrics_name = NULL;
   ssize_t metrics_index = -1;
@@ -90,21 +91,28 @@ pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
   for (size_t idx = 0; idx < entry_count; idx++) {
 
     if (strlen(metrics_suffix) > 0) {
-      count = snprintf(metrics_folder,
-                       sizeof(metrics_folder),
-                       "%s/%s/%s",
-                       metrics_base_name,
-                       metrics_suffix,
-                       metrics_table[idx].folder);
+      res = snprintf(metrics_folder,
+                     sizeof(metrics_folder),
+                     "%s/%s/%s",
+                     metrics_base_name,
+                     metrics_suffix,
+                     metrics_table[idx].folder);
     } else {
-      count = snprintf(metrics_folder,
-                       sizeof(metrics_folder),
-                       "%s/%s",
-                       metrics_base_name,
-                       metrics_table[idx].folder);
+      res = snprintf(metrics_folder,
+                     sizeof(metrics_folder),
+                     "%s/%s",
+                     metrics_base_name,
+                     metrics_table[idx].folder);
     }
 
-    if (count >= sizeof(metrics_folder)) {
+    if (res < 0) {
+      PK_LOG_ANNO(LOG_ERR, "metrics add failed: %s", strerror(errno));
+      goto fail2;
+    }
+
+    size_t path_ch_count = int_to_sizet(res);
+
+    if (path_ch_count >= sizeof(metrics_folder)) {
       PK_LOG_ANNO(LOG_ERR, "metrics folder too large");
       goto fail2;
     }
@@ -124,7 +132,7 @@ pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
       goto fail;
     }
 
-    *metrics_table[idx].idx = metrics_index;
+    *metrics_table[idx].idx = ssizet_to_sizet(metrics_index);
   }
 
   return metrics;
@@ -134,7 +142,7 @@ fail:
               "metrics add for '%s/%s' failed: %s",
               metrics_folder,
               metrics_name,
-              pk_metrics_status_text(metrics_index));
+              pk_metrics_status_text((pk_metrics_status_t)metrics_index));
 fail2:
   pk_metrics_destroy(&metrics);
 
@@ -171,9 +179,14 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
   metrics_descriptor_t *desc = &metrics->descriptors[metrics->count];
 
   char metric_dir_path[PATH_MAX];
-  size_t count = snprintf(metric_dir_path, sizeof(metric_dir_path), "%s/%s", METRICS_PATH, path);
+  int res = snprintf(metric_dir_path, sizeof(metric_dir_path), "%s/%s", METRICS_PATH, path);
 
-  if (count >= sizeof(metric_dir_path)) {
+  if (res < 0) {
+    PK_LOG_ANNO(LOG_ERR, "metrics add failed: %s", strerror(errno));
+    return METRICS_STATUS_ERROR_GENERIC;
+  }
+
+  if (int_to_sizet(res) >= sizeof(metric_dir_path)) {
     return METRICS_STATUS_MEMORY_ERROR;
   }
 
@@ -183,9 +196,14 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
   }
 
   char metric_path[PATH_MAX];
-  count = snprintf(metric_path, sizeof(metric_path), "%s/%s", metric_dir_path, name);
+  res = snprintf(metric_path, sizeof(metric_path), "%s/%s", metric_dir_path, name);
 
-  if (count >= sizeof(metric_dir_path)) {
+  if (res < 0) {
+    PK_LOG_ANNO(LOG_ERR, "metrics add failed: %s", strerror(errno));
+    return METRICS_STATUS_ERROR_GENERIC;
+  }
+
+  if (int_to_sizet(res) >= sizeof(metric_dir_path)) {
     return METRICS_STATUS_MEMORY_ERROR;
   }
 
@@ -210,7 +228,12 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
 
   write_metric(desc);
 
-  return metrics->count++;
+  size_t metrics_count = metrics->count++;
+  if (metrics_count > SSIZE_MAX) {
+     return METRICS_STATUS_TOO_MANY_METRICS;
+  }
+
+  return sizet_to_ssizet(metrics->count++);
 }
 
 void pk_metrics_flush(const pk_metrics_t *metrics)
@@ -279,6 +302,8 @@ int pk_metrics_read(pk_metrics_t *metrics, size_t metrics_index, pk_metrics_valu
 const char *pk_metrics_status_text(pk_metrics_status_t status)
 {
   switch (status) {
+  case METRICS_STATUS_ERROR_GENERIC: return "METRICS_STATUS_ERROR_GENERIC";
+  case METRICS_STATUS_TOO_MANY_METRICS: return "METRICS_STATUS_TOO_MANY_METRICS";
   case METRICS_STATUS_SILENT_FAIL: return "METRICS_STATUS_SILENT_FAIL";
   case METRICS_STATUS_INVALID_INDEX: return "METRICS_STATUS_INVALID_INDEX";
   case METRICS_STATUS_OPEN_ERROR: return "METRICS_STATUS_OPEN_ERROR";
@@ -290,7 +315,7 @@ const char *pk_metrics_status_text(pk_metrics_status_t status)
   }
 }
 
-pk_metrics_time_t pk_metrics_gettime()
+pk_metrics_time_t pk_metrics_gettime(void)
 {
   struct timespec s;
 
@@ -301,7 +326,8 @@ pk_metrics_time_t pk_metrics_gettime()
     return (pk_metrics_time_t){.ns = 0};
   }
 
-  return (pk_metrics_time_t){.ns = (s.tv_sec * 1e9) + s.tv_nsec};
+  const time_t sec_in_ns = 1000000000;
+  return (pk_metrics_time_t){.ns = (u64)((s.tv_sec * sec_in_ns) + (time_t)s.tv_nsec)};
 }
 
 pk_metrics_value_t pk_metrics_reset_default(pk_metrics_type_t type, pk_metrics_value_t initial)
@@ -377,7 +403,7 @@ pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
     return (pk_metrics_value_t){.data.as_f64 = update.value.data.as_f64 - current_value.data.as_f64,
                                 .type = METRICS_TYPE_F64};
   case METRICS_TYPE_TIME:
-    return (pk_metrics_value_t){.data.as_time =
+    return (pk_metrics_value_t){.data.as_time.ns =
                                   update.value.data.as_time.ns - current_value.data.as_time.ns,
                                 .type = METRICS_TYPE_TIME};
   case METRICS_TYPE_UNKNOWN:
@@ -407,21 +433,21 @@ pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
     return (pk_metrics_value_t){0};
   }
 
-  if (*average->index_of_num >= metrics->count) {
+  if (*average->index_of_num < 0 || ssizet_to_sizet(*average->index_of_num) >= metrics->count) {
     PK_LOG_ANNO(LOG_WARNING, "invalid update operation: num index invalid");
     return (pk_metrics_value_t){0};
   }
 
-  if (*average->index_of_dom >= metrics->count) {
+  if (*average->index_of_dom < 0 || ssizet_to_sizet(*average->index_of_dom) >= metrics->count) {
     PK_LOG_ANNO(LOG_WARNING, "invalid update operation: dom index invalid");
     return (pk_metrics_value_t){0};
   }
 
   pk_metrics_value_t num;
-  pk_metrics_read(metrics, *average->index_of_num, &num);
+  pk_metrics_read(metrics, ssizet_to_sizet(*average->index_of_num), &num);
 
   pk_metrics_value_t dom;
-  pk_metrics_read(metrics, *average->index_of_dom, &dom);
+  pk_metrics_read(metrics, ssizet_to_sizet(*average->index_of_dom), &dom);
 
   pk_metrics_type_t num_type = metrics->descriptors[*average->index_of_num].type;
   pk_metrics_type_t dom_type = metrics->descriptors[*average->index_of_dom].type;

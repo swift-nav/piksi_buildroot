@@ -230,7 +230,7 @@ static __attribute__((constructor)) void setup_config_builder()
   config_builder.get = cfg_builder_get;
 }
 
-pk_endpoint_config_builder_t pk_endpoint_config()
+pk_endpoint_config_builder_t pk_endpoint_config(void)
 {
   config_builder._config =
     (pk_endpoint_config_t){.endpoint = NULL, .identity = NULL, .type = -1, .retry_connect = false};
@@ -395,7 +395,8 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     foreach_client(pk_ept,
                    &rc,
-                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                   NESTED_FN(void, (pk_endpoint_t * _ept, client_node_t * node, void *ctx), {
+										 (void) _ept;
                      /* TODO: Why are we saving rc here, invalid clients will just be removed... */
                      int *rc_loc = ctx;
                      *rc_loc = send_impl(&node->val, data, length);
@@ -942,7 +943,7 @@ static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_
   return true;
 }
 
-static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read_handler, void *ctx)
+static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read_handler, void *ctx_in)
 {
   int rc = 0;
 
@@ -967,8 +968,9 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
     pk_ept->woke = false;
 
     foreach_client(pk_ept,
-                   ctx,
-                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                   ctx_in,
+                   NESTED_FN(void, (pk_endpoint_t * _ept, client_node_t * node, void *ctx), {
+										 (void) _ept;
                      read_handler(&node->val, ctx);
                    }));
 
@@ -981,7 +983,7 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
       .node = NULL,
     };
 
-    rc = read_handler(&client_ctx, ctx);
+    rc = read_handler(&client_ctx, ctx_in);
   }
 
   return rc;

@@ -71,10 +71,11 @@
 
 #include <sys/stat.h>
 
-#include <libpiksi/sbp_pubsub.h>
-#include <libpiksi/util.h>
+#include <libpiksi/cast_check.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/settings_client.h>
+#include <libpiksi/sbp_pubsub.h>
+#include <libpiksi/util.h>
 
 #include <libsbp/settings.h>
 
@@ -135,8 +136,7 @@ static int send_from_wrap(void *ctx,
 static int wait_wrap(void *ctx, int timeout_ms)
 {
   pk_settings_ctx_t *pk_settings_ctx = (pk_settings_ctx_t *)ctx;
-
-  return pk_loop_run_simple_with_timeout(pk_settings_ctx->loop, timeout_ms);
+  return pk_loop_run_simple_with_timeout(pk_settings_ctx->loop, int_to_uint32(timeout_ms));
 }
 
 static void signal_wrap(void *ctx)
@@ -152,11 +152,11 @@ static int reg_cb_wrap(void *ctx,
                        sbp_msg_callbacks_node_t **node)
 {
   pk_settings_ctx_t *pk_settings_ctx = (pk_settings_ctx_t *)ctx;
-  sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pk_settings_ctx->pubsub_ctx),
-                           msg_type,
-                           cb,
-                           cb_context,
-                           node);
+  return sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pk_settings_ctx->pubsub_ctx),
+                                  msg_type,
+                                  cb,
+                                  cb_context,
+                                  node);
 }
 
 static int unreg_cb_wrap(void *ctx, sbp_msg_callbacks_node_t **node)
@@ -341,6 +341,7 @@ static void control_handler(pk_loop_t *loop, void *handle, int status, void *con
 {
   (void)loop;
   (void)status;
+  (void)handle;
 
   control_command_t *cmd_info = (control_command_t *)context;
 
@@ -393,11 +394,9 @@ static bool configure_control_socket(const char *metrics_ident,
   CHECK_PRECONDITION(control_socket != NULL);
   CHECK_PRECONDITION(control_socket_file != NULL);
   CHECK_PRECONDITION(control_command != NULL);
-  CHECK_PRECONDITION(control_handler != NULL);
   CHECK_PRECONDITION(do_handle_command != NULL);
-  CHECK_PRECONDITION(ctrl_command_info != NULL);
-
   CHECK_PRECONDITION(rep_socket != NULL);
+  CHECK_PRECONDITION(ctrl_command_info != NULL);
 
 #undef CHECK_PRECONDITION
 
@@ -516,7 +515,7 @@ bool pk_settings_loop_simple(const char *metrics_ident,
 
 int pk_settings_loop_send_command(const char *metrics_ident,
                                   const char *target_description,
-                                  const char *command,
+                                  const u8   *command,
                                   const char *command_description,
                                   const char *control_socket)
 {
@@ -555,7 +554,7 @@ int pk_settings_loop_send_command(const char *metrics_ident,
   int ret = 0;
   u8 result = 0;
 
-  ret = pk_endpoint_send(req_socket, command, strlen(command));
+  ret = pk_endpoint_send(req_socket, command, strlen((char*)command));
   CHECK_PK_EPT_ERR(ret < 0, pk_endpoint_send);
 
   ret = pk_endpoint_read(req_socket, &result, sizeof(result));

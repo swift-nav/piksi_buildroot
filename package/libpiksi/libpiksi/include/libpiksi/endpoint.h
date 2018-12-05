@@ -117,7 +117,7 @@ struct pk_endpoint_config_builder_s {
  */
 typedef int (*pk_endpoint_receive_cb)(const u8 *data, const size_t length, void *context);
 
-pk_endpoint_config_builder_t pk_endpoint_config();
+pk_endpoint_config_builder_t pk_endpoint_config(void);
 
 /**
  * @brief   Create a Piksi Endpoint context

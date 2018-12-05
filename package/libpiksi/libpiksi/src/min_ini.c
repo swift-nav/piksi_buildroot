@@ -21,7 +21,10 @@
  */
 // clang-format off
 
+#pragma GCC diagnostic push
+
 #pragma GCC diagnostic ignored "-Wchar-subscripts"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
 
 #if (defined _UNICODE || defined __UNICODE__ || defined UNICODE) && !defined MININI_ANSI
 # if !defined UNICODE   /* for Windows */
@@ -832,5 +835,7 @@ int ini_putf(const TCHAR *Section, const TCHAR *Key, INI_REAL Value, const TCHAR
 }
 #endif /* INI_REAL */
 #endif /* !INI_READONLY */
+
+#pragma GCC diagnostic pop
 
 // clang-format on

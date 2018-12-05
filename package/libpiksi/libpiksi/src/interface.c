@@ -10,15 +10,19 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <limits.h>
+#include <stdint.h>
+
+#include <libpiksi/cast_check.h>
 #include <libpiksi/common.h>
-#include <libpiksi/logging.h>
 #include <libpiksi/interface.h>
+#include <libpiksi/logging.h>
 
 #define PROC_NET_DEV "/proc/net/dev"
 #define PROC_NET_DEV_MAX_LINE_SIZE (512u)
 
 #ifndef IF_NAMESIZE
-#define IF_NAMESIZE (16u)
+#define IF_NAMESIZE (16)
 #endif
 
 struct interface_s {
@@ -202,8 +206,9 @@ static char *get_name(char name[IF_NAMESIZE], char *p)
   for (;;) {
     if ((nameend - namestart) >= IF_NAMESIZE) break; /* interface name too large - return "" */
     if (*nameend == ':') {
-      memcpy(name, namestart, nameend - namestart);
-      name[nameend - namestart] = '\0';
+      size_t name_size = int_to_sizet(nameend - namestart);
+      memcpy(name, namestart, name_size);
+      name[name_size] = '\0';
       return nameend + 1;
     }
     nameend++;
@@ -250,6 +255,9 @@ static void get_dev_fields(char *bp, interface_t *ife, int procnetdev_vsn)
 {
   memset(&ife->stats, 0, sizeof(struct user_net_device_stats));
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+
   sscanf(bp,
          ss_fmt[procnetdev_vsn],
          &ife->stats.rx_bytes,
@@ -268,6 +276,8 @@ static void get_dev_fields(char *bp, interface_t *ife, int procnetdev_vsn)
          &ife->stats.collisions,
          &ife->stats.tx_carrier_errors,
          &ife->stats.tx_compressed);
+
+#pragma GCC diagnostic pop
 
   if (procnetdev_vsn <= 1) {
     if (procnetdev_vsn == 0) {

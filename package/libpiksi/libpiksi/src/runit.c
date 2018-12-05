@@ -45,8 +45,8 @@
 
 int start_runit_service(runit_config_t *cfg)
 {
-  static const int control_sleep_us = 100e3;
-  static const int max_wait_us = 6e6;
+  static const uint32_t control_sleep_us = 100e3;
+  static const uint32_t max_wait_us = 6e6;
 
   struct stat s;
 
@@ -261,6 +261,7 @@ const char *runit_status_str(runit_stat_t status)
   case RUNIT_DOWN: return "down";
   case RUNIT_NO_STAT: return "no stat";
   case RUNIT_NO_PID: return "no pid file";
+  default: break;
   }
 
   return "?";

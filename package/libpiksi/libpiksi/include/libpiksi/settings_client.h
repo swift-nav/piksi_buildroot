@@ -262,7 +262,7 @@ bool pk_settings_loop_simple(const char *metrics_ident,
  */
 int pk_settings_loop_send_command(const char *metrics_ident,
                                   const char *target_description,
-                                  const char *command,
+                                  const u8   *command,
                                   const char *command_description,
                                   const char *control_socket);
 

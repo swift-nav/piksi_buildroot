@@ -12,6 +12,7 @@
 
 #include <stdarg.h>
 
+#include <libpiksi/cast_check.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 #include <libpiksi/sbp_tx.h>
@@ -135,9 +136,10 @@ void sbp_vlog(int priority, const char *msg, va_list ap)
 
   if (n < 0) goto exit;
 
-  n = SWFT_MIN(n, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t));
+  u8 payload_size = sizet_to_uint8(sizeof(msg_log_t)
+    + SWFT_MIN(int_to_sizet(n), SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t)));
 
-  if (0 != sbp_tx_send(sbp_tx, SBP_MSG_LOG, n + sizeof(msg_log_t), (uint8_t *)buf)) {
+  if (0 != sbp_tx_send(sbp_tx, SBP_MSG_LOG, payload_size, (uint8_t *)buf)) {
     piksi_log(LOG_ERR, "unable to transmit SBP message.");
   }
 
