@@ -34,7 +34,7 @@ static void send_buffer_reset(sbp_tx_ctx_t *ctx)
 static s32 send_buffer_write(u8 *buff, u32 n, void *context)
 {
   sbp_tx_ctx_t *ctx = (sbp_tx_ctx_t *)context;
-  u32 len = SWFT_MIN(sizeof(ctx->send_buffer) - ctx->send_buffer_length, n);
+  u32 len = SWFT_MIN((u32)sizeof(ctx->send_buffer) - ctx->send_buffer_length, n);
   memcpy(&ctx->send_buffer[ctx->send_buffer_length], buff, len);
   ctx->send_buffer_length += len;
   return uint32_to_int32(len);
