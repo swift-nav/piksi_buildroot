@@ -626,8 +626,8 @@ static void write_metric(const metrics_descriptor_t *desc)
   switch (desc->type) {
   case METRICS_TYPE_U32: fprintf(desc->stream, "%u\n", desc->value.data.as_u32); return;
   case METRICS_TYPE_S32: fprintf(desc->stream, "%d\n", desc->value.data.as_s32); return;
-  case METRICS_TYPE_U64: fprintf(desc->stream, "%llu\n", desc->value.data.as_u64); return;
-  case METRICS_TYPE_S64: fprintf(desc->stream, "%lld\n", desc->value.data.as_s64); return;
+  case METRICS_TYPE_U64: fprintf(desc->stream, "%" PRIu64 "\n", desc->value.data.as_u64); return;
+  case METRICS_TYPE_S64: fprintf(desc->stream, "%" PRIi64 "\n", desc->value.data.as_s64); return;
   case METRICS_TYPE_F64: fprintf(desc->stream, "%f\n", desc->value.data.as_f64); return;
   case METRICS_TYPE_TIME:
     timeval = (double)desc->value.data.as_time.ns / 1e6;
