@@ -339,11 +339,6 @@ static void skylark_loop_terminate()
   reap_children(debug, NULL);
 }
 
-static void skylark_loop_sigchild()
-{
-  reap_children(debug, skylark_record_exit);
-}
-
 static void skylark_settings_loop(void)
 {
   pk_settings_loop(SKYLARK_SETTINGS_METRICS,
@@ -353,7 +348,7 @@ static void skylark_settings_loop(void)
                    skylark_settings_init,
                    skylark_reconnect_dl,
                    skylark_loop_terminate,
-                   skylark_loop_sigchild);
+                   NULL);
 }
 
 int main(int argc, char *argv[])

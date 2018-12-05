@@ -35,7 +35,10 @@
 #define SKYLARK_URL                     "https://broker.skylark.swiftnav.com"
 // clang-format on
 
-static const char *const skylark_mode_enum_names[] = {"Disabled", "HTTP 1.1", "HTTP 2", NULL};
+static const char *const skylark_mode_enum_names[] = {"Disabled",
+                                                      "HTTP 1.1",
+                                                      "HTTP 2",
+                                                      NULL};
 
 enum {
   SKYLARK_MODE_DISABLED,
@@ -223,17 +226,6 @@ bool skylark_reconnect_dl(void)
   return true;
 }
 
-static const char *const skylark_mode_enum_names[] = {"Disabled",
-                                                      "HTTP 1.1",
-                                                      "HTTP 2",
-                                                      NULL};
-
-enum {
-  SKYLARK_MODE_DISABLED,
-  SKYLARK_MODE_HTTP_1_1,
-  SKYLARK_MODE_HTTP_2,
-};
-
 void skylark_settings_init(pk_settings_ctx_t *settings_ctx)
 {
   mkfifo(UPLOAD_FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -241,9 +233,9 @@ void skylark_settings_init(pk_settings_ctx_t *settings_ctx)
   mkfifo(DOWNLOAD_FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
   settings_type_t skylark_mode;
-  pk_settings_type_register_enum(settings_ctx,
-                                 skylark_mode_enum_names,
-                                 &skylark_mode);
+  pk_settings_register_enum(settings_ctx,
+                            skylark_mode_enum_names,
+                            &skylark_mode);
 
   pk_settings_register(settings_ctx,
                        "skylark",
