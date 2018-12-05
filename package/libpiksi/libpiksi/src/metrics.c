@@ -433,21 +433,21 @@ pk_metrics_value_t pk_metrics_updater_average(pk_metrics_type_t type,
     return (pk_metrics_value_t){0};
   }
 
-  if (*average->index_of_num < 0 || ssizet_to_sizet(*average->index_of_num) >= metrics->count) {
+  if (*average->index_of_num >= metrics->count) {
     PK_LOG_ANNO(LOG_WARNING, "invalid update operation: num index invalid");
     return (pk_metrics_value_t){0};
   }
 
-  if (*average->index_of_dom < 0 || ssizet_to_sizet(*average->index_of_dom) >= metrics->count) {
+  if (*average->index_of_dom >= metrics->count) {
     PK_LOG_ANNO(LOG_WARNING, "invalid update operation: dom index invalid");
     return (pk_metrics_value_t){0};
   }
 
   pk_metrics_value_t num;
-  pk_metrics_read(metrics, ssizet_to_sizet(*average->index_of_num), &num);
+  pk_metrics_read(metrics, *average->index_of_num, &num);
 
   pk_metrics_value_t dom;
-  pk_metrics_read(metrics, ssizet_to_sizet(*average->index_of_dom), &dom);
+  pk_metrics_read(metrics, *average->index_of_dom, &dom);
 
   pk_metrics_type_t num_type = metrics->descriptors[*average->index_of_num].type;
   pk_metrics_type_t dom_type = metrics->descriptors[*average->index_of_dom].type;

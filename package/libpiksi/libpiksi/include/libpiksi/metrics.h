@@ -94,8 +94,8 @@ typedef struct {
 } _pk_metrics_table_entry_t;
 
 typedef struct {
-  ssize_t *index_of_num;
-  ssize_t *index_of_dom;
+  size_t *index_of_num;
+  size_t *index_of_dom;
 } pk_metrics_average_t;
 
 pk_metrics_t *_pk_metrics_create(void);
