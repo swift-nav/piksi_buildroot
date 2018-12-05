@@ -236,11 +236,10 @@ static int notify_rtcm_out_output_mode_changed(void *context)
 static int notify_ant_height_changed(void *context)
 {
   (void)context;
-  if (ant_height < 0.0) {
-    return SETTINGS_WR_VALUE_REJECTED;
+  if (sbp2rtcm_set_ant_height(ant_height, &sbp_to_rtcm3_state)) {
+    return SETTINGS_WR_OK;
   }
-  sbp2rtcm_set_ant_height(ant_height, &sbp_to_rtcm3_state);
-  return SETTINGS_WR_OK;
+  return SETTINGS_WR_VALUE_REJECTED;
 }
 
 static int notify_rcv_ant_descriptor_changed(void *context)
