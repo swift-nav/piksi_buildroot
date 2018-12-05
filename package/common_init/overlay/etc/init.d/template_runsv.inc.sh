@@ -1,16 +1,20 @@
 #!/bin/ash
 # shellcheck disable=SC1091,SC2169
 
-# /etc/init.d template for processes
+# Template for supervised services in /etc/init.d
 
-# name=""
-# cmd=""
-# dir="/"
-# user=""
-# group=""
-# failed_restarts=10
-
-# source template.inc.sh
+## Example init script:
+#
+#   name="foo"
+#   cmd="run_foo_svc"
+#   dir="/"
+#   user="foo_user"
+#   group="foo_group"
+#   failed_restarts=10
+#
+#   source /etc/init.d/template_runsv.inc.sh
+#
+#   setup_permissions() { ... (Optional) configure permissions for service ... }
 
 . /etc/init.d/common.sh
 
