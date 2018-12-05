@@ -189,7 +189,7 @@ u16 sbp_sender_id_get(void)
   if (file_read_string(SBP_SENDER_ID_FILE_PATH, sbp_sender_id_string, sizeof(sbp_sender_id_string))
       == 0) {
     unsigned long ul_value = strtoul(sbp_sender_id_string, NULL, 10);
-    if (ul_value > ((u16) ~0u)) {
+    if (ul_value > UINT16_MAX) {
       piksi_log(LOG_WARNING, "invalid value for SBP sender id: %s (from file '%s')", sbp_sender_id_string,
         SBP_SENDER_ID_FILE_PATH);
     }
@@ -525,7 +525,6 @@ bool is_file(int fd)
 {
   errno = 0;
   off_t offset = lseek(fd, 0, SEEK_CUR);
-
   return !(-1 == offset && errno == ESPIPE);
 }
 
@@ -633,7 +632,7 @@ int run_with_stdin_file2(const char *input_file,
     size_t read_size_orig = 0;
     do {
       ssize_t read_result = read(stdout_pipe, output, output_size);
-      if (read_result < 0) break;
+      if (read_result <= 0) break;
       read_size = read_size_orig = ssizet_to_sizet(read_result);
 #ifdef DEBUG_RUN_WITH_STDIN
       PK_LOG_ANNO(LOG_DEBUG, "read: %d", read_size_orig);
@@ -660,7 +659,7 @@ int run_with_stdin_file2(const char *input_file,
     size_t total = 0;
     while (output_size > total) {
       ssize_t read_result = read(stdout_pipe, output + total, output_size - total);
-      if (read_result < 0) break;
+      if (read_result <= 0) break;
       size_t read_count = ssizet_to_sizet(read_result);
       total += read_count;
     }
