@@ -41,11 +41,11 @@ run_time_sufficient() {
 if [[ "$run_status" -ne 0 ]] && ! run_time_sufficient; then
   # If a service repeatedly exists with non-zero exist status and runs
   #   for less than X seconds, then it's considered failed.
-  logw "Service $name exited (status: $run_status, failed starts: $restarts)..."
+  logw "Service $name exited (status: $run_status, re-starts: $restarts)..."
   restarts=$(( restarts + 1 ))
   echo "$restarts" >"$restarts_file"
 elif ! run_time_sufficient; then
-  logw "Service $name exited cleanly, but only ran for ${service_run_time}s (failed starts: $restarts)..."
+  logw "Service $name exited cleanly, but only ran for ${service_run_time}s (re-starts: $restarts)..."
   restarts=$(( restarts + 1 ))
   echo "$restarts" >"$restarts_file"
 else
@@ -56,6 +56,6 @@ fi
 if [[ "$restarts" -ge "$failed_restarts" ]]; then
   loge --sbp "Stopping service $name after $restarts failed restarts..."
   sv down "/var/service/$name"
+else
+  sleep "$restart_sleep_time"
 fi
-
-sleep "$restart_sleep_time"
