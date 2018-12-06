@@ -66,8 +66,9 @@ _DEFINE_HELPER_VAR(ssize_t, size_t);
 
 /* ssize_t -> int */
 
-#define CHECK_SSIZET_TO_INT(var) (\
-    _CHECK_CAST_UNSIGNED(var, ssize_t, int, INT_MAX), _CHECK_CAST_UNSIGNED_MIN(var, ssize_t, int, INT_MIN))
+#define CHECK_SSIZET_TO_INT(var)                     \
+  (_CHECK_CAST_UNSIGNED(var, ssize_t, int, INT_MAX), \
+   _CHECK_CAST_UNSIGNED_MIN(var, ssize_t, int, INT_MIN))
 
 _DEFINE_HELPER_VAR(ssize_t, int);
 
