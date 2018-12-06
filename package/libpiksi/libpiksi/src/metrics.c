@@ -237,8 +237,7 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
     return METRICS_STATUS_TOO_MANY_METRICS;
   }
 
-  size_t count_prev = metrics->count++;
-  return sizet_to_ssizet(count_prev);
+  return sizet_to_ssizet(metrics_count);
 }
 
 void pk_metrics_flush(const pk_metrics_t *metrics)
