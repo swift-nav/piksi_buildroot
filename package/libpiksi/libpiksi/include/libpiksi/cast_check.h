@@ -22,18 +22,21 @@
 
 typedef unsigned long unsigned_long;
 
-#define _CC_CONCAT_(x, y) x##y
+#define _CC_UNLIKELY(x) __builtin_expect((x), 0)
 
-#define _CC_CONCAT(x, y) _CC_CONCAT_(x, y)
+#define _CC_CONCAT0(x, y) x##y
+
+#define _CC_CONCAT(x, y) _CC_CONCAT0(x, y)
 
 #define _CHECK_CAST_SIGNED(Value, FromType, ToType) \
-  if (Value < 0) assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
+  if (_CC_UNLIKELY(Value < 0)) assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
 
 #define _CHECK_CAST_UNSIGNED(Value, FromType, ToType, Max) \
-  if (Value > (FromType)Max) assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
+  if (_CC_UNLIKELY(Value > (FromType)Max)) assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
 
 #define _CHECK_CAST_UNSIGNED_MIN(Value, FromType, ToType, Min) \
-  if (Value < 0 && Value < (FromType)Min) assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
+  if (_CC_UNLIKELY(Value < 0 && Value < (FromType)Min))        \
+  assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
 
 #define _DEFINE_HELPER_VAR(FromType, ToType) \
   static const bool INVALID_CAST_FROM_##FromType##_TO_##ToType __attribute__((unused)) = false
@@ -136,9 +139,9 @@ _DEFINE_HELPER_VAR(unsigned_long, int);
 
 #define ULONG_TO_INT(Value) ((int)(Value))
 
-#define _ulong_to_int(Expr, Var)                                                                           \
-  ({                                                                                                       \
-    unsigned long Var = Expr;                                                                              \
+#define _ulong_to_int(Expr, Var)                 \
+  ({                                             \
+    unsigned long Var = Expr;                    \
     CHECK_ULONG_TO_INT(Var); ULONG_TO_INT(Var)); \
   })
 
