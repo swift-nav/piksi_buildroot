@@ -12,7 +12,7 @@ start() {
 }
 
 stop() {
-  logi --sbp "system rebooting"
+  logi --sbp "System rebooting..."
 }
 
 . /etc/init.d/template_command.inc.sh
