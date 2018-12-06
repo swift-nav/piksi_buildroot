@@ -156,7 +156,11 @@ void pk_metrics_destroy(pk_metrics_t **metrics_loc)
   pk_metrics_t *metrics = *metrics_loc;
 
   for (size_t idx = 0; idx < metrics->count; idx++) {
+
+    if (metrics->descriptors[idx].stream == NULL) continue;
+
     fclose(metrics->descriptors[idx].stream);
+    metrics->descriptors[idx].stream = NULL;
   }
 
   free(metrics);
@@ -233,7 +237,8 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
     return METRICS_STATUS_TOO_MANY_METRICS;
   }
 
-  return sizet_to_ssizet(metrics->count++);
+  size_t count_prev = metrics->count++;
+  return sizet_to_ssizet(count_prev);
 }
 
 void pk_metrics_flush(const pk_metrics_t *metrics)

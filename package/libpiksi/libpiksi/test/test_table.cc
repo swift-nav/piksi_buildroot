@@ -36,6 +36,7 @@ typedef struct foreach_s {
 
 bool foreach_key(table_t *table, const char *key, size_t index, void *context)
 {
+  (void) index;
   foreach_t *foreach = (foreach_t *)context;
 
   EXPECT_NE(table, nullptr);

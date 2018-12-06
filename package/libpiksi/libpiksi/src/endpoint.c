@@ -27,6 +27,7 @@
 
 #include <linux/sockios.h>
 
+#include <libpiksi/cast_check.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/metrics.h>
 #include <libpiksi/util.h>
@@ -174,9 +175,9 @@ static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_
 
 NESTED_FN_TYPEDEF(ssize_t, read_handler_fn_t, client_context_t *client_ctx, void *ctx);
 
-static int read_and_receive_common(pk_endpoint_t *pk_ept,
-                                   read_handler_fn_t read_handler,
-                                   void *ctx);
+static ssize_t read_and_receive_common(pk_endpoint_t *pk_ept,
+                                       read_handler_fn_t read_handler,
+                                       void *ctx);
 
 
 static pk_endpoint_t *create_impl(const char *endpoint,
@@ -351,10 +352,10 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
     return recv_impl(client_ctx, buffer, length_loc);
   });
 
-  int rc = read_and_receive_common(pk_ept, read_handler, &length);
+  ssize_t rc = read_and_receive_common(pk_ept, read_handler, &length);
   if (rc < 0) return rc;
 
-  return (ssize_t)length;
+  return sizet_to_ssizet(length);
 }
 
 /**********************************************************************/
@@ -371,7 +372,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
     return 0;
   });
 
-  return read_and_receive_common(pk_ept, read_handler, context);
+  return ssizet_to_int(read_and_receive_common(pk_ept, read_handler, context));
 }
 
 /**********************************************************************/
@@ -603,7 +604,7 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
                      ctx->node);
 
   int err = 0;
-  int length = 0;
+  ssize_t length = 0;
 
   struct iovec iov[1] = {0};
   struct msghdr msg = {0};
@@ -698,7 +699,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
   while (1) {
 
-    int written = sendmsg(ctx->handle, &msg, 0);
+    ssize_t written = sendmsg(ctx->handle, &msg, 0);
     int sendmsg_error = errno;
 
     if (written != -1) {
@@ -943,11 +944,11 @@ static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_
   return true;
 }
 
-static int read_and_receive_common(pk_endpoint_t *pk_ept,
-                                   read_handler_fn_t read_handler,
-                                   void *ctx_in)
+static ssize_t read_and_receive_common(pk_endpoint_t *pk_ept,
+                                       read_handler_fn_t read_handler,
+                                       void *ctx_in)
 {
-  int rc = 0;
+  ssize_t rc = 0;
 
   if (!valid_socket_type_for_read(pk_ept)) {
     PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
@@ -1050,8 +1051,9 @@ static pk_endpoint_t *create_impl(const char *endpoint,
       goto failure;
     }
   } break;
+  case PK_ENDPOINT_INVALID:
   default: {
-    piksi_log(LOG_ERR, "Unsupported endpoint type");
+    piksi_log(LOG_ERR, "Unsupported endpoint type: %d", pk_ept->type);
     goto failure;
   } break;
   }

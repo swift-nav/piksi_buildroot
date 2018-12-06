@@ -40,6 +40,7 @@ typedef struct pk_endpoint_s pk_endpoint_t;
  * @brief   Endpoint types supported
  */
 typedef enum {
+  PK_ENDPOINT_INVALID = -1,
   PK_ENDPOINT_PUB,
   PK_ENDPOINT_PUB_SERVER,
   PK_ENDPOINT_SUB,

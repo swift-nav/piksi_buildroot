@@ -827,7 +827,7 @@ static pipeline_t *pipeline_wait(pipeline_t *r)
 
   while (output_size > total) {
     ssize_t read_result = read(out_fd, output + total, output_size - total);
-    if (read_result < 0) break;
+    if (read_result <= 0) break;
     size_t read_count = ssizet_to_sizet(read_result);
     total += read_count;
   }
@@ -910,7 +910,7 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
     return;
   }
 
-#define ASSERT_FAIL_MSG "ASSERT FAILURE: %s: %s (%s:%d), %zu backtrace entries:"
+#define ASSERT_FAIL_MSG "ASSERT FAILURE: %s: %s (%s:%d), %d backtrace entries:"
 
   piksi_log(LOG_ERR, ASSERT_FAIL_MSG, func, assert_str, file, lineno, size);
   for (i = 0; i < size; i++) {

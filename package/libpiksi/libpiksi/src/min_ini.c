@@ -25,6 +25,7 @@
 
 #pragma GCC diagnostic ignored "-Wchar-subscripts"
 #pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wconversion"
 
 #if (defined _UNICODE || defined __UNICODE__ || defined UNICODE) && !defined MININI_ANSI
 # if !defined UNICODE   /* for Windows */

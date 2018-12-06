@@ -447,6 +447,11 @@ bool pk_settings_loop(const char *metrics_ident,
                       pk_settings_term_fn do_handle_term,
                       pk_settings_child_fn do_handle_child)
 {
+  bool ret = true;
+
+  pk_endpoint_t *rep_socket = NULL;
+  control_command_t *cmd_info = NULL;
+
   piksi_log(LOG_INFO, "Starting daemon mode for settings...");
 
   pk_settings_term_handler = do_handle_term;
@@ -459,11 +464,6 @@ bool pk_settings_loop(const char *metrics_ident,
 
   /* Install our own signal handlers */
   setup_signal_handlers();
-
-  pk_endpoint_t *rep_socket = NULL;
-  control_command_t *cmd_info = NULL;
-
-  bool ret = true;
 
   /* Set up settings */
   pk_settings_ctx_t *settings_ctx = pk_settings_create(metrics_ident);
@@ -551,10 +551,10 @@ int pk_settings_loop_send_command(const char *metrics_ident,
                          .get());
   CHECK_PK_EPT_ERR(req_socket == NULL, pk_endpoint_create);
 
-  int ret = 0;
+  ssize_t ret = 0;
   u8 result = 0;
 
-  ret = pk_endpoint_send(req_socket, (u8 *)command, strlen(command));
+  ret = (ssize_t)pk_endpoint_send(req_socket, (u8 *)command, strlen(command));
   CHECK_PK_EPT_ERR(ret < 0, pk_endpoint_send);
 
   ret = pk_endpoint_read(req_socket, &result, sizeof(result));
@@ -562,8 +562,8 @@ int pk_settings_loop_send_command(const char *metrics_ident,
 
 #define CMD_RESULT_MSG "Result of '%s' command: %hhu"
 
-  piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, ret);
-  printf(CMD_RESULT_MSG "\n", command_description, ret);
+  piksi_log(LOG_INFO, CMD_RESULT_MSG, command_description, result);
+  printf(CMD_RESULT_MSG "\n", command_description, result);
 
   pk_endpoint_destroy(&req_socket);
 

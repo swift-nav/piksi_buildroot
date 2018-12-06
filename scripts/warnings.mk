@@ -19,3 +19,19 @@ PBR_CC_WARNINGS = \
 	-Wextra \
 	-Wno-strict-prototypes \
 	-Werror
+
+PBR_CXX_WARNINGS = \
+	-Wconversion \
+	-Wshadow \
+	-Wswitch-default \
+	-Wswitch-enum \
+	-Wundef -Wuninitialized \
+	-Wpointer-arith \
+	-Wstrict-prototypes \
+	-Wcast-align \
+	-Wformat=2 \
+	-Wredundant-decls \
+	-Wformat-security \
+	-Wall \
+	-Wextra \
+	-Werror

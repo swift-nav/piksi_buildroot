@@ -28,6 +28,9 @@ typedef unsigned long unsigned_long;
 #define _CHECK_CAST_UNSIGNED(var, FromType, ToType, Max) \
   assert((var > (FromType)Max) ? ((INVALID_CAST_FROM_##FromType##_TO_##ToType)) : true)
 
+#define _CHECK_CAST_UNSIGNED_MIN(var, FromType, ToType, Min) \
+  assert((var < 0 && var < (FromType)Min) ? ((INVALID_CAST_FROM_##FromType##_TO_##ToType)) : true)
+
 #define _DEFINE_HELPER_VAR(FromType, ToType) \
   static const bool INVALID_CAST_FROM_##FromType##_TO_##ToType __attribute__((unused)) = false;
 
@@ -60,6 +63,17 @@ _DEFINE_HELPER_VAR(ssize_t, size_t);
 #define SSIZET_TO_SIZET(var) ((size_t)(var))
 
 #define ssizet_to_sizet(s) (CHECK_SSIZET_TO_SIZET(s), SSIZET_TO_SIZET(s))
+
+/* ssize_t -> int */
+
+#define CHECK_SSIZET_TO_INT(var) (\
+    _CHECK_CAST_UNSIGNED(var, ssize_t, int, INT_MAX), _CHECK_CAST_UNSIGNED_MIN(var, ssize_t, int, INT_MIN))
+
+_DEFINE_HELPER_VAR(ssize_t, int);
+
+#define SSIZET_TO_INT(var) ((int)(var))
+
+#define ssizet_to_int(s) (CHECK_SSIZET_TO_INT(s), SSIZET_TO_INT(s))
 
 /* unsigned long -> uint16_t */
 

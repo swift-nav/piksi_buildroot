@@ -27,7 +27,7 @@ TEST_F(LibpiksiTests, versionTests)
 {
   // Version file not present
   {
-    piksi_version_t ver = {0};
+    piksi_version_t ver = { 0, 0, 0, "" };
     EXPECT_NE(0, version_current_get(&ver));
   }
 
@@ -44,7 +44,7 @@ TEST_F(LibpiksiTests, versionTests)
 
   // Version file present
   {
-    piksi_version_t ver = {0};
+    piksi_version_t ver = { 0, 0, 0, "" };
     EXPECT_EQ(0, version_current_get(&ver));
 
     char ver_str[16] = {0};
@@ -96,8 +96,8 @@ TEST_F(LibpiksiTests, versionTests)
 
   // Version parsing
   {
-    piksi_version_t ver = {0};
-    piksi_version_t ver_cmp = {0};
+    piksi_version_t ver = { 0, 0, 0, "" };
+    piksi_version_t ver_cmp = { 0, 0, 0, "" }; 
 
     // Valid
     EXPECT_EQ(0, version_parse_str(test_str, &ver));
