@@ -1,0 +1,61 @@
+#!/bin/ash
+# shellcheck disable=SC1091,SC2169
+
+set -e
+
+name=$1             ; shift
+failed_restarts=$1  ; shift
+run_status=$1       ; shift
+
+# How long to sleep in between service restarts
+restart_sleep_time=0.5
+
+# How long (in seconds) that the service must've been active to be considered "not failed"
+non_failed_run_time=60
+
+export log_tag=piksi-runsv
+. /etc/init.d/logging.sh
+
+restarts_file="/var/run/${name}.restarts"
+started_file="/var/run/${name}.started"
+
+if [[ -f "$restarts_file" ]]; then
+  restarts=$(cat "$restarts_file")
+else
+  restarts=0
+fi
+
+started_time=$(cut -f1 -d' ' <"$started_file")
+current_time=$(cut -f1 -d' ' </proc/uptime)
+
+# Strip any decimal portion of the number
+started_time=${started_time/.*}
+current_time=${current_time/.*}
+
+service_run_time=$(( current_time - started_time ))
+
+run_time_sufficient() {
+  [[ "$service_run_time" -gt "$non_failed_run_time" ]]
+}
+
+if [[ "$run_status" -ne 0 ]] && ! run_time_sufficient; then
+  # If a service repeatedly exists with non-zero exist status and runs
+  #   for less than X seconds, then it's considered failed.
+  logw "Service $name exited (status: $run_status, re-starts: $restarts)..."
+  restarts=$(( restarts + 1 ))
+  echo "$restarts" >"$restarts_file"
+elif ! run_time_sufficient; then
+  logw "Service $name exited cleanly, but only ran for ${service_run_time}s (re-starts: $restarts)..."
+  restarts=$(( restarts + 1 ))
+  echo "$restarts" >"$restarts_file"
+else
+  logi "Service $name exited cleanly"
+  rm "$restarts_file"
+fi
+
+if [[ "$restarts" -ge "$failed_restarts" ]]; then
+  loge --sbp "Stopping service $name after $restarts failed restarts..."
+  sv down "/var/service/$name"
+else
+  sleep "$restart_sleep_time"
+fi
