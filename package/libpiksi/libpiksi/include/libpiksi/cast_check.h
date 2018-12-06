@@ -22,139 +22,170 @@
 
 typedef unsigned long unsigned_long;
 
-#define _CHECK_CAST_SIGNED(var, FromType, ToType) \
-  assert((var < 0) ? ((INVALID_CAST_FROM_##FromType##_TO_##ToType)) : true)
+#define _CC_CONCAT_(x,y) x##y
 
-#define _CHECK_CAST_UNSIGNED(var, FromType, ToType, Max) \
-  assert((var > (FromType)Max) ? ((INVALID_CAST_FROM_##FromType##_TO_##ToType)) : true)
+#define _CC_CONCAT(x,y) _CC_CONCAT_(x,y)
 
-#define _CHECK_CAST_UNSIGNED_MIN(var, FromType, ToType, Min) \
-  assert((var < 0 && var < (FromType)Min) ? ((INVALID_CAST_FROM_##FromType##_TO_##ToType)) : true)
+#define _CHECK_CAST_SIGNED(Value, FromType, ToType) \
+  if (Value < 0) assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
+
+#define _CHECK_CAST_UNSIGNED(Value, FromType, ToType, Max) \
+  if (Value > (FromType)Max) assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
+
+#define _CHECK_CAST_UNSIGNED_MIN(Value, FromType, ToType, Min) \
+  if (Value < 0 && Value < (FromType)Min) assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
 
 #define _DEFINE_HELPER_VAR(FromType, ToType) \
-  static const bool INVALID_CAST_FROM_##FromType##_TO_##ToType __attribute__((unused)) = false;
+  static const bool INVALID_CAST_FROM_##FromType##_TO_##ToType __attribute__((unused)) = false
 
 /* size_t -> ssize_t */
 
-#define CHECK_SIZET_TO_SSIZET(var) _CHECK_CAST_UNSIGNED(var, size_t, ssize_t, SSIZE_MAX)
+#define CHECK_SIZET_TO_SSIZET(Value) _CHECK_CAST_UNSIGNED(Value, size_t, ssize_t, SSIZE_MAX)
 
 _DEFINE_HELPER_VAR(size_t, ssize_t);
 
-#define SIZET_TO_SSIZET(var) ((ssize_t)(var))
+#define SIZET_TO_SSIZET(Value) ((ssize_t)(Value))
 
-#define sizet_to_ssizet(s) (CHECK_SIZET_TO_SSIZET(s), SIZET_TO_SSIZET(s))
+#define _sizet_to_ssizet(Expr, Var) ({ size_t Var = Expr; CHECK_SIZET_TO_SSIZET(Var); SIZET_TO_SSIZET(Var); })
+
+#define sizet_to_ssizet(Expr) _sizet_to_ssizet(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* size_t -> int */
 
-#define CHECK_SIZET_TO_INT(var) _CHECK_CAST_UNSIGNED(var, size_t, int, INT_MAX)
+#define CHECK_SIZET_TO_INT(Value) _CHECK_CAST_UNSIGNED(Value, size_t, int, INT_MAX)
 
 _DEFINE_HELPER_VAR(size_t, int);
 
-#define SIZET_TO_INT(var) ((int)(var))
+#define SIZET_TO_INT(Value) ((int)(Value))
 
-#define sizet_to_int(s) (CHECK_SIZET_TO_INT(s), SIZET_TO_INT(s))
+#define _sizet_to_int(Expr, Var) ({ size_t Var = Expr; CHECK_SIZET_TO_INT(Var); SIZET_TO_INT(Var); })
+
+#define sizet_to_int(Expr) _sizet_to_int(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* ssize_t -> size_t */
 
-#define CHECK_SSIZET_TO_SIZET(var) _CHECK_CAST_SIGNED(var, ssize_t, size_t)
+#define CHECK_SSIZET_TO_SIZET(Value) _CHECK_CAST_SIGNED(Value, ssize_t, size_t)
 
 _DEFINE_HELPER_VAR(ssize_t, size_t);
 
-#define SSIZET_TO_SIZET(var) ((size_t)(var))
+#define SSIZET_TO_SIZET(Value) ((size_t)(Value))
 
-#define ssizet_to_sizet(s) (CHECK_SSIZET_TO_SIZET(s), SSIZET_TO_SIZET(s))
+#define _ssizet_to_sizet(Expr, Var) ({ ssize_t Var = Expr; CHECK_SSIZET_TO_SIZET(Var); SSIZET_TO_SIZET(Var); })
+
+#define ssizet_to_sizet(Expr) _ssizet_to_sizet(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* ssize_t -> int */
 
-#define CHECK_SSIZET_TO_INT(var)                     \
-  (_CHECK_CAST_UNSIGNED(var, ssize_t, int, INT_MAX), \
-   _CHECK_CAST_UNSIGNED_MIN(var, ssize_t, int, INT_MIN))
-
 _DEFINE_HELPER_VAR(ssize_t, int);
 
-#define SSIZET_TO_INT(var) ((int)(var))
+#define SSIZET_TO_INT(Value) ((int)(Value))
 
-#define ssizet_to_int(s) (CHECK_SSIZET_TO_INT(s), SSIZET_TO_INT(s))
+#define CHECK_SSIZET_TO_INT(Value) ({ \
+    _CHECK_CAST_UNSIGNED(Value, ssize_t, int, INT_MAX); \
+    _CHECK_CAST_UNSIGNED_MIN(Value, ssize_t, int, INT_MIN); \
+  })
+
+#define _ssizet_to_int(Expr, Var) ({ ssize_t Var = Expr; CHECK_SSIZET_TO_INT(Var); SSIZET_TO_INT(Var); })
+
+#define ssizet_to_int(Expr) _ssizet_to_int(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* unsigned long -> uint16_t */
 
-#define CHECK_ULONG_TO_UINT16(var) _CHECK_CAST_UNSIGNED(var, unsigned_long, uint16_t, UINT16_MAX)
+#define CHECK_ULONG_TO_UINT16(Value) _CHECK_CAST_UNSIGNED(Value, unsigned_long, uint16_t, UINT16_MAX)
 
 _DEFINE_HELPER_VAR(unsigned_long, uint16_t);
 
-#define ULONG_TO_UINT16(var) ((uint16_t)(var))
+#define ULONG_TO_UINT16(Value) ((uint16_t)(Value))
 
-#define ulong_to_uint16(s) (CHECK_ULONG_TO_UINT16(s), ULONG_TO_UINT16(s))
+#define _ulong_to_uint16(Expr, Var) ({ unsigned long Var = Expr; CHECK_ULONG_TO_UINT16(Var); ULONG_TO_UINT16(Var); })
+
+#define ulong_to_uint16(Expr) _ulong_to_uint16(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* unsigned long -> int */
 
-#define CHECK_ULONG_TO_INT(var) _CHECK_CAST_UNSIGNED(var, unsigned_long, int, INT_MAX)
+#define CHECK_ULONG_TO_INT(Value) _CHECK_CAST_UNSIGNED(Value, unsigned_long, int, INT_MAX)
 
 _DEFINE_HELPER_VAR(unsigned_long, int);
 
-#define ULONG_TO_INT(var) ((int)(var))
+#define ULONG_TO_INT(Value) ((int)(Value))
 
-#define ulong_to_int(s) (CHECK_ULONG_TO_INT(s), ULONG_TO_INT(s))
+#define _ulong_to_int(Expr, Var) ({ unsigned long Var = Expr; CHECK_ULONG_TO_INT(Var); ULONG_TO_INT(Var)); })
+
+#define ulong_to_int(Expr) _ulong_to_int(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* size_t -> uint32_t */
 
-#define CHECK_SIZET_TO_UINT32(var) _CHECK_CAST_UNSIGNED(var, size_t, uint32_t, UINT32_MAX)
+#define CHECK_SIZET_TO_UINT32(Value) _CHECK_CAST_UNSIGNED(Value, size_t, uint32_t, UINT32_MAX)
 
-#define SIZET_TO_UINT32(var) ((uint32_t)(var))
+#define SIZET_TO_UINT32(Value) ((uint32_t)(Value))
 
 _DEFINE_HELPER_VAR(size_t, uint32_t);
 
-#define sizet_to_uint32(s) (CHECK_SIZET_TO_UINT32(s), SIZET_TO_UINT32(s))
+#define _sizet_to_uint32(Expr, Var) ({ size_t Var = Expr; CHECK_SIZET_TO_UINT32(Var); SIZET_TO_UINT32(Var); })
+
+#define sizet_to_uint32(Expr) _sizet_to_uint32(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* int -> size_t */
 
-#define CHECK_INT_TO_SIZET(var) _CHECK_CAST_SIGNED(var, int, size_t)
+#define CHECK_INT_TO_SIZET(Value) _CHECK_CAST_SIGNED(Value, int, size_t)
 
 _DEFINE_HELPER_VAR(int, size_t);
 
-#define INT_TO_SIZET(var) ((size_t)(var))
+#define INT_TO_SIZET(Value) ((size_t)(Value))
 
-#define int_to_sizet(s) (CHECK_INT_TO_SIZET(s), INT_TO_SIZET(s))
+#define _int_to_sizet(Expr, Var) ({ int Var = Expr; CHECK_INT_TO_SIZET(Var); INT_TO_SIZET(Var); })
+
+#define int_to_sizet(Expr) _int_to_sizet(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* size_t -> u8 */
 
-#define CHECK_SIZET_TO_UINT8(var) _CHECK_CAST_UNSIGNED(var, size_t, uint8_t, UINT8_MAX)
+#define CHECK_SIZET_TO_UINT8(Value) _CHECK_CAST_UNSIGNED(Value, size_t, uint8_t, UINT8_MAX)
 
-#define SIZET_TO_UINT8(var) ((uint8_t)(var))
+#define SIZET_TO_UINT8(Value) ((uint8_t)(Value))
 
 _DEFINE_HELPER_VAR(size_t, uint8_t);
 
-#define sizet_to_uint8(s) (CHECK_SIZET_TO_UINT8(s), SIZET_TO_UINT8(s))
+#define _sizet_to_uint8(Expr, Var) ({ size_t Var = Expr; CHECK_SIZET_TO_UINT8(Var); SIZET_TO_UINT8(Var); })
+
+#define sizet_to_uint8(Expr) _sizet_to_uint8(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* int -> uint8_t */
 
-#define CHECK_INT_TO_UINT8(var) \
-  (_CHECK_CAST_SIGNED(var, int, uint8_t), _CHECK_CAST_UNSIGNED(var, int, uint8_t, UINT8_MAX))
+#define CHECK_INT_TO_UINT8(Value) ({ \
+    _CHECK_CAST_SIGNED(Value, int, uint8_t); \
+    _CHECK_CAST_UNSIGNED(Value, int, uint8_t, UINT8_MAX); \
+  })
 
 _DEFINE_HELPER_VAR(int, uint8_t);
 
-#define INT_TO_UINT8(var) ((uint8_t)(var))
+#define INT_TO_UINT8(Value) ((uint8_t)(Value))
 
-#define int_to_uint8(s) (CHECK_INT_TO_UINT8(s), INT_TO_UINT8(s))
+#define _int_to_uint8(Expr, Var) ({ int Var = Expr; CHECK_INT_TO_UINT8(Var); INT_TO_UINT8(Var); })
+
+#define int_to_uint8(Expr) _int_to_uint8(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* int -> uint32_t */
 
-#define CHECK_INT_TO_UINT32(var) _CHECK_CAST_SIGNED(var, int, uint32_t)
+#define CHECK_INT_TO_UINT32(Value) _CHECK_CAST_SIGNED(Value, int, uint32_t)
 
 _DEFINE_HELPER_VAR(int, uint32_t);
 
-#define INT_TO_UINT32(var) ((uint32_t)(var))
+#define INT_TO_UINT32(Value) ((uint32_t)(Value))
 
-#define int_to_uint32(s) (CHECK_INT_TO_UINT32(s), INT_TO_UINT32(s))
+#define _int_to_uint32(Expr, Var) ({ int Var = Expr; CHECK_INT_TO_UINT32(Var); INT_TO_UINT32(Var); })
+
+#define int_to_uint32(Expr) _int_to_uint32(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* uint32_t -> int32_t */
 
-#define CHECK_UINT32_TO_INT32(var) _CHECK_CAST_UNSIGNED(var, uint32_t, int32_t, INT32_MAX)
+#define CHECK_UINT32_TO_INT32(Value) _CHECK_CAST_UNSIGNED(Value, uint32_t, int32_t, INT32_MAX)
 
 _DEFINE_HELPER_VAR(uint32_t, int32_t);
 
-#define UINT32_TO_INT32(var) ((int32_t)(var))
+#define UINT32_TO_INT32(Value) ((int32_t)(Value))
 
-#define uint32_to_int32(s) (CHECK_UINT32_TO_INT32(s), UINT32_TO_INT32(s))
+#define _uint32_to_int32(Expr, Var) ({ uint32_t Var = Expr; CHECK_UINT32_TO_INT32(Var); UINT32_TO_INT32(Var); })
+
+#define uint32_to_int32(Expr) _uint32_to_int32(Expr, _CC_CONCAT(r, __COUNTER__))
 
 #endif
