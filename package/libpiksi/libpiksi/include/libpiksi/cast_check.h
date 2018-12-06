@@ -22,9 +22,9 @@
 
 typedef unsigned long unsigned_long;
 
-#define _CC_CONCAT_(x,y) x##y
+#define _CC_CONCAT_(x, y) x##y
 
-#define _CC_CONCAT(x,y) _CC_CONCAT_(x,y)
+#define _CC_CONCAT(x, y) _CC_CONCAT_(x, y)
 
 #define _CHECK_CAST_SIGNED(Value, FromType, ToType) \
   if (Value < 0) assert(INVALID_CAST_FROM_##FromType##_TO_##ToType)
@@ -46,7 +46,12 @@ _DEFINE_HELPER_VAR(size_t, ssize_t);
 
 #define SIZET_TO_SSIZET(Value) ((ssize_t)(Value))
 
-#define _sizet_to_ssizet(Expr, Var) ({ size_t Var = Expr; CHECK_SIZET_TO_SSIZET(Var); SIZET_TO_SSIZET(Var); })
+#define _sizet_to_ssizet(Expr, Var) \
+  ({                                \
+    size_t Var = Expr;              \
+    CHECK_SIZET_TO_SSIZET(Var);     \
+    SIZET_TO_SSIZET(Var);           \
+  })
 
 #define sizet_to_ssizet(Expr) _sizet_to_ssizet(Expr, _CC_CONCAT(r, __COUNTER__))
 
@@ -58,7 +63,12 @@ _DEFINE_HELPER_VAR(size_t, int);
 
 #define SIZET_TO_INT(Value) ((int)(Value))
 
-#define _sizet_to_int(Expr, Var) ({ size_t Var = Expr; CHECK_SIZET_TO_INT(Var); SIZET_TO_INT(Var); })
+#define _sizet_to_int(Expr, Var) \
+  ({                             \
+    size_t Var = Expr;           \
+    CHECK_SIZET_TO_INT(Var);     \
+    SIZET_TO_INT(Var);           \
+  })
 
 #define sizet_to_int(Expr) _sizet_to_int(Expr, _CC_CONCAT(r, __COUNTER__))
 
@@ -70,7 +80,12 @@ _DEFINE_HELPER_VAR(ssize_t, size_t);
 
 #define SSIZET_TO_SIZET(Value) ((size_t)(Value))
 
-#define _ssizet_to_sizet(Expr, Var) ({ ssize_t Var = Expr; CHECK_SSIZET_TO_SIZET(Var); SSIZET_TO_SIZET(Var); })
+#define _ssizet_to_sizet(Expr, Var) \
+  ({                                \
+    ssize_t Var = Expr;             \
+    CHECK_SSIZET_TO_SIZET(Var);     \
+    SSIZET_TO_SIZET(Var);           \
+  })
 
 #define ssizet_to_sizet(Expr) _ssizet_to_sizet(Expr, _CC_CONCAT(r, __COUNTER__))
 
@@ -80,24 +95,36 @@ _DEFINE_HELPER_VAR(ssize_t, int);
 
 #define SSIZET_TO_INT(Value) ((int)(Value))
 
-#define CHECK_SSIZET_TO_INT(Value) ({ \
-    _CHECK_CAST_UNSIGNED(Value, ssize_t, int, INT_MAX); \
+#define CHECK_SSIZET_TO_INT(Value)                          \
+  ({                                                        \
+    _CHECK_CAST_UNSIGNED(Value, ssize_t, int, INT_MAX);     \
     _CHECK_CAST_UNSIGNED_MIN(Value, ssize_t, int, INT_MIN); \
   })
 
-#define _ssizet_to_int(Expr, Var) ({ ssize_t Var = Expr; CHECK_SSIZET_TO_INT(Var); SSIZET_TO_INT(Var); })
+#define _ssizet_to_int(Expr, Var) \
+  ({                              \
+    ssize_t Var = Expr;           \
+    CHECK_SSIZET_TO_INT(Var);     \
+    SSIZET_TO_INT(Var);           \
+  })
 
 #define ssizet_to_int(Expr) _ssizet_to_int(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* unsigned long -> uint16_t */
 
-#define CHECK_ULONG_TO_UINT16(Value) _CHECK_CAST_UNSIGNED(Value, unsigned_long, uint16_t, UINT16_MAX)
+#define CHECK_ULONG_TO_UINT16(Value) \
+  _CHECK_CAST_UNSIGNED(Value, unsigned_long, uint16_t, UINT16_MAX)
 
 _DEFINE_HELPER_VAR(unsigned_long, uint16_t);
 
 #define ULONG_TO_UINT16(Value) ((uint16_t)(Value))
 
-#define _ulong_to_uint16(Expr, Var) ({ unsigned long Var = Expr; CHECK_ULONG_TO_UINT16(Var); ULONG_TO_UINT16(Var); })
+#define _ulong_to_uint16(Expr, Var) \
+  ({                                \
+    unsigned long Var = Expr;       \
+    CHECK_ULONG_TO_UINT16(Var);     \
+    ULONG_TO_UINT16(Var);           \
+  })
 
 #define ulong_to_uint16(Expr) _ulong_to_uint16(Expr, _CC_CONCAT(r, __COUNTER__))
 
@@ -109,7 +136,11 @@ _DEFINE_HELPER_VAR(unsigned_long, int);
 
 #define ULONG_TO_INT(Value) ((int)(Value))
 
-#define _ulong_to_int(Expr, Var) ({ unsigned long Var = Expr; CHECK_ULONG_TO_INT(Var); ULONG_TO_INT(Var)); })
+#define _ulong_to_int(Expr, Var)                                                                           \
+  ({                                                                                                       \
+    unsigned long Var = Expr;                                                                              \
+    CHECK_ULONG_TO_INT(Var); ULONG_TO_INT(Var)); \
+  })
 
 #define ulong_to_int(Expr) _ulong_to_int(Expr, _CC_CONCAT(r, __COUNTER__))
 
@@ -121,7 +152,12 @@ _DEFINE_HELPER_VAR(unsigned_long, int);
 
 _DEFINE_HELPER_VAR(size_t, uint32_t);
 
-#define _sizet_to_uint32(Expr, Var) ({ size_t Var = Expr; CHECK_SIZET_TO_UINT32(Var); SIZET_TO_UINT32(Var); })
+#define _sizet_to_uint32(Expr, Var) \
+  ({                                \
+    size_t Var = Expr;              \
+    CHECK_SIZET_TO_UINT32(Var);     \
+    SIZET_TO_UINT32(Var);           \
+  })
 
 #define sizet_to_uint32(Expr) _sizet_to_uint32(Expr, _CC_CONCAT(r, __COUNTER__))
 
@@ -133,7 +169,12 @@ _DEFINE_HELPER_VAR(int, size_t);
 
 #define INT_TO_SIZET(Value) ((size_t)(Value))
 
-#define _int_to_sizet(Expr, Var) ({ int Var = Expr; CHECK_INT_TO_SIZET(Var); INT_TO_SIZET(Var); })
+#define _int_to_sizet(Expr, Var) \
+  ({                             \
+    int Var = Expr;              \
+    CHECK_INT_TO_SIZET(Var);     \
+    INT_TO_SIZET(Var);           \
+  })
 
 #define int_to_sizet(Expr) _int_to_sizet(Expr, _CC_CONCAT(r, __COUNTER__))
 
@@ -145,14 +186,20 @@ _DEFINE_HELPER_VAR(int, size_t);
 
 _DEFINE_HELPER_VAR(size_t, uint8_t);
 
-#define _sizet_to_uint8(Expr, Var) ({ size_t Var = Expr; CHECK_SIZET_TO_UINT8(Var); SIZET_TO_UINT8(Var); })
+#define _sizet_to_uint8(Expr, Var) \
+  ({                               \
+    size_t Var = Expr;             \
+    CHECK_SIZET_TO_UINT8(Var);     \
+    SIZET_TO_UINT8(Var);           \
+  })
 
 #define sizet_to_uint8(Expr) _sizet_to_uint8(Expr, _CC_CONCAT(r, __COUNTER__))
 
 /* int -> uint8_t */
 
-#define CHECK_INT_TO_UINT8(Value) ({ \
-    _CHECK_CAST_SIGNED(Value, int, uint8_t); \
+#define CHECK_INT_TO_UINT8(Value)                         \
+  ({                                                      \
+    _CHECK_CAST_SIGNED(Value, int, uint8_t);              \
     _CHECK_CAST_UNSIGNED(Value, int, uint8_t, UINT8_MAX); \
   })
 
@@ -160,7 +207,12 @@ _DEFINE_HELPER_VAR(int, uint8_t);
 
 #define INT_TO_UINT8(Value) ((uint8_t)(Value))
 
-#define _int_to_uint8(Expr, Var) ({ int Var = Expr; CHECK_INT_TO_UINT8(Var); INT_TO_UINT8(Var); })
+#define _int_to_uint8(Expr, Var) \
+  ({                             \
+    int Var = Expr;              \
+    CHECK_INT_TO_UINT8(Var);     \
+    INT_TO_UINT8(Var);           \
+  })
 
 #define int_to_uint8(Expr) _int_to_uint8(Expr, _CC_CONCAT(r, __COUNTER__))
 
@@ -172,7 +224,12 @@ _DEFINE_HELPER_VAR(int, uint32_t);
 
 #define INT_TO_UINT32(Value) ((uint32_t)(Value))
 
-#define _int_to_uint32(Expr, Var) ({ int Var = Expr; CHECK_INT_TO_UINT32(Var); INT_TO_UINT32(Var); })
+#define _int_to_uint32(Expr, Var) \
+  ({                              \
+    int Var = Expr;               \
+    CHECK_INT_TO_UINT32(Var);     \
+    INT_TO_UINT32(Var);           \
+  })
 
 #define int_to_uint32(Expr) _int_to_uint32(Expr, _CC_CONCAT(r, __COUNTER__))
 
@@ -184,7 +241,12 @@ _DEFINE_HELPER_VAR(uint32_t, int32_t);
 
 #define UINT32_TO_INT32(Value) ((int32_t)(Value))
 
-#define _uint32_to_int32(Expr, Var) ({ uint32_t Var = Expr; CHECK_UINT32_TO_INT32(Var); UINT32_TO_INT32(Var); })
+#define _uint32_to_int32(Expr, Var) \
+  ({                                \
+    uint32_t Var = Expr;            \
+    CHECK_UINT32_TO_INT32(Var);     \
+    UINT32_TO_INT32(Var);           \
+  })
 
 #define uint32_to_int32(Expr) _uint32_to_int32(Expr, _CC_CONCAT(r, __COUNTER__))
 
