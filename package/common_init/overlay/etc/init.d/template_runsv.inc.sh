@@ -1,25 +1,25 @@
 #!/bin/ash
+# shellcheck disable=SC1091,SC2169
 
-# /etc/init.d template for processes
+# Template for supervised services in /etc/init.d
 
-# name=""
-# cmd=""
-# dir="/"
-# user=""
-# source template.inc.sh
+## Example init script:
+#
+#   name="foo"
+#   cmd="run_foo_svc"
+#   dir="/"
+#   user="foo_user"
+#   group="foo_group"
+#   failed_restarts=10
+#
+#   source /etc/init.d/template_runsv.inc.sh
+#
+#   setup_permissions() { ... (Optional) configure permissions for service ... }
 
-source /etc/init.d/common.sh
-
-[[ -n "$name" ]] || {
-  echo "Error: the 'name' variable must not be empty" >&2
-  exit 1
-}
+. /etc/init.d/common.sh
 
 stdout_log="/var/log/$name.log"
 stderr_log="/var/log/$name.err"
-
-tag=tmpl_runsv
-fac=daemon
 
 _setup_svdir()
 {
@@ -29,33 +29,55 @@ _setup_svdir()
 
   mkdir -p "/etc/sv/${name}/control"
 
-  if [[ -z "$user" ]]; then
-    echo "Error: the 'user' variable must not be empty"
+  if [[ -z "${name:-}" ]]; then
+    echo "Error: the 'name' variable must not be empty" >&2
     exit 1
   fi
 
-  if [[ -z "$priority" ]]; then
+  if [[ -z "${dir:-}" ]]; then
+    dir="/"
+  fi
+
+  if [[ -z "${user:-}" ]]; then
+    echo "Error: the 'user' variable must not be empty" >&2
+    exit 1
+  fi
+
+  if [[ -z "${cmd:-}" ]]; then
+    echo "Error: the 'cmd' variable must not be empty" >&2
+    exit 1
+  fi
+
+  if [[ -z "${priority:-}" ]]; then
     priority=0
   fi
 
-  if [[ -z "$group" ]]; then
+  if [[ -z "${group:-}" ]]; then
     group=$user
   fi
 
-  echo "#!/bin/ash"                                            > "/etc/sv/${name}/run"
-  echo "cd ${dir}"                                            >> "/etc/sv/${name}/run"
-  echo "echo Starting ${name}... \\"                          >> "/etc/sv/${name}/run"
-  echo "  | logger -t ${tag} -p ${fac}.info"                  >> "/etc/sv/${name}/run"
-  echo "exec nice -n $priority chpst -u $user:$group $cmd \\" >> "/etc/sv/${name}/run"
-  echo "  1>>${stdout_log} \\"                                >> "/etc/sv/${name}/run"
-  echo "  2>>${stderr_log}"                                   >> "/etc/sv/${name}/run"
+  if [[ -z "${failed_restarts:-}" ]]; then
+    failed_restarts=10
+  fi
 
-  chmod +x /etc/sv/${name}/run
+  {
+    echo "#!/bin/ash"
+    echo ""
+    echo "exec start_service \\"
+    echo "  \"$name\" \"$cmd\" \"$dir\" \"$priority\" \"$user\" \"$group\" \"$stdout_log\" \"$stderr_log\""
 
-  echo "#!/bin/ash"                                  > "/etc/sv/${name}/finish"
-  echo "echo Service ${name} exited... \\"          >> "/etc/sv/${name}/finish"
-  echo "  | logger -t ${tag} -p ${fac}.info"        >> "/etc/sv/${name}/finish"
-  echo "sleep 1"                                    >> "/etc/sv/${name}/finish"
+  } >"/etc/sv/${name}/run"
+
+  chmod +x "/etc/sv/${name}/run"
+
+  {
+    echo "#!/bin/ash"
+    echo ""
+    echo "run_status=\$1; shift"
+    echo ""
+    echo "exec service_stopped \"$name\" \"$failed_restarts\" \"\$run_status\""
+
+  } >"/etc/sv/${name}/finish"
 
   chmod +x "/etc/sv/${name}/finish"
 
@@ -74,8 +96,9 @@ do_start()
 {
   _setup_permissions
   _setup_svdir
-  configure_logrotate_file "${name}_log" $stdout_log
-  configure_logrotate_file "${name}_err" $stderr_log
+
+  configure_logrotate_file "${name}_log" "$stdout_log"
+  configure_logrotate_file "${name}_err" "$stderr_log"
 
   sv start "/var/service/${name}"
 
