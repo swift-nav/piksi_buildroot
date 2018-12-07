@@ -9,4 +9,5 @@ mkdir -p /var/run/sockets/fileio
 chmod 1777 /var/run/sockets/fileio
 mkdir -p /var/log/metrics
 chmod 1777 /var/log/metrics
+chmod 666 /dev/kmsg
 echo "denyinterfaces eth0" >> /etc/dhcpcd.conf
