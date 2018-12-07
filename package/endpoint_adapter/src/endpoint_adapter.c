@@ -113,6 +113,8 @@ static void die_error(const char *error);
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer, size_t count);
 
+int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can);
+
 bool debug = false;
 static io_mode_t io_mode = IO_INVALID;
 static endpoint_mode_t endpoint_mode = ENDPOINT_INVALID;
@@ -408,7 +410,6 @@ static int parse_options(int argc, char *argv[])
 
 static void terminate_handler(int signum)
 {
-  terminate_child_pids(signum);
   logging_deinit();
 
   /* Exit */
@@ -669,6 +670,9 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 
     return count;
 
+  } else if (handle->is_can) {
+    return can_write(handle->write_fd, buffer, count);
+
   } else {
 
     PK_METRICS_UPDATE(MR, MI.egress_write_count);
@@ -889,7 +893,17 @@ static void read_fd_cb(pk_loop_t *loop, void *handle, int status, void *context)
   io_loop_pubsub(loop, &loop_ctx.read_handle, &loop_ctx.pub_handle);
 }
 
-void io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
+int io_loop_start(int read_fd, int write_fd, bool fork_needed)
+{
+  return io_loop_run(read_fd, write_fd, fork_needed, false);
+}
+
+int io_loop_start_can(int read_fd, int write_fd, bool fork_needed)
+{
+  return io_loop_run(read_fd, write_fd, fork_needed, true);
+}
+
+int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
 {
   if (write_fd != -1) {
     int arg = O_NONBLOCK;
@@ -980,7 +994,7 @@ void io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
 
   debug_printf("Exiting from pubsub (fork: %s)\n", fork_needed ? "y" : "n");
 
-  return -1;
+  return rc;
 }
 
 int main(int argc, char *argv[])
