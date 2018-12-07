@@ -10,6 +10,11 @@ source /etc/init.d/logging.sh
 
 setup_loggers
 
+chmod_kmsg()
+{
+  chmod 666 /dev/kmsg
+}
+
 init_cfg_folder()
 {
   mkdir -p /cfg
@@ -37,6 +42,7 @@ case "$1" in
   init_cfg_folder
   init_sender_id_file
   init_uuid_file
+  chmod_kmsg
   /etc/init.d/copy_duro_eeprom.sh &
   ;;
   stop)
