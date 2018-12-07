@@ -59,8 +59,10 @@ static const char *get_priority_string(int priority)
 
 static void set_identity(const char *identity)
 {
-  assert(strlen(identity) < sizeof(identity_));
   strncpy(identity_, identity, sizeof(identity_));
+  if (strlen(identity) >= sizeof(identity_)) {
+    identity_[sizeof(identity_) - 1] = '\0';
+  }
 }
 
 static const char *get_identity(void)
@@ -84,24 +86,32 @@ static bool userspace_printk(const char *msg)
 
 static void piksi_vklog(int priority, const char *format, va_list ap)
 {
-  assert(format);
   char msg[KERNEL_MAX_LOG_SIZE];
 
-  assert(priority >= 0 && priority <= UINT8_MAX);
-
+  if (format == NULL) return;
+  if (priority < 0 && priority > UINT8_MAX) return;
 
   const char *identity = get_identity();
   const char *priority_string = get_priority_string(priority);
   char *with_preamble = (char *)alloca(strlen(identity) + 9 /* space + bracket + 'daemon.' */
                                        + strlen(priority_string) + 3 /* bracket, colon, space */
-                                       + strlen(format));
+                                       + strlen(format) + 1 /* terminator */);
   sprintf(with_preamble, "%s [daemon.%s]: %s", identity, priority_string, format);
 
   int count = vsnprintf(msg, sizeof(msg), with_preamble, ap);
-  assert((size_t)count < sizeof(msg));
+  if ((size_t)count >= sizeof(msg)) {
+    msg[sizeof(msg) - 1] = '\0';
+  }
 
   bool result = userspace_printk(msg);
-  assert(result);
+
+  if (result != true) {
+    const char *error_note = "Unable to log to kernel: %s";
+    char *with_error =
+      (char *)alloca(strlen(error_note) + strlen(with_preamble) + 1 /* terminator */);
+    sprintf(with_error, error_note, with_preamble);
+    piksi_vlog(LOG_ERR, with_error, ap);
+  }
 }
 
 void piksi_klog(int priority, const char *format, ...)
@@ -134,7 +144,7 @@ void piksi_log(int priority, const char *format, ...)
 {
   va_list ap;
   va_start(ap, format);
-  piksi_vlog(priority, format, ap);
+  piksi_vlog(priority|LOG_KMSG, format, ap);
   va_end(ap);
 }
 
@@ -148,13 +158,17 @@ void piksi_vlog(int priority, const char *format, va_list ap)
     }
     return;
   }
-  if ((priority & LOG_FACMASK) == LOG_SBP) {
-    priority &= ~LOG_FACMASK;
-    sbp_vlog(priority, format, ap);
+
+  int priority_nofac = priority & ~LOG_FACMASK;
+  if ((priority & LOG_FACMASK) | LOG_SBP) {
+    sbp_vlog(priority_nofac, format, ap);
   }
 
-  piksi_vklog(priority, format, ap);
-  vsyslog(priority, format, ap);
+  if ((priority & LOG_FACMASK) | LOG_KMSG) {
+    piksi_vklog(priority_nofac, format, ap);
+  }
+
+  vsyslog(priority_nofac, format, ap);
 }
 
 /* Adapted from: https://www.libssh2.org/mail/libssh2-devel-archive-2011-07/att-0011/xxd.c */
