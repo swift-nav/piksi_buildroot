@@ -18,7 +18,10 @@
 
 #include <libsbp/logging.h>
 
+#define MAX_IDENTITY_SIZE (64u)
+
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
+#define KERNEL_MAX_LOG_SIZE SBP_FRAMING_MAX_PAYLOAD_SIZE
 
 #define SBP_TX_ENDPOINT "ipc:///var/run/sockets/internal.sub"
 
@@ -28,10 +31,91 @@
 #define MAX_XXD_DUMP 512
 
 static bool log_stdout_only = false;
+static char identity_[MAX_IDENTITY_SIZE] = "";
+
+static const char *get_priority_string(int priority)
+{
+  switch (priority) {
+  case LOG_EMERG:
+    return "emerg"; /* system is unusable */
+  case LOG_ALERT:
+    return "alert"; /* action must be taken immediately */
+  case LOG_CRIT:
+    return "crit"; /* critical conditions */
+  case LOG_ERR:
+    return "error"; /* error conditions */
+  case LOG_WARNING:
+    return "warn"; /* warning conditions */
+  case LOG_NOTICE:
+    return "notice"; /* normal but significant condition */
+  case LOG_INFO:
+    return "info"; /* informational */
+  case LOG_DEBUG:
+    return "debug"; /* debug-level messages */
+  default:
+    return ""; /* unknown level - don't map to anything */
+  }
+}
+
+static void set_identity(const char *identity)
+{
+  assert(strlen(identity) < sizeof(identity_));
+  strncpy(identity_, identity, sizeof(identity_));
+}
+
+static const char *get_identity(void)
+{
+  return (const char *)identity_;
+}
+
+static bool userspace_printk(const char *msg)
+{
+  FILE *fp = fopen("/dev/kmsg", "w");
+  if (fp == NULL) {
+    return false;
+  }
+
+  bool success = (fputs(msg, fp) != EOF);
+
+  fclose(fp);
+
+  return success;
+}
+
+static void piksi_vklog(int priority, const char *format, va_list ap)
+{
+  assert(format);
+  char msg[KERNEL_MAX_LOG_SIZE];
+
+  assert(priority >= 0 && priority <= UINT8_MAX);
+
+
+  const char *identity = get_identity();
+  const char *priority_string = get_priority_string(priority);
+  char *with_preamble = (char *)alloca(strlen(identity) + 9 /* space + bracket + 'daemon.' */
+                                       + strlen(priority_string) + 3 /* bracket, colon, space */
+                                       + strlen(format));
+  sprintf(with_preamble, "%s [daemon.%s]: %s", identity, priority_string, format);
+
+  int count = vsnprintf(msg, sizeof(msg), with_preamble, ap);
+  assert((size_t)count < sizeof(msg));
+
+  bool result = userspace_printk(msg);
+  assert(result);
+}
+
+void piksi_klog(int priority, const char *format, ...)
+{
+  va_list ap;
+  va_start(ap, format);
+  piksi_vklog(priority, format, ap);
+  va_end(ap);
+}
 
 int logging_init(const char *identity)
 {
   openlog(identity, OPTIONS, FACILITY);
+  set_identity(identity);
 
   return 0;
 }
@@ -69,6 +153,7 @@ void piksi_vlog(int priority, const char *format, va_list ap)
     sbp_vlog(priority, format, ap);
   }
 
+  piksi_vklog(priority, format, ap);
   vsyslog(priority, format, ap);
 }
 
