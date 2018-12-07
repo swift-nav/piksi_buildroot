@@ -81,6 +81,14 @@
  */
 #define LOG_SBP LOG_LOCAL1
 
+/**
+ * Add to piksi_log to send the log message to kernel log as well as
+ *   the system log (syslog).
+ *
+ *  E.g. `piksi_log(LOG_KMSG|LOG_ERR, "Some message");`
+ */
+#define LOG_KMSG LOG_LOCAL3
+
 #ifdef __cplusplus
 extern "C" {
 #endif
