@@ -144,7 +144,7 @@ void piksi_log(int priority, const char *format, ...)
 {
   va_list ap;
   va_start(ap, format);
-  piksi_vlog(priority|LOG_KMSG, format, ap);
+  piksi_vlog(priority | LOG_KMSG, format, ap);
   va_end(ap);
 }
 
