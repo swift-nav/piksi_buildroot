@@ -155,6 +155,14 @@ void sbp_log(int priority, const char *msg_text, ...);
  */
 void sbp_vlog(int priority, const char *msg_text, va_list ap);
 
+/**
+ * @brief   Send a log message directly to the kernel log
+ *
+ * @param[in] priority      Priority level as defined in <syslog.h>.
+ * @param[in] msg_text      The log message text to send.
+ */
+void piksi_klog(int priority, const char *msg_text, ...);
+
 #define log_assert(TheExpr)                         \
   ({                                                \
     bool result = false;                            \
