@@ -15,14 +15,9 @@ LLVM_VNL_TARBALL_DST = $(DL_DIR)/$(HOST_LLVM_VANILLA_ACTUAL_SOURCE_TARBALL)
 ## If .tar.xz (DST) does not exist but .txz (SRC) does, then create symlink DST -> SRC
 ## If DST does exist but SRC is newer, then remove DST and create symlink DST -> SRC
 define HOST_LLVM_VANILLA_PRE_EXTRACT_FIXUP
-	if ! [ -e $(LLVM_VNL_TARBALL_DST) ] && [ -e $(LLVM_VNL_TARBALL_SRC) ]; then \
-	    ln -sf $(LLVM_VNL_TARBALL_SRC) $(LLVM_VNL_TARBALL_DST); \
-	else \
-		if [ -e $(LLVM_VNL_TARBALL_DST) ] && [ $(LLVM_VNL_TARBALL_SRC) -nt $(LLVM_VNL_TARBALL_DST) ]; then \
-			rm -rf $(LLVM_VNL_TARBALL_DST); \
-			ln -sf $(LLVM_VNL_TARBALL_SRC) $(LLVM_VNL_TARBALL_DST); \
-		fi \
-	fi \
+	if ! [ -e $(LLVM_VNL_TARBALL_DST) ] || [ $(LLVM_VNL_TARBALL_SRC) -nt $(LLVM_VNL_TARBALL_DST) ]; then \
+		ln -sf $(shell basename $(LLVM_VNL_TARBALL_SRC)) $(LLVM_VNL_TARBALL_DST); \
+	fi
 	$(eval HOST_LLVM_VANILLA_SOURCE=$(HOST_LLVM_VANILLA_ACTUAL_SOURCE_TARBALL))
 endef
 
