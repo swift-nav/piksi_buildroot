@@ -22,7 +22,8 @@ PIKSI_INS_SITE = git@github.com:carnegieroboticsllc/piksi_ins.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_INSTALL_STAGING = YES
 PIKSI_INS_INSTALL_TARGET = YES
-PIKSI_INS_DEPENDENCIES = libuv libsbp libpiksi eigen host-build_tools
+PIKSI_INS_DEPENDENCIES = \
+	libuv libsbp libpiksi eigen host-build_tools pfw_welcome
 
 BR2_ROOTFS_OVERLAY += "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/overlay"
 
