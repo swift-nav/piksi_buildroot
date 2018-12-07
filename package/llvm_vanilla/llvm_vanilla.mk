@@ -12,8 +12,7 @@ HOST_LLVM_VANILLA_ACTUAL_SOURCE_TARBALL = llvm-vanilla-$(HOST_LLVM_VANILLA_VERSI
 LLVM_VNL_TARBALL_SRC = $(DL_DIR)/$(shell basename $(HOST_LLVM_VANILLA_SOURCE))
 LLVM_VNL_TARBALL_DST = $(DL_DIR)/$(HOST_LLVM_VANILLA_ACTUAL_SOURCE_TARBALL) 
 
-## If .tar.xz (DST) does not exist but .txz (SRC) does, then create symlink DST -> SRC
-## If DST does exist but SRC is newer, then remove DST and create symlink DST -> SRC
+## Make sure that a symlink from .tar.xz -> .txz exists.
 define HOST_LLVM_VANILLA_PRE_EXTRACT_FIXUP
 	if ! [ -e $(LLVM_VNL_TARBALL_DST) ] || [ $(LLVM_VNL_TARBALL_SRC) -nt $(LLVM_VNL_TARBALL_DST) ]; then \
 		ln -sf $(shell basename $(LLVM_VNL_TARBALL_SRC)) $(LLVM_VNL_TARBALL_DST); \
