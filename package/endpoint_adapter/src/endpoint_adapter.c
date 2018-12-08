@@ -647,9 +647,7 @@ static ssize_t handle_read(handle_t *handle, u8 *buffer, size_t count)
     int rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
 
     if (rc != 0) {
-      PK_LOG_ANNO(LOG_WARNING,
-                 "pk_endpoint_receive returned error: %d",
-                  rc);
+      PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_receive returned error: %d", rc);
     }
 
     return read_ctx.fill;
