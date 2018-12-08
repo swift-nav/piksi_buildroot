@@ -619,12 +619,9 @@ static int sub_ept_read(const u8 *buff, size_t length, void *context)
 {
   if (length > read_ctx.size) {
 
-    piksi_log(LOG_ERR | LOG_SBP,
-              "%s: received more data we can ingest, dropping %zu bytes (%s:%d)",
-              __FUNCTION__,
-              (length - read_ctx.size),
-              __FILE__,
-              __LINE__);
+    PK_LOG_ANNO(LOG_ERR | LOG_SBP,
+                "received more data we can ingest, dropping %zu bytes",
+                (length - read_ctx.size));
 
     length = read_ctx.size;
   }
@@ -650,12 +647,9 @@ static ssize_t handle_read(handle_t *handle, u8 *buffer, size_t count)
     int rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
 
     if (rc != 0) {
-      piksi_log(LOG_WARNING,
-                "%s: pk_endpoint_receive returned error: %d (%s:%d)",
-                __FUNCTION__,
-                rc,
-                __FILE__,
-                __LINE__);
+      PK_LOG_ANNO(LOG_WARNING,
+                 "pk_endpoint_receive returned error: %d",
+                  rc);
     }
 
     return read_ctx.fill;
@@ -869,12 +863,10 @@ static bool handle_loop_status(pk_loop_t *loop, int status)
 {
   if ((status & LOOP_DISCONNECTED) || (status & LOOP_ERROR)) {
     if (status & LOOP_ERROR) {
-      piksi_log(LOG_WARNING,
-                "%s: got error event callback from loop: %s (%s:%d)",
-                __FUNCTION__,
-                pk_loop_describe_status(status),
-                __FILE__,
-                __LINE__);
+      PK_LOG_ANNO(LOG_WARNING,
+                  "got error event callback from loop: %s, error: %s",
+                  pk_loop_describe_status(status),
+                  pk_loop_last_error(loop));
     }
     pk_loop_stop(loop);
     return false;
@@ -932,13 +924,10 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
   }
 
   loop_ctx.loop = pk_loop_create();
-
   setup_metrics();
 
   void *handle = pk_loop_timer_add(loop_ctx.loop, 1000, do_metrics_flush, NULL);
-
   assert(handle != NULL);
-
 
   if (pub_addr != NULL && read_fd != -1) {
 
@@ -1012,12 +1001,7 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
   int rc = pk_loop_run_simple(loop_ctx.loop);
 
   if (rc != 0) {
-    piksi_log(LOG_WARNING,
-              "%s: pk_loop_run_simple returned error: %d (%s:%d)",
-              __FUNCTION__,
-              rc,
-              __FILE__,
-              __LINE__);
+    PK_LOG_ANNO(LOG_WARNING, "pk_loop_run_simple returned error: %d", rc);
   }
 
   handle_deinit(&loop_ctx.pub_handle);
