@@ -113,7 +113,7 @@ static void die_error(const char *error);
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer, size_t count);
 
-int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can);
+static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can);
 
 bool debug = false;
 static io_mode_t io_mode = IO_INVALID;
@@ -904,7 +904,7 @@ int io_loop_start_can(int read_fd, int write_fd, bool fork_needed)
   return io_loop_run(read_fd, write_fd, fork_needed, true);
 }
 
-int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
+static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
 {
   if (write_fd != -1) {
     int arg = O_NONBLOCK;
@@ -1014,7 +1014,10 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
 
   debug_printf("Exiting from pubsub (fork: %s)\n", fork_needed ? "y" : "n");
 
-  return rc;
+  if (rc != 0) return IO_LOOP_ERROR;
+  if (fork_needed) return IO_LOOP_STOP;
+
+  return IO_LOOP_SUCCESS;
 }
 
 int main(int argc, char *argv[])

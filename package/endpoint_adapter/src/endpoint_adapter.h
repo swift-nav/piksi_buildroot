@@ -30,6 +30,11 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
+enum {
+  IO_LOOP_ERROR = -2,
+  IO_LOOP_STOP = -1,
+  IO_LOOP_SUCCESS = 0,
+};
 
 int io_loop_start(int read_fd, int write_fd, bool fork_needed);
 int io_loop_start_can(int read_fd, int write_fd, bool fork_needed);
