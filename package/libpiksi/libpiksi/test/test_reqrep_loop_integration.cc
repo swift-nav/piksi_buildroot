@@ -24,9 +24,10 @@ struct reqrep_ctx_s {
 
 static u8 req_value = 0;
 
-static int req_read_cb(const u8 *data, const size_t length, void *context) {
+static int req_read_cb(const u8 *data, const size_t length, void *context)
+{
 
-  assert( length <= sizeof(req_value) );
+  assert(length <= sizeof(req_value));
   memcpy(&req_value, data, length);
 
   return -1; // return of non-zero terminates receive loop
@@ -34,9 +35,10 @@ static int req_read_cb(const u8 *data, const size_t length, void *context) {
 
 static u8 rep_value = 0;
 
-static int rep_read_cb(const u8 *data, const size_t length, void *context) {
+static int rep_read_cb(const u8 *data, const size_t length, void *context)
+{
 
-  assert( length <= sizeof(rep_value) );
+  assert(length <= sizeof(rep_value));
   memcpy(&rep_value, data, length);
 
   return -1; // return of non-zero terminates receive loop

@@ -53,11 +53,12 @@ err:
   return ret;
 }
 
-static void reap_children(){
+static void reap_children()
+{
   /* Reap terminated child processes */
   while (waitpid(-1, NULL, WNOHANG) > 0) {
     /* No-op */
-  } 
+  }
 }
 
 static void server_loop(int server_fd)

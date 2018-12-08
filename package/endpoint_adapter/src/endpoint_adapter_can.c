@@ -76,7 +76,7 @@ int can_loop(const char *can_name, u32 can_filter)
     }
 
     int wfd = dup(socket_can);
-    io_loop_start_can(socket_can, wfd, /* fork_needed = */false);
+    io_loop_start_can(socket_can, wfd, /* fork_needed = */ false);
 
     close(socket_can);
     close(wfd);

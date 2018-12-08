@@ -151,7 +151,7 @@ static struct {
 } loop_ctx;
 
 static struct {
-  u8* buffer;
+  u8 *buffer;
   size_t fill;
   size_t size;
 } read_ctx = {
@@ -619,8 +619,12 @@ static int sub_ept_read(const u8 *buff, size_t length, void *context)
 {
   if (length > read_ctx.size) {
 
-    piksi_log(LOG_ERR|LOG_SBP, "%s: received more data we can ingest, dropping %zu bytes (%s:%d)",
-              __FUNCTION__, (length - read_ctx.size), __FILE__, __LINE__);
+    piksi_log(LOG_ERR | LOG_SBP,
+              "%s: received more data we can ingest, dropping %zu bytes (%s:%d)",
+              __FUNCTION__,
+              (length - read_ctx.size),
+              __FILE__,
+              __LINE__);
 
     length = read_ctx.size;
   }
@@ -632,7 +636,7 @@ static int sub_ept_read(const u8 *buff, size_t length, void *context)
   return -1;
 }
 
-static ssize_t handle_read(handle_t *handle, u8* buffer, size_t count)
+static ssize_t handle_read(handle_t *handle, u8 *buffer, size_t count)
 {
   if (handle->is_can) {
     return can_read(handle->read_fd, buffer, count);
@@ -646,8 +650,12 @@ static ssize_t handle_read(handle_t *handle, u8* buffer, size_t count)
     int rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
 
     if (rc != 0) {
-      piksi_log(LOG_WARNING, "%s: pk_endpoint_receive returned error: %d (%s:%d)",
-                __FUNCTION__, rc, __FILE__, __LINE__);
+      piksi_log(LOG_WARNING,
+                "%s: pk_endpoint_receive returned error: %d (%s:%d)",
+                __FUNCTION__,
+                rc,
+                __FILE__,
+                __LINE__);
     }
 
     return read_ctx.fill;
@@ -662,7 +670,7 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
   if (handle->pk_ept != NULL) {
 
     PK_METRICS_UPDATE(MR, MI.ingress_write_count);
-    PK_METRICS_UPDATE(MR, MI.ingress_write_size_total, PK_METRICS_VALUE((u32) count));
+    PK_METRICS_UPDATE(MR, MI.ingress_write_size_total, PK_METRICS_VALUE((u32)count));
 
     if (pk_endpoint_send(handle->pk_ept, (u8 *)buffer, count) != 0) {
       return -1;
@@ -676,7 +684,7 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
   } else {
 
     PK_METRICS_UPDATE(MR, MI.egress_write_count);
-    PK_METRICS_UPDATE(MR, MI.egress_write_size_total, PK_METRICS_VALUE((u32) count));
+    PK_METRICS_UPDATE(MR, MI.egress_write_size_total, PK_METRICS_VALUE((u32)count));
 
     return fd_write(handle->write_fd, buffer, count);
   }
@@ -766,7 +774,7 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
   return buffer_index;
 }
 
-static void io_loop_pubsub(pk_loop_t* loop, handle_t *read_handle, handle_t *write_handle)
+static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *write_handle)
 {
   if (read_handle->pk_ept != NULL) {
     PK_METRICS_UPDATE(MR, MI.egress_read_count);
@@ -778,44 +786,40 @@ static void io_loop_pubsub(pk_loop_t* loop, handle_t *read_handle, handle_t *wri
   static uint8_t buffer[READ_BUFFER_SIZE];
   ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
   if (read_count <= 0) {
-    debug_printf("read_count %d errno %s (%d)\n",
-        read_count, strerror(errno), errno);
+    debug_printf("read_count %d errno %s (%d)\n", read_count, strerror(errno), errno);
     pk_loop_stop(loop);
     return;
   }
 
   if (read_handle->pk_ept != NULL) {
-    PK_METRICS_UPDATE(MR, MI.egress_read_size_total, PK_METRICS_VALUE((u32) read_count));
+    PK_METRICS_UPDATE(MR, MI.egress_read_size_total, PK_METRICS_VALUE((u32)read_count));
   } else {
-    PK_METRICS_UPDATE(MR, MI.ingress_read_size_total, PK_METRICS_VALUE((u32) read_count));
+    PK_METRICS_UPDATE(MR, MI.ingress_read_size_total, PK_METRICS_VALUE((u32)read_count));
   }
 
   /* Write to write_handle via framer */
   size_t frames_written;
-  ssize_t write_count = handle_write_all_via_framer(write_handle,
-                                                    buffer, read_count,
-                                                    &frames_written);
+  ssize_t write_count =
+    handle_write_all_via_framer(write_handle, buffer, read_count, &frames_written);
   if (write_count < 0) {
-    debug_printf("write_count %d errno %s (%d)\n",
-        write_count, strerror(errno), errno);
+    debug_printf("write_count %d errno %s (%d)\n", write_count, strerror(errno), errno);
     pk_loop_stop(loop);
     return;
   }
 
   if (write_count != read_count) {
     syslog(LOG_ERR, "warning: write_count != read_count");
-    debug_printf("write_count != read_count %d %d\n",
-        write_count, read_count);
+    debug_printf("write_count != read_count %d %d\n", write_count, read_count);
     PK_METRICS_UPDATE(MR, MI.mismatch);
   }
 }
 
 static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *context)
 {
-  (void) loop;
-  (void) handle;
-  (void) status;
-  (void) context;
+  (void)loop;
+  (void)handle;
+  (void)status;
+  (void)context;
 
   PK_METRICS_UPDATE(MR, MI.ingress_read_size_average);
   PK_METRICS_UPDATE(MR, MI.ingress_write_size_average);
@@ -840,7 +844,8 @@ static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *co
   pk_metrics_reset(MR, MI.egress_write_size_average);
 }
 
-static void setup_metrics() {
+static void setup_metrics()
+{
 
   assert(MR == NULL);
 
@@ -854,7 +859,7 @@ static void setup_metrics() {
 
 static void die_error(const char *error)
 {
-  piksi_log(LOG_ERR|LOG_SBP, error);
+  piksi_log(LOG_ERR | LOG_SBP, error);
   fprintf(stderr, "%s\n", error);
 
   exit(EXIT_FAILURE);
@@ -864,8 +869,12 @@ static bool handle_loop_status(pk_loop_t *loop, int status)
 {
   if ((status & LOOP_DISCONNECTED) || (status & LOOP_ERROR)) {
     if (status & LOOP_ERROR) {
-      piksi_log(LOG_WARNING, "%s: got error event callback from loop: %s (%s:%d)",
-                __FUNCTION__, pk_loop_describe_status(status), __FILE__, __LINE__);
+      piksi_log(LOG_WARNING,
+                "%s: got error event callback from loop: %s (%s:%d)",
+                __FUNCTION__,
+                pk_loop_describe_status(status),
+                __FILE__,
+                __LINE__);
     }
     pk_loop_stop(loop);
     return false;
@@ -926,13 +935,9 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
 
   setup_metrics();
 
-  void *handle =
-    pk_loop_timer_add(loop_ctx.loop,
-                      1000,
-                      do_metrics_flush,
-                      NULL);
+  void *handle = pk_loop_timer_add(loop_ctx.loop, 1000, do_metrics_flush, NULL);
 
-  assert( handle != NULL );
+  assert(handle != NULL);
 
 
   if (pub_addr != NULL && read_fd != -1) {
@@ -942,16 +947,29 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
       die_error("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
     }
 
-    loop_ctx.read_fd_handle =
-      pk_loop_poll_add(loop_ctx.loop, read_fd, read_fd_cb, NULL);
+    loop_ctx.read_fd_handle = pk_loop_poll_add(loop_ctx.loop, read_fd, read_fd_cb, NULL);
 
-    if (handle_init(&loop_ctx.pub_handle, loop_ctx.pub_ept, -1, -1, framer_name,
-                    filter_in_name, filter_in_config, false) != 0) {
+    if (handle_init(&loop_ctx.pub_handle,
+                    loop_ctx.pub_ept,
+                    -1,
+                    -1,
+                    framer_name,
+                    filter_in_name,
+                    filter_in_config,
+                    false)
+        != 0) {
       die_error("handle_init for pub returned error");
     }
 
-    if (handle_init(&loop_ctx.read_handle, NULL, read_fd, -1, FRAMER_NONE_NAME,
-                    FILTER_NONE_NAME, NULL, is_can) != 0) {
+    if (handle_init(&loop_ctx.read_handle,
+                    NULL,
+                    read_fd,
+                    -1,
+                    FRAMER_NONE_NAME,
+                    FILTER_NONE_NAME,
+                    NULL,
+                    is_can)
+        != 0) {
       die_error("handle_init for read_fd returned error\n");
     }
   }
@@ -966,13 +984,27 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
     loop_ctx.loop_sub_handle =
       pk_loop_endpoint_reader_add(loop_ctx.loop, loop_ctx.sub_ept, sub_reader_cb, NULL);
 
-    if (handle_init(&loop_ctx.sub_handle, loop_ctx.sub_ept, -1, -1, FRAMER_NONE_NAME,
-                    FILTER_NONE_NAME, NULL, is_can) != 0) {
+    if (handle_init(&loop_ctx.sub_handle,
+                    loop_ctx.sub_ept,
+                    -1,
+                    -1,
+                    FRAMER_NONE_NAME,
+                    FILTER_NONE_NAME,
+                    NULL,
+                    is_can)
+        != 0) {
       die_error("handle_init for sub returned error\n");
     }
 
-    if (handle_init(&loop_ctx.write_handle, NULL, -1, write_fd, FRAMER_NONE_NAME,
-                    filter_out_name, filter_out_config, is_can) != 0) {
+    if (handle_init(&loop_ctx.write_handle,
+                    NULL,
+                    -1,
+                    write_fd,
+                    FRAMER_NONE_NAME,
+                    filter_out_name,
+                    filter_out_config,
+                    is_can)
+        != 0) {
       die_error("handle_init for write_fd returned error\n");
     }
   }
@@ -980,8 +1012,12 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
   int rc = pk_loop_run_simple(loop_ctx.loop);
 
   if (rc != 0) {
-    piksi_log(LOG_WARNING, "%s: pk_loop_run_simple returned error: %d (%s:%d)",
-              __FUNCTION__, rc, __FILE__, __LINE__);
+    piksi_log(LOG_WARNING,
+              "%s: pk_loop_run_simple returned error: %d (%s:%d)",
+              __FUNCTION__,
+              rc,
+              __FILE__,
+              __LINE__);
   }
 
   handle_deinit(&loop_ctx.pub_handle);
