@@ -58,25 +58,25 @@ PK_METRICS_TABLE(MT, MI,
 
   PK_METRICS_ENTRY("error/mismatch",        "total",          M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, mismatch),
 
-  PK_METRICS_ENTRY("ingress/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, ingress_read_count),
-  PK_METRICS_ENTRY("ingress/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, ingress_read_size_total),
-  PK_METRICS_ENTRY("ingress/read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, ingress_read_size_average,
-                   M_AVERAGE_OF(MI,         ingress_read_size_total,  ingress_read_count)),
+  PK_METRICS_ENTRY("rx/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, rx_read_count),
+  PK_METRICS_ENTRY("rx/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, rx_read_size_total),
+  PK_METRICS_ENTRY("rx/read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, rx_read_size_average,
+                   M_AVERAGE_OF(MI,         rx_read_size_total,  rx_read_count)),
 
-  PK_METRICS_ENTRY("egress/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, egress_read_count),
-  PK_METRICS_ENTRY("egress/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, egress_read_size_total),
-  PK_METRICS_ENTRY("egress/read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, egress_read_size_average,
-                   M_AVERAGE_OF(MI,         egress_read_size_total,  egress_read_count)),
+  PK_METRICS_ENTRY("tx/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, tx_read_count),
+  PK_METRICS_ENTRY("tx/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, tx_read_size_total),
+  PK_METRICS_ENTRY("tx/read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, tx_read_size_average,
+                   M_AVERAGE_OF(MI,         tx_read_size_total,  tx_read_count)),
 
-  PK_METRICS_ENTRY("ingress/write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, ingress_write_count),
-  PK_METRICS_ENTRY("ingress/write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, ingress_write_size_total),
-  PK_METRICS_ENTRY("ingress/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, ingress_write_size_average,
-                   M_AVERAGE_OF(MI,         ingress_write_size_total, ingress_write_count)),
+  PK_METRICS_ENTRY("rx/write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, rx_write_count),
+  PK_METRICS_ENTRY("rx/write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, rx_write_size_total),
+  PK_METRICS_ENTRY("rx/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, rx_write_size_average,
+                   M_AVERAGE_OF(MI,         rx_write_size_total, rx_write_count)),
 
-  PK_METRICS_ENTRY("egress/write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, egress_write_count),
-  PK_METRICS_ENTRY("egress/write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, egress_write_size_total),
-  PK_METRICS_ENTRY("egress/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, egress_write_size_average,
-                   M_AVERAGE_OF(MI,         egress_write_size_total, egress_write_count))
+  PK_METRICS_ENTRY("tx/write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, tx_write_count),
+  PK_METRICS_ENTRY("tx/write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, tx_write_size_total),
+  PK_METRICS_ENTRY("tx/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, tx_write_size_average,
+                   M_AVERAGE_OF(MI,         tx_write_size_total, tx_write_count))
 )
 // clang-format on
 
@@ -669,8 +669,8 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 {
   if (handle->pk_ept != NULL) {
 
-    PK_METRICS_UPDATE(MR, MI.ingress_write_count);
-    PK_METRICS_UPDATE(MR, MI.ingress_write_size_total, PK_METRICS_VALUE((u32)count));
+    PK_METRICS_UPDATE(MR, MI.rx_write_count);
+    PK_METRICS_UPDATE(MR, MI.rx_write_size_total, PK_METRICS_VALUE((u32)count));
 
     if (pk_endpoint_send(handle->pk_ept, (u8 *)buffer, count) != 0) {
       return -1;
@@ -683,8 +683,8 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 
   } else {
 
-    PK_METRICS_UPDATE(MR, MI.egress_write_count);
-    PK_METRICS_UPDATE(MR, MI.egress_write_size_total, PK_METRICS_VALUE((u32)count));
+    PK_METRICS_UPDATE(MR, MI.tx_write_count);
+    PK_METRICS_UPDATE(MR, MI.tx_write_size_total, PK_METRICS_VALUE((u32)count));
 
     return fd_write(handle->write_fd, buffer, count);
   }
@@ -777,9 +777,9 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
 static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *write_handle)
 {
   if (read_handle->pk_ept != NULL) {
-    PK_METRICS_UPDATE(MR, MI.egress_read_count);
+    PK_METRICS_UPDATE(MR, MI.tx_read_count);
   } else {
-    PK_METRICS_UPDATE(MR, MI.ingress_read_count);
+    PK_METRICS_UPDATE(MR, MI.rx_read_count);
   }
 
   /* Read from read_handle */
@@ -792,9 +792,9 @@ static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *wri
   }
 
   if (read_handle->pk_ept != NULL) {
-    PK_METRICS_UPDATE(MR, MI.egress_read_size_total, PK_METRICS_VALUE((u32)read_count));
+    PK_METRICS_UPDATE(MR, MI.tx_read_size_total, PK_METRICS_VALUE((u32)read_count));
   } else {
-    PK_METRICS_UPDATE(MR, MI.ingress_read_size_total, PK_METRICS_VALUE((u32)read_count));
+    PK_METRICS_UPDATE(MR, MI.rx_read_size_total, PK_METRICS_VALUE((u32)read_count));
   }
 
   /* Write to write_handle via framer */
@@ -821,27 +821,27 @@ static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *co
   (void)status;
   (void)context;
 
-  PK_METRICS_UPDATE(MR, MI.ingress_read_size_average);
-  PK_METRICS_UPDATE(MR, MI.ingress_write_size_average);
+  PK_METRICS_UPDATE(MR, MI.rx_read_size_average);
+  PK_METRICS_UPDATE(MR, MI.rx_write_size_average);
 
-  PK_METRICS_UPDATE(MR, MI.egress_read_size_average);
-  PK_METRICS_UPDATE(MR, MI.egress_write_size_average);
+  PK_METRICS_UPDATE(MR, MI.tx_read_size_average);
+  PK_METRICS_UPDATE(MR, MI.tx_write_size_average);
 
   pk_metrics_flush(MR);
 
-  pk_metrics_reset(MR, MI.ingress_read_count);
-  pk_metrics_reset(MR, MI.ingress_read_size_total);
-  pk_metrics_reset(MR, MI.ingress_read_size_average);
-  pk_metrics_reset(MR, MI.ingress_write_count);
-  pk_metrics_reset(MR, MI.ingress_write_size_total);
-  pk_metrics_reset(MR, MI.ingress_write_size_average);
+  pk_metrics_reset(MR, MI.rx_read_count);
+  pk_metrics_reset(MR, MI.rx_read_size_total);
+  pk_metrics_reset(MR, MI.rx_read_size_average);
+  pk_metrics_reset(MR, MI.rx_write_count);
+  pk_metrics_reset(MR, MI.rx_write_size_total);
+  pk_metrics_reset(MR, MI.rx_write_size_average);
 
-  pk_metrics_reset(MR, MI.egress_read_count);
-  pk_metrics_reset(MR, MI.egress_read_size_total);
-  pk_metrics_reset(MR, MI.egress_read_size_average);
-  pk_metrics_reset(MR, MI.egress_write_count);
-  pk_metrics_reset(MR, MI.egress_write_size_total);
-  pk_metrics_reset(MR, MI.egress_write_size_average);
+  pk_metrics_reset(MR, MI.tx_read_count);
+  pk_metrics_reset(MR, MI.tx_read_size_total);
+  pk_metrics_reset(MR, MI.tx_read_size_average);
+  pk_metrics_reset(MR, MI.tx_write_count);
+  pk_metrics_reset(MR, MI.tx_write_size_total);
+  pk_metrics_reset(MR, MI.tx_write_size_average);
 }
 
 static void setup_metrics()
