@@ -21,4 +21,7 @@ setup_permissions()
   configure_dir_resource_rec fileio "$LICENSES_DIR" "$DIR_PERM" "$FILE_PERM"
 }
 
+# Run pfw_welcome to gate nap activity from PoseDaemon on PFWP boot
+pfw_welcome
+
 source /etc/init.d/template_runsv.inc.sh
