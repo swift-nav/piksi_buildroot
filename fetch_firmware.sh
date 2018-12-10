@@ -32,7 +32,7 @@ FW_VERSION=${1:-v2.2.6-2-g4ecff0db}
 NAP_VERSION=${2:-v2.2.6}
 
 CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
-FW_S3_PATH=s3://swiftnav-releases/piksi_firmware_private/$FW_VERSION/v3
+FW_S3_PATH=s3://swiftnav-artifacts-pull-requests/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
 NAP_S3_PATH_PROD=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 
