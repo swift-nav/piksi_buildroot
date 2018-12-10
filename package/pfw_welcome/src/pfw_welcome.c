@@ -20,8 +20,9 @@
 #include <libpiksi/loop.h>
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/sbp_rx.h>
-#include <libpiksi/settings.h>
 #include <libpiksi/util.h>
+
+#include <libsettings/settings.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/system.h>
