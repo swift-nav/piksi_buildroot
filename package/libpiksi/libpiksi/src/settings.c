@@ -688,7 +688,7 @@ static int setting_perform_request_reply_from(settings_ctx_t *ctx,
   compare_deinit(ctx);
 
   if (!success) {
-    piksi_log(LOG_ERR, "setting req/reply failed");
+    piksi_log(LOG_WARNING, "settings request timed out without reply");
     return -1;
   }
 
@@ -1329,7 +1329,7 @@ static int settings_add_setting(settings_ctx_t *ctx,
       piksi_log(LOG_ERR, "error registering settings write resp callback");
     }
     if (setting_read_watched_value(ctx, setting_data) != 0) {
-      piksi_log(LOG_ERR, "error reading watched setting to initial value");
+      piksi_log(LOG_WARNING, "Unable to read watched setting to initial value");
     }
   } else {
     if (settings_register_write_callback(ctx) != 0) {
