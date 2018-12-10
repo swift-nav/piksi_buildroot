@@ -253,4 +253,44 @@ _DEFINE_HELPER_VAR(uint32_t, int32_t);
 
 #define uint32_to_int32(Expr) _uint32_to_int32(Expr, _CC_CONCAT(r, __COUNTER__))
 
+/* size_t -> int */
+
+_DEFINE_HELPER_VAR(size_t, int);
+
+#define SIZET_TO_INT(Value) ((int)(Value))
+
+#define CHECK_SIZET_TO_INT(Value)                          \
+  ({                                                       \
+    _CHECK_CAST_UNSIGNED(Value, size_t, int, INT_MAX);     \
+  })
+
+#define _sizet_to_int(Expr, Var) \
+  ({                             \
+    size_t Var = Expr;           \
+    CHECK_SIZET_TO_INT(Var);     \
+    SIZET_TO_INT(Var);           \
+  })
+
+#define sizet_to_int(Expr) _sizet_to_int(Expr, _CC_CONCAT(r, __COUNTER__))
+
+/* long -> size_t */
+
+_DEFINE_HELPER_VAR(long, size_t);
+
+#define LONG_TO_SIZET(Value) ((size_t)(Value))
+
+#define CHECK_LONG_TO_SIZET(Value)           \
+  ({                                         \
+    _CHECK_CAST_SIGNED(Value, long, size_t); \
+  })
+
+#define _long_to_sizet(Expr, Var) \
+  ({                              \
+    long Var = Expr;            \
+    CHECK_LONG_TO_SIZET(Var);     \
+    LONG_TO_SIZET(Var);           \
+  })
+
+#define long_to_sizet(Expr) _long_to_sizet(Expr, _CC_CONCAT(r, __COUNTER__))
+
 #endif

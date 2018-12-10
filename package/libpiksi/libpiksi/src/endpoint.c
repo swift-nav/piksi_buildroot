@@ -704,7 +704,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
     if (written != -1) {
       /* Break on success */
-      ASSERT_TRACE(written == (int)length);
+      ASSERT_TRACE(written == sizet_to_int(length));
       return 0;
     }
 

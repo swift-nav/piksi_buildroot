@@ -206,8 +206,7 @@ static char *get_name(char name[IF_NAMESIZE], char *p)
   for (;;) {
     if ((nameend - namestart) >= IF_NAMESIZE) break; /* interface name too large - return "" */
     if (*nameend == ':') {
-      assert(nameend >= namestart);
-      size_t name_size = (size_t)(nameend - namestart);
+      size_t name_size = long_to_sizet(nameend - namestart);
       memcpy(name, namestart, name_size);
       name[name_size] = '\0';
       return nameend + 1;
