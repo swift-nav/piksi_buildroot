@@ -58,23 +58,6 @@ _DEFINE_HELPER_VAR(size_t, ssize_t);
 
 #define sizet_to_ssizet(Expr) _sizet_to_ssizet(Expr, _CC_CONCAT(r, __COUNTER__))
 
-/* size_t -> int */
-
-#define CHECK_SIZET_TO_INT(Value) _CHECK_CAST_UNSIGNED(Value, size_t, int, INT_MAX)
-
-_DEFINE_HELPER_VAR(size_t, int);
-
-#define SIZET_TO_INT(Value) ((int)(Value))
-
-#define _sizet_to_int(Expr, Var) \
-  ({                             \
-    size_t Var = Expr;           \
-    CHECK_SIZET_TO_INT(Var);     \
-    SIZET_TO_INT(Var);           \
-  })
-
-#define sizet_to_int(Expr) _sizet_to_int(Expr, _CC_CONCAT(r, __COUNTER__))
-
 /* ssize_t -> size_t */
 
 #define CHECK_SSIZET_TO_SIZET(Value) _CHECK_CAST_SIGNED(Value, ssize_t, size_t)

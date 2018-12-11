@@ -190,11 +190,11 @@ void query_network_usage(network_usage_t *usage_entries, u8 usage_entries_n, u8 
     /* Force rx/tx count to u32 since external API could give us more than a u32
      *   count of bytes.
      */
-    cur_iface->rx_bytes = stats->rx_bytes > UINT32_MAX ? UINT32_MAX : stats->rx_bytes;
-    cur_iface->tx_bytes = stats->tx_bytes > UINT32_MAX ? UINT32_MAX : stats->tx_bytes;
+    cur_iface->rx_bytes = (u32)(stats->rx_bytes > UINT32_MAX ? UINT32_MAX : stats->rx_bytes);
+    cur_iface->tx_bytes = (u32)(stats->tx_bytes > UINT32_MAX ? UINT32_MAX : stats->tx_bytes);
 
     u64 total_bytes = cur_iface->rx_bytes + cur_iface->tx_bytes;
-    cur_iface->total_bytes = total_bytes > UINT32_MAX ? UINT32_MAX : total_bytes;
+    cur_iface->total_bytes = (u32)(total_bytes > UINT32_MAX ? UINT32_MAX : total_bytes);
 
     if ((*interface_count)++ >= usage_entries_n) {
       break;
