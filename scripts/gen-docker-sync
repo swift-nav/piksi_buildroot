@@ -9,7 +9,7 @@ die_usage() {
   exit 1
 }
 
-[[ -n "$docker_host" ]] || { echo $'ERROR: no <DOCKER_HOST> specified\n' >&2; die_usage; }
+[[ -n "$docker_host" ]] || { echo $'ERROR: no <DOCKER_HOST> specifid\n' >&2; die_usage; }
 
 cat >.docker-sync.yml <<EOF
 version: "2"
@@ -20,7 +20,7 @@ syncs:
   ${docker_build_volume}-sync:
     notify_terminal: true
     src: '.'
-    sync_host_ip: '$(echo "${docker_host}" | sed s@tcp://@@ | cut -d: -f1)'
+    sync_host_ip: '$(echo "${docker_host}" | cut -d: -f1)'
     sync_strategy: 'unison'
     sync_userid: '${docker_sync_uid}'
     sync_args:
