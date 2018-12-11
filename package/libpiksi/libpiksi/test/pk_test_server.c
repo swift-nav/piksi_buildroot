@@ -110,6 +110,7 @@ static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void
   (void)loop;
   (void)handle;
   (void)status;
+  (void)context;
 
   pk_endpoint_receive(sub_ept, reader_fn, NULL);
 }

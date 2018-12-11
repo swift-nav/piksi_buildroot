@@ -17,7 +17,7 @@
 struct reqrep_ctx_s {
   pk_endpoint_t *req_ept;
   pk_endpoint_t *rep_ept;
-  int sent;
+  u8 sent;
   int recvd;
   int last_req;
 };
@@ -30,7 +30,7 @@ static void test_req_cb(pk_loop_t *loop, void *handle, int status, void *context
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
 
   u8 req_value = 0;
-  int result = pk_endpoint_read(ctx->req_ept, &req_value, sizeof(req_value));
+  ssize_t result = pk_endpoint_read(ctx->req_ept, &req_value, sizeof(req_value));
   EXPECT_EQ(result, 1);
   EXPECT_EQ(req_value, ctx->last_req);
   if (req_value == ctx->last_req) ctx->recvd++;
@@ -43,16 +43,17 @@ static void test_rep_cb(pk_loop_t *loop, void *handle, int status, void *context
 {
   (void)handle;
   (void)status;
+  (void)loop;
 
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
 
   u8 rep_value = 0;
-  int result = pk_endpoint_read(ctx->rep_ept, &rep_value, sizeof(rep_value));
+  ssize_t result = pk_endpoint_read(ctx->rep_ept, &rep_value, sizeof(rep_value));
 
   if (result == PKE_NOT_CONN) return;
 
   EXPECT_EQ(result, 1);
-  result = pk_endpoint_send(ctx->rep_ept, &rep_value, sizeof(rep_value));
+  result = (ssize_t)pk_endpoint_send(ctx->rep_ept, &rep_value, sizeof(rep_value));
   EXPECT_EQ(result, 0);
 }
 
@@ -64,7 +65,7 @@ static void test_timeout_cb(pk_loop_t *loop, void *handle, int status, void *con
 
   struct reqrep_ctx_s *ctx = (struct reqrep_ctx_s *)context;
   if (ctx->sent == ctx->recvd) {
-    u8 simple_message = ctx->sent + 1;
+    u8 simple_message = (u8)(ctx->sent + 1);
     int result = pk_endpoint_send(ctx->req_ept, &simple_message, sizeof(simple_message));
     EXPECT_EQ(result, 0);
     if (result == 0) {

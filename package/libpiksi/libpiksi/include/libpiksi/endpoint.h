@@ -40,6 +40,7 @@ typedef struct pk_endpoint_s pk_endpoint_t;
  * @brief   Endpoint types supported
  */
 typedef enum {
+  PK_ENDPOINT_INVALID = -1,
   PK_ENDPOINT_PUB,
   PK_ENDPOINT_PUB_SERVER,
   PK_ENDPOINT_SUB,
@@ -117,7 +118,7 @@ struct pk_endpoint_config_builder_s {
  */
 typedef int (*pk_endpoint_receive_cb)(const u8 *data, const size_t length, void *context);
 
-pk_endpoint_config_builder_t pk_endpoint_config();
+pk_endpoint_config_builder_t pk_endpoint_config(void);
 
 /**
  * @brief   Create a Piksi Endpoint context
