@@ -4,6 +4,7 @@ BOARD_DIR="$(dirname $0)"
 
 # copy the uEnv.txt to the output/images directory
 cp ${BOARD_DIR}/uEnv.txt ${BINARIES_DIR}/uEnv.txt
+zcat ${BOARD_DIR}/empty.ext4.gz > ${BINARIES_DIR}/empty.ext4
 
 GENIMAGE_CFG="${BOARD_DIR}/genimage.cfg"
 GENIMAGE_TMP="${BUILD_DIR}/genimage.tmp"

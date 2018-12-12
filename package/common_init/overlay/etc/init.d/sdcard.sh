@@ -1,5 +1,5 @@
 MOUNT_BASE="/media"
-MOUNTNAME="mmcblk0p1"
+MOUNTNAME="mmcblk0p3"
 MOUNTPOINT="$MOUNT_BASE/$MOUNTNAME"
 
 is_mounted()
