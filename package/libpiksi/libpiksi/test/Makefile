@@ -25,12 +25,12 @@ SOURCES_PK_TEST_SERVER = \
 	pk_test_server.c
 
 LIBS= \
-	-luv -lpiksi -lsbp -ldl -lpthread -lgtest
+	-luv -lpiksi -lsbp -ldl -lpthread -lsettings -lgtest
 
 LIBS_TESTERS= \
-	-luv -lpiksi -lsbp -ldl -lpthread
+	-luv -lpiksi -lsbp -ldl -lpthread -lsettings
 
-CFLAGS=-std=gnu++11 -z muldefs -I. -I../include -L../src -ggdb3
+CFLAGS=-std=gnu++11 -z muldefs -I. -I../include -L../src -ggdb3 $(PBR_CXX_WARNINGS)
 
 CROSS=
 

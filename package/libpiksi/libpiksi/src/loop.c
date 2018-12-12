@@ -573,7 +573,6 @@ const char *pk_loop_last_error(pk_loop_t *pk_loop)
 const char *pk_loop_describe_status(int status)
 {
   static char buf[MSG_BUF_SIZE] = {0};
-  static char buf_succ[MSG_BUF_SIZE] = {0};
   static char buf_read[MSG_BUF_SIZE] = {0};
   static char buf_disco[MSG_BUF_SIZE] = {0};
   static char buf_error[MSG_BUF_SIZE] = {0};

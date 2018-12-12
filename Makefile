@@ -373,7 +373,7 @@ docker-sync-stop:
 	@docker-sync stop -c .docker-sync.yml
 
 docker-sync-clean:
-	@docker-sync clean -c .docker-sync.yml
+	@docker-sync clean -c .docker-sync.yml || echo "docker-sync clean failed..."
 	@rm -f .docker-compose.yml .docker-sync.yml 
 
 docker-aws-google-auth:

@@ -16,7 +16,7 @@
 #include <sys/stat.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
 
 #include "ntrip_settings.h"
@@ -202,10 +202,10 @@ static int ntrip_notify_generic(void *context)
    * is triggered by read from persistent config file during boot */
   if (ntrip_enabled && ntrip_settings_initialized) {
     sbp_log(LOG_WARNING, "NTRIP must be disabled to modify settings");
-    return SBP_SETTINGS_WRITE_STATUS_MODIFY_DISABLED;
+    return SETTINGS_WR_MODIFY_DISABLED;
   }
 
-  return SBP_SETTINGS_WRITE_STATUS_OK;
+  return SETTINGS_WR_OK;
 }
 
 static int ntrip_notify_enable(void *context)
@@ -222,44 +222,44 @@ static int ntrip_notify_enable(void *context)
   return 0;
 }
 
-void ntrip_settings_init(settings_ctx_t *settings_ctx)
+void ntrip_settings_init(pk_settings_ctx_t *settings_ctx)
 {
   piksi_log(LOG_DEBUG, "ntrip process count %zu", ntrip_processes_count);
 
   mkfifo(FIFO_FILE_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
   // clang-format off
-  settings_register(settings_ctx, "ntrip", "enable",
+  pk_settings_register(settings_ctx, "ntrip", "enable",
                     &ntrip_enabled, sizeof(ntrip_enabled),
                     SETTINGS_TYPE_BOOL,
                     ntrip_notify_enable, NULL);
 
-  settings_register(settings_ctx, "ntrip", "debug",
+  pk_settings_register(settings_ctx, "ntrip", "debug",
                     &ntrip_debug, sizeof(ntrip_debug),
                     SETTINGS_TYPE_BOOL,
                     ntrip_notify_generic, NULL);
 
-  settings_register(settings_ctx, "ntrip", "username",
+  pk_settings_register(settings_ctx, "ntrip", "username",
                     &ntrip_username, sizeof(ntrip_username),
                     SETTINGS_TYPE_STRING,
                     ntrip_notify_generic, NULL);
 
-  settings_register(settings_ctx, "ntrip", "password",
+  pk_settings_register(settings_ctx, "ntrip", "password",
                     &ntrip_password, sizeof(ntrip_password),
                     SETTINGS_TYPE_STRING,
                     ntrip_notify_generic, NULL);
 
-  settings_register(settings_ctx, "ntrip", "url",
+  pk_settings_register(settings_ctx, "ntrip", "url",
                     &ntrip_url, sizeof(ntrip_url),
                     SETTINGS_TYPE_STRING,
                     ntrip_notify_generic, NULL);
 
-  settings_register(settings_ctx, "ntrip", "gga_out_interval",
+  pk_settings_register(settings_ctx, "ntrip", "gga_out_interval",
                     &ntrip_interval, sizeof(ntrip_interval),
                     SETTINGS_TYPE_INT,
                     ntrip_notify_generic, NULL);
 
-  settings_register(settings_ctx, "ntrip", "gga_out_rev1",
+  pk_settings_register(settings_ctx, "ntrip", "gga_out_rev1",
                     &ntrip_rev1gga, sizeof(ntrip_rev1gga),
                     SETTINGS_TYPE_BOOL,
                     ntrip_notify_generic, NULL);

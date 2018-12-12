@@ -24,7 +24,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/sha256.h>
 #include <libpiksi/util.h>
 #include <libpiksi/version.h>
@@ -468,7 +468,7 @@ int main(int argc, char *argv[])
   switch (op_mode) {
   case OP_MODE_OTA_CLIENT: ret = ota_client_loop(); break;
   case OP_MODE_SETTINGS_DAEMON:
-    ret = settings_loop_simple(OTA_ENDPOINT_METRICS, ota_settings);
+    ret = pk_settings_loop_simple(OTA_ENDPOINT_METRICS, ota_settings);
     break;
   case OP_MODE_COUNT:
   default: ret = false;

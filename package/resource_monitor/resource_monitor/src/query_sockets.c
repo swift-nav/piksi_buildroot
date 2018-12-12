@@ -705,7 +705,7 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
   if (state->send_state == SEND_DONE) return false;
 
   size_t index = 0;
-
+  send_state_t current_state = state->send_state;
   switch (state->send_state) {
   case SEND_SOCKET_COUNTS_0:
     index = 0;
@@ -761,7 +761,7 @@ static bool query_sockets_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *con
   default: PK_LOG_ANNO(LOG_ERR, "Invalid state value: %d", state->send_state);
   }
 
-  switch (state->send_state) {
+  switch (current_state) {
   case SEND_SOCKET_COUNTS_0:
   case SEND_SOCKET_COUNTS_1:
   case SEND_SOCKET_COUNTS_2:

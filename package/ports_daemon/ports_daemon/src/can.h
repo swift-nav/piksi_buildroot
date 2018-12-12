@@ -13,9 +13,9 @@
 #ifndef SWIFTNAV_CAN_H
 #define SWIFTNAV_CAN_H
 
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 
-int can_init(settings_ctx_t *settings_ctx);
+int can_init(pk_settings_ctx_t *settings_ctx);
 u32 can_get_id(u8 can_number);
 u32 can_get_filter(u8 can_number);
 

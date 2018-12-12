@@ -8,7 +8,7 @@ LIBPIKSI_VERSION = 0.1
 LIBPIKSI_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/libpiksi/libpiksi"
 LIBPIKSI_SITE_METHOD = local
-LIBPIKSI_DEPENDENCIES = libuv libsbp busybox
+LIBPIKSI_DEPENDENCIES = libuv libsbp busybox libsettings
 ifeq ($(BR2_BUILD_TESTS),y)
 	LIBPIKSI_DEPENDENCIES += gtest valgrind
 endif
@@ -21,11 +21,14 @@ endif
 
 define LIBPIKSI_BUILD_CMDS_DEFAULT
   CFLAGS="$(TARGET_CFLAGS) $(UNIT_TEST_CFLAGS)" LDFLAGS="$(TARGET_LDFLAGS)" LTO_PLUGIN="$(LTO_PLUGIN)" \
-    $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD)  -C $(@D) all
+		PBR_CC_WARNINGS="$(PBR_CC_WARNINGS)" \
+    	$(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD)  -C $(@D) all
 endef
 ifeq ($(BR2_BUILD_TESTS),y)
 define LIBPIKSI_BUILD_CMDS_TESTS
-	$(MAKE) CROSS=$(TARGET_CROSS) LD=$(TARGET_LD) -C $(@D) test
+	$(MAKE) CROSS=$(TARGET_CROSS) LD=$(TARGET_LD) LTO_PLUGIN="$(LTO_PLUGIN)" \
+		PBR_CC_WARNINGS="$(PBR_CC_WARNINGS)" PBR_CXX_WARNINGS=$(PBR_CXX_WARNINGS) \
+		-C $(@D) test
 endef
 endif
 define LIBPIKSI_BUILD_CMDS

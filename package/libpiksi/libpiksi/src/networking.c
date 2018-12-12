@@ -15,6 +15,7 @@
 #include <ifaddrs.h>
 #include <linux/if_link.h>
 
+#include <libpiksi/cast_check.h>
 #include <libpiksi/util.h>
 #include <libpiksi/interface.h>
 #include <libpiksi/networking.h>
@@ -45,13 +46,13 @@ static void map_network_interfaces(interface_map_fn_t map_fn, void *userdata)
   freeifaddrs(ifaddr);
 }
 
-static int count_set_bits(const u8 *data, size_t num_bytes)
+static u8 count_set_bits(const u8 *data, size_t num_bytes)
 {
   int count = 0;
-  for (int i = 0; i < num_bytes; i++) {
+  for (int i = 0; i < sizet_to_int(num_bytes); i++) {
     count += __builtin_popcount(data[i]);
   }
-  return count;
+  return int_to_uint8(count);
 }
 
 struct fill_network_state_s {
@@ -103,6 +104,9 @@ static s32 fill_network_state_struct(struct ifaddrs *ifa, void *userdata)
     return 0;
   }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+
   switch (ifa->ifa_addr->sa_family) {
   case AF_INET: {
     const size_t IP4_SIZE = sizeof(cur_iface->ipv4_address);
@@ -133,6 +137,8 @@ static s32 fill_network_state_struct(struct ifaddrs *ifa, void *userdata)
   } break;
   }
 
+#pragma GCC diagnostic pop
+
   return 0;
 }
 
@@ -156,50 +162,6 @@ struct fill_usage_struct_s {
   u64 duration;
 };
 
-static s32 fill_network_usage_struct(struct ifaddrs *ifa, void *userdata)
-{
-  struct fill_usage_struct_s *fill_usage = (struct fill_usage_struct_s *)userdata;
-  network_usage_t *usage_entries = fill_usage->usage_entries;
-  const u8 usage_entries_size = fill_usage->usage_entries_size;
-  u8 *usage_entries_count = fill_usage->usage_entries_count;
-  u64 duration = fill_usage->duration;
-
-  if (usage_entries == NULL) {
-    return -1;
-  }
-  if (usage_entries_count == NULL) {
-    return -1;
-  }
-  if (*usage_entries_count >= usage_entries_size) {
-    return -1;
-  }
-
-  // guard conditions to skip
-  if (ifa->ifa_addr == NULL) {
-    return 0;
-  }
-  if (ifa->ifa_name == NULL) {
-    return 0;
-  }
-  if (strlen(ifa->ifa_name) >= sizeof(usage_entries[0].interface_name)) {
-    piksi_log(LOG_WARNING, "Network Usage: skipping ifa_name that is too long - %s", ifa->ifa_name);
-    return 0;
-  }
-
-  if (ifa->ifa_addr->sa_family == AF_PACKET && ifa->ifa_data != NULL) {
-    network_usage_t *cur_iface = &usage_entries[*usage_entries_count];
-    struct rtnl_link_stats *stats = ifa->ifa_data;
-    strcpy(cur_iface->interface_name, ifa->ifa_name);
-    cur_iface->duration = duration;
-    cur_iface->rx_bytes = stats->rx_bytes;
-    cur_iface->tx_bytes = stats->tx_bytes;
-    cur_iface->total_bytes = cur_iface->rx_bytes + cur_iface->tx_bytes;
-    (*usage_entries_count)++;
-  }
-
-  return 0;
-}
-
 void query_network_usage(network_usage_t *usage_entries, u8 usage_entries_n, u8 *interface_count)
 {
   u64 uptime_ms = system_uptime_ms_get();
@@ -216,14 +178,24 @@ void query_network_usage(network_usage_t *usage_entries, u8 usage_entries_n, u8 
   }
 
   for (ifa = interface_list_head(ifa_list); ifa; ifa = interface_next(ifa)) {
+
     const char *ifa_name = interface_name(ifa);
     const struct user_net_device_stats *stats = interface_stats(ifa);
+
     network_usage_t *cur_iface = &usage_entries[*interface_count];
     strcpy(cur_iface->interface_name, ifa_name);
+
     cur_iface->duration = uptime_ms;
-    cur_iface->rx_bytes = stats->rx_bytes;
-    cur_iface->tx_bytes = stats->tx_bytes;
-    cur_iface->total_bytes = cur_iface->rx_bytes + cur_iface->tx_bytes;
+
+    /* Force rx/tx count to u32 since external API could give us more than a u32
+     *   count of bytes.
+     */
+    cur_iface->rx_bytes = (u32)(stats->rx_bytes > UINT32_MAX ? UINT32_MAX : stats->rx_bytes);
+    cur_iface->tx_bytes = (u32)(stats->tx_bytes > UINT32_MAX ? UINT32_MAX : stats->tx_bytes);
+
+    u64 total_bytes = cur_iface->rx_bytes + cur_iface->tx_bytes;
+    cur_iface->total_bytes = (u32)(total_bytes > UINT32_MAX ? UINT32_MAX : total_bytes);
+
     if ((*interface_count)++ >= usage_entries_n) {
       break;
     }

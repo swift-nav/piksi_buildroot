@@ -16,7 +16,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/sbp_pubsub.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/networking.h>
 
 #include <libsbp/sbp.h>

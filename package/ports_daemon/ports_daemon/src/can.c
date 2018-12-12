@@ -179,7 +179,7 @@ static int bitrate_notify(void *context)
   return can_configure(can);
 }
 
-int can_init(settings_ctx_t *settings_ctx)
+int can_init(pk_settings_ctx_t *settings_ctx)
 {
   can_configure(&cans[0]);
   if (!device_is_duro()) {
@@ -188,62 +188,62 @@ int can_init(settings_ctx_t *settings_ctx)
 
   /* Register settings */
   settings_type_t settings_type_bitrate;
-  settings_type_register_enum(settings_ctx, bitrate_enum_names, &settings_type_bitrate);
+  pk_settings_register_enum(settings_ctx, bitrate_enum_names, &settings_type_bitrate);
 
-  settings_register(settings_ctx,
-                    "can0",
-                    "bitrate",
-                    &cans[0].bitrate,
-                    sizeof(cans[0].bitrate),
-                    settings_type_bitrate,
-                    bitrate_notify,
-                    &cans[0]);
+  pk_settings_register(settings_ctx,
+                       "can0",
+                       "bitrate",
+                       &cans[0].bitrate,
+                       sizeof(cans[0].bitrate),
+                       settings_type_bitrate,
+                       bitrate_notify,
+                       &cans[0]);
 
-  settings_register(settings_ctx,
-                    "can0",
-                    "tx_id",
-                    &cans[0].id,
-                    sizeof(cans[0].id),
-                    SETTINGS_TYPE_INT,
-                    can_notify,
-                    &cans[0]);
+  pk_settings_register(settings_ctx,
+                       "can0",
+                       "tx_id",
+                       &cans[0].id,
+                       sizeof(cans[0].id),
+                       SETTINGS_TYPE_INT,
+                       can_notify,
+                       &cans[0]);
 
-  settings_register(settings_ctx,
-                    "can0",
-                    "rx_id_filter",
-                    &cans[0].filter,
-                    sizeof(cans[0].filter),
-                    SETTINGS_TYPE_INT,
-                    can_notify,
-                    &cans[0]);
+  pk_settings_register(settings_ctx,
+                       "can0",
+                       "rx_id_filter",
+                       &cans[0].filter,
+                       sizeof(cans[0].filter),
+                       SETTINGS_TYPE_INT,
+                       can_notify,
+                       &cans[0]);
 
   if (!device_is_duro()) {
-    settings_register(settings_ctx,
-                      "can1",
-                      "bitrate",
-                      &cans[1].bitrate,
-                      sizeof(cans[1].bitrate),
-                      settings_type_bitrate,
-                      bitrate_notify,
-                      &cans[1]);
+    pk_settings_register(settings_ctx,
+                         "can1",
+                         "bitrate",
+                         &cans[1].bitrate,
+                         sizeof(cans[1].bitrate),
+                         settings_type_bitrate,
+                         bitrate_notify,
+                         &cans[1]);
 
-    settings_register(settings_ctx,
-                      "can1",
-                      "tx_id",
-                      &cans[1].id,
-                      sizeof(cans[1].id),
-                      SETTINGS_TYPE_INT,
-                      can_notify,
-                      &cans[1]);
+    pk_settings_register(settings_ctx,
+                         "can1",
+                         "tx_id",
+                         &cans[1].id,
+                         sizeof(cans[1].id),
+                         SETTINGS_TYPE_INT,
+                         can_notify,
+                         &cans[1]);
 
-    settings_register(settings_ctx,
-                      "can1",
-                      "rx_id_filter",
-                      &cans[1].filter,
-                      sizeof(cans[1].filter),
-                      SETTINGS_TYPE_INT,
-                      can_notify,
-                      &cans[1]);
+    pk_settings_register(settings_ctx,
+                         "can1",
+                         "rx_id_filter",
+                         &cans[1].filter,
+                         sizeof(cans[1].filter),
+                         SETTINGS_TYPE_INT,
+                         can_notify,
+                         &cans[1]);
   }
 
   can_settings_initialized = true;

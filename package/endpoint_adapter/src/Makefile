@@ -9,7 +9,7 @@ SOURCES= \
 	endpoint_adapter_udp_connect.c \
 	endpoint_adapter_can.c
 
-LIBS=-luv -lsbp -lpiksi -ldl
+LIBS=-luv -lsbp -lpiksi -ldl -lsettings
 CFLAGS=-std=gnu11 -Wall -ggdb3 -O3
 
 CROSS=

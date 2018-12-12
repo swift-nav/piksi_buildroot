@@ -17,7 +17,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/loop.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/piksi.h>
@@ -140,7 +140,7 @@ static void cell_status_timer_callback(pk_loop_t *loop,
 }
 
 static int cleanup(pk_loop_t **pk_loop_loc,
-                   settings_ctx_t **settings_ctx_loc,
+                   pk_settings_ctx_t **settings_ctx_loc,
                    sbp_pubsub_ctx_t **pubsub_ctx_loc,
                    at_serial_port_t **port_loc,
                    int status);
@@ -148,7 +148,7 @@ static int cleanup(pk_loop_t **pk_loop_loc,
 int main(int argc, char *argv[])
 {
   pk_loop_t *loop = NULL;
-  settings_ctx_t *settings_ctx = NULL;
+  pk_settings_ctx_t *settings_ctx = NULL;
   sbp_pubsub_ctx_t *ctx = NULL;
   at_serial_port_t *port = NULL;
   struct cell_modem_ctx_s cell_modem_ctx = {.sbp_ctx = NULL, .port = NULL};
@@ -194,14 +194,14 @@ int main(int argc, char *argv[])
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
     }
 
-    settings_ctx = settings_create(SETTINGS_METRICS_NAME);
+    settings_ctx = pk_settings_create(SETTINGS_METRICS_NAME);
 
     if (settings_ctx == NULL) {
       piksi_log(LOG_ERR, "Error registering for settings!");
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
     }
 
-    if (settings_attach(settings_ctx, loop) != 0) {
+    if (pk_settings_attach(settings_ctx, loop) != 0) {
       piksi_log(LOG_ERR, "Error registering for settings read!");
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
     }
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 }
 
 static int cleanup(pk_loop_t **pk_loop_loc,
-                   settings_ctx_t **settings_ctx_loc,
+                   pk_settings_ctx_t **settings_ctx_loc,
                    sbp_pubsub_ctx_t **pubsub_ctx_loc,
                    at_serial_port_t **port_loc,
                    int status)
@@ -229,7 +229,7 @@ static int cleanup(pk_loop_t **pk_loop_loc,
   if (*pubsub_ctx_loc != NULL) {
     sbp_pubsub_destroy(pubsub_ctx_loc);
   }
-  settings_destroy(settings_ctx_loc);
+  pk_settings_destroy(settings_ctx_loc);
   at_serial_port_destroy(port_loc);
   logging_deinit();
 

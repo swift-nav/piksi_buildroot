@@ -17,12 +17,13 @@ endif # ! ($(BR2_BUILD_RELEASE_PROTECTED),y)
 
 $(info >>> Piksi INS is enabled, packaging with current image)
 
-PIKSI_INS_VERSION = v2.1.15 # Version 2.1.15 pushed on Oct 25, 2018
+PIKSI_INS_VERSION = efed829d7257eb27a773508c24ad2a64cfb76d8f
 PIKSI_INS_SITE = git@github.com:carnegieroboticsllc/piksi_ins.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_INSTALL_STAGING = YES
 PIKSI_INS_INSTALL_TARGET = YES
-PIKSI_INS_DEPENDENCIES = libuv libsbp libpiksi eigen host-build_tools
+PIKSI_INS_DEPENDENCIES = \
+	libuv libsbp libpiksi eigen host-build_tools pfw_welcome
 
 BR2_ROOTFS_OVERLAY += "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/overlay"
 

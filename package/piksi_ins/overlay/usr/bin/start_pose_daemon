@@ -1,5 +1,8 @@
 #!/bin/sh
 
+export log_tag="start_pose_daemon" # required by logging.sh
+. /etc/init.d/logging.sh
+
 key_index=1
 
 b=/usr/bin
@@ -21,6 +24,11 @@ caps="cap_ipc_lock,cap_sys_rawio+ep"
 
 user=piksi_ins
 group=devmem
+
+## Wait for a firmware heartbeat message to make sure we don't
+##   interact with the NAP->AUTHENTICATE register at the same
+##   time as the RTOS.
+pfw_welcome || loge --sbp "pfw_welcome failed..."
 
 exec nap_wrap --key-index $key_index \
   --input-file $b/PoseDaemon.enc --output-file $b/PoseDaemon \
