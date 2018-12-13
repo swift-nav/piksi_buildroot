@@ -84,6 +84,7 @@ wait_smoothpose()
     fi
 
     if piksi_ins_done; then
+      logi "Found Piksi INS start-up message"
       break
     fi
 
