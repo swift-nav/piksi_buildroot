@@ -1,20 +1,22 @@
 #!/bin/sh
 
-name="endpoint_router_sbp"
-dir="/"
-user="rt_sbp"
-priority="-20"
+# shellcheck disable=SC1091,SC2169,SC2039
+
+source /etc/init.d/common.sh
+
+export name="endpoint_router_sbp"
+export dir="/"
+export user="rt_sbp"
+export priority="-20"
 
 setup_permissions()
 {
   add_service_user $user
 }
 
-ins_output_mode=$(query_config --section ins --key output_mode)
 starling_daemon_enabled=$(query_config --section experimental_flags --key starling_on_linux)
 
-
-if [[ "$ins_output_mode" == "Loosely Coupled" ]]; then
+if detect_piksi_ins; then
   router_config="/etc/endpoint_router/sbp_router_smoothpose.yml"
 elif [[ "$starling_daemon_enabled" == "True" ]]; then
   router_config="/etc/endpoint_router/sbp_router_starling.yml"
@@ -22,6 +24,6 @@ else
   router_config="/etc/endpoint_router/sbp_router.yml"
 fi
 
-cmd="endpoint_router --sbp --name sbp -f $router_config"
+export cmd="endpoint_router --sbp --name sbp -f $router_config"
 
 source /etc/init.d/template_runsv.inc.sh
