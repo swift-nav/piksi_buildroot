@@ -13,6 +13,10 @@ DIR_PERM=0755
 FILE_PERM=0644
 FLAGS_DIR="/persistent/flags"
 
+# We make directory here no matter what
+
+mkdir -p $FLAGS_DIR
+
 setup_permissions() {
     # Force device ownership
     chown $user:$user ${CSAC_PORT}*
