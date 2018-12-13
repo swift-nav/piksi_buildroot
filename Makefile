@@ -376,6 +376,6 @@ docker-aws-google-auth:
 	@./scripts/run-aws-google-auth
 
 show-startup-order:
-	@find . -name 'S*'|grep etc/init.d|sed 's@\(.*\)etc/init.d/\(.*\)@\2 - \1/etc/init.d\2@'|sort
+	@find . -name 'S*'|grep etc/init.d|sed 's@\(.*\)etc/init.d/\(.*\)@\2 - \1etc/init.d/\2@'|sort
 
 .PHONY: help
