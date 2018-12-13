@@ -18,6 +18,6 @@ else
       loge --sbp "Running pfw_welcome failed..."
       break
     fi
-    echo $'\0' >/dev/watchdog
+    printf '\000' >/dev/watchdog
   done
 fi
