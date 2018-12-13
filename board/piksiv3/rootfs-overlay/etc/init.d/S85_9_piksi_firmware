@@ -9,7 +9,10 @@ setup_loggers
 settings_ini=/persistent/config.ini
 
 uart_wait_count_limit=2000 # wait 200s
+ins_wait_count_limit=20 # wait 2s
+
 uart_check_interval=0.1
+ins_check_interval=0.1
 
 
 svc_path()
@@ -57,14 +60,44 @@ wait_services()
       loge --sbp "Timeout expired while waiting for UARTs"
       break;
     fi
-  sleep $uart_check_interval
-  uart_wait_count=$(($uart_wait_count + 1))
+    sleep $uart_check_interval
+    uart_wait_count=$(( uart_wait_count + 1 ))
+  done
+}
+
+piksi_ins_done()
+{
+  grep -iq "smoothpose.*mode:" /var/log/messages || \
+    grep -iq "smoothpose.*could not open.*smoothpose_license" /var/log/messages
+}
+
+wait_smoothpose()
+{
+  logi "Waiting for Piksi INS daemon..."
+
+  local ins_wait_count=0
+  while true; do
+
+    if [[ $ins_wait_count -ge $ins_wait_count_limit ]]; then
+      loge --sbp "Timeout expired while waiting for Piksi INS daemon"
+      break;
+    fi
+
+    if piksi_ins_done; then
+      break
+    fi
+
+    sleep $ins_check_interval
+    ins_wait_count=$(( ins_wait_count + 1 ))
+
   done
 }
 
 start()
 {
   wait_services
+  wait_smoothpose
+
   if [ -f "/lib/firmware/piksi_firmware.elf" ]; then
     modprobe zynq_remoteproc
     logi "Remoteproc modprobe complete: $?"
@@ -79,4 +112,3 @@ stop()
 }
 
 source /etc/init.d/template_command.inc.sh
-
