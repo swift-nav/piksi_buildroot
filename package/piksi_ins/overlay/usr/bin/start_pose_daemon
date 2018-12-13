@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# shellcheck disable=1091
+
 export log_tag="start_pose_daemon" # required by logging.sh
 . /etc/init.d/logging.sh
 

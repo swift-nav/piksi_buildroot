@@ -97,7 +97,7 @@ wait_smoothpose()
 start()
 {
   wait_services
-  wait_smoothpose
+#  wait_smoothpose
 
   if [ -f "/lib/firmware/piksi_firmware.elf" ]; then
     modprobe zynq_remoteproc
