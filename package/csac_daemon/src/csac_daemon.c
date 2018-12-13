@@ -18,7 +18,7 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/loop.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
 
 #include <libsbp/sbp.h>
@@ -31,6 +31,9 @@
 
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP Internal Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP Internal In */
+
+#define METRICS_NAME "csac_daemon"
+#define SETTINGS_METRICS_NAME ("csac/" METRICS_NAME)
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE (255u)
 #define CSAC_TELEM_UPDATE_INTERVAL (1000u)
@@ -203,10 +206,11 @@ static int get_csac_telem(struct csac_ctx_s *ctx)
 /**
  * @brief csac_telem_callback - used to trigger csac telemetry pollling
  */
-static void csac_telem_callback(pk_loop_t *loop, void *timer_handle, void *context)
+static void csac_telem_callback(pk_loop_t *loop, void *timer_handle, int status, void *context)
 {
   (void)loop;
   (void)timer_handle;
+  (void) status;
   struct csac_ctx_s *csac_ctx = (struct csac_ctx_s *)context;
 
   if (csac_daemon_enabled()) {
@@ -244,7 +248,7 @@ static int settings_changed(void *context)
 }
 
 static int cleanup(pk_loop_t **pk_loop_loc,
-                   settings_ctx_t **settings_ctx_loc,
+                   pk_settings_ctx_t **settings_ctx_loc,
                    sbp_pubsub_ctx_t **pubsub_ctx_loc,
                    serial_port_t **port_loc,
                    int status)
@@ -253,7 +257,7 @@ static int cleanup(pk_loop_t **pk_loop_loc,
   if (*pubsub_ctx_loc != NULL) {
     sbp_pubsub_destroy(pubsub_ctx_loc);
   }
-  settings_destroy(settings_ctx_loc);
+  pk_settings_destroy(settings_ctx_loc);
   serial_port_destroy(port_loc);
   logging_deinit();
 
@@ -263,7 +267,7 @@ static int cleanup(pk_loop_t **pk_loop_loc,
 int main(int argc, char *argv[])
 {
   pk_loop_t *loop = NULL;
-  settings_ctx_t *settings_ctx = NULL;
+  pk_settings_ctx_t *settings_ctx = NULL;
   sbp_pubsub_ctx_t *ctx = NULL;
   serial_port_t *port = NULL;
   struct csac_ctx_s csac_ctx = {.sbp_ctx = NULL, .port = NULL};
@@ -287,7 +291,7 @@ int main(int argc, char *argv[])
     exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
   }
 
-  ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  ctx = sbp_pubsub_create(METRICS_NAME, SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (ctx == NULL) {
     exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
   }
@@ -297,7 +301,7 @@ int main(int argc, char *argv[])
     exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
   }
 
-  settings_ctx = settings_create();
+  settings_ctx = pk_settings_create(SETTINGS_METRICS_NAME);
 
   if (settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
@@ -308,12 +312,12 @@ int main(int argc, char *argv[])
     exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
   }
 
-  if (settings_attach(settings_ctx, loop) != 0) {
+  if (pk_settings_attach(settings_ctx, loop) != 0) {
     piksi_log(LOG_ERR, "Error registering for settings read!");
     exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
   }
 
-  settings_register(settings_ctx,
+  pk_settings_register(settings_ctx,
                     "csac",
                     "telemetry_enabled",
                     &csac_telemetry_enabled,
