@@ -22,11 +22,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include <czmq.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/sbp_zmq_pubsub.h>
-#include <libpiksi/sbp_zmq_rx.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
 
 #include <libsbp/navigation.h>
@@ -37,9 +34,6 @@
 #include "nav_daemon.h"
 
 #define PROGRAM_NAME "nav_daemon"
-
-#define SBP_SUB_ENDPOINT    ">tcp://127.0.0.1:43090"  /* SBP External Out */
-#define SBP_PUB_ENDPOINT    ">tcp://127.0.0.1:43091"  /* SBP External In */
 
 #define DEBUG 0
 
@@ -86,7 +80,7 @@ static int parse_options(int argc, char *argv[])
 
 static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t * )  context;
+  (void*) context;
   msg_pos_llh_t *pos = (msg_pos_llh_t*)msg;
 
   static time_t last_log_msg_time = 0;
@@ -100,7 +94,7 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   }
 
   if (smoothpose_enable) {
-    sbp_zmq_tx_send(tx_ctx, SBP_MSG_POS_LLH,
+    sbp_tx_send(NULL, SBP_MSG_POS_LLH,
                   sizeof(*pos), (u8*) pos);
   }
 }
@@ -108,7 +102,7 @@ static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 
 static void pos_ecef_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t * )  context;
+  (void *) context;
   msg_pos_ecef_t *pos = (msg_pos_ecef_t*)msg;
 
   static time_t last_log_msg_time = 0;
@@ -122,14 +116,14 @@ static void pos_ecef_callback(u16 sender_id, u8 len, u8 msg[], void *context)
     last_log_msg_time = time(NULL);
   }
   if (smoothpose_enable) {
-    sbp_zmq_tx_send(tx_ctx, SBP_MSG_POS_ECEF,
+    sbp_tx_send(NULL, SBP_MSG_POS_ECEF,
                   sizeof(*pos), (u8*) pos);
   }
 }
 
 static void vel_ned_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t * )  context;
+  (void*) context;
   msg_vel_ned_t *vel = (msg_vel_ned_t*)msg;
 
   static time_t last_log_msg_time = 0;
@@ -144,14 +138,14 @@ static void vel_ned_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   }
 
   if (smoothpose_enable) {
-    sbp_zmq_tx_send(tx_ctx, SBP_MSG_VEL_NED,
+    sbp_tx_send(NULL, SBP_MSG_VEL_NED,
                   sizeof(*vel), (u8*) vel);
   }
 }
 
 static void vel_ecef_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  sbp_zmq_tx_ctx_t *tx_ctx = (sbp_zmq_tx_ctx_t * )  context;
+  (void*)  context;
   msg_vel_ecef_t *vel = (msg_vel_ecef_t*)msg;
 
   static time_t last_log_msg_time = 0;
@@ -166,14 +160,14 @@ static void vel_ecef_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   }
 
   if (smoothpose_enable) {
-    sbp_zmq_tx_send(tx_ctx, SBP_MSG_VEL_ECEF,
+    sbp_tx_send(NULL, SBP_MSG_VEL_ECEF,
                   sizeof(*vel), (u8*) vel);
   }
 }
 
 static int notify_settings_changed(void *context)
 {
-  (void)context;
+  (void* )context;
   //log_warn("Enabling or Disabling Smoothpose requires device restart");
   return 0;
 }
@@ -181,9 +175,8 @@ static int notify_settings_changed(void *context)
 int main(int argc, char *argv[])
 {
   int status = EXIT_SUCCESS;
-  settings_ctx_t *settings_ctx = NULL;
-  sbp_zmq_pubsub_ctx_t *ctx = NULL;
-
+  pk_settings_ctx_t *settings_ctx = NULL;
+ 
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
@@ -192,48 +185,37 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  /* Prevent czmq from catching signals */
-  zsys_handler_set(NULL);
-
-  ctx = sbp_zmq_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
-  if (ctx == NULL) {
-    status = EXIT_FAILURE;
-    goto cleanup;
-  }
-  sbp_zmq_tx_ctx_t *tx_ctx =  sbp_zmq_pubsub_tx_ctx_get(ctx);
-
-  if (sbp_init(sbp_zmq_pubsub_rx_ctx_get(ctx), tx_ctx)) {
-    sbp_log(LOG_ERR, "Error initializing SBP!");
+  if (sbp_init() != 0) {
+    piksi_log(LOG_ERR | LOG_SBP, "Error initializing SBP!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
 
-  if (sbp_callback_register(SBP_MSG_POS_LLH, pos_llh_callback, tx_ctx) != 0) {
+  settings_ctx = sbp_get_settings_ctx();
+
+  if (sbp_callback_register(SBP_MSG_POS_LLH, pos_llh_callback, NULL) != 0) {
     sbp_log(LOG_ERR, "Error setting MSG_POS_LLH callback!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
   
-  if (sbp_callback_register(SBP_MSG_POS_ECEF, pos_ecef_callback, tx_ctx) != 0) {
+  if (sbp_callback_register(SBP_MSG_POS_ECEF, pos_ecef_callback, NULL) != 0) {
     sbp_log(LOG_ERR, "Error setting MSG_POS_ECEF callback!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
   
-  if (sbp_callback_register(SBP_MSG_VEL_NED, vel_ned_callback, tx_ctx) != 0) {
+  if (sbp_callback_register(SBP_MSG_VEL_NED, vel_ned_callback, NULL) != 0) {
     sbp_log(LOG_ERR, "Error setting MSG_VEL_NED callback!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
   
-  if (sbp_callback_register(SBP_MSG_VEL_ECEF, vel_ecef_callback, tx_ctx) != 0) {
+  if (sbp_callback_register(SBP_MSG_VEL_ECEF, vel_ecef_callback, NULL) != 0) {
     sbp_log(LOG_ERR, "Error setting MSG_VEL_NED callback!");
     status = EXIT_FAILURE;
     goto cleanup;
   }
-
-  /* Set up settings */
-  settings_ctx = settings_create();
 
   if (settings_ctx == NULL) {
     sbp_log(LOG_ERR, "Error registering for settings!");
@@ -241,25 +223,16 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  if (settings_reader_add(settings_ctx,
-                          sbp_zmq_pubsub_zloop_get(ctx)) != 0) {
-    sbp_log(LOG_ERR, "Error registering for settings read!");
-    status = EXIT_FAILURE;
-    goto cleanup;
-  }
-
-  settings_register(settings_ctx, "ins", "smoothpose_enable",
+  pk_settings_register(settings_ctx, "ins", "smoothpose_enable",
                     &smoothpose_enable, sizeof(smoothpose_enable),
                     SETTINGS_TYPE_BOOL,
                     notify_settings_changed, NULL);
 
   sbp_log(LOG_INFO, "Ready!");
-  zmq_simple_loop(sbp_zmq_pubsub_zloop_get(ctx));
+  sbp_run();
 
 cleanup:
-  sbp_zmq_pubsub_destroy(&ctx);
-  settings_destroy(&settings_ctx);
+  sbp_deinit();
   logging_deinit();
-
   return status;
 }
