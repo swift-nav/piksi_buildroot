@@ -20,12 +20,11 @@
 #include <libpiksi/loop.h>
 #include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
+#include <libpiksi/serial_utils.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/piksi.h>
 #include <libsbp/system.h>
-
-#include "serial_utils.h"
 
 #define PROGRAM_NAME "csac_daemon"
 
@@ -139,26 +138,28 @@ static void send_csac_telem(struct csac_ctx_s *ctx)
   size_t telem_string_len = 0;
   /* At most the telemetry string can be SBP_FRAMING_MAX_PAYLOAD_SIZE - 1 since
    * we have to save one byte for the "id" field */
-  telem_string_len = SWFT_MIN(strnlen(ctx->csac_telem, sizeof(ctx->csac_telem)),
-                              SBP_FRAMING_MAX_PAYLOAD_SIZE - 1);
+  telem_string_len =
+    SWFT_MIN(strnlen(ctx->csac_telem, sizeof(ctx->csac_telem)), SBP_FRAMING_MAX_PAYLOAD_SIZE - 1);
   msg_csac_telemetry_t *msg = alloca(SBP_FRAMING_MAX_PAYLOAD_SIZE);
   memcpy(msg->telemetry, ctx->csac_telem, telem_string_len);
   msg->id = 0;
   msg->telemetry[telem_string_len] = '\0'; /* Ensure null termination */
   sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx->sbp_ctx),
               SBP_MSG_CSAC_TELEMETRY,
-              (u8) SWFT_MIN(telem_string_len + 1, SBP_FRAMING_MAX_PAYLOAD_SIZE), /* length is strnlen + 1 for id */
+              (u8)SWFT_MIN(telem_string_len + 1,
+                           SBP_FRAMING_MAX_PAYLOAD_SIZE), /* length is strnlen + 1 for id */
               (u8 *)msg);
   count++;
   if ((count % HEADER_SEND_DIVISOR) == 0) {
     telem_string_len = SWFT_MIN(strnlen(ctx->csac_header, sizeof(ctx->csac_header)),
-                              SBP_FRAMING_MAX_PAYLOAD_SIZE - 1);
+                                SBP_FRAMING_MAX_PAYLOAD_SIZE - 1);
     memcpy(msg->telemetry, ctx->csac_header, telem_string_len);
     msg->id = 0;
     msg->telemetry[telem_string_len] = '\0'; /* Ensure null termination */
     sbp_tx_send(sbp_pubsub_tx_ctx_get(ctx->sbp_ctx),
                 SBP_MSG_CSAC_TELEMETRY_LABELS,
-                (u8) SWFT_MIN(telem_string_len + 1, SBP_FRAMING_MAX_PAYLOAD_SIZE), /* length is strnlen + 1 for id */
+                (u8)SWFT_MIN(telem_string_len + 1,
+                             SBP_FRAMING_MAX_PAYLOAD_SIZE), /* length is strnlen + 1 for id */
                 (u8 *)msg);
   }
 }
@@ -179,8 +180,8 @@ static int get_csac_telem(struct csac_ctx_s *ctx)
       /* Check for expected length and expected first and last chars*/
       if (bytes > MIN_RETURN_STR_LEN) {
         /*Last character of buffer is 3 characters from end as it should end in r\r\n*/
-        if (ctx->csac_header[0] == HEADER_FIRST_CHAR && 
-            ctx->csac_header[bytes - 3] == HEADER_LAST_CHAR) {
+        if (ctx->csac_header[0] == HEADER_FIRST_CHAR
+            && ctx->csac_header[bytes - 3] == HEADER_LAST_CHAR) {
           headers_received = true;
         }
       }
@@ -210,37 +211,38 @@ static void csac_telem_callback(pk_loop_t *loop, void *timer_handle, int status,
 {
   (void)loop;
   (void)timer_handle;
-  (void) status;
+  (void)status;
   struct csac_ctx_s *csac_ctx = (struct csac_ctx_s *)context;
 
   if (csac_daemon_enabled()) {
     if (get_csac_telem(csac_ctx) == 0) {
       send_csac_telem(csac_ctx);
     } else {
-      piksi_log(LOG_WARNING | LOG_SBP, "Could not retrieve CSAC telemetry. Ensure CSAC is connected and UART0 mode is disabled.");
+      piksi_log(
+        LOG_WARNING | LOG_SBP,
+        "Could not retrieve CSAC telemetry. Ensure CSAC is connected and UART0 mode is disabled.");
     }
   }
 }
 
 static int settings_changed(void *context)
 {
-  struct csac_ctx_s* csac_ctx = (struct csac_ctx_s *) context;
+  struct csac_ctx_s *csac_ctx = (struct csac_ctx_s *)context;
   if (!csac_telemetry_enabled) {
     piksi_log(LOG_DEBUG, "CSAC telmetry disabled");
     if (serial_port_is_open(csac_ctx->port)) {
       serial_port_close(csac_ctx->port);
     }
-  }
-  else {
+  } else {
     piksi_log(LOG_DEBUG, "CSAC telmetry enabled");
     if (!serial_port_is_open(csac_ctx->port)) {
       serial_port_open_baud(csac_ctx->port, B57600);
     }
     if (serial_port_is_open(csac_ctx->port)) {
       return 0;
-    }
-    else {
-      piksi_log(LOG_ERR | LOG_SBP, "Unable to open UART0 for CSAC telmetry. CSAC telemetry will remain disabled.");
+    } else {
+      piksi_log(LOG_ERR | LOG_SBP,
+                "Unable to open UART0 for CSAC telmetry. CSAC telemetry will remain disabled.");
       return 1;
     }
   }
@@ -318,13 +320,13 @@ int main(int argc, char *argv[])
   }
 
   pk_settings_register(settings_ctx,
-                    "csac",
-                    "telemetry_enabled",
-                    &csac_telemetry_enabled,
-                    sizeof(csac_telemetry_enabled),
-                    SETTINGS_TYPE_BOOL,
-                    settings_changed,
-                    &csac_ctx);
+                       "csac",
+                       "telemetry_enabled",
+                       &csac_telemetry_enabled,
+                       sizeof(csac_telemetry_enabled),
+                       SETTINGS_TYPE_BOOL,
+                       settings_changed,
+                       &csac_ctx);
 
   pk_loop_run_simple(loop);
 
