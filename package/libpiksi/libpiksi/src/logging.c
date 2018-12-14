@@ -95,8 +95,8 @@ static void piksi_vklog(int priority, const char *format, va_list ap)
   const char *priority_string = get_priority_string(priority);
   char *with_preamble = (char *)alloca(strlen(identity) + 9 /* space + bracket + 'daemon.' */
                                        + strlen(priority_string) + 3 /* bracket, colon, space */
-                                       + strlen(format) + 1 /* terminator */);
-  sprintf(with_preamble, "%s [daemon.%s]: %s", identity, priority_string, format);
+                                       + strlen(format) + 2 /* return + terminator */);
+  sprintf(with_preamble, "%s [daemon.%s]: %s\n", identity, priority_string, format);
 
   int count = vsnprintf(msg, sizeof(msg), with_preamble, ap);
   if ((size_t)count >= sizeof(msg)) {
