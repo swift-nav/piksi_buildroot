@@ -19,22 +19,26 @@ unexport_gpio()
 case "$1" in
   start)
 
+  mkdir -p /dev/gc
+  export_gpio 129 out /dev/gc/mems_osc_oe
+  echo 1 > /dev/gc/mems_osc_oe
+
   mkdir -p /dev/gc/a
   export_gpio 2  out /dev/gc/a/pwr_en
-  export_gpio 84 out /dev/gc/a/eclk_en
+  export_gpio 86 out /dev/gc/a/eclk_en
   export_gpio 85 out /dev/gc/a/nstandby
   export_gpio 90 in  /dev/gc/a/ant_fault
+  echo 1 > /dev/gc/a/eclk_en
   echo 1 > /dev/gc/a/pwr_en
 
   mkdir -p /dev/gc/b
   export_gpio 4  out /dev/gc/b/pwr_en
-  export_gpio 86 out /dev/gc/b/eclk_en
+  export_gpio 84 out /dev/gc/b/eclk_en
   export_gpio 75 out /dev/gc/b/nstandby
   export_gpio 64 in  /dev/gc/b/ant_fault
+  echo 1 > /dev/gc/b/eclk_en
   echo 1 > /dev/gc/b/pwr_en
 
-  export_gpio 129 out /dev/gc/mems_osc_oe
-  echo 1 > /dev/gc/mems_osc_oe
   ;;
   stop)
   ;;
