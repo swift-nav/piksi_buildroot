@@ -272,3 +272,5 @@ make clang-format
 ```
 
 (test entry on release branch)
+(test entry by PR to dummy release branch)
+
