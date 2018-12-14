@@ -22,6 +22,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
+#include <libpiksi/serial_utils.h>
 
 #include "at_command_utils.h"
 
@@ -29,15 +30,8 @@
 #define AT_COMMAND_PREFIX "AT"
 #define AT_COMMAND_CSQ "+CSQ"
 
-#define SERIAL_PORT_NAME_MAX_LENGTH (128u)
 #define AT_COMMAND_MAX_LENGTH (128u)
 #define AT_RESULT_MAX_LENGTH (128u)
-
-struct at_serial_port_s {
-  char port_name[SERIAL_PORT_NAME_MAX_LENGTH];
-  int fd;
-  bool is_open;
-};
 
 struct at_serial_port_command_s {
   char command[AT_COMMAND_MAX_LENGTH];
@@ -45,111 +39,6 @@ struct at_serial_port_command_s {
   size_t result_length;
   bool complete;
 };
-
-// Ref: Serial Port Programming - https://www.cmrr.umn.edu/~strupp/serial.html
-/*
- * 'open_port()' - Open serial port 1.
- *
- * Returns the file descriptor on success or -1 on error.
- */
-static int open_port(const char *port_name)
-{
-  int fd; /* File descriptor for the port */
-
-  if (port_name == NULL) {
-    return -1;
-  }
-
-  if (port_name[0] == '\0') {
-    return -1;
-  }
-
-  fd = open(port_name, O_RDWR | O_NOCTTY | O_NDELAY);
-  if (fd == -1) {
-    /*
-     * Could not open the port.
-     */
-
-    piksi_log(LOG_ERR, "Unable to open port: %s", port_name);
-  } else {
-    fcntl(fd, F_SETFL, 0);
-  }
-
-  return (fd);
-}
-
-// Ref: Standard Port Config for Serial Modem -
-// https://www.cmrr.umn.edu/~strupp/serial.html
-static void configure_port(int fd)
-{
-  struct termios options;
-
-  /* get the current options */
-  tcgetattr(fd, &options);
-
-  /* set raw input, 1 second timeout */
-  options.c_cflag |= (CLOCAL | CREAD);
-  options.c_lflag &= (unsigned)~(ICANON | ECHO | ECHOE | ISIG);
-  options.c_oflag &= (unsigned)~OPOST;
-  options.c_cc[VMIN] = 0;
-  options.c_cc[VTIME] = 10;
-
-  /* set the options */
-  tcsetattr(fd, TCSANOW, &options);
-}
-
-at_serial_port_t *at_serial_port_create(const char *port_name)
-{
-  at_serial_port_t *port = NULL;
-  if (port_name != NULL && port_name[0] != '\0' && strlen(port_name) < sizeof(port->port_name)) {
-    port = (at_serial_port_t *)malloc(sizeof(struct at_serial_port_s));
-    if (port != NULL) {
-      memset(port, 0, sizeof(struct at_serial_port_s));
-      strcpy(port->port_name, port_name);
-      port->fd = -1;
-      port->is_open = false;
-    }
-  }
-  return port;
-}
-
-void at_serial_port_open(at_serial_port_t *port)
-{
-  if (!at_serial_port_is_open(port)) {
-    int fd = open_port(port->port_name);
-    if (fd == -1) {
-      // failed to open port
-    } else {
-      configure_port(fd);
-      port->fd = fd;
-      port->is_open = true;
-    }
-  }
-}
-
-void at_serial_port_close(at_serial_port_t *port)
-{
-  if (at_serial_port_is_open(port)) {
-    close(port->fd);
-    port->fd = -1;
-    port->is_open = false;
-  }
-}
-
-bool at_serial_port_is_open(at_serial_port_t *port)
-{
-  return port->is_open;
-}
-
-void at_serial_port_destroy(at_serial_port_t **port_loc)
-{
-  at_serial_port_t *port = *port_loc;
-  if (port_loc != NULL && port != NULL) {
-    at_serial_port_close(port);
-    free(port);
-    *port_loc = NULL;
-  }
-}
 
 at_serial_port_command_t *at_serial_port_command_create(const char *command)
 {
@@ -174,7 +63,7 @@ void at_serial_port_command_destroy(at_serial_port_command_t **at_command_loc)
   }
 }
 
-static void at_serial_port_wait_command_response(at_serial_port_t *port,
+static void at_serial_port_wait_command_response(serial_port_t *port,
                                                  at_serial_port_command_t *at_command)
 {
   char *sob = at_command->result;
@@ -204,11 +93,11 @@ static void at_serial_port_wait_command_response(at_serial_port_t *port,
   at_command->result_length = (size_t)(current - at_command->result);
 }
 
-int at_serial_port_execute_command(at_serial_port_t *port, at_serial_port_command_t *at_command)
+int at_serial_port_execute_command(serial_port_t *port, at_serial_port_command_t *at_command)
 {
   int ret = 0;
-  at_serial_port_open(port);
-  if (!at_serial_port_is_open(port)) {
+  serial_port_open(port);
+  if (!serial_port_is_open(port)) {
     piksi_log(LOG_ERR, "Unable to open port: %s", port->port_name);
     return -1;
   }
@@ -237,7 +126,7 @@ int at_serial_port_execute_command(at_serial_port_t *port, at_serial_port_comman
   }
 
 cleanup:
-  at_serial_port_close(port);
+  serial_port_close(port);
   return ret;
 }
 
@@ -307,7 +196,7 @@ static float modem_error_rate_to_percent(u32 error_raw)
 }
 
 // This block should be refactored
-int at_command_report_signal_quality(at_serial_port_t *port, s8 *signal_strength, float *error_rate)
+int at_command_report_signal_quality(serial_port_t *port, s8 *signal_strength, float *error_rate)
 {
   int ret = 0;
   const char *at_prefix = AT_COMMAND_PREFIX;
