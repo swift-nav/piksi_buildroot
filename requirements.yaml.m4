@@ -8,8 +8,8 @@
         - uImage.piksiv3_prod
   artifacts:
     -
-      bucket: swiftnav-artifacts
-      prefix: piksi_firmware_private/FW_VERSION/v3
+      bucket: FW_S3_BUCKET
+      prefix: FW_S3_PREFIX/FW_VERSION/v3
       files:
         - piksi_firmware_v3_prod.stripped.elf
     -
