@@ -157,6 +157,8 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept,
 
 static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, bool retry_start);
 
+static bool connect_socket(pk_endpoint_t *pk_ept, bool retry_start);
+
 /**********************************************************************/
 /************* pk_endpoint_create *************************************/
 /**********************************************************************/
@@ -417,6 +419,17 @@ static int create_un_socket(void)
     PK_LOG_ANNO(LOG_ERR, "socket() error: %s", strerror(errno));
   }
 
+  socklen_t i = 256 * 1024;
+  size_t len = sizeof(i);
+
+  if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &len, i) < 0) {
+    PK_LOG_ANNO(LOG_ERR, "setsockopt() error for socket: %s", strerror(errno));
+  }
+
+  if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &len, i) < 0) {
+    PK_LOG_ANNO(LOG_ERR, "setsockopt() error for socket: %s", strerror(errno));
+  }
+
   return fd;
 }
 
@@ -633,9 +646,12 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
                   ctx->node,
                   queued_input,
                   queued_output);
-
+//#if 0
       send_close_socket_helper(ctx);
-
+//      if (!connect_socket(ctx->ept, /*retry_start = */true)) {
+//        PK_LOG_ANNO(LOG_WARNING, "failed to reconnect socket: %s", strerror(errno));
+//      }
+//#endif
       return 0;
     }
 
@@ -905,6 +921,17 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
   LIST_INIT(&pk_ept->client_nodes_head);
   LIST_INIT(&pk_ept->removed_nodes_head);
 
+  if (!connect_socket(pk_ept, retry_start)) goto failure;
+
+  return pk_ept;
+
+failure:
+  pk_endpoint_destroy(&pk_ept);
+  return NULL;
+}
+
+bool connect_socket(pk_endpoint_t *pk_ept, bool retry_start)
+{
   bool do_bind = false;
   switch (pk_ept->type) {
   case PK_ENDPOINT_PUB_SERVER: do_bind = true;
@@ -937,17 +964,17 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
   } break;
   }
 
-  size_t prefix_len = strstr(endpoint, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
+  size_t prefix_len = strstr(pk_ept->path, IPC_PREFIX) != NULL ? strlen(IPC_PREFIX) : 0;
 
   if (do_bind) {
-    int rc = unlink(endpoint + prefix_len);
+    int rc = unlink(pk_ept->path + prefix_len);
     if (rc != 0 && errno != ENOENT) {
       PK_LOG_ANNO(LOG_WARNING, "unlink: %s", strerror(errno));
     }
   }
 
-  int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
-                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len, retry_start);
+  int rc = do_bind ? bind_un_socket(pk_ept->sock, pk_ept->path + prefix_len)
+                   : connect_un_socket(pk_ept->sock, pk_ept->path + prefix_len, retry_start);
 
   pk_ept->started = rc == 0;
 
@@ -961,9 +988,9 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
 
   if (do_bind) {
 
-    if (start_un_listen(endpoint, pk_ept->sock) < 0) goto failure;
+    if (start_un_listen(pk_ept->path, pk_ept->sock) < 0) goto failure;
 
-    int rc = chmod(endpoint + prefix_len, 0777);
+    int rc = chmod(pk_ept->path + prefix_len, 0777);
     if (rc != 0) {
       PK_LOG_ANNO(LOG_WARNING, "chmod: %s", strerror(errno));
     }
@@ -976,9 +1003,8 @@ static pk_endpoint_t *create_impl(const char *endpoint, pk_endpoint_type type, b
     }
   }
 
-  return pk_ept;
-
+  return true;
 failure:
-  pk_endpoint_destroy(&pk_ept);
-  return NULL;
+  return false;
 }
+
