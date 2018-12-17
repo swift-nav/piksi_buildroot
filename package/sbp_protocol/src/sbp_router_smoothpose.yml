@@ -36,7 +36,6 @@ ports:
           - { action: REJECT, prefix: [0x55, 0x12, 0x02] } # MSG_VEL_NED_COV   **Smoothpose Change**
           - { action: REJECT, prefix: [0x55, 0x14, 0x02] } # MSG_POS_ECEF_COV  **Smoothpose Change**
           - { action: REJECT, prefix: [0x55, 0x15, 0x02] } # MSG_VEL_ECEF_COV  **Smoothpose Change**
-#          - { action: REJECT, prefix: [0x55, 0xFF, 0xFF] } # MSG_HEARTBEAT     **Smoothpose Change**
           - { action: ACCEPT }
       - dst_port: SBP_PORT_FILEIO_FIRMWARE
         filters:
@@ -64,7 +63,6 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x00, 0x09] } # MSG_IMU_RAW   **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x01, 0x09] } # MSG_IMU_AUX   **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x03, 0x09] } # MSG_ODOMETRY  **Smoothpose Change**
-#          - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # MSG_HEARTBEAT **Smoothpose Change**
           - { action: REJECT }
       - dst_port: SBP_PORT_NMEA_BRIDGE
         filters:
@@ -220,7 +218,6 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x22, 0x02] } # MSG_ANGULAR_RATE  **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x01, 0x04] } # MSG_LOG           **Smoothpose Change**
           - { action: ACCEPT, prefix: [0x55, 0x03, 0xFF] } # MSG_INS_STATUS    **Smoothpose Change**
-#          - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # MSG_HEARTBEAT     **Smoothpose Change**
           - { action: REJECT }
       - dst_port: SBP_PORT_NMEA_BRIDGE
         filters:
