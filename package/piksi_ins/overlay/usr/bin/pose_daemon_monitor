@@ -1,0 +1,46 @@
+#!/bin/sh
+
+# shellcheck disable=1091,2039
+
+export log_tag="pose_daemon_monitor" # required by logging.sh
+. /etc/init.d/logging.sh
+
+pose_daemon_control=/etc/init.d/S96piksi_ins
+pose_daemon_state=/var/run/pose_daemon.state
+
+pose_daemon_lic_succ=license_success
+pose_daemon_lic_fail=license_failure
+
+# Daemon should finish it's license check within 5s
+pose_daemon_lic_deadline=50
+
+recheck_interval=0.1
+check_count=0
+
+restart_pose_daemon()
+{
+  logw "Restarting Piksi INS (license check appears to be stuck)..."
+  "$pose_daemon_control" restart
+}
+
+detect_lic_done()
+{
+  [[ "$(cat $pose_daemon_state)" == "$pose_daemon_lic_succ" ]] || \
+    [[ "$(cat $pose_daemon_state)" == "$pose_daemon_lic_fail" ]]
+}
+
+logi "Starting..."
+
+while true; do
+  if detect_lic_done; then
+    break
+  fi
+  if [[ "$check_count" -ge "$pose_daemon_lic_deadline" ]]; then
+    check_count=0 # reset timer
+    restart_pose_daemon
+  fi
+  check_count=$(( check_count + 1 ))
+  sleep $recheck_interval
+done
+
+logi "Stopping..."
