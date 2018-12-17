@@ -20,7 +20,7 @@ LICENSES_DIR=/persistent/licenses
 
 setup_permissions()
 {
-  rm "$POSE_DAEMON_STATE"
+  rm -f "$POSE_DAEMON_STATE"
   configure_file_resource2 "$POSE_DAEMON_USER" "$POSE_DAEMON_GROUP" "$POSE_DAEMON_STATE" "$FILE_PERM"
 
   # /persistent directory is setup by file_io_daemon
