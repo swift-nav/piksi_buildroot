@@ -12,19 +12,21 @@ source /etc/init.d/common.sh
 export log_tag=$name # required by logging.sh
 source /etc/init.d/logging.sh
 
-if ! detect_piksi_ins; then
-  # If we're not Piksi INS, keep our previous behavior and disable the watchdog...
-  printf "V" >"$watchdog_file"
-else
-  while true; do
-    exec 3<> "$watchdog_file"
-    printf '\000' >&3
-    if ! pfw_welcome; then
-      loge --sbp "Running pfw_welcome failed..."
-      break
-    fi
-    printf "V" >&3
-    exec 3>&-
-    sleep "$watchdog_sleep"
-  done
-fi
+printf "V" >"$watchdog_file"
+
+#if ! detect_piksi_ins; then
+#  # If we're not Piksi INS, keep our previous behavior and disable the watchdog...
+#  printf "V" >"$watchdog_file"
+#else
+#  while true; do
+#    exec 3<> "$watchdog_file"
+#    printf '\000' >&3
+#    if ! pfw_welcome; then
+#      loge --sbp "Running pfw_welcome failed..."
+#      break
+#    fi
+#    printf "V" >&3
+#    exec 3>&-
+#    sleep "$watchdog_sleep"
+#  done
+#fi
