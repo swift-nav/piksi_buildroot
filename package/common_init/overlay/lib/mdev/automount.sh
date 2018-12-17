@@ -39,6 +39,9 @@ do_mount()
 
   mkdir -p $mountpoint || exit 1
 
+  # give wide open permissions to the mount point
+  chmod 777 $mountpoint
+
   if ! mount -t auto $mount_options $dev $mountpoint 1>$logger_stdout 2>$logger_stderr; then
     loge "Mount failed, cleaning up mount point..."
     rmdir $mountpoint
