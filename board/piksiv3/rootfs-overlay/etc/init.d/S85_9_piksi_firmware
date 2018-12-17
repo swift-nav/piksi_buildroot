@@ -1,25 +1,30 @@
 #!/bin/sh
 
-name="piksi_firmware"
-source /etc/init.d/common.sh
-log_tag=$name # required by logging.sh
-source /etc/init.d/logging.sh
-setup_loggers
+# shellcheck disable=SC1091,SC2169,SC2039
 
-settings_ini=/persistent/config.ini
+export name="piksi_firmware"
+. /etc/init.d/common.sh
+
+export log_tag=$name # required by logging.sh
+. /etc/init.d/logging.sh
+
+setup_loggers
 
 uart_wait_count_limit=2000 # wait 200s
 uart_check_interval=0.1
 
 svc_path()
 {
-  echo /var/run/ports_daemon/sv/${1}/supervise/stat
+  echo "/var/run/ports_daemon/sv/${1}/supervise/stat"
 }
 
 port_disabled()
 {
   local the_port=$1; shift
-  local port_mode="$(query_config --section $the_port --key mode)"
+  local port_mode=
+
+  port_mode=$(query_config --section "$the_port" --key mode)
+
   # If it's explicitly set to SBP mode, then it's not disabled, if it's empty
   #   then the default is SBP and it's not disabled:
   if [[ "$port_mode" == "SBP" ]] || [[ -z "$port_mode" ]]; then
@@ -34,13 +39,15 @@ port_disabled()
 service_up()
 {
   local svc=$1; shift
-  local the_svc_path=$(svc_path $svc)
+  local the_svc_path=
 
-  if port_disabled $svc; then
+  the_svc_path=$(svc_path "$svc")
+
+  if port_disabled "$svc"; then
     return 0
   fi
 
-  grep -q run $the_svc_path
+  grep -q run "$the_svc_path"
 }
 
 services_up()
