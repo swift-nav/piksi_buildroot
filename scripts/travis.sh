@@ -273,7 +273,7 @@ handle_nano_after_success_phase()
   echo "nano_output" >> buildroot/.gitignore
   (cd buildroot; git update-index --assume-unchanged .gitignore)
 
-  PRODUCT_VERSION=nano PRODUCT_REV=evt0 \
+  PRODUCT_VERSION=nano PRODUCT_REV=evt1 \
     ./scripts/publish.sh $(list_published_files)
 }
 
