@@ -615,24 +615,22 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
     if (error == EAGAIN || error == EWOULDBLOCK) {
 
-      int queued_input = -1;
+      int queued_input = 0;
       int error = ioctl(ctx->handle, SIOCINQ, &queued_input);
 
       if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCINQ: %s", strerror(errno));
 
-      int queued_output = -1;
+      int queued_output = 0;
       error = ioctl(ctx->handle, SIOCOUTQ, &queued_output);
 
       if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCOUTQ: %s", strerror(errno));
 
       PK_LOG_ANNO(LOG_WARNING,
-                  "sendmsg returned EAGAIN, dropping %d bytes "
-                  "(path: %s, node: %p, queued input: %d, queued output: %d)",
-                  length,
+                  "sendmsg returned EAGAIN, disconnecting and dropping %d queued bytes "
+                  "(path: %s, node: %p)",
+                  length + queued_input + queued_output,
                   ctx->ept->path,
-                  ctx->node,
-                  queued_input,
-                  queued_output);
+                  ctx->node);
 
       send_close_socket_helper(ctx);
 
