@@ -10,16 +10,18 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/logging.h>
-#include <libsbp/settings.h>
-#include <libsettings/settings.h>
-
-#include <string.h>
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
+#include <libpiksi/logging.h>
 #include <libpiksi/min_ini.h>
+
+#include <libsbp/settings.h>
+
+#include <libsettings/settings.h>
+#include <libsettings/settings_util.h>
 
 #include "settings.h"
 
