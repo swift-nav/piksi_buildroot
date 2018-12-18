@@ -1,0 +1,24 @@
+#!/bin/ash
+# shellcheck disable=SC1091,SC2169
+
+set -e
+
+name=$1         ; shift
+cmd=$1          ; shift
+dir=$1          ; shift
+priority=$1     ; shift
+user=$1         ; shift
+group=$1        ; shift
+stdout_log=$1   ; shift
+stderr_log=$1   ; shift
+
+export log_tag=piksi-runsv
+. /etc/init.d/logging.sh
+
+logi "Starting ${name}..."
+
+started_file="/var/run/${name}.started"
+cat /proc/uptime >"$started_file"
+
+exec chpst -0 -n "$priority" -/ "$dir" -u "$user":"$group" -U "$user":"$group" \
+  ash -c "exec 1>\"${stdout_log}\"; exec 2>\"${stderr_log}\"; exec $cmd"
