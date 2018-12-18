@@ -111,7 +111,7 @@ static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *con
   struct setting *sdata = settings_lookup(section, name);
   /* Only register setting if it doesn't already exist */
   if (sdata == NULL) {
-    sdata = calloc(1, sizeof(struct setting));
+    sdata = calloc(1, sizeof(*sdata));
     strncpy(sdata->section, section, BUFSIZE);
     strncpy(sdata->name, name, BUFSIZE);
     strncpy(sdata->value, value, BUFSIZE);
@@ -299,11 +299,29 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
     return;
   }
 
-  piksi_log(LOG_ERR, "Setting %s.%s rejected", section, setting);
+  piksi_log(LOG_ERR, "Setting %s.%s rejected", section, name);
 
-  u8 resp[] = {SETTINGS_WR_SETTING_REJECTED};
   /* Reply with write response rejecting this setting */
-  sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, sizeof(resp), resp, SBP_SENDER_ID);
+  int buflen = 0;
+  u8 buf[BUFSIZE] = {0};
+  buf[buflen++] = SETTINGS_WR_SETTING_REJECTED;
+
+  if (section != NULL) {
+    strncpy(buf, section, BUFSIZE - buflen);
+    buflen += strlen(section) + 1;
+  }
+
+  if (name != NULL) {
+    strncpy(buf + buflen, name, BUFSIZE - buflen);
+    buflen += strlen(name) + 1;
+  }
+
+  if (value != NULL) {
+    strncpy(buf + buflen, value, BUFSIZE - buflen);
+    buflen += strlen(value) + 1;
+  }
+
+  sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, buflen, buf, SBP_SENDER_ID);
 }
 
 void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx)
