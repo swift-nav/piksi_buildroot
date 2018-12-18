@@ -534,8 +534,7 @@ int whitelist_notify(void *context)
 int whitelists_init(settings_ctx_t *settings_ctx, bool can_enabled)
 {
   for (int i = 0; i < PORT_MAX; i++) {
-    if ((strncmp(port_whitelist_config[i].name, "can", 3) == 0) &&
-         !can_enabled) {
+    if ((strncmp(port_whitelist_config[i].name, "can", 3) == 0) && !can_enabled) {
       continue;
     }
     int rc = settings_register(settings_ctx,
