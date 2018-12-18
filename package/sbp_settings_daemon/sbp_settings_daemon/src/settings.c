@@ -104,7 +104,8 @@ static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *con
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
-  if (settings_parse(msg, len, &section, &name, &value, &type) < 3) {
+  /* Expect to find at least section, name and value */
+  if (settings_parse(msg, len, &section, &name, &value, &type) < SETTINGS_TOKENS_VALUE) {
     piksi_log(LOG_WARNING, "Error in register message");
   }
 
@@ -142,7 +143,9 @@ static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void
   }
 
   const char *section = NULL, *name = NULL, *value = NULL;
-  if (settings_parse(msg->setting, len - sizeof(msg->status), &section, &name, &value, NULL) < 2) {
+  /* Expect to find at least section, name and value */
+  if (settings_parse(msg->setting, len - sizeof(msg->status), &section, &name, &value, NULL)
+      < SETTINGS_TOKENS_VALUE) {
     piksi_log(LOG_WARNING, "Error in write reply message");
     return;
   }
@@ -292,7 +295,8 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
-  if ((settings_parse(msg, len, &section, &name, &value, &type) > 2)
+  /* Expect to find at least section, name and value */
+  if ((settings_parse(msg, len, &section, &name, &value, &type) >= SETTINGS_TOKENS_VALUE)
       && settings_lookup(section, name) != NULL) {
     /* This setting looks good; we'll leave it to the owner to complain if
      * there's a problem with the value. */
