@@ -97,63 +97,14 @@ static int settings_format_setting(struct setting *s, char *buf, int len, bool t
   return buflen;
 }
 
-/* Parse SBP message payload into setting parameters */
-static bool settings_parse_setting(u8 len,
-                                   u8 msg[],
-                                   const char **section,
-                                   const char **setting,
-                                   const char **value,
-                                   const char **type)
-{
-  *section = NULL;
-  *setting = NULL;
-  *value = NULL;
-  if (type) *type = NULL;
-
-  if (len == 0) {
-    return false;
-  }
-
-  if (msg[len - 1] != '\0') {
-    return false;
-  }
-
-  /* Extract parameters from message:
-   * 3 null terminated strings: section, setting and value
-   * An optional fourth string is a description of the type.
-   */
-  *section = (const char *)msg;
-  for (int i = 0, tok = 0; i < len; i++) {
-    if (msg[i] == '\0') {
-      tok++;
-      switch (tok) {
-      case 1: *setting = (const char *)&msg[i + 1]; break;
-      case 2:
-        if (i + 1 < len) *value = (const char *)&msg[i + 1];
-        break;
-      case 3:
-        if (i + 1 < len) {
-          if (type != NULL) *type = (const char *)&msg[i + 1];
-          break;
-        }
-      case 4:
-        if (i == len - 1) break;
-      default: return false;
-      }
-    }
-  }
-
-  return true;
-}
-
 static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
 
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
-  const char *section = NULL, *setting = NULL, *value = NULL, *type = NULL;
-  if (!settings_parse_setting(len, msg, &section, &setting, &value, &type)) {
+  const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
+  if (settings_parse(msg, len, &section, &name, &value, &type) < 3) {
     piksi_log(LOG_WARNING, "Error in register message");
   }
 
@@ -186,14 +137,12 @@ static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void
   (void)context;
   msg_settings_write_resp_t *msg = (void *)msg_;
 
-  static struct setting *s = NULL;
-  const char *section = NULL, *setting = NULL, *value = NULL;
-
   if (msg->status != 0) {
     return;
   }
 
-  if (!settings_parse_setting(len - 1, msg->setting, &section, &setting, &value, NULL)) {
+  const char *section = NULL, *name = NULL, *value = NULL;
+  if (settings_parse(msg->setting, len - sizeof(msg->status), &section, &name, &value, NULL) < 2) {
     piksi_log(LOG_WARNING, "Error in write reply message");
     return;
   }
@@ -342,9 +291,9 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
 
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
-  const char *section = NULL, *setting = NULL, *value = NULL, *type = NULL;
-  if (settings_parse_setting(len, msg, &section, &setting, &value, &type)
-      && settings_lookup(section, setting) != NULL) {
+  const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
+  if ((settings_parse(msg, len, &section, &name, &value, &type) > 2)
+      && settings_lookup(section, name) != NULL) {
     /* This setting looks good; we'll leave it to the owner to complain if
      * there's a problem with the value. */
     return;
