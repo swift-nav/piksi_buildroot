@@ -19,7 +19,7 @@
 #include <sys/wait.h>
 #include <libpiksi/settings.h>
 
-int ports_init(settings_ctx_t *settings_ctx);
+int ports_init(settings_ctx_t *settings_ctx, bool can_enabled);
 bool port_is_enabled(const char *name);
 
 #endif /* SWIFTNAV_PORTS_H */
