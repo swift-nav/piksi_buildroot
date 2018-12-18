@@ -108,26 +108,26 @@ static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *con
     piksi_log(LOG_WARNING, "Error in register message");
   }
 
-  struct setting *s = settings_lookup(section, setting);
+  struct setting *sdata = settings_lookup(section, name);
   /* Only register setting if it doesn't already exist */
-  if (s == NULL) {
-    s = calloc(1, sizeof(*s));
-    strncpy(s->section, section, BUFSIZE);
-    strncpy(s->name, setting, BUFSIZE);
-    strncpy(s->value, value, BUFSIZE);
+  if (sdata == NULL) {
+    sdata = calloc(1, sizeof(struct setting));
+    strncpy(sdata->section, section, BUFSIZE);
+    strncpy(sdata->name, name, BUFSIZE);
+    strncpy(sdata->value, value, BUFSIZE);
 
     if (type != NULL) {
-      strncpy(s->type, type, BUFSIZE);
+      strncpy(sdata->type, type, BUFSIZE);
     }
 
-    setting_register(s);
+    setting_register(sdata);
   } else {
-    piksi_log(LOG_WARNING, "Setting %s.%s already registered", s->section, s->name);
+    piksi_log(LOG_WARNING, "Setting %s.%s already registered", sdata->section, sdata->name);
   }
 
   /* Reply with write message with our value */
   char buf[256];
-  size_t rlen = settings_format_setting(s, buf, sizeof(buf), false);
+  size_t rlen = settings_format_setting(sdata, buf, sizeof(buf), false);
   sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE, rlen, (u8 *)buf, SBP_SENDER_ID);
 }
 
@@ -147,20 +147,20 @@ static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void
     return;
   }
 
-  s = settings_lookup(section, setting);
-  if (s == NULL) {
+  struct setting *sdata = settings_lookup(section, name);
+  if (sdata == NULL) {
     piksi_log(LOG_WARNING, "Write reply for non-existent setting");
     return;
   }
 
-  if (strcmp(s->value, value) == 0) {
+  if (strcmp(sdata->value, value) == 0) {
     /* Setting unchanged */
     return;
   }
 
   /* This is an assignment, call notify function */
-  strncpy(s->value, value, BUFSIZE);
-  s->dirty = true;
+  strncpy(sdata->value, value, BUFSIZE);
+  sdata->dirty = true;
 
   return;
 }
