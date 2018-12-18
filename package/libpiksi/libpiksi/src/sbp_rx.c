@@ -111,13 +111,13 @@ static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, int st
       goto fail;
     }
 
-    /* Workaround for issue in libuv which causes a crash if the same IO handle (file descriptor number)
-     *   gets created for something that was just closed...
+    /* Workaround for issue in libuv which causes a crash if the same IO handle (file descriptor
+     * number) gets created for something that was just closed...
      *
      * Wisps of hints on how to fix this extracted from the following bug reports:
      *   - https://github.com/libuv/libuv/issues/1495
      *   - https://github.com/nodejs/node-v0.x-archive/issues/4558
-     */ 
+     */
     force_new_fd = open("/dev/null", O_RDWR);
 
     /* Socket was disconnected, reconnect */
