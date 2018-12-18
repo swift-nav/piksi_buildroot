@@ -18,8 +18,8 @@
 
 #include "sbp.h"
 
-#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub"
-#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub"
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/resource_monitor.pub"
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/resource_monitor.sub"
 
 static uv_timer_t *uv_timer = NULL;
 

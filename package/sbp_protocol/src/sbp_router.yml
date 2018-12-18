@@ -210,3 +210,6 @@ ports:
     pub_addr: "ipc:///var/run/sockets/nmea_bridge.pub"
     sub_addr: "ipc:///var/run/sockets/nmea_bridge.sub"
 
+  - name: SBP_PORT_RESOURCE_MONITOR
+    pub_addr: "ipc:///var/run/sockets/resource_monitor.pub"
+    sub_addr: "ipc:///var/run/sockets/resource_monitor.sub"
