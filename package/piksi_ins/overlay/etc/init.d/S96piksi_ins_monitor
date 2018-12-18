@@ -1,0 +1,8 @@
+#!/bin/sh
+
+export name="pose_daemon_monitor"
+export cmd="/usr/bin/pose_daemon_monitor"
+export dir="/"
+export user="root"
+
+source /etc/init.d/template_process.inc.sh
