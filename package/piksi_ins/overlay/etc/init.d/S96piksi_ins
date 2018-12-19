@@ -1,20 +1,30 @@
 #!/bin/sh
 
-name="PoseDaemon"
-cmd="start_pose_daemon"
-dir="/"
+# shellcheck disable=SC1091,SC2169,SC2039
+
+export name="PoseDaemon"
+export cmd="start_pose_daemon"
+export dir="/"
 # User is set to piksi_ins in the start_pose_daemon wrapper since we
 #   need to process things with nap_wrap before launching.
-user="root"
-priority="-16"
+export user="root"
+export priority="-16"
 
-LICENSES_DIR=/persistent/licenses
+POSE_DAEMON_STATE="/var/run/pose_daemon.state"
+
+POSE_DAEMON_USER=piksi_ins
+POSE_DAEMON_GROUP=devmem
 
 DIR_PERM=0755
 FILE_PERM=0644
 
+LICENSES_DIR=/persistent/licenses
+
 setup_permissions()
 {
+  rm -f "$POSE_DAEMON_STATE"
+  configure_file_resource2 "$POSE_DAEMON_USER" "$POSE_DAEMON_GROUP" "$POSE_DAEMON_STATE" "$FILE_PERM"
+
   # /persistent directory is setup by file_io_daemon
   # piksi_ins daemon creates licenses directory since it is the
   # only process that needs it presentently

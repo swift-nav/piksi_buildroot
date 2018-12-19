@@ -170,3 +170,9 @@ lockdown()
 {
     [[ -f "$_release_lockdown" ]]
 }
+
+detect_piksi_ins()
+{
+  ins_output_mode=$(query_config --section ins --key output_mode)
+  [[ "$ins_output_mode" == "Loosely Coupled" ]]
+}
