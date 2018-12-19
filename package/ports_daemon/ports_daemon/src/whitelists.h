@@ -15,6 +15,6 @@
 
 #include <libpiksi/settings.h>
 
-int whitelists_init(settings_ctx_t *settings_ctx);
+int whitelists_init(settings_ctx_t *settings_ctx, bool can_enabled);
 
 #endif

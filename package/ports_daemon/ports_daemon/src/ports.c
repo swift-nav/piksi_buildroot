@@ -521,7 +521,7 @@ static int mode_lookup(const char *mode_name, u8 *mode)
   return -1;
 }
 
-int ports_init(settings_ctx_t *settings_ctx)
+int ports_init(settings_ctx_t *settings_ctx, bool can_enabled)
 {
   size_t i;
 
@@ -573,6 +573,11 @@ int ports_init(settings_ctx_t *settings_ctx)
 
     if (port_config->type == PORT_TYPE_UDP_CLIENT) {
       setting_udp_client_address_register(settings_ctx, port_config);
+    }
+
+    if ((port_config->type == PORT_TYPE_CAN) && !can_enabled) {
+      // Do not register CAN ports if feature not enabled
+      continue;
     }
 
     setting_mode_register(settings_ctx, settings_type_mode, port_config);
