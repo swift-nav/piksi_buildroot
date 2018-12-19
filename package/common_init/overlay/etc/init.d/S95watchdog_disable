@@ -1,6 +1,8 @@
 #!/bin/sh
 
-name="watchdog_disable"
+# shellcheck disable=SC1091,SC2169,SC2039
+
+export name="watchdog_disable"
 
 start() {
   printf "V" > /dev/watchdog
