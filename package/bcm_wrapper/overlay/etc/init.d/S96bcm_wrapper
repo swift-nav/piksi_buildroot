@@ -3,7 +3,7 @@
 source /etc/init.d/common.sh
 
 name="bcm_wrapper"
-cmd="bcm_wrapper -g /dev/gc/a/nstandby /dev/ttymxc4"
+cmd="bcm_wrapper -p /dev/gc/a/pwr_en -g /dev/gc/a/nstandby /dev/ttymxc4"
 dir="/"
 user="bcmd"
 
