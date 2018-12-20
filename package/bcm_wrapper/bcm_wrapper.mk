@@ -48,8 +48,8 @@ define BCM_WRAPPER_INSTALL_TARGET_CMDS
 	$(INSTALL) $(@D)/bcm_wrapper $(TARGET_DIR)/usr/bin/bcm_wrapper
 endef
 
-BCM_WRAPPER_OVERLAY = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/bcm_wrapper/overlay"
-BR2_ROOTFS_OVERLAY += "${BCM_WRAPPER_OVERLAY}"
+#BCM_WRAPPER_OVERLAY = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/bcm_wrapper/overlay"
+#BR2_ROOTFS_OVERLAY += "${BCM_WRAPPER_OVERLAY}"
 
 $(eval $(generic-package))
 
