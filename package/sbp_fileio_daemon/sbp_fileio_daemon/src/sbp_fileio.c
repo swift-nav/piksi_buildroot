@@ -58,7 +58,7 @@ typedef struct {
   time_t opened_at;
 } fd_cache_t;
 
-static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ... 9] = {NULL, "", "", 0}};
+static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ... (FD_CACHE_COUNT-1)] = {NULL, "", "", 0}};
 
 enum {
   DENY_MTD_READ = 0,
@@ -76,11 +76,12 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 
 path_validator_t *g_pv_ctx;
 
-static void purge_fd_cache(pk_loop_t *loop, void *handle, void *context)
+static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context)
 {
-  (void)context;
   (void)loop;
+  (void)status;
   (void)handle;
+  (void)context;
 
   time_t now = time(NULL);
 
@@ -100,6 +101,22 @@ static void return_to_cache(fd_cache_result_t *cache_result)
   if (!cache_result->cached && cache_result->fp != NULL) {
     fclose(cache_result->fp);
     return;
+  }
+}
+
+static void flush_cached_fd(const char *path, const char *mode)
+{
+  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+    if (strncmp(fd_cache[idx].path, path, sizeof(fd_cache[idx].path)) == 0
+        && strncmp(fd_cache[idx].mode, mode, sizeof(fd_cache[idx].mode)) == 0) {
+      FIO_LOG_DEBUG("Flushing cached write fp (index %d): %p, filename: %s, mode: %s",
+                    idx,
+                    fd_cache[idx].fp,
+                    fd_cache[idx].path,
+                    fd_cache[idx].mode);
+      fclose(fd_cache[idx].fp);
+      fd_cache[idx] = (fd_cache_t){.fp = NULL, .path = "", .mode = "", .opened_at = -1};
+    }
   }
 }
 
@@ -163,8 +180,8 @@ void sbp_fileio_setup(pk_loop_t *loop,
 
 static int allow_mtd_read(const char *path)
 {
-  // TODO/DAEMON-USERS: Replace this with an SBP message (give firmware a handle
-  //    to read here instead of allowing the read).
+  // TODO/DAEMON-USERS: Replace this with an SBP message, e.g. give the firmware a handle
+  //    to read here instead of just allowing the read?
 
   if (strcmp(path, "/factory/mtd") != 0) return NO_MTD_READ;
 
@@ -222,6 +239,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
               path_validator_base_paths(g_pv_ctx));
     readlen = 0;
   } else {
+    flush_cached_fd(msg->filename, "w");
     fd_cache_result_t r = open_from_cache(msg->filename, "r", O_RDONLY, 0);
     if (r.fp != NULL) {
       lseek(fileno(r.fp), msg->offset, SEEK_SET);
@@ -333,6 +351,9 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
     return;
   }
 
+  flush_cached_fd(filename, "r");
+  flush_cached_fd(filename, "w");
+
   unlink(filename);
 }
 
@@ -375,8 +396,9 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
 
-  u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
+  flush_cached_fd(filename, "r");
   fd_cache_result_t r = open_from_cache(filename, "w", O_WRONLY | O_CREAT, 0666);
+
   if (r.fp == NULL) {
     piksi_log(LOG_ERR, "Error opening %s for write", filename);
     return;
@@ -385,6 +407,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     piksi_log(LOG_ERR, "Error seeking to offset %d in %s for write", msg->offset, filename);
     goto cleanup;
   }
+  u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
   write_count = len - headerlen;
   if (fwrite(msg_ + headerlen, 1, write_count, r.fp) != write_count) {
     piksi_log(LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
