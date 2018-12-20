@@ -1,11 +1,11 @@
 #!/bin/sh
 
-# shellcheck disable=SC1091
+# shellcheck disable=SC1091,SC2169,SC2039
 
 export name="reboot_logger"          # required by template_command.inc.sh
 
 export log_tag=$name                 # required by logging.sh
-. /etc/init.d/logging.sh
+source /etc/init.d/logging.sh
 
 start() {
   :
@@ -15,4 +15,4 @@ stop() {
   logi --sbp "System rebooting..."
 }
 
-. /etc/init.d/template_command.inc.sh
+source /etc/init.d/template_command.inc.sh

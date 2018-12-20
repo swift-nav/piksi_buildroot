@@ -60,7 +60,7 @@ void table_destroy(table_t **ptable)
 
   table_t *table = *ptable;
 
-  for (int i = 0; i < table->htab.filled; ++i) {
+  for (size_t i = 0; i < table->htab.filled; ++i) {
 #ifdef DEBUG_PIKSI_TABLE
     PK_LOG_ANNO(LOG_DEBUG, "free'ing entry with key '%s'", table->keys[i]);
 #endif
@@ -71,7 +71,7 @@ void table_destroy(table_t **ptable)
     assert(dt == NULL);
   }
 
-  for (int i = 0; i < table->htab.filled; ++i) {
+  for (size_t i = 0; i < table->htab.filled; ++i) {
 #ifdef DEBUG_PIKSI_TABLE
     PK_LOG_ANNO(LOG_DEBUG, "free'ing key '%s'", table->keys[i]);
 #endif
@@ -88,7 +88,7 @@ void table_destroy(table_t **ptable)
 
 bool table_put(table_t *table, const char *key, void *data)
 {
-  unsigned n = 0;
+  int n = 0;
   ENTRY e, *ep = NULL;
 
   e.key = strdup(key);
@@ -113,7 +113,7 @@ bool table_put(table_t *table, const char *key, void *data)
 
 void *table_get(table_t *table, const char *key_in)
 {
-  unsigned n = 0;
+  int n = 0;
   ENTRY e = {0}, *ep = NULL;
 
   e.key = (char *)key_in;

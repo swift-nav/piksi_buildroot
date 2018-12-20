@@ -27,6 +27,7 @@
 
 #include <linux/sockios.h>
 
+#include <libpiksi/cast_check.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/metrics.h>
 #include <libpiksi/util.h>
@@ -174,9 +175,9 @@ static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_
 
 NESTED_FN_TYPEDEF(ssize_t, read_handler_fn_t, client_context_t *client_ctx, void *ctx);
 
-static int read_and_receive_common(pk_endpoint_t *pk_ept,
-                                   read_handler_fn_t read_handler,
-                                   void *ctx);
+static ssize_t read_and_receive_common(pk_endpoint_t *pk_ept,
+                                       read_handler_fn_t read_handler,
+                                       void *ctx);
 
 
 static pk_endpoint_t *create_impl(const char *endpoint,
@@ -230,7 +231,7 @@ static __attribute__((constructor)) void setup_config_builder()
   config_builder.get = cfg_builder_get;
 }
 
-pk_endpoint_config_builder_t pk_endpoint_config()
+pk_endpoint_config_builder_t pk_endpoint_config(void)
 {
   config_builder._config =
     (pk_endpoint_config_t){.endpoint = NULL, .identity = NULL, .type = -1, .retry_connect = false};
@@ -351,10 +352,10 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
     return recv_impl(client_ctx, buffer, length_loc);
   });
 
-  int rc = read_and_receive_common(pk_ept, read_handler, &length);
+  ssize_t rc = read_and_receive_common(pk_ept, read_handler, &length);
   if (rc < 0) return rc;
 
-  return length;
+  return sizet_to_ssizet(length);
 }
 
 /**********************************************************************/
@@ -371,7 +372,7 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
     return 0;
   });
 
-  return read_and_receive_common(pk_ept, read_handler, context);
+  return ssizet_to_int(read_and_receive_common(pk_ept, read_handler, context));
 }
 
 /**********************************************************************/
@@ -395,7 +396,8 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     foreach_client(pk_ept,
                    &rc,
-                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                   NESTED_FN(void, (pk_endpoint_t * _ept, client_node_t * node, void *ctx), {
+                     (void)_ept;
                      /* TODO: Why are we saving rc here, invalid clients will just be removed... */
                      int *rc_loc = ctx;
                      *rc_loc = send_impl(&node->val, data, length);
@@ -602,7 +604,7 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
                      ctx->node);
 
   int err = 0;
-  int length = 0;
+  ssize_t length = 0;
 
   struct iovec iov[1] = {0};
   struct msghdr msg = {0};
@@ -697,16 +699,16 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
   while (1) {
 
-    int written = sendmsg(ctx->handle, &msg, 0);
-    int error = errno;
+    ssize_t written = sendmsg(ctx->handle, &msg, 0);
+    int sendmsg_error = errno;
 
     if (written != -1) {
       /* Break on success */
-      ASSERT_TRACE(written == length);
+      ASSERT_TRACE(written == sizet_to_int(length));
       return 0;
     }
 
-    if (error == EAGAIN || error == EWOULDBLOCK) {
+    if (sendmsg_error == EAGAIN || sendmsg_error == EWOULDBLOCK) {
 
       int queued_input = -1;
       int error = ioctl(ctx->handle, SIOCINQ, &queued_input);
@@ -732,7 +734,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
       return 0;
     }
 
-    if (error == EINTR) {
+    if (sendmsg_error == EINTR) {
       /* Retry if interrupted */
       ENDPOINT_DEBUG_LOG("sendmsg returned with EINTR");
       continue;
@@ -740,8 +742,8 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
     send_close_socket_helper(ctx);
 
-    if (error != EPIPE && error != ECONNRESET) {
-      PK_LOG_ANNO(LOG_ERR, "error in sendmsg: %s", strerror(error));
+    if (sendmsg_error != EPIPE && sendmsg_error != ECONNRESET) {
+      PK_LOG_ANNO(LOG_ERR, "error in sendmsg: %s", strerror(sendmsg_error));
     }
 
     /* Return error */
@@ -942,9 +944,11 @@ static bool retry_on_eintr(eintr_fn_t the_func, int priority, const char *error_
   return true;
 }
 
-static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read_handler, void *ctx)
+static ssize_t read_and_receive_common(pk_endpoint_t *pk_ept,
+                                       read_handler_fn_t read_handler,
+                                       void *ctx_in)
 {
-  int rc = 0;
+  ssize_t rc = 0;
 
   if (!valid_socket_type_for_read(pk_ept)) {
     PK_LOG_ANNO(LOG_ERR, "invalid socket type for read");
@@ -967,8 +971,9 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
     pk_ept->woke = false;
 
     foreach_client(pk_ept,
-                   ctx,
-                   NESTED_FN(void, (pk_endpoint_t * pk_ept, client_node_t * node, void *ctx), {
+                   ctx_in,
+                   NESTED_FN(void, (pk_endpoint_t * _ept, client_node_t * node, void *ctx), {
+                     (void)_ept;
                      read_handler(&node->val, ctx);
                    }));
 
@@ -981,7 +986,7 @@ static int read_and_receive_common(pk_endpoint_t *pk_ept, read_handler_fn_t read
       .node = NULL,
     };
 
-    rc = read_handler(&client_ctx, ctx);
+    rc = read_handler(&client_ctx, ctx_in);
   }
 
   return rc;
@@ -1046,8 +1051,9 @@ static pk_endpoint_t *create_impl(const char *endpoint,
       goto failure;
     }
   } break;
+  case PK_ENDPOINT_INVALID:
   default: {
-    piksi_log(LOG_ERR, "Unsupported endpoint type");
+    piksi_log(LOG_ERR, "Unsupported endpoint type: %d", pk_ept->type);
     goto failure;
   } break;
   }
@@ -1061,10 +1067,12 @@ static pk_endpoint_t *create_impl(const char *endpoint,
     }
   }
 
-  int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
-                   : connect_un_socket(pk_ept->sock, endpoint + prefix_len, retry_connect);
+  {
+    int rc = do_bind ? bind_un_socket(pk_ept->sock, endpoint + prefix_len)
+                     : connect_un_socket(pk_ept->sock, endpoint + prefix_len, retry_connect);
 
-  pk_ept->started = rc == 0;
+    pk_ept->started = rc == 0;
+  }
 
   if (!pk_ept->started) {
     PK_LOG_ANNO(LOG_ERR,

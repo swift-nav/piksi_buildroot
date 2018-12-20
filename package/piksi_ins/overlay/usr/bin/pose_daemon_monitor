@@ -1,0 +1,72 @@
+#!/bin/sh
+
+# shellcheck disable=SC1091,SC2169,SC2039
+
+source /etc/init.d/common.sh
+
+export log_tag="pose_daemon_monitor" # required by logging.sh
+source /etc/init.d/logging.sh
+
+pose_daemon_control=/etc/init.d/S96piksi_ins
+pose_daemon_state=/var/run/pose_daemon.state
+
+pose_daemon_lic_succ=license_success
+pose_daemon_lic_fail=license_failure
+
+# Daemon should finish it's license check within 6s
+pose_daemon_lic_deadline=60
+
+recheck_interval=0.1
+check_count=0
+
+# At most we'll restart PoseDaemon 4 times (30 seconds = ((4+1)*6))
+#   to attempt to get past the HW challenge.
+restart_limit=4
+restart_count=0
+
+restart_pose_daemon()
+{
+  if [[ "$restart_count" -ge "$restart_limit" ]]; then
+
+    logw --sbp "Restarting device, Piksi INS hardware challenge failed $restart_limit times..."
+
+    # Manually invoked since we're doing a forced reboot
+    /etc/init.d/S01reboot_logger stop
+
+    # Allow sbp log message above to get delivered
+    sleep 0.1
+
+    reboot -f
+  fi
+
+  logw "Restarting Piksi INS (license check appears to be stuck)..."
+
+  "$pose_daemon_control" restart
+  restart_count=$(( restart_count + 1 ))
+}
+
+detect_lic_done()
+{
+  [[ "$(cat $pose_daemon_state)" == "$pose_daemon_lic_succ" ]] || \
+    [[ "$(cat $pose_daemon_state)" == "$pose_daemon_lic_fail" ]]
+}
+
+if ! detect_piksi_ins; then
+  exit 0
+fi
+
+logi "Starting..."
+
+while true; do
+  if detect_lic_done; then
+    break
+  fi
+  if [[ "$check_count" -ge "$pose_daemon_lic_deadline" ]]; then
+    check_count=0 # reset timer
+    restart_pose_daemon
+  fi
+  check_count=$(( check_count + 1 ))
+  sleep $recheck_interval
+done
+
+logi "Stopping..."

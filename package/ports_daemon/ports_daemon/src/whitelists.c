@@ -531,9 +531,13 @@ int whitelist_notify(void *context)
   return SETTINGS_WR_OK;
 }
 
-int whitelists_init(pk_settings_ctx_t *settings_ctx)
+int whitelists_init(pk_settings_ctx_t *settings_ctx, bool can_enabled)
 {
   for (int i = 0; i < PORT_MAX; i++) {
+    if ((strncmp(port_whitelist_config[i].name, "can", 3) == 0) && !can_enabled) {
+      continue;
+    }
+
     int rc = pk_settings_register(settings_ctx,
                                   port_whitelist_config[i].name,
                                   "enabled_sbp_messages",

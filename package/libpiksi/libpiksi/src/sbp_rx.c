@@ -10,8 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/util.h>
+#include <libpiksi/cast_check.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include <libpiksi/sbp_rx.h>
 
@@ -19,7 +20,7 @@ struct sbp_rx_ctx_s {
   pk_endpoint_t *pk_ept;
   sbp_state_t sbp_state;
   const u8 *receive_buffer;
-  s32 receive_buffer_length;
+  u32 receive_buffer_length;
   bool reader_interrupt;
   void *reader_handle;
 };
@@ -31,14 +32,14 @@ static s32 receive_buffer_read(u8 *buff, u32 n, void *context)
   memcpy(buff, ctx->receive_buffer, len);
   ctx->receive_buffer += len;
   ctx->receive_buffer_length -= len;
-  return len;
+  return uint32_to_int32(len);
 }
 
 static int receive_process(const u8 *buff, size_t length, void *context)
 {
   sbp_rx_ctx_t *ctx = (sbp_rx_ctx_t *)context;
   ctx->receive_buffer = buff;
-  ctx->receive_buffer_length = length;
+  ctx->receive_buffer_length = sizet_to_uint32(length);
 
   while (ctx->receive_buffer_length > 0) {
     sbp_process(&ctx->sbp_state, receive_buffer_read);

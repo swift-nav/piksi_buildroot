@@ -28,7 +28,7 @@
 #define _ENTRY_GET_SYMTBLNAME(_1, ...) _1
 
 #define _SYMBOL_TABLE_ENTRY(Context, TheArgs) \
-  ssize_t _ENTRY_GET_SYMNAME TheArgs ;
+  size_t _ENTRY_GET_SYMNAME TheArgs ;
 
 #define _ENTRY_CONTEXT_6( _1, _2, _3, _4, _5, _6, ...) NULL
 #define _ENTRY_CONTEXT_7( _1, _2, _3, _4, _5, _6, _7, ...) _7
