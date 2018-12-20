@@ -21,8 +21,8 @@
 #define METRICS_NAME "resource_monitor"
 #define SETTINGS_METRICS_NAME ("settings/" METRICS_NAME)
 
-#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub"
-#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub"
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/resource_monitor.pub"
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/resource_monitor.sub"
 
 static uv_timer_t *uv_timer = NULL;
 
