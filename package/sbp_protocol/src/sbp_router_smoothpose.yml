@@ -240,6 +240,7 @@ ports:
     sub_addr: "ipc:///var/run/sockets/nmea_bridge.sub"
 
   - name: SBP_PORT_RESOURCE_MONITOR
+    metric: "sbp/resource_monitor" 
     pub_addr: "ipc:///var/run/sockets/resource_monitor.pub"
     sub_addr: "ipc:///var/run/sockets/resource_monitor.sub"
     forwarding_rules:
