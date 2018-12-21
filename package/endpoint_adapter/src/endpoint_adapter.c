@@ -157,6 +157,7 @@ static struct {
 } read_ctx = {
   .buffer = NULL,
   .fill = 0,
+  .size = 0,
 };
 
 static bool retry_pubsub = false;
@@ -629,7 +630,7 @@ static int sub_ept_read(const u8 *buff, size_t length, void *context)
   memcpy(read_ctx.buffer, buff, length);
   read_ctx.fill += length;
 
-  // Return -1 to terminate the read loop, only read one packet
+  /* Return -1 to terminate the read loop, only read one packet */
   return -1;
 }
 
