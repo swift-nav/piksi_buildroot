@@ -93,8 +93,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 
 static off_t read_offset(fd_cache_result_t r);
 
-enum
-{
+enum {
   OP_INCREMENT,
   OP_ASSIGN,
 };
@@ -103,9 +102,12 @@ static void update_offset(fd_cache_result_t r, off_t offset, int op);
 
 static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context);
 static void flush_cached_fd(const char *path, const char *mode);
-static fd_cache_result_t open_from_cache(const char *path, const char *mode, int oflag, mode_t perm);
+static fd_cache_result_t open_from_cache(const char *path,
+                                         const char *mode,
+                                         int oflag,
+                                         mode_t perm);
 
-static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ... (FD_CACHE_COUNT-1)] = {NULL, "", "", 0, 0}};
+static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ...(FD_CACHE_COUNT - 1)] = {NULL, "", "", 0, 0}};
 
 path_validator_t *g_pv_ctx;
 
@@ -133,9 +135,12 @@ static void update_offset(fd_cache_result_t r, off_t offset, int op)
 {
   if (r.offset == NULL) return;
 
-  if (op == OP_INCREMENT) (*r.offset) += offset;
-  else if (op == OP_ASSIGN) (*r.offset) = offset;
-  else PK_LOG_ANNO(LOG_ERR, "invalid operation: %d", op);
+  if (op == OP_INCREMENT)
+    (*r.offset) += offset;
+  else if (op == OP_ASSIGN)
+    (*r.offset) = offset;
+  else
+    PK_LOG_ANNO(LOG_ERR, "invalid operation: %d", op);
 }
 
 static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context)
@@ -201,7 +206,9 @@ static fd_cache_result_t open_from_cache(const char *path, const char *mode, int
                       fd_cache[idx].mode,
                       fd_cache[idx].offset);
         fd_cache[idx].opened_at = time(NULL);
-        return (fd_cache_result_t){.fp = fd_cache[idx].fp, .cached = true, .offset = &fd_cache[idx].offset};
+        return (fd_cache_result_t){.fp = fd_cache[idx].fp,
+                                   .cached = true,
+                                   .offset = &fd_cache[idx].offset};
       }
     }
   }
@@ -509,7 +516,12 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     if (fseek(r.fp, msg->offset, SEEK_SET) == 0) {
       update_offset(r, msg->offset, OP_ASSIGN);
     } else {
-      piksi_log(LOG_ERR, "Error seeking to offset %d in %s for write: %s (%d)", msg->offset, filename, strerror(errno), errno);
+      piksi_log(LOG_ERR,
+                "Error seeking to offset %d in %s for write: %s (%d)",
+                msg->offset,
+                filename,
+                strerror(errno),
+                errno);
       goto cleanup;
     }
   }

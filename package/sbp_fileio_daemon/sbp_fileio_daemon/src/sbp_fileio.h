@@ -18,7 +18,7 @@
 
 #include "path_validator.h"
 
-void sbp_fileio_setup(const char* name,
+void sbp_fileio_setup(const char *name,
                       pk_loop_t *loop,
                       path_validator_t *pv_ctx,
                       bool allow_factory_mtd,
