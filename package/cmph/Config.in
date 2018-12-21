@@ -1,0 +1,5 @@
+config BR2_PACKAGE_CMPH
+	bool "cmph"
+	help
+	  CMPH - C Minimal Perfect Hash
+	  http://cmph.sourceforge.net/

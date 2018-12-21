@@ -15,6 +15,6 @@
 
 #include <libpiksi/settings_client.h>
 
-int whitelists_init(pk_settings_ctx_t *settings_ctx);
+int whitelists_init(pk_settings_ctx_t *settings_ctx, bool can_enabled);
 
 #endif

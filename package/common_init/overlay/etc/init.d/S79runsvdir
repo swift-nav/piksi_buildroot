@@ -17,7 +17,13 @@ do_start()
 {
   mkdir -p $run_dir
 
-  find $svc_dir -type d -maxdepth 1 -exec basename {} \; | \
+  # By runit convention, we link each service definition from
+  #   `/etc/sv` to `/var/service` to enable (and launch) the service,
+  #   at runtime a service can be disabled by removing it from
+  #   `/var/service`.  Services are typically enabled in this fashion
+  #   to allow a complete service definition (which is specified by
+  #   several files in the service directory) to appear atomically.
+  find $svc_dir -type d -mindepth 1 -maxdepth 1 -exec basename {} \; | \
   while read -r svc; do
      ln -sf "$svc_dir/$svc" "$run_dir/$svc"
   done

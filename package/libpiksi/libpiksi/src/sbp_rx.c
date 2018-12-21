@@ -10,6 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <fcntl.h>
+#include <limits.h>
+
 #include <libpiksi/cast_check.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
@@ -23,6 +26,8 @@ struct sbp_rx_ctx_s {
   u32 receive_buffer_length;
   bool reader_interrupt;
   void *reader_handle;
+  char endpoint[PATH_MAX];
+  char ident[PATH_MAX];
 };
 
 static s32 receive_buffer_read(u8 *buff, u32 n, void *context)
@@ -73,10 +78,17 @@ sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
   };
 
   ctx->pk_ept = pk_endpoint_create(cfg);
+
+  bzero(ctx->endpoint, sizeof(ctx->endpoint));
+  bzero(ctx->ident, sizeof(ctx->ident));
+
   if (ctx->pk_ept == NULL) {
     piksi_log(LOG_ERR, "error creating SUB endpoint for rx ctx");
     goto failure;
   }
+
+  strncpy(ctx->endpoint, endpoint, sizeof(ctx->endpoint) - 1);
+  strncpy(ctx->ident, ident, sizeof(ctx->ident) - 1);
 
   ctx->reader_interrupt = false;
   ctx->reader_handle = NULL;
@@ -105,14 +117,66 @@ void sbp_rx_destroy(sbp_rx_ctx_t **ctx_loc)
 static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, int status, void *context)
 {
   (void)handle;
-  (void)status;
+
+  int force_new_fd = -1;
 
   sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;
+  if (status & LOOP_DISCONNECTED) {
+
+    piksi_log(LOG_WARNING, "sbp_rx: reader disconnected, reconnecting...");
+
+    if (sbp_rx_detach(rx_ctx) < 0) {
+      PK_LOG_ANNO(LOG_ERR, "error detaching endpoint from loop");
+      goto fail;
+    }
+
+    /* Workaround for issue in libuv which causes a crash if the same IO handle (file descriptor
+     * number) gets created for something that was just closed...
+     *
+     * Wisps of hints on how to fix this extracted from the following bug reports:
+     *   - https://github.com/libuv/libuv/issues/1495
+     *   - https://github.com/nodejs/node-v0.x-archive/issues/4558
+     */
+    force_new_fd = open("/dev/null", O_RDWR);
+
+    /* Socket was disconnected, reconnect */
+    pk_endpoint_destroy(&rx_ctx->pk_ept);
+
+    pk_endpoint_config_t cfg = (pk_endpoint_config_t){
+      .endpoint = rx_ctx->endpoint,
+      .identity = get_socket_ident(rx_ctx->ident),
+      .type = PK_ENDPOINT_SUB,
+      .retry_connect = false,
+    };
+
+    rx_ctx->pk_ept = pk_endpoint_create(cfg);
+
+    if (rx_ctx->pk_ept == NULL) {
+      PK_LOG_ANNO(LOG_ERR, "error creating SUB endpoint");
+      goto fail;
+    }
+
+    if (sbp_rx_attach(rx_ctx, pk_loop) < 0) {
+      PK_LOG_ANNO(LOG_ERR, "error re-attaching endpoint to loop");
+      goto fail;
+    }
+
+    close(force_new_fd);
+  }
+
   sbp_rx_reader_interrupt_reset(rx_ctx);
-  sbp_rx_read(rx_ctx);
+  int rc = sbp_rx_read(rx_ctx);
+
+  if (rc != 0) {
+    PK_LOG_ANNO(LOG_WARNING, "sbp_rx_read failed, rc = %d", rc);
+  }
+
   if (sbp_rx_reader_interrupt_requested(rx_ctx)) {
     pk_loop_stop(pk_loop);
   }
+
+fail:
+  if (force_new_fd != -1) close(force_new_fd);
 }
 
 int sbp_rx_attach(sbp_rx_ctx_t *ctx, pk_loop_t *pk_loop)
@@ -122,6 +186,7 @@ int sbp_rx_attach(sbp_rx_ctx_t *ctx, pk_loop_t *pk_loop)
 
   ctx->reader_handle =
     pk_loop_endpoint_reader_add(pk_loop, ctx->pk_ept, rx_ctx_reader_loop_callback, ctx);
+
   if (ctx->reader_handle == NULL) {
     piksi_log(LOG_ERR, "error adding rx_ctx reader to loop");
     return -1;
@@ -142,6 +207,7 @@ int sbp_rx_detach(sbp_rx_ctx_t *ctx)
     piksi_log(LOG_ERR, "error removing reader from loop");
     return -1;
   }
+
   ctx->reader_handle = NULL;
   return 0;
 }

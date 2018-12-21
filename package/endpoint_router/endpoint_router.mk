@@ -26,7 +26,7 @@ ifeq    ($(BR2_RUN_TESTS),y) ####
 define ENDPOINT_ROUTER_INSTALL_TARGET_CMDS_TESTS_RUN
 	{ TEST_DATA_DIR=$(ENDPOINT_ROUTER_SITE)/test \
     LD_LIBRARY_PATH=$(TARGET_DIR)/usr/lib \
-			valgrind --leak-check=full --error-exitcode=1 \
+			valgrind --track-origins=yes --leak-check=full --error-exitcode=1 \
 				$(TARGET_DIR)/usr/bin/test_endpoint_router; }
 endef
 endif # ($(BR2_RUN_TESTS),y) ####
