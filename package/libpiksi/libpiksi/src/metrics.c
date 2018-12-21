@@ -25,6 +25,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <libpiksi/cast_check.h>
 #include <libpiksi/util.h>
 #include <libpiksi/logging.h>
 
@@ -72,7 +73,7 @@ pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
     return NULL;
   }
 
-  size_t count = 0;
+  int res = 0;
   char metrics_folder[PATH_MAX] = {0};
   const char *metrics_name = NULL;
   ssize_t metrics_index = -1;
@@ -90,21 +91,28 @@ pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
   for (size_t idx = 0; idx < entry_count; idx++) {
 
     if (strlen(metrics_suffix) > 0) {
-      count = snprintf(metrics_folder,
-                       sizeof(metrics_folder),
-                       "%s/%s/%s",
-                       metrics_base_name,
-                       metrics_suffix,
-                       metrics_table[idx].folder);
+      res = snprintf(metrics_folder,
+                     sizeof(metrics_folder),
+                     "%s/%s/%s",
+                     metrics_base_name,
+                     metrics_suffix,
+                     metrics_table[idx].folder);
     } else {
-      count = snprintf(metrics_folder,
-                       sizeof(metrics_folder),
-                       "%s/%s",
-                       metrics_base_name,
-                       metrics_table[idx].folder);
+      res = snprintf(metrics_folder,
+                     sizeof(metrics_folder),
+                     "%s/%s",
+                     metrics_base_name,
+                     metrics_table[idx].folder);
     }
 
-    if (count >= sizeof(metrics_folder)) {
+    if (res < 0) {
+      PK_LOG_ANNO(LOG_ERR, "metrics add failed: %s", strerror(errno));
+      goto fail2;
+    }
+
+    size_t path_ch_count = int_to_sizet(res);
+
+    if (path_ch_count >= sizeof(metrics_folder)) {
       PK_LOG_ANNO(LOG_ERR, "metrics folder too large");
       goto fail2;
     }
@@ -124,7 +132,7 @@ pk_metrics_t *pk_metrics_setup(const char *metrics_base_name,
       goto fail;
     }
 
-    *metrics_table[idx].idx = metrics_index;
+    *metrics_table[idx].idx = ssizet_to_sizet(metrics_index);
   }
 
   return metrics;
@@ -134,7 +142,7 @@ fail:
               "metrics add for '%s/%s' failed: %s",
               metrics_folder,
               metrics_name,
-              pk_metrics_status_text(metrics_index));
+              pk_metrics_status_text((pk_metrics_status_t)metrics_index));
 fail2:
   pk_metrics_destroy(&metrics);
 
@@ -148,7 +156,11 @@ void pk_metrics_destroy(pk_metrics_t **metrics_loc)
   pk_metrics_t *metrics = *metrics_loc;
 
   for (size_t idx = 0; idx < metrics->count; idx++) {
+
+    if (metrics->descriptors[idx].stream == NULL) continue;
+
     fclose(metrics->descriptors[idx].stream);
+    metrics->descriptors[idx].stream = NULL;
   }
 
   free(metrics);
@@ -171,9 +183,14 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
   metrics_descriptor_t *desc = &metrics->descriptors[metrics->count];
 
   char metric_dir_path[PATH_MAX];
-  size_t count = snprintf(metric_dir_path, sizeof(metric_dir_path), "%s/%s", METRICS_PATH, path);
+  int res = snprintf(metric_dir_path, sizeof(metric_dir_path), "%s/%s", METRICS_PATH, path);
 
-  if (count >= sizeof(metric_dir_path)) {
+  if (res < 0) {
+    PK_LOG_ANNO(LOG_ERR, "metrics add failed: %s", strerror(errno));
+    return METRICS_STATUS_ERROR_GENERIC;
+  }
+
+  if (int_to_sizet(res) >= sizeof(metric_dir_path)) {
     return METRICS_STATUS_MEMORY_ERROR;
   }
 
@@ -183,9 +200,14 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
   }
 
   char metric_path[PATH_MAX];
-  count = snprintf(metric_path, sizeof(metric_path), "%s/%s", metric_dir_path, name);
+  res = snprintf(metric_path, sizeof(metric_path), "%s/%s", metric_dir_path, name);
 
-  if (count >= sizeof(metric_dir_path)) {
+  if (res < 0) {
+    PK_LOG_ANNO(LOG_ERR, "metrics add failed: %s", strerror(errno));
+    return METRICS_STATUS_ERROR_GENERIC;
+  }
+
+  if (int_to_sizet(res) >= sizeof(metric_dir_path)) {
     return METRICS_STATUS_MEMORY_ERROR;
   }
 
@@ -210,7 +232,12 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
 
   write_metric(desc);
 
-  return metrics->count++;
+  size_t metrics_count = metrics->count++;
+  if (metrics_count > SSIZE_MAX) {
+    return METRICS_STATUS_TOO_MANY_METRICS;
+  }
+
+  return sizet_to_ssizet(metrics_count);
 }
 
 void pk_metrics_flush(const pk_metrics_t *metrics)
@@ -279,6 +306,8 @@ int pk_metrics_read(pk_metrics_t *metrics, size_t metrics_index, pk_metrics_valu
 const char *pk_metrics_status_text(pk_metrics_status_t status)
 {
   switch (status) {
+  case METRICS_STATUS_ERROR_GENERIC: return "METRICS_STATUS_ERROR_GENERIC";
+  case METRICS_STATUS_TOO_MANY_METRICS: return "METRICS_STATUS_TOO_MANY_METRICS";
   case METRICS_STATUS_SILENT_FAIL: return "METRICS_STATUS_SILENT_FAIL";
   case METRICS_STATUS_INVALID_INDEX: return "METRICS_STATUS_INVALID_INDEX";
   case METRICS_STATUS_OPEN_ERROR: return "METRICS_STATUS_OPEN_ERROR";
@@ -290,7 +319,7 @@ const char *pk_metrics_status_text(pk_metrics_status_t status)
   }
 }
 
-pk_metrics_time_t pk_metrics_gettime()
+pk_metrics_time_t pk_metrics_gettime(void)
 {
   struct timespec s;
 
@@ -301,7 +330,8 @@ pk_metrics_time_t pk_metrics_gettime()
     return (pk_metrics_time_t){.ns = 0};
   }
 
-  return (pk_metrics_time_t){.ns = (s.tv_sec * 1e9) + s.tv_nsec};
+  const time_t sec_in_ns = 1000000000;
+  return (pk_metrics_time_t){.ns = (u64)((s.tv_sec * sec_in_ns) + (time_t)s.tv_nsec)};
 }
 
 pk_metrics_value_t pk_metrics_reset_default(pk_metrics_type_t type, pk_metrics_value_t initial)
@@ -377,7 +407,7 @@ pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
     return (pk_metrics_value_t){.data.as_f64 = update.value.data.as_f64 - current_value.data.as_f64,
                                 .type = METRICS_TYPE_F64};
   case METRICS_TYPE_TIME:
-    return (pk_metrics_value_t){.data.as_time =
+    return (pk_metrics_value_t){.data.as_time.ns =
                                   update.value.data.as_time.ns - current_value.data.as_time.ns,
                                 .type = METRICS_TYPE_TIME};
   case METRICS_TYPE_UNKNOWN:
@@ -600,8 +630,8 @@ static void write_metric(const metrics_descriptor_t *desc)
   switch (desc->type) {
   case METRICS_TYPE_U32: fprintf(desc->stream, "%u\n", desc->value.data.as_u32); return;
   case METRICS_TYPE_S32: fprintf(desc->stream, "%d\n", desc->value.data.as_s32); return;
-  case METRICS_TYPE_U64: fprintf(desc->stream, "%llu\n", desc->value.data.as_u64); return;
-  case METRICS_TYPE_S64: fprintf(desc->stream, "%lld\n", desc->value.data.as_s64); return;
+  case METRICS_TYPE_U64: fprintf(desc->stream, "%" PRIu64 "\n", desc->value.data.as_u64); return;
+  case METRICS_TYPE_S64: fprintf(desc->stream, "%" PRIi64 "\n", desc->value.data.as_s64); return;
   case METRICS_TYPE_F64: fprintf(desc->stream, "%f\n", desc->value.data.as_f64); return;
   case METRICS_TYPE_TIME:
     timeval = (double)desc->value.data.as_time.ns / 1e6;

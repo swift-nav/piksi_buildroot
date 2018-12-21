@@ -32,13 +32,15 @@ typedef struct pk_metrics_s pk_metrics_t;
 
 // clang-format off
 typedef enum {
-  METRICS_STATUS_SILENT_FAIL   = -6,
-  METRICS_STATUS_INVALID_INDEX = -5,
-  METRICS_STATUS_OPEN_ERROR    = -4,
-  METRICS_STATUS_PATH_ERROR    = -3,
-  METRICS_STATUS_MEMORY_ERROR  = -2,
-  METRICS_STATUS_NO_SLOTS      = -1,
-  METRICS_STATUS_SUCCESS       =  0,
+  METRICS_STATUS_ERROR_GENERIC    = -8,
+  METRICS_STATUS_TOO_MANY_METRICS = -7,
+  METRICS_STATUS_SILENT_FAIL      = -6,
+  METRICS_STATUS_INVALID_INDEX    = -5,
+  METRICS_STATUS_OPEN_ERROR       = -4,
+  METRICS_STATUS_PATH_ERROR       = -3,
+  METRICS_STATUS_MEMORY_ERROR     = -2,
+  METRICS_STATUS_NO_SLOTS         = -1,
+  METRICS_STATUS_SUCCESS          =  0,
 } pk_metrics_status_t;
 // clang-format on
 
@@ -87,13 +89,13 @@ typedef struct {
   pk_metrics_type_t type;
   pk_metrics_updater_fn_t updater;
   pk_metrics_reset_fn_t reseter;
-  ssize_t *idx;
+  size_t *idx;
   void *context;
 } _pk_metrics_table_entry_t;
 
 typedef struct {
-  ssize_t *index_of_num;
-  ssize_t *index_of_dom;
+  size_t *index_of_num;
+  size_t *index_of_dom;
 } pk_metrics_average_t;
 
 pk_metrics_t *_pk_metrics_create(void);
@@ -107,7 +109,7 @@ void pk_metrics_destroy(pk_metrics_t **metrics_loc);
 
 void pk_metrics_flush(const pk_metrics_t *metrics);
 
-pk_metrics_time_t pk_metrics_gettime();
+pk_metrics_time_t pk_metrics_gettime(void);
 
 pk_metrics_value_t pk_metrics_reset_default(pk_metrics_type_t type, pk_metrics_value_t initial);
 

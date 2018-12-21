@@ -123,7 +123,6 @@ TEST_F(LibpiksiTests, runWithStdinFileTests)
 
   // Use run_command, specify a buffer function
   {
-    const char *cmd = "cat";
     const char *const argv[] = {"cat", stdin_file_name, NULL};
 
     char buffer[128] = {0};

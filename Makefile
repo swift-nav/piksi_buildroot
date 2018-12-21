@@ -372,10 +372,13 @@ docker-sync-stop:
 	@docker-sync stop -c .docker-sync.yml
 
 docker-sync-clean:
-	@docker-sync clean -c .docker-sync.yml
+	@docker-sync clean -c .docker-sync.yml || echo "docker-sync clean failed..."
 	@rm -f .docker-compose.yml .docker-sync.yml 
 
 docker-aws-google-auth:
 	@./scripts/run-aws-google-auth
+
+show-startup-order:
+	@find . -name 'S*'|grep etc/init.d|sed 's@\(.*\)etc/init.d/\(.*\)@\2 - \1etc/init.d/\2@'|sort
 
 .PHONY: help
