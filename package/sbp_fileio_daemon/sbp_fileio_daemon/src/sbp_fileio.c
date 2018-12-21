@@ -24,9 +24,11 @@
 #include <errno.h>
 #include <time.h>
 
-#include <libpiksi/logging.h>
-#include <libpiksi/util.h>
 #include <libsbp/file_io.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/metrics.h>
+#include <libpiksi/util.h>
 
 #include "sbp_fileio.h"
 #include "path_validator.h"
@@ -45,6 +47,19 @@ static void *cleanup_timer_handle = NULL;
 
 #define FD_CACHE_COUNT 32
 #define CACHE_CLOSE_AGE 3
+
+#define MI fileio_metrics_indexes
+#define MT fileio_metrics_table
+#define MR fileio_metrics
+
+/* clang-format off */
+PK_METRICS_TABLE(MT, MI,
+  PK_METRICS_ENTRY("data/write/bytes",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  write_bytes),
+  PK_METRICS_ENTRY("data/read/bytes",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  read_bytes)
+ )
+/* clang-format on */
+
+static pk_metrics_t *fileio_metrics = NULL;
 
 typedef struct {
   FILE *fp;
@@ -92,6 +107,11 @@ static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *cont
       fd_cache[idx] = (fd_cache_t){.fp = NULL, .path = "", .mode = "", .opened_at = -1};
     }
   }
+
+  pk_metrics_flush(MR);
+
+  pk_metrics_reset(MR, MI.read_bytes);
+  pk_metrics_reset(MR, MI.write_bytes);
 
   pk_loop_timer_reset(cleanup_timer_handle);
 }
@@ -158,7 +178,8 @@ static fd_cache_result_t open_from_cache(const char *path, const char *mode, int
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
-void sbp_fileio_setup(pk_loop_t *loop,
+void sbp_fileio_setup(const char *name,
+                      pk_loop_t *loop,
                       path_validator_t *pv_ctx,
                       bool allow_factory_mtd_,
                       bool allow_imageset_bin_,
@@ -176,6 +197,8 @@ void sbp_fileio_setup(pk_loop_t *loop,
   sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ, write_cb, tx_ctx, NULL);
 
   cleanup_timer_handle = pk_loop_timer_add(loop, CLEANUP_FD_CACHE_MS, purge_fd_cache, NULL);
+
+  fileio_metrics = pk_metrics_setup("sbp_fileio", name, MT, COUNT_OF(MT));
 }
 
 static int allow_mtd_read(const char *path)
@@ -251,6 +274,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     }
   }
 
+  PK_METRICS_UPDATE(MR, MI.read_bytes, PK_METRICS_VALUE((u32)readlen));
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP, sizeof(*reply) + readlen, (u8 *)reply);
 }
 
@@ -367,6 +391,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
 static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
+  u8 headerlen = 0;
 
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
@@ -407,13 +432,14 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     piksi_log(LOG_ERR, "Error seeking to offset %d in %s for write", msg->offset, filename);
     goto cleanup;
   }
-  u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
+  headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
   write_count = len - headerlen;
   if (fwrite(msg_ + headerlen, 1, write_count, r.fp) != write_count) {
     piksi_log(LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
     goto cleanup;
   }
 
+  PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
 
 cleanup:

@@ -174,7 +174,8 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  sbp_fileio_setup(loop,
+  sbp_fileio_setup(fileio_name,
+                   loop,
                    g_pv_ctx,
                    allow_factory_mtd,
                    allow_imageset_bin,
