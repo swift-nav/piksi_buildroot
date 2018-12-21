@@ -66,6 +66,7 @@ static pk_metrics_t *fileio_metrics = NULL;
 typedef struct {
   FILE *fp;
   bool cached;
+  size_t *offset;
 } fd_cache_result_t;
 
 typedef struct {
@@ -73,9 +74,8 @@ typedef struct {
   char path[PATH_MAX];
   char mode[4];
   time_t opened_at;
+  size_t offset;
 } fd_cache_t;
-
-static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ... (FD_CACHE_COUNT-1)] = {NULL, "", "", 0}};
 
 enum {
   DENY_MTD_READ = 0,
@@ -91,7 +91,52 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 
+static off_t read_offset(fd_cache_result_t r);
+
+enum
+{
+  OP_INCREMENT,
+  OP_ASSIGN,
+};
+
+static void update_offset(fd_cache_result_t r, off_t offset, int op);
+
+static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context);
+static void flush_cached_fd(const char *path, const char *mode);
+static fd_cache_result_t open_from_cache(const char *path, const char *mode, int oflag, mode_t perm);
+
+static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ... (FD_CACHE_COUNT-1)] = {NULL, "", "", 0, 0}};
+
 path_validator_t *g_pv_ctx;
+
+fd_cache_result_t empty_cache_result = (fd_cache_result_t){
+  .fp = NULL,
+  .cached = false,
+  .offset = NULL,
+};
+
+fd_cache_t empty_cache_entry = (fd_cache_t){
+  .fp = NULL,
+  .path = "",
+  .mode = "",
+  .opened_at = -1,
+  .offset = 0,
+};
+
+static off_t read_offset(fd_cache_result_t r)
+{
+  if (r.offset == NULL) return -1;
+  return (off_t)*r.offset;
+}
+
+static void update_offset(fd_cache_result_t r, off_t offset, int op)
+{
+  if (r.offset == NULL) return;
+
+  if (op == OP_INCREMENT) (*r.offset) += offset;
+  else if (op == OP_ASSIGN) (*r.offset) = offset;
+  else PK_LOG_ANNO(LOG_ERR, "invalid operation: %d", op);
+}
 
 static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context)
 {
@@ -106,7 +151,7 @@ static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *cont
     if (fd_cache[idx].fp == NULL) continue;
     if ((now - fd_cache[idx].opened_at) >= CACHE_CLOSE_AGE) {
       fclose(fd_cache[idx].fp);
-      fd_cache[idx] = (fd_cache_t){.fp = NULL, .path = "", .mode = "", .opened_at = -1};
+      fd_cache[idx] = empty_cache_entry;
     }
   }
 
@@ -131,13 +176,14 @@ static void flush_cached_fd(const char *path, const char *mode)
   for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
     if (strncmp(fd_cache[idx].path, path, sizeof(fd_cache[idx].path)) == 0
         && strncmp(fd_cache[idx].mode, mode, sizeof(fd_cache[idx].mode)) == 0) {
-      FIO_LOG_DEBUG("Flushing cached write fp (index %d): %p, filename: %s, mode: %s",
+      FIO_LOG_DEBUG("Flushing cached write fp (index %d): %p, filename: %s, mode: %s, offset: %d",
                     idx,
                     fd_cache[idx].fp,
                     fd_cache[idx].path,
-                    fd_cache[idx].mode);
+                    fd_cache[idx].mode,
+                    fd_cache[idx].offset);
       fclose(fd_cache[idx].fp);
-      fd_cache[idx] = (fd_cache_t){.fp = NULL, .path = "", .mode = "", .opened_at = -1};
+      fd_cache[idx] = empty_cache_entry;
     }
   }
 }
@@ -148,30 +194,33 @@ static fd_cache_result_t open_from_cache(const char *path, const char *mode, int
     for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
       if (strncmp(fd_cache[idx].path, path, sizeof(fd_cache[idx].path)) == 0
           && strncmp(fd_cache[idx].mode, mode, sizeof(fd_cache[idx].mode)) == 0) {
-        FIO_LOG_DEBUG("Found cached fp (index %d): %p, filename: %s, mode: %s",
+        FIO_LOG_DEBUG("Found cached fp (index %d): %p, filename: %s, mode: %s, offset: %d",
                       idx,
                       fd_cache[idx].fp,
                       fd_cache[idx].path,
-                      fd_cache[idx].mode);
+                      fd_cache[idx].mode,
+                      fd_cache[idx].offset);
         fd_cache[idx].opened_at = time(NULL);
-        return (fd_cache_result_t){.fp = fd_cache[idx].fp, .cached = true};
+        return (fd_cache_result_t){.fp = fd_cache[idx].fp, .cached = true, .offset = &fd_cache[idx].offset};
       }
     }
   }
   int fd = open(path, oflag, perm);
-  if (fd < 0) return (fd_cache_result_t){.fp = NULL, .cached = false};
+  if (fd < 0) return (fd_cache_result_t){.fp = NULL, .cached = false, .offset = NULL};
   FILE *fp = fdopen(fd, mode);
   assert(fp != NULL);
   if (no_cache) {
-    return (fd_cache_result_t){.fp = fp, .cached = false};
+    return (fd_cache_result_t){.fp = fp, .cached = false, .offset = NULL};
   }
   bool found_slot = false;
+  size_t *offset_ptr = NULL;
   for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
     if (fd_cache[idx].fp == NULL) {
       strncpy(fd_cache[idx].path, path, sizeof(fd_cache[idx].path));
       strncpy(fd_cache[idx].mode, mode, sizeof(fd_cache[idx].mode));
       fd_cache[idx].fp = fp;
       fd_cache[idx].opened_at = time(NULL);
+      offset_ptr = &fd_cache[idx].offset;
       found_slot = true;
       break;
     }
@@ -179,7 +228,7 @@ static fd_cache_result_t open_from_cache(const char *path, const char *mode, int
   if (!found_slot) {
     piksi_log(LOG_WARNING, "Could not find a cache slot for file descriptor.");
   }
-  return (fd_cache_result_t){.fp = fp, .cached = found_slot};
+  return (fd_cache_result_t){.fp = fp, .cached = found_slot, .offset = offset_ptr};
 }
 
 /** Setup file IO
@@ -241,6 +290,11 @@ static const char *filter_imageset_bin(const char *filename)
 static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
+
+  int read_result = 0;
+  int seek_result = 0;
+  fd_cache_result_t cached_fd = empty_cache_result;
+
   msg_fileio_read_req_t *msg = (msg_fileio_read_req_t *)msg_;
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
@@ -263,26 +317,41 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   if (st == DENY_MTD_READ
       || (st == NO_MTD_READ && !path_validator_check(g_pv_ctx, msg->filename))) {
+
     piksi_log(LOG_WARNING,
               "Received FILEIO_READ request for path (%s) outside base directory (%s), ignoring...",
               msg->filename,
               path_validator_base_paths(g_pv_ctx));
-    readlen = 0;
+
+    read_result = 0;
+
   } else {
+
     flush_cached_fd(msg->filename, "w");
-    fd_cache_result_t r = open_from_cache(msg->filename, "r", O_RDONLY, 0);
-    if (r.fp != NULL) {
-      lseek(fileno(r.fp), msg->offset, SEEK_SET);
-      readlen = fread(&reply->contents, 1, readlen, r.fp);
-      if (readlen < 0) readlen = 0;
-      return_to_cache(&r);
-    } else {
-      readlen = 0;
+    cached_fd = open_from_cache(msg->filename, "r", O_RDONLY, 0);
+
+    if (cached_fd.fp != NULL) {
+
+      if (read_offset(cached_fd) != (off_t)msg->offset) {
+        seek_result = fseek(cached_fd.fp, msg->offset, SEEK_SET);
+        if (seek_result == 0) {
+          update_offset(cached_fd, msg->offset, OP_ASSIGN);
+        } else {
+          PK_LOG_ANNO(LOG_ERR, "fseek failed: %s (%d)", strerror(errno), errno);
+        }
+      }
+
+      read_result = fread(&reply->contents, 1, readlen, cached_fd.fp);
+      if (read_result != readlen) PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
+
+      return_to_cache(&cached_fd);
     }
   }
 
-  PK_METRICS_UPDATE(MR, MI.read_bytes, PK_METRICS_VALUE((u32)readlen));
-  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP, sizeof(*reply) + readlen, (u8 *)reply);
+  update_offset(cached_fd, read_result, OP_INCREMENT);
+  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP, sizeof(*reply) + read_result, (u8 *)reply);
+
+  PK_METRICS_UPDATE(MR, MI.read_bytes, PK_METRICS_VALUE((u32)read_result));
 }
 
 /** Directory listing callback.
@@ -435,16 +504,25 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     piksi_log(LOG_ERR, "Error opening %s for write", filename);
     return;
   }
-  if (lseek(fileno(r.fp), msg->offset, SEEK_SET) != (off_t)msg->offset) {
-    piksi_log(LOG_ERR, "Error seeking to offset %d in %s for write", msg->offset, filename);
-    goto cleanup;
+
+  if (read_offset(r) != (off_t)msg->offset) {
+    if (fseek(r.fp, msg->offset, SEEK_SET) == 0) {
+      update_offset(r, msg->offset, OP_ASSIGN);
+    } else {
+      piksi_log(LOG_ERR, "Error seeking to offset %d in %s for write: %s (%d)", msg->offset, filename, strerror(errno), errno);
+      goto cleanup;
+    }
   }
+
   headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
   write_count = len - headerlen;
+
   if (fwrite(msg_ + headerlen, 1, write_count, r.fp) != write_count) {
     piksi_log(LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
     goto cleanup;
   }
+
+  update_offset(r, write_count, OP_INCREMENT);
 
   PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
