@@ -23,6 +23,7 @@
 #define PROGRAM_NAME "sbp_fileio_daemon"
 
 bool fio_debug = false;
+bool no_cache = false;
 
 static const char *fileio_name = NULL;
 
@@ -50,6 +51,7 @@ static void usage(char *command)
   puts("-i, --imageset        Allow write access to upgrade.image_set.bin, internally");
   puts("                      the file will be written to /data/upgrade.image_set.bin");
   puts("-d, --debug           Output debug logging");
+  puts("-x, --nocache         Disable FD cache");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -66,6 +68,7 @@ static int parse_options(int argc, char *argv[])
     {"mtd",      no_argument,       0, 'm'},
     {"imageset", no_argument,       0, 'i'},
     {"debug",    no_argument,       0, 'd'},
+    {"nocache",  no_argument,       0, 'x'},
     {"help",     no_argument,       0, 'h'},
     {0, 0, 0, 0}
   };
@@ -109,6 +112,10 @@ static int parse_options(int argc, char *argv[])
 
     case 'd': {
       fio_debug = true;
+    } break;
+
+    case 'x': {
+      no_cache = true;
     } break;
 
     default: {

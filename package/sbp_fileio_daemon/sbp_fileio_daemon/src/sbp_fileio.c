@@ -52,10 +52,12 @@ static void *cleanup_timer_handle = NULL;
 #define MT fileio_metrics_table
 #define MR fileio_metrics
 
+extern bool no_cache;
+
 /* clang-format off */
 PK_METRICS_TABLE(MT, MI,
-  PK_METRICS_ENTRY("data/write/bytes",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  write_bytes),
-  PK_METRICS_ENTRY("data/read/bytes",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  read_bytes)
+  PK_METRICS_ENTRY("data/write/bytes",    "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  write_bytes),
+  PK_METRICS_ENTRY("data/read/bytes",    "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  read_bytes)
  )
 /* clang-format on */
 
@@ -142,22 +144,27 @@ static void flush_cached_fd(const char *path, const char *mode)
 
 static fd_cache_result_t open_from_cache(const char *path, const char *mode, int oflag, mode_t perm)
 {
-  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
-    if (strncmp(fd_cache[idx].path, path, sizeof(fd_cache[idx].path)) == 0
-        && strncmp(fd_cache[idx].mode, mode, sizeof(fd_cache[idx].mode)) == 0) {
-      FIO_LOG_DEBUG("Found cached fp (index %d): %p, filename: %s, mode: %s",
-                    idx,
-                    fd_cache[idx].fp,
-                    fd_cache[idx].path,
-                    fd_cache[idx].mode);
-      fd_cache[idx].opened_at = time(NULL);
-      return (fd_cache_result_t){.fp = fd_cache[idx].fp, .cached = true};
+  if (!no_cache) {
+    for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+      if (strncmp(fd_cache[idx].path, path, sizeof(fd_cache[idx].path)) == 0
+          && strncmp(fd_cache[idx].mode, mode, sizeof(fd_cache[idx].mode)) == 0) {
+        FIO_LOG_DEBUG("Found cached fp (index %d): %p, filename: %s, mode: %s",
+                      idx,
+                      fd_cache[idx].fp,
+                      fd_cache[idx].path,
+                      fd_cache[idx].mode);
+        fd_cache[idx].opened_at = time(NULL);
+        return (fd_cache_result_t){.fp = fd_cache[idx].fp, .cached = true};
+      }
     }
   }
   int fd = open(path, oflag, perm);
   if (fd < 0) return (fd_cache_result_t){.fp = NULL, .cached = false};
   FILE *fp = fdopen(fd, mode);
   assert(fp != NULL);
+  if (no_cache) {
+    return (fd_cache_result_t){.fp = fp, .cached = false};
+  }
   bool found_slot = false;
   for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
     if (fd_cache[idx].fp == NULL) {
