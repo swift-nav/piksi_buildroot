@@ -1,0 +1,33 @@
+name: SBP_ROUTER
+ports:
+  - name: SBP_PORT_FIRMWARE
+    pub_addr: "tcp://127.0.0.1:43010"
+    sub_addr: "tcp://127.0.0.1:43011"
+    metric: "sbp/firmware"
+    forwarding_rules:
+
+      - dst_port: SBP_PORT_SETTINGS_DAEMON
+        filters:
+          - { action: ACCEPT, prefix: [0x02, 0x02, 0x03] } # Settings register
+          - { action: ACCEPT, prefix: [0x01, 0x02, 0x04] } # Settings register
+          - { action: ACCEPT, prefix: [0x01, 0x02, 0x04] } # Settings register
+          - { action: ACCEPT, prefix: [0x01, 0x02, 0x05] } # Settings register
+          - { action: REJECT }
+
+      - dst_port: SBP_PORT_SETTINGS_DAEMON2
+        filters:
+          - { action: ACCEPT, prefix: [0x01, 0x02, 0x03] } # Settings register
+          - { action: ACCEPT, prefix: [0x01, 0x02, 0x04] } # Settings register
+          - { action: ACCEPT, prefix: [0x02, 0x02, 0x03] } # Settings register
+          - { action: ACCEPT, prefix: [0x02, 0x02, 0x05] } # Settings register
+          - { action: REJECT }
+
+  - name: SBP_PORT_SETTINGS_DAEMON
+    pub_addr: "tcp://127.0.0.1:43020"
+    sub_addr: "tcp://127.0.0.1:43021"
+    metric: "sbp/daemon"
+
+  - name: SBP_PORT_SETTINGS_DAEMON2
+    pub_addr: "tcp://127.0.0.1:43030"
+    sub_addr: "tcp://127.0.0.1:43031"
+    metric: "sbp/daemon2"

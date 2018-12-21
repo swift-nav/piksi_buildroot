@@ -19,8 +19,11 @@
 extern "C" {
 #endif
 
-router_t *router_load(const char *filename);
-void router_teardown(router_t **router_loc);
+typedef void (*endpoint_destroy_fn_t)(pk_endpoint_t **p);
+extern endpoint_destroy_fn_t endpoint_destroy_fn;
+
+router_cfg_t *router_cfg_load(const char *filename);
+void router_cfg_teardown(router_cfg_t **router_loc);
 
 #ifdef __cplusplus
 }
