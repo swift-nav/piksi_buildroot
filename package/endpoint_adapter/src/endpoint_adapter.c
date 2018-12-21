@@ -943,7 +943,7 @@ static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
                     framer_name,
                     filter_in_name,
                     filter_in_config,
-                    false)
+                    is_can)
         != 0) {
       die_error("handle_init for pub returned error");
     }
