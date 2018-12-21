@@ -375,6 +375,16 @@ void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx)
                            setting_register_callback,
                            tx_ctx,
                            NULL);
+
+  /* Hack for Starling on Nano */
+  struct setting *s = calloc(1, sizeof(*s));
+  *s = (struct setting){
+    .section = "experimental_flags",
+    .name = "starling_on_linux",
+    .type = "enum:False,True",
+    .value = "False",
+  };
+  setting_register(s);
 }
 
 void settings_reset_defaults(void)
