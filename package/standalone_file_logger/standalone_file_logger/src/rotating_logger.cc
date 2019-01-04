@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/syslog.h>
+#include <libpiksi/logging.h>
 
 /*
  * Name format: xxxx-yyyyy.sbp
@@ -42,6 +43,7 @@ static const size_t LOG_NAME_LEN = 4 + 1 + 5 + 4;
 
 void RotatingLogger::log_msg(int priority, const std::string &msg)
 {
+  piksi_log(LOG_INFO, "log_msg");
   if (_logging_callback) {
     _logging_callback(priority, msg.c_str());
   }
@@ -49,30 +51,39 @@ void RotatingLogger::log_msg(int priority, const std::string &msg)
 
 void RotatingLogger::close_current_file()
 {
+  piksi_log(LOG_INFO, "close_current_file");
   if (_cur_file != nullptr) {
 
+    piksi_log(LOG_INFO, "close_current_file not null");
     if (_bytes_written < NEW_FILE_PAD_SIZE) {
       ftruncate(fileno(_cur_file), _bytes_written);
     }
 
+    piksi_log(LOG_INFO, "close_current_file fflush");
     fflush(_cur_file);
+    piksi_log(LOG_INFO, "close_current_file fsync");
     fsync(fileno(_cur_file));
+    piksi_log(LOG_INFO, "close_current_file fclose");
     fclose(_cur_file);
 
     _cur_file = nullptr;
     _bytes_written = 0;
   }
+  piksi_log(LOG_INFO, "close_current_file fin");
 }
 
 void RotatingLogger::log_errno_warning(const char *msg)
 {
+  piksi_log(LOG_INFO, "log_errno_warning");
   log_msg(LOG_WARNING, std::string(msg) + ":" + strerror(errno));
 }
 
 void RotatingLogger::pad_new_file()
 {
+  piksi_log(LOG_INFO, "pad_new_file");
 
   if (_cur_file != nullptr) {
+    piksi_log(LOG_INFO, "padding file");
 
     if (ftruncate(fileno(_cur_file), NEW_FILE_PAD_SIZE) != 0)
       log_errno_warning("Error while padding new file");
@@ -83,6 +94,7 @@ void RotatingLogger::pad_new_file()
 
 int RotatingLogger::check_disk_full()
 {
+  piksi_log(LOG_INFO, "check_disk_full");
   struct statvfs fs_stats;
   if (statvfs(_out_dir.c_str(), &fs_stats)) {
     return -1;
@@ -97,6 +109,7 @@ int RotatingLogger::check_disk_full()
 
 bool RotatingLogger::open_new_file()
 {
+  piksi_log(LOG_INFO, "open_new_file");
   if (_session_count >= 9999) {
     perror("Max session exceeded");
     return false;
@@ -153,6 +166,7 @@ bool RotatingLogger::check_slice_time()
 
 bool RotatingLogger::start_new_session()
 {
+  piksi_log(LOG_INFO, "start_new_session");
   DIR *dirp = opendir(_out_dir.c_str());
   struct dirent *dp = nullptr;
   if (dirp == nullptr) {
@@ -195,6 +209,7 @@ void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
     }
     _session_start_time = std::chrono::steady_clock::now();
     if (!start_new_session()) {
+      piksi_log(LOG_INFO, "start_new_session failed");
       return;
     }
   }
@@ -220,16 +235,19 @@ void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
 
 void RotatingLogger::update_dir(const std::string &out_dir)
 {
+  piksi_log(LOG_INFO, "update_dir");
   _out_dir = out_dir;
 }
 
 void RotatingLogger::update_fill_threshold(size_t disk_full_threshold)
 {
+  piksi_log(LOG_INFO, "update_fill_threshold");
   _disk_full_threshold = disk_full_threshold;
 }
 
 void RotatingLogger::update_slice_duration(size_t slice_duration)
 {
+  piksi_log(LOG_INFO, "update_slice_duration");
   _slice_duration = slice_duration;
 }
 
@@ -248,5 +266,7 @@ RotatingLogger::RotatingLogger(const std::string &out_dir,
 
 RotatingLogger::~RotatingLogger()
 {
+  piksi_log(LOG_INFO, "~RotatingLogger");
   close_current_file();
+  piksi_log(LOG_INFO, "~RotatingLogger");
 }
