@@ -10,16 +10,18 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libpiksi/logging.h>
-#include <libsbp/settings.h>
-#include <libsettings/settings.h>
-
-#include <string.h>
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
+#include <libpiksi/logging.h>
 #include <libpiksi/min_ini.h>
+
+#include <libsbp/settings.h>
+
+#include <libsettings/settings.h>
+#include <libsettings/settings_util.h>
 
 #include "settings.h"
 
@@ -95,86 +97,38 @@ static int settings_format_setting(struct setting *s, char *buf, int len, bool t
   return buflen;
 }
 
-/* Parse SBP message payload into setting parameters */
-static bool settings_parse_setting(u8 len,
-                                   u8 msg[],
-                                   const char **section,
-                                   const char **setting,
-                                   const char **value,
-                                   const char **type)
-{
-  *section = NULL;
-  *setting = NULL;
-  *value = NULL;
-  if (type) *type = NULL;
-
-  if (len == 0) {
-    return false;
-  }
-
-  if (msg[len - 1] != '\0') {
-    return false;
-  }
-
-  /* Extract parameters from message:
-   * 3 null terminated strings: section, setting and value
-   * An optional fourth string is a description of the type.
-   */
-  *section = (const char *)msg;
-  for (int i = 0, tok = 0; i < len; i++) {
-    if (msg[i] == '\0') {
-      tok++;
-      switch (tok) {
-      case 1: *setting = (const char *)&msg[i + 1]; break;
-      case 2:
-        if (i + 1 < len) *value = (const char *)&msg[i + 1];
-        break;
-      case 3:
-        if (i + 1 < len) {
-          if (type != NULL) *type = (const char *)&msg[i + 1];
-          break;
-        }
-      case 4:
-        if (i == len - 1) break;
-      default: return false;
-      }
-    }
-  }
-
-  return true;
-}
-
 static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
 
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
-  const char *section = NULL, *setting = NULL, *value = NULL, *type = NULL;
-  if (!settings_parse_setting(len, msg, &section, &setting, &value, &type)) {
+  const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
+  /* Expect to find at least section, name and value */
+  if (settings_parse(msg, len, &section, &name, &value, &type) < SETTINGS_TOKENS_VALUE) {
     piksi_log(LOG_WARNING, "Error in register message");
   }
 
-  struct setting *s = settings_lookup(section, setting);
+  struct setting *sdata = settings_lookup(section, name);
   /* Only register setting if it doesn't already exist */
-  if (s == NULL) {
-    s = calloc(1, sizeof(*s));
-    strncpy(s->section, section, BUFSIZE);
-    strncpy(s->name, setting, BUFSIZE);
-    strncpy(s->value, value, BUFSIZE);
+  if (sdata == NULL) {
+    sdata = calloc(1, sizeof(*sdata));
+    strncpy(sdata->section, section, BUFSIZE);
+    strncpy(sdata->name, name, BUFSIZE);
+    strncpy(sdata->value, value, BUFSIZE);
 
     if (type != NULL) {
-      strncpy(s->type, type, BUFSIZE);
+      strncpy(sdata->type, type, BUFSIZE);
     }
 
-    setting_register(s);
+    setting_register(sdata);
   } else {
-    piksi_log(LOG_WARNING, "Setting %s.%s already registered", s->section, s->name);
+    piksi_log(LOG_WARNING, "Setting %s.%s already registered", sdata->section, sdata->name);
   }
 
   /* Reply with write message with our value */
   char buf[256];
-  size_t rlen = settings_format_setting(s, buf, sizeof(buf), false);
+  size_t rlen = settings_format_setting(sdata, buf, sizeof(buf), false);
   sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE, rlen, (u8 *)buf, SBP_SENDER_ID);
 }
 
@@ -184,32 +138,32 @@ static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void
   (void)context;
   msg_settings_write_resp_t *msg = (void *)msg_;
 
-  static struct setting *s = NULL;
-  const char *section = NULL, *setting = NULL, *value = NULL;
-
   if (msg->status != 0) {
     return;
   }
 
-  if (!settings_parse_setting(len - 1, msg->setting, &section, &setting, &value, NULL)) {
+  const char *section = NULL, *name = NULL, *value = NULL;
+  /* Expect to find at least section, name and value */
+  if (settings_parse(msg->setting, len - sizeof(msg->status), &section, &name, &value, NULL)
+      < SETTINGS_TOKENS_VALUE) {
     piksi_log(LOG_WARNING, "Error in write reply message");
     return;
   }
 
-  s = settings_lookup(section, setting);
-  if (s == NULL) {
+  struct setting *sdata = settings_lookup(section, name);
+  if (sdata == NULL) {
     piksi_log(LOG_WARNING, "Write reply for non-existent setting");
     return;
   }
 
-  if (strcmp(s->value, value) == 0) {
+  if (strcmp(sdata->value, value) == 0) {
     /* Setting unchanged */
     return;
   }
 
   /* This is an assignment, call notify function */
-  strncpy(s->value, value, BUFSIZE);
-  s->dirty = true;
+  strncpy(sdata->value, value, BUFSIZE);
+  sdata->dirty = true;
 
   return;
 }
@@ -340,19 +294,38 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
 
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
-  const char *section = NULL, *setting = NULL, *value = NULL, *type = NULL;
-  if (settings_parse_setting(len, msg, &section, &setting, &value, &type)
-      && settings_lookup(section, setting) != NULL) {
+  const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
+  /* Expect to find at least section, name and value */
+  if ((settings_parse(msg, len, &section, &name, &value, &type) >= SETTINGS_TOKENS_VALUE)
+      && settings_lookup(section, name) != NULL) {
     /* This setting looks good; we'll leave it to the owner to complain if
      * there's a problem with the value. */
     return;
   }
 
-  piksi_log(LOG_ERR, "Setting %s.%s rejected", section, setting);
+  piksi_log(LOG_ERR, "Setting %s.%s rejected", section, name);
 
-  u8 resp[] = {SETTINGS_WR_SETTING_REJECTED};
   /* Reply with write response rejecting this setting */
-  sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, sizeof(resp), resp, SBP_SENDER_ID);
+  int buflen = 0;
+  u8 buf[BUFSIZE] = {0};
+  buf[buflen++] = SETTINGS_WR_SETTING_REJECTED;
+
+  if (section != NULL) {
+    strncpy(buf, section, BUFSIZE - buflen);
+    buflen += strlen(section) + 1;
+  }
+
+  if (name != NULL) {
+    strncpy(buf + buflen, name, BUFSIZE - buflen);
+    buflen += strlen(name) + 1;
+  }
+
+  if (value != NULL) {
+    strncpy(buf + buflen, value, BUFSIZE - buflen);
+    buflen += strlen(value) + 1;
+  }
+
+  sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, buflen, buf, SBP_SENDER_ID);
 }
 
 void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx)
