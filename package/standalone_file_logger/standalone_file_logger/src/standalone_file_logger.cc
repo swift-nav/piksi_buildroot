@@ -147,17 +147,11 @@ static void process_log_callback(int priority, const char *msg_text)
 
 static void stop_logging()
 {
-  piksi_log(LOG_INFO, "stop_logging");
   if (logger != nullptr) {
     process_log_callback(LOG_INFO, "Logging stopped");
     delete logger;
-    process_log_callback(LOG_INFO, "logger deleted");
     logger = nullptr;
-    process_log_callback(LOG_INFO, "logger set to null");
-  } else {
-    piksi_log(LOG_INFO, "nothing to stop");
   }
-  process_log_callback(LOG_INFO, "leaving stop_logging");
 }
 
 static void save_prev_logging_fs_type_value()
@@ -225,7 +219,6 @@ static int setting_usb_logging_notify(void *context)
   (void *)context;
 
   if (setting_usb_logging_enable) {
-    piksi_log(LOG_INFO, "setting_usb_logging_enable");
     if (logger == nullptr) {
       process_log_callback(LOG_INFO, "Logging started");
       logger = new RotatingLogger(setting_usb_logging_dir,
@@ -233,19 +226,13 @@ static int setting_usb_logging_notify(void *context)
                                   poll_period_s,
                                   setting_usb_logging_max_fill,
                                   &process_log_callback);
-      process_log_callback(LOG_INFO, "Logging started fin");
     } else {
-      piksi_log(LOG_INFO | LOG_SBP, "logger != null, updating");
       logger->update_dir(setting_usb_logging_dir);
       logger->update_fill_threshold(setting_usb_logging_max_fill);
       logger->update_slice_duration(setting_usb_logging_slice_duration);
     }
   } else {
-    piksi_log(LOG_INFO | LOG_SBP, "setting_usb_logging_disable");
     stop_logging();
-    if (logger != nullptr) {
-      piksi_log(LOG_INFO, "stopped logging, but logger not null");
-    }
   }
 
   return SBP_SETTINGS_WRITE_STATUS_OK;
@@ -254,10 +241,7 @@ static int setting_usb_logging_notify(void *context)
 static int log_frame_callback(const u8 *data, const size_t length, void *context)
 {
   if (logger != nullptr) {
-    piksi_log(LOG_INFO, "frame_callback: logger is not null");
     logger->frame_handler(data, length);
-  } else {
-    piksi_log(LOG_INFO, "frame_callback: logger is null");
   }
   return 0;
 }
@@ -283,7 +267,6 @@ static void sub_poll_handler(pk_loop_t *loop, void *handle, int status, void *co
 static void sigchld_handler(int signum)
 {
   (void)signum;
-  piksi_log(LOG_INFO, "sigchild handler");
   int saved_errno = errno;
   while (waitpid(-1, nullptr, WNOHANG) > 0) {
     ;

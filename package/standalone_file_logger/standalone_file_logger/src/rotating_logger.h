@@ -25,8 +25,6 @@
 #include <mutex>
 #include <condition_variable>
 
-#include <libpiksi/common.h>
-
 class RotatingLogger {
 
   /* Pad new files out to minimize filesystem updates */
