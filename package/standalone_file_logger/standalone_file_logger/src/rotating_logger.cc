@@ -187,6 +187,7 @@ double RotatingLogger::get_time_passed()
 
 void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
 {
+  // TODO: keep track of total data bytes: enforce a limit/warning in .h
   std::vector<uint8_t> *frame = new std::vector<uint8_t> (data, data + size);
 
   std::unique_lock<std::mutex> mlock(_mutex);
@@ -244,7 +245,7 @@ void RotatingLogger::process_frame()
     }
     _bytes_written += size;
   }
-  // TODO: flush queue
+  // TODO: flush queue - the queue may still have data in it
 }
 
 void RotatingLogger::update_dir(const std::string &out_dir)
