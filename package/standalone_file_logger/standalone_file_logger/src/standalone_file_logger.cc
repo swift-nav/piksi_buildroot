@@ -264,16 +264,6 @@ static void sub_poll_handler(pk_loop_t *loop, void *handle, int status, void *co
   return;
 }
 
-static void sigchld_handler(int signum)
-{
-  (void)signum;
-  int saved_errno = errno;
-  while (waitpid(-1, nullptr, WNOHANG) > 0) {
-    ;
-  }
-  errno = saved_errno;
-}
-
 static void terminate_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)context;
@@ -323,18 +313,6 @@ int main(int argc, char *argv[])
   }
 
   signal(SIGPIPE, SIG_IGN); /* Allow write to return an error */
-
-  /* Set up SIGCHLD handler */
-  /*
-  struct sigaction sigchld_sa;
-  sigchld_sa.sa_handler = sigchld_handler;
-  sigemptyset(&sigchld_sa.sa_mask);
-  sigchld_sa.sa_flags = SA_NOCLDSTOP;
-  if (sigaction(SIGCHLD, &sigchld_sa, nullptr) != 0) {
-    piksi_log(LOG_ERR, "error setting up sigchld handler");
-    exit(EXIT_FAILURE);
-  }
-  */
 
   if (setup_terminate_handler(loop) != 0) {
     piksi_log(LOG_ERR, "error setting up terminate handler");
