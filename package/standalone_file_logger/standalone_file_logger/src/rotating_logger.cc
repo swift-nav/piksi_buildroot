@@ -221,11 +221,13 @@ void RotatingLogger::process_frame()
     piksi_log(LOG_INFO, "process_frame not closed, acquiring lock");
     mlock.lock();
     piksi_log(LOG_INFO, "process_frame lock acquired");
-    while (_queue.empty()) {
+    if (_queue.empty()) {
       piksi_log(LOG_INFO, "process_frame queue empty, waiting");
       _cond.wait(mlock);
+      mlock.unlock();
+      piksi_log(LOG_INFO, "process_frame woken up");
+      continue;
     }
-    piksi_log(LOG_INFO, "process_frame woken up");
 
     if (!_dest_available) {
       // check imediately on startup for path availability. Subsequently, check
@@ -273,6 +275,7 @@ void RotatingLogger::process_frame()
     _bytes_written += size;
   }
   piksi_log(LOG_INFO, "process_frame closed");
+  // TODO: flush queue
 }
 
 void RotatingLogger::update_dir(const std::string &out_dir)
