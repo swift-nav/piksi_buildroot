@@ -95,6 +95,11 @@ class RotatingLogger {
    */
   void pad_new_file();
 
+  /*
+   * try to log a data frame
+   */
+  void process_frame();
+
   void log_errno_warning(const char *msg);
 
   bool _dest_available;
@@ -110,20 +115,14 @@ class RotatingLogger {
   FILE *_cur_file;
   size_t _bytes_written;
 
-  /*
-   * try to log a data frame
-   */
-  void process_frame();
 
-  void test();
+  bool _finished = false;
   std::thread _thread;
-
   std::mutex _mutex;
   std::condition_variable _cond;
 
   std::deque< std::vector<uint8_t>* > _queue;
 
-  bool _closed = false;
 };
 
 #endif // SWIFTNAV_ROTATING_LOGGER_H

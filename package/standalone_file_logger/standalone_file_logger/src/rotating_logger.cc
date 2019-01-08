@@ -187,10 +187,10 @@ double RotatingLogger::get_time_passed()
 
 void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
 {
-  std::vector<uint8_t> *temp = new std::vector<uint8_t> (data, data + size);
+  std::vector<uint8_t> *frame = new std::vector<uint8_t> (data, data + size);
 
   std::unique_lock<std::mutex> mlock(_mutex);
-  _queue.push_back( temp );
+  _queue.push_back( frame );
   mlock.unlock();
   _cond.notify_one();
 }
@@ -198,40 +198,39 @@ void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
 void RotatingLogger::process_frame()
 {
   std::unique_lock<std::mutex> mlock(_mutex, std::defer_lock);
-  while (!_closed) {
-    mlock.lock();
-    if (_queue.empty()) {
-      _cond.wait(mlock);
-      mlock.unlock();
-      continue;
-    }
-
+  while (!_finished) {
     if (!_dest_available) {
       // check imediately on startup for path availability. Subsequently, check
       // periodically
       if (_session_start_time.time_since_epoch().count() != 0 && get_time_passed() < _poll_period) {
         return;
       }
-      mlock.unlock();
       _session_start_time = std::chrono::steady_clock::now();
       if (!start_new_session()) {
         return;
       }
-      mlock.lock();
     }
     if (!check_slice_time()) {
       return;
     }
 
+    mlock.lock();
+    if (_queue.empty()) {
+      _cond.wait(mlock);
+      // recheck !_finished
+      mlock.unlock();
+      continue;
+    }
+
     size_t num_written = 0;
-    std::vector<uint8_t> *temp = _queue.front();
-    size_t size = sizeof(std::vector<uint8_t>::value_type) * temp->size();
+    std::vector<uint8_t> *frame = _queue.front();
+    size_t size = sizeof(std::vector<uint8_t>::value_type) * frame->size();
     if (_cur_file != nullptr) {
-      num_written = fwrite(&temp[0], sizeof(std::vector<uint8_t>::value_type), temp->size(), _cur_file);
+      num_written = fwrite(&frame[0], sizeof(std::vector<uint8_t>::value_type), frame->size(), _cur_file);
     }
 
     _queue.pop_front();
-    delete temp;
+    delete frame;
     mlock.unlock();
 
     if (num_written != size) {
@@ -280,10 +279,7 @@ RotatingLogger::RotatingLogger(const std::string &out_dir,
 RotatingLogger::~RotatingLogger()
 {
   close_current_file();
-  _closed = true;
-  std::unique_lock<std::mutex> mlock(_mutex, std::defer_lock);
-  mlock.lock();
-  mlock.unlock();
+  _finished = true;
   _cond.notify_one();
   _thread.join();
 }
