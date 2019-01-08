@@ -142,9 +142,9 @@ static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void
     return;
   }
 
-  const char *section = NULL, *name = NULL, *value = NULL;
+  const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
   /* Expect to find at least section, name and value */
-  if (settings_parse(msg->setting, len - sizeof(msg->status), &section, &name, &value, NULL)
+  if (settings_parse(msg->setting, len - sizeof(msg->status), &section, &name, &value, &type)
       < SETTINGS_TOKENS_VALUE) {
     piksi_log(LOG_WARNING, "Error in write reply message");
     return;
