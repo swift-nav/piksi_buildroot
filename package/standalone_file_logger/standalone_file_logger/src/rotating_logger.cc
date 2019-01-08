@@ -219,7 +219,7 @@ std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
 {
   std::unique_lock<std::mutex> mlock(_mutex);
   while (_queue.empty()) {
-    if (_finished) {
+    if (_finished.load()) {
       return nullptr;
     }
     _cond.wait(mlock);
@@ -232,7 +232,7 @@ std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
 void RotatingLogger::process_frame()
 {
   std::unique_lock<std::mutex> mlock(_mutex, std::defer_lock);
-  while (!_finished) {
+  while (!_finished.load()) {
     if (!current_session_valid()) {
       continue;
     }
@@ -287,7 +287,7 @@ RotatingLogger::RotatingLogger(const std::string &out_dir,
     _slice_duration(slice_duration), _poll_period(poll_period),
     _disk_full_threshold(disk_full_threshold), _logging_callback(logging_callback),
     // init to 0
-    _session_start_time(), _cur_file(nullptr), _bytes_written(0)
+    _session_start_time(), _cur_file(nullptr), _bytes_written(0), _finished(false)
 {
   _thread = std::thread(&RotatingLogger::process_frame, this);
 }

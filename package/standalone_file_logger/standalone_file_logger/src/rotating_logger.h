@@ -25,6 +25,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <memory>
+#include <atomic>
 
 class RotatingLogger {
 
@@ -127,7 +128,7 @@ class RotatingLogger {
   size_t _bytes_written;
 
 
-  bool _finished = false;
+  std::atomic_bool _finished;
   std::thread _thread;
   std::mutex _mutex;
   std::condition_variable _cond;
