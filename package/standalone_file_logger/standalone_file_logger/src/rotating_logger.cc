@@ -190,7 +190,8 @@ void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
 {
   // TODO: keep track of total data bytes: enforce a limit/warning in .h
   std::unique_lock<std::mutex> mlock(_mutex);
-  _queue.push_back( std::unique_ptr< std::vector<uint8_t> > (new std::vector<uint8_t> (data, data + size)) );
+  _queue.push_back(
+    std::unique_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(data, data + size)));
   _cond.notify_one();
 }
 
@@ -223,7 +224,7 @@ std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
     }
     _cond.wait(mlock);
   }
-   auto frame = std::move(_queue.front());
+  auto frame = std::move(_queue.front());
   _queue.pop_front();
   return frame;
 }
@@ -244,7 +245,8 @@ void RotatingLogger::process_frame()
     auto frame = frame_ptr.get();
     size_t size = sizeof(std::vector<uint8_t>::value_type) * frame->size();
     if (_cur_file != nullptr) {
-      num_written = fwrite(&frame[0], sizeof(std::vector<uint8_t>::value_type), frame->size(), _cur_file);
+      num_written =
+        fwrite(&frame[0], sizeof(std::vector<uint8_t>::value_type), frame->size(), _cur_file);
     }
 
     if (num_written != size) {

@@ -133,7 +133,6 @@ class RotatingLogger {
   std::condition_variable _cond;
 
   std::deque<std::unique_ptr<std::vector<uint8_t>>> _queue;
-
 };
 
 #endif // SWIFTNAV_ROTATING_LOGGER_H
