@@ -24,6 +24,7 @@
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <memory>
 
 class RotatingLogger {
 
@@ -121,7 +122,7 @@ class RotatingLogger {
   std::mutex _mutex;
   std::condition_variable _cond;
 
-  std::deque< std::vector<uint8_t>* > _queue;
+  std::deque<std::unique_ptr<std::vector<uint8_t>>> _queue;
 
 };
 

@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/syslog.h>
+#include <memory>
 
 /*
  * Name format: xxxx-yyyyy.sbp
@@ -188,10 +189,8 @@ double RotatingLogger::get_time_passed()
 void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
 {
   // TODO: keep track of total data bytes: enforce a limit/warning in .h
-  std::vector<uint8_t> *frame = new std::vector<uint8_t> (data, data + size);
-
   std::unique_lock<std::mutex> mlock(_mutex);
-  _queue.push_back( frame );
+  _queue.push_back( std::unique_ptr< std::vector<uint8_t> > (new std::vector<uint8_t> (data, data + size)) );
   mlock.unlock();
   _cond.notify_one();
 }
@@ -224,14 +223,13 @@ void RotatingLogger::process_frame()
     }
 
     size_t num_written = 0;
-    std::vector<uint8_t> *frame = _queue.front();
+    std::vector<uint8_t> *frame = _queue.front().get();
     size_t size = sizeof(std::vector<uint8_t>::value_type) * frame->size();
     if (_cur_file != nullptr) {
       num_written = fwrite(&frame[0], sizeof(std::vector<uint8_t>::value_type), frame->size(), _cur_file);
     }
 
     _queue.pop_front();
-    delete frame;
     mlock.unlock();
 
     if (num_written != size) {
