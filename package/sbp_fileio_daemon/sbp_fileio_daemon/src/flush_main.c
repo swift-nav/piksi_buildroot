@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  if(sbp_fileio_request_flush(sbp_fileio_name)) {
+  if (sbp_fileio_request_flush(sbp_fileio_name)) {
     ret = EXIT_SUCCESS;
   } else {
     ret = EXIT_FAILURE;

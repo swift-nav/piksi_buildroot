@@ -266,16 +266,25 @@ static fd_cache_result_t open_from_cache(const char *path, const char *mode, int
 
 static bool test_control_dir(const char *name)
 {
-  snprintf_assert(sbp_fileio_test_control, sizeof(sbp_fileio_test_control), TEST_CTRL_FILE_TEMPLATE, name);
+  snprintf_assert(sbp_fileio_test_control,
+                  sizeof(sbp_fileio_test_control),
+                  TEST_CTRL_FILE_TEMPLATE,
+                  name);
   bool success = file_write_string(sbp_fileio_test_control, "");
   if (success) {
     int rc = unlink(sbp_fileio_test_control);
     if (rc < 0) {
-      piksi_log(LOG_ERR, "unlink of test file '%s' failed: %s", sbp_fileio_test_control, strerror(errno));
+      piksi_log(LOG_ERR,
+                "unlink of test file '%s' failed: %s",
+                sbp_fileio_test_control,
+                strerror(errno));
       success = false;
     }
   } else {
-      piksi_log(LOG_ERR, "creation/write of test file '%s' failed: %s", sbp_fileio_test_control, strerror(errno));
+    piksi_log(LOG_ERR,
+              "creation/write of test file '%s' failed: %s",
+              sbp_fileio_test_control,
+              strerror(errno));
   }
   return success;
 }
@@ -340,7 +349,10 @@ void sbp_fileio_flush(void)
 
   int rc = unlink(sbp_fileio_wait_flush_file);
   if (rc < 0) {
-    piksi_log(LOG_ERR, "unlink of flag file '%s' failed: %s", sbp_fileio_wait_flush_file, strerror(errno));
+    piksi_log(LOG_ERR,
+              "unlink of flag file '%s' failed: %s",
+              sbp_fileio_wait_flush_file,
+              strerror(errno));
   }
 }
 
@@ -356,12 +368,18 @@ bool sbp_fileio_request_flush(const char *name)
     return false;
   }
 
-  snprintf_assert(sbp_fileio_wait_flush_file, sizeof(sbp_fileio_wait_flush_file), WAIT_FLUSH_FILE_TEMPLATE, name);
+  snprintf_assert(sbp_fileio_wait_flush_file,
+                  sizeof(sbp_fileio_wait_flush_file),
+                  WAIT_FLUSH_FILE_TEMPLATE,
+                  name);
 
   {
-    int fd = open(sbp_fileio_wait_flush_file, O_RDWR|O_CREAT, 0666);
+    int fd = open(sbp_fileio_wait_flush_file, O_RDWR | O_CREAT, 0666);
     if (fd < 0) {
-      piksi_log(LOG_ERR, "creating flag file '%s' failed: %s", sbp_fileio_wait_flush_file, strerror(errno));
+      piksi_log(LOG_ERR,
+                "creating flag file '%s' failed: %s",
+                sbp_fileio_wait_flush_file,
+                strerror(errno));
       return false;
     }
     close(fd);
@@ -375,11 +393,14 @@ bool sbp_fileio_request_flush(const char *name)
   // Ensure that we can stat the "wait" flag file at least once
   struct stat wait_stat;
   if (stat(sbp_fileio_wait_flush_file, &wait_stat) < 0) {
-    piksi_log(LOG_ERR, "calling stat on flag file '%s' failed: %s", sbp_fileio_wait_flush_file, strerror(errno));
+    piksi_log(LOG_ERR,
+              "calling stat on flag file '%s' failed: %s",
+              sbp_fileio_wait_flush_file,
+              strerror(errno));
     return false;
   }
 
-  pid_t pid = (pid_t) atoi(pid_buffer);
+  pid_t pid = (pid_t)atoi(pid_buffer);
   kill(pid, SIGUSR1);
 
   bool success = true;
@@ -390,7 +411,10 @@ bool sbp_fileio_request_flush(const char *name)
         // An expected error, flag file was removed by the fileio daemon so we are done
         break;
       } else {
-        piksi_log(LOG_ERR, "unexpected error while stat'ing flag file '%s': %s", sbp_fileio_wait_flush_file, strerror(errno));
+        piksi_log(LOG_ERR,
+                  "unexpected error while stat'ing flag file '%s': %s",
+                  sbp_fileio_wait_flush_file,
+                  strerror(errno));
         success = false;
         break;
       }
