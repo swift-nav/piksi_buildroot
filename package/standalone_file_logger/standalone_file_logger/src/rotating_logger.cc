@@ -191,7 +191,6 @@ void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
   // TODO: keep track of total data bytes: enforce a limit/warning in .h
   std::unique_lock<std::mutex> mlock(_mutex);
   _queue.push_back( std::unique_ptr< std::vector<uint8_t> > (new std::vector<uint8_t> (data, data + size)) );
-  mlock.unlock();
   _cond.notify_one();
 }
 
@@ -215,6 +214,20 @@ bool RotatingLogger::current_session_valid()
   return true;
 }
 
+std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
+{
+  std::unique_lock<std::mutex> mlock(_mutex);
+  while (_queue.empty()) {
+    if (_finished) {
+      return nullptr;
+    }
+    _cond.wait(mlock);
+  }
+   auto frame = std::move(_queue.front());
+  _queue.pop_front();
+  return frame;
+}
+
 void RotatingLogger::process_frame()
 {
   std::unique_lock<std::mutex> mlock(_mutex, std::defer_lock);
@@ -223,23 +236,16 @@ void RotatingLogger::process_frame()
       continue;
     }
 
-    mlock.lock();
-    if (_queue.empty()) {
-      _cond.wait(mlock);
-      // recheck !_finished
-      mlock.unlock();
+    size_t num_written = 0;
+    auto frame_ptr = get_frame();
+    if (frame_ptr == nullptr) {
       continue;
     }
-
-    size_t num_written = 0;
-    std::vector<uint8_t> *frame = _queue.front().get();
+    auto frame = frame_ptr.get();
     size_t size = sizeof(std::vector<uint8_t>::value_type) * frame->size();
     if (_cur_file != nullptr) {
       num_written = fwrite(&frame[0], sizeof(std::vector<uint8_t>::value_type), frame->size(), _cur_file);
     }
-
-    _queue.pop_front();
-    mlock.unlock();
 
     if (num_written != size) {
       // If drive is removed needs to close file imediately and not attempt to

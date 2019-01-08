@@ -102,6 +102,11 @@ class RotatingLogger {
   void process_frame();
 
   /*
+   * Blocking get next data frame from internal queue
+   */
+  std::unique_ptr<std::vector<uint8_t>> get_frame();
+
+  /*
    * Validate current logging session
    */
   bool current_session_valid();
