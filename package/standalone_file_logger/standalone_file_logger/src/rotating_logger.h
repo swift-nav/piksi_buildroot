@@ -97,9 +97,14 @@ class RotatingLogger {
   void pad_new_file();
 
   /*
-   * try to log a data frame
+   * Try to log a data frame
    */
   void process_frame();
+
+  /*
+   * Validate current logging session
+   */
+  bool current_session_valid();
 
   void log_errno_warning(const char *msg);
 

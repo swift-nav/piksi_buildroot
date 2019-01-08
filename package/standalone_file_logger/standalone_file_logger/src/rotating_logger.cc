@@ -195,22 +195,31 @@ void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
   _cond.notify_one();
 }
 
+bool RotatingLogger::current_session_valid()
+{
+  if (!_dest_available) {
+    // check imediately on startup for path availability. Subsequently, check
+    // periodically
+    if (_session_start_time.time_since_epoch().count() != 0 && get_time_passed() < _poll_period) {
+      return false;
+    }
+    _session_start_time = std::chrono::steady_clock::now();
+    if (!start_new_session()) {
+      return false;
+    }
+  }
+  if (!check_slice_time()) {
+    return false;
+  }
+
+  return true;
+}
+
 void RotatingLogger::process_frame()
 {
   std::unique_lock<std::mutex> mlock(_mutex, std::defer_lock);
   while (!_finished) {
-    if (!_dest_available) {
-      // check imediately on startup for path availability. Subsequently, check
-      // periodically
-      if (_session_start_time.time_since_epoch().count() != 0 && get_time_passed() < _poll_period) {
-        continue;
-      }
-      _session_start_time = std::chrono::steady_clock::now();
-      if (!start_new_session()) {
-        continue;
-      }
-    }
-    if (!check_slice_time()) {
+    if (!current_session_valid()) {
       continue;
     }
 
