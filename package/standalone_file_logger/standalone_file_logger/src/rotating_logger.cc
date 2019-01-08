@@ -189,9 +189,16 @@ double RotatingLogger::get_time_passed()
 void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
 {
   // TODO: keep track of total data bytes: enforce a limit/warning in .h
+  if (_queue_bytes + size > MAX_QUEUE_SIZE) {
+    log_msg(LOG_WARNING,
+            std::string("Internal queue full, dropping bytes: ") + std::to_string(size));
+    return;
+  }
+
   std::unique_lock<std::mutex> mlock(_mutex);
   _queue.push_back(
     std::unique_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(data, data + size)));
+  _queue_bytes += size;
   _cond.notify_one();
 }
 
@@ -226,6 +233,7 @@ std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
   }
   auto frame = std::move(_queue.front());
   _queue.pop_front();
+  _queue_bytes -= frame.get()->size();
   return frame;
 }
 
@@ -244,9 +252,11 @@ void RotatingLogger::process_frame()
     }
     auto frame = frame_ptr.get();
     size_t size = sizeof(std::vector<uint8_t>::value_type) * frame->size();
+    auto temp_errno = errno;
     if (_cur_file != nullptr) {
       num_written =
         fwrite(&frame[0], sizeof(std::vector<uint8_t>::value_type), frame->size(), _cur_file);
+      temp_errno = errno;
     }
 
     if (num_written != size) {
@@ -256,11 +266,10 @@ void RotatingLogger::process_frame()
       _dest_available = false;
       // wait _poll_period to check drive again
       _session_start_time = std::chrono::steady_clock::now();
-      log_msg(LOG_WARNING, std::string("Write to file failed: ") + strerror(errno));
+      log_msg(LOG_WARNING, std::string("Write to file failed: ") + strerror(temp_errno));
     }
     _bytes_written += size;
   }
-  // TODO: flush queue - the queue may still have data in it
 }
 
 void RotatingLogger::update_dir(const std::string &out_dir)
@@ -287,7 +296,7 @@ RotatingLogger::RotatingLogger(const std::string &out_dir,
     _slice_duration(slice_duration), _poll_period(poll_period),
     _disk_full_threshold(disk_full_threshold), _logging_callback(logging_callback),
     // init to 0
-    _session_start_time(), _cur_file(nullptr), _bytes_written(0), _finished(false)
+    _session_start_time(), _cur_file(nullptr), _bytes_written(0), _finished(false), _queue_bytes(0)
 {
   _thread = std::thread(&RotatingLogger::process_frame, this);
 }

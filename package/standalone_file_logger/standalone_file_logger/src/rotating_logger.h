@@ -31,6 +31,8 @@ class RotatingLogger {
 
   /* Pad new files out to minimize filesystem updates */
   static const size_t NEW_FILE_PAD_SIZE = 15 * 1024 * 1024;
+  /* Maximum size of internal queue */
+  static const size_t MAX_QUEUE_SIZE = 1;
 
  public:
   typedef std::function<void(int, const char *)> LogCall;
@@ -134,6 +136,7 @@ class RotatingLogger {
   std::condition_variable _cond;
 
   std::deque<std::unique_ptr<std::vector<uint8_t>>> _queue;
+  size_t _queue_bytes;
 };
 
 #endif // SWIFTNAV_ROTATING_LOGGER_H
