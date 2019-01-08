@@ -19,10 +19,13 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+#include <limits.h>
 
 #include <libpiksi/loop.h>
 #include <libpiksi/settings.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/endpoint.h>
 
 #include "rotating_logger.h"
 
@@ -49,9 +52,18 @@ static bool copy_system_logs_enable = false;
 
 static int poll_period_s = POLL_PERIOD_DEFAULT_s;
 
-static const char *pk_sub_endpoint = nullptr;
-
 static RotatingLogger *logger = nullptr;
+
+typedef struct {
+  pk_endpoint_t *pk_ept;
+  void *reader_handle;
+  char *endpoint;
+} sub_poll_ctx_t;
+
+static sub_poll_ctx_t sub_poll_ctx = {.pk_ept = NULL, .reader_handle = NULL, .endpoint = NULL};
+
+/* Wraps actual callback functionality for endpoint polling to enable reconnects */
+static void reconnect_loop_callback(pk_loop_t *pk_loop, void *handle, int status, void *context);
 
 static void usage(char *command)
 {
@@ -97,7 +109,7 @@ static int parse_options(int argc, char *argv[])
   while ((c = getopt_long(argc, argv, "s:d:", long_opts, &opt_index)) != -1) {
     switch (c) {
     case 's': {
-      pk_sub_endpoint = optarg;
+      sub_poll_ctx.endpoint = optarg;
     } break;
 
     case 'd': {
@@ -127,7 +139,7 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
-  if (pk_sub_endpoint == nullptr) {
+  if (sub_poll_ctx.endpoint == nullptr) {
     piksi_log(LOG_ERR, "Must specify source");
     return -1;
   }
@@ -246,13 +258,46 @@ static int log_frame_callback(const u8 *data, const size_t length, void *context
   return 0;
 }
 
+int sub_poll_attach(sub_poll_ctx_t *ctx, pk_loop_t *pk_loop)
+{
+  assert(ctx != NULL);
+  assert(pk_loop != NULL);
+
+  ctx->reader_handle =
+    pk_loop_endpoint_reader_add(pk_loop, ctx->pk_ept, reconnect_loop_callback, ctx);
+
+  if (ctx->reader_handle == NULL) {
+    piksi_log(LOG_ERR, "error adding sub_poll reader to loop");
+    return -1;
+  }
+
+  return 0;
+}
+
+int sub_poll_detach(sub_poll_ctx_t *ctx)
+{
+  assert(ctx != NULL);
+
+  if (ctx->reader_handle == NULL) {
+    return 0; // Nothing to do here
+  }
+
+  if (pk_loop_remove_handle(ctx->reader_handle) != 0) {
+    piksi_log(LOG_ERR, "error removing reader from loop");
+    return -1;
+  }
+
+  ctx->reader_handle = NULL;
+  return 0;
+}
+
 static void sub_poll_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
   (void)status;
-  pk_endpoint_t *pk_ept = (pk_endpoint_t *)context;
-  if (pk_endpoint_receive(pk_ept, log_frame_callback, NULL) != 0) {
+  sub_poll_ctx_t *sub_poll_ctx = (sub_poll_ctx_t *)context;
+  if (pk_endpoint_receive(sub_poll_ctx->pk_ept, log_frame_callback, NULL) != 0) {
     piksi_log(LOG_ERR,
               "%s: error in %s (%s:%d): %s",
               __FUNCTION__,
@@ -261,7 +306,54 @@ static void sub_poll_handler(pk_loop_t *loop, void *handle, int status, void *co
               __LINE__,
               pk_endpoint_strerror());
   }
-  return;
+}
+
+static void reconnect_loop_callback(pk_loop_t *pk_loop, void *handle, int status, void *context)
+{
+  (void)handle;
+
+  int force_new_fd = -1;
+
+  sub_poll_ctx_t *sub_poll_ctx = (sub_poll_ctx_t *)context;
+  if (status & LOOP_DISCONNECTED) {
+
+    piksi_log(LOG_WARNING, "standalone: reader disconnected, reconnecting...");
+
+    if (sub_poll_detach(sub_poll_ctx) < 0) {
+      PK_LOG_ANNO(LOG_ERR, "error detaching endpoint from loop");
+      goto fail;
+    }
+
+    /* Workaround for issue in libuv which causes a crash if the same IO handle (file descriptor
+     * number) gets created for something that was just closed...
+     *
+     * Wisps of hints on how to fix this extracted from the following bug reports:
+     *   - https://github.com/libuv/libuv/issues/1495
+     *   - https://github.com/nodejs/node-v0.x-archive/issues/4558
+     */
+    force_new_fd = open("/dev/null", O_RDWR);
+
+    /* Socket was disconnected, reconnect */
+    pk_endpoint_destroy(&sub_poll_ctx->pk_ept);
+    sub_poll_ctx->pk_ept = pk_endpoint_create(sub_poll_ctx->endpoint, PK_ENDPOINT_SUB);
+
+    if (sub_poll_ctx->pk_ept == NULL) {
+      PK_LOG_ANNO(LOG_ERR, "error creating SUB endpoint");
+      goto fail;
+    }
+
+    if (sub_poll_attach(sub_poll_ctx, pk_loop) < 0) {
+      PK_LOG_ANNO(LOG_ERR, "error re-attaching endpoint to loop");
+      goto fail;
+    }
+
+    close(force_new_fd);
+  }
+
+  sub_poll_handler(pk_loop, handle, status, context);
+
+fail:
+  if (force_new_fd != -1) close(force_new_fd);
 }
 
 static void sigchld_handler(int signum)
@@ -339,13 +431,13 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  pk_endpoint_t *pk_sub = pk_endpoint_create(pk_sub_endpoint, PK_ENDPOINT_SUB);
-  if (pk_sub == nullptr) {
+  sub_poll_ctx.pk_ept = pk_endpoint_create(sub_poll_ctx.endpoint, PK_ENDPOINT_SUB);
+  if (sub_poll_ctx.pk_ept == nullptr) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(EXIT_FAILURE);
   }
 
-  if (pk_loop_endpoint_reader_add(loop, pk_sub, sub_poll_handler, pk_sub) == NULL) {
+  if (sub_poll_attach(&sub_poll_ctx, loop) != 0) {
     piksi_log(LOG_ERR, "error adding SUB reader");
     exit(EXIT_FAILURE);
   }
@@ -421,7 +513,7 @@ int main(int argc, char *argv[])
   pk_loop_run_simple(loop);
 
   pk_loop_destroy(&loop);
-  pk_endpoint_destroy(&pk_sub);
+  pk_endpoint_destroy(&sub_poll_ctx.pk_ept);
   settings_destroy(&settings_ctx);
 
   exit(EXIT_SUCCESS);
