@@ -197,6 +197,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   const char *upgrade_cmd =
     "sh -c 'set -o pipefail;                                      "
+    "       sudo -u fileio sbp_fileio_flush --name external;      "
     "       sudo upgrade_tool --debug /data/upgrade.image_set.bin "
     "         | sbp_log --info'                                   ";
 

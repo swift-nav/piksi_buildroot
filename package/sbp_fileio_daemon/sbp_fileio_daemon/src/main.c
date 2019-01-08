@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Gareth McMullin <gareth@swiftnav.com>
+ * Copyright (C) 2016-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -25,7 +25,7 @@
 bool fio_debug = false;
 bool no_cache = false;
 
-static const char *fileio_name = NULL;
+const char *sbp_fileio_name = NULL;
 
 static const char *pub_endpoint = NULL;
 static const char *sub_endpoint = NULL;
@@ -34,6 +34,13 @@ static path_validator_t *g_pv_ctx = NULL;
 static bool allow_factory_mtd = false;
 static bool allow_imageset_bin = false;
 static bool print_usage = false;
+
+static void usage(char *command);
+static int parse_options(int argc, char *argv[]);
+
+static void sigusr1_signal_cb(pk_loop_t *pk_loop, void *handle, int status, void *context);
+static void terminate_handler(pk_loop_t *loop, void *handle, int status, void *context);
+static bool setup_terminate_handler(pk_loop_t *pk_loop);
 
 static void usage(char *command)
 {
@@ -76,11 +83,11 @@ static int parse_options(int argc, char *argv[])
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "p:s:b:midh", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "n:p:s:b:midxh", long_opts, &opt_index)) != -1) {
     switch (c) {
 
     case 'n': {
-      fileio_name = optarg;
+      sbp_fileio_name = optarg;
     } break;
 
     case 'p': {
@@ -125,7 +132,7 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
-  if (fileio_name == NULL) {
+  if (sbp_fileio_name == NULL) {
     fprintf(stderr, "A --name parameter must be specified\n");
     return -1;
   }
@@ -143,8 +150,48 @@ static int parse_options(int argc, char *argv[])
   return 0;
 }
 
+static void sigusr1_signal_cb(pk_loop_t *pk_loop, void *handle, int status, void *context)
+{
+  (void)pk_loop;
+  (void)handle;
+  (void)status;
+  (void)context;
+
+  piksi_log(LOG_DEBUG, "Received SIGUSR1 signal! Flushing buffers...");
+  sbp_fileio_flush();
+}
+
+static void terminate_handler(pk_loop_t *loop, void *handle, int status, void *context)
+{
+  (void)context;
+  (void)status;
+
+  int signum = pk_loop_get_signal_from_handle(handle);
+  piksi_log(LOG_DEBUG, "received signal: %d", signum);
+
+  pk_loop_stop(loop);
+}
+
+static bool setup_terminate_handler(pk_loop_t *pk_loop)
+{
+  if (pk_loop_signal_handler_add(pk_loop, SIGINT, terminate_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGINT handler to loop");
+    return false;
+  }
+  if (pk_loop_signal_handler_add(pk_loop, SIGTERM, terminate_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
+    return false;
+  }
+  if (pk_loop_signal_handler_add(pk_loop, SIGQUIT, terminate_handler, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Failed to add SIGTERM handler to loop");
+    return false;
+  }
+  return true;
+}
+
 int main(int argc, char *argv[])
 {
+  bool setup = false;
   pk_loop_t *loop = NULL;
   sbp_pubsub_ctx_t *ctx = NULL;
   char identity[128] = {0};
@@ -165,7 +212,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  snprintf_assert(identity, sizeof(identity), "%s/%s", PROGRAM_NAME, fileio_name);
+  snprintf_assert(identity, sizeof(identity), "%s/%s", PROGRAM_NAME, sbp_fileio_name);
 
   ctx = sbp_pubsub_create(identity, pub_endpoint, sub_endpoint);
   if (ctx == NULL) {
@@ -181,22 +228,38 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  sbp_fileio_setup(fileio_name,
-                   loop,
-                   g_pv_ctx,
-                   allow_factory_mtd,
-                   allow_imageset_bin,
-                   sbp_pubsub_rx_ctx_get(ctx),
-                   sbp_pubsub_tx_ctx_get(ctx));
+  if (pk_loop_signal_handler_add(loop, SIGUSR1, sigusr1_signal_cb, NULL) == NULL) {
+    piksi_log(LOG_ERR, "Error registering signal handler!");
+    goto cleanup;
+  }
+
+  if (!setup_terminate_handler(loop)) {
+    goto cleanup;
+  }
+
+  setup = sbp_fileio_setup(sbp_fileio_name,
+                           loop,
+                           g_pv_ctx,
+                           allow_factory_mtd,
+                           allow_imageset_bin,
+                           sbp_pubsub_rx_ctx_get(ctx),
+                           sbp_pubsub_tx_ctx_get(ctx));
+
+  if (!setup) {
+    goto cleanup;
+  }
+
+  piksi_log(LOG_INFO, "starting...");
 
   pk_loop_run_simple(loop);
-
   ret = EXIT_SUCCESS;
 
 cleanup:
   sbp_pubsub_destroy(&ctx);
   pk_loop_destroy(&loop);
   path_validator_destroy(&g_pv_ctx);
+  sbp_fileio_teardown(sbp_fileio_name);
+  piksi_log(LOG_INFO, "stopping...");
   logging_deinit();
   exit(ret);
 }

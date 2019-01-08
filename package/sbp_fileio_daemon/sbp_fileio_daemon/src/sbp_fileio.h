@@ -18,12 +18,45 @@
 
 #include "path_validator.h"
 
-void sbp_fileio_setup(const char *name,
+extern const char *sbp_fileio_name;
+
+/**
+ * Setup the process for operation of the fileio daemon.
+ *
+ * @param name    the name of the FileIO daemon (e.g. internal / external) used to name
+ *                metrics and control files.
+ * @param loop    the loop that will handle fileio requests
+ * @param pv_ctx  the @see path_validator_t object that will check if a path is allowed for fileio
+ * @param allow_factory_mtd
+ *    if pathes from /factory are allowed for fileio requests
+ * @param allow_imageset_bin
+ *    if pathes for upgrades are allowed, this is currently just `/data/image_set.bin`
+ * @param rx_ctx the @see sbp_rx_ctx_t to use
+ * @param tx_ctx the @see sbp_tx_ctx_t to use
+ *
+ * @return if the setup suceeded or failed
+ */
+bool sbp_fileio_setup(const char *name,
                       pk_loop_t *loop,
                       path_validator_t *pv_ctx,
                       bool allow_factory_mtd,
                       bool allow_imageset_bin,
                       sbp_rx_ctx_t *rx_ctx,
                       sbp_tx_ctx_t *tx_ctx);
+
+/**
+ * Teardown a named FileIO daemon.
+ */
+void sbp_fileio_teardown(const char *name);
+
+/**
+ * Flush all cached file descriptors to disk.
+ */
+void sbp_fileio_flush(void);
+
+/**
+ * Request that a named daemon flush all cached file descriptors to disk.
+ */
+bool sbp_fileio_request_flush(const char *name);
 
 #endif

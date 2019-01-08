@@ -1,25 +1,32 @@
 #!/bin/sh
 
-FLAG_DIR="/etc/flags/"
-NDB_DIR="/persistent/ndb/"
-MTD_FILE="/factory/mtd"
+daemon_name=firmware
 
-name="sbp_fileio_daemon_firmware"
+flag_dir="/etc/flags/"
+ndb_dir="/persistent/ndb/"
+mtd_file="/factory/mtd"
+
+control_dir="/var/run/sbp_fileio_${daemon_name}"
+
+name="sbp_fileio_daemon_${daemon_name}"
 cmd="sbp_fileio_daemon \
---name firmware \
---pub ipc:///var/run/sockets/fileio_firmware.sub \
---sub ipc:///var/run/sockets/fileio_firmware.pub \
---basedir $NDB_DIR \
---basedir $FLAG_DIR \
+--name ${daemon_name} \
+--pub ipc:///var/run/sockets/fileio_${daemon_name}.sub \
+--sub ipc:///var/run/sockets/fileio_${daemon_name}.pub \
+--basedir $ndb_dir \
+--basedir $flag_dir \
 --mtd"
 dir="/"
 user="fileio"
 
 setup_permissions()
 {
-  configure_file_resource $user $MTD_FILE 0640
-  configure_dir_resource_rec $user $NDB_DIR 0755 0644
-  configure_dir_resource_rec $user $FLAG_DIR 0555 0444
+  configure_file_resource "$user" "$mtd_file" 0640
+
+  configure_dir_resource_rec "$user" "$ndb_dir" 0755 0644
+  configure_dir_resource_rec "$user" "$flag_dir" 0555 0444
+
+  configure_dir_resource "$user" "$control_dir" 0755
 }
 
 export name cmd dir user

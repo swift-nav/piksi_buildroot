@@ -36,6 +36,7 @@ endef
 
 define SBP_FILEIO_DAEMON_INSTALL_TARGET_CMDS_DEFAULT
     $(INSTALL) -D -m 0755 $(@D)/src/sbp_fileio_daemon $(TARGET_DIR)/usr/bin
+    $(INSTALL) -D -m 0755 $(@D)/src/sbp_fileio_flush $(TARGET_DIR)/usr/bin
 endef
 
 ifeq ($(BR2_BUILD_TESTS),y)

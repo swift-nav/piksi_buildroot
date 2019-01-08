@@ -35,6 +35,9 @@
 
 #include "fio_debug.h"
 
+#define WAIT_FLUSH_RETRY_MS 50
+#define MS_TO_NS(MS) ((MS)*1e6)
+
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
 #define CLEANUP_FD_CACHE_MS 1e3
@@ -42,6 +45,15 @@
 static bool allow_factory_mtd = false;
 static bool allow_imageset_bin = false;
 static void *cleanup_timer_handle = NULL;
+
+#define TEST_CTRL_FILE_TEMPLATE "/var/run/sbp_fileio_%s/test"
+static char sbp_fileio_test_control[PATH_MAX] = {0};
+
+#define FLUSH_PID_FILE_TEMPLATE "/var/run/sbp_fileio_%s/pid"
+static char sbp_fileio_pid_file[PATH_MAX] = {0};
+
+#define WAIT_FLUSH_FILE_TEMPLATE "/var/run/sbp_fileio_%s/wait.flush"
+static char sbp_fileio_wait_flush_file[PATH_MAX] = {0};
 
 #define IMAGESET_BIN_NAME "upgrade.image_set.bin"
 
@@ -100,12 +112,15 @@ enum {
 
 static void update_offset(fd_cache_result_t r, off_t offset, int op);
 
+static void flush_fd_cache();
 static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context);
 static void flush_cached_fd(const char *path, const char *mode);
 static fd_cache_result_t open_from_cache(const char *path,
                                          const char *mode,
                                          int oflag,
                                          mode_t perm);
+
+static bool test_control_dir(const char *name);
 
 static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ...(FD_CACHE_COUNT - 1)] = {NULL, "", "", 0, 0}};
 
@@ -141,6 +156,17 @@ static void update_offset(fd_cache_result_t r, off_t offset, int op)
     (*r.offset) = offset;
   else
     PK_LOG_ANNO(LOG_ERR, "invalid operation: %d", op);
+}
+
+static void flush_fd_cache()
+{
+  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+
+    if (fd_cache[idx].fp == NULL) continue;
+
+    fclose(fd_cache[idx].fp);
+    fd_cache[idx] = empty_cache_entry;
+  }
 }
 
 static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context)
@@ -238,10 +264,26 @@ static fd_cache_result_t open_from_cache(const char *path, const char *mode, int
   return (fd_cache_result_t){.fp = fp, .cached = found_slot, .offset = offset_ptr};
 }
 
+static bool test_control_dir(const char *name)
+{
+  snprintf_assert(sbp_fileio_test_control, sizeof(sbp_fileio_test_control), TEST_CTRL_FILE_TEMPLATE, name);
+  bool success = file_write_string(sbp_fileio_test_control, "");
+  if (success) {
+    int rc = unlink(sbp_fileio_test_control);
+    if (rc < 0) {
+      piksi_log(LOG_ERR, "unlink of test file '%s' failed: %s", sbp_fileio_test_control, strerror(errno));
+      success = false;
+    }
+  } else {
+      piksi_log(LOG_ERR, "creation/write of test file '%s' failed: %s", sbp_fileio_test_control, strerror(errno));
+  }
+  return success;
+}
+
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
-void sbp_fileio_setup(const char *name,
+bool sbp_fileio_setup(const char *name,
                       pk_loop_t *loop,
                       path_validator_t *pv_ctx,
                       bool allow_factory_mtd_,
@@ -249,6 +291,17 @@ void sbp_fileio_setup(const char *name,
                       sbp_rx_ctx_t *rx_ctx,
                       sbp_tx_ctx_t *tx_ctx)
 {
+  if (!test_control_dir(name)) {
+    return false;
+  }
+
+  snprintf_assert(sbp_fileio_pid_file, sizeof(sbp_fileio_pid_file), FLUSH_PID_FILE_TEMPLATE, name);
+
+  char pid_buffer[128] = {0};
+  snprintf_assert(pid_buffer, sizeof(pid_buffer), "%d", getpid());
+
+  file_write_string(sbp_fileio_pid_file, pid_buffer);
+
   g_pv_ctx = pv_ctx;
 
   allow_factory_mtd = allow_factory_mtd_;
@@ -262,6 +315,95 @@ void sbp_fileio_setup(const char *name,
   cleanup_timer_handle = pk_loop_timer_add(loop, CLEANUP_FD_CACHE_MS, purge_fd_cache, NULL);
 
   fileio_metrics = pk_metrics_setup("sbp_fileio", name, MT, COUNT_OF(MT));
+
+  return true;
+}
+
+void sbp_fileio_teardown(const char *name)
+{
+  snprintf_assert(sbp_fileio_pid_file, sizeof(sbp_fileio_pid_file), FLUSH_PID_FILE_TEMPLATE, name);
+
+  int rc = unlink(sbp_fileio_pid_file);
+  if (rc < 0) {
+    piksi_log(LOG_ERR, "unlink of pid file '%s' failed: %s", sbp_fileio_pid_file, strerror(errno));
+  }
+}
+
+void sbp_fileio_flush(void)
+{
+  snprintf_assert(sbp_fileio_wait_flush_file,
+                  sizeof(sbp_fileio_wait_flush_file),
+                  WAIT_FLUSH_FILE_TEMPLATE,
+                  sbp_fileio_name);
+
+  flush_fd_cache();
+
+  int rc = unlink(sbp_fileio_wait_flush_file);
+  if (rc < 0) {
+    piksi_log(LOG_ERR, "unlink of flag file '%s' failed: %s", sbp_fileio_wait_flush_file, strerror(errno));
+  }
+}
+
+bool sbp_fileio_request_flush(const char *name)
+{
+  char pid_buffer[128] = {0};
+
+  snprintf_assert(sbp_fileio_pid_file, sizeof(sbp_fileio_pid_file), FLUSH_PID_FILE_TEMPLATE, name);
+  int rc = file_read_string(sbp_fileio_pid_file, pid_buffer, sizeof(pid_buffer));
+
+  if (rc != 0) {
+    piksi_log(LOG_ERR, "reading pid file for flush failed");
+    return false;
+  }
+
+  snprintf_assert(sbp_fileio_wait_flush_file, sizeof(sbp_fileio_wait_flush_file), WAIT_FLUSH_FILE_TEMPLATE, name);
+
+  {
+    int fd = open(sbp_fileio_wait_flush_file, O_RDWR|O_CREAT, 0666);
+    if (fd < 0) {
+      piksi_log(LOG_ERR, "creating flag file '%s' failed: %s", sbp_fileio_wait_flush_file, strerror(errno));
+      return false;
+    }
+    close(fd);
+  }
+
+  char wait_pid_buffer[128] = {0};
+
+  snprintf_assert(wait_pid_buffer, sizeof(wait_pid_buffer), "%d", getpid());
+  file_write_string(sbp_fileio_wait_flush_file, wait_pid_buffer);
+
+  // Ensure that we can stat the "wait" flag file at least once
+  struct stat wait_stat;
+  if (stat(sbp_fileio_wait_flush_file, &wait_stat) < 0) {
+    piksi_log(LOG_ERR, "calling stat on flag file '%s' failed: %s", sbp_fileio_wait_flush_file, strerror(errno));
+    return false;
+  }
+
+  pid_t pid = (pid_t) atoi(pid_buffer);
+  kill(pid, SIGUSR1);
+
+  bool success = true;
+
+  for (;;) {
+    if (stat(sbp_fileio_wait_flush_file, &wait_stat) < 0) {
+      if (errno == ENOENT) {
+        // An expected error, flag file was removed by the fileio daemon so we are done
+        break;
+      } else {
+        piksi_log(LOG_ERR, "unexpected error while stat'ing flag file '%s': %s", sbp_fileio_wait_flush_file, strerror(errno));
+        success = false;
+        break;
+      }
+    } else {
+      struct timespec ts = {.tv_nsec = MS_TO_NS(WAIT_FLUSH_RETRY_MS)};
+      while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
+        /* no-op, just need to retry nanosleep */;
+      }
+    }
+  }
+
+  piksi_log(LOG_INFO, "sbp_fileio_daemon flush for named daemon '%s' done", name);
+  return success;
 }
 
 static int allow_mtd_read(const char *path)
@@ -284,6 +426,7 @@ static const char *filter_imageset_bin(const char *filename)
 
   size_t printed = snprintf(path_buf, sizeof(path_buf), "/data/%s", IMAGESET_BIN_NAME);
   assert(printed < sizeof(path_buf));
+
   return path_buf;
 }
 
