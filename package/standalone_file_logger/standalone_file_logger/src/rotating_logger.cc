@@ -203,15 +203,15 @@ void RotatingLogger::process_frame()
       // check imediately on startup for path availability. Subsequently, check
       // periodically
       if (_session_start_time.time_since_epoch().count() != 0 && get_time_passed() < _poll_period) {
-        return;
+        continue;
       }
       _session_start_time = std::chrono::steady_clock::now();
       if (!start_new_session()) {
-        return;
+        continue;
       }
     }
     if (!check_slice_time()) {
-      return;
+      continue;
     }
 
     mlock.lock();
