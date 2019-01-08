@@ -151,10 +151,13 @@ static void stop_logging()
   if (logger != nullptr) {
     process_log_callback(LOG_INFO, "Logging stopped");
     delete logger;
+    process_log_callback(LOG_INFO, "logger deleted");
     logger = nullptr;
+    process_log_callback(LOG_INFO, "logger set to null");
   } else {
     piksi_log(LOG_INFO, "nothing to stop");
   }
+  process_log_callback(LOG_INFO, "leaving stop_logging");
 }
 
 static void save_prev_logging_fs_type_value()
@@ -230,6 +233,7 @@ static int setting_usb_logging_notify(void *context)
                                   poll_period_s,
                                   setting_usb_logging_max_fill,
                                   &process_log_callback);
+      process_log_callback(LOG_INFO, "Logging started fin");
     } else {
       piksi_log(LOG_INFO | LOG_SBP, "logger != null, updating");
       logger->update_dir(setting_usb_logging_dir);
@@ -338,6 +342,7 @@ int main(int argc, char *argv[])
   signal(SIGPIPE, SIG_IGN); /* Allow write to return an error */
 
   /* Set up SIGCHLD handler */
+  /*
   struct sigaction sigchld_sa;
   sigchld_sa.sa_handler = sigchld_handler;
   sigemptyset(&sigchld_sa.sa_mask);
@@ -346,6 +351,7 @@ int main(int argc, char *argv[])
     piksi_log(LOG_ERR, "error setting up sigchld handler");
     exit(EXIT_FAILURE);
   }
+  */
 
   if (setup_terminate_handler(loop) != 0) {
     piksi_log(LOG_ERR, "error setting up terminate handler");

@@ -17,9 +17,15 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <chrono>
+#include <deque>
 #include <string>
 #include <functional>
+#include <thread>
+#include <vector>
+#include <mutex>
+#include <condition_variable>
 
+#include <libpiksi/common.h>
 
 class RotatingLogger {
 
@@ -36,7 +42,7 @@ class RotatingLogger {
 
   ~RotatingLogger();
   /*
-   * try to log a data frame
+   * read a frame from the endpoint
    */
   void frame_handler(const uint8_t *data, size_t size);
 
@@ -105,6 +111,21 @@ class RotatingLogger {
 
   FILE *_cur_file;
   size_t _bytes_written;
+
+  /*
+   * try to log a data frame
+   */
+  void process_frame();
+
+  void test();
+  std::thread _thread;
+
+  std::mutex _mutex;
+  std::condition_variable _cond;
+
+  std::deque< std::vector<uint8_t>* > _queue;
+
+  bool _closed = false;
 };
 
 #endif // SWIFTNAV_ROTATING_LOGGER_H
