@@ -18,23 +18,46 @@
 
 #include "path_validator.h"
 
+/**
+ * Global flag that enables or disables debug logging
+ */
+extern bool fio_debug;
+
+#define FIO_LOG_DEBUG(MsgPattern, ...)        \
+  if (fio_debug) {                            \
+    piksi_log(LOG_DEBUG,                      \
+              ("%s: " MsgPattern " (%s:%d)"), \
+              __FUNCTION__,                   \
+              ##__VA_ARGS__,                  \
+              __FILE__,                       \
+              __LINE__);                      \
+  }
+
+/**
+ * Sets the name of this FileIO daemon
+ */
 extern const char *sbp_fileio_name;
+
+/**
+ * Global flag that disables the file descriptor caching
+ */
+extern bool no_cache;
 
 /**
  * Setup the process for operation of the fileio daemon.
  *
- * @param name    the name of the FileIO daemon (e.g. internal / external) used to name
- *                metrics and control files.
- * @param loop    the loop that will handle fileio requests
- * @param pv_ctx  the @see path_validator_t object that will check if a path is allowed for fileio
- * @param allow_factory_mtd
- *    if pathes from /factory are allowed for fileio requests
- * @param allow_imageset_bin
- *    if pathes for upgrades are allowed, this is currently just `/data/image_set.bin`
- * @param rx_ctx the @see sbp_rx_ctx_t to use
- * @param tx_ctx the @see sbp_tx_ctx_t to use
+ * @param name                The name of the FileIO daemon (e.g. internal / external) used to name
+ *                            metrics and control files.
+ * @param loop                The loop that will handle fileio requests
+ * @param pv_ctx              The @c path_validator_t object that will check if a path is allowed
+ * for fileio
+ * @param allow_factory_mtd   If pathes from /factory are allowed for fileio requests
+ * @param allow_imageset_bin  If pathes for upgrades are allowed, this is currently just
+ * `/data/image_set.bin`
+ * @param rx_ctx              The @c sbp_rx_ctx_t to use for incoming messages
+ * @param tx_ctx              The @c sbp_tx_ctx_t to use for outgoing messages
  *
- * @return if the setup suceeded or failed
+ * @return If the setup suceeded or failed
  */
 bool sbp_fileio_setup(const char *name,
                       pk_loop_t *loop,

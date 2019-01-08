@@ -26,7 +26,7 @@
 #include <libpiksi/logging.h>
 
 #include "path_validator.h"
-#include "fio_debug.h"
+#include "sbp_fileio.h"
 
 static bool validate_path(const char *basedir_path, const char *path);
 

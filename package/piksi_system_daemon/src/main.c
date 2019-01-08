@@ -50,7 +50,7 @@ static double network_polling_retry_frequency = 1;
 static bool log_ping_activity = false;
 
 #define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
-//#define DEBUG_PIKSI_SYSTEM_DAEMON
+/*#define DEBUG_PIKSI_SYSTEM_DAEMON*/
 
 #define NETWORK_POLLING_PERIOD_FILE "/var/run/piksi_sys/network_polling_period"
 #define NETWORK_POLLING_RETRY_PERIOD_FILE "/var/run/piksi_sys/network_polling_retry_period"
@@ -201,10 +201,11 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
     "       sudo upgrade_tool --debug /data/upgrade.image_set.bin "
     "         | sbp_log --info'                                   ";
 
-  // TODO/DAEMONUSERS: Determine if we need to do anything to this code
-  //   in order to incorporate the fix from here:
-  //
-  //       https://github.com/swift-nav/piksi_buildroot/commit/52b99371e7a43d62da3baa3b82a3b8b56b787ace
+  /* TODO/DAEMONUSERS: Determine if we need to do anything to this code
+   *   in order to incorporate the fix from here:
+   *
+   *     https://github.com/swift-nav/piksi_buildroot/commit/52b99371e7a43d62da3baa3b82a3b8b56b787ace
+   */
 
   char finish_cmd[1024];
   size_t count =
@@ -214,7 +215,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
              msg->sequence);
   assert(count < sizeof(finish_cmd));
 
-  // clang-format off
+  /* clang-format off */
 #ifdef DEBUG_PIKSI_SYSTEM_DAEMON
   piksi_log(LOG_DEBUG, "%s: update_tool command sequence: %u, command string: %s",
             __FUNCTION__, msg->sequence, finish_cmd);
@@ -227,7 +228,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
     .finish_command = finish_cmd,
     .restart        = false,
   };
-  // clang-format on
+  /* clang-format on */
 
   start_runit_service(&cfg);
 }
@@ -511,13 +512,13 @@ static int network_polling_notify(void *context)
     }
   }
 
-  // clang-format off
+  /* clang-format off */
   struct { const char* filename; const char* value; } settings_value_files[3] = {
     [0].filename = NETWORK_POLLING_PERIOD_FILE,       [0].value = formatters[0].buf,
     [1].filename = NETWORK_POLLING_RETRY_PERIOD_FILE, [1].value = formatters[1].buf,
     [2].filename = ENABLE_PING_LOGGING_FILE,          [2].value = formatters[2].buf,
   };
-  // clang-format on
+  /* clang-format on */
 
   for (size_t x = 0; x < COUNT_OF(settings_value_files); x++) {
     FILE *fp = fopen(settings_value_files[x].filename, "w");

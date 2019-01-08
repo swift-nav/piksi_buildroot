@@ -18,14 +18,8 @@
 #include <libpiksi/sbp_pubsub.h>
 
 #include "sbp_fileio.h"
-#include "fio_debug.h"
 
 #define PROGRAM_NAME "sbp_fileio_daemon"
-
-bool fio_debug = false;
-bool no_cache = false;
-
-const char *sbp_fileio_name = NULL;
 
 static const char *pub_endpoint = NULL;
 static const char *sub_endpoint = NULL;

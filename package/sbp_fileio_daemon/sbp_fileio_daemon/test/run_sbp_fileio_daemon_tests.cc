@@ -20,7 +20,7 @@
 #include <libpiksi/logging.h>
 
 #include "path_validator.h"
-#include "fio_debug.h"
+#include "sbp_fileio.h"
 
 #define PROGRAM_NAME "sbp_fileio_daemon_tests"
 

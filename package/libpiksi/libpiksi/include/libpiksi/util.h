@@ -554,6 +554,8 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
   int _X_clean_up_##TheVar __attribute__((__cleanup__(clean_up_##TheVar))) = 0; \
   (void)_X_clean_up_##TheVar;
 
+#define MS_TO_NS(MS) ((MS)*1e6)
+
 #ifdef __cplusplus
 }
 #endif

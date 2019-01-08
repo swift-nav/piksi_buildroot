@@ -18,13 +18,8 @@
 #include <libpiksi/sbp_pubsub.h>
 
 #include "sbp_fileio.h"
-#include "fio_debug.h"
 
 #define PROGRAM_NAME "sbp_fileio_flush"
-
-bool fio_debug = false;
-const char *sbp_fileio_name = NULL;
-bool no_cache = false;
 
 static bool print_usage = false;
 
@@ -41,14 +36,14 @@ static void usage(char *command)
 
 static int parse_options(int argc, char *argv[])
 {
-  // clang-format off
+  /* clang-format off */
   const struct option long_opts[] = {
     {"name",     required_argument, 0, 'n'},
     {"debug",    no_argument,       0, 'd'},
     {"help",     no_argument,       0, 'h'},
     {0, 0, 0, 0}
   };
-  // clang-format on
+  /* clang-format on */
 
   int c;
   int opt_index;

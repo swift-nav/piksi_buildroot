@@ -33,10 +33,7 @@
 #include "sbp_fileio.h"
 #include "path_validator.h"
 
-#include "fio_debug.h"
-
 #define WAIT_FLUSH_RETRY_MS 50
-#define MS_TO_NS(MS) ((MS)*1e6)
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
@@ -60,11 +57,14 @@ static char sbp_fileio_wait_flush_file[PATH_MAX] = {0};
 #define FD_CACHE_COUNT 32
 #define CACHE_CLOSE_AGE 3
 
+/* extern */ bool fio_debug = false;
+/* extern */ bool no_cache = false;
+
+/* extern */ const char *sbp_fileio_name = NULL;
+
 #define MI fileio_metrics_indexes
 #define MT fileio_metrics_table
 #define MR fileio_metrics
-
-extern bool no_cache;
 
 /* clang-format off */
 PK_METRICS_TABLE(MT, MI,
@@ -301,6 +301,7 @@ bool sbp_fileio_setup(const char *name,
                       sbp_tx_ctx_t *tx_ctx)
 {
   if (!test_control_dir(name)) {
+    /* failure logging happens within the function */
     return false;
   }
 
@@ -309,21 +310,47 @@ bool sbp_fileio_setup(const char *name,
   char pid_buffer[128] = {0};
   snprintf_assert(pid_buffer, sizeof(pid_buffer), "%d", getpid());
 
-  file_write_string(sbp_fileio_pid_file, pid_buffer);
+  if (!file_write_string(sbp_fileio_pid_file, pid_buffer)) {
+    piksi_log(LOG_ERR, "write of pid file '%s' failed", sbp_fileio_pid_file);
+    return false;
+  }
 
   g_pv_ctx = pv_ctx;
+  assert(g_pv_ctx != NULL);
 
   allow_factory_mtd = allow_factory_mtd_;
   allow_imageset_bin = allow_imageset_bin_;
 
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ, read_cb, tx_ctx, NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ, read_dir_cb, tx_ctx, NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE, remove_cb, tx_ctx, NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ, write_cb, tx_ctx, NULL);
+  bool cb_registered = true;
+
+  /* clang-format off */
+  cb_registered = cb_registered
+    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ, read_cb, tx_ctx, NULL);
+  cb_registered = cb_registered
+    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ, read_dir_cb, tx_ctx, NULL);
+  cb_registered = cb_registered
+    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE, remove_cb, tx_ctx, NULL);
+  cb_registered = cb_registered
+    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ, write_cb, tx_ctx, NULL);
+  /* clang-format on */
+
+  if (!cb_registered) {
+    PK_LOG_ANNO(LOG_ERR, "callback registration failed");
+    return false;
+  }
 
   cleanup_timer_handle = pk_loop_timer_add(loop, CLEANUP_FD_CACHE_MS, purge_fd_cache, NULL);
 
+  if (cleanup_timer_handle == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "purge_fd_cache timer setup failed");
+    return false;
+  }
+
   fileio_metrics = pk_metrics_setup("sbp_fileio", name, MT, COUNT_OF(MT));
+
+  if (fileio_metrics == NULL) {
+    return false;
+  }
 
   return true;
 }
@@ -356,7 +383,7 @@ void sbp_fileio_flush(void)
   }
 }
 
-bool sbp_fileio_request_flush(const char *name)
+static pid_t read_daemon_pid(const char *name)
 {
   char pid_buffer[128] = {0};
 
@@ -365,9 +392,24 @@ bool sbp_fileio_request_flush(const char *name)
 
   if (rc != 0) {
     piksi_log(LOG_ERR, "reading pid file for flush failed");
-    return false;
+    return 0;
   }
 
+  unsigned long pid = 0;
+
+  if (!strtoul_all(10, pid_buffer, &pid)) {
+    piksi_log(LOG_WARNING,
+              "failed to convert pid value to number: %s (from file '%s')",
+              pid_buffer,
+              sbp_fileio_pid_file);
+    return 0;
+  }
+
+  return (pid_t) pid;
+}
+
+static bool write_flush_flag_file(const char *name)
+{
   snprintf_assert(sbp_fileio_wait_flush_file,
                   sizeof(sbp_fileio_wait_flush_file),
                   WAIT_FLUSH_FILE_TEMPLATE,
@@ -390,7 +432,13 @@ bool sbp_fileio_request_flush(const char *name)
   snprintf_assert(wait_pid_buffer, sizeof(wait_pid_buffer), "%d", getpid());
   file_write_string(sbp_fileio_wait_flush_file, wait_pid_buffer);
 
-  // Ensure that we can stat the "wait" flag file at least once
+  return true;
+}
+
+static bool verify_flush_flag_file()
+{
+  /* Ensure that we can stat the "wait" flag file at least once */
+
   struct stat wait_stat;
   if (stat(sbp_fileio_wait_flush_file, &wait_stat) < 0) {
     piksi_log(LOG_ERR,
@@ -400,15 +448,18 @@ bool sbp_fileio_request_flush(const char *name)
     return false;
   }
 
-  pid_t pid = (pid_t)atoi(pid_buffer);
-  kill(pid, SIGUSR1);
+  return true;
+}
 
+static bool wait_fd_flush_done()
+{
+  struct stat wait_stat;
   bool success = true;
 
   for (;;) {
     if (stat(sbp_fileio_wait_flush_file, &wait_stat) < 0) {
       if (errno == ENOENT) {
-        // An expected error, flag file was removed by the fileio daemon so we are done
+        /* An expected error, flag file was removed by the fileio daemon so we are done */
         break;
       } else {
         piksi_log(LOG_ERR,
@@ -426,14 +477,32 @@ bool sbp_fileio_request_flush(const char *name)
     }
   }
 
-  piksi_log(LOG_INFO, "sbp_fileio_daemon flush for named daemon '%s' done", name);
   return success;
+}
+
+bool sbp_fileio_request_flush(const char *name)
+{
+  pid_t pid = read_daemon_pid(name);
+  if (pid == 0) return false;
+
+  if (!write_flush_flag_file(name)) return false;
+
+  if (!verify_flush_flag_file()) return false;
+
+  /* Send SIGUSR1 to tell the daemon to flush all file descriptors to disk */
+  kill(pid, SIGUSR1);
+
+  if (!wait_fd_flush_done()) return false;
+
+  piksi_log(LOG_INFO, "sbp_fileio_daemon flush for named daemon '%s' done", name);
+  return true;
 }
 
 static int allow_mtd_read(const char *path)
 {
-  // TODO/DAEMON-USERS: Replace this with an SBP message, e.g. give the firmware a handle
-  //    to read here instead of just allowing the read?
+  /* TODO/DAEMON-USERS: Replace this with an SBP message, e.g. give the firmware a handle
+   *    to read here instead of just allowing the read?
+   */
 
   if (strcmp(path, "/factory/mtd") != 0) return NO_MTD_READ;
 
