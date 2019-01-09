@@ -5,6 +5,7 @@ log_tag=automount
 
 source /etc/init.d/sdcard.sh
 source /etc/init.d/logging.sh
+
 setup_loggers
 
 do_umount()
@@ -43,6 +44,10 @@ do_mount()
     loge "Mount failed, cleaning up mount point..."
     rmdir $mountpoint
     exit 1
+  fi
+
+  if detect_f2fs $devname; then
+    chmod 1777 "$mountpoint/."
   fi
 }
 
