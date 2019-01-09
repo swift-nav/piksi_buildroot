@@ -202,7 +202,7 @@ void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
   _cond.notify_one();
 }
 
-bool RotatingLogger::current_session_valid()
+bool RotatingLogger::ensure_session_valid()
 {
   if (!_dest_available) {
     // check imediately on startup for path availability. Subsequently, check
@@ -241,7 +241,7 @@ void RotatingLogger::process_frame()
 {
   std::unique_lock<std::mutex> mlock(_mutex, std::defer_lock);
   while (!_finished.load()) {
-    if (!current_session_valid()) {
+    if (!ensure_session_valid()) {
       continue;
     }
 

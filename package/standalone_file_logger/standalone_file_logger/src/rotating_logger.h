@@ -32,7 +32,7 @@ class RotatingLogger {
   /* Pad new files out to minimize filesystem updates */
   static const size_t NEW_FILE_PAD_SIZE = 15 * 1024 * 1024;
   /* Maximum size of internal queue */
-  static const size_t MAX_QUEUE_SIZE = 1;
+  static const size_t MAX_QUEUE_SIZE = 1 * 1024 * 1024;
 
  public:
   typedef std::function<void(int, const char *)> LogCall;
@@ -112,7 +112,7 @@ class RotatingLogger {
   /*
    * Validate current logging session
    */
-  bool current_session_valid();
+  bool ensure_session_valid();
 
   void log_errno_warning(const char *msg);
 
