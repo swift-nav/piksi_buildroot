@@ -238,9 +238,8 @@ std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
 
 void RotatingLogger::process_frame()
 {
-  std::unique_lock<std::mutex> mlock(_mutex, std::defer_lock);
   for (;;) {
-    size_t num_written = 0;
+
     auto frame_ptr = get_frame();
     if (frame_ptr == nullptr) {
       break;
@@ -250,12 +249,16 @@ void RotatingLogger::process_frame()
       continue;
     }
 
+    auto temp_errno = 0;
+    auto num_written = 0;
+
     auto frame = frame_ptr.get();
-    size_t size = sizeof(std::vector<uint8_t>::value_type) * frame->size();
-    auto temp_errno = errno;
+
+    auto sizeof_value_type = sizeof(std::vector<uint8_t>::value_type);
+    size_t size = sizeof_value_type * frame->size();
+
     if (_cur_file != nullptr) {
-      num_written =
-        fwrite(&frame[0], sizeof(std::vector<uint8_t>::value_type), frame->size(), _cur_file);
+      num_written = fwrite(frame->data(), sizeof_value_type, frame->size(), _cur_file);
       temp_errno = errno;
     }
 
@@ -303,10 +306,13 @@ RotatingLogger::RotatingLogger(const std::string &out_dir,
 
 void RotatingLogger::stop_thread()
 {
+  if (!_thread.joinable()) return;
+
   {
     std::unique_lock<std::mutex> mlock(_mutex);
     _queue.push_back(std::unique_ptr<std::vector<uint8_t>>(nullptr));
   }
+
   _cond.notify_one();
   _thread.join();
 }

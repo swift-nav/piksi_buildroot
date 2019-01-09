@@ -38,12 +38,12 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
 
   RotatingLoggerTest() : RotatingLogger("", 0, 0, 100, &RotatingLoggerTest::log_call)
   {
-    //rm_wrapper("*.sbp");
+    rm_wrapper("*.sbp");
   }
 
   ~RotatingLoggerTest() override
   {
-    //rm_wrapper("*.sbp");
+    rm_wrapper("*.sbp");
   }
 
   void rm_wrapper(const char *arg)
