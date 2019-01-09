@@ -38,12 +38,12 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
 
   RotatingLoggerTest() : RotatingLogger("", 0, 0, 100, &RotatingLoggerTest::log_call)
   {
-    rm_wrapper("*.sbp");
+    //rm_wrapper("*.sbp");
   }
 
   ~RotatingLoggerTest() override
   {
-    rm_wrapper("*.sbp");
+    //rm_wrapper("*.sbp");
   }
 
   void rm_wrapper(const char *arg)
@@ -78,6 +78,7 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
   // make logger think time progressed
   void MoveStartTimeBack(size_t minutes_back)
   {
+    while (!_queue.empty()) {std::this_thread::sleep_for(std::chrono::milliseconds(50));}
     _session_start_time -= std::chrono::minutes(minutes_back);
   }
 };
@@ -103,6 +104,7 @@ TEST_F(RotatingLoggerTest, NormalOperation)
     expected_file_content[i / 5][i % 5] = i;
   }
 
+  stop_thread();
   close_current_file();
 
   // Check that log roll overs occured and each has correct data

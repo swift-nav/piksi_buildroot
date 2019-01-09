@@ -114,6 +114,11 @@ class RotatingLogger {
    */
   bool ensure_session_valid();
 
+  /*
+   * Stop the process_frame thread
+   */
+  void stop_thread();
+
   void log_errno_warning(const char *msg);
 
   bool _dest_available;

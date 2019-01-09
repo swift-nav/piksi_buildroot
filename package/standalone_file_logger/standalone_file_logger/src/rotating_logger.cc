@@ -225,31 +225,31 @@ bool RotatingLogger::ensure_session_valid()
 std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
 {
   std::unique_lock<std::mutex> mlock(_mutex);
-  while (_queue.empty()) {
-    if (_finished.load()) {
-      return nullptr;
-    }
+  if (_queue.empty()) {
     _cond.wait(mlock);
   }
   auto frame = std::move(_queue.front());
   _queue.pop_front();
-  _queue_bytes -= frame.get()->size();
+  if (frame != nullptr) {
+    _queue_bytes -= frame.get()->size();
+  }
   return frame;
 }
 
 void RotatingLogger::process_frame()
 {
   std::unique_lock<std::mutex> mlock(_mutex, std::defer_lock);
-  while (!_finished.load()) {
+  for (;;) {
+    size_t num_written = 0;
+    auto frame_ptr = get_frame();
+    if (frame_ptr == nullptr) {
+      break;
+    }
+
     if (!ensure_session_valid()) {
       continue;
     }
 
-    size_t num_written = 0;
-    auto frame_ptr = get_frame();
-    if (frame_ptr == nullptr) {
-      continue;
-    }
     auto frame = frame_ptr.get();
     size_t size = sizeof(std::vector<uint8_t>::value_type) * frame->size();
     auto temp_errno = errno;
@@ -301,10 +301,18 @@ RotatingLogger::RotatingLogger(const std::string &out_dir,
   _thread = std::thread(&RotatingLogger::process_frame, this);
 }
 
-RotatingLogger::~RotatingLogger()
+void RotatingLogger::stop_thread()
 {
-  close_current_file();
-  _finished = true;
+  {
+    std::unique_lock<std::mutex> mlock(_mutex);
+    _queue.push_back(std::unique_ptr<std::vector<uint8_t>>(nullptr));
+  }
   _cond.notify_one();
   _thread.join();
+}
+
+RotatingLogger::~RotatingLogger()
+{
+  stop_thread();
+  close_current_file();
 }
