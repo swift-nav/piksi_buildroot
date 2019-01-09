@@ -573,24 +573,24 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     flush_cached_fd(msg->filename, "w");
     cached_fd = open_from_cache(msg->filename, "r", O_RDONLY, 0);
 
-    if (cached_fd.fp != NULL) {
+    if (cached_fd.fp == NULL) goto done;
 
-      if (read_offset(cached_fd) != (off_t)msg->offset) {
-        seek_result = fseek(cached_fd.fp, msg->offset, SEEK_SET);
-        if (seek_result == 0) {
-          update_offset(cached_fd, msg->offset, OP_ASSIGN);
-        } else {
-          PK_LOG_ANNO(LOG_ERR, "fseek failed: %s (%d)", strerror(errno), errno);
-        }
+    if (read_offset(cached_fd) != (off_t)msg->offset) {
+      seek_result = fseek(cached_fd.fp, msg->offset, SEEK_SET);
+      if (seek_result == 0) {
+        update_offset(cached_fd, msg->offset, OP_ASSIGN);
+      } else {
+        PK_LOG_ANNO(LOG_ERR, "fseek failed: %s (%d)", strerror(errno), errno);
       }
-
-      read_result = fread(&reply->contents, 1, readlen, cached_fd.fp);
-      if (read_result != readlen) PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
-
-      return_to_cache(&cached_fd);
     }
+
+    read_result = fread(&reply->contents, 1, readlen, cached_fd.fp);
+    if (read_result != readlen) PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
+
+    return_to_cache(&cached_fd);
   }
 
+done:
   update_offset(cached_fd, read_result, OP_INCREMENT);
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP, sizeof(*reply) + read_result, (u8 *)reply);
 
