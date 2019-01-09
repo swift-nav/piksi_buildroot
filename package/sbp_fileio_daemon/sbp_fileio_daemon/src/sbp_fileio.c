@@ -405,7 +405,7 @@ static pid_t read_daemon_pid(const char *name)
     return 0;
   }
 
-  return (pid_t) pid;
+  return (pid_t)pid;
 }
 
 static bool write_flush_flag_file(const char *name)
