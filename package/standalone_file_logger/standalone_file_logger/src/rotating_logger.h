@@ -129,7 +129,6 @@ class RotatingLogger {
   FILE *_cur_file;
   size_t _bytes_written;
 
-
   std::atomic_bool _finished;
   std::thread _thread;
   std::mutex _mutex;
