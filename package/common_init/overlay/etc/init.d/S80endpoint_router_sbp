@@ -16,7 +16,7 @@ setup_permissions()
 
 starling_daemon_enabled=$(query_config --section experimental_flags --key starling_on_linux)
 
-if detect_piksi_ins; then
+if detect_piksi_ins_router && detect_piksi_ins; then
   router_config="/etc/endpoint_router/sbp_router_smoothpose.yml"
 elif [[ "$starling_daemon_enabled" == "True" ]]; then
   router_config="/etc/endpoint_router/sbp_router_starling.yml"
