@@ -1,7 +1,7 @@
 #!/bin/ash
 
-name="migrate_sdcard"
-log_tag=$name
+export name="migrate_sdcard"
+export log_tag=$name
 
 source /etc/init.d/sdcard.sh
 source /etc/init.d/logging.sh
@@ -52,7 +52,7 @@ wait_for_sdcard_mount
 
 for dev in $(list_partitions); do
   devname=${dev:2}
-  if needs_migration $devname; then
+  if needs_migration "$devname"; then
 
     # Stop services that use the sdcard
     /etc/init.d/S83standalone_file_logger stop
@@ -65,7 +65,7 @@ for dev in $(list_partitions); do
     [[ -z "$mountpoint" ]] || umount $mountpoint
 
     logw "Migrating '${devname}' to F2FS..."
-    format_with_f2fs $devname
+    format_with_f2fs "$devname"
 
     reboot -f
   fi
