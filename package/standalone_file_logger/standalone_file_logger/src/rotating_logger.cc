@@ -22,7 +22,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/syslog.h>
-#include <memory>
 
 /*
  * Name format: xxxx-yyyyy.sbp
@@ -188,7 +187,6 @@ double RotatingLogger::get_time_passed()
 
 void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
 {
-  // TODO: keep track of total data bytes: enforce a limit/warning in .h
   if (_queue_bytes + size > MAX_QUEUE_SIZE) {
     log_msg(LOG_WARNING,
             std::string("Internal queue full, dropping bytes: ") + std::to_string(size));

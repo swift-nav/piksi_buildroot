@@ -62,7 +62,9 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
   // invalidate current file pointer
   void SetNullFilePointer()
   {
-    while (!_queue.empty()) {std::this_thread::sleep_for(std::chrono::milliseconds(50));}
+    while (!_queue.empty()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
     close_current_file();
   }
 
@@ -73,14 +75,18 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
 
   void SetOutputPath(const std::string &path)
   {
-    while (!_queue.empty()) {std::this_thread::sleep_for(std::chrono::milliseconds(50));}
+    while (!_queue.empty()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
     update_dir(path);
   }
 
   // make logger think time progressed
   void MoveStartTimeBack(size_t minutes_back)
   {
-    while (!_queue.empty()) {std::this_thread::sleep_for(std::chrono::milliseconds(50));}
+    while (!_queue.empty()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
     _session_start_time -= std::chrono::minutes(minutes_back);
   }
 };
