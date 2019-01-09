@@ -46,14 +46,14 @@ extern bool no_cache;
 /**
  * Setup the process for operation of the fileio daemon.
  *
- * @param name                The name of the FileIO daemon (e.g. internal / external) used to name
- *                            metrics and control files.
+ * @param name                The name of the FileIO daemon (e.g. internal /
+ *                            external) used to name metrics and control files
  * @param loop                The loop that will handle fileio requests
- * @param pv_ctx              The @c path_validator_t object that will check if a path is allowed
- * for fileio
+ * @param pv_ctx              The @c path_validator_t object that will check
+ *                            if a path is allowed for fileio
  * @param allow_factory_mtd   If pathes from /factory are allowed for fileio requests
  * @param allow_imageset_bin  If pathes for upgrades are allowed, this is currently just
- * `/data/image_set.bin`
+ *                            `/data/image_set.bin`
  * @param rx_ctx              The @c sbp_rx_ctx_t to use for incoming messages
  * @param tx_ctx              The @c sbp_tx_ctx_t to use for outgoing messages
  *

@@ -79,7 +79,7 @@ typedef struct {
   FILE *fp;
   bool cached;
   size_t *offset;
-} fd_cache_result_t;
+} open_file_t;
 
 typedef struct {
   FILE *fp;
@@ -103,22 +103,19 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 
-static off_t read_offset(fd_cache_result_t r);
+static off_t read_offset(open_file_t r);
 
 enum {
   OP_INCREMENT,
   OP_ASSIGN,
 };
 
-static void update_offset(fd_cache_result_t r, off_t offset, int op);
+static void update_offset(open_file_t r, off_t offset, int op);
 
 static void flush_fd_cache();
 static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context);
 static void flush_cached_fd(const char *path, const char *mode);
-static fd_cache_result_t open_from_cache(const char *path,
-                                         const char *mode,
-                                         int oflag,
-                                         mode_t perm);
+static open_file_t open_file(const char *path, const char *mode, int oflag, mode_t perm);
 
 static bool test_control_dir(const char *name);
 
@@ -126,7 +123,7 @@ static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ...(FD_CACHE_COUNT - 1)] = {NUL
 
 path_validator_t *g_pv_ctx;
 
-fd_cache_result_t empty_cache_result = (fd_cache_result_t){
+open_file_t empty_open_file = (open_file_t){
   .fp = NULL,
   .cached = false,
   .offset = NULL,
@@ -140,13 +137,13 @@ fd_cache_t empty_cache_entry = (fd_cache_t){
   .offset = 0,
 };
 
-static off_t read_offset(fd_cache_result_t r)
+static off_t read_offset(open_file_t r)
 {
   if (r.offset == NULL) return -1;
   return (off_t)*r.offset;
 }
 
-static void update_offset(fd_cache_result_t r, off_t offset, int op)
+static void update_offset(open_file_t r, off_t offset, int op)
 {
   if (r.offset == NULL) return;
 
@@ -194,10 +191,19 @@ static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *cont
   pk_loop_timer_reset(cleanup_timer_handle);
 }
 
-static void return_to_cache(fd_cache_result_t *cache_result)
+/**
+ * The `cached` field of the open_file_t type means that
+ * the file descriptor was not cached (either the cache
+ * is disabled, or there's no more entries available).
+ *
+ * In this case we need to close the file to preserve
+ * the previous write semantics and flush any written
+ * data.
+ */
+static void finalize_non_cached(open_file_t *the_file)
 {
-  if (!cache_result->cached && cache_result->fp != NULL) {
-    fclose(cache_result->fp);
+  if (!the_file->cached && the_file->fp != NULL) {
+    fclose(the_file->fp);
     return;
   }
 }
@@ -219,7 +225,7 @@ static void flush_cached_fd(const char *path, const char *mode)
   }
 }
 
-static fd_cache_result_t open_from_cache(const char *path, const char *mode, int oflag, mode_t perm)
+static open_file_t open_file(const char *path, const char *mode, int oflag, mode_t perm)
 {
   if (!no_cache) {
     for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
@@ -232,18 +238,17 @@ static fd_cache_result_t open_from_cache(const char *path, const char *mode, int
                       fd_cache[idx].mode,
                       fd_cache[idx].offset);
         fd_cache[idx].opened_at = time(NULL);
-        return (fd_cache_result_t){.fp = fd_cache[idx].fp,
-                                   .cached = true,
-                                   .offset = &fd_cache[idx].offset};
+        return (
+          open_file_t){.fp = fd_cache[idx].fp, .cached = true, .offset = &fd_cache[idx].offset};
       }
     }
   }
   int fd = open(path, oflag, perm);
-  if (fd < 0) return (fd_cache_result_t){.fp = NULL, .cached = false, .offset = NULL};
+  if (fd < 0) return (open_file_t){.fp = NULL, .cached = false, .offset = NULL};
   FILE *fp = fdopen(fd, mode);
   assert(fp != NULL);
   if (no_cache) {
-    return (fd_cache_result_t){.fp = fp, .cached = false, .offset = NULL};
+    return (open_file_t){.fp = fp, .cached = false, .offset = NULL};
   }
   bool found_slot = false;
   size_t *offset_ptr = NULL;
@@ -261,7 +266,7 @@ static fd_cache_result_t open_from_cache(const char *path, const char *mode, int
   if (!found_slot) {
     piksi_log(LOG_WARNING, "Could not find a cache slot for file descriptor.");
   }
-  return (fd_cache_result_t){.fp = fp, .cached = found_slot, .offset = offset_ptr};
+  return (open_file_t){.fp = fp, .cached = found_slot, .offset = offset_ptr};
 }
 
 static bool test_control_dir(const char *name)
@@ -523,8 +528,8 @@ static const char *filter_imageset_bin(const char *filename)
   return path_buf;
 }
 
-/** File read callback.
- * Responds to a SBP_MSG_FILEIO_READ_REQ message.
+/**
+ * File read callback. Responds to a SBP_MSG_FILEIO_READ_REQ message.
  *
  * Reads a certain length (up to 255 bytes) from a given offset. Returns the
  * data in a SBP_MSG_FILEIO_READ_RESP message where the message length field
@@ -536,7 +541,8 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   int read_result = 0;
   int seek_result = 0;
-  fd_cache_result_t cached_fd = empty_cache_result;
+
+  open_file_t the_file = empty_open_file;
 
   msg_fileio_read_req_t *msg = (msg_fileio_read_req_t *)msg_;
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
@@ -571,34 +577,35 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   } else {
 
     flush_cached_fd(msg->filename, "w");
-    cached_fd = open_from_cache(msg->filename, "r", O_RDONLY, 0);
+    the_file = open_file(msg->filename, "r", O_RDONLY, 0);
 
-    if (cached_fd.fp == NULL) goto done;
+    if (the_file.fp == NULL) goto done;
 
-    if (read_offset(cached_fd) != (off_t)msg->offset) {
-      seek_result = fseek(cached_fd.fp, msg->offset, SEEK_SET);
+    if (read_offset(the_file) != (off_t)msg->offset) {
+      seek_result = fseek(the_file.fp, msg->offset, SEEK_SET);
       if (seek_result == 0) {
-        update_offset(cached_fd, msg->offset, OP_ASSIGN);
+        update_offset(the_file, msg->offset, OP_ASSIGN);
       } else {
         PK_LOG_ANNO(LOG_ERR, "fseek failed: %s (%d)", strerror(errno), errno);
       }
     }
 
-    read_result = fread(&reply->contents, 1, readlen, cached_fd.fp);
+    read_result = fread(&reply->contents, 1, readlen, the_file.fp);
     if (read_result != readlen) PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
 
-    return_to_cache(&cached_fd);
+    finalize_non_cached(&the_file);
   }
 
 done:
-  update_offset(cached_fd, read_result, OP_INCREMENT);
+  update_offset(the_file, read_result, OP_INCREMENT);
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP, sizeof(*reply) + read_result, (u8 *)reply);
 
   PK_METRICS_UPDATE(MR, MI.read_bytes, PK_METRICS_VALUE((u32)read_result));
 }
 
-/** Directory listing callback.
- * Responds to a SBP_MSG_FILEIO_READ_DIR_REQ message.
+/**
+ * Directory listing callback. Responds to a SBP_MSG_FILEIO_READ_DIR_REQ
+ * message.
  *
  * The offset parameter can be used to skip the first n elements of the file
  * list.
@@ -665,8 +672,8 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_DIR_RESP, sizeof(*reply) + len, (u8 *)reply);
 }
 
-/* Remove file callback.
- * Responds to a SBP_MSG_FILEIO_REMOVE message.
+/**
+ * Remove file callback. Responds to a SBP_MSG_FILEIO_REMOVE message.
  */
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
 {
@@ -700,8 +707,8 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
   unlink(filename);
 }
 
-/* Write to file callback.
- * Responds to a SBP_MSG_FILEIO_WRITE_REQ message.
+/**
+ * Write to file callback. Responds to a SBP_MSG_FILEIO_WRITE_REQ message.
  *
  * Writes a certain length (up to 255 bytes) at a given offset. Returns a copy
  * of the original SBP_MSG_FILEIO_WRITE_RESP message to check integrity of
@@ -710,7 +717,6 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
 static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
-  u8 headerlen = 0;
 
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
@@ -741,7 +747,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   }
 
   flush_cached_fd(filename, "r");
-  fd_cache_result_t r = open_from_cache(filename, "w", O_WRONLY | O_CREAT, 0666);
+  open_file_t r = open_file(filename, "w", O_WRONLY | O_CREAT, 0666);
 
   if (r.fp == NULL) {
     piksi_log(LOG_ERR, "Error opening %s for write", filename);
@@ -762,12 +768,14 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     }
   }
 
-  headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
-  write_count = len - headerlen;
+  {
+    u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
+    write_count = len - headerlen;
 
-  if (fwrite(msg_ + headerlen, 1, write_count, r.fp) != write_count) {
-    piksi_log(LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
-    goto cleanup;
+    if (fwrite(msg_ + headerlen, 1, write_count, r.fp) != write_count) {
+      piksi_log(LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
+      goto cleanup;
+    }
   }
 
   update_offset(r, write_count, OP_INCREMENT);
@@ -776,5 +784,5 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
 
 cleanup:
-  return_to_cache(&r);
+  finalize_non_cached(&r);
 }
