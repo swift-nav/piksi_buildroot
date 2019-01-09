@@ -168,7 +168,7 @@ _release_lockdown=/etc/release_lockdown
 
 lockdown()
 {
-    [[ -f "$_release_lockdown" ]]
+  [[ -f "$_release_lockdown" ]]
 }
 
 detect_piksi_ins()
