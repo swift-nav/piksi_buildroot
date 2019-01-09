@@ -118,7 +118,7 @@ bool RotatingLogger::open_new_file()
   sprintf(log_name_buf, "%04lu-%05lu%s", _session_count, _minute_count, LOG_SUFFIX.c_str());
 
   mode_t mode = umask(0111);
-  int fd = open((_out_dir + "/" + log_name_buf).c_str(), O_CREAT|O_WRONLY, 0666);
+  int fd = open((_out_dir + "/" + log_name_buf).c_str(), O_CREAT | O_WRONLY, 0666);
 
   _cur_file = fdopen(fd, "w");
   umask(mode);
