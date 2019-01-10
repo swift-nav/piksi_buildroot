@@ -32,8 +32,8 @@
 struct setting {
   char section[BUFSIZE];
   char name[BUFSIZE];
-  char type[BUFSIZE];
   char value[BUFSIZE];
+  char type[BUFSIZE];
   struct setting *next;
   bool dirty;
 };
@@ -114,11 +114,11 @@ static void settings_reply(sbp_tx_ctx_t *tx_ctx,
   }
 }
 
-static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_register_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
   (void)sender_id;
 
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
   /* Expect to find at least section, name and value */
@@ -150,10 +150,10 @@ static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *con
   settings_reply(tx_ctx, sdata, false, true, SBP_MSG_SETTINGS_WRITE, NULL, 0, 0);
 }
 
-static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
+static void settings_write_reply_cb(u16 sender_id, u8 len, u8 msg_[], void *ctx)
 {
   (void)sender_id;
-  (void)context;
+  (void)ctx;
   msg_settings_write_resp_t *msg = (void *)msg_;
 
   if (msg->status != 0) {
@@ -189,9 +189,9 @@ static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void
   return;
 }
 
-static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_read_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
   if (sender_id != SBP_SENDER_ID) {
     piksi_log(LOG_ERR, "Error in settings read request: invalid sender");
@@ -227,9 +227,9 @@ static struct setting *setting_find_by_index(u16 index)
   return sdata;
 }
 
-static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
   if (sender_id != SBP_SENDER_ID) {
     piksi_log(LOG_ERR, "Error in settings read by index request: invalid sender");
@@ -266,10 +266,10 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
                  sizeof(buf));
 }
 
-static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_save_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
   (void)sender_id;
-  (void)context;
+  (void)ctx;
   (void)len;
   (void)msg;
 
@@ -314,11 +314,11 @@ static void settings_write_failed(sbp_tx_ctx_t *tx_ctx,
   sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, blen + to_copy, buf, SBP_SENDER_ID);
 }
 
-static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_write_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
   (void)sender_id;
 
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
   /* Expect to find at least section, name and value */
@@ -342,24 +342,20 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
 
 void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx)
 {
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_SAVE, settings_save_callback, tx_ctx, NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE, settings_write_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_SAVE, settings_save_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE, settings_write_cb, tx_ctx, NULL);
   sbp_rx_callback_register(rx_ctx,
                            SBP_MSG_SETTINGS_WRITE_RESP,
-                           settings_write_reply_callback,
+                           settings_write_reply_cb,
                            tx_ctx,
                            NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_REQ, settings_read_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_REQ, settings_read_cb, tx_ctx, NULL);
   sbp_rx_callback_register(rx_ctx,
                            SBP_MSG_SETTINGS_READ_BY_INDEX_REQ,
-                           settings_read_by_index_callback,
+                           settings_read_by_index_cb,
                            tx_ctx,
                            NULL);
-  sbp_rx_callback_register(rx_ctx,
-                           SBP_MSG_SETTINGS_REGISTER,
-                           setting_register_callback,
-                           tx_ctx,
-                           NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_REGISTER, settings_register_cb, tx_ctx, NULL);
 }
 
 void settings_reset_defaults(void)
