@@ -34,7 +34,7 @@ static size_t pack_write_message(u32 sequence,
 {
   static u8 msg_buffer[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 
-  msg_fileio_write_req_t msg = { .sequence = sequence, .offset = write_offset };
+  msg_fileio_write_req_t msg = {.sequence = sequence, .offset = write_offset};
 
   size_t offset = 0;
   memcpy(&msg_buffer[offset], &msg, sizeof(msg));
@@ -53,11 +53,13 @@ static size_t pack_write_message(u32 sequence,
 }
 
 class SbpFileioDaemonTests : public ::testing::Test {
-protected:
-  SbpFileioDaemonTests() {
+ protected:
+  SbpFileioDaemonTests()
+  {
     system("rm -f fileio_test.*.bin");
   }
-  ~SbpFileioDaemonTests() override {
+  ~SbpFileioDaemonTests() override
+  {
     system("rm -f fileio_test.*.bin");
   }
 };
@@ -151,16 +153,16 @@ TEST_F(SbpFileioDaemonTests, test_write)
   size_t test_data_len = strlen(test_data);
 
   {
-    u8* write_msg = nullptr;
+    u8 *write_msg = nullptr;
     size_t len = pack_write_message(123, 0, filename, test_data, &write_msg);
-    
+
     size_t write_count = 0;
     sbp_fileio_write((msg_fileio_write_req_t *)write_msg, len, &write_count);
 
     ASSERT_EQ(write_count, strlen(test_data));
   }
   {
-    u8* write_msg = nullptr;
+    u8 *write_msg = nullptr;
     size_t len = pack_write_message(123, test_data_len, filename, test_data, &write_msg);
 
     size_t write_count = 0;
@@ -173,11 +175,11 @@ TEST_F(SbpFileioDaemonTests, test_write)
 
   char buffer[128] = {0};
 
-  FILE* fp = fopen("fileio_test.0.bin", "r");
+  FILE *fp = fopen("fileio_test.0.bin", "r");
   fread(buffer, 1, sizeof(buffer), fp);
 
-  ASSERT_TRUE( memcmp(test_data, buffer, test_data_len) == 0 );
-  ASSERT_TRUE( memcmp(test_data, buffer + test_data_len, test_data_len) == 0 );
+  ASSERT_TRUE(memcmp(test_data, buffer, test_data_len) == 0);
+  ASSERT_TRUE(memcmp(test_data, buffer + test_data_len, test_data_len) == 0);
 
   fclose(fp);
 }
@@ -191,9 +193,9 @@ TEST_F(SbpFileioDaemonTests, test_write_random)
   size_t test_data_len = strlen(test_data);
 
   {
-    u8* write_msg = nullptr;
+    u8 *write_msg = nullptr;
     size_t len = pack_write_message(123, 0, filename, test_data, &write_msg);
-    
+
     size_t write_count = 0;
     sbp_fileio_write((msg_fileio_write_req_t *)write_msg, len, &write_count);
 
@@ -201,7 +203,7 @@ TEST_F(SbpFileioDaemonTests, test_write_random)
   }
   // Next write is "random" because the wrote more than 1 byte
   {
-    u8* write_msg = nullptr;
+    u8 *write_msg = nullptr;
     size_t len = pack_write_message(123, 1, filename, test_data, &write_msg);
 
     size_t write_count = 0;
@@ -214,10 +216,10 @@ TEST_F(SbpFileioDaemonTests, test_write_random)
 
   char buffer[128] = {0};
 
-  FILE* fp = fopen("fileio_test.0.bin", "r");
+  FILE *fp = fopen("fileio_test.0.bin", "r");
   fread(buffer, 1, sizeof(buffer), fp);
 
-  ASSERT_TRUE( memcmp(test_data_cmp, buffer, strlen(test_data_cmp)) == 0 );
+  ASSERT_TRUE(memcmp(test_data_cmp, buffer, strlen(test_data_cmp)) == 0);
 
   fclose(fp);
 }

@@ -759,7 +759,7 @@ bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *
     u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
     *write_count = length - headerlen;
 
-    if (fwrite(((u8*)msg) + headerlen, 1, *write_count, r.fp) != *write_count) {
+    if (fwrite(((u8 *)msg) + headerlen, 1, *write_count, r.fp) != *write_count) {
       piksi_log(LOG_ERR, "Error writing %d bytes to %s", *write_count, filename);
       goto cleanup;
     }
