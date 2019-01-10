@@ -84,7 +84,7 @@ void RotatingLogger::pad_new_file()
 int RotatingLogger::check_disk_full()
 {
   struct statvfs fs_stats;
-  if (statvfs(_out_dir.c_str(), &fs_stats)) {
+  if (statvfs(_out_dir.c_str(), &fs_stats) != 0) {
     return -1;
   }
   double percent_full =
@@ -213,11 +213,7 @@ bool RotatingLogger::ensure_session_valid()
       return false;
     }
   }
-  if (!check_slice_time()) {
-    return false;
-  }
-
-  return true;
+  return check_slice_time();
 }
 
 std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
@@ -227,7 +223,7 @@ std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
   auto frame = std::move(_queue.front());
   _queue.pop_front();
   if (frame != nullptr) {
-    _queue_bytes -= frame.get()->size();
+    _queue_bytes -= frame->size();
   }
   return frame;
 }
@@ -290,12 +286,11 @@ RotatingLogger::RotatingLogger(const std::string &out_dir,
                                size_t slice_duration,
                                size_t poll_period,
                                size_t disk_full_threshold,
-                               LogCall logging_callback)
+                               const LogCall &logging_callback)
   : _dest_available(false), _session_count(0), _minute_count(0), _out_dir(out_dir),
     _slice_duration(slice_duration), _poll_period(poll_period),
     _disk_full_threshold(disk_full_threshold), _logging_callback(logging_callback),
-    // init to 0
-    _session_start_time(), _cur_file(nullptr), _bytes_written(0), _finished(false), _queue_bytes(0)
+    _cur_file(nullptr), _bytes_written(0), _queue_bytes(0)
 {
   _thread = std::thread(&RotatingLogger::process_frame, this);
 }

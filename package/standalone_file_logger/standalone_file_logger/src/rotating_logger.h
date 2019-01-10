@@ -40,7 +40,7 @@ class RotatingLogger {
                  size_t slice_duration,
                  size_t poll_period,
                  size_t disk_full_threshold,
-                 LogCall logging_callback = LogCall());
+                 const LogCall &logging_callback = LogCall());
 
   ~RotatingLogger();
   /*
@@ -127,14 +127,13 @@ class RotatingLogger {
   size_t _slice_duration;
   size_t _poll_period;
   size_t _disk_full_threshold;
-  LogCall _logging_callback;
+  const LogCall &_logging_callback;
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
 
   FILE *_cur_file;
   size_t _bytes_written;
 
-  std::atomic_bool _finished;
   std::thread _thread;
   std::mutex _mutex;
   std::condition_variable _cond;
