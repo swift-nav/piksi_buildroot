@@ -44,8 +44,8 @@
 /* these are from fw private, consider moving to libpiski */
 #define MSG_FORWARD_SENDER_ID (0u)
 
-#define GLO_OBS_ALERT_RATE_LIMIT (10000u)           /* ms */
-#define GLO_OBS_RESET_BASE_CONN_RATE_LIMIT (20000u) /* ms */
+#define GLO_OBS_ALERT_RATE_LIMIT (180000u)           /* ms */
+#define GLO_OBS_RESET_BASE_CONN_RATE_LIMIT (360000u) /* ms */
 
 /* Below stolen from libswiftnav/signal.h */
 #define CODE_GLO_L1OF (3u)
