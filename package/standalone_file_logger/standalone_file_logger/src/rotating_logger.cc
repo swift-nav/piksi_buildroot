@@ -223,9 +223,7 @@ bool RotatingLogger::ensure_session_valid()
 std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
 {
   std::unique_lock<std::mutex> mlock(_mutex);
-  if (_queue.empty()) {
-    _cond.wait(mlock);
-  }
+  _cond.wait(mlock, [this] { return !_queue.empty(); });
   auto frame = std::move(_queue.front());
   _queue.pop_front();
   if (frame != nullptr) {
