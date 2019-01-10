@@ -171,8 +171,21 @@ lockdown()
   [[ -f "$_release_lockdown" ]]
 }
 
-detect_piksi_ins()
+detect_piksi_ins_router()
 {
   ins_output_mode=$(query_config --section ins --key output_mode)
   [[ "$ins_output_mode" == "Loosely Coupled" ]]
+}
+
+# in order to be a real piksi_ins, you need all of the following:
+#  - output mode configured to either "Debug" or "Loosely Coupled"
+#  - the license file must exist
+#  - the PoseDaemon executable must exist
+
+detect_piksi_ins()
+{
+  ins_output_mode=$(query_config --section ins --key output_mode)
+  { detect_piksi_ins_router || [[ "$ins_output_mode" == "Debug" ]]; } \
+    && [[ -f /usr/bin/PoseDaemon ]] \
+    && [[ -f /persistent/licenses/smoothpose_license.json ]]
 }
