@@ -50,7 +50,7 @@ elif ! run_time_sufficient; then
   echo "$restarts" >"$restarts_file"
 else
   logi "Service $name exited cleanly"
-  rm "$restarts_file"
+  rm -f "$restarts_file"
 fi
 
 if [[ "$restarts" -ge "$failed_restarts" ]]; then
