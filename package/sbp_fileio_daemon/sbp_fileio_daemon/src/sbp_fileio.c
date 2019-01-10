@@ -68,8 +68,8 @@ static char sbp_fileio_wait_flush_file[PATH_MAX] = {0};
 
 /* clang-format off */
 PK_METRICS_TABLE(MT, MI,
-  PK_METRICS_ENTRY("data/write/bytes",    "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  write_bytes),
-  PK_METRICS_ENTRY("data/read/bytes",    "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  read_bytes)
+  PK_METRICS_ENTRY("data/write/bytes", "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  write_bytes),
+  PK_METRICS_ENTRY("data/read/bytes",  "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  read_bytes)
  )
 /* clang-format on */
 
@@ -294,6 +294,17 @@ static bool test_control_dir(const char *name)
   return success;
 }
 
+void sbp_fileio_setup_path_validator(path_validator_t *pv_ctx,
+                                     bool allow_factory_mtd_,
+                                     bool allow_imageset_bin_)
+{
+  g_pv_ctx = pv_ctx;
+  assert(g_pv_ctx != NULL);
+
+  allow_factory_mtd = allow_factory_mtd_;
+  allow_imageset_bin = allow_imageset_bin_;
+}
+
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
@@ -320,11 +331,7 @@ bool sbp_fileio_setup(const char *name,
     return false;
   }
 
-  g_pv_ctx = pv_ctx;
-  assert(g_pv_ctx != NULL);
-
-  allow_factory_mtd = allow_factory_mtd_;
-  allow_imageset_bin = allow_imageset_bin_;
+  sbp_fileio_setup_path_validator(pv_ctx, allow_factory_mtd_, allow_imageset_bin_);
 
   bool cb_registered = true;
 
@@ -707,34 +714,12 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
   unlink(filename);
 }
 
-/**
- * Write to file callback. Responds to a SBP_MSG_FILEIO_WRITE_REQ message.
- *
- * Writes a certain length (up to 255 bytes) at a given offset. Returns a copy
- * of the original SBP_MSG_FILEIO_WRITE_RESP message to check integrity of
- * the write.
- */
-static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
+bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *write_count)
 {
-  (void)sender_id;
-
-  msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
-
-  msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
-  size_t write_count = 0;
-
   FIO_LOG_DEBUG("write request for '%s', seq=%u, off=%u",
                 msg->filename,
                 msg->sequence,
                 msg->offset);
-
-  if ((len <= sizeof(*msg) + 2)
-      || (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))
-          == SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
-    piksi_log(LOG_WARNING, "Invalid fileio write message!");
-    return;
-  }
 
   const char *filename = filter_imageset_bin(msg->filename);
   if (!path_validator_check(g_pv_ctx, filename)) {
@@ -743,7 +728,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
       "Received FILEIO_WRITE request for path (%s) outside base directory (%s), ignoring...",
       filename,
       path_validator_base_paths(g_pv_ctx));
-    return;
+    return false;
   }
 
   flush_cached_fd(filename, "r");
@@ -751,8 +736,10 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   if (r.fp == NULL) {
     piksi_log(LOG_ERR, "Error opening %s for write", filename);
-    return;
+    return false;
   }
+
+  bool success = false;
 
   if (read_offset(r) != (off_t)msg->offset) {
     if (fseek(r.fp, msg->offset, SEEK_SET) == 0) {
@@ -770,19 +757,48 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   {
     u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
-    write_count = len - headerlen;
+    *write_count = length - headerlen;
 
-    if (fwrite(msg_ + headerlen, 1, write_count, r.fp) != write_count) {
-      piksi_log(LOG_ERR, "Error writing %d bytes to %s", write_count, filename);
+    if (fwrite(((u8*)msg) + headerlen, 1, *write_count, r.fp) != *write_count) {
+      piksi_log(LOG_ERR, "Error writing %d bytes to %s", *write_count, filename);
       goto cleanup;
     }
   }
 
-  update_offset(r, write_count, OP_INCREMENT);
-
-  PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
-  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+  update_offset(r, *write_count, OP_INCREMENT);
+  success = true;
 
 cleanup:
   finalize_non_cached(&r);
+  return success;
+}
+
+/**
+ * Write to file callback. Responds to a SBP_MSG_FILEIO_WRITE_REQ message.
+ *
+ * Writes a certain length (up to 255 bytes) at a given offset. Returns a copy
+ * of the original SBP_MSG_FILEIO_WRITE_RESP message to check integrity of
+ * the write.
+ */
+static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
+{
+  (void)sender_id;
+
+  msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+
+  msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
+  size_t write_count = 0;
+
+  if ((len <= sizeof(*msg) + 2)
+      || (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))
+          == SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
+    piksi_log(LOG_WARNING, "Invalid fileio write message!");
+    return;
+  }
+
+  if (!sbp_fileio_write(msg, len, &write_count)) return;
+
+  PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
+  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
 }

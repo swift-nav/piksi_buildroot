@@ -13,10 +13,16 @@
 #ifndef SWIFTNAV_SBP_FILEIO_H
 #define SWIFTNAV_SBP_FILEIO_H
 
+#include <libsbp/file_io.h>
+
 #include <libpiksi/sbp_rx.h>
 #include <libpiksi/sbp_tx.h>
 
 #include "path_validator.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Global flag that enables or disables debug logging
@@ -42,6 +48,13 @@ extern const char *sbp_fileio_name;
  * Global flag that disables the file descriptor caching
  */
 extern bool no_cache;
+
+/**
+ * A subset of @see sbp_fileio_setup for unit testing purposes.
+ */
+void sbp_fileio_setup_path_validator(path_validator_t *pv_ctx,
+                                     bool allow_factory_mtd,
+                                     bool allow_imageset_bin);
 
 /**
  * Setup the process for operation of the fileio daemon.
@@ -81,5 +94,14 @@ void sbp_fileio_flush(void);
  * Request that a named daemon flush all cached file descriptors to disk.
  */
 bool sbp_fileio_request_flush(const char *name);
+
+/**
+ *
+ */
+bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *write_count);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif
