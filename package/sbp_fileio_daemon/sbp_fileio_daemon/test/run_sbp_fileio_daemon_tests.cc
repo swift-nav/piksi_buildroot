@@ -182,6 +182,46 @@ TEST_F(SbpFileioDaemonTests, test_write)
   fclose(fp);
 }
 
+TEST_F(SbpFileioDaemonTests, test_write_random)
+{
+  const char test_data[] = "test data";
+  const char test_data_cmp[] = "ttest data";
+  const char filename[] = "fileio_test.0.bin";
+
+  size_t test_data_len = strlen(test_data);
+
+  {
+    u8* write_msg = nullptr;
+    size_t len = pack_write_message(123, 0, filename, test_data, &write_msg);
+    
+    size_t write_count = 0;
+    sbp_fileio_write((msg_fileio_write_req_t *)write_msg, len, &write_count);
+
+    ASSERT_EQ(write_count, strlen(test_data));
+  }
+  // Next write is "random" because the wrote more than 1 byte
+  {
+    u8* write_msg = nullptr;
+    size_t len = pack_write_message(123, 1, filename, test_data, &write_msg);
+
+    size_t write_count = 0;
+    sbp_fileio_write((msg_fileio_write_req_t *)write_msg, len, &write_count);
+
+    ASSERT_EQ(write_count, strlen(test_data));
+  }
+
+  sbp_fileio_flush();
+
+  char buffer[128] = {0};
+
+  FILE* fp = fopen("fileio_test.0.bin", "r");
+  fread(buffer, 1, sizeof(buffer), fp);
+
+  ASSERT_TRUE( memcmp(test_data_cmp, buffer, strlen(test_data_cmp)) == 0 );
+
+  fclose(fp);
+}
+
 int main(int argc, char **argv)
 {
   fio_debug = true;
