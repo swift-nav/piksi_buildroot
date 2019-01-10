@@ -3,7 +3,7 @@ SOURCES= \
 	rotating_logger.cc \
 	standalone_file_logger.cc
 
-LIBS=-luv -lsbp -lpiksi
+LIBS=-luv -lsbp -lpiksi -lpthread
 CFLAGS=-std=gnu++11
 ARFLAGS=rcs $(LTO_PLUGIN)
 

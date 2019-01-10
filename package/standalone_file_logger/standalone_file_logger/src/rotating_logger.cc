@@ -85,7 +85,7 @@ void RotatingLogger::pad_new_file()
 int RotatingLogger::check_disk_full()
 {
   struct statvfs fs_stats;
-  if (statvfs(_out_dir.c_str(), &fs_stats)) {
+  if (statvfs(_out_dir.c_str(), &fs_stats) != 0) {
     return -1;
   }
   double percent_full =
@@ -192,35 +192,84 @@ double RotatingLogger::get_time_passed()
 
 void RotatingLogger::frame_handler(const uint8_t *data, size_t size)
 {
+  if (_queue_bytes + size > MAX_QUEUE_SIZE) {
+    log_msg(LOG_WARNING,
+            std::string("Internal queue full, dropping bytes: ") + std::to_string(size));
+    return;
+  }
+
+  std::unique_lock<std::mutex> mlock(_mutex);
+  _queue.push_back(
+    std::unique_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(data, data + size)));
+  _queue_bytes += size;
+  _cond.notify_one();
+}
+
+bool RotatingLogger::ensure_session_valid()
+{
   if (!_dest_available) {
     // check imediately on startup for path availability. Subsequently, check
     // periodically
     if (_session_start_time.time_since_epoch().count() != 0 && get_time_passed() < _poll_period) {
-      return;
+      return false;
     }
     _session_start_time = std::chrono::steady_clock::now();
     if (!start_new_session()) {
-      return;
+      return false;
     }
   }
-  if (!check_slice_time()) {
-    return;
-  }
+  return check_slice_time();
+}
 
-  size_t num_written = 0;
-  if (_cur_file != nullptr) {
-    num_written = fwrite(data, 1, size, _cur_file);
+std::unique_ptr<std::vector<uint8_t>> RotatingLogger::get_frame()
+{
+  std::unique_lock<std::mutex> mlock(_mutex);
+  _cond.wait(mlock, [this] { return !_queue.empty(); });
+  auto frame = std::move(_queue.front());
+  _queue.pop_front();
+  if (frame != nullptr) {
+    _queue_bytes -= frame->size();
   }
-  if (num_written != size) {
-    // If drive is removed needs to close file imediately and not attempt to
-    // open new file for a couple seconds to avoid locking mount
-    close_current_file();
-    _dest_available = false;
-    // wait _poll_period to check drive again
-    _session_start_time = std::chrono::steady_clock::now();
-    log_msg(LOG_WARNING, std::string("Write to file failed: ") + strerror(errno));
+  return frame;
+}
+
+void RotatingLogger::process_frame()
+{
+  for (;;) {
+
+    auto frame_ptr = get_frame();
+    if (frame_ptr == nullptr) {
+      break;
+    }
+
+    if (!ensure_session_valid()) {
+      continue;
+    }
+
+    auto temp_errno = 0;
+    auto num_written = 0;
+
+    auto frame = frame_ptr.get();
+
+    auto sizeof_value_type = sizeof(std::vector<uint8_t>::value_type);
+    size_t size = sizeof_value_type * frame->size();
+
+    if (_cur_file != nullptr) {
+      num_written = fwrite(frame->data(), sizeof_value_type, frame->size(), _cur_file);
+      temp_errno = errno;
+    }
+
+    if (num_written != size) {
+      // If drive is removed needs to close file imediately and not attempt to
+      // open new file for a couple seconds to avoid locking mount
+      close_current_file();
+      _dest_available = false;
+      // wait _poll_period to check drive again
+      _session_start_time = std::chrono::steady_clock::now();
+      log_msg(LOG_WARNING, std::string("Write to file failed: ") + strerror(temp_errno));
+    }
+    _bytes_written += size;
   }
-  _bytes_written += size;
 }
 
 void RotatingLogger::update_dir(const std::string &out_dir)
@@ -242,16 +291,30 @@ RotatingLogger::RotatingLogger(const std::string &out_dir,
                                size_t slice_duration,
                                size_t poll_period,
                                size_t disk_full_threshold,
-                               LogCall logging_callback)
+                               const LogCall &logging_callback)
   : _dest_available(false), _session_count(0), _minute_count(0), _out_dir(out_dir),
     _slice_duration(slice_duration), _poll_period(poll_period),
     _disk_full_threshold(disk_full_threshold), _logging_callback(logging_callback),
-    // init to 0
-    _session_start_time(), _cur_file(nullptr), _bytes_written(0)
+    _cur_file(nullptr), _bytes_written(0), _queue_bytes(0)
 {
+  _thread = std::thread(&RotatingLogger::process_frame, this);
+}
+
+void RotatingLogger::stop_thread()
+{
+  if (!_thread.joinable()) return;
+
+  {
+    std::unique_lock<std::mutex> mlock(_mutex);
+    _queue.push_back(std::unique_ptr<std::vector<uint8_t>>(nullptr));
+  }
+
+  _cond.notify_one();
+  _thread.join();
 }
 
 RotatingLogger::~RotatingLogger()
 {
+  stop_thread();
   close_current_file();
 }
