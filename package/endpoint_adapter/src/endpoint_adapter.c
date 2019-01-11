@@ -53,10 +53,10 @@
 
 static pk_metrics_t *MR = NULL;
 
-// clang-format off
+/* clang-format off */
 PK_METRICS_TABLE(MT, MI,
 
-  PK_METRICS_ENTRY("error/mismatch",        "total",          M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, mismatch),
+  PK_METRICS_ENTRY("error/mismatch",           "total",          M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, mismatch),
 
   PK_METRICS_ENTRY("rx/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, rx_read_count),
   PK_METRICS_ENTRY("rx/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, rx_read_size_total),
@@ -78,7 +78,7 @@ PK_METRICS_TABLE(MT, MI,
   PK_METRICS_ENTRY("tx/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, tx_write_size_average,
                    M_AVERAGE_OF(MI,         tx_write_size_total, tx_write_count))
 )
-// clang-format on
+/* clang-format on */
 
 typedef enum {
   IO_INVALID,
@@ -227,7 +227,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_RETRY_PUBSUB,
   };
 
-  // clang-format off
+  /* clang-format off */
   const struct option long_opts[] = {
     {"pub",               required_argument, 0, 'p'},
     {"sub",               required_argument, 0, 's'},
