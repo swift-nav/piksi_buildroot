@@ -37,6 +37,8 @@ exec nap_wrap --key-index $key_index \
   --permissions 0755 --capabilities "$caps" \
   --input-file $l/libcrlpose2.so.enc --output-file $l/libcrlpose2.so \
   --permissions 0644 --capabilities "" \
+  --input-file $l/libsmoothpose_interface.so.enc --output-file $l/libsmoothpose_interface.so \
+  --permissions 0644 --capabilities "" \
   -- \
   chpst -u $user:$group \
   /usr/bin/PoseDaemon
