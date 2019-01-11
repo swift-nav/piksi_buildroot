@@ -163,7 +163,7 @@ _print_db:
 docker-build-image:
 	docker build --no-cache --force-rm \
 		--build-arg VERSION_TAG=$(shell cat scripts/docker_version_tag) \
-		--build-arg USER=$(USER) \
+		--build-arg USER=$(SANITIZED_USER) \
 		--build-arg UID=$(UID) \
 		--build-arg GID=$(GID) \
 		--tag $(DOCKER_TAG) -f scripts/Dockerfile .
