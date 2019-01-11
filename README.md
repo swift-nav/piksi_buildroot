@@ -10,16 +10,22 @@
 - Buildroot, as a git submodule
 - An external Buildroot tree in the top-level `piksi_buildroot` directory:
   - Buildroot configuration in `configs`
-  - Custom packages in `package`
+  - Custom swift packages in `package`
   - Board-specific files (rootfs overlay, device trees, scripts, etc.) in `board/piksiv3`
+- Utility to download closed source firmware images to incorporate into build in `fetch_firmware.sh`
+- Supporting files to support building via Docker
 
 ## Building
 <u>Note:</u>
 Images built from source are no longer compatible with official releases. In order to
-upgrade to the latest official release you must install the pre-built
+upgrade to the latest official release you must first install the pre-built
 [v2.0.2](https://github.com/swift-nav/piksi_buildroot/releases/tag/v2.0.2) binary.
+If an attempt is made to update to the latest release the following error message may be received:
+- UPGRADE\_ERROR\_TARGET\_PARAMS\_GET: Upgrade was unsuccessful. Please verify the image and reboot.
 
 ### Docker
+
+If preferred, a firmware image can be compiled with docker.
 
 Install [Docker](https://docs.docker.com/engine/installation/#platform-support-matrix) for your platform.
 
@@ -78,7 +84,7 @@ The build variants are as follows:
 Without prior experience and instructions, it is recommended that the `DEV` and `FAILSAFE`
 images be ignored.
 
-A `PiksiMulti-*.bin` binary can be loaded onto the device using the console, or via
+A `PiksiMulti-*.bin` binary can be loaded onto the device using the Swift Console, or via
 usb thumbdrive auto-upgrade feature.
 
 ## Incremental Builds
