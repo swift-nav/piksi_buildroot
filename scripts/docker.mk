@@ -3,7 +3,8 @@
 # Setup variables for invoking docker with sane settings for a development
 #   environement.
 
-LOWER_USER = $(shell echo $(USER) | tr A-Z a-z)
+SANITIZED_USER = $(shell echo $(USER) | tr -d .)
+LOWER_USER = $(shell echo $(SANITIZED_USER) | tr A-Z a-z)
 
 ifneq ("$(DOCKER_SUFFIX)","")
 _DOCKER_SUFFIX := -$(LOWER_USER)-$(DOCKER_SUFFIX)
@@ -31,7 +32,7 @@ DOCKER_BUILD_VOLUME = piksi-buildroot$(_DOCKER_SUFFIX)
 DOCKER_TAG = piksi-buildroot$(_DOCKER_SUFFIX)
 
 DOCKER_ENV_ARGS :=                                                            \
-  -e USER=$(USER)                                                             \
+  -e USER=$(SANITIZED_USER)                                                   \
   -e GID=$(GID)                                                               \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
@@ -44,7 +45,7 @@ DOCKER_ENV_ARGS :=                                                            \
   -e DISABLE_NIXOS_SUPPORT=$(DISABLE_NIXOS_SUPPORT)                           \
   $(AWS_VARIABLES)                                                            \
   $(DCKR_CCACHE_RO_VAR)                                                       \
-  --user $(USER)                                                              \
+  --user $(SANITIZED_USER)                                                    \
 
 ifeq (,$(wildcard .docker-sync.yml))
 
