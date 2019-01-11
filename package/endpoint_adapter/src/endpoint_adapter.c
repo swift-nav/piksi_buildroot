@@ -166,6 +166,10 @@ static void usage(char *command)
 {
   fprintf(stderr, "Usage: %s\n", command);
 
+  fprintf(stderr, "\nGeneral\n");
+  fprintf(stderr, "\t--name\n");
+  fprintf(stderr, "\t\tthe name of this adapter (typically used for metrics and logging)\n");
+
   fprintf(stderr, "\nEndpoint Modes - select one or two (see notes)\n");
   fprintf(stderr, "\t-p, --pub <addr>\n");
   fprintf(stderr, "\t\tsink socket, may be combined with --sub\n");
@@ -251,12 +255,12 @@ static int parse_options(int argc, char *argv[])
     {"can-f",             required_argument, 0, OPT_ID_CAN_FILTER},
     {"retry",             no_argument,       0, OPT_ID_RETRY_PUBSUB},
     {0, 0, 0, 0},
-    // clang-format on
   };
+  /* clang-format on */
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "p:s:r:y:f:", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "p:s:f:", long_opts, &opt_index)) != -1) {
     switch (c) {
     case OPT_ID_CAN: {
       io_mode = IO_CAN;
