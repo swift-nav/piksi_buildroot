@@ -291,7 +291,7 @@ RotatingLogger::RotatingLogger(const std::string &out_dir,
                                size_t slice_duration,
                                size_t poll_period,
                                size_t disk_full_threshold,
-                               const LogCall &logging_callback)
+                               LogCall logging_callback)
   : _dest_available(false), _session_count(0), _minute_count(0), _out_dir(out_dir),
     _slice_duration(slice_duration), _poll_period(poll_period),
     _disk_full_threshold(disk_full_threshold), _logging_callback(logging_callback),
