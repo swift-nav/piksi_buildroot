@@ -186,6 +186,6 @@ detect_piksi_ins()
 {
   ins_output_mode=$(query_config --section ins --key output_mode)
   { detect_piksi_ins_router || [[ "$ins_output_mode" == "Debug" ]]; } \
-    && [[ -f /usr/bin/PoseDaemon ]] \
+    && [[ -f /usr/bin/PoseDaemon.enc ]] \
     && [[ -f /persistent/licenses/smoothpose_license.json ]]
 }
