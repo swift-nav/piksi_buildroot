@@ -907,16 +907,29 @@ int io_loop_start_can(int read_fd, int write_fd, bool fork_needed)
   return io_loop_run(read_fd, write_fd, fork_needed, true);
 }
 
+static bool set_non_blocking(int fd)
+{
+  int flags = fcntl(fd, F_GETFL, 0);
+
+  if (flags < 0) {
+    piksi_log(LOG_ERR, "failed to fetch fd flags: %s", strerror(errno));
+    return false;
+  }
+
+  flags |= O_NONBLOCK;
+  fcntl(fd, F_SETFL, &flags);
+
+  return true;
+}
+
 static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
 {
   if (write_fd != -1) {
-    int arg = O_NONBLOCK;
-    fcntl(write_fd, F_SETFL, &arg);
+    if (!set_non_blocking(write_fd)) return IO_LOOP_ERROR;
   }
 
   if (read_fd != -1) {
-    int arg = O_NONBLOCK;
-    fcntl(write_fd, F_SETFL, &arg);
+    if (!set_non_blocking(read_fd)) return IO_LOOP_ERROR;
   }
 
   if (fork_needed) {
