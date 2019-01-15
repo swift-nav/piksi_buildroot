@@ -102,7 +102,6 @@ typedef struct {
   int write_fd;
   framer_t *framer;
   filter_t *filter;
-  bool is_can;
 } handle_t;
 
 static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *context);
@@ -112,8 +111,6 @@ static void die_error(const char *error);
 
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer, size_t count);
-
-static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can);
 
 bool debug = false;
 static io_mode_t io_mode = IO_INVALID;
@@ -455,8 +452,7 @@ static int handle_init(handle_t *handle,
                        int write_fd,
                        const char *framer_name,
                        const char *filter_name,
-                       const char *filter_config,
-                       bool is_can)
+                       const char *filter_config)
 {
   *handle = (handle_t){
     .pk_ept = pk_ept,
@@ -464,7 +460,6 @@ static int handle_init(handle_t *handle,
     .write_fd = write_fd,
     .framer = framer_create(framer_name),
     .filter = filter_create(filter_name, filter_config),
-    .is_can = is_can,
   };
 
   if ((handle->framer == NULL) || (handle->filter == NULL)) {
@@ -513,38 +508,6 @@ static pk_endpoint_t *pk_endpoint_start(int type)
   return pk_ept;
 }
 
-static ssize_t can_read(int skt, void *buffer, size_t count)
-{
-  while (1) {
-    struct can_frame frame = {0};
-    /* Non-blocking */
-    struct timeval tv = {0, 0};
-    fd_set fds;
-
-    FD_ZERO(&fds);
-    FD_SET(skt, &fds);
-
-    if (select((skt + 1), &fds, NULL, NULL, &tv) < 0) {
-      return 0;
-    }
-
-    if (FD_ISSET(skt, &fds) == 0) {
-      continue;
-    }
-
-    ssize_t ret = read(skt, &frame, sizeof(frame));
-
-    /* Retry if interrupted */
-    if ((ret == -1) && (errno == EINTR)) {
-      continue;
-    } else {
-      assert(count >= frame.can_dlc);
-      memcpy(buffer, frame.data, frame.can_dlc);
-      return frame.can_dlc;
-    }
-  }
-}
-
 static ssize_t fd_read(int fd, void *buffer, size_t count)
 {
   while (1) {
@@ -559,36 +522,6 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
 }
 
 #define MSG_ERROR_SERIAL_FLUSH "Interface %s output buffer is full. Dropping data."
-
-static ssize_t can_write(int fd, const void *buffer, size_t count)
-{
-  struct can_frame frame = {0};
-  frame.can_id = can_id & CAN_SFF_MASK;
-  frame.can_dlc = sizeof(frame.data);
-  if (count < frame.can_dlc) {
-    frame.can_dlc = count;
-  }
-  memcpy(frame.data, buffer, frame.can_dlc);
-
-  while (1) {
-    ssize_t ret = write(fd, &frame, sizeof(frame));
-    /* Retry if interrupted */
-    if ((ret == -1) && (errno == EINTR)) {
-      nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
-      piksi_log(LOG_WARNING, "CAN write interrupted");
-      continue;
-    } else if ((ret < 0) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
-      /* Our output buffer is full and we're in non-blocking mode.
-       * Just silently drop the rest of the output...
-       */
-      nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
-      piksi_log(LOG_WARNING, "CAN write failed");
-      return 0;
-    } else {
-      return frame.can_dlc;
-    }
-  }
-}
 
 static ssize_t fd_write(int fd, const void *buffer, size_t count)
 {
@@ -655,10 +588,7 @@ static int sub_ept_read(const u8 *buff, size_t length, void *context)
 
 static ssize_t handle_read(handle_t *handle, u8 *buffer, size_t count)
 {
-  if (handle->is_can) {
-    return can_read(handle->read_fd, buffer, count);
-
-  } else if (handle->pk_ept != NULL) {
+  if (handle->pk_ept != NULL) {
 
     read_ctx.buffer = buffer;
     read_ctx.size = count;
@@ -689,9 +619,6 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
     }
 
     return count;
-
-  } else if (handle->is_can) {
-    return can_write(handle->write_fd, buffer, count);
 
   } else {
 
@@ -798,7 +725,7 @@ static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *wri
   static uint8_t buffer[READ_BUFFER_SIZE];
   ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
   if (read_count <= 0) {
-    debug_printf("read_count %d errno %s (%d)\n", read_count, strerror(errno), errno);
+    debug_printf("read_count %d\n", read_count);
     pk_loop_stop(loop);
     return;
   }
@@ -889,6 +816,14 @@ static bool handle_loop_status(pk_loop_t *loop, int status)
     pk_loop_stop(loop);
     return false;
   }
+  if (status == LOOP_UNKNOWN) {
+    PK_LOG_ANNO(LOG_WARNING, "loop status unknown");
+    return false;
+  }
+  if (!(status & LOOP_READ)) {
+    PK_LOG_ANNO(LOG_WARNING, "no loop read event");
+    return false;
+  }
   return true;
 }
 
@@ -912,41 +847,8 @@ static void read_fd_cb(pk_loop_t *loop, void *handle, int status, void *context)
   io_loop_pubsub(loop, &loop_ctx.read_handle, &loop_ctx.pub_handle);
 }
 
-int io_loop_start(int read_fd, int write_fd, bool fork_needed)
+int io_loop_run(int read_fd, int write_fd, bool fork_needed)
 {
-  return io_loop_run(read_fd, write_fd, fork_needed, false);
-}
-
-int io_loop_start_can(int read_fd, int write_fd, bool fork_needed)
-{
-  return io_loop_run(read_fd, write_fd, fork_needed, true);
-}
-
-static bool set_non_blocking(int fd)
-{
-  int flags = fcntl(fd, F_GETFL, 0);
-
-  if (flags < 0) {
-    piksi_log(LOG_ERR, "failed to fetch fd flags: %s", strerror(errno));
-    return false;
-  }
-
-  flags |= O_NONBLOCK;
-  fcntl(fd, F_SETFL, &flags);
-
-  return true;
-}
-
-static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
-{
-  if (write_fd != -1) {
-    if (!set_non_blocking(write_fd)) return IO_LOOP_ERROR;
-  }
-
-  if (read_fd != -1) {
-    if (!set_non_blocking(read_fd)) return IO_LOOP_ERROR;
-  }
-
   if (fork_needed) {
     pid_t pid = fork();
     if (pid != 0) {
@@ -969,14 +871,17 @@ static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
 
     loop_ctx.read_fd_handle = pk_loop_poll_add(loop_ctx.loop, read_fd, read_fd_cb, NULL);
 
+    if (loop_ctx.read_fd_handle == NULL) {
+      die_error("pk_loop_poll_add(...) returned NULL");
+    }
+
     if (handle_init(&loop_ctx.pub_handle,
                     loop_ctx.pub_ept,
                     -1,
                     -1,
                     framer_name,
                     filter_in_name,
-                    filter_in_config,
-                    is_can)
+                    filter_in_config)
         != 0) {
       die_error("handle_init for pub returned error");
     }
@@ -987,8 +892,7 @@ static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
                     -1,
                     FRAMER_NONE_NAME,
                     FILTER_NONE_NAME,
-                    NULL,
-                    is_can)
+                    NULL)
         != 0) {
       die_error("handle_init for read_fd returned error\n");
     }
@@ -1010,8 +914,7 @@ static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
                     -1,
                     FRAMER_NONE_NAME,
                     FILTER_NONE_NAME,
-                    NULL,
-                    is_can)
+                    NULL)
         != 0) {
       die_error("handle_init for sub returned error\n");
     }
@@ -1022,8 +925,7 @@ static int io_loop_run(int read_fd, int write_fd, bool fork_needed, bool is_can)
                     write_fd,
                     FRAMER_NONE_NAME,
                     filter_out_name,
-                    filter_out_config,
-                    is_can)
+                    filter_out_config)
         != 0) {
       die_error("handle_init for write_fd returned error\n");
     }

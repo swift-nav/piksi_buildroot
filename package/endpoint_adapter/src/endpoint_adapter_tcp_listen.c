@@ -71,7 +71,7 @@ static void server_loop(int server_fd)
 
     if (client_fd >= 0) {
       int wfd = dup(client_fd);
-      int rc = io_loop_start(client_fd, wfd, /* fork_needed = */ true);
+      int rc = io_loop_run(client_fd, wfd, /* fork_needed = */ true);
       close(client_fd);
       close(wfd);
       client_fd = -1;

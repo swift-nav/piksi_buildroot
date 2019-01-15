@@ -79,7 +79,7 @@ int udp_connect_loop(const char *addr)
       continue;
     }
 
-    io_loop_start(-1, fd, false);
+    io_loop_run(-1, fd, false);
     close(fd);
   }
 }
