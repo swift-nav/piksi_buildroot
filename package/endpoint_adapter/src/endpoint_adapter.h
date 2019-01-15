@@ -41,14 +41,10 @@ int io_loop_start_can(int read_fd, int write_fd, bool fork_needed);
 
 extern bool debug;
 
-#define debug_printf(format, ...)         \
-  if (debug)                              \
-    fprintf(stdout,                       \
-            "[PID %d] %s+%d(%s) " format, \
-            getpid(),                     \
-            __FILE__,                     \
-            __LINE__,                     \
-            __FUNCTION__,                 \
-            ##__VA_ARGS__);
+#define debug_printf(format, ...) { \
+  if (debug)                        \
+    PK_LOG_ANNO(LOG_DEBUG,          \
+                format,             \
+                ##__VA_ARGS__);   }
 
 #endif /* SWIFTNAV_ENDPOINT_ADAPTER_H */

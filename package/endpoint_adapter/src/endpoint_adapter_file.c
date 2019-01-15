@@ -10,9 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+
 #include <unistd.h>
+
+#include <libpiksi/logging.h>
+
 #include "endpoint_adapter.h"
 
 static int is_pipe(const char *file_path)

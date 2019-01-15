@@ -10,6 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <libpiksi/logging.h>
+
 #include "endpoint_adapter.h"
 
 #define CONNECT_RETRY_TIME_s 10
