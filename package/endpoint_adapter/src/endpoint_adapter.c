@@ -432,6 +432,21 @@ static void handle_deinit(handle_t *handle)
     filter_destroy(&handle->filter);
     assert(handle->filter == NULL);
   }
+
+  if (handle->pk_ept != NULL) {
+    pk_endpoint_destroy(&handle->pk_ept);
+    assert(handle->pk_ept == NULL);
+  }
+
+  if (handle->read_fd != -1) {
+    close(handle->read_fd);
+    handle->read_fd  = -1;
+  }
+
+  if (handle->write_fd != -1) {
+    close(handle->write_fd);
+    handle->write_fd  = -1;
+  }
 }
 
 static int handle_init(handle_t *handle,
