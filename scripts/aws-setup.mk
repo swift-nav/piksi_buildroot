@@ -34,4 +34,4 @@ pbr_s3_src = s3-$(1)-$(2)-$(3)
 ##    $(call pbr_s3_cp,$(UPGRADE_TOOL_PREFIX),$(UPGRADE_TOOL_VERSION),$(UPGRADE_TOOL_ASSET))
 ##  Produces:
 ##    aws cp s3://swiftnav-artifacts/piksi_upgrade_tool/v2.2.1/piksiv3/piksi_upgrade_tool.tgz /piksi_buildroot/buildroot/output/dl/s3-piksi_upgrade_tool-v2.2.1-piksi_upgrade_tool.tgz
-pbr_s3_cp = aws s3 cp $(1) $(2)/$(3)
+pbr_s3_cp = (aws s3 cp $(1) $(2)/$(3) || aws s3 cp --no-sign-request $(1) $(2)/$(3))
