@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Swift Navigation Inc.
+ * Copyright (C) 2016-2019 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -79,6 +79,17 @@ PK_METRICS_TABLE(MT, MI,
                    M_AVERAGE_OF(MI,         tx_write_size_total, tx_write_count))
 )
 /* clang-format on */
+
+/* If pk_ept is NULL on the read handle, then we're reading from an external
+ * handle in order to publish to an internal pubsub socket. */
+#define UPDATE_IO_LOOP_METRIC(TheHandle, RxMetricIndex, TxMetricIndex, ...) \
+  {                                                                         \
+    if (TheHandle->pk_ept == NULL) {                                        \
+      PK_METRICS_UPDATE(MR, RxMetricIndex, ##__VA_ARGS__);                  \
+    } else {                                                                \
+      PK_METRICS_UPDATE(MR, TxMetricIndex, ##__VA_ARGS__);                  \
+    }                                                                       \
+  }
 
 typedef enum {
   IO_INVALID,
@@ -715,11 +726,7 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
 
 static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *write_handle)
 {
-  if (read_handle->pk_ept != NULL) {
-    PK_METRICS_UPDATE(MR, MI.tx_read_count);
-  } else {
-    PK_METRICS_UPDATE(MR, MI.rx_read_count);
-  }
+  UPDATE_IO_LOOP_METRIC(read_handle, MI.rx_read_count, MI.tx_read_count);
 
   /* Read from read_handle */
   static uint8_t buffer[READ_BUFFER_SIZE];
@@ -730,11 +737,10 @@ static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *wri
     return;
   }
 
-  if (read_handle->pk_ept != NULL) {
-    PK_METRICS_UPDATE(MR, MI.tx_read_size_total, PK_METRICS_VALUE((u32)read_count));
-  } else {
-    PK_METRICS_UPDATE(MR, MI.rx_read_size_total, PK_METRICS_VALUE((u32)read_count));
-  }
+  UPDATE_IO_LOOP_METRIC(read_handle,
+                        MI.rx_read_size_total,
+                        MI.tx_read_size_total,
+                        PK_METRICS_VALUE((u32)read_count));
 
   /* Write to write_handle via framer */
   size_t frames_written;
@@ -792,7 +798,6 @@ static void setup_metrics()
 
   if (MR == NULL) {
     die_error("error configuring metrics");
-    exit(EXIT_FAILURE);
   }
 }
 
@@ -800,6 +805,8 @@ static void die_error(const char *error)
 {
   piksi_log(LOG_ERR | LOG_SBP, error);
   fprintf(stderr, "%s\n", error);
+
+  logging_deinit();
 
   exit(EXIT_FAILURE);
 }
