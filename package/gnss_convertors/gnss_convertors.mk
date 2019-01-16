@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-GNSS_CONVERTORS_VERSION = 84520335c95cffe0b1bcb300125b8bcdbca47650
+GNSS_CONVERTORS_VERSION = v0.3.73
 GNSS_CONVERTORS_SITE = https://github.com/swift-nav/gnss-converters
 GNSS_CONVERTORS_SITE_METHOD = git
 GNSS_CONVERTORS_INSTALL_STAGING = YES
