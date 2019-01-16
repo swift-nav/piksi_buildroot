@@ -32,7 +32,7 @@
 #define READ 0
 #define WRITE 1
 
-#define BUFFER_SIZE (128) /* CAN frames are a max of 16 bytes, so we don't need much here */
+#define BUFFER_SIZE (4096)
 static uint8_t pipe_read_buffer[BUFFER_SIZE];
 
 static u32 can_filter;
