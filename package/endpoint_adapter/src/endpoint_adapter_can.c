@@ -173,16 +173,6 @@ static void *can_write_thread_handler(void *arg)
 
   for (;;) {
 
-    fd_set fds;
-    FD_ZERO(&fds);
-
-    FD_SET(pctx->write_pipe_fd, &fds);
-
-    if (select((pctx->write_pipe_fd + 1), &fds, NULL, NULL, NULL) < 0) {
-      debug_printf("select failed: %s (%d)", strerror(errno), errno);
-      return 0;
-    }
-
     ssize_t ret = read(pctx->write_pipe_fd, &pipe_read_buffer, sizeof(pipe_read_buffer));
 
     if (ret == 0) {
