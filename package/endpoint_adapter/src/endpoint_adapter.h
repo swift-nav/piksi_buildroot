@@ -40,10 +40,9 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed);
 
 extern bool debug;
 
-#define debug_printf(format, ...) { \
-  if (debug)                        \
-    PK_LOG_ANNO(LOG_DEBUG,          \
-                format,             \
-                ##__VA_ARGS__);   }
+#define debug_printf(format, ...)                             \
+  {                                                           \
+    if (debug) PK_LOG_ANNO(LOG_DEBUG, format, ##__VA_ARGS__); \
+  }
 
 #endif /* SWIFTNAV_ENDPOINT_ADAPTER_H */

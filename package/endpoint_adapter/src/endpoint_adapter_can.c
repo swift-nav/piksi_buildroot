@@ -50,7 +50,7 @@ typedef struct {
 static void *can_read_thread_handler(void *arg)
 {
   piksi_log(LOG_DEBUG, "CAN read thread starting...");
-  read_thread_context_t* pctx = (read_thread_context_t *)arg;
+  read_thread_context_t *pctx = (read_thread_context_t *)arg;
 
   for (;;) {
 
@@ -156,8 +156,7 @@ static ssize_t can_write_all(int fd, const void *buffer, size_t count)
 {
   uint32_t buffer_index = 0;
   while (buffer_index < count) {
-    ssize_t write_count =
-      can_write(fd, &((uint8_t *)buffer)[buffer_index], count - buffer_index);
+    ssize_t write_count = can_write(fd, &((uint8_t *)buffer)[buffer_index], count - buffer_index);
     if (write_count < 0) {
       return write_count;
     }
@@ -169,7 +168,7 @@ static ssize_t can_write_all(int fd, const void *buffer, size_t count)
 static void *can_write_thread_handler(void *arg)
 {
   piksi_log(LOG_DEBUG, "CAN write thread starting...");
-  write_thread_context_t* pctx = (write_thread_context_t *)arg;
+  write_thread_context_t *pctx = (write_thread_context_t *)arg;
 
   for (;;) {
 
@@ -245,18 +244,18 @@ int can_loop(const char *can_name, u32 can_filter_in)
       return 1;
     }
 
-    if (fcntl(socket_can, F_SETFL, flags &~ O_NONBLOCK) < 0) {
+    if (fcntl(socket_can, F_SETFL, flags & ~O_NONBLOCK) < 0) {
       piksi_log(LOG_ERR, "failed CAN flag set");
     }
 
-    int pipe_from_can[2] = { -1, -1 };
+    int pipe_from_can[2] = {-1, -1};
 
     if (pipe2(pipe_from_can, O_DIRECT) < 0) {
       piksi_log(LOG_ERR, "failed to create CAN read pipe: %s (%d)", strerror(errno), errno);
       return 1;
     }
 
-    int pipe_to_can[2] = { -1, -1 };
+    int pipe_to_can[2] = {-1, -1};
 
     if (pipe2(pipe_to_can, O_DIRECT) < 0) {
       piksi_log(LOG_ERR, "failed to create CAN write pipe: %s (%d)", strerror(errno), errno);

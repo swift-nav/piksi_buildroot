@@ -437,12 +437,12 @@ static void handle_deinit(handle_t *handle)
 
   if (handle->read_fd != -1) {
     close(handle->read_fd);
-    handle->read_fd  = -1;
+    handle->read_fd = -1;
   }
 
   if (handle->write_fd != -1) {
     close(handle->write_fd);
-    handle->write_fd  = -1;
+    handle->write_fd = -1;
   }
 }
 
