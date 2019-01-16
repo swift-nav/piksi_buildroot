@@ -58,7 +58,7 @@ static const u32 endpoint_addr_config[NUM_ENDPOINTS] = {
 
 struct ept_params {
   dev_t dev;
-  u32 addr;
+  struct rpmsg_channel_info channel_info;
   struct cdev cdev;
   struct device *device;
   /* mutex used to protect rx_fifo and rx_wait_queue */
@@ -69,7 +69,7 @@ struct ept_params {
   struct mutex tx_rpmsg_lock;
   char tx_buff[TX_BUFF_SIZE];
   /* rpmsg parameters */
-  struct rpmsg_channel *rpmsg_chnl;
+  struct rpmsg_device *rpmsg_dev;
   struct rpmsg_endpoint *rpmsg_ept;
   bool rpmsg_ready;
 };
@@ -132,7 +132,7 @@ static ssize_t ept_cdev_write(struct file *p_file,
     }
 
     /* TODO: support non-blocking write */
-    retval = rpmsg_sendto(ept_params->rpmsg_chnl, ept_params->tx_buff, size, ept_params->addr);
+    retval = rpmsg_sendto(ept_params->rpmsg_ept, ept_params->tx_buff, size, ept_params->channel_info.dst);
 
     if (retval) {
       dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n", size, retval);
@@ -263,15 +263,16 @@ static const struct file_operations ept_cdev_fops = {
   .release = ept_cdev_release,
 };
 
-static void ept_rpmsg_default_cb(struct rpmsg_channel *rpdev,
+static int ept_rpmsg_default_cb(struct rpmsg_device *___rpdev,
                                  void *data,
                                  int len,
                                  void *priv,
                                  u32 src)
 {
+    return 0;
 }
 
-static void ept_rpmsg_cb(struct rpmsg_channel *rpdev, void *data, int len, void *priv, u32 src)
+static int ept_rpmsg_cb(struct rpmsg_device *___rpdev, void *data, int len, void *priv, u32 src)
 {
   struct ept_params *ept_params = priv;
   int len_in;
@@ -279,22 +280,24 @@ static void ept_rpmsg_cb(struct rpmsg_channel *rpdev, void *data, int len, void 
   /* Do not write zero-length records to the FIFO, as this would
    * cause read() to return zero, aka EOF */
   if (len == 0) {
-    dev_info(&rpdev->dev, "Dropping zero-length message.\n");
-    return;
+    dev_info(&___rpdev->dev, "Dropping zero-length message.\n");
+    return 0;
   }
 
   len_in = kfifo_in(&ept_params->rx_fifo, data, (unsigned int)len);
   if (len_in != len) {
     /* There was no space for incoming data */
-    return;
+    return 0;
   }
 
   /* Wake up any blocking contexts waiting for data */
   wake_up_interruptible(&ept_params->rx_wait_queue);
+
+  return 0;
 }
 
-static int drv_probe(struct rpmsg_channel *rpdev);
-static void drv_remove(struct rpmsg_channel *rpdev);
+static int drv_probe(struct rpmsg_device *___rpdev);
+static void drv_remove(struct rpmsg_device *___rpdev);
 
 static const struct rpmsg_device_id rpmsg_dev_id_table[] = {
   {.name = CHANNEL_NAME},
@@ -310,7 +313,7 @@ static struct rpmsg_driver rpmsg_driver = {
   .callback = ept_rpmsg_default_cb,
 };
 
-static int ept_rpmsg_setup(struct ept_params *ept_params, struct rpmsg_channel *rpdev)
+static int ept_rpmsg_setup(struct ept_params *ept_params, struct rpmsg_device *___rpdev)
 {
   int retval;
 
@@ -320,13 +323,13 @@ static int ept_rpmsg_setup(struct ept_params *ept_params, struct rpmsg_channel *
     return retval;
   }
 
-  ept_params->rpmsg_chnl = rpdev;
+  ept_params->rpmsg_dev = ___rpdev;
 
   /* Create rpmsg endpoint */
   ept_params->rpmsg_ept =
-    rpmsg_create_ept(ept_params->rpmsg_chnl, ept_rpmsg_cb, ept_params, ept_params->addr);
+    rpmsg_create_ept(ept_params->rpmsg_dev, ept_rpmsg_cb, ept_params, ept_params->channel_info);
   if (ept_params->rpmsg_ept == NULL) {
-    dev_err(&rpdev->dev, "Failed to create rpmsg endpoint.\n");
+    dev_err(&___rpdev->dev, "Failed to create rpmsg endpoint.\n");
     retval = -ENODEV;
     goto done_locked;
   }
@@ -353,7 +356,9 @@ static void ept_rpmsg_remove(struct ept_params *ept_params)
 static int ept_cdev_setup(struct ept_params *ept_params, dev_t dev, u32 addr)
 {
   ept_params->dev = dev;
-  ept_params->addr = addr;
+  ept_params->channel_info.src = addr;
+  ept_params->channel_info.dst = addr;
+  snprintf(ept_params->channel_info.name, sizeof(ept_params->channel_info.name), DEV_CLASS_NAME "%u", addr);
   ept_params->rpmsg_ready = false;
 
   /* Initialize mutexes */
@@ -376,7 +381,7 @@ static int ept_cdev_setup(struct ept_params *ept_params, dev_t dev, u32 addr)
 
   /* Create device */
   ept_params->device =
-    device_create(dev_class, NULL, ept_params->dev, NULL, DEV_CLASS_NAME "%u", ept_params->addr);
+    device_create(dev_class, NULL, ept_params->dev, NULL, DEV_CLASS_NAME "%u", ept_params->channel_info.src);
   if (ept_params->device == NULL) {
     printk(KERN_ERR "Failed to create device.\n");
     goto error1;
@@ -407,28 +412,28 @@ static void ept_cdevs_remove(struct dev_params *dev_params)
   }
 }
 
-static void startup_message_send(struct rpmsg_channel *rpdev)
+static void startup_message_send(struct rpmsg_device *___rpdev)
 {
   char msg[] = "startup";
-  rpmsg_send(rpdev, msg, strlen(msg));
+  rpmsg_send(___rpdev->ept, msg, strlen(msg));
 }
 
-static int drv_probe(struct rpmsg_channel *rpdev)
+static int drv_probe(struct rpmsg_device *___rpdev)
 {
   int i;
   int status;
 
   if (probed) {
-    dev_err(&rpdev->dev, "Already attached.\n");
+    dev_err(&___rpdev->dev, "Already attached.\n");
     return -ENODEV;
   }
   probed = true;
 
-  dev_set_drvdata(&rpdev->dev, dev_params);
+  dev_set_drvdata(&___rpdev->dev, dev_params);
 
   /* Create and attach rpmsg endpoints */
   for (i = 0; i < NUM_ENDPOINTS; i++) {
-    status = ept_rpmsg_setup(&dev_params->epts[i], rpdev);
+    status = ept_rpmsg_setup(&dev_params->epts[i], ___rpdev);
     if (status) {
       /* Remove any endpoints that were successfully set up */
       while (--i >= 0) {
@@ -438,15 +443,15 @@ static int drv_probe(struct rpmsg_channel *rpdev)
     }
   }
 
-  startup_message_send(rpdev);
+  startup_message_send(___rpdev);
 
   return 0;
 }
 
-static void drv_remove(struct rpmsg_channel *rpdev)
+static void drv_remove(struct rpmsg_device *___rpdev)
 {
   int i;
-  struct dev_params *dev_params = dev_get_drvdata(&rpdev->dev);
+  struct dev_params *dev_params = dev_get_drvdata(&___rpdev->dev);
 
   for (i = 0; i < NUM_ENDPOINTS; i++) {
     ept_rpmsg_remove(&dev_params->epts[i]);
