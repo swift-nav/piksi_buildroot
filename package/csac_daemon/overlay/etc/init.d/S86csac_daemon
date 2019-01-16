@@ -1,0 +1,36 @@
+#!/bin/sh
+
+CSAC_PORT="/dev/ttyPS0"
+name="csac_daemon"
+cmd="csac_daemon --serial-port $CSAC_PORT"
+dir="/"
+log_tag=$name # to use logw
+source /etc/init.d/logging.sh # to use logw
+setup_loggers # to use logw
+user="portsd" #use ports daemon to share UART0
+
+DIR_PERM=0755
+FILE_PERM=0644
+FLAGS_DIR="/persistent/flags"
+
+# We make directory here no matter what
+
+mkdir -p $FLAGS_DIR
+
+setup_permissions() {
+    # Force device ownership
+    chown $user:$user ${CSAC_PORT}*
+    configure_dir_resource_rec fileio "$FLAGS_DIR" "$DIR_PERM" "$FILE_PERM"
+}
+
+# make sure that we have a CSAC license file
+if [ -f /persistent/flags/csac ]; then
+  port_mode="$(query_config --section uart0 --key mode)"
+  telem_enabled="$(query_config --section csac --key telemetry_enabled)"
+  if [[ "$telem_enabled" == "True" ]]; then 
+    if [[ "$port_mode"  != "Disabled" ]]; then
+    loge --sbp "UART0 must be disabled for CSAC telemetry."
+    fi
+  fi
+  source /etc/init.d/template_runsv.inc.sh
+fi

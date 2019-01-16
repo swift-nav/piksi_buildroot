@@ -18,6 +18,7 @@
 #include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/loop.h>
 #include <libpiksi/settings_client.h>
+#include <libpiksi/serial_utils.h>
 
 #include <libsbp/sbp.h>
 #include <libsbp/piksi.h>
@@ -40,7 +41,7 @@ u8 *command_string = NULL;
 
 struct cell_modem_ctx_s {
   sbp_pubsub_ctx_t *sbp_ctx;
-  at_serial_port_t *port;
+  serial_port_t *port;
 };
 
 static void usage(char *command)
@@ -142,7 +143,7 @@ static void cell_status_timer_callback(pk_loop_t *loop,
 static int cleanup(pk_loop_t **pk_loop_loc,
                    pk_settings_ctx_t **settings_ctx_loc,
                    sbp_pubsub_ctx_t **pubsub_ctx_loc,
-                   at_serial_port_t **port_loc,
+                   serial_port_t **port_loc,
                    int status);
 
 int main(int argc, char *argv[])
@@ -150,7 +151,7 @@ int main(int argc, char *argv[])
   pk_loop_t *loop = NULL;
   pk_settings_ctx_t *settings_ctx = NULL;
   sbp_pubsub_ctx_t *ctx = NULL;
-  at_serial_port_t *port = NULL;
+  serial_port_t *port = NULL;
   struct cell_modem_ctx_s cell_modem_ctx = {.sbp_ctx = NULL, .port = NULL};
 
   logging_init(PROGRAM_NAME);
@@ -161,7 +162,7 @@ int main(int argc, char *argv[])
     exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
   }
 
-  port = at_serial_port_create((char *)port_name);
+  port = serial_port_create((char *)port_name);
   if (port == NULL) {
     exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
   }
@@ -221,7 +222,7 @@ int main(int argc, char *argv[])
 static int cleanup(pk_loop_t **pk_loop_loc,
                    pk_settings_ctx_t **settings_ctx_loc,
                    sbp_pubsub_ctx_t **pubsub_ctx_loc,
-                   at_serial_port_t **port_loc,
+                   serial_port_t **port_loc,
                    int status)
 {
   cell_modem_deinit();
@@ -230,7 +231,7 @@ static int cleanup(pk_loop_t **pk_loop_loc,
     sbp_pubsub_destroy(pubsub_ctx_loc);
   }
   pk_settings_destroy(settings_ctx_loc);
-  at_serial_port_destroy(port_loc);
+  serial_port_destroy(port_loc);
   logging_deinit();
 
   return status;

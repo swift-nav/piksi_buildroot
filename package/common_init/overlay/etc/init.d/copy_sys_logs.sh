@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/sh
 
 log_tag=copy_sys_logs
 
@@ -52,7 +52,7 @@ cleanup_rsync()
   [[ -z "$rsync_pid" ]] || kill "$rsync_pid"
 }
 
-trap 'cleanup_loggers; cleanup_rsync; exit 0' EXIT TERM STOP HUP INT
+trap 'cleanup_loggers; cleanup_rsync; exit 0' EXIT TERM HUP INT
 
 mkdir "$log_dir_n"
 

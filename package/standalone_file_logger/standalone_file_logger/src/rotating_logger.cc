@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/syslog.h>
+#include <sys/stat.h>
 
 /*
  * Name format: xxxx-yyyyy.sbp
@@ -116,7 +117,11 @@ bool RotatingLogger::open_new_file()
   }
   sprintf(log_name_buf, "%04lu-%05lu%s", _session_count, _minute_count, LOG_SUFFIX.c_str());
 
-  _cur_file = fopen((_out_dir + "/" + log_name_buf).c_str(), "wb");
+  mode_t mode = umask(0111);
+  int fd = open((_out_dir + "/" + log_name_buf).c_str(), O_CREAT | O_WRONLY, 0666);
+
+  _cur_file = fdopen(fd, "w");
+  umask(mode);
 
   if (_cur_file != nullptr && ferror(_cur_file) != 0) {
     fclose(_cur_file);

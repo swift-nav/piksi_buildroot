@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# initialize factory data
+#
+
+export_gpio()
+{
+  echo $1 > /sys/class/gpio/export
+  echo $2 > /sys/class/gpio/gpio$1/direction
+  ln -s /sys/class/gpio/gpio$1/value $3
+}
+
+case "$1" in
+  start)
+
+  mkdir -p /dev/gc
+  export_gpio 129 out /dev/gc/mems_osc_oe
+  echo 1 > /dev/gc/mems_osc_oe
+
+  mkdir -p /dev/gc/a
+  export_gpio 2  out /dev/gc/a/pwr_en
+  export_gpio 86 out /dev/gc/a/eclk_en
+  export_gpio 85 out /dev/gc/a/nstandby
+  export_gpio 90 in  /dev/gc/a/ant_fault
+  echo 1 > /dev/gc/a/eclk_en
+  echo 1 > /dev/gc/a/pwr_en
+
+  mkdir -p /dev/gc/b
+  export_gpio 4  out /dev/gc/b/pwr_en
+  export_gpio 84 out /dev/gc/b/eclk_en
+  export_gpio 75 out /dev/gc/b/nstandby
+  export_gpio 64 in  /dev/gc/b/ant_fault
+  echo 1 > /dev/gc/b/eclk_en
+  echo 1 > /dev/gc/b/pwr_en
+
+  ;;
+  stop)
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?
