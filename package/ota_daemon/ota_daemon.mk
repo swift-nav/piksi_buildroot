@@ -4,6 +4,8 @@
 #
 ################################################################################
 
+ifeq ($(BR2_PACKAGE_OTA_DAEMON),y)
+
 OTA_DAEMON_VERSION = 0.1
 OTA_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/ota_daemon"
@@ -25,3 +27,5 @@ endef
 BR2_ROOTFS_OVERLAY += "${OTA_DAEMON_SITE}/overlay"
 
 $(eval $(generic-package))
+
+endif
