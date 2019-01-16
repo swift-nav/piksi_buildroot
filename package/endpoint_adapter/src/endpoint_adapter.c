@@ -629,7 +629,6 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
     }
 
     return count;
-
   }
 
   PK_METRICS_UPDATE(MR, MI.tx_write_count);
