@@ -4,6 +4,8 @@
 #
 ################################################################################
 
+ifeq ($(BR2_PACKAGE_SBP_FILEIO_DAEMON),y)
+
 SBP_FILEIO_DAEMON_VERSION = 0.1
 SBP_FILEIO_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_fileio_daemon/sbp_fileio_daemon"
@@ -54,4 +56,9 @@ define SBP_FILEIO_DAEMON_INSTALL_TARGET_CMDS
 	$(SBP_FILEIO_DAEMON_INSTALL_TARGET_CMDS_TESTS)
 endef
 
+SBP_FILEIO_DAEMON_OVERLAY = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_fileio_daemon/overlay"
+BR2_ROOTFS_OVERLAY += "${SBP_FILEIO_DAEMON_OVERLAY}"
+
 $(eval $(generic-package))
+
+endif
