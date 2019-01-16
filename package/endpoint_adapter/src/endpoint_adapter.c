@@ -612,10 +612,9 @@ static ssize_t handle_read(handle_t *handle, u8 *buffer, size_t count)
     }
 
     return read_ctx.fill;
-
-  } else {
-    return fd_read(handle->read_fd, buffer, count);
   }
+
+  return fd_read(handle->read_fd, buffer, count);
 }
 
 static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
@@ -631,13 +630,12 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 
     return count;
 
-  } else {
-
-    PK_METRICS_UPDATE(MR, MI.tx_write_count);
-    PK_METRICS_UPDATE(MR, MI.tx_write_size_total, PK_METRICS_VALUE((u32)count));
-
-    return fd_write(handle->write_fd, buffer, count);
   }
+
+  PK_METRICS_UPDATE(MR, MI.tx_write_count);
+  PK_METRICS_UPDATE(MR, MI.tx_write_size_total, PK_METRICS_VALUE((u32)count));
+
+  return fd_write(handle->write_fd, buffer, count);
 }
 
 static ssize_t handle_write_all(handle_t *handle, const void *buffer, size_t count)
