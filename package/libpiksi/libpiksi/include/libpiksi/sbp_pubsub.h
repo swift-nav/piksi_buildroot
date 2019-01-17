@@ -57,6 +57,8 @@ typedef struct sbp_pubsub_ctx_s sbp_pubsub_ctx_t;
  */
 sbp_pubsub_ctx_t *sbp_pubsub_create(const char *ident, const char *pub_ept, const char *sub_ept);
 
+sbp_pubsub_ctx_t *sbp_pubsub_create_server(const char *ident, const char *pub_ept, const char *sub_ept);
+
 /**
  * @brief   Destroy an SBP PUB/SUB context.
  * @details Deinitialize and destroy an SBP PUB/SUB context.

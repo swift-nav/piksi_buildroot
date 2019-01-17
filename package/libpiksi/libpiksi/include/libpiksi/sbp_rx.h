@@ -44,6 +44,8 @@ typedef struct sbp_rx_ctx_s sbp_rx_ctx_t;
  */
 sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint);
 
+sbp_rx_ctx_t *sbp_rx_create_server(const char *ident, const char *endpoint);
+
 /**
  * @brief   Destroy an SBP RX context.
  * @details Deinitialize and destroy an SBP RX context.

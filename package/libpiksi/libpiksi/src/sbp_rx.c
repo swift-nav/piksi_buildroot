@@ -60,7 +60,7 @@ static const char *get_socket_ident(const char *ident)
   return buffer;
 }
 
-sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
+static sbp_rx_ctx_t *sbp_rx_create_impl(const char *ident, const char *endpoint, bool server)
 {
   assert(endpoint != NULL);
 
@@ -73,7 +73,7 @@ sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
   pk_endpoint_config_t cfg = (pk_endpoint_config_t){
     .endpoint = endpoint,
     .identity = get_socket_ident(ident),
-    .type = PK_ENDPOINT_SUB,
+    .type = server ? PK_ENDPOINT_SUB_SERVER : PK_ENDPOINT_SUB,
     .retry_connect = false,
   };
 
@@ -101,6 +101,16 @@ sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
 failure:
   sbp_rx_destroy(&ctx);
   return NULL;
+}
+
+sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
+{
+  return sbp_rx_create_impl(ident, endpoint, false);
+}
+
+sbp_rx_ctx_t *sbp_rx_create_server(const char *ident, const char *endpoint)
+{
+  return sbp_rx_create_impl(ident, endpoint, true);
 }
 
 void sbp_rx_destroy(sbp_rx_ctx_t **ctx_loc)
@@ -186,6 +196,8 @@ int sbp_rx_attach(sbp_rx_ctx_t *ctx, pk_loop_t *pk_loop)
 
   ctx->reader_handle =
     pk_loop_endpoint_reader_add(pk_loop, ctx->pk_ept, rx_ctx_reader_loop_callback, ctx);
+
+  pk_endpoint_loop_add(ctx->pk_ept, pk_loop);
 
   if (ctx->reader_handle == NULL) {
     piksi_log(LOG_ERR, "error adding rx_ctx reader to loop");

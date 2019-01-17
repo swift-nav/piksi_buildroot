@@ -28,6 +28,7 @@ static path_validator_t *g_pv_ctx = NULL;
 static bool allow_factory_mtd = false;
 static bool allow_imageset_bin = false;
 static bool print_usage = false;
+static bool pubsub_server = false;
 
 static void usage(char *command);
 static int parse_options(int argc, char *argv[]);
@@ -71,13 +72,14 @@ static int parse_options(int argc, char *argv[])
     {"debug",    no_argument,       0, 'd'},
     {"nocache",  no_argument,       0, 'x'},
     {"help",     no_argument,       0, 'h'},
+    {"server",   no_argument,       0, 'r'},
     {0, 0, 0, 0}
   };
   // clang-format on
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "n:p:s:b:midxh", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "n:p:s:b:midxhr", long_opts, &opt_index)) != -1) {
     switch (c) {
 
     case 'n': {
@@ -117,6 +119,10 @@ static int parse_options(int argc, char *argv[])
 
     case 'x': {
       no_cache = true;
+    } break;
+
+    case 'r': {
+      pubsub_server = true;
     } break;
 
     default: {
@@ -208,13 +214,17 @@ int main(int argc, char *argv[])
 
   snprintf_assert(identity, sizeof(identity), "%s/%s", PROGRAM_NAME, sbp_fileio_name);
 
-  ctx = sbp_pubsub_create(identity, pub_endpoint, sub_endpoint);
+  ctx = pubsub_server ? sbp_pubsub_create_server(identity, pub_endpoint, sub_endpoint) : sbp_pubsub_create(identity, pub_endpoint, sub_endpoint);
   if (ctx == NULL) {
     goto cleanup;
   }
 
   loop = pk_loop_create();
   if (loop == NULL) {
+    goto cleanup;
+  }
+
+  if (sbp_tx_attach(sbp_pubsub_tx_ctx_get(ctx), loop) != 0) {
     goto cleanup;
   }
 
