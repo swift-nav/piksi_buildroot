@@ -59,7 +59,7 @@ static const char *get_socket_ident(const char *ident)
   return buffer;
 }
 
-static sbp_tx_ctx_t *sbp_tx_create_impl(const char *ident, const char *endpoint, bool server)
+sbp_tx_ctx_t *sbp_tx_create(const char *ident, const char *endpoint)
 {
   assert(endpoint != NULL);
 
@@ -72,7 +72,7 @@ static sbp_tx_ctx_t *sbp_tx_create_impl(const char *ident, const char *endpoint,
   pk_endpoint_config_t cfg = (pk_endpoint_config_t){
     .endpoint = endpoint,
     .identity = get_socket_ident(ident),
-    .type = server ? PK_ENDPOINT_PUB_SERVER : PK_ENDPOINT_PUB,
+    .type = PK_ENDPOINT_PUB,
     .retry_connect = false,
   };
 
@@ -94,16 +94,6 @@ failure:
   return NULL;
 }
 
-sbp_tx_ctx_t *sbp_tx_create(const char *ident, const char *endpoint)
-{
-  return sbp_tx_create_impl(ident, endpoint, false);
-}
-
-sbp_tx_ctx_t *sbp_tx_create_server(const char *ident, const char *endpoint)
-{
-  return sbp_tx_create_impl(ident, endpoint, true);
-}
-
 void sbp_tx_destroy(sbp_tx_ctx_t **ctx_loc)
 {
   if (ctx_loc == NULL || *ctx_loc == NULL) {
@@ -113,16 +103,6 @@ void sbp_tx_destroy(sbp_tx_ctx_t **ctx_loc)
   pk_endpoint_destroy(&ctx->pk_ept);
   free(ctx);
   *ctx_loc = NULL;
-}
-
-int sbp_tx_attach(sbp_tx_ctx_t *ctx, pk_loop_t *pk_loop)
-{
-  assert(ctx != NULL);
-  assert(pk_loop != NULL);
-
-  pk_endpoint_loop_add(ctx->pk_ept, pk_loop);
-
-  return 0;
 }
 
 int sbp_tx_send(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload)

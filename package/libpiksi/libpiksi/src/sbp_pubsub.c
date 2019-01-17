@@ -19,7 +19,7 @@ struct sbp_pubsub_ctx_s {
   sbp_rx_ctx_t *rx_ctx;
 };
 
-static sbp_pubsub_ctx_t *sbp_pubsub_create_impl(const char *ident, const char *pub_ept, const char *sub_ept, bool server)
+sbp_pubsub_ctx_t *sbp_pubsub_create(const char *ident, const char *pub_ept, const char *sub_ept)
 {
   assert(pub_ept != NULL);
   assert(sub_ept != NULL);
@@ -30,13 +30,13 @@ static sbp_pubsub_ctx_t *sbp_pubsub_create_impl(const char *ident, const char *p
     goto failure;
   }
 
-  ctx->tx_ctx = server ? sbp_tx_create_server(ident, pub_ept) : sbp_tx_create(ident, pub_ept);
+  ctx->tx_ctx = sbp_tx_create(ident, pub_ept);
   if (ctx->tx_ctx == NULL) {
     piksi_log(LOG_ERR, "error creating SBP TX context");
     goto failure;
   }
 
-  ctx->rx_ctx = server ? sbp_rx_create_server(ident, sub_ept) : sbp_rx_create(ident, sub_ept);
+  ctx->rx_ctx = sbp_rx_create(ident, sub_ept);
   if (ctx->rx_ctx == NULL) {
     piksi_log(LOG_ERR, "error creating SBP RX context");
     goto failure;
@@ -47,16 +47,6 @@ static sbp_pubsub_ctx_t *sbp_pubsub_create_impl(const char *ident, const char *p
 failure:
   sbp_pubsub_destroy(&ctx);
   return NULL;
-}
-
-sbp_pubsub_ctx_t *sbp_pubsub_create(const char *ident, const char *pub_ept, const char *sub_ept)
-{
-  return sbp_pubsub_create_impl(ident, pub_ept, sub_ept, false);
-}
-
-sbp_pubsub_ctx_t *sbp_pubsub_create_server(const char *ident, const char *pub_ept, const char *sub_ept)
-{
-  return sbp_pubsub_create_impl(ident, pub_ept, sub_ept, true);
 }
 
 void sbp_pubsub_destroy(sbp_pubsub_ctx_t **ctx_loc)

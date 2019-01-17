@@ -50,8 +50,6 @@ typedef struct sbp_tx_ctx_s sbp_tx_ctx_t;
  */
 sbp_tx_ctx_t *sbp_tx_create(const char *ident, const char *endpoint);
 
-sbp_tx_ctx_t *sbp_tx_create_server(const char *ident, const char *endpoint);
-
 /**
  * @brief   Destroy an SBP TX context.
  * @details Deinitialize and destroy an SBP TX context.
@@ -61,8 +59,6 @@ sbp_tx_ctx_t *sbp_tx_create_server(const char *ident, const char *endpoint);
  * @param[inout] ctx_loc    Double pointer to the context to destroy.
  */
 void sbp_tx_destroy(sbp_tx_ctx_t **ctx_loc);
-
-int sbp_tx_attach(sbp_tx_ctx_t *ctx, pk_loop_t *pk_loop);
 
 /**
  * @brief   Send an SBP message.
