@@ -82,12 +82,9 @@ ports:
           - { action: REJECT, prefix: [0x55, 0xA5, 0x00] } # Settings read response
           - { action: ACCEPT }
       - dst_port: SBP_PORT_FILEIO_EXTERNAL
+        skip_framer: true # Whole "blobs" are copied to the port before being deframed
         filters:
-          - { action: ACCEPT, prefix: [0x55, 0xA8, 0x00] } # File read
-          - { action: ACCEPT, prefix: [0x55, 0xA9, 0x00] } # File read dir
-          - { action: ACCEPT, prefix: [0x55, 0xAC, 0x00] } # File reamove
-          - { action: ACCEPT, prefix: [0x55, 0xAD, 0x00] } # File write
-          - { action: REJECT }
+          - { action: ACCEPT }
       - dst_port: SBP_PORT_INTERNAL
         filters:
           - { action: ACCEPT }
