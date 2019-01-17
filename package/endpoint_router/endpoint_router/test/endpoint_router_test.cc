@@ -245,7 +245,7 @@ TEST_F(EndpointRouterTests, DedupeRulePrefixes)
     (pk_endpoint_t **)calloc(rule_cache.rule_count, sizeof(pk_endpoint_t *));
 
   port_t *port = &r->ports_list[0];
-  rule_prefixes_t *rule_prefixes = extract_rule_prefixes(port, &rule_cache);
+  rule_prefixes_t *rule_prefixes = extract_rule_prefixes(NULL, port, &rule_cache);
 
   EXPECT_NE(rule_prefixes, nullptr);
   EXPECT_EQ(rule_prefixes->count, 5);
