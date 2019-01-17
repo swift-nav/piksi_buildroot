@@ -162,10 +162,12 @@ static struct {
   u8 *buffer;
   size_t fill;
   size_t size;
+  size_t oflow;
 } read_ctx = {
   .buffer = NULL,
   .fill = 0,
   .size = 0,
+  .oflow = 0,
 };
 
 static bool retry_pubsub = false;
@@ -581,28 +583,29 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
 
 static int sub_ept_read(const u8 *buff, size_t length, void *context)
 {
-  if (length > read_ctx.size) {
+  int status = 0;
+  size_t space = read_ctx.size - read_ctx.fill;
 
-    PK_LOG_ANNO(LOG_ERR | LOG_SBP,
-                "received more data we can ingest, dropping %zu bytes",
-                (length - read_ctx.size));
-
-    length = read_ctx.size;
+  if (length > space) {
+    assert(length <= read_ctx.oflow);
+    status = -1; /* terminate reads */
   }
 
-  memcpy(read_ctx.buffer, buff, length);
+  memcpy(&read_ctx.buffer[read_ctx.fill], buff, length);
   read_ctx.fill += length;
 
-  /* Return -1 to terminate the read loop, only read one packet */
-  return -1;
+  return status;
 }
 
 static ssize_t handle_read(handle_t *handle, u8 *buffer, size_t count)
 {
+  assert(count > PK_ENDPOINT_RECV_BUF_SIZE);
+
   if (handle->pk_ept != NULL) {
 
     read_ctx.buffer = buffer;
-    read_ctx.size = count;
+    read_ctx.size = count - PK_ENDPOINT_RECV_BUF_SIZE;
+    read_ctx.oflow = PK_ENDPOINT_RECV_BUF_SIZE;
     read_ctx.fill = 0;
 
     int rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
@@ -726,7 +729,7 @@ static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *wri
   UPDATE_IO_LOOP_METRIC(read_handle, MI.rx_read_count, MI.tx_read_count);
 
   /* Read from read_handle */
-  static uint8_t buffer[READ_BUFFER_SIZE];
+  uint8_t buffer[READ_BUFFER_SIZE];
   ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
   if (read_count <= 0) {
     debug_printf("read_count %d\n", read_count);
