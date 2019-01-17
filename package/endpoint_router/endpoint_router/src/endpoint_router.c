@@ -40,20 +40,26 @@ static pk_metrics_t *router_metrics = NULL;
 /* clang-format off */
 PK_METRICS_TABLE(message_metrics_table, MI,
 
-  PK_METRICS_ENTRY("message/count",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
-  PK_METRICS_ENTRY("message/size",     ".total",      M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  size_total),
-  PK_METRICS_ENTRY("message/size",     "per_second",  M_U32,   M_UPDATE_AVERAGE, M_RESET_DEF,  size,
-                   M_AVERAGE_OF(MI,    size_total,    count)),
-  PK_METRICS_ENTRY("message/wake_ups", "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups),
-  PK_METRICS_ENTRY("message/wake_ups", "max",         M_U32,   M_UPDATE_MAX,     M_RESET_DEF,  wakeups_max),
-  PK_METRICS_ENTRY("message/wake_ups", ".total",      M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups_message_count),
-  PK_METRICS_ENTRY("message/latency",  "max",         M_TIME,  M_UPDATE_MAX,     M_RESET_DEF,  latency_max),
-  PK_METRICS_ENTRY("message/latency",  ".delta",      M_TIME,  M_UPDATE_DELTA,   M_RESET_TIME, latency_delta),
-  PK_METRICS_ENTRY("message/latency",  ".total",      M_TIME,  M_UPDATE_SUM,     M_RESET_DEF,  latency_total),
-  PK_METRICS_ENTRY("message/latency",  "per_second",  M_TIME,  M_UPDATE_AVERAGE, M_RESET_DEF,  latency,
-                   M_AVERAGE_OF(MI,    latency_total, count)),
-  PK_METRICS_ENTRY("frame/count",      "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
-  PK_METRICS_ENTRY("frame/leftover",   "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers)
+  PK_METRICS_ENTRY("skip_framer/message/count",        "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  skip_framer_count),
+  PK_METRICS_ENTRY("skip_framer/message/total_bypass", "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  skip_framer_bypass),
+
+  PK_METRICS_ENTRY("message/count",     "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
+  PK_METRICS_ENTRY("message/size",      ".total",      M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  size_total),
+  PK_METRICS_ENTRY("message/size",      "per_second",  M_U32,   M_UPDATE_AVERAGE, M_RESET_DEF,  size,
+                   M_AVERAGE_OF(MI,     size_total,    count)),
+  PK_METRICS_ENTRY("message/wake_ups",  "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups),
+  PK_METRICS_ENTRY("message/wake_ups",  "max",         M_U32,   M_UPDATE_MAX,     M_RESET_DEF,  wakeups_max),
+  PK_METRICS_ENTRY("message/wake_ups",  ".total",      M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups_message_count),
+  PK_METRICS_ENTRY("message/latency",   "max",         M_TIME,  M_UPDATE_MAX,     M_RESET_DEF,  latency_max),
+  PK_METRICS_ENTRY("message/latency",   ".delta",      M_TIME,  M_UPDATE_DELTA,   M_RESET_TIME, latency_delta),
+  PK_METRICS_ENTRY("message/latency",   ".total",      M_TIME,  M_UPDATE_SUM,     M_RESET_DEF,  latency_total),
+  PK_METRICS_ENTRY("message/latency",   "per_second",  M_TIME,  M_UPDATE_AVERAGE, M_RESET_DEF,  latency,
+                   M_AVERAGE_OF(MI,     latency_total, count)),
+  PK_METRICS_ENTRY("frame/count",       "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
+  PK_METRICS_ENTRY("frame/leftover",    "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers),
+
+  PK_METRICS_ENTRY("ports/skip_framer", "count",       M_U32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  skip_framer),
+  PK_METRICS_ENTRY("ports/accept_last", "count",       M_U32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  accept_last)
  )
 /* clang-format on */
 
@@ -211,7 +217,7 @@ static int router_attach(router_t *router, pk_loop_t *loop)
                                     loop_reader_callback,
                                     &router->port_rule_cache[idx])
         == NULL) {
-      piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
+      PK_LOG_ANNO(LOG_ERR, "pk_loop_endpoint_reader_add error");
       return -1;
     }
   }
@@ -294,6 +300,20 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
 
   size_t buffer_index = 0;
   u32 frame_count = 0;
+
+  if (rule_cache->no_framer_ports_count > 0) {
+    PK_METRICS_UPDATE(MR, MI.skip_framer_count);
+  }
+
+  for (size_t idx = 0; idx < rule_cache->no_framer_ports_count; idx++) {
+    endpoint_send_fn(rule_cache->no_framer_ports[idx], data, length);
+  }
+
+  if (rule_cache->rule_count == rule_cache->no_framer_ports_count) {
+    // If all we're doing is copying blobs we don't need to de-frame anything
+    PK_METRICS_UPDATE(MR, MI.skip_framer_bypass);
+    return;
+  }
 
   while (buffer_index < length) {
 
@@ -441,6 +461,8 @@ static void loop_1s_metrics(pk_loop_t *loop, void *handle, int status, void *con
   pk_metrics_reset(MR, MI.latency_total);
   pk_metrics_reset(MR, MI.frame_count);
   pk_metrics_reset(MR, MI.frame_leftovers);
+  pk_metrics_reset(MR, MI.skip_framer_count);
+  pk_metrics_reset(MR, MI.skip_framer_bypass);
 
   pk_loop_timer_reset(handle);
 }
@@ -462,19 +484,21 @@ void process_forwarding_rules(const forwarding_rule_t *forwarding_rule,
 #define MSG_PREFIX_LEN_MAX \
   "ERROR: forwarding rule prefix length (%d) exceeded maximum length (%d)\n"
 
-rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
+rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cache_t *rule_cache)
 {
   size_t total_filter_prefixes = 0;
-  forwarding_rule_t *rules = NULL;
+  forwarding_rule_t *rule = NULL;
 
   int prefix_len = -1;
 
-  for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
+  for (rule = port->forwarding_rules_list; rule != NULL; rule = rule->next) {
 
     size_t filter_prefix_count = 0;
+
+    filter_t *filter = NULL;
     filter_t *filter_last = NULL;
 
-    for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
+    for (filter = rule->filters_list; filter != NULL; filter = filter->next) {
 
       if (filter->len != 0) {
 
@@ -493,16 +517,24 @@ rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
         }
       }
 
-      if (filter->next == NULL) {
-        filter_last = filter;
-      }
+      if (filter->next == NULL) filter_last = filter;
+    }
+
+    if (rule->skip_framer) {
+      PK_LOG_ANNO(LOG_DEBUG,
+                  "adding no framer port: src=%s, dst=%s",
+                  port->name,
+                  rule->dst_port_name);
+      rule_cache->no_framer_ports[rule_cache->no_framer_ports_count++] = rule->dst_port->pub_ept;
+      if (router != NULL) router->skip_framer_count++;
     }
 
     total_filter_prefixes += filter_prefix_count;
 
-    /* Check if this is a "default accept" filter chain */
-    if (filter_last->action == FILTER_ACTION_ACCEPT) {
-      rule_cache->accept_ports[rule_cache->accept_ports_count++] = rules->dst_port->pub_ept;
+    /* Check if the last filter is a "default accept" chain */
+    if (filter_last != NULL && filter_last->action == FILTER_ACTION_ACCEPT) {
+      rule_cache->accept_ports[rule_cache->accept_ports_count++] = rule->dst_port->pub_ept;
+      if (router != NULL) router->accept_last_count++;
     }
   }
 
@@ -512,8 +544,8 @@ rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
 
   STAGE_CLEANUP(all_filter_prefixes, ({ free(all_filter_prefixes); }));
 
-  for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
-    for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
+  for (rule = port->forwarding_rules_list; rule != NULL; rule = rule->next) {
+    for (filter_t *filter = rule->filters_list; filter != NULL; filter = filter->next) {
       if (filter->data != NULL && filter->len > 0) {
         u8 *filter_prefix = all_filter_prefixes[filter_prefix_index++];
         memcpy(filter_prefix, filter->data, prefix_len);
@@ -592,6 +624,9 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     router->port_count++;
   }
 
+  router->skip_framer_count = 0;
+  router->accept_last_count = 0;
+
   router->port_rule_cache = calloc(router->port_count, sizeof(rule_cache_t));
 
   size_t port_index = 0;
@@ -609,9 +644,13 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
       rule_cache->rule_count++;
     }
 
-    rule_cache->accept_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
+    rule_cache->accept_ports_count = 0;
+    rule_cache->no_framer_ports_count = 0;
 
-    rule_prefixes_t *rule_prefixes = extract_rule_prefixes(port, rule_cache);
+    rule_cache->accept_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
+    rule_cache->no_framer_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
+
+    rule_prefixes_t *rule_prefixes = extract_rule_prefixes(router, port, rule_cache);
 
     if (rule_prefixes == NULL) {
       fprintf(stderr, "ERROR: extract_rule_prefixes failed\n");
@@ -713,6 +752,11 @@ void router_teardown(router_t **router_loc)
       rule_cache->accept_ports = NULL;
     }
 
+    if (rule_cache->no_framer_ports != NULL) {
+      free(rule_cache->no_framer_ports);
+      rule_cache->no_framer_ports = NULL;
+    }
+
     rule_prefixes_destroy(&rule_cache->rule_prefixes);
 
     if (rule_cache->hash != NULL) {
@@ -778,6 +822,9 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
+  PK_METRICS_UPDATE(MR, MI.skip_framer, PK_METRICS_VALUE(router->skip_framer_count));
+  PK_METRICS_UPDATE(MR, MI.accept_last, PK_METRICS_VALUE(router->accept_last_count));
+
   /* Print router config and exit if requested */
   if (options.print) {
     if (router_print(stdout, router->router_cfg) != 0) {
@@ -787,10 +834,11 @@ int main(int argc, char *argv[])
   }
 
   void *handle = pk_loop_timer_add(loop, 1000, loop_1s_metrics, NULL);
+  if (handle == NULL) {
+    piksi_log(LOG_ERR, "failed to create timer");
+    exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
+  }
 
-  assert(handle != NULL);
-
-  /* Add router to loop */
   if (router_attach(router, loop) != 0) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }

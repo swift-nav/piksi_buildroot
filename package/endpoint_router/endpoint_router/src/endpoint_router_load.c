@@ -45,6 +45,7 @@ static PROCESS_FN(sub_addr);
 static PROCESS_FN(forwarding_rules_);
 static PROCESS_FN(forwarding_rule_);
 static PROCESS_FN(dst_port);
+static PROCESS_FN(skip_framer);
 static PROCESS_FN(filters);
 static PROCESS_FN(filter);
 static PROCESS_FN(action);
@@ -90,6 +91,7 @@ static expected_event_t forwarding_rules_events[] = {
 static expected_event_t forwarding_rule_events[] = {
   {YAML_SCALAR_EVENT, "dst_port", process_dst_port, true},
   {YAML_SCALAR_EVENT, "filters", process_filters, true},
+  {YAML_SCALAR_EVENT, "skip_framer", process_skip_framer, true},
   {YAML_MAPPING_END_EVENT, NULL, NULL, false},
   {YAML_NO_EVENT, NULL, NULL, false},
 };
@@ -439,6 +441,7 @@ static PROCESS_FN(forwarding_rule_)
     .dst_port_name = "",
     .dst_port = NULL,
     .filters_list = NULL,
+    .skip_framer = false,
     .next = NULL,
   };
 
@@ -473,6 +476,31 @@ static PROCESS_FN(filters)
 
   debug_printf("%s\n", __FUNCTION__);
   return handle_expected_events(parser, filters_events, context);
+}
+
+static PROCESS_FN(skip_framer)
+{
+  (void)event;
+
+  debug_printf("%s\n", __FUNCTION__);
+  router_cfg_t *router = (router_cfg_t *)context;
+
+  forwarding_rule_t *forwarding_rule = current_forwarding_rule_get(router);
+  if (forwarding_rule == NULL) {
+    return -1;
+  }
+
+  char *str;
+  if (event_scalar_value_get(parser, &str) != 0) {
+    return -1;
+  }
+
+  forwarding_rule->skip_framer = str != NULL && strcasecmp(str, "true") == 0;
+  if (str != NULL) free(str);
+
+  debug_printf("value: %s\n", forwarding_rule->skip_framer ? "true" : "false");
+
+  return 0;
 }
 
 static PROCESS_FN(filter)
