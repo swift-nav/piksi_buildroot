@@ -295,6 +295,10 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
   size_t buffer_index = 0;
   u32 frame_count = 0;
 
+  for (size_t idx = 0; idx < rule_cache->no_framer_ports_count; idx++) {
+    endpoint_send_fn(rule_cache->no_framer_ports[idx], data, length);
+  }
+
   while (buffer_index < length) {
 
     const uint8_t *frame;
@@ -465,16 +469,20 @@ void process_forwarding_rules(const forwarding_rule_t *forwarding_rule,
 rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
 {
   size_t total_filter_prefixes = 0;
-  forwarding_rule_t *rules = NULL;
+  forwarding_rule_t *rule = NULL;
 
   int prefix_len = -1;
 
-  for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
+  for (rule = port->forwarding_rules_list; rule != NULL; rule = rule->next) {
 
     size_t filter_prefix_count = 0;
-    filter_t *filter_last = NULL;
+    size_t filter_count = 0;
 
-    for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
+    filter_t *filter = NULL;
+
+    for (filter = rule->filters_list; filter != NULL; filter = filter->next) {
+
+      filter_count++;
 
       if (filter->len != 0) {
 
@@ -492,17 +500,17 @@ rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
           return NULL;
         }
       }
-
-      if (filter->next == NULL) {
-        filter_last = filter;
-      }
     }
 
     total_filter_prefixes += filter_prefix_count;
 
-    /* Check if this is a "default accept" filter chain */
-    if (filter_last->action == FILTER_ACTION_ACCEPT) {
-      rule_cache->accept_ports[rule_cache->accept_ports_count++] = rules->dst_port->pub_ept;
+    /* Check if the last filter is a "default accept" chain */
+    if (filter->action == FILTER_ACTION_ACCEPT) {
+      if (rule->skip_framer && filter_count == 1) {
+        rule_cache->no_framer_ports[rule_cache->no_framer_ports_count++] = rule->dst_port->pub_ept;
+      } else {
+        rule_cache->accept_ports[rule_cache->accept_ports_count++] = rule->dst_port->pub_ept;
+      }
     }
   }
 
@@ -512,8 +520,8 @@ rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
 
   STAGE_CLEANUP(all_filter_prefixes, ({ free(all_filter_prefixes); }));
 
-  for (rules = port->forwarding_rules_list; rules != NULL; rules = rules->next) {
-    for (filter_t *filter = rules->filters_list; filter != NULL; filter = filter->next) {
+  for (rule = port->forwarding_rules_list; rule != NULL; rule = rule->next) {
+    for (filter_t *filter = rule->filters_list; filter != NULL; filter = filter->next) {
       if (filter->data != NULL && filter->len > 0) {
         u8 *filter_prefix = all_filter_prefixes[filter_prefix_index++];
         memcpy(filter_prefix, filter->data, prefix_len);
@@ -610,6 +618,7 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     }
 
     rule_cache->accept_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
+    rule_cache->no_framer_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
 
     rule_prefixes_t *rule_prefixes = extract_rule_prefixes(port, rule_cache);
 
@@ -711,6 +720,11 @@ void router_teardown(router_t **router_loc)
     if (rule_cache->accept_ports != NULL) {
       free(rule_cache->accept_ports);
       rule_cache->accept_ports = NULL;
+    }
+
+    if (rule_cache->no_framer_ports != NULL) {
+      free(rule_cache->no_framer_ports);
+      rule_cache->no_framer_ports = NULL;
     }
 
     rule_prefixes_destroy(&rule_cache->rule_prefixes);
