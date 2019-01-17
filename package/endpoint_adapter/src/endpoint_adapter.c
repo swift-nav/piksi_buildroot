@@ -119,6 +119,8 @@ static int outq;
 
 static const char *pub_addr = NULL;
 static const char *sub_addr = NULL;
+static const char *pub_addr_passthru = NULL;
+static const char *sub_addr_passthru = NULL;
 static const char *port_name = NULL;
 static char file_path[PATH_MAX] = "";
 static int tcp_listen_port = -1;
@@ -200,12 +202,16 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_CAN,
     OPT_ID_CAN_FILTER,
     OPT_ID_RETRY_PUBSUB,
+    OPT_ID_PUB_PASSTHRU,
+    OPT_ID_SUB_PASSTHRU,
   };
 
   // clang-format off
   const struct option long_opts[] = {
     {"pub",               required_argument, 0, 'p'},
     {"sub",               required_argument, 0, 's'},
+    {"pub-passthru",      required_argument, 0, OPT_ID_PUB_PASSTHRU},
+    {"sub-passthru",      required_argument, 0, OPT_ID_SUB_PASSTHRU},
     {"framer",            required_argument, 0, 'f'},
     {"stdio",             no_argument,       0, OPT_ID_STDIO},
     {"name",              required_argument, 0, OPT_ID_NAME},
@@ -326,9 +332,17 @@ static int parse_options(int argc, char *argv[])
       pub_addr = optarg;
     } break;
 
+    case OPT_ID_PUB_PASSTHRU: {
+      pub_addr_passthru = optarg;
+    } break;
+
     case 's': {
       endpoint_mode = ENDPOINT_PUBSUB;
       sub_addr = optarg;
+    } break;
+
+    case OPT_ID_SUB_PASSTHRU: {
+      sub_addr_passthru = optarg;
     } break;
 
     case 'f': {
@@ -427,19 +441,19 @@ static int handle_init(handle_t *handle,
   return 0;
 }
 
-static pk_endpoint_t *pk_endpoint_start(int type)
+static pk_endpoint_t *pk_endpoint_start(int type, bool pubsub_passthru)
 {
   char metric_name[METRIC_NAME_LEN] = {0};
   const char *addr = NULL;
 
   switch (type) {
   case PK_ENDPOINT_PUB: {
-    addr = pub_addr;
+    addr = pubsub_passthru ? pub_addr : pub_addr_passthru;
     snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s/pub", port_name);
   } break;
 
   case PK_ENDPOINT_SUB: {
-    addr = sub_addr;
+    addr = pubsub_passthru ? sub_addr : sub_addr_passthru;
     snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s/sub", port_name);
   } break;
 
@@ -698,7 +712,7 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
   return buffer_index;
 }
 
-static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
+static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle, handle_t *read_handle_passthru, handle_t *write_handle_passthru)
 {
   debug_printf("io loop begin\n");
 
@@ -723,6 +737,29 @@ static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
     if (write_count < 0) {
       debug_printf("write_count %d errno %s (%d)\n", write_count, strerror(errno), errno);
       break;
+    }
+
+    if (write_handle_passthru != NULL) {
+      handle_write_all(write_handle_passthru, buffer, read_count);
+    }
+
+    if (read_handle_passthru != NULL) {
+
+      ssize_t read_count2 = handle_read(read_handle_passthru, buffer, sizeof(buffer));
+      if (read_count2 <= 0) {
+        debug_printf("read_count2 %d errno %s (%d)\n", read_count2, strerror(errno), errno);
+        break;
+      }
+
+      /* Write to write_handle via framer */
+      size_t frames_written2;
+      ssize_t write_count2 =
+        handle_write_all_via_framer(write_handle, buffer, read_count2, &frames_written2);
+
+      if (write_count2 < 0) {
+        debug_printf("write_count2 %d errno %s (%d)\n", write_count2, strerror(errno), errno);
+        break;
+      }
     }
 
     if (write_count != read_count) {
@@ -821,7 +858,7 @@ void io_loop_run(int read_fd, int write_fd, bool is_can)
       if (pid == 0) {
         setup_metrics("pub");
         /* child process */
-        pk_endpoint_t *pub = pk_endpoint_start(PK_ENDPOINT_PUB);
+        pk_endpoint_t *pub = pk_endpoint_start(PK_ENDPOINT_PUB, false);
         if (pub == NULL) {
           debug_printf("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
           exit(EXIT_FAILURE);
@@ -856,11 +893,38 @@ void io_loop_run(int read_fd, int write_fd, bool is_can)
           exit(EXIT_FAILURE);
         }
 
-        io_loop_pubsub(&fd_handle, &pub_handle);
+        pk_endpoint_t *pub_passthru = NULL;
+        handle_t pub_handle_passthru;
+        
+        if (pub_addr_passthru != NULL) {
+
+          pub_passthru = pk_endpoint_start(PK_ENDPOINT_PUB, true);
+          if (pub_passthru == NULL) {
+            debug_printf("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
+            exit(EXIT_FAILURE);
+          }
+
+          /* Read from fd, write to pub */
+          if (handle_init(&pub_handle_passthru,
+                          pub_passthru,
+                          -1,
+                          -1,
+                          FRAMER_NONE_NAME,
+                          FILTER_NONE_NAME,
+                          NULL,
+                          false)
+              != 0) {
+            debug_printf("handle_init for pub returned error\n");
+            exit(EXIT_FAILURE);
+          }
+        }
+
+        io_loop_pubsub(&fd_handle, &pub_handle, pub_addr_passthru != NULL ? &pub_handle_passthru : NULL);
         pk_endpoint_destroy(&pub);
         assert(pub == NULL);
         handle_deinit(&pub_handle);
         handle_deinit(&fd_handle);
+        if (pub_addr_passthru != NULL) handle_deinit(&pub_handle_passthru);
         pk_metrics_destroy(&MR);
         debug_printf("Exiting from pub fork\n");
         exit(EXIT_SUCCESS);
@@ -902,6 +966,32 @@ void io_loop_run(int read_fd, int write_fd, bool is_can)
             != 0) {
           debug_printf("handle_init for write_fd returned error\n");
           exit(EXIT_FAILURE);
+        }
+
+        pk_endpoint_t *sub_passthru = NULL;
+        handle_t sub_handle_passthru;
+        
+        if (sub_addr_passthru != NULL) {
+
+          sub_passthru = pk_endpoint_start(PK_ENDPOINT_PUB, true);
+          if (sub_passthru == NULL) {
+            debug_printf("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
+            exit(EXIT_FAILURE);
+          }
+
+          /* Read from fd, write to pub */
+          if (handle_init(&sub_handle_passthru,
+                          sub_passthru,
+                          -1,
+                          -1,
+                          FRAMER_NONE_NAME,
+                          FILTER_NONE_NAME,
+                          NULL,
+                          false)
+              != 0) {
+            debug_printf("handle_init for pub returned error\n");
+            exit(EXIT_FAILURE);
+          }
         }
 
         io_loop_pubsub(&sub_handle, &fd_handle);
