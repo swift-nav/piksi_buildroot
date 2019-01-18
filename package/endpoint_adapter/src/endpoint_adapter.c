@@ -158,17 +158,15 @@ static struct {
   handle_t write_handle;
 } loop_ctx;
 
-static struct {
-  u8 *buffer;
-  size_t fill;
-  size_t size;
-  size_t oflow;
-} read_ctx = {
-  .buffer = NULL,
-  .fill = 0,
-  .size = 0,
-  .oflow = 0,
-};
+typedef ssize_t (*read_buf_cb_t)(handle_t *read_handle, handle_t *write_handle, uint8_t *, size_t);
+
+typedef struct {
+  size_t total;
+  ssize_t status;
+  handle_t *read_handle;
+  handle_t *write_handle;
+  read_buf_cb_t read_buf_cb;
+} read_ctx_t;
 
 static bool retry_pubsub = false;
 
@@ -581,43 +579,39 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
   }
 }
 
-static int sub_ept_read(const u8 *buff, size_t length, void *context)
-{
-  int status = 0;
-  size_t space = read_ctx.size - read_ctx.fill;
+static ssize_t handle_write_all_via_framer(handle_t *handle, const void *buffer, size_t count);
 
-  if (length > space) {
-    assert(length <= read_ctx.oflow);
-    status = -1; /* terminate reads */
+static ssize_t process_read_buffer(handle_t *read_handle, handle_t *write_handle, uint8_t *buffer, size_t length)
+{
+  UPDATE_IO_LOOP_METRIC(read_handle, MI.rx_read_count, MI.tx_read_count);
+
+  ssize_t write_count =
+    handle_write_all_via_framer(write_handle, buffer, length);
+
+  if (write_count < 0) {
+    debug_printf("write_count %d errno %s (%d)\n", write_count, strerror(errno), errno);
+    return -1;
   }
 
-  memcpy(&read_ctx.buffer[read_ctx.fill], buff, length);
-  read_ctx.fill += length;
+  if (write_count != length) {
+    PK_LOG_ANNO(LOG_ERR, "input vs output mismatch: data read (%d) != data written(%d)");
+    PK_METRICS_UPDATE(MR, MI.mismatch);
+  }
 
-  return status;
+  return length;
 }
 
-static ssize_t handle_read(handle_t *handle, u8 *buffer, size_t count)
+static int sub_ept_read(const uint8_t *buff, size_t length, void *context)
 {
-  assert(count > PK_ENDPOINT_RECV_BUF_SIZE);
+  read_ctx_t *read_ctx = (read_ctx_t *)context;
 
-  if (handle->pk_ept != NULL) {
-
-    read_ctx.buffer = buffer;
-    read_ctx.size = count - PK_ENDPOINT_RECV_BUF_SIZE;
-    read_ctx.oflow = PK_ENDPOINT_RECV_BUF_SIZE;
-    read_ctx.fill = 0;
-
-    int rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
-
-    if (rc != 0) {
-      PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_receive returned error: %d", rc);
-    }
-
-    return read_ctx.fill;
+  if (read_ctx->read_buf_cb(read_ctx->read_handle, read_ctx->write_handle, (uint8_t *)buff, length) < 0) {
+    read_ctx->status = -1;
+  } else {
+    read_ctx->total += length;
   }
 
-  return fd_read(handle->read_fd, buffer, count);
+  return read_ctx->status;
 }
 
 static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
@@ -627,7 +621,7 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
     PK_METRICS_UPDATE(MR, MI.rx_write_count);
     PK_METRICS_UPDATE(MR, MI.rx_write_size_total, PK_METRICS_VALUE((u32)count));
 
-    if (pk_endpoint_send(handle->pk_ept, (u8 *)buffer, count) != 0) {
+    if (pk_endpoint_send(handle->pk_ept, (uint8_t *)buffer, count) != 0) {
       return -1;
     }
 
@@ -657,12 +651,11 @@ static ssize_t handle_write_all(handle_t *handle, const void *buffer, size_t cou
 static ssize_t handle_write_one_via_framer(handle_t *handle,
                                            const void *buffer,
                                            size_t count,
-                                           size_t *frames_written)
+                                           size_t *frames)
 {
-  /* Pass data through framer */
-  *frames_written = 0;
   uint32_t buffer_index = 0;
-  while (1) {
+  *frames = 0;
+  for (;;) {
     const uint8_t *frame;
     uint32_t frame_length;
     buffer_index += framer_process(handle->framer,
@@ -673,37 +666,30 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
     if (frame == NULL) {
       return buffer_index;
     }
-
     /* Pass frame through filter */
     if (filter_process(handle->filter, frame, frame_length) != 0) {
       continue;
     }
-
     /* Write frame to handle */
     ssize_t write_count = handle_write_all(handle, frame, frame_length);
     if (write_count < 0) {
       return write_count;
     }
-
     if (write_count != frame_length) {
       syslog(LOG_ERR, "warning: write_count != frame_length");
     }
-
-    *frames_written += 1;
-
-    return buffer_index;
+    *frames += 1;
+    break;
   }
   return buffer_index;
 }
 
 static ssize_t handle_write_all_via_framer(handle_t *handle,
                                            const void *buffer,
-                                           size_t count,
-                                           size_t *frames_written)
+                                           size_t count)
 {
-  *frames_written = 0;
   uint32_t buffer_index = 0;
-  while (1) {
+  for (;;) {
     size_t frames;
     ssize_t write_count = handle_write_one_via_framer(handle,
                                                       &((uint8_t *)buffer)[buffer_index],
@@ -712,27 +698,44 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
     if (write_count < 0) {
       return write_count;
     }
-
     buffer_index += write_count;
-
     if (frames == 0) {
-      return buffer_index;
+      break;
     }
-
-    *frames_written += frames;
   }
   return buffer_index;
 }
 
 static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *write_handle)
 {
-  UPDATE_IO_LOOP_METRIC(read_handle, MI.rx_read_count, MI.tx_read_count);
+  ssize_t rc = 0;
 
-  /* Read from read_handle */
-  uint8_t buffer[READ_BUFFER_SIZE];
-  ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
-  if (read_count <= 0) {
-    debug_printf("read_count %d\n", read_count);
+  if (read_handle->pk_ept != NULL) {
+    read_ctx_t read_ctx = {
+      .total = 0,
+      .status = 0,
+      .read_handle = read_handle,
+      .write_handle = write_handle,
+      .read_buf_cb = process_read_buffer,
+    };
+    rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
+    if (rc != 0) {
+      PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_receive returned error: %d", rc);
+    } else if (read_ctx.status == 0) {
+      rc = read_ctx.total;
+    } else {
+      rc = read_ctx.status;
+    }
+  } else {
+    uint8_t buffer[READ_BUFFER_SIZE];
+    rc = fd_read(read_handle->read_fd, buffer, sizeof(buffer));
+    if (rc > 0) {
+      rc = process_read_buffer(read_handle, write_handle, buffer, rc);
+    }
+  }
+
+  if (rc <= 0) {
+    debug_printf("read returned code: %d\n", rc);
     pk_loop_stop(loop);
     return;
   }
@@ -740,23 +743,7 @@ static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *wri
   UPDATE_IO_LOOP_METRIC(read_handle,
                         MI.rx_read_size_total,
                         MI.tx_read_size_total,
-                        PK_METRICS_VALUE((u32)read_count));
-
-  /* Write to write_handle via framer */
-  size_t frames_written;
-  ssize_t write_count =
-    handle_write_all_via_framer(write_handle, buffer, read_count, &frames_written);
-  if (write_count < 0) {
-    debug_printf("write_count %d errno %s (%d)\n", write_count, strerror(errno), errno);
-    pk_loop_stop(loop);
-    return;
-  }
-
-  if (write_count != read_count) {
-    syslog(LOG_ERR, "warning: write_count != read_count");
-    debug_printf("write_count != read_count %d %d\n", write_count, read_count);
-    PK_METRICS_UPDATE(MR, MI.mismatch);
-  }
+                        PK_METRICS_VALUE((u32)rc));
 }
 
 static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *context)
