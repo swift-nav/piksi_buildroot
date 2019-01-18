@@ -25,6 +25,8 @@
 #include <libpiksi/common.h>
 #include <libpiksi/loop.h>
 
+#define PK_ENDPOINT_RECV_BUF_SIZE 4096
+
 #ifdef __cplusplus
 extern "C" {
 #endif

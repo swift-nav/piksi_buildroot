@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2016-2019 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -52,20 +52,43 @@
 
 static pk_metrics_t *MR = NULL;
 
-// clang-format off
+/* clang-format off */
 PK_METRICS_TABLE(MT, MI,
 
-  PK_METRICS_ENTRY("read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, read_count),
-  PK_METRICS_ENTRY("read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, read_size_total),
-  PK_METRICS_ENTRY("read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, read_size_average,
-                   M_AVERAGE_OF(MI,         read_size_total,  read_count)),
-  PK_METRICS_ENTRY("error/mismatch",        "total",          M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, mismatch),
-  PK_METRICS_ENTRY("write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, write_count),
-  PK_METRICS_ENTRY("write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, write_size_total),
-  PK_METRICS_ENTRY("write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, write_size_average,
-                   M_AVERAGE_OF(MI,         write_size_total, write_count))
+  PK_METRICS_ENTRY("error/mismatch",           "total",          M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, mismatch),
+
+  PK_METRICS_ENTRY("rx/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, rx_read_count),
+  PK_METRICS_ENTRY("rx/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, rx_read_size_total),
+  PK_METRICS_ENTRY("rx/read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, rx_read_size_average,
+                   M_AVERAGE_OF(MI,         rx_read_size_total,  rx_read_count)),
+
+  PK_METRICS_ENTRY("tx/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, tx_read_count),
+  PK_METRICS_ENTRY("tx/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, tx_read_size_total),
+  PK_METRICS_ENTRY("tx/read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, tx_read_size_average,
+                   M_AVERAGE_OF(MI,         tx_read_size_total,  tx_read_count)),
+
+  PK_METRICS_ENTRY("rx/write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, rx_write_count),
+  PK_METRICS_ENTRY("rx/write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, rx_write_size_total),
+  PK_METRICS_ENTRY("rx/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, rx_write_size_average,
+                   M_AVERAGE_OF(MI,         rx_write_size_total, rx_write_count)),
+
+  PK_METRICS_ENTRY("tx/write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, tx_write_count),
+  PK_METRICS_ENTRY("tx/write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, tx_write_size_total),
+  PK_METRICS_ENTRY("tx/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, tx_write_size_average,
+                   M_AVERAGE_OF(MI,         tx_write_size_total, tx_write_count))
 )
-// clang-format on
+/* clang-format on */
+
+/* If pk_ept is NULL on the read handle, then we're reading from an external
+ * handle in order to publish to an internal pubsub socket. */
+#define UPDATE_IO_LOOP_METRIC(TheHandle, RxMetricIndex, TxMetricIndex, ...) \
+  {                                                                         \
+    if (TheHandle->pk_ept == NULL) {                                        \
+      PK_METRICS_UPDATE(MR, RxMetricIndex, ##__VA_ARGS__);                  \
+    } else {                                                                \
+      PK_METRICS_UPDATE(MR, TxMetricIndex, ##__VA_ARGS__);                  \
+    }                                                                       \
+  }
 
 typedef enum {
   IO_INVALID,
@@ -89,17 +112,12 @@ typedef struct {
   int write_fd;
   framer_t *framer;
   filter_t *filter;
-  bool is_can;
 } handle_t;
 
-static const u64 one_second_ns = 1e9;
+static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *context);
+static void setup_metrics();
 
-static u64 last_metrics_flush = 0;
-
-static void do_metrics_flush(void);
-static void setup_metrics(const char *pubsub);
-static void pid_terminate(pid_t *pid, int signum);
-static void terminate_child_pids(int signum);
+static void die_error(const char *error);
 
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer, size_t count);
@@ -127,18 +145,37 @@ static const char *udp_connect_addr = NULL;
 static int can_id = -1;
 static int can_filter = -1;
 
-static pid_t pub_pid = -1;
-static pid_t sub_pid = -1;
-static pid_t *pids[] = {
-  &pub_pid,
-  &sub_pid,
-};
+static struct {
+  pk_loop_t *loop;
+  void *loop_sub_handle;
+  void *read_fd_handle;
+  pk_endpoint_t *pub_ept;
+  pk_endpoint_t *sub_ept;
+  handle_t pub_handle;
+  handle_t sub_handle;
+  handle_t read_handle;
+  handle_t write_handle;
+} loop_ctx;
+
+typedef ssize_t (*read_buf_cb_t)(handle_t *read_handle, handle_t *write_handle, uint8_t *, size_t);
+
+typedef struct {
+  size_t total;
+  ssize_t status;
+  handle_t *read_handle;
+  handle_t *write_handle;
+  read_buf_cb_t read_buf_cb;
+} read_ctx_t;
 
 static bool retry_pubsub = false;
 
 static void usage(char *command)
 {
   fprintf(stderr, "Usage: %s\n", command);
+
+  fprintf(stderr, "\nGeneral\n");
+  fprintf(stderr, "\t--name\n");
+  fprintf(stderr, "\t\tthe name of this adapter (typically used for metrics and logging)\n");
 
   fprintf(stderr, "\nEndpoint Modes - select one or two (see notes)\n");
   fprintf(stderr, "\t-p, --pub <addr>\n");
@@ -201,7 +238,7 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_RETRY_PUBSUB,
   };
 
-  // clang-format off
+  /* clang-format off */
   const struct option long_opts[] = {
     {"pub",               required_argument, 0, 'p'},
     {"sub",               required_argument, 0, 's'},
@@ -225,12 +262,12 @@ static int parse_options(int argc, char *argv[])
     {"can-f",             required_argument, 0, OPT_ID_CAN_FILTER},
     {"retry",             no_argument,       0, OPT_ID_RETRY_PUBSUB},
     {0, 0, 0, 0},
-    // clang-format on
   };
+  /* clang-format on */
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "p:s:r:y:f:", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "p:s:f:", long_opts, &opt_index)) != -1) {
     switch (c) {
     case OPT_ID_CAN: {
       io_mode = IO_CAN;
@@ -350,6 +387,11 @@ static int parse_options(int argc, char *argv[])
     }
   }
 
+  if (port_name == NULL) {
+    fprintf(stderr, "a port name is required\n");
+    return -1;
+  }
+
   if (io_mode == IO_INVALID) {
     fprintf(stderr, "invalid mode\n");
     return -1;
@@ -380,7 +422,6 @@ static int parse_options(int argc, char *argv[])
 
 static void terminate_handler(int signum)
 {
-  terminate_child_pids(signum);
   logging_deinit();
 
   /* Exit */
@@ -398,6 +439,21 @@ static void handle_deinit(handle_t *handle)
     filter_destroy(&handle->filter);
     assert(handle->filter == NULL);
   }
+
+  if (handle->pk_ept != NULL) {
+    pk_endpoint_destroy(&handle->pk_ept);
+    assert(handle->pk_ept == NULL);
+  }
+
+  if (handle->read_fd != -1) {
+    close(handle->read_fd);
+    handle->read_fd = -1;
+  }
+
+  if (handle->write_fd != -1) {
+    close(handle->write_fd);
+    handle->write_fd = -1;
+  }
 }
 
 static int handle_init(handle_t *handle,
@@ -406,8 +462,7 @@ static int handle_init(handle_t *handle,
                        int write_fd,
                        const char *framer_name,
                        const char *filter_name,
-                       const char *filter_config,
-                       bool is_can)
+                       const char *filter_config)
 {
   *handle = (handle_t){
     .pk_ept = pk_ept,
@@ -415,7 +470,6 @@ static int handle_init(handle_t *handle,
     .write_fd = write_fd,
     .framer = framer_create(framer_name),
     .filter = filter_create(filter_name, filter_config),
-    .is_can = is_can,
   };
 
   if ((handle->framer == NULL) || (handle->filter == NULL)) {
@@ -451,39 +505,8 @@ static pk_endpoint_t *pk_endpoint_start(int type)
 
   usleep(1000 * startup_delay_ms);
   debug_printf("opened socket: %s\n", addr);
+
   return pk_ept;
-}
-
-static ssize_t can_read(int skt, void *buffer, size_t count)
-{
-  while (1) {
-    struct can_frame frame = {0};
-    /* Non-blocking */
-    struct timeval tv = {0, 0};
-    fd_set fds;
-
-    FD_ZERO(&fds);
-    FD_SET(skt, &fds);
-
-    if (select((skt + 1), &fds, NULL, NULL, &tv) < 0) {
-      return 0;
-    }
-
-    if (FD_ISSET(skt, &fds) == 0) {
-      continue;
-    }
-
-    ssize_t ret = read(skt, &frame, sizeof(frame));
-
-    /* Retry if interrupted */
-    if ((ret == -1) && (errno == EINTR)) {
-      continue;
-    } else {
-      assert(count >= frame.can_dlc);
-      memcpy(buffer, frame.data, frame.can_dlc);
-      return frame.can_dlc;
-    }
-  }
 }
 
 static ssize_t fd_read(int fd, void *buffer, size_t count)
@@ -500,36 +523,6 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
 }
 
 #define MSG_ERROR_SERIAL_FLUSH "Interface %s output buffer is full. Dropping data."
-
-static ssize_t can_write(int fd, const void *buffer, size_t count)
-{
-  struct can_frame frame = {0};
-  frame.can_id = can_id & CAN_SFF_MASK;
-  frame.can_dlc = sizeof(frame.data);
-  if (count < frame.can_dlc) {
-    frame.can_dlc = count;
-  }
-  memcpy(frame.data, buffer, frame.can_dlc);
-
-  while (1) {
-    ssize_t ret = write(fd, &frame, sizeof(frame));
-    /* Retry if interrupted */
-    if ((ret == -1) && (errno == EINTR)) {
-      nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
-      piksi_log(LOG_WARNING, "CAN write interrupted");
-      continue;
-    } else if ((ret < 0) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
-      /* Our output buffer is full and we're in non-blocking mode.
-       * Just silently drop the rest of the output...
-       */
-      nanosleep((const struct timespec[]){{0, 1000000L}}, NULL);
-      piksi_log(LOG_WARNING, "CAN write failed");
-      return 0;
-    } else {
-      return frame.can_dlc;
-    }
-  }
-}
 
 static ssize_t fd_write(int fd, const void *buffer, size_t count)
 {
@@ -576,32 +569,62 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
   }
 }
 
-static ssize_t handle_read(handle_t *handle, void *buffer, size_t count)
+static ssize_t handle_write_all_via_framer(handle_t *handle, const void *buffer, size_t count);
+
+static ssize_t process_read_buffer(handle_t *read_handle,
+                                   handle_t *write_handle,
+                                   uint8_t *buffer,
+                                   size_t length)
 {
-  if (handle->is_can) {
-    return can_read(handle->read_fd, buffer, count);
-  } else if (handle->pk_ept != NULL) {
-    return pk_endpoint_read(handle->pk_ept, buffer, count);
-  } else {
-    return fd_read(handle->read_fd, buffer, count);
+  UPDATE_IO_LOOP_METRIC(read_handle, MI.rx_read_count, MI.tx_read_count);
+
+  ssize_t write_count = handle_write_all_via_framer(write_handle, buffer, length);
+
+  if (write_count < 0) {
+    debug_printf("write_count %d errno %s (%d)\n", write_count, strerror(errno), errno);
+    return -1;
   }
+
+  if (write_count != length) {
+    PK_LOG_ANNO(LOG_ERR, "input vs output mismatch: data read (%d) != data written(%d)");
+    PK_METRICS_UPDATE(MR, MI.mismatch);
+  }
+
+  return length;
+}
+
+static int sub_ept_read(const uint8_t *buff, size_t length, void *context)
+{
+  read_ctx_t *read_ctx = (read_ctx_t *)context;
+
+  if (read_ctx->read_buf_cb(read_ctx->read_handle, read_ctx->write_handle, (uint8_t *)buff, length)
+      < 0) {
+    read_ctx->status = -1;
+  } else {
+    read_ctx->total += length;
+  }
+
+  return read_ctx->status;
 }
 
 static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 {
-  PK_METRICS_UPDATE(MR, MI.write_count);
-  PK_METRICS_UPDATE(MR, MI.write_size_total, PK_METRICS_VALUE((u32)count));
+  if (handle->pk_ept != NULL) {
 
-  if (handle->is_can) {
-    return can_write(handle->write_fd, buffer, count);
-  } else if (handle->pk_ept != NULL) {
-    if (pk_endpoint_send(handle->pk_ept, (u8 *)buffer, count) != 0) {
+    PK_METRICS_UPDATE(MR, MI.rx_write_count);
+    PK_METRICS_UPDATE(MR, MI.rx_write_size_total, PK_METRICS_VALUE((u32)count));
+
+    if (pk_endpoint_send(handle->pk_ept, (uint8_t *)buffer, count) != 0) {
       return -1;
     }
+
     return count;
-  } else {
-    return fd_write(handle->write_fd, buffer, count);
   }
+
+  PK_METRICS_UPDATE(MR, MI.tx_write_count);
+  PK_METRICS_UPDATE(MR, MI.tx_write_size_total, PK_METRICS_VALUE((u32)count));
+
+  return fd_write(handle->write_fd, buffer, count);
 }
 
 static ssize_t handle_write_all(handle_t *handle, const void *buffer, size_t count)
@@ -621,12 +644,11 @@ static ssize_t handle_write_all(handle_t *handle, const void *buffer, size_t cou
 static ssize_t handle_write_one_via_framer(handle_t *handle,
                                            const void *buffer,
                                            size_t count,
-                                           size_t *frames_written)
+                                           size_t *frames)
 {
-  /* Pass data through framer */
-  *frames_written = 0;
   uint32_t buffer_index = 0;
-  while (1) {
+  *frames = 0;
+  for (;;) {
     const uint8_t *frame;
     uint32_t frame_length;
     buffer_index += framer_process(handle->framer,
@@ -637,37 +659,28 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
     if (frame == NULL) {
       return buffer_index;
     }
-
     /* Pass frame through filter */
     if (filter_process(handle->filter, frame, frame_length) != 0) {
       continue;
     }
-
     /* Write frame to handle */
     ssize_t write_count = handle_write_all(handle, frame, frame_length);
     if (write_count < 0) {
       return write_count;
     }
-
     if (write_count != frame_length) {
       syslog(LOG_ERR, "warning: write_count != frame_length");
     }
-
-    *frames_written += 1;
-
-    return buffer_index;
+    *frames += 1;
+    break;
   }
   return buffer_index;
 }
 
-static ssize_t handle_write_all_via_framer(handle_t *handle,
-                                           const void *buffer,
-                                           size_t count,
-                                           size_t *frames_written)
+static ssize_t handle_write_all_via_framer(handle_t *handle, const void *buffer, size_t count)
 {
-  *frames_written = 0;
   uint32_t buffer_index = 0;
-  while (1) {
+  for (;;) {
     size_t frames;
     ssize_t write_count = handle_write_one_via_framer(handle,
                                                       &((uint8_t *)buffer)[buffer_index],
@@ -676,299 +689,256 @@ static ssize_t handle_write_all_via_framer(handle_t *handle,
     if (write_count < 0) {
       return write_count;
     }
-
     buffer_index += write_count;
-
     if (frames == 0) {
-      return buffer_index;
+      break;
     }
-
-    *frames_written += frames;
   }
   return buffer_index;
 }
 
-static void io_loop_pubsub(handle_t *read_handle, handle_t *write_handle)
+static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *write_handle)
 {
-  debug_printf("io loop begin\n");
+  ssize_t rc = 0;
 
-  while (1) {
-
-    PK_METRICS_UPDATE(MR, MI.read_count);
-
-    /* Read from read_handle */
-    static uint8_t buffer[READ_BUFFER_SIZE];
-    ssize_t read_count = handle_read(read_handle, buffer, sizeof(buffer));
-    if (read_count <= 0) {
-      debug_printf("read_count %d errno %s (%d)\n", read_count, strerror(errno), errno);
-      break;
+  if (read_handle->pk_ept != NULL) {
+    read_ctx_t read_ctx = {
+      .total = 0,
+      .status = 0,
+      .read_handle = read_handle,
+      .write_handle = write_handle,
+      .read_buf_cb = process_read_buffer,
+    };
+    rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
+    if (rc != 0) {
+      PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_receive returned error: %d", rc);
+    } else if (read_ctx.status == 0) {
+      rc = read_ctx.total;
+    } else {
+      rc = read_ctx.status;
     }
-
-    PK_METRICS_UPDATE(MR, MI.read_size_total, PK_METRICS_VALUE((u32)read_count));
-
-    /* Write to write_handle via framer */
-    size_t frames_written;
-    ssize_t write_count =
-      handle_write_all_via_framer(write_handle, buffer, read_count, &frames_written);
-    if (write_count < 0) {
-      debug_printf("write_count %d errno %s (%d)\n", write_count, strerror(errno), errno);
-      break;
+  } else {
+    uint8_t buffer[READ_BUFFER_SIZE];
+    rc = fd_read(read_handle->read_fd, buffer, sizeof(buffer));
+    if (rc > 0) {
+      rc = process_read_buffer(read_handle, write_handle, buffer, rc);
     }
-
-    if (write_count != read_count) {
-      syslog(LOG_ERR, "warning: write_count != read_count");
-      debug_printf("write_count != read_count %d %d\n", write_count, read_count);
-      PK_METRICS_UPDATE(MR, MI.mismatch);
-    }
-
-    do_metrics_flush();
   }
 
-  debug_printf("io loop end\n");
+  if (rc <= 0) {
+    debug_printf("read returned code: %d\n", rc);
+    pk_loop_stop(loop);
+    return;
+  }
+
+  UPDATE_IO_LOOP_METRIC(read_handle,
+                        MI.rx_read_size_total,
+                        MI.tx_read_size_total,
+                        PK_METRICS_VALUE((u32)rc));
 }
 
-static int pid_wait_check(pid_t *pid, pid_t wait_pid)
+static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *context)
 {
-  if (*pid > 0) {
-    if (*pid == wait_pid) {
-      *pid = -1;
+  (void)loop;
+  (void)handle;
+  (void)status;
+  (void)context;
+
+  PK_METRICS_UPDATE(MR, MI.rx_read_size_average);
+  PK_METRICS_UPDATE(MR, MI.rx_write_size_average);
+
+  PK_METRICS_UPDATE(MR, MI.tx_read_size_average);
+  PK_METRICS_UPDATE(MR, MI.tx_write_size_average);
+
+  pk_metrics_flush(MR);
+
+  pk_metrics_reset(MR, MI.rx_read_count);
+  pk_metrics_reset(MR, MI.rx_read_size_total);
+  pk_metrics_reset(MR, MI.rx_read_size_average);
+  pk_metrics_reset(MR, MI.rx_write_count);
+  pk_metrics_reset(MR, MI.rx_write_size_total);
+  pk_metrics_reset(MR, MI.rx_write_size_average);
+
+  pk_metrics_reset(MR, MI.tx_read_count);
+  pk_metrics_reset(MR, MI.tx_read_size_total);
+  pk_metrics_reset(MR, MI.tx_read_size_average);
+  pk_metrics_reset(MR, MI.tx_write_count);
+  pk_metrics_reset(MR, MI.tx_write_size_total);
+  pk_metrics_reset(MR, MI.tx_write_size_average);
+}
+
+static void setup_metrics()
+{
+
+  assert(MR == NULL);
+
+  MR = pk_metrics_setup("endpoint_adapter", port_name, MT, COUNT_OF(MT));
+
+  if (MR == NULL) {
+    die_error("error configuring metrics");
+  }
+}
+
+static void die_error(const char *error)
+{
+  piksi_log(LOG_ERR | LOG_SBP, error);
+  fprintf(stderr, "%s\n", error);
+
+  logging_deinit();
+
+  exit(EXIT_FAILURE);
+}
+
+static bool handle_loop_status(pk_loop_t *loop, int status)
+{
+  if ((status & LOOP_DISCONNECTED) || (status & LOOP_ERROR)) {
+    if (status & LOOP_ERROR) {
+      /* EBADF happens when sockets/FDs are closed and the loop kicks them out */
+      if (pk_loop_last_error(loop) != EBADF) {
+        PK_LOG_ANNO(LOG_WARNING,
+                    "got error event callback from loop: %s, error: %s",
+                    pk_loop_describe_status(status),
+                    pk_loop_last_error(loop));
+      }
+    }
+    pk_loop_stop(loop);
+    return false;
+  }
+  if (status == LOOP_UNKNOWN) {
+    PK_LOG_ANNO(LOG_WARNING, "loop status unknown");
+    return false;
+  }
+  if (!(status & LOOP_READ)) {
+    PK_LOG_ANNO(LOG_WARNING, "no loop read event");
+    return false;
+  }
+  return true;
+}
+
+static void sub_reader_cb(pk_loop_t *loop, void *handle, int status, void *context)
+{
+  (void)handle;
+  (void)context;
+
+  if (!handle_loop_status(loop, status)) return;
+
+  io_loop_pubsub(loop_ctx.loop, &loop_ctx.sub_handle, &loop_ctx.write_handle);
+}
+
+static void read_fd_cb(pk_loop_t *loop, void *handle, int status, void *context)
+{
+  (void)handle;
+  (void)context;
+
+  if (!handle_loop_status(loop, status)) return;
+
+  io_loop_pubsub(loop, &loop_ctx.read_handle, &loop_ctx.pub_handle);
+}
+
+int io_loop_run(int read_fd, int write_fd, bool fork_needed)
+{
+  if (fork_needed) {
+    pid_t pid = fork();
+    if (pid != 0) {
       return 0;
     }
   }
 
-  return -1;
-}
+  loop_ctx.loop = pk_loop_create();
+  setup_metrics();
 
-static void pid_terminate(pid_t *pid, int signum)
-{
-  if (*pid > 0) {
-    if (kill(*pid, signum) != 0) {
-      syslog(LOG_ERR, "error terminating pid %d", *pid);
-    }
-    *pid = -1;
-  }
-}
+  void *handle = pk_loop_timer_add(loop_ctx.loop, 1000, do_metrics_flush, NULL);
+  assert(handle != NULL);
 
-static void terminate_child_pids(int signum)
-{
-  for (size_t i = 0; i < COUNT_OF(pids); i++) {
-    pid_terminate(pids[i], signum);
-  }
-}
+  if (pub_addr != NULL && read_fd != -1) {
 
-static void do_metrics_flush(void)
-{
-  if (pk_metrics_gettime().ns - last_metrics_flush < one_second_ns) {
-    return;
-  }
-
-  PK_METRICS_UPDATE(MR, MI.read_size_average);
-  PK_METRICS_UPDATE(MR, MI.write_size_average);
-
-  last_metrics_flush = pk_metrics_gettime().ns;
-
-  pk_metrics_flush(MR);
-
-  pk_metrics_reset(MR, MI.read_count);
-  pk_metrics_reset(MR, MI.read_size_total);
-  pk_metrics_reset(MR, MI.read_size_average);
-  pk_metrics_reset(MR, MI.write_count);
-  pk_metrics_reset(MR, MI.write_size_total);
-  pk_metrics_reset(MR, MI.write_size_average);
-}
-
-static void setup_metrics(const char *pubsub)
-{
-
-  char suffix[128];
-  size_t count = snprintf(suffix, sizeof(suffix), "%s_%s", port_name, pubsub);
-  assert(count < sizeof(suffix));
-
-  assert(MR == NULL);
-
-  MR = pk_metrics_setup("endpoint_adapter", suffix, MT, COUNT_OF(MT));
-
-  if (MR == NULL) {
-    syslog(LOG_ERR, "error configuring metrics");
-    fprintf(stderr, "error configuring metrics\n");
-    exit(EXIT_FAILURE);
-  }
-
-  last_metrics_flush = pk_metrics_gettime().ns;
-}
-
-void io_loop_run(int read_fd, int write_fd, bool is_can)
-{
-  if (nonblock && write_fd != -1) {
-    int arg = O_NONBLOCK;
-    fcntl(write_fd, F_SETFL, &arg);
-  }
-  switch (endpoint_mode) {
-  case ENDPOINT_PUBSUB: {
-    if (pub_addr != NULL && read_fd != -1) {
-      debug_printf("Forking for pub\n");
-      pid_t pid = fork();
-      if (pid == 0) {
-        setup_metrics("pub");
-        /* child process */
-        pk_endpoint_t *pub = pk_endpoint_start(PK_ENDPOINT_PUB);
-        if (pub == NULL) {
-          debug_printf("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
-          exit(EXIT_FAILURE);
-        }
-
-        /* Read from fd, write to pub */
-        handle_t pub_handle;
-        if (handle_init(&pub_handle,
-                        pub,
-                        -1,
-                        -1,
-                        framer_name,
-                        filter_in_name,
-                        filter_in_config,
-                        false)
-            != 0) {
-          debug_printf("handle_init for pub returned error\n");
-          exit(EXIT_FAILURE);
-        }
-
-        handle_t fd_handle;
-        if (handle_init(&fd_handle,
-                        NULL,
-                        read_fd,
-                        -1,
-                        FRAMER_NONE_NAME,
-                        FILTER_NONE_NAME,
-                        NULL,
-                        is_can)
-            != 0) {
-          debug_printf("handle_init for read_fd returned error\n");
-          exit(EXIT_FAILURE);
-        }
-
-        io_loop_pubsub(&fd_handle, &pub_handle);
-        pk_endpoint_destroy(&pub);
-        assert(pub == NULL);
-        handle_deinit(&pub_handle);
-        handle_deinit(&fd_handle);
-        pk_metrics_destroy(&MR);
-        debug_printf("Exiting from pub fork\n");
-        exit(EXIT_SUCCESS);
-      } else {
-        /* parent process */
-        pub_pid = pid;
-      }
+    loop_ctx.pub_ept = pk_endpoint_start(PK_ENDPOINT_PUB);
+    if (loop_ctx.pub_ept == NULL) {
+      die_error("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
     }
 
-    if (sub_addr != NULL && write_fd != -1) {
-      debug_printf("Forking for sub\n");
-      pid_t pid = fork();
-      if (pid == 0) {
-        setup_metrics("sub");
-        /* child process */
-        pk_endpoint_t *sub = pk_endpoint_start(PK_ENDPOINT_SUB);
-        if (sub == NULL) {
-          debug_printf("pk_endpoint_start(PK_ENDPOINT_SUB) returned NULL\n");
-          exit(EXIT_FAILURE);
-        }
+    loop_ctx.read_fd_handle = pk_loop_poll_add(loop_ctx.loop, read_fd, read_fd_cb, NULL);
 
-        /* Read from sub, write to fd */
-        handle_t sub_handle;
-        if (handle_init(&sub_handle, sub, -1, -1, FRAMER_NONE_NAME, FILTER_NONE_NAME, NULL, false)
-            != 0) {
-          debug_printf("handle_init for sub returned error\n");
-          exit(EXIT_FAILURE);
-        }
-
-        handle_t fd_handle;
-        if (handle_init(&fd_handle,
-                        NULL,
-                        -1,
-                        write_fd,
-                        FRAMER_NONE_NAME,
-                        filter_out_name,
-                        filter_out_config,
-                        is_can)
-            != 0) {
-          debug_printf("handle_init for write_fd returned error\n");
-          exit(EXIT_FAILURE);
-        }
-
-        io_loop_pubsub(&sub_handle, &fd_handle);
-        pk_endpoint_destroy(&sub);
-        assert(sub == NULL);
-        handle_deinit(&sub_handle);
-        handle_deinit(&fd_handle);
-        debug_printf("Exiting from sub fork\n");
-        exit(EXIT_SUCCESS);
-      } else {
-        /* parent process */
-        sub_pid = pid;
-      }
+    if (loop_ctx.read_fd_handle == NULL) {
+      die_error("pk_loop_poll_add(...) returned NULL");
     }
 
-  } break;
+    if (handle_init(&loop_ctx.pub_handle,
+                    loop_ctx.pub_ept,
+                    -1,
+                    -1,
+                    framer_name,
+                    filter_in_name,
+                    filter_in_config)
+        != 0) {
+      die_error("handle_init for pub returned error");
+    }
 
-  default: break;
-  }
-}
-
-void io_loop_start(int read_fd, int write_fd)
-{
-  io_loop_run(read_fd, write_fd, false);
-}
-
-void io_loop_start_can(int read_fd, int write_fd)
-{
-  io_loop_run(read_fd, write_fd, true);
-}
-
-void io_loop_wait(void)
-{
-  while (1) {
-    debug_printf("waiting for children state change\n");
-    int ret = waitpid(-1, NULL, 0);
-    debug_printf("waitpid returned %d errno %d\n", ret, errno);
-    if ((ret == -1) && (errno == EINTR)) {
-      /* Retry if interrupted */
-      continue;
-    } else {
-      break;
-      /* If any of the childs dies, then the parent process must exit
-         and give the chance to the system to restart it */
+    if (handle_init(&loop_ctx.read_handle,
+                    NULL,
+                    read_fd,
+                    -1,
+                    FRAMER_NONE_NAME,
+                    FILTER_NONE_NAME,
+                    NULL)
+        != 0) {
+      die_error("handle_init for read_fd returned error\n");
     }
   }
-  debug_printf("Exit from io_loop_wait\n");
-}
 
-/* Used in tcp_connect */
-void io_loop_wait_one(void)
-{
-  while (1) {
-    pid_t pid = waitpid(-1, NULL, 0);
-    if ((pid == -1) && (errno == EINTR)) {
-      /* Retry if interrupted */
-      continue;
-    } else if (pid >= 0) {
-      int i;
-      for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
-        if (pid_wait_check(&pub_pid, pid) == 0) {
-          /* Return if a child from the list was terminated */
-          return;
-        }
-      }
-      /* Retry if the child was not in the list */
-      continue;
-    } else {
-      /* Return on error */
-      return;
+  if (sub_addr != NULL && write_fd != -1) {
+
+    loop_ctx.sub_ept = pk_endpoint_start(PK_ENDPOINT_SUB);
+    if (loop_ctx.sub_ept == NULL) {
+      die_error("pk_endpoint_start(PK_ENDPOINT_SUB) returned NULL");
+    }
+
+    loop_ctx.loop_sub_handle =
+      pk_loop_endpoint_reader_add(loop_ctx.loop, loop_ctx.sub_ept, sub_reader_cb, NULL);
+
+    if (handle_init(&loop_ctx.sub_handle,
+                    loop_ctx.sub_ept,
+                    -1,
+                    -1,
+                    FRAMER_NONE_NAME,
+                    FILTER_NONE_NAME,
+                    NULL)
+        != 0) {
+      die_error("handle_init for sub returned error\n");
+    }
+
+    if (handle_init(&loop_ctx.write_handle,
+                    NULL,
+                    -1,
+                    write_fd,
+                    FRAMER_NONE_NAME,
+                    filter_out_name,
+                    filter_out_config)
+        != 0) {
+      die_error("handle_init for write_fd returned error\n");
     }
   }
-}
 
-void io_loop_terminate(void)
-{
-  terminate_child_pids(SIGTERM);
+  int rc = pk_loop_run_simple(loop_ctx.loop);
+
+  if (rc != 0) {
+    PK_LOG_ANNO(LOG_WARNING, "pk_loop_run_simple returned error: %d", rc);
+  }
+
+  handle_deinit(&loop_ctx.pub_handle);
+  handle_deinit(&loop_ctx.sub_handle);
+  handle_deinit(&loop_ctx.read_handle);
+  handle_deinit(&loop_ctx.write_handle);
+
+  pk_loop_destroy(&loop_ctx.loop);
+  pk_metrics_destroy(&MR);
+
+  debug_printf("Exiting from pubsub (fork: %s)\n", fork_needed ? "y" : "n");
+
+  if (rc != 0) return IO_LOOP_ERROR;
+  if (fork_needed) return IO_LOOP_STOP;
+
+  return IO_LOOP_SUCCESS;
 }
 
 int main(int argc, char *argv[])

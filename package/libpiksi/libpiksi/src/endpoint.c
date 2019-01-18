@@ -42,8 +42,6 @@
 
 #define MS_TO_NS(MS) ((MS)*1e6)
 
-#define READ_BUF_SIZE 4096
-
 #define IPC_PREFIX "ipc://"
 
 /* Maximum number of clients we expect to have per socket */
@@ -564,7 +562,7 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
 static int service_reads(client_context_t *ctx, pk_endpoint_receive_cb rx_cb, void *context)
 {
   for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
-    u8 buffer[READ_BUF_SIZE] = {0};
+    u8 buffer[PK_ENDPOINT_RECV_BUF_SIZE] = {0};
     size_t length = sizeof(buffer);
     int rc = recv_impl(ctx, buffer, &length);
     if (rc < 0) {
@@ -656,7 +654,8 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
 static void discard_read_data(client_context_t *ctx)
 {
-  u8 read_buf[READ_BUF_SIZE];
+  PK_METRICS_UPDATE(MR(ctx->ept), MI.read_discard_count);
+  u8 read_buf[PK_ENDPOINT_RECV_BUF_SIZE];
   size_t length = sizeof(read_buf);
   for (size_t count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
     if (ctx == NULL || ctx->node == NULL) break;

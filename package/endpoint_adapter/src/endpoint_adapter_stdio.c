@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2016-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -14,8 +14,5 @@
 
 int stdio_loop(void)
 {
-  io_loop_start(STDIN_FILENO, STDOUT_FILENO);
-  io_loop_wait();
-
-  return 0;
+  return io_loop_run(STDIN_FILENO, STDOUT_FILENO, false);
 }

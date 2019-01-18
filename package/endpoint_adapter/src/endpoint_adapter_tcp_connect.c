@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2016-2019 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -9,6 +9,8 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
+
+#include <libpiksi/logging.h>
 
 #include "endpoint_adapter.h"
 
@@ -79,7 +81,6 @@ static int socket_create(const struct sockaddr *addr, socklen_t addr_len)
 
 err:
   close(fd);
-  fd = -1;
   return ret;
 }
 
@@ -147,11 +148,8 @@ int tcp_connect_loop(const char *addr)
       return 1;
     }
     int wfd = dup(fd);
-    io_loop_start(fd, wfd);
-    io_loop_wait_one();
-    io_loop_terminate();
+    io_loop_run(fd, wfd, false);
     close(fd);
     close(wfd);
-    fd = -1;
   }
 }
