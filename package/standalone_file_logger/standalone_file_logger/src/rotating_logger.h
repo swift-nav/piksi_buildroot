@@ -17,14 +17,22 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <chrono>
+#include <deque>
 #include <string>
 #include <functional>
-
+#include <thread>
+#include <vector>
+#include <mutex>
+#include <condition_variable>
+#include <memory>
+#include <atomic>
 
 class RotatingLogger {
 
   /* Pad new files out to minimize filesystem updates */
   static const size_t NEW_FILE_PAD_SIZE = 15 * 1024 * 1024;
+  /* Maximum size of internal queue */
+  static const size_t MAX_QUEUE_SIZE = 1 * 1024 * 1024;
 
  public:
   typedef std::function<void(int, const char *)> LogCall;
@@ -32,11 +40,11 @@ class RotatingLogger {
                  size_t slice_duration,
                  size_t poll_period,
                  size_t disk_full_threshold,
-                 LogCall logging_callback = LogCall());
+                 const LogCall &logging_callback = LogCall());
 
   ~RotatingLogger();
   /*
-   * try to log a data frame
+   * read a frame from the endpoint
    */
   void frame_handler(const uint8_t *data, size_t size);
 
@@ -91,6 +99,26 @@ class RotatingLogger {
    */
   void pad_new_file();
 
+  /*
+   * Try to log a data frame
+   */
+  void process_frame();
+
+  /*
+   * Blocking get next data frame from internal queue
+   */
+  std::unique_ptr<std::vector<uint8_t>> get_frame();
+
+  /*
+   * Validate current logging session
+   */
+  bool ensure_session_valid();
+
+  /*
+   * Stop the process_frame thread
+   */
+  void stop_thread();
+
   void log_errno_warning(const char *msg);
 
   bool _dest_available;
@@ -99,12 +127,19 @@ class RotatingLogger {
   size_t _slice_duration;
   size_t _poll_period;
   size_t _disk_full_threshold;
-  LogCall _logging_callback;
+  const LogCall &_logging_callback;
   std::string _out_dir;
   std::chrono::time_point<std::chrono::steady_clock> _session_start_time;
 
   FILE *_cur_file;
   size_t _bytes_written;
+
+  std::thread _thread;
+  std::mutex _mutex;
+  std::condition_variable _cond;
+
+  std::deque<std::unique_ptr<std::vector<uint8_t>>> _queue;
+  size_t _queue_bytes;
 };
 
 #endif // SWIFTNAV_ROTATING_LOGGER_H
