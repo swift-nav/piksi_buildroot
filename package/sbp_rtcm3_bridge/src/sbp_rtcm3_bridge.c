@@ -194,13 +194,19 @@ static void ephemeris_glo_callback(u16 sender_id, u8 len, u8 msg[], void *contex
 static void base_pos_ecef_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
-  sbp2rtcm_base_pos_ecef_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  /* do not relay base pos messages (sender_id 0) */
+  if (sender_id > 0) {
+    sbp2rtcm_base_pos_ecef_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  }
 }
 
 static void glo_bias_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
-  sbp2rtcm_glo_biases_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  /* do not relay base biases (sender_id 0) */
+  if (sender_id > 0) {
+    sbp2rtcm_glo_biases_cb(sender_id, len, msg, &sbp_to_rtcm3_state);
+  }
 }
 
 static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
