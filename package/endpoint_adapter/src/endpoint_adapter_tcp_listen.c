@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2016-2019 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -53,24 +53,29 @@ err:
   return ret;
 }
 
+static void reap_children()
+{
+  /* Reap terminated child processes */
+  while (waitpid(-1, NULL, WNOHANG) > 0) {
+    /* No-op */
+  }
+}
+
 static void server_loop(int server_fd)
 {
   while (1) {
-    /* Reap terminated child processes */
-    while (waitpid(-1, NULL, WNOHANG) > 0) {
-      ;
-    }
-
+    reap_children();
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len);
 
     if (client_fd >= 0) {
       int wfd = dup(client_fd);
-      io_loop_start(client_fd, wfd);
+      int rc = io_loop_run(client_fd, wfd, /* fork_needed = */ true);
       close(client_fd);
       close(wfd);
       client_fd = -1;
+      if (rc != 0) break;
     } else if ((client_fd == -1) && (errno == EINTR)) {
       /* Retry if interrupted */
       continue;
