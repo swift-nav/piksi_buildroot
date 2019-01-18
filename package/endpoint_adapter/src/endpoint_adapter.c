@@ -803,10 +803,13 @@ static bool handle_loop_status(pk_loop_t *loop, int status)
 {
   if ((status & LOOP_DISCONNECTED) || (status & LOOP_ERROR)) {
     if (status & LOOP_ERROR) {
-      PK_LOG_ANNO(LOG_WARNING,
-                  "got error event callback from loop: %s, error: %s",
-                  pk_loop_describe_status(status),
-                  pk_loop_last_error(loop));
+      /* EBADF happens when sockets/FDs are closed and the loop kicks them out */
+      if (pk_loop_last_error(loop) != EBADF) {
+        PK_LOG_ANNO(LOG_WARNING,
+                    "got error event callback from loop: %s, error: %s",
+                    pk_loop_describe_status(status),
+                    pk_loop_last_error(loop));
+      }
     }
     pk_loop_stop(loop);
     return false;
