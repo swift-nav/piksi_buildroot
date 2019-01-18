@@ -581,12 +581,14 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
 
 static ssize_t handle_write_all_via_framer(handle_t *handle, const void *buffer, size_t count);
 
-static ssize_t process_read_buffer(handle_t *read_handle, handle_t *write_handle, uint8_t *buffer, size_t length)
+static ssize_t process_read_buffer(handle_t *read_handle,
+                                   handle_t *write_handle,
+                                   uint8_t *buffer,
+                                   size_t length)
 {
   UPDATE_IO_LOOP_METRIC(read_handle, MI.rx_read_count, MI.tx_read_count);
 
-  ssize_t write_count =
-    handle_write_all_via_framer(write_handle, buffer, length);
+  ssize_t write_count = handle_write_all_via_framer(write_handle, buffer, length);
 
   if (write_count < 0) {
     debug_printf("write_count %d errno %s (%d)\n", write_count, strerror(errno), errno);
@@ -605,7 +607,8 @@ static int sub_ept_read(const uint8_t *buff, size_t length, void *context)
 {
   read_ctx_t *read_ctx = (read_ctx_t *)context;
 
-  if (read_ctx->read_buf_cb(read_ctx->read_handle, read_ctx->write_handle, (uint8_t *)buff, length) < 0) {
+  if (read_ctx->read_buf_cb(read_ctx->read_handle, read_ctx->write_handle, (uint8_t *)buff, length)
+      < 0) {
     read_ctx->status = -1;
   } else {
     read_ctx->total += length;
@@ -684,9 +687,7 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
   return buffer_index;
 }
 
-static ssize_t handle_write_all_via_framer(handle_t *handle,
-                                           const void *buffer,
-                                           size_t count)
+static ssize_t handle_write_all_via_framer(handle_t *handle, const void *buffer, size_t count)
 {
   uint32_t buffer_index = 0;
   for (;;) {
