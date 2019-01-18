@@ -479,6 +479,7 @@ rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
     size_t filter_count = 0;
 
     filter_t *filter = NULL;
+    filter_t *filter_last = NULL;
 
     for (filter = rule->filters_list; filter != NULL; filter = filter->next) {
 
@@ -500,12 +501,14 @@ rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
           return NULL;
         }
       }
+
+      if (filter->next == NULL) filter_last = filter;
     }
 
     total_filter_prefixes += filter_prefix_count;
 
     /* Check if the last filter is a "default accept" chain */
-    if (filter->action == FILTER_ACTION_ACCEPT) {
+    if (filter_last != NULL && filter_last->action == FILTER_ACTION_ACCEPT) {
       if (rule->skip_framer && filter_count == 1) {
         rule_cache->no_framer_ports[rule_cache->no_framer_ports_count++] = rule->dst_port->pub_ept;
       } else {
