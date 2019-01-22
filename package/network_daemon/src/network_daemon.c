@@ -106,6 +106,7 @@ static void usage_timer_callback(pk_loop_t *loop, void *timer_handle, int status
   (void)loop;
   (void)timer_handle;
   (void)status;
+
   sbp_pubsub_ctx_t *pubsub_ctx = (sbp_pubsub_ctx_t *)context;
   assert(pubsub_ctx != NULL);
 

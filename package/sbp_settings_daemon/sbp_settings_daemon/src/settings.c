@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Gareth McMullin <gareth@swiftnav.com>
+ * Copyright (C) 2016-2018 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -17,6 +17,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/min_ini.h>
+#include <libpiksi/util.h>
 
 #include <libsbp/settings.h>
 
@@ -31,8 +32,8 @@
 struct setting {
   char section[BUFSIZE];
   char name[BUFSIZE];
-  char type[BUFSIZE];
   char value[BUFSIZE];
+  char type[BUFSIZE];
   struct setting *next;
   bool dirty;
 };
@@ -76,37 +77,53 @@ static struct setting *settings_lookup(const char *section, const char *setting)
   return NULL;
 }
 
-/* Format setting into SBP message payload */
-static int settings_format_setting(struct setting *s, char *buf, int len, bool type)
+static void settings_reply(sbp_tx_ctx_t *tx_ctx,
+                           struct setting *sdata,
+                           bool type,
+                           bool sbp_sender_id,
+                           u16 msg_type,
+                           char *buf,
+                           u8 offset,
+                           size_t blen)
 {
-  int buflen;
+  assert(tx_ctx != NULL);
+  assert(sdata != NULL);
 
-  /* build and send reply */
-  strncpy(buf, s->section, len);
-  buflen = strlen(s->section) + 1;
-  strncpy(buf + buflen, s->name, len - buflen);
-  buflen += strlen(s->name) + 1;
-  strncpy(buf + buflen, s->value, len - buflen);
-  buflen += strlen(s->value) + 1;
-  if (type && s->type[0]) {
-    strncpy(buf + buflen, s->type, len - buflen);
-    buflen += strlen(s->type) + 1;
-    buf[buflen++] = '\0';
+  char l_buf[BUFSIZE] = {0};
+  if (buf == NULL) {
+    buf = l_buf;
+    blen = sizeof(l_buf);
   }
 
-  return buflen;
+  int res = settings_format(sdata->section,
+                            sdata->name,
+                            sdata->value,
+                            type ? sdata->type : NULL,
+                            buf + offset,
+                            blen - offset);
+
+  if (res <= 0) {
+    piksi_log(LOG_ERR, "Setting %s.%s reply format failed", sdata->section, sdata->name);
+    return;
+  }
+
+  if (sbp_sender_id) {
+    sbp_tx_send_from(tx_ctx, msg_type, res + offset, (u8 *)buf, SBP_SENDER_ID);
+  } else {
+    sbp_tx_send(tx_ctx, msg_type, res + offset, (u8 *)buf);
+  }
 }
 
-static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_register_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
   (void)sender_id;
 
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
   /* Expect to find at least section, name and value */
   if (settings_parse(msg, len, &section, &name, &value, &type) < SETTINGS_TOKENS_VALUE) {
-    piksi_log(LOG_WARNING, "Error in register message");
+    piksi_log(LOG_ERR, "Error in settings register request: parse error");
   }
 
   struct setting *sdata = settings_lookup(section, name);
@@ -123,19 +140,20 @@ static void setting_register_callback(u16 sender_id, u8 len, u8 msg[], void *con
 
     setting_register(sdata);
   } else {
-    piksi_log(LOG_WARNING, "Setting %s.%s already registered", sdata->section, sdata->name);
+    piksi_log(LOG_WARNING,
+              "Settings register request: %s.%s already registered",
+              sdata->section,
+              sdata->name);
   }
 
   /* Reply with write message with our value */
-  char buf[256];
-  size_t rlen = settings_format_setting(sdata, buf, sizeof(buf), false);
-  sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE, rlen, (u8 *)buf, SBP_SENDER_ID);
+  settings_reply(tx_ctx, sdata, false, true, SBP_MSG_SETTINGS_WRITE, NULL, 0, 0);
 }
 
-static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
+static void settings_write_reply_cb(u16 sender_id, u8 len, u8 msg_[], void *ctx)
 {
   (void)sender_id;
-  (void)context;
+  (void)ctx;
   msg_settings_write_resp_t *msg = (void *)msg_;
 
   if (msg->status != 0) {
@@ -146,13 +164,16 @@ static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void
   /* Expect to find at least section, name and value */
   if (settings_parse(msg->setting, len - sizeof(msg->status), &section, &name, &value, &type)
       < SETTINGS_TOKENS_VALUE) {
-    piksi_log(LOG_WARNING, "Error in write reply message");
+    piksi_log(LOG_ERR, "Error in settings write reply message: parse error");
     return;
   }
 
   struct setting *sdata = settings_lookup(section, name);
   if (sdata == NULL) {
-    piksi_log(LOG_WARNING, "Write reply for non-existent setting");
+    piksi_log(LOG_ERR,
+              "Error in settings write reply message: %s.%s not registered",
+              section,
+              name);
     return;
   }
 
@@ -168,98 +189,87 @@ static void settings_write_reply_callback(u16 sender_id, u8 len, u8 msg_[], void
   return;
 }
 
-static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_read_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
   if (sender_id != SBP_SENDER_ID) {
-    piksi_log(LOG_WARNING, "Invalid sender");
+    piksi_log(LOG_ERR, "Error in settings read request: invalid sender");
     return;
   }
 
-  static struct setting *s = NULL;
-  const char *section = NULL, *setting = NULL;
-  char buf[256];
-  u8 buflen;
-
-  if (len == 0) {
-    piksi_log(LOG_WARNING, "Error in settings read message: length is zero");
+  /* Expect to find at least section and name */
+  const char *section = NULL, *name = NULL;
+  if (settings_parse(msg, len, &section, &name, NULL, NULL) < SETTINGS_TOKENS_NAME) {
+    piksi_log(LOG_ERR, "Error in settings read request: parse error");
     return;
   }
 
-  if (msg[len - 1] != '\0') {
-    piksi_log(LOG_WARNING, "Error in settings read message: null string");
+  struct setting *sdata = settings_lookup(section, name);
+  if (sdata == NULL) {
+    piksi_log(LOG_ERR, "Error in settings read request: setting not found (%s.%s)", section, name);
     return;
   }
 
-  /* Extract parameters from message:
-   * 2 null terminated strings: section, and setting
-   */
-  section = (const char *)msg;
-  for (int i = 0, tok = 0; i < len; i++) {
-    if (msg[i] == '\0') {
-      tok++;
-      switch (tok) {
-      case 1: setting = (const char *)&msg[i + 1]; break;
-      case 2:
-        if (i == len - 1) break;
-      default: piksi_log(LOG_WARNING, "Error in settings read message: parse error"); return;
-      }
-    }
-  }
-
-  s = settings_lookup(section, setting);
-  if (s == NULL) {
-    piksi_log(LOG_WARNING,
-              "Bad settings read request: setting not found (%s.%s)",
-              section,
-              setting);
-    return;
-  }
-
-  buflen = settings_format_setting(s, buf, sizeof(buf), true);
-  sbp_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_RESP, buflen, (void *)buf);
-  return;
+  settings_reply(tx_ctx, sdata, false, false, SBP_MSG_SETTINGS_READ_RESP, NULL, 0, 0);
 }
 
-static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static struct setting *setting_find_by_index(u16 index)
 {
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+  struct setting *sdata = settings_head;
+  u16 i = 0;
+
+  while ((i < index) && (sdata != NULL)) {
+    sdata = sdata->next;
+    i++;
+  }
+
+  return sdata;
+}
+
+static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+{
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
   if (sender_id != SBP_SENDER_ID) {
-    piksi_log(LOG_WARNING, "Invalid sender");
+    piksi_log(LOG_ERR, "Error in settings read by index request: invalid sender");
     return;
   }
 
-  struct setting *s = settings_head;
-  char buf[256];
-  u8 buflen = 0;
-
-  if (len != 2) {
-    piksi_log(LOG_WARNING, "Invalid length for settings read by index!");
+  if (len != sizeof(msg_settings_read_by_index_req_t)) {
+    piksi_log(LOG_ERR, "Error in settings read by index request: malformed message");
     return;
   }
-  u16 index = (msg[1] << 8) | msg[0];
 
-  for (int i = 0; (i < index) && s; i++, s = s->next)
-    ;
+  msg_settings_read_by_index_req_t *req = (msg_settings_read_by_index_req_t *)msg;
 
-  if (s == NULL) {
+  /* 16 bit index expected */
+  assert(sizeof(req->index) == sizeof(u16));
+
+  /* SBP is little-endian */
+  struct setting *sdata = setting_find_by_index(le16toh(req->index));
+  if (sdata == NULL) {
     sbp_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_DONE, 0, NULL);
     return;
   }
 
   /* build and send reply */
-  buf[buflen++] = msg[0];
-  buf[buflen++] = msg[1];
-  buflen += settings_format_setting(s, buf + buflen, sizeof(buf) - buflen, true);
-  sbp_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_RESP, buflen, (void *)buf);
+  char buf[256];
+  memcpy(buf, msg, len);
+  settings_reply(tx_ctx,
+                 sdata,
+                 true,
+                 false,
+                 SBP_MSG_SETTINGS_READ_BY_INDEX_RESP,
+                 buf,
+                 len,
+                 sizeof(buf));
 }
 
-static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_save_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
   (void)sender_id;
-  (void)context;
+  (void)ctx;
   (void)len;
   (void)msg;
 
@@ -267,7 +277,7 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   const char *sec = NULL;
 
   if (f == NULL) {
-    piksi_log(LOG_ERR, "Error opening config file!");
+    piksi_log(LOG_ERR, "Error in settings save request: file open failed");
     return;
   }
 
@@ -288,66 +298,64 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   fclose(f);
 }
 
-static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_write_failed(sbp_tx_ctx_t *tx_ctx,
+                                  settings_write_res_t res,
+                                  char *msg,
+                                  int msg_len)
+{
+  /* Reply with write response rejecting this setting */
+  int blen = 0;
+  char buf[BUFSIZE] = {0};
+  buf[blen++] = res;
+
+  int to_copy = SWFT_MIN(sizeof(buf) - blen, msg_len);
+  memcpy(buf + blen, msg, to_copy);
+
+  sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, blen + to_copy, buf, SBP_SENDER_ID);
+}
+
+static void settings_write_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
 {
   (void)sender_id;
 
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
   /* Expect to find at least section, name and value */
-  if ((settings_parse(msg, len, &section, &name, &value, &type) >= SETTINGS_TOKENS_VALUE)
-      && settings_lookup(section, name) != NULL) {
-    /* This setting looks good; we'll leave it to the owner to complain if
-     * there's a problem with the value. */
+  if (settings_parse(msg, len, &section, &name, &value, &type) < SETTINGS_TOKENS_VALUE) {
+    piksi_log(LOG_ERR, "Error in settings write request: parse error");
+    settings_write_failed(tx_ctx, SETTINGS_WR_PARSE_FAILED, msg, len);
     return;
   }
 
-  piksi_log(LOG_ERR, "Setting %s.%s rejected", section, name);
-
-  /* Reply with write response rejecting this setting */
-  int buflen = 0;
-  u8 buf[BUFSIZE] = {0};
-  buf[buflen++] = SETTINGS_WR_SETTING_REJECTED;
-
-  if (section != NULL) {
-    strncpy(buf, section, BUFSIZE - buflen);
-    buflen += strlen(section) + 1;
+  struct setting *sdata = settings_lookup(section, name);
+  if (sdata == NULL) {
+    piksi_log(LOG_ERR, "Error in settings write request: %s.%s not registered", section, name);
+    settings_write_failed(tx_ctx, SETTINGS_WR_SETTING_REJECTED, msg, len);
+    return;
   }
 
-  if (name != NULL) {
-    strncpy(buf + buflen, name, BUFSIZE - buflen);
-    buflen += strlen(name) + 1;
-  }
-
-  if (value != NULL) {
-    strncpy(buf + buflen, value, BUFSIZE - buflen);
-    buflen += strlen(value) + 1;
-  }
-
-  sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, buflen, buf, SBP_SENDER_ID);
+  /* This setting looks good; we'll leave it to the owner to complain if
+   * there's a problem with the value. */
+  return;
 }
 
 void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx)
 {
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_SAVE, settings_save_callback, tx_ctx, NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE, settings_write_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_SAVE, settings_save_cb, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE, settings_write_cb, tx_ctx, NULL);
   sbp_rx_callback_register(rx_ctx,
                            SBP_MSG_SETTINGS_WRITE_RESP,
-                           settings_write_reply_callback,
+                           settings_write_reply_cb,
                            tx_ctx,
                            NULL);
-  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_REQ, settings_read_callback, tx_ctx, NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_REQ, settings_read_cb, tx_ctx, NULL);
   sbp_rx_callback_register(rx_ctx,
                            SBP_MSG_SETTINGS_READ_BY_INDEX_REQ,
-                           settings_read_by_index_callback,
+                           settings_read_by_index_cb,
                            tx_ctx,
                            NULL);
-  sbp_rx_callback_register(rx_ctx,
-                           SBP_MSG_SETTINGS_REGISTER,
-                           setting_register_callback,
-                           tx_ctx,
-                           NULL);
+  sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_REGISTER, settings_register_cb, tx_ctx, NULL);
 }
 
 void settings_reset_defaults(void)

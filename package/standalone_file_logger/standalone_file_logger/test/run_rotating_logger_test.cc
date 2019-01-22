@@ -62,6 +62,9 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
   // invalidate current file pointer
   void SetNullFilePointer()
   {
+    while (!_queue.empty()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
     close_current_file();
   }
 
@@ -72,12 +75,18 @@ class RotatingLoggerTest : public ::testing::Test, public RotatingLogger {
 
   void SetOutputPath(const std::string &path)
   {
-    _out_dir = path;
+    while (!_queue.empty()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    update_dir(path);
   }
 
   // make logger think time progressed
   void MoveStartTimeBack(size_t minutes_back)
   {
+    while (!_queue.empty()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
     _session_start_time -= std::chrono::minutes(minutes_back);
   }
 };
@@ -103,6 +112,7 @@ TEST_F(RotatingLoggerTest, NormalOperation)
     expected_file_content[i / 5][i % 5] = i;
   }
 
+  stop_thread();
   close_current_file();
 
   // Check that log roll overs occured and each has correct data
@@ -181,6 +191,7 @@ TEST_F(RotatingLoggerTest, StartDisconnected)
   SetOutputPath(out_dir);
   frame_handler(reinterpret_cast<uint8_t *>(&i), sizeof(int));
 
+  stop_thread();
   close_current_file();
 
   char file_name_buf[1024];
@@ -229,6 +240,7 @@ TEST_F(RotatingLoggerTest, DisconnectReconnect)
   // 0003-00000.sbp <- 5
   frame_handler(reinterpret_cast<uint8_t *>(&i), sizeof(int));
 
+  stop_thread();
   close_current_file();
 
   for (i = 0; i < 3; i++) {
