@@ -141,5 +141,5 @@ int sbp_tx_send_from(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload, u16 s
 
 pk_endpoint_t *sbp_tx_endpoint_get(sbp_tx_ctx_t *ctx)
 {
-  return ctx->pk_ept; 
+  return ctx->pk_ept;
 }
