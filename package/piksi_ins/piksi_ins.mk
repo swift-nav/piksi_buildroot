@@ -17,7 +17,7 @@ endif # ! ($(BR2_BUILD_RELEASE_PROTECTED),y)
 
 $(info >>> Piksi INS is enabled, packaging with current image)
 
-PIKSI_INS_VERSION = 35e0f4b0ee1beb22897d30ab1fb12b58a0f5ba2c
+PIKSI_INS_VERSION = cd70721298e0c1491b966eca0c99017b3b72ff3d
 PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_GIT_SUBMODULES = YES
