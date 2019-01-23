@@ -27,13 +27,12 @@
 #include "settings.h"
 
 #define SETTINGS_FILE "/persistent/config.ini"
-#define BUFSIZE 256
 
 struct setting {
-  char section[BUFSIZE];
-  char name[BUFSIZE];
-  char value[BUFSIZE];
-  char type[BUFSIZE];
+  char section[SETTINGS_BUFLEN];
+  char name[SETTINGS_BUFLEN];
+  char value[SETTINGS_BUFLEN];
+  char type[SETTINGS_BUFLEN];
   struct setting *next;
   bool dirty;
 };
@@ -58,13 +57,13 @@ void setting_register(struct setting *setting)
   }
 
   const char *default_value = "{2F9D26FF-F64C-4F9F-94FE-AE9F57758835}";
-  char buf[BUFSIZE];
+  char buf[SETTINGS_BUFLEN] = {0};
 
   ini_gets(setting->section, setting->name, default_value, buf, sizeof(buf), SETTINGS_FILE);
 
   if (strcmp(buf, default_value) != 0) {
     /* Use value from config file */
-    strncpy(setting->value, buf, BUFSIZE);
+    strncpy(setting->value, buf, sizeof(setting->value));
     setting->dirty = true;
   }
 }
@@ -89,7 +88,7 @@ static void settings_reply(sbp_tx_ctx_t *tx_ctx,
   assert(tx_ctx != NULL);
   assert(sdata != NULL);
 
-  char l_buf[BUFSIZE] = {0};
+  char l_buf[SETTINGS_BUFLEN] = {0};
   if (buf == NULL) {
     buf = l_buf;
     blen = sizeof(l_buf);
@@ -130,12 +129,12 @@ static void settings_register_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
   /* Only register setting if it doesn't already exist */
   if (sdata == NULL) {
     sdata = calloc(1, sizeof(*sdata));
-    strncpy(sdata->section, section, BUFSIZE);
-    strncpy(sdata->name, name, BUFSIZE);
-    strncpy(sdata->value, value, BUFSIZE);
+    strncpy(sdata->section, section, sizeof(sdata->section));
+    strncpy(sdata->name, name, sizeof(sdata->name));
+    strncpy(sdata->value, value, sizeof(sdata->value));
 
     if (type != NULL) {
-      strncpy(sdata->type, type, BUFSIZE);
+      strncpy(sdata->type, type, sizeof(sdata->type));
     }
 
     setting_register(sdata);
@@ -183,7 +182,7 @@ static void settings_write_reply_cb(u16 sender_id, u8 len, u8 msg_[], void *ctx)
   }
 
   /* This is an assignment, call notify function */
-  strncpy(sdata->value, value, BUFSIZE);
+  strncpy(sdata->value, value, sizeof(sdata->value));
   sdata->dirty = true;
 
   return;
@@ -254,7 +253,7 @@ static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 msg[], void *ctx
   }
 
   /* build and send reply */
-  char buf[256];
+  char buf[SETTINGS_BUFLEN] = {0};
   memcpy(buf, msg, len);
   settings_reply(tx_ctx,
                  sdata,
@@ -305,7 +304,7 @@ static void settings_write_failed(sbp_tx_ctx_t *tx_ctx,
 {
   /* Reply with write response rejecting this setting */
   int blen = 0;
-  char buf[BUFSIZE] = {0};
+  char buf[SETTINGS_BUFLEN] = {0};
   buf[blen++] = res;
 
   int to_copy = SWFT_MIN(sizeof(buf) - blen, msg_len);
