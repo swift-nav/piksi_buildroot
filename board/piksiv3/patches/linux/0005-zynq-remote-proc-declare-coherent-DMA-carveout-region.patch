@@ -1,0 +1,33 @@
+diff --git a/drivers/remoteproc/zynq_remoteproc.c b/drivers/remoteproc/zynq_remoteproc.c
+index d4eac41f9bfa..27a49edfed41 100644
+--- a/drivers/remoteproc/zynq_remoteproc.c
++++ b/drivers/remoteproc/zynq_remoteproc.c
+@@ -258,10 +258,12 @@ static int zynq_rproc_add_mems(struct zynq_rproc_pdata *pdata)
+ 	dma_addr_t dma;
+ 	void *va;
+ 	struct device *dev = pdata->rproc->dev.parent;
++	int ret;
+ 
+ 	list_for_each_entry(mem_node, &pdata->mem_pools, node) {
+ 		mem_pool = mem_node->pool;
+ 		mem_size = gen_pool_size(mem_pool);
++
+ 		mem  = devm_kzalloc(dev, sizeof(struct rproc_mem_entry),
+ 				GFP_KERNEL);
+ 		if (!mem)
+@@ -272,6 +274,15 @@ static int zynq_rproc_add_mems(struct zynq_rproc_pdata *pdata)
+ 			dev_err(dev, "Failed to allocate dma carveout mem.\n");
+ 			return -ENOMEM;
+ 		}
++
++		ret = dma_declare_coherent_memory(dev, dma, dma, mem_size, DMA_MEMORY_IO);
++		if (!ret)
++		{
++			dev_err(dev, "Failed to declare coherent DMA memory dma = 0x%x size = 0x%x\n",
++			    dma, mem_size);
++			return -ENOMEM;
++		}
++
+ 		mem->priv = (void *)mem_pool;
+ 		mem->va = va;
+ 		mem->len = mem_size;
