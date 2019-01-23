@@ -113,7 +113,7 @@ static void settings_reply(sbp_tx_ctx_t *tx_ctx,
   }
 }
 
-static void settings_register_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_register_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
 
@@ -149,19 +149,19 @@ static void settings_register_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
   settings_reply(tx_ctx, sdata, false, true, SBP_MSG_SETTINGS_WRITE, NULL, 0, 0);
 }
 
-static void settings_write_resp_cb(u16 sender_id, u8 len, u8 msg_[], void *ctx)
+static void settings_write_resp_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
   (void)ctx;
-  msg_settings_write_resp_t *msg = (void *)msg_;
+  msg_settings_write_resp_t *resp = (void *)msg;
 
-  if (msg->status != 0) {
+  if (resp->status != 0) {
     return;
   }
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
   /* Expect to find at least section, name and value */
-  if (settings_parse(msg->setting, len - sizeof(msg->status), &section, &name, &value, &type)
+  if (settings_parse(resp->setting, len - sizeof(resp->status), &section, &name, &value, &type)
       < SETTINGS_TOKENS_VALUE) {
     piksi_log(LOG_ERR, "Error in settings write reply message: parse error");
     return;
@@ -188,7 +188,7 @@ static void settings_write_resp_cb(u16 sender_id, u8 len, u8 msg_[], void *ctx)
   return;
 }
 
-static void settings_read_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_read_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
@@ -226,7 +226,7 @@ static struct setting *setting_find_by_index(u16 index)
   return sdata;
 }
 
-static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
@@ -265,7 +265,7 @@ static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 msg[], void *ctx
                  sizeof(buf));
 }
 
-static void settings_save_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_save_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
   (void)ctx;
@@ -313,7 +313,7 @@ static void settings_write_failed(sbp_tx_ctx_t *tx_ctx,
   sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, blen + to_copy, buf, SBP_SENDER_ID);
 }
 
-static void settings_write_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_write_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
 
