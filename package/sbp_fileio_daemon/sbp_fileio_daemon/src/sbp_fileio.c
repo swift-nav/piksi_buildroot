@@ -10,19 +10,24 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#define _GNU_SOURCE
+
+#include <alloca.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <libgen.h>
+#include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <alloca.h>
-#include <libgen.h>
 #include <stdbool.h>
+#include <time.h>
+#include <unistd.h>
+#include <stdatomic.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <limits.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <time.h>
 
 #include <libsbp/file_io.h>
 
@@ -38,23 +43,24 @@
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
-#define CLEANUP_FD_CACHE_MS 1e3
+#define TIMER_PERIOD_MS 100
+
+#define PURGE_FD_CACHE_PERIOD 1000
+#define CHECK_FD_CACHE_EVERY (PURGE_FD_CACHE_PERIOD / TIMER_PERIOD_MS)
+
+#define FLUSH_METRICS_PERIOD 1000
+#define FLUSH_METRICS_EVERY (FLUSH_METRICS_PERIOD / TIMER_PERIOD_MS)
 
 #define SEND_BUFFER_SIZE 4096
 
-static struct {
-  sbp_state_t sbp_state;
-  u8 send_buffer[SEND_BUFFER_SIZE];
-  u32 send_buffer_remaining;
-  u32 send_buffer_offset;
-  sbp_tx_ctx_t *tx_ctx;
-} receive_buffer_ctx;
+#define READ 0
+#define WRITE 1
 
 static u16 sbp_sender_id = 0;
 
 static bool allow_factory_mtd = false;
 static bool allow_imageset_bin = false;
-static void *cleanup_timer_handle = NULL;
+static void *timer_handle = NULL;
 
 #define TEST_CTRL_FILE_TEMPLATE "/var/run/sbp_fileio_%s/test"
 static char sbp_fileio_test_control[PATH_MAX] = {0};
@@ -81,12 +87,36 @@ static char sbp_fileio_wait_flush_file[PATH_MAX] = {0};
 
 /* clang-format off */
 PK_METRICS_TABLE(MT, MI,
-  PK_METRICS_ENTRY("data/write/bytes", "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  write_bytes),
-  PK_METRICS_ENTRY("data/read/bytes",  "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  read_bytes)
+  PK_METRICS_ENTRY("data/write/bytes",       "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  write_bytes),
+  PK_METRICS_ENTRY("data/read/bytes",        "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  read_bytes),
+  PK_METRICS_ENTRY("write_queue/wait/count", "per_second",  M_U32,   M_UPDATE_COUNT, M_RESET_DEF,  wq_waits)
  )
 /* clang-format on */
 
 static pk_metrics_t *fileio_metrics = NULL;
+
+typedef struct write_request {
+  size_t len;
+  u8 msg_buffer[SBP_FRAMING_MAX_PAYLOAD_SIZE];
+} write_request_t;
+
+#define MAX_PENDING 128
+
+static struct {
+  int request_pipe[2];
+  write_request_t write_requests[MAX_PENDING];
+  atomic_bool flush_pending;
+  atomic_size_t write_req_index;
+  atomic_size_t writes_pending;
+  pthread_t thread;
+  pthread_mutex_t lock;
+  pthread_cond_t cond;
+  sbp_state_t sbp_state;
+  u8 send_buffer[SEND_BUFFER_SIZE];
+  u32 send_buffer_remaining;
+  u32 send_buffer_offset;
+  sbp_tx_ctx_t *tx_ctx;
+} write_thread_ctx;
 
 typedef struct {
   FILE *fp;
@@ -126,11 +156,16 @@ enum {
 static void update_offset(open_file_t r, off_t offset, int op);
 
 static void flush_fd_cache();
-static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context);
+static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context);
 static void flush_cached_fd(const char *path, const char *mode);
 static open_file_t open_file(const char *path, const char *mode, int oflag, mode_t perm);
 
 static bool test_control_dir(const char *name);
+
+static void flush_output_sbp(void);
+static void request_flush_output_sbp(void);
+
+static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload);
 
 static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ...(FD_CACHE_COUNT - 1)] = {NULL, "", "", 0, 0}};
 
@@ -179,29 +214,39 @@ static void flush_fd_cache()
   }
 }
 
-static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context)
+static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)status;
   (void)handle;
   (void)context;
 
-  time_t now = time(NULL);
+  static int trigger_cache_purge = 0;
+  static int trigger_metrics_flush = 0;
 
-  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
-    if (fd_cache[idx].fp == NULL) continue;
-    if ((now - fd_cache[idx].opened_at) >= CACHE_CLOSE_AGE) {
-      fclose(fd_cache[idx].fp);
-      fd_cache[idx] = empty_cache_entry;
+  if (++trigger_cache_purge == CHECK_FD_CACHE_EVERY) {
+    trigger_cache_purge = 0;
+    time_t now = time(NULL);
+    for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+      if (fd_cache[idx].fp == NULL) continue;
+      if ((now - fd_cache[idx].opened_at) >= CACHE_CLOSE_AGE) {
+        fclose(fd_cache[idx].fp);
+        fd_cache[idx] = empty_cache_entry;
+      }
     }
   }
 
-  pk_metrics_flush(MR);
+  if (++trigger_metrics_flush == FLUSH_METRICS_EVERY) {
+    trigger_metrics_flush = 0;
+    pk_metrics_flush(MR);
+    pk_metrics_reset(MR, MI.read_bytes);
+    pk_metrics_reset(MR, MI.write_bytes);
+    pk_metrics_reset(MR, MI.wq_waits);
+  }
 
-  pk_metrics_reset(MR, MI.read_bytes);
-  pk_metrics_reset(MR, MI.write_bytes);
+  request_flush_output_sbp();
 
-  pk_loop_timer_reset(cleanup_timer_handle);
+  pk_loop_timer_reset(timer_handle);
 }
 
 /**
@@ -318,16 +363,150 @@ void sbp_fileio_setup_path_validator(path_validator_t *pv_ctx,
   allow_imageset_bin = allow_imageset_bin_;
 }
 
-static void post_receive_buffer(void *context)
+static void flush_output_sbp(void)
 {
-  (void) context;
+  if (write_thread_ctx.send_buffer_offset == 0) {
+    return;
+  }
 
-  pk_endpoint_t *ept = sbp_tx_endpoint_get(receive_buffer_ctx.tx_ctx);
-  pk_endpoint_send(ept, receive_buffer_ctx.send_buffer, receive_buffer_ctx.send_buffer_offset);
+  pk_endpoint_t *ept = sbp_tx_endpoint_get(write_thread_ctx.tx_ctx);
+  int rc = pk_endpoint_send(ept,
+                            write_thread_ctx.send_buffer,
+                            write_thread_ctx.send_buffer_offset);
+
+  if (rc != 0) {
+    PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_send reported an error: %d", rc);
+  }
 
   /* reset buffer */
-  receive_buffer_ctx.send_buffer_remaining = sizeof(receive_buffer_ctx.send_buffer);
-  receive_buffer_ctx.send_buffer_offset = 0;
+  write_thread_ctx.send_buffer_remaining = sizeof(write_thread_ctx.send_buffer);
+  write_thread_ctx.send_buffer_offset = 0;
+}
+
+static void request_flush_output_sbp(void)
+{
+  if (atomic_load(&write_thread_ctx.flush_pending)) {
+    return;
+  }
+
+  atomic_store(&write_thread_ctx.flush_pending, true);
+
+  void *write_req_ptr = NULL;
+  int rc = write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
+
+  if (rc != sizeof(write_req_ptr)) {
+    PK_LOG_ANNO(LOG_WARNING, "write() called failed: %s (%d)", strerror(errno), errno)
+  }
+}
+
+static void post_receive_buffer(void *context)
+{
+  (void)context;
+
+  request_flush_output_sbp();
+}
+
+#define Q_SLEEP_NS 1
+
+static size_t wq_acquire_index()
+{
+  return atomic_fetch_add(&write_thread_ctx.write_req_index, 1) % MAX_PENDING;
+}
+
+static void wq_increment_pending_writes()
+{
+  while (write_thread_ctx.writes_pending == MAX_PENDING) {
+    PK_METRICS_UPDATE(MR, MI.wq_waits);
+    nanosleep((const struct timespec[]){{0, Q_SLEEP_NS}}, NULL);
+  }
+
+  /* Called WITHOUT lock */
+  atomic_fetch_add(&write_thread_ctx.writes_pending, 1);
+}
+
+static void wq_decrement_and_signal()
+{
+  /* Called WITH lock held */
+
+  if (atomic_fetch_sub(&write_thread_ctx.writes_pending, 1) == 1) {
+    pthread_cond_signal(&write_thread_ctx.cond);
+  }
+}
+
+static void wq_wait_empty()
+{
+  /* Called WITH lock held */
+
+  if (write_thread_ctx.writes_pending == 0) return;
+
+  int rc = pthread_cond_wait(&write_thread_ctx.cond, &write_thread_ctx.lock);
+  assert(rc == 0);
+}
+
+static void *write_thread_handler(void *arg)
+{
+  (void)arg;
+
+  piksi_log(LOG_DEBUG, "write thread starting...");
+  int req_read_fd = write_thread_ctx.request_pipe[READ];
+
+  for (;;) {
+
+    fd_set fds;
+    FD_ZERO(&fds);
+
+    FD_SET(req_read_fd, &fds);
+
+    if (select((req_read_fd + 1), &fds, NULL, NULL, NULL) < 0) {
+
+      if (errno != EBADF) {
+        PK_LOG_ANNO(LOG_WARNING, "select failed: %s (%d)", strerror(errno), errno);
+      }
+
+      return NULL;
+    }
+
+    void *write_req_ptr = NULL;
+    int rc = read(req_read_fd, &write_req_ptr, sizeof(write_req_ptr));
+
+    if (rc <= 0) break;
+
+    if (write_req_ptr == NULL) {
+
+      flush_output_sbp();
+      atomic_store(&write_thread_ctx.flush_pending, false);
+
+      continue;
+    }
+
+    write_request_t *write_req = (write_request_t *)write_req_ptr;
+
+    bool write_success = false;
+    size_t write_count = 0;
+
+    msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)write_req->msg_buffer;
+    msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
+
+    {
+      /*** MUTEX ACQUIRE ***/
+      rc = pthread_mutex_lock(&write_thread_ctx.lock);
+      assert(rc == 0);
+
+      write_success = sbp_fileio_write(msg, write_req->len, &write_count);
+      wq_decrement_and_signal();
+
+      /*** MUTEX RELEASE ***/
+      rc = pthread_mutex_unlock(&write_thread_ctx.lock);
+      assert(rc == 0);
+    }
+
+    if (write_success) {
+      PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
+      stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+    }
+  }
+
+  return NULL;
 }
 
 /** Setup file IO
@@ -378,18 +557,18 @@ bool sbp_fileio_setup(const char *name,
 
   sbp_sender_id = sbp_sender_id_get();
 
-  sbp_state_init(&receive_buffer_ctx.sbp_state);
+  sbp_state_init(&write_thread_ctx.sbp_state);
   sbp_rx_receive_buffer_cb_set(rx_ctx, post_receive_buffer, NULL);
 
-  receive_buffer_ctx.tx_ctx = tx_ctx;
+  write_thread_ctx.tx_ctx = tx_ctx;
 
-  receive_buffer_ctx.send_buffer_remaining = sizeof(receive_buffer_ctx.send_buffer);
-  receive_buffer_ctx.send_buffer_offset = 0;
+  write_thread_ctx.send_buffer_remaining = sizeof(write_thread_ctx.send_buffer);
+  write_thread_ctx.send_buffer_offset = 0;
 
-  cleanup_timer_handle = pk_loop_timer_add(loop, CLEANUP_FD_CACHE_MS, purge_fd_cache, NULL);
+  timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, NULL);
 
-  if (cleanup_timer_handle == NULL) {
-    PK_LOG_ANNO(LOG_ERR, "purge_fd_cache timer setup failed");
+  if (timer_handle == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "timer setup failed");
     return false;
   }
 
@@ -397,6 +576,45 @@ bool sbp_fileio_setup(const char *name,
 
   if (fileio_metrics == NULL) {
     return false;
+  }
+
+  atomic_init(&write_thread_ctx.write_req_index, 0);
+  atomic_init(&write_thread_ctx.writes_pending, 0);
+  atomic_init(&write_thread_ctx.flush_pending, false);
+
+  if (pipe2(write_thread_ctx.request_pipe, O_DIRECT) < 0) {
+    piksi_log(LOG_ERR,
+              "failed to create write thread request pipe: %s (%d)",
+              strerror(errno),
+              errno);
+    return false;
+  }
+
+  if (fcntl(write_thread_ctx.request_pipe[READ], F_SETFL, O_NONBLOCK) < 0) {
+    piksi_log(LOG_WARNING,
+              "failed to set O_NONBLOCK on read end of request pipe: %s (%d)",
+              strerror(errno),
+              errno);
+  }
+
+  if (fcntl(write_thread_ctx.request_pipe[WRITE], F_SETFL, O_NONBLOCK) < 0) {
+    piksi_log(LOG_WARNING,
+              "failed to set O_NONBLOCK on write end of request pipe: %s (%d)",
+              strerror(errno),
+              errno);
+  }
+
+  {
+    int rc = -1;
+
+    rc = pthread_mutex_init(&write_thread_ctx.lock, NULL);
+    assert(rc == 0);
+
+    rc = pthread_cond_init(&write_thread_ctx.cond, NULL);
+    assert(rc == 0);
+
+    rc = pthread_create(&write_thread_ctx.thread, NULL, write_thread_handler, NULL);
+    assert(rc == 0);
   }
 
   return true;
@@ -410,6 +628,12 @@ void sbp_fileio_teardown(const char *name)
   if (rc < 0) {
     piksi_log(LOG_ERR, "unlink of pid file '%s' failed: %s", sbp_fileio_pid_file, strerror(errno));
   }
+
+  close(write_thread_ctx.request_pipe[READ]);
+  close(write_thread_ctx.request_pipe[WRITE]);
+
+  void *thread_return;
+  pthread_join(write_thread_ctx.thread, &thread_return);
 }
 
 void sbp_fileio_flush(void)
@@ -632,10 +856,22 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
       }
     }
 
-    read_result = fread(&reply->contents, 1, readlen, the_file.fp);
-    if (read_result != readlen) PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
+    {
+      /*** MUTEX ACQUIRE ***/
+      int rc = pthread_mutex_lock(&write_thread_ctx.lock);
+      assert(rc == 0);
 
-    finalize_non_cached(&the_file);
+      wq_wait_empty();
+
+      read_result = fread(&reply->contents, 1, readlen, the_file.fp);
+      if (read_result != readlen) PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
+
+      finalize_non_cached(&the_file);
+
+      /*** MUTEX RELEASE ***/
+      rc = pthread_mutex_unlock(&write_thread_ctx.lock);
+      assert(rc == 0);
+    }
   }
 
 done:
@@ -743,10 +979,22 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
     return;
   }
 
-  flush_cached_fd(filename, "r");
-  flush_cached_fd(filename, "w");
+  {
+    /*** MUTEX ACQUIRE ***/
+    int rc = pthread_mutex_lock(&write_thread_ctx.lock);
+    assert(rc == 0);
 
-  unlink(filename);
+    wq_wait_empty();
+
+    flush_cached_fd(filename, "r");
+    flush_cached_fd(filename, "w");
+
+    unlink(filename);
+
+    /*** MUTEX RELEASE ***/
+    rc = pthread_mutex_unlock(&write_thread_ctx.lock);
+    assert(rc == 0);
+  }
 }
 
 bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *write_count)
@@ -794,7 +1042,9 @@ bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *
     u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
     *write_count = length - headerlen;
 
-    if (fwrite(((u8 *)msg) + headerlen, 1, *write_count, r.fp) != *write_count) {
+    size_t wres = fwrite(((u8 *)msg) + headerlen, 1, *write_count, r.fp);
+
+    if (wres != *write_count) {
       piksi_log(LOG_ERR, "Error writing %d bytes to %s", *write_count, filename);
       goto cleanup;
     }
@@ -808,26 +1058,54 @@ cleanup:
   return success;
 }
 
-static s32 send_buffer_write(u8 *buff, u32 n, void *context)
+static s32 stage_packed_sbp_buffer(u8 *buff, u32 n, void *context)
 {
-  (void) context;
+  (void)context;
 
-  u32 len = SWFT_MIN(receive_buffer_ctx.send_buffer_remaining, n);
+  u32 len = SWFT_MIN(write_thread_ctx.send_buffer_remaining, n);
 
-  memcpy(&receive_buffer_ctx.send_buffer[receive_buffer_ctx.send_buffer_offset], buff, len);
+  if (len != n) {
+    flush_output_sbp();
+    len = SWFT_MIN(write_thread_ctx.send_buffer_remaining, n);
+  }
 
-  receive_buffer_ctx.send_buffer_remaining -= len;
-  receive_buffer_ctx.send_buffer_offset += len;
+  memcpy(&write_thread_ctx.send_buffer[write_thread_ctx.send_buffer_offset], buff, len);
+
+  write_thread_ctx.send_buffer_remaining -= len;
+  write_thread_ctx.send_buffer_offset += len;
 
   return uint32_to_int32(len);
 }
 
-static void stage_sbp_msg(u8 msg_type, size_t len, u8 *payload)
+static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload)
 {
-  if (sbp_send_message(&receive_buffer_ctx.sbp_state, msg_type, sbp_sender_id, len, payload, send_buffer_write)
-      != SBP_OK) {
-    piksi_log(LOG_ERR, "error sending SBP message");
+  int status = sbp_send_message(&write_thread_ctx.sbp_state,
+                                msg_type,
+                                sbp_sender_id,
+                                len,
+                                payload,
+                                stage_packed_sbp_buffer);
+
+  if (status != SBP_OK) {
+    piksi_log(LOG_ERR, "error sending SBP message: %d", status);
     return;
+  }
+}
+
+static void queue_file_write(u8 len, u8 msg[])
+{
+  wq_increment_pending_writes();
+
+  write_request_t *write_request = &write_thread_ctx.write_requests[wq_acquire_index()];
+
+  write_request->len = len;
+  memcpy(write_request->msg_buffer, msg, len);
+
+  void *write_req_ptr = write_request;
+  int rc = write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
+
+  if (rc != sizeof(write_req_ptr)) {
+    PK_LOG_ANNO(LOG_WARNING, "write() called failed: %s (%d)", strerror(errno), errno)
   }
 }
 
@@ -845,9 +1123,6 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
 
-  msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
-  size_t write_count = 0;
-
   if ((len <= sizeof(*msg) + 2)
       || (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))
           == SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
@@ -855,8 +1130,5 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
 
-  if (!sbp_fileio_write(msg, len, &write_count)) return;
-
-  PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
-  stage_sbp_msg(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+  queue_file_write(len, msg_);
 }
