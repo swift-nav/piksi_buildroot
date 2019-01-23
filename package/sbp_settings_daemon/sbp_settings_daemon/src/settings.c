@@ -149,7 +149,7 @@ static void settings_register_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
   settings_reply(tx_ctx, sdata, false, true, SBP_MSG_SETTINGS_WRITE, NULL, 0, 0);
 }
 
-static void settings_write_reply_cb(u16 sender_id, u8 len, u8 msg_[], void *ctx)
+static void settings_write_resp_cb(u16 sender_id, u8 len, u8 msg_[], void *ctx)
 {
   (void)sender_id;
   (void)ctx;
@@ -345,7 +345,7 @@ void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx)
   sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE, settings_write_cb, tx_ctx, NULL);
   sbp_rx_callback_register(rx_ctx,
                            SBP_MSG_SETTINGS_WRITE_RESP,
-                           settings_write_reply_cb,
+                           settings_write_resp_cb,
                            tx_ctx,
                            NULL);
   sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_REQ, settings_read_cb, tx_ctx, NULL);
