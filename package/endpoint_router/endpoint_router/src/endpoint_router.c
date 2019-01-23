@@ -337,6 +337,13 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
     endpoint_send_fn(rule_cache->no_framer_ports[idx], data, length);
   }
 
+  if (rule_cache->rule_count == 1 && rule_cache->no_framer_ports_count == 1) {
+    // One rule (which is a "skip_framer" rule) means we don't need to de-frame
+    //   the buffer at all, bail early...
+    PK_METRICS_UPDATE(MR, MI.no_deframe_count);
+    return;
+  }
+
   while (buffer_index < length) {
 
     const uint8_t *frame;
@@ -483,6 +490,7 @@ static void loop_1s_metrics(pk_loop_t *loop, void *handle, int status, void *con
   pk_metrics_reset(MR, MI.latency_total);
   pk_metrics_reset(MR, MI.frame_count);
   pk_metrics_reset(MR, MI.frame_leftovers);
+  pk_metrics_reset(MR, MI.no_deframe_count);
 
   pk_loop_timer_reset(handle);
 }
