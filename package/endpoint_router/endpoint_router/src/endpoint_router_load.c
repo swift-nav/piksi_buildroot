@@ -441,6 +441,7 @@ static PROCESS_FN(forwarding_rule_)
     .dst_port_name = "",
     .dst_port = NULL,
     .filters_list = NULL,
+    .skip_framer = false,
     .next = NULL,
   };
 

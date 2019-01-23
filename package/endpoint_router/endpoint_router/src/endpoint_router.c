@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <getopt.h>
+#include <pthread.h>
 
 #include <libpiksi/loop.h>
 #include <libpiksi/logging.h>
@@ -40,20 +41,24 @@ static pk_metrics_t *router_metrics = NULL;
 /* clang-format off */
 PK_METRICS_TABLE(message_metrics_table, MI,
 
-  PK_METRICS_ENTRY("message/count",    "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
-  PK_METRICS_ENTRY("message/size",     ".total",      M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  size_total),
-  PK_METRICS_ENTRY("message/size",     "per_second",  M_U32,   M_UPDATE_AVERAGE, M_RESET_DEF,  size,
-                   M_AVERAGE_OF(MI,    size_total,    count)),
-  PK_METRICS_ENTRY("message/wake_ups", "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups),
-  PK_METRICS_ENTRY("message/wake_ups", "max",         M_U32,   M_UPDATE_MAX,     M_RESET_DEF,  wakeups_max),
-  PK_METRICS_ENTRY("message/wake_ups", ".total",      M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups_message_count),
-  PK_METRICS_ENTRY("message/latency",  "max",         M_TIME,  M_UPDATE_MAX,     M_RESET_DEF,  latency_max),
-  PK_METRICS_ENTRY("message/latency",  ".delta",      M_TIME,  M_UPDATE_DELTA,   M_RESET_TIME, latency_delta),
-  PK_METRICS_ENTRY("message/latency",  ".total",      M_TIME,  M_UPDATE_SUM,     M_RESET_DEF,  latency_total),
-  PK_METRICS_ENTRY("message/latency",  "per_second",  M_TIME,  M_UPDATE_AVERAGE, M_RESET_DEF,  latency,
-                   M_AVERAGE_OF(MI,    latency_total, count)),
-  PK_METRICS_ENTRY("frame/count",      "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
-  PK_METRICS_ENTRY("frame/leftover",   "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers)
+  PK_METRICS_ENTRY("message/no_deframe","per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  no_deframe_count),
+  PK_METRICS_ENTRY("message/count",     "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
+  PK_METRICS_ENTRY("message/size",      ".total",      M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  size_total),
+  PK_METRICS_ENTRY("message/size",      "per_second",  M_U32,   M_UPDATE_AVERAGE, M_RESET_DEF,  size,
+                   M_AVERAGE_OF(MI,     size_total,    count)),
+  PK_METRICS_ENTRY("message/wake_ups",  "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups),
+  PK_METRICS_ENTRY("message/wake_ups",  "max",         M_U32,   M_UPDATE_MAX,     M_RESET_DEF,  wakeups_max),
+  PK_METRICS_ENTRY("message/wake_ups",  ".total",      M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakeups_message_count),
+  PK_METRICS_ENTRY("message/latency",   "max",         M_TIME,  M_UPDATE_MAX,     M_RESET_DEF,  latency_max),
+  PK_METRICS_ENTRY("message/latency",   ".delta",      M_TIME,  M_UPDATE_DELTA,   M_RESET_TIME, latency_delta),
+  PK_METRICS_ENTRY("message/latency",   ".total",      M_TIME,  M_UPDATE_SUM,     M_RESET_DEF,  latency_total),
+  PK_METRICS_ENTRY("message/latency",   "per_second",  M_TIME,  M_UPDATE_AVERAGE, M_RESET_DEF,  latency,
+                   M_AVERAGE_OF(MI,     latency_total, count)),
+  PK_METRICS_ENTRY("frame/count",       "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
+  PK_METRICS_ENTRY("frame/leftover",    "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers),
+
+  PK_METRICS_ENTRY("ports/skip_framer", "count",       M_U32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  skip_framer),
+  PK_METRICS_ENTRY("ports/accept_last", "count",       M_U32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  accept_last)
  )
 /* clang-format on */
 
@@ -190,33 +195,66 @@ static int router_create_endpoints(router_cfg_t *router, pk_loop_t *loop)
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
-
-    pk_endpoint_loop_add(port->sub_ept, loop);
   }
 
   return 0;
 }
 
-static int router_attach(router_t *router, pk_loop_t *loop)
+typedef struct {
+  pk_loop_t *loop;
+  port_t *port;
+  rule_cache_t *rule_cache;
+  pthread_t thread;
+} router_thread_ctx_t;
+
+static void *router_thread_handler(void *arg)
 {
+  piksi_log(LOG_DEBUG, "router thread starting...");
+  router_thread_ctx_t *ctx = (router_thread_ctx_t*)arg;
+
+  /* Create loop */
+  ctx->loop = pk_loop_create();
+
+  if (ctx->loop == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "error in pk_loop_create");
+    exit(EXIT_FAILURE);
+  }
+
+  if (pk_loop_endpoint_reader_add(ctx->loop,
+                                  ctx->port->sub_ept,
+                                  loop_reader_callback,
+                                  ctx->rule_cache)
+      == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "pk_loop_endpoint_reader_add error");
+    exit(EXIT_FAILURE);
+  }
+
+  pk_endpoint_loop_add(ctx->port->sub_ept, ctx->loop);
+
+  pk_loop_run_simple(ctx->loop);
+
+  piksi_log(LOG_DEBUG, "router thread stopping...");
+  return NULL;
+}
+
+static router_thread_ctx_t *spawn_router_threads(router_t *router)
+{
+  router_thread_ctx_t *threads = malloc(sizeof(router_thread_ctx_t)*router->port_count);
+
   size_t idx = 0;
   port_t *port;
 
   for (port = router->router_cfg->ports_list; port != NULL; port = port->next, idx++) {
 
-    /* TODO: Add thread/fork here for parallelization [ESD-958] */
+    router_thread_ctx_t *ctx = &threads[idx];
 
-    if (pk_loop_endpoint_reader_add(loop,
-                                    port->sub_ept,
-                                    loop_reader_callback,
-                                    &router->port_rule_cache[idx])
-        == NULL) {
-      piksi_log(LOG_ERR, "pk_loop_endpoint_reader_add() error\n");
-      return -1;
-    }
+    ctx->port = port;
+    ctx->rule_cache = &router->port_rule_cache[idx];
+
+    pthread_create(&ctx->thread, NULL, router_thread_handler, ctx);
   }
 
-  return 0;
+  return threads;
 }
 
 static void cache_match_process(const forwarding_rule_t *forwarding_rule,
@@ -466,7 +504,7 @@ void process_forwarding_rules(const forwarding_rule_t *forwarding_rule,
 #define MSG_PREFIX_LEN_MAX \
   "ERROR: forwarding rule prefix length (%d) exceeded maximum length (%d)\n"
 
-rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
+rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cache_t *rule_cache)
 {
   size_t total_filter_prefixes = 0;
   forwarding_rule_t *rule = NULL;
@@ -511,8 +549,10 @@ rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache)
     if (filter_last != NULL && filter_last->action == FILTER_ACTION_ACCEPT) {
       if (rule->skip_framer && filter_count == 1) {
         rule_cache->no_framer_ports[rule_cache->no_framer_ports_count++] = rule->dst_port->pub_ept;
+        if (router != NULL) router->skip_framer_count++;
       } else {
         rule_cache->accept_ports[rule_cache->accept_ports_count++] = rule->dst_port->pub_ept;
+        if (router != NULL) router->accept_last_count++;
       }
     }
   }
@@ -603,6 +643,9 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     router->port_count++;
   }
 
+  router->skip_framer_count = 0;
+  router->accept_last_count = 0;
+
   router->port_rule_cache = calloc(router->port_count, sizeof(rule_cache_t));
 
   size_t port_index = 0;
@@ -623,7 +666,7 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     rule_cache->accept_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
     rule_cache->no_framer_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
 
-    rule_prefixes_t *rule_prefixes = extract_rule_prefixes(port, rule_cache);
+    rule_prefixes_t *rule_prefixes = extract_rule_prefixes(router, port, rule_cache);
 
     if (rule_prefixes == NULL) {
       fprintf(stderr, "ERROR: extract_rule_prefixes failed\n");
@@ -795,6 +838,9 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
+  PK_METRICS_UPDATE(MR, MI.skip_framer, PK_METRICS_VALUE(router->skip_framer_count));
+  PK_METRICS_UPDATE(MR, MI.accept_last, PK_METRICS_VALUE(router->accept_last_count));
+
   /* Print router config and exit if requested */
   if (options.print) {
     if (router_print(stdout, router->router_cfg) != 0) {
@@ -804,16 +850,24 @@ int main(int argc, char *argv[])
   }
 
   void *handle = pk_loop_timer_add(loop, 1000, loop_1s_metrics, NULL);
-
   assert(handle != NULL);
 
+  router_thread_ctx_t *threads = spawn_router_threads(router);
+  (void) threads;
+#if 0
+  for (size_t idx = 0; idx < router->port_count; idx++) {
+
+    void *thread_ret;
+    pthread_join(threads->thread, &thread_ret);
+  }
+#endif
+  pk_loop_run_simple(loop);
+#if 0
   /* Add router to loop */
-  if (router_attach(router, loop) != 0) {
+  if ( != 0) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
-
-  pk_loop_run_simple(loop);
-
+#endif
   exit(cleanup(EXIT_SUCCESS, &loop, &router, &router_metrics));
 }
 

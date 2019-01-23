@@ -97,6 +97,8 @@ typedef struct {
   router_cfg_t *router_cfg;      /** Router config structure */
   rule_cache_t *port_rule_cache; /** A cache structure for each 'SUB' socket in the router config */
   size_t port_count;             /** A count of all SUB ports */
+  size_t skip_framer_count;
+  size_t accept_last_count;
 } router_t;
 
 void debug_printf(const char *msg, ...);
@@ -139,7 +141,7 @@ void process_forwarding_rules(const forwarding_rule_t *forwarding_rule,
 /**
  * Extract and deduplicated all the prefixes that are specified in a router config.
  */
-rule_prefixes_t *extract_rule_prefixes(port_t *port, rule_cache_t *rule_cache);
+rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cache_t *rule_cache);
 
 inline void rule_prefixes_destroy(rule_prefixes_t **p)
 {
