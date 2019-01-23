@@ -13,7 +13,7 @@ FLUSH_SOURCES= \
 TARGETS=$(TARGET_DAEMON) $(TARGET_FLUSH)
 ARCHIVE_TARGETS=$(TARGET_DAEMON).a $(TARGET_FLUSH).a
 
-LIBS=-luv -lsbp -lpiksi -lsettings
+LIBS=-luv -lsbp -lpiksi -lsettings -lpthread
 
 ARFLAGS=rcs $(LTO_PLUGIN)
 
