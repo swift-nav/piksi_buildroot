@@ -41,7 +41,7 @@ endif
 
 export BR2_HAS_PIKSI_INS_REF
 
-PIKSI_INS_REPO :=  git@github.com:carnegieroboticsllc/piksi_ins.git
+PIKSI_INS_REPO := git@github.com:swift-nav/pose_daemon_wrapper.git
 
 ifneq ($(BR2_BUILD_PIKSI_INS),)
 BR2_HAS_PIKSI_INS := $(shell git ls-remote $(PIKSI_INS_REPO) &>/dev/null && echo y)
