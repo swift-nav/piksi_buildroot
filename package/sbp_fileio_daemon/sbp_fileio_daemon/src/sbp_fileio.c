@@ -10,6 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#pragma GCC diagnostic ignored "-Wunused-function"
+
+#define STAGE_OUTPUT_SBP
+#define USE_THREADS
+
 #define _GNU_SOURCE
 
 #include <alloca.h>
@@ -156,7 +161,7 @@ enum {
 static void update_offset(open_file_t r, off_t offset, int op);
 
 static void flush_fd_cache();
-static void periodic_event_handler(pk_loop_t *loop, void *handle, int status, void *context);
+static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context);
 static void flush_cached_fd(const char *path, const char *mode);
 static open_file_t open_file(const char *path, const char *mode, int oflag, mode_t perm);
 
@@ -214,13 +219,16 @@ static void flush_fd_cache()
   }
 }
 
-static void periodic_event_handler(pk_loop_t *loop, void *handle, int status, void *context)
+static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)status;
   (void)handle;
   (void)context;
-
+#if 0
+  PK_LOG_ANNO(LOG_DEBUG, "not doing anything");
+  return;
+#endif
   static int trigger_cache_purge = 0;
   static int trigger_metrics_flush = 0;
 
@@ -244,7 +252,13 @@ static void periodic_event_handler(pk_loop_t *loop, void *handle, int status, vo
     pk_loop_timer_reset(cleanup_timer_handle);
   }
 
-  request_flush_output_sbp();
+#ifdef STAGE_OUTPUT_SBP
+#  ifdef USE_THREADS
+     request_flush_output_sbp();
+#  else
+     flush_output_sbp();
+#  endif
+#endif
 }
 
 /**
@@ -396,7 +410,13 @@ static void post_receive_buffer(void *context)
     counter = 0;
   }
 
-  request_flush_output_sbp();
+#ifdef STAGE_OUTPUT_SBP
+#  ifdef USE_THREADS
+     request_flush_output_sbp();
+#  else
+     flush_output_sbp();
+#  endif
+#endif
 }
 
 #define Q_SLEEP_NS 1
@@ -553,7 +573,7 @@ bool sbp_fileio_setup(const char *name,
   receive_buffer_ctx.send_buffer_remaining = sizeof(receive_buffer_ctx.send_buffer);
   receive_buffer_ctx.send_buffer_offset = 0;
 
-  cleanup_timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, periodic_event_handler, NULL);
+  cleanup_timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, NULL);
 
   if (cleanup_timer_handle == NULL) {
     PK_LOG_ANNO(LOG_ERR, "timer setup failed");
@@ -566,6 +586,7 @@ bool sbp_fileio_setup(const char *name,
     return false;
   }
 
+#ifdef USE_THREADS
   write_thread_ctx.write_req_index = 0;
 
   if (pipe2(write_thread_ctx.request_pipe, O_DIRECT) < 0) {
@@ -589,10 +610,10 @@ bool sbp_fileio_setup(const char *name,
 
     rc = pthread_cond_init(&write_thread_ctx.cond, NULL);
     assert( rc == 0 );
-
     rc = pthread_create(&write_thread_ctx.thread, NULL, write_thread_handler, NULL);
     assert( rc == 0 );
   }
+#endif
 
   return true;
 }
@@ -1100,6 +1121,26 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     piksi_log(LOG_WARNING, "Invalid fileio write message!");
     return;
   }
-
+#ifdef USE_THREADS
   queue_file_write(len, msg_);
+#else
+  msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
+
+  bool write_success = false;
+  size_t write_count = 0;
+  {
+    write_success = sbp_fileio_write(msg, len, &write_count);
+  }
+
+  if (write_success)
+  {
+    PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
+#ifdef STAGE_OUTPUT_SBP
+    stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+#else
+    sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+    sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+#endif
+  }
+#endif // USE_THREADS
 }
