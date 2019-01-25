@@ -29,6 +29,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdatomic.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -109,6 +110,7 @@ static struct {
   int request_pipe[2];
   write_request_t write_requests[MAX_PENDING];
   size_t write_req_index;
+  atomic_bool flush_pending;
   pthread_t thread;
   size_t writes_pending;
   pthread_mutex_t lock;
@@ -396,6 +398,12 @@ static void flush_output_sbp(void)
 
 static void request_flush_output_sbp(void)
 {
+  if (atomic_load(&write_thread_ctx.flush_pending)) {
+    return;
+  }
+
+  atomic_store(&write_thread_ctx.flush_pending, true);
+
   void *write_req_ptr = NULL;
   write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
 }
@@ -482,7 +490,10 @@ static void *write_thread_handler(void *arg)
     if (rc <= 0) break;
 
     if (write_req_ptr == NULL) {
+
       flush_output_sbp();
+      atomic_store(&write_thread_ctx.flush_pending, false);
+
       continue;
     }
 
@@ -588,6 +599,7 @@ bool sbp_fileio_setup(const char *name,
 
 #ifdef USE_THREADS
   write_thread_ctx.write_req_index = 0;
+  atomic_init(&write_thread_ctx.flush_pending, false);
 
   if (pipe2(write_thread_ctx.request_pipe, O_DIRECT) < 0) {
     piksi_log(LOG_ERR, "failed to create write thread request pipe: %s (%d)", strerror(errno), errno);
@@ -610,6 +622,7 @@ bool sbp_fileio_setup(const char *name,
 
     rc = pthread_cond_init(&write_thread_ctx.cond, NULL);
     assert( rc == 0 );
+
     rc = pthread_create(&write_thread_ctx.thread, NULL, write_thread_handler, NULL);
     assert( rc == 0 );
   }
