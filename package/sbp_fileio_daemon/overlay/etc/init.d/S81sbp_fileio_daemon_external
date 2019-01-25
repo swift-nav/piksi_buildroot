@@ -19,7 +19,7 @@ cmd="sbp_fileio_daemon \
 --basedir $fileio_dir \
 --basedir $persist_dir \
 --basedir $media_dir \
---imageset"
+--imageset --debug"
 
 dir="/"
 user="fileio"

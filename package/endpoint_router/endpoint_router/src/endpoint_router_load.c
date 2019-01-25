@@ -495,8 +495,10 @@ static PROCESS_FN(skip_framer)
     return -1;
   }
 
-  forwarding_rule->skip_framer = str != NULL && strcmp(str, "true") == 0;
+  forwarding_rule->skip_framer = str != NULL && strcasecmp(str, "true") == 0;
   if (str != NULL) free(str);
+
+  debug_printf("value: %s\n", forwarding_rule->skip_framer ? "true" : "false");
 
   return 0;
 }

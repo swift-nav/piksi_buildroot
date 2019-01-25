@@ -10,6 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#pragma GCC diagnostic ignored "-Wunused-function"
+
+#define STAGE_OUTPUT_SBP
+#define USE_THREADS
+
 #define _GNU_SOURCE
 
 #include <alloca.h>
@@ -42,14 +47,18 @@
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
-#define CLEANUP_FD_CACHE_MS 1e3
+#define TIMER_PERIOD_MS 100
+
+#define PURGE_FD_CACHE_PERIOD 1000
+#define CHECK_FD_CACHE_EVERY (PURGE_FD_CACHE_PERIOD/TIMER_PERIOD_MS)
+
+#define FLUSH_METRICS_PERIOD 1000
+#define FLUSH_METRICS_EVERY (FLUSH_METRICS_PERIOD/TIMER_PERIOD_MS)
 
 #define SEND_BUFFER_SIZE 4096
 
 #define READ 0
 #define WRITE 1
-
-static char filep_write_buffer[4096];
 
 static u16 sbp_sender_id = 0;
 
@@ -152,11 +161,16 @@ enum {
 static void update_offset(open_file_t r, off_t offset, int op);
 
 static void flush_fd_cache();
-static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context);
+static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context);
 static void flush_cached_fd(const char *path, const char *mode);
 static open_file_t open_file(const char *path, const char *mode, int oflag, mode_t perm);
 
 static bool test_control_dir(const char *name);
+
+static void flush_output_sbp(void);
+static void request_flush_output_sbp(void);
+
+static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload);
 
 static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ...(FD_CACHE_COUNT - 1)] = {NULL, "", "", 0, 0}};
 
@@ -205,29 +219,46 @@ static void flush_fd_cache()
   }
 }
 
-static void purge_fd_cache(pk_loop_t *loop, void *handle, int status, void *context)
+static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)status;
   (void)handle;
   (void)context;
+#if 0
+  PK_LOG_ANNO(LOG_DEBUG, "not doing anything");
+  return;
+#endif
+  static int trigger_cache_purge = 0;
+  static int trigger_metrics_flush = 0;
 
-  time_t now = time(NULL);
-
-  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
-    if (fd_cache[idx].fp == NULL) continue;
-    if ((now - fd_cache[idx].opened_at) >= CACHE_CLOSE_AGE) {
-      fclose(fd_cache[idx].fp);
-      fd_cache[idx] = empty_cache_entry;
+  if (++trigger_cache_purge == CHECK_FD_CACHE_EVERY) {
+    trigger_cache_purge = 0;
+    time_t now = time(NULL);
+    for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
+      if (fd_cache[idx].fp == NULL) continue;
+      if ((now - fd_cache[idx].opened_at) >= CACHE_CLOSE_AGE) {
+        fclose(fd_cache[idx].fp);
+        fd_cache[idx] = empty_cache_entry;
+      }
     }
   }
 
-  pk_metrics_flush(MR);
+  if (++trigger_metrics_flush == FLUSH_METRICS_EVERY) {
+    trigger_metrics_flush = 0;
+    pk_metrics_flush(MR);
+    pk_metrics_reset(MR, MI.read_bytes);
+    pk_metrics_reset(MR, MI.write_bytes);
+    pk_loop_timer_reset(cleanup_timer_handle);
+  }
 
-  pk_metrics_reset(MR, MI.read_bytes);
-  pk_metrics_reset(MR, MI.write_bytes);
-
-  pk_loop_timer_reset(cleanup_timer_handle);
+#ifdef STAGE_OUTPUT_SBP
+#  ifdef USE_THREADS
+     request_flush_output_sbp();
+#  else
+     flush_output_sbp();
+#  endif
+#endif
 }
 
 /**
@@ -286,8 +317,6 @@ static open_file_t open_file(const char *path, const char *mode, int oflag, mode
   if (fd < 0) return (open_file_t){.fp = NULL, .cached = false, .offset = NULL};
   FILE *fp = fdopen(fd, mode);
   assert(fp != NULL);
-  int rc = setvbuf(fp, filep_write_buffer, _IOFBF, sizeof(filep_write_buffer));
-  assert(rc == 0);
   if (no_cache) {
     return (open_file_t){.fp = fp, .cached = false, .offset = NULL};
   }
@@ -346,23 +375,47 @@ void sbp_fileio_setup_path_validator(path_validator_t *pv_ctx,
   allow_imageset_bin = allow_imageset_bin_;
 }
 
-static void post_receive_buffer(void *context)
+static void flush_output_sbp(void)
 {
-  (void) context;
-#if 0
   if (receive_buffer_ctx.send_buffer_offset == 0) {
+#if 0
     PK_LOG_ANNO(LOG_DEBUG, "not sending sending empty SBP message buffer");
+#endif
     return;
   }
-
+#if 0
   PK_LOG_ANNO(LOG_DEBUG, "sending %zu bytes of buffered SBP messages", receive_buffer_ctx.send_buffer_offset);
-
+#endif
   pk_endpoint_t *ept = sbp_tx_endpoint_get(receive_buffer_ctx.tx_ctx);
   pk_endpoint_send(ept, receive_buffer_ctx.send_buffer, receive_buffer_ctx.send_buffer_offset);
 
   /* reset buffer */
   receive_buffer_ctx.send_buffer_remaining = sizeof(receive_buffer_ctx.send_buffer);
   receive_buffer_ctx.send_buffer_offset = 0;
+}
+
+static void request_flush_output_sbp(void)
+{
+  void *write_req_ptr = NULL;
+  write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
+}
+
+static void post_receive_buffer(void *context)
+{
+  (void) context;
+
+  if (strcmp(sbp_fileio_name, "external") == 0) {
+    static int counter = 0;
+    if (counter++ != 32) return;
+    counter = 0;
+  }
+
+#ifdef STAGE_OUTPUT_SBP
+#  ifdef USE_THREADS
+     request_flush_output_sbp();
+#  else
+     flush_output_sbp();
+#  endif
 #endif
 }
 
@@ -428,6 +481,11 @@ static void *write_thread_handler(void *arg)
 
     if (rc <= 0) break;
 
+    if (write_req_ptr == NULL) {
+      flush_output_sbp();
+      continue;
+    }
+
     write_request_t *write_req = (write_request_t *)write_req_ptr;
 
     bool write_success = false;
@@ -452,10 +510,7 @@ static void *write_thread_handler(void *arg)
     if (write_success)
     {
       PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
-#if 0
-      stage_sbp_msg(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
-#endif
-      sbp_tx_send(receive_buffer_ctx.tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+      stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
     }
   }
 
@@ -518,10 +573,10 @@ bool sbp_fileio_setup(const char *name,
   receive_buffer_ctx.send_buffer_remaining = sizeof(receive_buffer_ctx.send_buffer);
   receive_buffer_ctx.send_buffer_offset = 0;
 
-  cleanup_timer_handle = pk_loop_timer_add(loop, CLEANUP_FD_CACHE_MS, purge_fd_cache, NULL);
+  cleanup_timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, NULL);
 
   if (cleanup_timer_handle == NULL) {
-    PK_LOG_ANNO(LOG_ERR, "purge_fd_cache timer setup failed");
+    PK_LOG_ANNO(LOG_ERR, "timer setup failed");
     return false;
   }
 
@@ -531,6 +586,7 @@ bool sbp_fileio_setup(const char *name,
     return false;
   }
 
+#ifdef USE_THREADS
   write_thread_ctx.write_req_index = 0;
 
   if (pipe2(write_thread_ctx.request_pipe, O_DIRECT) < 0) {
@@ -554,10 +610,10 @@ bool sbp_fileio_setup(const char *name,
 
     rc = pthread_cond_init(&write_thread_ctx.cond, NULL);
     assert( rc == 0 );
-
     rc = pthread_create(&write_thread_ctx.thread, NULL, write_thread_handler, NULL);
     assert( rc == 0 );
   }
+#endif
 
   return true;
 }
@@ -983,8 +1039,10 @@ bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *
   {
     u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
     *write_count = length - headerlen;
-#if 0
-    if (fwrite(((u8 *)msg) + headerlen, 1, *write_count, r.fp) != *write_count) {
+#if 1
+    size_t wres = fwrite(((u8 *)msg) + headerlen, 1, *write_count, r.fp);
+   
+    if (wres != *write_count) {
       piksi_log(LOG_ERR, "Error writing %d bytes to %s", *write_count, filename);
       goto cleanup;
     }
@@ -1004,15 +1062,15 @@ cleanup:
   finalize_non_cached(&r);
   return success;
 }
-#if 0
+
 static s32 stage_packed_sbp_buffer(u8 *buff, u32 n, void *context)
 {
   (void) context;
   u32 len = SWFT_MIN(receive_buffer_ctx.send_buffer_remaining, n);
-
+#if 0
   PK_LOG_ANNO(LOG_DEBUG, "staging %d bytes in SBP send buffer (current: remaining=%zu, offset=%zu)",
               len, receive_buffer_ctx.send_buffer_remaining, receive_buffer_ctx.send_buffer_offset);
-
+#endif
   memcpy(&receive_buffer_ctx.send_buffer[receive_buffer_ctx.send_buffer_offset], buff, len);
 
   receive_buffer_ctx.send_buffer_remaining -= len;
@@ -1021,7 +1079,7 @@ static s32 stage_packed_sbp_buffer(u8 *buff, u32 n, void *context)
   return uint32_to_int32(len);
 }
 
-static void stage_sbp_msg(u8 msg_type, size_t len, u8 *payload)
+static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload)
 {
   if (sbp_send_message(&receive_buffer_ctx.sbp_state, msg_type, sbp_sender_id, len, payload, stage_packed_sbp_buffer)
       != SBP_OK) {
@@ -1029,7 +1087,7 @@ static void stage_sbp_msg(u8 msg_type, size_t len, u8 *payload)
     return;
   }
 }
-#endif
+
 static void queue_file_write(u8 len, u8 msg[])
 {
   wq_increment_pending_writes();
@@ -1063,6 +1121,26 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     piksi_log(LOG_WARNING, "Invalid fileio write message!");
     return;
   }
-
+#ifdef USE_THREADS
   queue_file_write(len, msg_);
+#else
+  msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
+
+  bool write_success = false;
+  size_t write_count = 0;
+  {
+    write_success = sbp_fileio_write(msg, len, &write_count);
+  }
+
+  if (write_success)
+  {
+    PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
+#ifdef STAGE_OUTPUT_SBP
+    stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+#else
+    sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+    sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+#endif
+  }
+#endif // USE_THREADS
 }

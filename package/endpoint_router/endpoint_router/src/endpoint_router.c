@@ -41,7 +41,9 @@ static pk_metrics_t *router_metrics = NULL;
 /* clang-format off */
 PK_METRICS_TABLE(message_metrics_table, MI,
 
-  PK_METRICS_ENTRY("message/no_deframe","per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  no_deframe_count),
+  PK_METRICS_ENTRY("skip_framer/message/count",        "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  skip_framer_count),
+  PK_METRICS_ENTRY("skip_framer/message/total_bypass", "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  skip_framer_bypass),
+
   PK_METRICS_ENTRY("message/count",     "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
   PK_METRICS_ENTRY("message/size",      ".total",      M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  size_total),
   PK_METRICS_ENTRY("message/size",      "per_second",  M_U32,   M_UPDATE_AVERAGE, M_RESET_DEF,  size,
@@ -209,11 +211,15 @@ typedef struct {
 
 static void *router_thread_handler(void *arg)
 {
+#if 0
   piksi_log(LOG_DEBUG, "router thread starting...");
+#endif
   router_thread_ctx_t *ctx = (router_thread_ctx_t*)arg;
 
   /* Create loop */
+#if 0
   ctx->loop = pk_loop_create();
+#endif
 
   if (ctx->loop == NULL) {
     PK_LOG_ANNO(LOG_ERR, "error in pk_loop_create");
@@ -230,14 +236,14 @@ static void *router_thread_handler(void *arg)
   }
 
   pk_endpoint_loop_add(ctx->port->sub_ept, ctx->loop);
-
+#if 0
   pk_loop_run_simple(ctx->loop);
-
   piksi_log(LOG_DEBUG, "router thread stopping...");
+#endif
   return NULL;
 }
 
-static router_thread_ctx_t *spawn_router_threads(router_t *router)
+static router_thread_ctx_t *spawn_router_threads(pk_loop_t *loop, router_t *router)
 {
   router_thread_ctx_t *threads = malloc(sizeof(router_thread_ctx_t)*router->port_count);
 
@@ -248,10 +254,15 @@ static router_thread_ctx_t *spawn_router_threads(router_t *router)
 
     router_thread_ctx_t *ctx = &threads[idx];
 
+    ctx->loop = loop;
     ctx->port = port;
-    ctx->rule_cache = &router->port_rule_cache[idx];
 
+    ctx->rule_cache = &router->port_rule_cache[idx];
+#if 0
     pthread_create(&ctx->thread, NULL, router_thread_handler, ctx);
+#else
+    router_thread_handler(ctx);
+#endif
   }
 
   return threads;
@@ -333,14 +344,17 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
   size_t buffer_index = 0;
   u32 frame_count = 0;
 
+  if (rule_cache->no_framer_ports_count > 0) {
+    PK_METRICS_UPDATE(MR, MI.skip_framer_count);
+  }
+
   for (size_t idx = 0; idx < rule_cache->no_framer_ports_count; idx++) {
     endpoint_send_fn(rule_cache->no_framer_ports[idx], data, length);
   }
 
-  if (rule_cache->rule_count == 1 && rule_cache->no_framer_ports_count == 1) {
-    // One rule (which is a "skip_framer" rule) means we don't need to de-frame
-    //   the buffer at all, bail early...
-    PK_METRICS_UPDATE(MR, MI.no_deframe_count);
+  if (rule_cache->rule_count == rule_cache->no_framer_ports_count) {
+    // If all we're doing is copying blobs we don't need to de-frame anything
+    PK_METRICS_UPDATE(MR, MI.skip_framer_bypass);
     return;
   }
 
@@ -490,7 +504,8 @@ static void loop_1s_metrics(pk_loop_t *loop, void *handle, int status, void *con
   pk_metrics_reset(MR, MI.latency_total);
   pk_metrics_reset(MR, MI.frame_count);
   pk_metrics_reset(MR, MI.frame_leftovers);
-  pk_metrics_reset(MR, MI.no_deframe_count);
+  pk_metrics_reset(MR, MI.skip_framer_count);
+  pk_metrics_reset(MR, MI.skip_framer_bypass);
 
   pk_loop_timer_reset(handle);
 }
@@ -522,14 +537,11 @@ rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cach
   for (rule = port->forwarding_rules_list; rule != NULL; rule = rule->next) {
 
     size_t filter_prefix_count = 0;
-    size_t filter_count = 0;
 
     filter_t *filter = NULL;
     filter_t *filter_last = NULL;
 
     for (filter = rule->filters_list; filter != NULL; filter = filter->next) {
-
-      filter_count++;
 
       if (filter->len != 0) {
 
@@ -551,17 +563,19 @@ rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cach
       if (filter->next == NULL) filter_last = filter;
     }
 
+    if (rule->skip_framer) {
+      PK_LOG_ANNO(LOG_DEBUG,
+          "adding no framer port: src=%s, dst=%s", port->name, rule->dst_port_name);
+      rule_cache->no_framer_ports[rule_cache->no_framer_ports_count++] = rule->dst_port->pub_ept;
+      if (router != NULL) router->skip_framer_count++;
+    }
+
     total_filter_prefixes += filter_prefix_count;
 
     /* Check if the last filter is a "default accept" chain */
     if (filter_last != NULL && filter_last->action == FILTER_ACTION_ACCEPT) {
-      if (rule->skip_framer && filter_count == 1) {
-        rule_cache->no_framer_ports[rule_cache->no_framer_ports_count++] = rule->dst_port->pub_ept;
-        if (router != NULL) router->skip_framer_count++;
-      } else {
-        rule_cache->accept_ports[rule_cache->accept_ports_count++] = rule->dst_port->pub_ept;
-        if (router != NULL) router->accept_last_count++;
-      }
+      rule_cache->accept_ports[rule_cache->accept_ports_count++] = rule->dst_port->pub_ept;
+      if (router != NULL) router->accept_last_count++;
     }
   }
 
@@ -670,6 +684,9 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     for (/* empty */; rules != NULL; rules = rules->next) {
       rule_cache->rule_count++;
     }
+
+    rule_cache->accept_ports_count = 0;
+    rule_cache->no_framer_ports_count = 0;
 
     rule_cache->accept_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
     rule_cache->no_framer_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
@@ -860,7 +877,7 @@ int main(int argc, char *argv[])
   void *handle = pk_loop_timer_add(loop, 1000, loop_1s_metrics, NULL);
   assert(handle != NULL);
 
-  router_thread_ctx_t *threads = spawn_router_threads(router);
+  router_thread_ctx_t *threads = spawn_router_threads(loop, router);
   (void) threads;
 #if 0
   for (size_t idx = 0; idx < router->port_count; idx++) {
