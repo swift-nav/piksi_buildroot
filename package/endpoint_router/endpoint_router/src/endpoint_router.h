@@ -37,9 +37,9 @@ typedef struct filter_s {
 } filter_t;
 
 typedef struct forwarding_rule_s {
-  const char *dst_port_name;      /** The name of the destination port */
-  struct port_s *dst_port;        /** The port that data will be forwarded to */
-  filter_t *filters_list;         /** The list of filters that will trigger forwarding rule */
+  const char *dst_port_name; /** The name of the destination port */
+  struct port_s *dst_port;   /** The port that data will be forwarded to */
+  filter_t *filters_list;    /** The list of filters that will trigger forwarding rule */
   bool skip_framer;
   struct forwarding_rule_s *next; /** The next fowarding fule */
 } forwarding_rule_t;

@@ -214,7 +214,7 @@ static void *router_thread_handler(void *arg)
 #if 0
   piksi_log(LOG_DEBUG, "router thread starting...");
 #endif
-  router_thread_ctx_t *ctx = (router_thread_ctx_t*)arg;
+  router_thread_ctx_t *ctx = (router_thread_ctx_t *)arg;
 
   /* Create loop */
 #if 0
@@ -245,7 +245,7 @@ static void *router_thread_handler(void *arg)
 
 static router_thread_ctx_t *spawn_router_threads(pk_loop_t *loop, router_t *router)
 {
-  router_thread_ctx_t *threads = malloc(sizeof(router_thread_ctx_t)*router->port_count);
+  router_thread_ctx_t *threads = malloc(sizeof(router_thread_ctx_t) * router->port_count);
 
   size_t idx = 0;
   port_t *port;
@@ -565,7 +565,9 @@ rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cach
 
     if (rule->skip_framer) {
       PK_LOG_ANNO(LOG_DEBUG,
-          "adding no framer port: src=%s, dst=%s", port->name, rule->dst_port_name);
+                  "adding no framer port: src=%s, dst=%s",
+                  port->name,
+                  rule->dst_port_name);
       rule_cache->no_framer_ports[rule_cache->no_framer_ports_count++] = rule->dst_port->pub_ept;
       if (router != NULL) router->skip_framer_count++;
     }
@@ -878,7 +880,7 @@ int main(int argc, char *argv[])
   assert(handle != NULL);
 
   router_thread_ctx_t *threads = spawn_router_threads(loop, router);
-  (void) threads;
+  (void)threads;
 #if 0
   for (size_t idx = 0; idx < router->port_count; idx++) {
 

@@ -46,10 +46,10 @@
 #define TIMER_PERIOD_MS 100
 
 #define PURGE_FD_CACHE_PERIOD 1000
-#define CHECK_FD_CACHE_EVERY (PURGE_FD_CACHE_PERIOD/TIMER_PERIOD_MS)
+#define CHECK_FD_CACHE_EVERY (PURGE_FD_CACHE_PERIOD / TIMER_PERIOD_MS)
 
 #define FLUSH_METRICS_PERIOD 1000
-#define FLUSH_METRICS_EVERY (FLUSH_METRICS_PERIOD/TIMER_PERIOD_MS)
+#define FLUSH_METRICS_EVERY (FLUSH_METRICS_PERIOD / TIMER_PERIOD_MS)
 
 #define SEND_BUFFER_SIZE 4096
 
@@ -388,7 +388,7 @@ static void request_flush_output_sbp(void)
 
 static void post_receive_buffer(void *context)
 {
-  (void) context;
+  (void)context;
 
   if (strcmp(sbp_fileio_name, "external") == 0) {
     static int counter = 0;
@@ -429,16 +429,15 @@ static void wq_wait_empty()
 {
   /* Called WITH lock held */
 
-  if (write_thread_ctx.writes_pending == 0)
-    return;
+  if (write_thread_ctx.writes_pending == 0) return;
 
   int rc = pthread_cond_wait(&write_thread_ctx.cond, &write_thread_ctx.lock);
-  assert( rc == 0 );
+  assert(rc == 0);
 }
 
 static void *write_thread_handler(void *arg)
 {
-  (void) arg;
+  (void)arg;
 
   piksi_log(LOG_DEBUG, "write thread starting...");
   int req_read_fd = write_thread_ctx.request_pipe[READ];
@@ -452,7 +451,8 @@ static void *write_thread_handler(void *arg)
 
     if (select((req_read_fd + 1), &fds, NULL, NULL, NULL) < 0) {
 
-      if (errno != EBADF) PK_LOG_ANNO(LOG_WARNING, "select failed: %s (%d)", strerror(errno), errno);
+      if (errno != EBADF)
+        PK_LOG_ANNO(LOG_WARNING, "select failed: %s (%d)", strerror(errno), errno);
       return NULL;
     }
 
@@ -480,18 +480,17 @@ static void *write_thread_handler(void *arg)
     {
       /*** MUTEX ACQUIRE ***/
       rc = pthread_mutex_lock(&write_thread_ctx.lock);
-      assert( rc == 0 );
+      assert(rc == 0);
 
       write_success = sbp_fileio_write(msg, write_req->len, &write_count);
       wq_decrement_and_signal();
 
       /*** MUTEX RELEASE ***/
       rc = pthread_mutex_unlock(&write_thread_ctx.lock);
-      assert( rc == 0 );
+      assert(rc == 0);
     }
 
-    if (write_success)
-    {
+    if (write_success) {
       PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
       stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
     }
@@ -573,29 +572,38 @@ bool sbp_fileio_setup(const char *name,
   atomic_init(&write_thread_ctx.flush_pending, false);
 
   if (pipe2(write_thread_ctx.request_pipe, O_DIRECT) < 0) {
-    piksi_log(LOG_ERR, "failed to create write thread request pipe: %s (%d)", strerror(errno), errno);
+    piksi_log(LOG_ERR,
+              "failed to create write thread request pipe: %s (%d)",
+              strerror(errno),
+              errno);
     return false;
   }
 
   if (fcntl(write_thread_ctx.request_pipe[READ], F_SETFL, O_NONBLOCK) < 0) {
-    piksi_log(LOG_WARNING, "failed to set O_NONBLOCK on read end of request pipe: %s (%d)", strerror(errno), errno);
+    piksi_log(LOG_WARNING,
+              "failed to set O_NONBLOCK on read end of request pipe: %s (%d)",
+              strerror(errno),
+              errno);
   }
 
   if (fcntl(write_thread_ctx.request_pipe[WRITE], F_SETFL, O_NONBLOCK) < 0) {
-    piksi_log(LOG_WARNING, "failed to set O_NONBLOCK on write end of request pipe: %s (%d)", strerror(errno), errno);
+    piksi_log(LOG_WARNING,
+              "failed to set O_NONBLOCK on write end of request pipe: %s (%d)",
+              strerror(errno),
+              errno);
   }
 
   {
     int rc = -1;
-    
+
     rc = pthread_mutex_init(&write_thread_ctx.lock, NULL);
-    assert( rc == 0 );
+    assert(rc == 0);
 
     rc = pthread_cond_init(&write_thread_ctx.cond, NULL);
-    assert( rc == 0 );
+    assert(rc == 0);
 
     rc = pthread_create(&write_thread_ctx.thread, NULL, write_thread_handler, NULL);
-    assert( rc == 0 );
+    assert(rc == 0);
   }
 
   return true;
@@ -840,7 +848,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     {
       /*** MUTEX ACQUIRE ***/
       int rc = pthread_mutex_lock(&write_thread_ctx.lock);
-      assert( rc == 0 );
+      assert(rc == 0);
 
       wq_wait_empty();
 
@@ -851,7 +859,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
       /*** MUTEX RELEASE ***/
       rc = pthread_mutex_unlock(&write_thread_ctx.lock);
-      assert( rc == 0 );
+      assert(rc == 0);
     }
   }
 
@@ -963,7 +971,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
   {
     /*** MUTEX ACQUIRE ***/
     int rc = pthread_mutex_lock(&write_thread_ctx.lock);
-    assert( rc == 0 );
+    assert(rc == 0);
 
     wq_wait_empty();
 
@@ -974,7 +982,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
 
     /*** MUTEX RELEASE ***/
     rc = pthread_mutex_unlock(&write_thread_ctx.lock);
-    assert( rc == 0 );
+    assert(rc == 0);
   }
 }
 
@@ -1024,7 +1032,7 @@ bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *
     *write_count = length - headerlen;
 
     size_t wres = fwrite(((u8 *)msg) + headerlen, 1, *write_count, r.fp);
-   
+
     if (wres != *write_count) {
       piksi_log(LOG_ERR, "Error writing %d bytes to %s", *write_count, filename);
       goto cleanup;
@@ -1041,7 +1049,7 @@ cleanup:
 
 static s32 stage_packed_sbp_buffer(u8 *buff, u32 n, void *context)
 {
-  (void) context;
+  (void)context;
 
   u32 len = SWFT_MIN(write_thread_ctx.send_buffer_remaining, n);
   memcpy(&write_thread_ctx.send_buffer[write_thread_ctx.send_buffer_offset], buff, len);
@@ -1054,7 +1062,12 @@ static s32 stage_packed_sbp_buffer(u8 *buff, u32 n, void *context)
 
 static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload)
 {
-  if (sbp_send_message(&write_thread_ctx.sbp_state, msg_type, sbp_sender_id, len, payload, stage_packed_sbp_buffer)
+  if (sbp_send_message(&write_thread_ctx.sbp_state,
+                       msg_type,
+                       sbp_sender_id,
+                       len,
+                       payload,
+                       stage_packed_sbp_buffer)
       != SBP_OK) {
     piksi_log(LOG_ERR, "error sending SBP message");
     return;
