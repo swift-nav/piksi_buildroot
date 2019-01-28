@@ -17,13 +17,13 @@
 
 #include <gtest/gtest.h>
 
-#define BUFSIZE 256
+#include <libsettings/settings.h>
 
 struct setting {
-  char section[BUFSIZE];
-  char name[BUFSIZE];
-  char type[BUFSIZE];
-  char value[BUFSIZE];
+  char section[SETTINGS_BUFLEN];
+  char name[SETTINGS_BUFLEN];
+  char type[SETTINGS_BUFLEN];
+  char value[SETTINGS_BUFLEN];
   struct setting *next;
   bool dirty;
 };

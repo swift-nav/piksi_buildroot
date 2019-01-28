@@ -27,13 +27,12 @@
 #include "settings.h"
 
 #define SETTINGS_FILE "/persistent/config.ini"
-#define BUFSIZE 256
 
 struct setting {
-  char section[BUFSIZE];
-  char name[BUFSIZE];
-  char value[BUFSIZE];
-  char type[BUFSIZE];
+  char section[SETTINGS_BUFLEN];
+  char name[SETTINGS_BUFLEN];
+  char value[SETTINGS_BUFLEN];
+  char type[SETTINGS_BUFLEN];
   struct setting *next;
   bool dirty;
 };
@@ -58,13 +57,13 @@ void setting_register(struct setting *setting)
   }
 
   const char *default_value = "{2F9D26FF-F64C-4F9F-94FE-AE9F57758835}";
-  char buf[BUFSIZE];
+  char buf[SETTINGS_BUFLEN] = {0};
 
   ini_gets(setting->section, setting->name, default_value, buf, sizeof(buf), SETTINGS_FILE);
 
   if (strcmp(buf, default_value) != 0) {
     /* Use value from config file */
-    strncpy(setting->value, buf, BUFSIZE);
+    strncpy(setting->value, buf, sizeof(setting->value));
     setting->dirty = true;
   }
 }
@@ -89,7 +88,7 @@ static void settings_reply(sbp_tx_ctx_t *tx_ctx,
   assert(tx_ctx != NULL);
   assert(sdata != NULL);
 
-  char l_buf[BUFSIZE] = {0};
+  char l_buf[SETTINGS_BUFLEN] = {0};
   if (buf == NULL) {
     buf = l_buf;
     blen = sizeof(l_buf);
@@ -114,7 +113,7 @@ static void settings_reply(sbp_tx_ctx_t *tx_ctx,
   }
 }
 
-static void settings_register_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_register_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
 
@@ -130,12 +129,12 @@ static void settings_register_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
   /* Only register setting if it doesn't already exist */
   if (sdata == NULL) {
     sdata = calloc(1, sizeof(*sdata));
-    strncpy(sdata->section, section, BUFSIZE);
-    strncpy(sdata->name, name, BUFSIZE);
-    strncpy(sdata->value, value, BUFSIZE);
+    strncpy(sdata->section, section, sizeof(sdata->section));
+    strncpy(sdata->name, name, sizeof(sdata->name));
+    strncpy(sdata->value, value, sizeof(sdata->value));
 
     if (type != NULL) {
-      strncpy(sdata->type, type, BUFSIZE);
+      strncpy(sdata->type, type, sizeof(sdata->type));
     }
 
     setting_register(sdata);
@@ -150,19 +149,19 @@ static void settings_register_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
   settings_reply(tx_ctx, sdata, false, true, SBP_MSG_SETTINGS_WRITE, NULL, 0, 0);
 }
 
-static void settings_write_reply_cb(u16 sender_id, u8 len, u8 msg_[], void *ctx)
+static void settings_write_resp_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
   (void)ctx;
-  msg_settings_write_resp_t *msg = (void *)msg_;
+  msg_settings_write_resp_t *resp = (void *)msg;
 
-  if (msg->status != 0) {
+  if (resp->status != 0) {
     return;
   }
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
   /* Expect to find at least section, name and value */
-  if (settings_parse(msg->setting, len - sizeof(msg->status), &section, &name, &value, &type)
+  if (settings_parse(resp->setting, len - sizeof(resp->status), &section, &name, &value, &type)
       < SETTINGS_TOKENS_VALUE) {
     piksi_log(LOG_ERR, "Error in settings write reply message: parse error");
     return;
@@ -183,13 +182,13 @@ static void settings_write_reply_cb(u16 sender_id, u8 len, u8 msg_[], void *ctx)
   }
 
   /* This is an assignment, call notify function */
-  strncpy(sdata->value, value, BUFSIZE);
+  strncpy(sdata->value, value, sizeof(sdata->value));
   sdata->dirty = true;
 
   return;
 }
 
-static void settings_read_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_read_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
@@ -227,7 +226,7 @@ static struct setting *setting_find_by_index(u16 index)
   return sdata;
 }
 
-static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
 
@@ -254,7 +253,7 @@ static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 msg[], void *ctx
   }
 
   /* build and send reply */
-  char buf[256];
+  char buf[SETTINGS_BUFLEN] = {0};
   memcpy(buf, msg, len);
   settings_reply(tx_ctx,
                  sdata,
@@ -266,7 +265,7 @@ static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 msg[], void *ctx
                  sizeof(buf));
 }
 
-static void settings_save_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_save_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
   (void)ctx;
@@ -305,7 +304,7 @@ static void settings_write_failed(sbp_tx_ctx_t *tx_ctx,
 {
   /* Reply with write response rejecting this setting */
   int blen = 0;
-  char buf[BUFSIZE] = {0};
+  char buf[SETTINGS_BUFLEN] = {0};
   buf[blen++] = res;
 
   int to_copy = SWFT_MIN(sizeof(buf) - blen, msg_len);
@@ -314,7 +313,7 @@ static void settings_write_failed(sbp_tx_ctx_t *tx_ctx,
   sbp_tx_send_from(tx_ctx, SBP_MSG_SETTINGS_WRITE_RESP, blen + to_copy, buf, SBP_SENDER_ID);
 }
 
-static void settings_write_cb(u16 sender_id, u8 len, u8 msg[], void *ctx)
+static void settings_write_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
 
@@ -346,7 +345,7 @@ void settings_setup(sbp_rx_ctx_t *rx_ctx, sbp_tx_ctx_t *tx_ctx)
   sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_WRITE, settings_write_cb, tx_ctx, NULL);
   sbp_rx_callback_register(rx_ctx,
                            SBP_MSG_SETTINGS_WRITE_RESP,
-                           settings_write_reply_cb,
+                           settings_write_resp_cb,
                            tx_ctx,
                            NULL);
   sbp_rx_callback_register(rx_ctx, SBP_MSG_SETTINGS_READ_REQ, settings_read_cb, tx_ctx, NULL);
