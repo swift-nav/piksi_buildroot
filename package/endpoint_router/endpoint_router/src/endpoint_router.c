@@ -14,7 +14,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <getopt.h>
-#include <pthread.h>
 
 #include <libpiksi/loop.h>
 #include <libpiksi/logging.h>
@@ -197,75 +196,32 @@ static int router_create_endpoints(router_cfg_t *router, pk_loop_t *loop)
       piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
+
+    pk_endpoint_loop_add(port->sub_ept, loop);
   }
 
   return 0;
 }
 
-typedef struct {
-  pk_loop_t *loop;
-  port_t *port;
-  rule_cache_t *rule_cache;
-  pthread_t thread;
-} router_thread_ctx_t;
-
-static void *router_thread_handler(void *arg)
+static int router_attach(router_t *router, pk_loop_t *loop)
 {
-#if 0
-  piksi_log(LOG_DEBUG, "router thread starting...");
-#endif
-  router_thread_ctx_t *ctx = (router_thread_ctx_t *)arg;
-
-  /* Create loop */
-#if 0
-  ctx->loop = pk_loop_create();
-#endif
-
-  if (ctx->loop == NULL) {
-    PK_LOG_ANNO(LOG_ERR, "error in pk_loop_create");
-    exit(EXIT_FAILURE);
-  }
-
-  if (pk_loop_endpoint_reader_add(ctx->loop,
-                                  ctx->port->sub_ept,
-                                  loop_reader_callback,
-                                  ctx->rule_cache)
-      == NULL) {
-    PK_LOG_ANNO(LOG_ERR, "pk_loop_endpoint_reader_add error");
-    exit(EXIT_FAILURE);
-  }
-
-  pk_endpoint_loop_add(ctx->port->sub_ept, ctx->loop);
-#if 0
-  pk_loop_run_simple(ctx->loop);
-  piksi_log(LOG_DEBUG, "router thread stopping...");
-#endif
-  return NULL;
-}
-
-static router_thread_ctx_t *spawn_router_threads(pk_loop_t *loop, router_t *router)
-{
-  router_thread_ctx_t *threads = malloc(sizeof(router_thread_ctx_t) * router->port_count);
-
   size_t idx = 0;
   port_t *port;
 
   for (port = router->router_cfg->ports_list; port != NULL; port = port->next, idx++) {
 
-    router_thread_ctx_t *ctx = &threads[idx];
-
-    ctx->loop = loop;
-    ctx->port = port;
-
-    ctx->rule_cache = &router->port_rule_cache[idx];
-#if 0
-    pthread_create(&ctx->thread, NULL, router_thread_handler, ctx);
-#else
-    router_thread_handler(ctx);
-#endif
+    /* TODO: Add thread/fork here for parallelization [ESD-958] */
+    if (pk_loop_endpoint_reader_add(loop,
+                                    port->sub_ept,
+                                    loop_reader_callback,
+                                    &router->port_rule_cache[idx])
+        == NULL) {
+      PK_LOG_ANNO(LOG_ERR, "pk_loop_endpoint_reader_add error");
+      return -1;
+    }
   }
 
-  return threads;
+  return -1;
 }
 
 static void cache_match_process(const forwarding_rule_t *forwarding_rule,
@@ -877,24 +833,17 @@ int main(int argc, char *argv[])
   }
 
   void *handle = pk_loop_timer_add(loop, 1000, loop_1s_metrics, NULL);
-  assert(handle != NULL);
-
-  router_thread_ctx_t *threads = spawn_router_threads(loop, router);
-  (void)threads;
-#if 0
-  for (size_t idx = 0; idx < router->port_count; idx++) {
-
-    void *thread_ret;
-    pthread_join(threads->thread, &thread_ret);
-  }
-#endif
-  pk_loop_run_simple(loop);
-#if 0
-  /* Add router to loop */
-  if ( != 0) {
+  if (handle == NULL) {
+    piksi_log(LOG_ERR, "failed to create timer");
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
-#endif
+
+  if (router_attach(router, loop) != 0) {
+    exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
+  }
+
+  pk_loop_run_simple(loop);
+
   exit(cleanup(EXIT_SUCCESS, &loop, &router, &router_metrics));
 }
 

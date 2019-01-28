@@ -5,7 +5,7 @@ SOURCES = \
 	endpoint_router_load.c \
 	endpoint_router_print.c \
 
-LIBS=-luv -lsbp -lpiksi -lyaml -lcmph -lsettings -lpthread
+LIBS=-luv -lsbp -lpiksi -lyaml -lcmph -lsettings
 
 WARNING_FLAGS = \
 	-Wmissing-prototypes \
