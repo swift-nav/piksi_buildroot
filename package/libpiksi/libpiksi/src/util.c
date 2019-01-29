@@ -43,7 +43,7 @@
 #define DEVICE_DURO_EEPROM_PATH "/cfg/duro_eeprom"
 #define DEVICE_DURO_MAX_CONTENTS_SIZE (128u)
 #define DEVICE_DURO_ID_STRING "DUROV0"
-#define POSEDAEMON_FILE_PATH "/usr/bin/PoseDaemon"
+#define POSEDAEMON_FILE_PATH "/usr/bin/PoseDaemon.enc"
 #define SMOOTHPOSE_LICENSE_FILE_PATH "/persistent/licenses/smoothpose_license.json"
 #define DEVICE_DURO_EEPROM_RETRY_INTERVAL_MS 250
 #define DEVICE_DURO_EEPROM_RETRY_TIMES 6
