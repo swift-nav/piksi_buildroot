@@ -211,6 +211,7 @@ static int router_attach(router_t *router, pk_loop_t *loop)
   for (port = router->router_cfg->ports_list; port != NULL; port = port->next, idx++) {
 
     /* TODO: Add thread/fork here for parallelization [ESD-958] */
+
     if (pk_loop_endpoint_reader_add(loop,
                                     port->sub_ept,
                                     loop_reader_callback,
@@ -221,7 +222,7 @@ static int router_attach(router_t *router, pk_loop_t *loop)
     }
   }
 
-  return -1;
+  return 0;
 }
 
 static void cache_match_process(const forwarding_rule_t *forwarding_rule,

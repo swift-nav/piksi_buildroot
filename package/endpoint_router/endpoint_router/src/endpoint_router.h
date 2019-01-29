@@ -86,8 +86,8 @@ typedef struct {
   cached_port_t *cached_ports;        /** An array of prefixes with an array of associated ports */
   size_t accept_ports_count;          /** A count of ports that are "accept everything" ports */
   pk_endpoint_t **accept_ports;       /** The actual ports that default to accepting everything  */
-  size_t no_framer_ports_count;       /** TBD */
-  pk_endpoint_t **no_framer_ports;    /** TBD */
+  size_t no_framer_ports_count;       /** Count of the list of ports that skip the framer */
+  pk_endpoint_t **no_framer_ports;    /** List of ports that skip the framer */
   rule_prefixes_t *rule_prefixes;     /** A list of all rule prefixes */
   size_t rule_count;                  /** A count of all rules */
   pk_endpoint_t *sub_ept;             /** The SUB enpoint that feeds this rule cache */
@@ -97,8 +97,9 @@ typedef struct {
   router_cfg_t *router_cfg;      /** Router config structure */
   rule_cache_t *port_rule_cache; /** A cache structure for each 'SUB' socket in the router config */
   size_t port_count;             /** A count of all SUB ports */
-  size_t skip_framer_count;
-  size_t accept_last_count;
+  size_t skip_framer_count; /** How many rule destination ports within the config skip framing */
+  size_t accept_last_count; /** How many rule destination ports within the config default to an
+                                "accept everything" filter as the last filter. */
 } router_t;
 
 void debug_printf(const char *msg, ...);
