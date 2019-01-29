@@ -1,11 +1,12 @@
 TARGET=sbp_settings_daemon
 SOURCES= \
 	main.c \
+	setting.c \
 	settings.c \
 
 LIBS=-luv -lsbp -lpiksi -lsettings
 
-CFLAGS+=-std=gnu11
+CFLAGS+=-std=gnu11 -I../include
 ARFLAGS=rcs	$(LTO_PLUGIN)
 
 CROSS=
