@@ -104,10 +104,10 @@ typedef struct write_request {
 static struct {
   int request_pipe[2];
   write_request_t write_requests[MAX_PENDING];
-  size_t write_req_index;
   atomic_bool flush_pending;
+  atomic_size_t write_req_index;
+  atomic_size_t writes_pending;
   pthread_t thread;
-  size_t writes_pending;
   pthread_mutex_t lock;
   pthread_cond_t cond;
   sbp_state_t sbp_state;
@@ -403,7 +403,7 @@ static void post_receive_buffer(void *context)
 
 static size_t wq_acquire_index()
 {
-  return __sync_fetch_and_add(&write_thread_ctx.write_req_index, 1) % MAX_PENDING;
+  return atomic_fetch_add(&write_thread_ctx.write_req_index, 1) % MAX_PENDING;
 }
 
 static void wq_increment_pending_writes()
@@ -413,14 +413,14 @@ static void wq_increment_pending_writes()
   }
 
   /* Called WITHOUT lock */
-  __sync_add_and_fetch(&write_thread_ctx.writes_pending, 1);
+  atomic_fetch_add(&write_thread_ctx.writes_pending, 1);
 }
 
 static void wq_decrement_and_signal()
 {
   /* Called WITH lock held */
 
-  if (__sync_sub_and_fetch(&write_thread_ctx.writes_pending, 1) == 0) {
+  if (atomic_fetch_sub(&write_thread_ctx.writes_pending, 1) == 1) {
     pthread_cond_signal(&write_thread_ctx.cond);
   }
 }
@@ -568,7 +568,8 @@ bool sbp_fileio_setup(const char *name,
     return false;
   }
 
-  write_thread_ctx.write_req_index = 0;
+  atomic_init(&write_thread_ctx.write_req_index, 0);
+  atomic_init(&write_thread_ctx.writes_pending, 0);
   atomic_init(&write_thread_ctx.flush_pending, false);
 
   if (pipe2(write_thread_ctx.request_pipe, O_DIRECT) < 0) {
