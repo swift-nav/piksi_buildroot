@@ -49,10 +49,10 @@ void setting_register(setting_t *new_setting)
 }
 
 /* Lookup setting in our linked list */
-setting_t *setting_lookup(const char *section, const char *setting)
+setting_t *setting_lookup(const char *section, const char *name)
 {
   for (setting_t *it = settings_head; it; it = it->next) {
-    if ((strcmp(it->section, section) == 0) && (strcmp(it->name, setting) == 0)) {
+    if ((strcmp(it->section, section) == 0) && (strcmp(it->name, name) == 0)) {
       return it;
     }
   }

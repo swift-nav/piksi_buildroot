@@ -51,6 +51,16 @@ TEST_F(SbpSettingsDaemonTests, empty_ini_field)
 
   ASSERT_TRUE(setting_empty_uart0.dirty);
   ASSERT_STREQ("", setting_empty_uart0.value);
+
+  setting_t *setting = setting_lookup(setting_empty_uart0.section, setting_empty_uart0.name);
+  ASSERT_TRUE(setting != NULL);
+  ASSERT_STREQ(setting_empty_uart0.section, setting->section);
+  ASSERT_STREQ(setting_empty_uart0.name, setting->name);
+
+  setting = setting_find_by_index(0);
+  ASSERT_TRUE(setting != NULL);
+  ASSERT_STREQ(setting_empty_uart0.section, setting->section);
+  ASSERT_STREQ(setting_empty_uart0.name, setting->name);
 }
 
 int main(int argc, char **argv)
