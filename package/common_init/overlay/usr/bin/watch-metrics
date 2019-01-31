@@ -1,0 +1,4 @@
+#!/bin/sh
+cd /var/log/metrics
+cd $1
+watch -n1 "find . -type f  -exec sh -c 'printf \"{}: \"; cat {}' \;"
