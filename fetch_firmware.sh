@@ -28,11 +28,11 @@ if [[ $(uname -a) == *NixOS* ]]; then
 fi
 
 BR_VERSION=$(git describe --abbrev=0 --tags)
-FW_VERSION=${1:-v2.1.0-develop-2019011120}
+FW_VERSION=${1:-v2.1.0-develop-2019012817-7-gcc824764}
 NAP_VERSION=${2:-v2.1.0-develop-2019011120}
 
 CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
-FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
+FW_S3_PATH=s3://swiftnav-artifacts-pull-requests/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 NAP_S3_PATH_PROD=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 
