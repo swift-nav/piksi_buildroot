@@ -803,8 +803,9 @@ static bool handle_loop_status(pk_loop_t *loop, int status)
 {
   if ((status & LOOP_DISCONNECTED) || (status & LOOP_ERROR)) {
     if (status & LOOP_ERROR) {
-      /* EBADF happens when sockets/FDs are closed and the loop kicks them out */
-      if (pk_loop_last_error(loop) != EBADF) {
+      /* Ignore EBADF since this happens when sockets or other 
+       * descriptors are closed and the loop kicks them out. */
+      if (!pk_loop_match_last_error(loop, EBADF)) {
         PK_LOG_ANNO(LOG_WARNING,
                     "got error event callback from loop: %s, error: %s",
                     pk_loop_describe_status(status),
