@@ -47,8 +47,9 @@ TEST_F(SbpSettingsDaemonTests, empty_ini_field)
   config_ini << config_ini_content;
   config_ini.close();
 
-  setting_register(&setting_empty_uart0);
+  settings_reg_res_t res = setting_register(&setting_empty_uart0);
 
+  ASSERT_EQ(SETTINGS_REG_OK_PERM, res);
   ASSERT_TRUE(setting_empty_uart0.dirty);
   ASSERT_STREQ("", setting_empty_uart0.value);
 

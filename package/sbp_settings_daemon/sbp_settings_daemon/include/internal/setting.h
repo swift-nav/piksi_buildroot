@@ -30,7 +30,7 @@ typedef struct setting_s {
 extern "C" {
 #endif
 
-void setting_register(setting_t *new_setting);
+settings_reg_res_t setting_register(setting_t *new_setting);
 setting_t *setting_lookup(const char *section, const char *name);
 setting_t *setting_find_by_index(u16 index);
 

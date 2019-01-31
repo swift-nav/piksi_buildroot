@@ -19,7 +19,7 @@
 static setting_t *settings_head;
 
 /* Register a new setting in our linked list */
-void setting_register(setting_t *new_setting)
+settings_reg_res_t setting_register(setting_t *new_setting)
 {
   /* iterator */
   setting_t *it_setting;
@@ -45,7 +45,10 @@ void setting_register(setting_t *new_setting)
     /* Use value from config file */
     strncpy(new_setting->value, buf, sizeof(new_setting->value));
     new_setting->dirty = true;
+    return SETTINGS_REG_OK_PERM;
   }
+
+  return SETTINGS_REG_OK;
 }
 
 /* Lookup setting in our linked list */

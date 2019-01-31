@@ -67,37 +67,43 @@ static void settings_reply(sbp_tx_ctx_t *tx_ctx,
 static void settings_register_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
-
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
+  settings_reg_res_t res = 0;
+  setting_t *setting = NULL;
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
   /* Expect to find at least section, name and value */
   if (settings_parse(msg, len, &section, &name, &value, &type) < SETTINGS_TOKENS_VALUE) {
     piksi_log(LOG_ERR, "Error in settings register request: parse error");
+    res = SETTINGS_REG_PARSE_FAILED;
+    goto reg_response;
   }
 
-  setting_t *sdata = setting_lookup(section, name);
+  setting = setting_lookup(section, name);
   /* Only register setting if it doesn't already exist */
-  if (sdata == NULL) {
-    sdata = calloc(1, sizeof(*sdata));
-    strncpy(sdata->section, section, sizeof(sdata->section));
-    strncpy(sdata->name, name, sizeof(sdata->name));
-    strncpy(sdata->value, value, sizeof(sdata->value));
+  if (setting == NULL) {
+    setting = calloc(1, sizeof(*setting));
+    strncpy(setting->section, section, sizeof(setting->section));
+    strncpy(setting->name, name, sizeof(setting->name));
+    strncpy(setting->value, value, sizeof(setting->value));
 
     if (type != NULL) {
-      strncpy(sdata->type, type, sizeof(sdata->type));
+      strncpy(setting->type, type, sizeof(setting->type));
     }
 
-    setting_register(sdata);
+    res = setting_register(setting);
   } else {
     piksi_log(LOG_WARNING,
               "Settings register request: %s.%s already registered",
-              sdata->section,
-              sdata->name);
+              setting->section,
+              setting->name);
+    res = SETTINGS_REG_REGISTERED;
   }
 
-  /* Reply with write message with our value */
-  settings_reply(tx_ctx, sdata, false, true, SBP_MSG_SETTINGS_WRITE, NULL, 0, 0);
+  u8 blen = 0;
+  char buf[SETTINGS_BUFLEN] = {0};
+reg_response:
+  buf[blen++] = res;
+  settings_reply(ctx, setting, false, true, SBP_MSG_SETTINGS_REGISTER_RESP, NULL, blen, sizeof(buf));
 }
 
 static void settings_write_resp_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
