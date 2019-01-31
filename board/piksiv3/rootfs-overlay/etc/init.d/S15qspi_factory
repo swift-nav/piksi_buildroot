@@ -11,6 +11,22 @@ case "$1" in
   ln -s /dev/$MTD_NAME /factory/mtd
   # run factory data tool
   factory_data_tool
+  ls -l /factory
+  dd if=/factory/mtd of=/factory.mtd.dump.startup bs=1024 count=1
+  dd if=/dev/mtd0 of=/mtd0.dump.startup bs=1024 count=1
+  dd if=/dev/mtd1 of=/mtd1.dump.startup bs=1024 count=1
+  dd if=/dev/mtd2 of=/mtd2.dump.startup bs=1024 count=1
+  dd if=/dev/mtd3 of=/mtd3.dump.startup bs=1024 count=1
+  dd if=/dev/mtd4 of=/mtd4.dump.startup bs=1024 count=1
+  dd if=/dev/mtd5 of=/mtd5.dump.startup bs=1024 count=1
+  dd if=/dev/mtd6 of=/mtd6.dump.startup bs=1024 count=1
+  dd if=/dev/mtd7 of=/mtd7.dump.startup bs=1024 count=1
+  dd if=/dev/mtd8 of=/mtd8.dump.startup bs=1024 count=1
+  dd if=/dev/mtd9 of=/mtd9.dump.startup bs=1024 count=1
+  dd if=/dev/mtd10 of=/mtd10.dump.startup bs=1024 count=1
+  dd if=/dev/mtd1 of=/mtd1.dump.startup2 bs=1024 count=1
+  factory_data_tool
+
   ;;
   stop)
   ;;
