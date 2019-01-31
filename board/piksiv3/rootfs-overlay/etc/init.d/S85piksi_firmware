@@ -73,6 +73,10 @@ start()
   wait_services
 
   if [ -f "/lib/firmware/piksi_firmware.elf" ]; then
+    if [ ! -e "/lib/firmware/rproc-remoteproc@0-fw"];
+    then
+      ln -s /lib/firmware/piksi_firmware.elf /lib/firmware/rproc-remoteproc@0-fw
+    fi
     modprobe zynq_remoteproc
     logi "Remoteproc modprobe complete: $?"
   else
