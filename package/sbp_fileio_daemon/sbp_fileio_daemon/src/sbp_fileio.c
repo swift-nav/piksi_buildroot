@@ -60,7 +60,7 @@ static u16 sbp_sender_id = 0;
 
 static bool allow_factory_mtd = false;
 static bool allow_imageset_bin = false;
-static void *cleanup_timer_handle = NULL;
+static void *timer_handle = NULL;
 
 #define TEST_CTRL_FILE_TEMPLATE "/var/run/sbp_fileio_%s/test"
 static char sbp_fileio_test_control[PATH_MAX] = {0};
@@ -87,8 +87,9 @@ static char sbp_fileio_wait_flush_file[PATH_MAX] = {0};
 
 /* clang-format off */
 PK_METRICS_TABLE(MT, MI,
-  PK_METRICS_ENTRY("data/write/bytes", "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  write_bytes),
-  PK_METRICS_ENTRY("data/read/bytes",  "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  read_bytes)
+  PK_METRICS_ENTRY("data/write/bytes",       "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  write_bytes),
+  PK_METRICS_ENTRY("data/read/bytes",        "per_second",  M_U32,   M_UPDATE_SUM,   M_RESET_DEF,  read_bytes),
+  PK_METRICS_ENTRY("write_queue/wait/count", "per_second",  M_U32,   M_UPDATE_COUNT, M_RESET_DEF,  wq_waits)
  )
 /* clang-format on */
 
@@ -99,7 +100,7 @@ typedef struct write_request {
   u8 msg_buffer[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 } write_request_t;
 
-#define MAX_PENDING 1024
+#define MAX_PENDING 64 /* Allows for up to 64k of SBP write data to be pending */
 
 static struct {
   int request_pipe[2];
@@ -240,10 +241,12 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
     pk_metrics_flush(MR);
     pk_metrics_reset(MR, MI.read_bytes);
     pk_metrics_reset(MR, MI.write_bytes);
-    pk_loop_timer_reset(cleanup_timer_handle);
+    pk_metrics_reset(MR, MI.wq_waits);
   }
 
   request_flush_output_sbp();
+
+  pk_loop_timer_reset(timer_handle);
 }
 
 /**
@@ -409,6 +412,7 @@ static size_t wq_acquire_index()
 static void wq_increment_pending_writes()
 {
   while (write_thread_ctx.writes_pending == MAX_PENDING) {
+    PK_METRICS_UPDATE(MR, MI.wq_waits);
     nanosleep((const struct timespec[]){{0, Q_SLEEP_NS}}, NULL);
   }
 
@@ -555,9 +559,9 @@ bool sbp_fileio_setup(const char *name,
   write_thread_ctx.send_buffer_remaining = sizeof(write_thread_ctx.send_buffer);
   write_thread_ctx.send_buffer_offset = 0;
 
-  cleanup_timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, NULL);
+  timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, NULL);
 
-  if (cleanup_timer_handle == NULL) {
+  if (timer_handle == NULL) {
     PK_LOG_ANNO(LOG_ERR, "timer setup failed");
     return false;
   }
