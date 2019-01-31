@@ -16,7 +16,6 @@
 #include <unistd.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/min_ini.h>
 #include <libpiksi/util.h>
 
 #include <libsbp/settings.h>

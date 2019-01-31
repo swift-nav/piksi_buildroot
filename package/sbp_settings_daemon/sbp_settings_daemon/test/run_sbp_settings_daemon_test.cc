@@ -19,23 +19,16 @@
 
 #include <libsettings/settings.h>
 
-struct setting {
-  char section[SETTINGS_BUFLEN];
-  char name[SETTINGS_BUFLEN];
-  char type[SETTINGS_BUFLEN];
-  char value[SETTINGS_BUFLEN];
-  struct setting *next;
-  bool dirty;
-};
+#include <internal/setting.h>
 
-extern "C" void setting_register(struct setting *setting);
-
-// clang-format off
-static setting setting_empty_uart0 = {
-  /* section = */ "uart0", /* name = */ "enabled_sbp_messages", /* type  = */ "",
-  /* value   = */   "",    /* next = */ NULL,                   /* dirty = */ false,
+static setting_t setting_empty_uart0 = {
+  /* .section = */ "uart0",
+  /* .name = */ "enabled_sbp_messages",
+  /* .type = */ "",
+  /* .value = */ "",
+  /* .next = */ NULL,
+  /* .dirty = */ false,
 };
-// clang-format on
 
 class SbpSettingsDaemonTests : public ::testing::Test {
 };
