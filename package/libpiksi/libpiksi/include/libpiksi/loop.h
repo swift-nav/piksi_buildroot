@@ -217,6 +217,12 @@ void pk_loop_stop(pk_loop_t *pk_loop);
 const char *pk_loop_last_error(pk_loop_t *pk_loop);
 
 /**
+ * Determine if the system error given matches the last error
+ * that occured.
+ */
+bool pk_loop_match_last_error(pk_loop_t *pk_loop, int system_error);
+
+/**
  * @brief Get a human readable version of the LOOP_* constants.
  *
  * @returns A static buffer which should be copied if rentention is needed.
