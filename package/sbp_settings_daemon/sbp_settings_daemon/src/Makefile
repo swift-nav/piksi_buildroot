@@ -2,7 +2,7 @@ TARGET=sbp_settings_daemon
 SOURCES= \
 	main.c \
 	setting.c \
-	settings.c \
+	settings_sbp_cb.c \
 
 LIBS=-luv -lsbp -lpiksi -lsettings
 

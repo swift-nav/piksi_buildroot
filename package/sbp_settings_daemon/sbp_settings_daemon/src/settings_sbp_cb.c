@@ -26,7 +26,7 @@
 
 #include <internal/setting.h>
 
-#include "settings.h"
+#include "settings_sbp_cb.h"
 
 static void settings_reply(sbp_tx_ctx_t *tx_ctx,
                            setting_t *sdata,
