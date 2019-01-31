@@ -41,6 +41,7 @@ static const factory_data_t *factory_data_get(void)
 
   /* allocate buffer to hold header */
   factory_data_t *factory_data = (factory_data_t *)malloc(sizeof(factory_data_t));
+  memset(factory_data, 0, sizeof(factory_data));
   if (factory_data == NULL) {
     printf("error allocating buffer for factory data header\n");
     return NULL;
@@ -51,6 +52,15 @@ static const factory_data_t *factory_data_get(void)
     printf("error reading /factory/mtd\n");
     return NULL;
   }
+
+  printf("read factory header:\n  ");
+  int i;
+  unsigned char *p = (unsigned char *)factory_data;
+  for (i = 0; i < sizeof(factory_data_t); i++, p++)
+  {
+    printf("%02X ", *p);
+  }
+  printf("\ndone\n");
 
   /* verify header */
   if (factory_data_header_verify(factory_data) != 0) {

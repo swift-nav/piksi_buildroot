@@ -58,7 +58,7 @@ static const u32 endpoint_addr_config[NUM_ENDPOINTS] = {
 
 struct ept_params {
   dev_t dev;
-  struct rpmsg_channel_info channel_info;
+  u32 addr;
   struct cdev cdev;
   struct device *device;
   /* mutex used to protect rx_fifo and rx_wait_queue */
@@ -132,7 +132,8 @@ static ssize_t ept_cdev_write(struct file *p_file,
     }
 
     /* TODO: support non-blocking write */
-    retval = rpmsg_sendto(ept_params->rpmsg_ept, ept_params->tx_buff, size, ept_params->channel_info.dst);
+    //dev_info(ept_params->device, "File IO -> %u 0x%p %d\n", ept_params->addr, ept_params->tx_buff, size);
+    retval = rpmsg_sendto(ept_params->rpmsg_dev->ept, ept_params->tx_buff, size, ept_params->addr);
 
     if (retval) {
       dev_err(ept_params->device, "rpmsg_sendto (size = %d) error: %d\n", size, retval);
@@ -317,6 +318,8 @@ static int ept_rpmsg_setup(struct ept_params *ept_params, struct rpmsg_device *_
 {
   int retval;
 
+  dev_info(&___rpdev->dev, "rpmsg_piksi: ept_rpmsg_setup(%u,%u,%u)\n",ept_params->addr, ___rpdev->src,___rpdev->dst);
+
   /* Acquire TX / rpmsg lock */
   retval = mutex_lock_interruptible(&ept_params->tx_rpmsg_lock);
   if (retval) {
@@ -325,9 +328,14 @@ static int ept_rpmsg_setup(struct ept_params *ept_params, struct rpmsg_device *_
 
   ept_params->rpmsg_dev = ___rpdev;
 
+  struct rpmsg_channel_info info;
+  info.dst = RPMSG_ADDR_ANY;
+  info.src = ept_params->addr;
+  strncpy(info.name, ___rpdev->id.name, RPMSG_NAME_SIZE);
+
   /* Create rpmsg endpoint */
   ept_params->rpmsg_ept =
-    rpmsg_create_ept(ept_params->rpmsg_dev, ept_rpmsg_cb, ept_params, ept_params->channel_info);
+    rpmsg_create_ept(ept_params->rpmsg_dev, ept_rpmsg_cb, ept_params, info);
   if (ept_params->rpmsg_ept == NULL) {
     dev_err(&___rpdev->dev, "Failed to create rpmsg endpoint.\n");
     retval = -ENODEV;
@@ -356,9 +364,7 @@ static void ept_rpmsg_remove(struct ept_params *ept_params)
 static int ept_cdev_setup(struct ept_params *ept_params, dev_t dev, u32 addr)
 {
   ept_params->dev = dev;
-  ept_params->channel_info.src = addr;
-  ept_params->channel_info.dst = addr;
-  snprintf(ept_params->channel_info.name, sizeof(ept_params->channel_info.name), DEV_CLASS_NAME "%u", addr);
+  ept_params->addr = addr;
   ept_params->rpmsg_ready = false;
 
   /* Initialize mutexes */
@@ -381,12 +387,11 @@ static int ept_cdev_setup(struct ept_params *ept_params, dev_t dev, u32 addr)
 
   /* Create device */
   ept_params->device =
-    device_create(dev_class, NULL, ept_params->dev, NULL, DEV_CLASS_NAME "%u", ept_params->channel_info.src);
+    device_create(dev_class, NULL, ept_params->dev, NULL, DEV_CLASS_NAME "%u", ept_params->addr);
   if (ept_params->device == NULL) {
     printk(KERN_ERR "Failed to create device.\n");
     goto error1;
   }
-
   goto out;
 
 error1:
@@ -422,6 +427,8 @@ static int drv_probe(struct rpmsg_device *___rpdev)
 {
   int i;
   int status;
+
+  dev_info(&___rpdev->dev, "rpmsg_piksi: drv_probe\n");
 
   if (probed) {
     dev_err(&___rpdev->dev, "Already attached.\n");
@@ -465,6 +472,8 @@ static int __init init(void)
   int i;
   int status;
 
+  printk("rpmsg_piksi: init()\n");
+
   /* Initialize device params structure */
   dev_params = kzalloc(sizeof(struct dev_params), GFP_KERNEL);
   if (dev_params == NULL) {
@@ -505,6 +514,7 @@ static int __init init(void)
     goto error4;
   }
 
+  printk("rpmsg_piksi: init() return\n");
   goto out;
 
 error4:
