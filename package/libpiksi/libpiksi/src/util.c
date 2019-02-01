@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -923,4 +924,12 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
   free(strings);
 
 #undef ASSERT_FAIL_MSG
+}
+
+void nanosleep_autoresume(long s, long ns)
+{
+  struct timespec ts = {.tv_sec = s, .tv_nsec = ns};
+  while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
+    /* no-op, just need to retry nanosleep */;
+  }
 }

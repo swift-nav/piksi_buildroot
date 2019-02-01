@@ -36,7 +36,7 @@
 
 #define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
 #define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
-#define READ_BUFFER_SIZE (64 * 1024)
+#define READ_BUFFER_SIZE (4 * 1024)
 #define REP_TIMEOUT_DEFAULT_ms 10000
 #define STARTUP_DELAY_DEFAULT_ms 0
 #define ENDPOINT_RESTART_RETRY_COUNT 3
@@ -44,6 +44,12 @@
 #define FRAMER_NONE_NAME "none"
 #define FILTER_NONE_NAME "none"
 #define METRIC_NAME_LEN 128
+
+/* Sleep for a maximum 10ms while waiting for a send to complete */
+#define MAX_SEND_SLEEP_MS (10)
+#define MAX_SEND_SLEEP_NS (MS_TO_NS(MAX_SEND_SLEEP_MS))
+#define SEND_SLEEP_NS (100)
+#define MAX_SEND_SLEEP_COUNT (MAX_SEND_SLEEP_NS / SEND_SLEEP_NS)
 
 #define PROGRAM_NAME "endpoint_adapter"
 
@@ -57,6 +63,7 @@ static pk_metrics_t *MR = NULL;
 PK_METRICS_TABLE(MT, MI,
 
   PK_METRICS_ENTRY("error/mismatch",           "total",          M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, mismatch),
+  PK_METRICS_ENTRY("error/send/bytes_dropped", "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, bytes_dropped),
 
   PK_METRICS_ENTRY("rx/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, rx_read_count),
   PK_METRICS_ENTRY("rx/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, rx_read_size_total),
@@ -169,6 +176,8 @@ typedef struct {
 } read_ctx_t;
 
 static bool retry_pubsub = false;
+
+static bool eagain_warned = false;
 
 static void usage(char *command)
 {
@@ -532,8 +541,6 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
   }
 }
 
-#define MSG_ERROR_SERIAL_FLUSH "Interface %s output buffer is full. Dropping data."
-
 static ssize_t fd_write(int fd, const void *buffer, size_t count)
 {
   if (isatty(fd) && (outq > 0)) {
@@ -558,20 +565,31 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
           return count;
         }
       }
-      piksi_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH, port_name);
-      sbp_log(LOG_ERR, MSG_ERROR_SERIAL_FLUSH, port_name);
+      piksi_log(LOG_ERR|LOG_SBP, "Interface %s output buffer is full. Dropping data.", port_name);
       return count;
     }
   }
+  size_t sleep_count = 0;
   while (1) {
     ssize_t ret = write(fd, buffer, count);
     /* Retry if interrupted */
     if ((ret == -1) && (errno == EINTR)) {
       continue;
     } else if ((ret < 0) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
-      /* Our output buffer is full and we're in non-blocking mode.
-       * Just silently drop the rest of the output...
-       */
+      if (++sleep_count >= MAX_SEND_SLEEP_COUNT) {
+        nanosleep_autoresume(0, SEND_SLEEP_NS);
+        continue;
+      }
+      if (eagain_warned) {
+        PK_LOG_ANNO(LOG_WARNING,
+                    "call to write() to send data returned EAGAIN for more than %d ms, "
+                    "dropping %u queued bytes (endpoint ident: %s)",
+                    MAX_SEND_SLEEP_MS,
+                    count,
+                    port_name);
+        eagain_warned = true;
+      }
+      PK_METRICS_UPDATE(MR, MI.bytes_dropped, PK_METRICS_VALUE((u32)count));
       return count;
     } else {
       return ret;
@@ -762,6 +780,8 @@ static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *co
 
   pk_metrics_flush(MR);
 
+  pk_metrics_reset(MR, MI.bytes_dropped);
+
   pk_metrics_reset(MR, MI.rx_read_count);
   pk_metrics_reset(MR, MI.rx_read_size_total);
   pk_metrics_reset(MR, MI.rx_read_size_average);
@@ -803,7 +823,7 @@ static bool handle_loop_status(pk_loop_t *loop, int status)
 {
   if ((status & LOOP_DISCONNECTED) || (status & LOOP_ERROR)) {
     if (status & LOOP_ERROR) {
-      /* Ignore EBADF since this happens when sockets or other 
+      /* Ignore EBADF since this happens when sockets or other
        * descriptors are closed and the loop kicks them out. */
       if (!pk_loop_match_last_error(loop, EBADF)) {
         PK_LOG_ANNO(LOG_WARNING,

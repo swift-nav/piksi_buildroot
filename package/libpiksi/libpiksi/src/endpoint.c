@@ -38,11 +38,15 @@
 /* Maximum number of reads to service for one socket */
 #define ENDPOINT_SERVICE_MAX (32u)
 
+/* Sleep for a maximum 10ms while waiting for a send to complete */
+#define MAX_SEND_SLEEP_MS (10)
+#define MAX_SEND_SLEEP_NS (MS_TO_NS(MAX_SEND_SLEEP_MS))
+#define SEND_SLEEP_NS (100)
+#define MAX_SEND_SLEEP_COUNT (MAX_SEND_SLEEP_NS / SEND_SLEEP_NS)
+
 /* 300 * 100ms = 30s of retries */
 #define CONNECT_RETRIES_MAX (300u)
 #define CONNECT_RETRY_SLEEP_MS (100u)
-
-#define MS_TO_NS(MS) ((MS)*1e6)
 
 #define IPC_PREFIX "ipc://"
 
@@ -381,7 +385,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
 {
   ASSERT_TRACE(pk_ept->type != PK_ENDPOINT_SUB && pk_ept->type != PK_ENDPOINT_SUB_SERVER);
 
-  int rc = -1;
+  int rc = 0;
 
   if (pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_REQ) {
     client_context_t ctx = (client_context_t){
@@ -394,12 +398,13 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     foreach_client(pk_ept,
                    &rc,
-                   NESTED_FN(void, (pk_endpoint_t * _ept, client_node_t * node, void *ctx), {
-                     (void)_ept;
-                     /* TODO: Why are we saving rc here, invalid clients will just be removed... */
-                     int *rc_loc = ctx;
-                     *rc_loc = send_impl(&node->val, data, length);
-                   }));
+                   NESTED_FN(void,
+                             (pk_endpoint_t * _endpoint, client_node_t * node, void *_context),
+                             {
+                               (void)_endpoint;
+                               int _rc = send_impl(&node->val, data, length);
+                               if (_rc != 0) *(int *)_context = _rc;
+                             }));
   }
 
   return rc;
@@ -532,6 +537,14 @@ static int start_un_listen(const char *path, int fd)
   return 0;
 }
 
+static void do_sleep(long ns)
+{
+  struct timespec ts = {.tv_nsec = ns};
+  while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
+    /* no-op, just need to retry nanosleep */;
+  }
+}
+
 static int connect_un_socket(int fd, const char *path, bool retry_connect)
 {
   struct sockaddr_un addr = {.sun_family = AF_UNIX};
@@ -542,12 +555,7 @@ static int connect_un_socket(int fd, const char *path, bool retry_connect)
 
   for (size_t retry = 0; retry <= CONNECT_RETRIES_MAX; retry++) {
 
-    struct timespec ts = {.tv_nsec = MS_TO_NS(CONNECT_RETRY_SLEEP_MS)};
-    if (retry > 0) {
-      while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
-        /* no-op, just need to retry nanosleep */;
-      }
-    }
+    if (retry > 0) do_sleep(MS_TO_NS(CONNECT_RETRY_SLEEP_MS));
 
     rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     connect_errno = errno;
@@ -695,6 +703,8 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
   msg.msg_iov = iov;
   msg.msg_iovlen = 1;
 
+  size_t sleep_count = 0;
+
   while (1) {
 
     ssize_t written = sendmsg(ctx->handle, &msg, 0);
@@ -708,6 +718,11 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
     if (sendmsg_error == EAGAIN || sendmsg_error == EWOULDBLOCK) {
 
+      if (++sleep_count >= MAX_SEND_SLEEP_COUNT) {
+        do_sleep(SEND_SLEEP_NS);
+        continue;
+      }
+
       int queued_input = 0;
       int error = ioctl(ctx->handle, SIOCINQ, &queued_input);
 
@@ -719,15 +734,17 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
       if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCOUTQ: %s", strerror(errno));
 
       PK_LOG_ANNO(LOG_WARNING,
-                  "sendmsg returned EAGAIN, disconnecting and dropping %d queued bytes "
+                  "sendmsg returned EAGAIN for more than %d ms, "
+                  "disconnecting and dropping %d queued bytes "
                   "(path: %s, node: %p)",
+                  MAX_SEND_SLEEP_MS,
                   sizet_to_int(length) + queued_input + queued_output,
                   ctx->ept->path,
                   ctx->node);
 
       send_close_socket_helper(ctx);
 
-      return 0;
+      return -1;
     }
 
     if (sendmsg_error == EINTR) {
@@ -736,11 +753,11 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
       continue;
     }
 
-    send_close_socket_helper(ctx);
-
     if (sendmsg_error != EPIPE && sendmsg_error != ECONNRESET) {
       PK_LOG_ANNO(LOG_ERR, "error in sendmsg: %s", strerror(sendmsg_error));
     }
+
+    send_close_socket_helper(ctx);
 
     /* Return error */
     return -1;
