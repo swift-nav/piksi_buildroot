@@ -100,7 +100,7 @@ typedef struct write_request {
   u8 msg_buffer[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 } write_request_t;
 
-#define MAX_PENDING 64 /* Allows for up to 64k of SBP write data to be pending */
+#define MAX_PENDING 128
 
 static struct {
   int request_pipe[2];
@@ -370,7 +370,13 @@ static void flush_output_sbp(void)
   }
 
   pk_endpoint_t *ept = sbp_tx_endpoint_get(write_thread_ctx.tx_ctx);
-  pk_endpoint_send(ept, write_thread_ctx.send_buffer, write_thread_ctx.send_buffer_offset);
+  int rc = pk_endpoint_send(ept,
+                            write_thread_ctx.send_buffer,
+                            write_thread_ctx.send_buffer_offset);
+
+  if (rc != 0) {
+    PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_send reported an error: %d", rc);
+  }
 
   /* reset buffer */
   write_thread_ctx.send_buffer_remaining = sizeof(write_thread_ctx.send_buffer);
@@ -386,7 +392,11 @@ static void request_flush_output_sbp(void)
   atomic_store(&write_thread_ctx.flush_pending, true);
 
   void *write_req_ptr = NULL;
-  write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
+  int rc = write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
+
+  if (rc != sizeof(write_req_ptr)) {
+    PK_LOG_ANNO(LOG_WARNING, "write() called failed: %s (%d)", strerror(errno), errno)
+  }
 }
 
 static void post_receive_buffer(void *context)
@@ -455,8 +465,10 @@ static void *write_thread_handler(void *arg)
 
     if (select((req_read_fd + 1), &fds, NULL, NULL, NULL) < 0) {
 
-      if (errno != EBADF)
+      if (errno != EBADF) {
         PK_LOG_ANNO(LOG_WARNING, "select failed: %s (%d)", strerror(errno), errno);
+      }
+
       return NULL;
     }
 
@@ -1057,6 +1069,12 @@ static s32 stage_packed_sbp_buffer(u8 *buff, u32 n, void *context)
   (void)context;
 
   u32 len = SWFT_MIN(write_thread_ctx.send_buffer_remaining, n);
+
+  if (len != n) {
+    flush_output_sbp();
+    len = SWFT_MIN(write_thread_ctx.send_buffer_remaining, n);
+  }
+
   memcpy(&write_thread_ctx.send_buffer[write_thread_ctx.send_buffer_offset], buff, len);
 
   write_thread_ctx.send_buffer_remaining -= len;
@@ -1067,14 +1085,15 @@ static s32 stage_packed_sbp_buffer(u8 *buff, u32 n, void *context)
 
 static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload)
 {
-  if (sbp_send_message(&write_thread_ctx.sbp_state,
-                       msg_type,
-                       sbp_sender_id,
-                       len,
-                       payload,
-                       stage_packed_sbp_buffer)
-      != SBP_OK) {
-    piksi_log(LOG_ERR, "error sending SBP message");
+  int status = sbp_send_message(&write_thread_ctx.sbp_state,
+                                msg_type,
+                                sbp_sender_id,
+                                len,
+                                payload,
+                                stage_packed_sbp_buffer);
+
+  if (status != SBP_OK) {
+    piksi_log(LOG_ERR, "error sending SBP message: %d", status);
     return;
   }
 }
@@ -1089,7 +1108,11 @@ static void queue_file_write(u8 len, u8 msg[])
   memcpy(write_request->msg_buffer, msg, len);
 
   void *write_req_ptr = write_request;
-  write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
+  int rc = write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
+
+  if (rc != sizeof(write_req_ptr)) {
+    PK_LOG_ANNO(LOG_WARNING, "write() called failed: %s (%d)", strerror(errno), errno)
+  }
 }
 
 /**
