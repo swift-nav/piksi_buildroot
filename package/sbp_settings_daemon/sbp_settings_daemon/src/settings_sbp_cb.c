@@ -103,7 +103,14 @@ static void settings_register_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
   char buf[SETTINGS_BUFLEN] = {0};
 reg_response:
   buf[blen++] = res;
-  settings_reply(ctx, setting, false, true, SBP_MSG_SETTINGS_REGISTER_RESP, NULL, blen, sizeof(buf));
+  settings_reply(ctx,
+                 setting,
+                 false,
+                 true,
+                 SBP_MSG_SETTINGS_REGISTER_RESP,
+                 NULL,
+                 blen,
+                 sizeof(buf));
 }
 
 static void settings_write_resp_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
