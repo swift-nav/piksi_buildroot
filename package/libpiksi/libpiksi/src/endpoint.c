@@ -39,15 +39,14 @@
 #define ENDPOINT_SERVICE_MAX (32u)
 
 /* Sleep for a maximum 10ms while waiting for a send to complete */
-#define MAX_SEND_SLEEP_COUNT 100000
-#define SEND_SLEEP_NS 100
-#define MAX_SEND_SLEEP_MS ((MAX_SEND_SLEEP_COUNT * SEND_SLEEP_NS) / 1e6)
+#define MAX_SEND_SLEEP_MS (10)
+#define MAX_SEND_SLEEP_NS (MS_TO_NS(MAX_SEND_SLEEP_MS))
+#define SEND_SLEEP_NS (100)
+#define MAX_SEND_SLEEP_COUNT (MAX_SEND_SLEEP_NS / SEND_SLEEP_NS)
 
 /* 300 * 100ms = 30s of retries */
 #define CONNECT_RETRIES_MAX (300u)
 #define CONNECT_RETRY_SLEEP_MS (100u)
-
-#define MS_TO_NS(MS) ((MS)*1e6)
 
 #define IPC_PREFIX "ipc://"
 
@@ -745,7 +744,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
       if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCOUTQ: %s", strerror(errno));
 
       PK_LOG_ANNO(LOG_WARNING,
-                  "sendmsg returned EAGAIN for more than %dms, "
+                  "sendmsg returned EAGAIN for more than %d ms, "
                   "disconnecting and dropping %d queued bytes "
                   "(path: %s, node: %p)",
                   MAX_SEND_SLEEP_MS,
