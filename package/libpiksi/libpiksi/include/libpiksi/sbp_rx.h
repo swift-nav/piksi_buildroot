@@ -172,6 +172,8 @@ void sbp_rx_reader_interrupt_reset(sbp_rx_ctx_t *ctx);
  */
 bool sbp_rx_reader_interrupt_requested(sbp_rx_ctx_t *ctx);
 
+pk_endpoint_t *sbp_rx_endpoint_get(sbp_rx_ctx_t *ctx);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
