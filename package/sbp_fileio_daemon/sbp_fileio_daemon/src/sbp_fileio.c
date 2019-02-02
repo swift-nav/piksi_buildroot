@@ -886,6 +886,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   FIO_LOG_DEBUG("read request for '%s', seq=%u, off=%u", msg->filename, msg->sequence, msg->offset);
 
+  bool flush_cached = true;
   int st = allow_mtd_read(msg->filename);
 
   if (st == DENY_MTD_READ
@@ -897,6 +898,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
               path_validator_base_paths(g_pv_ctx));
 
     read_result = 0;
+    flush_cached = false;
 
   } else {
 
@@ -914,6 +916,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
       }
     }
 
+    if (seek_result == 0)
     {
       /*** MUTEX ACQUIRE ***/
       int rc = pthread_mutex_lock(&write_thread_ctx.lock);
@@ -922,9 +925,12 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
       wq_wait_empty();
 
       read_result = fread(&reply->contents, 1, readlen, the_file.fp);
-      if (read_result != readlen) PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
+      if (read_result != readlen) {
+        PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
+      }
 
       finalize_non_cached(&the_file);
+      flush_cached = false;
 
       /*** MUTEX RELEASE ***/
       rc = pthread_mutex_unlock(&write_thread_ctx.lock);
@@ -933,6 +939,8 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   }
 
 done:
+  if (flush_cached) flush_cached_fd(msg->filename, "r");
+
   update_offset(the_file, read_result, OP_INCREMENT);
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP, sizeof(*reply) + read_result, (u8 *)reply);
 
@@ -1092,7 +1100,6 @@ bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *
                 filename,
                 strerror(errno),
                 errno);
-      /* TODO/FIXME: flush any cached FD that has an error? */
       goto cleanup;
     }
   }
@@ -1113,6 +1120,7 @@ bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *
   success = true;
 
 cleanup:
+  if (!success) flush_cached_fd(filename, "w");
   finalize_non_cached(&r);
   return success;
 }
