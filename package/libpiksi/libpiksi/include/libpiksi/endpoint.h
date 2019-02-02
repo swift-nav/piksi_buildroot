@@ -278,6 +278,8 @@ int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
  */
 int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop);
 
+bool pk_endpoint_is_valid(pk_endpoint_t *pk_ept);
+
 #ifdef __cplusplus
 }
 #endif
