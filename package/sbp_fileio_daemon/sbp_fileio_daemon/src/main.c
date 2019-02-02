@@ -243,17 +243,21 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
-  piksi_log(LOG_INFO, "starting...");
+  piksi_log(LOG_INFO, "loop starting...");
 
   pk_loop_run_simple(loop);
   ret = EXIT_SUCCESS;
 
 cleanup:
+  piksi_log(LOG_INFO, "loop stopping...");
+
   sbp_pubsub_destroy(&ctx);
   pk_loop_destroy(&loop);
+
   path_validator_destroy(&g_pv_ctx);
   sbp_fileio_teardown(sbp_fileio_name);
-  piksi_log(LOG_INFO, "stopping...");
+
   logging_deinit();
+
   exit(ret);
 }
