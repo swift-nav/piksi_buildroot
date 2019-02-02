@@ -385,7 +385,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
 {
   ASSERT_TRACE(pk_ept->type != PK_ENDPOINT_SUB && pk_ept->type != PK_ENDPOINT_SUB_SERVER);
 
-  int rc = -1;
+  int rc = 0;
 
   if (pk_ept->type == PK_ENDPOINT_PUB || pk_ept->type == PK_ENDPOINT_REQ) {
     client_context_t ctx = (client_context_t){
@@ -397,13 +397,13 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
     rc = send_impl(&ctx, data, length);
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     foreach_client(pk_ept,
-                   NULL,
+                   &rc,
                    NESTED_FN(void,
                              (pk_endpoint_t * _endpoint, client_node_t * node, void *_context),
                              {
                                (void)_endpoint;
-                               (void)_context;
-                               send_impl(&node->val, data, length);
+                               int _rc = send_impl(&node->val, data, length);
+                               if (_rc != 0) *(int *)_context = _rc;
                              }));
   }
 
