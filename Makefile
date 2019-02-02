@@ -376,6 +376,19 @@ docker-sync-clean:
 	@docker-sync clean -c .docker-sync.yml || echo "docker-sync clean failed..."
 	@rm -f .docker-compose.yml .docker-sync.yml 
 
+docker-sync-wait:
+	@echo -n "Waiting for docker-sync..."
+	@date >.check-docker-sync
+	@while [[ "$$(docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) cat .check-docker-sync | tr -d $$'\r')" != \
+		  "$$(cat .check-docker-sync)" ]]; do sleep 0.5; done
+	@echo " done."
+
+docker-sync-check:
+	@date >.check-docker-sync
+	@sleep 1
+	@[[ "$$(docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) cat .check-docker-sync | tr -d $$'\r')" == \
+		  "$$(cat .check-docker-sync)" ]]
+
 docker-aws-google-auth:
 	@./scripts/run-aws-google-auth
 
