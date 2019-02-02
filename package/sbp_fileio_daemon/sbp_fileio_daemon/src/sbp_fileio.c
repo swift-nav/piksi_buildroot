@@ -100,7 +100,7 @@ typedef struct write_request {
   u8 msg_buffer[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 } write_request_t;
 
-#define MAX_PENDING 128
+#define MAX_PENDING 256
 
 static struct {
   int request_pipe[2];
@@ -214,12 +214,32 @@ static void flush_fd_cache()
   }
 }
 
+static void validate_receive_handle(sbp_rx_ctx_t *rx_ctx)
+{
+  /* **HACK ALERT**
+   *
+   *   For some reason sbp_rx doesn't see that the endpoint
+   *   has become invalid if the socket becomes disconnected,
+   *   we workaround this with a hack that periodically checks
+   *   if the endpoint for incoming data is still valid and
+   *   exit the daemon if it isn't.  This relies on the
+   *   service infrastructure to restart the daemon if this
+   *   error occurs.
+   */
+
+  pk_endpoint_t *ept = sbp_rx_endpoint_get(rx_ctx);
+
+  if (!pk_endpoint_is_valid(ept)) {
+    piksi_log(LOG_ERR, "receive endpoint (%p) is invalid, exiting...", ept);
+    exit(EXIT_FAILURE);
+  }
+}
+
 static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)status;
   (void)handle;
-  (void)context;
 
   static int trigger_cache_purge = 0;
   static int trigger_metrics_flush = 0;
@@ -243,6 +263,9 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
     pk_metrics_reset(MR, MI.write_bytes);
     pk_metrics_reset(MR, MI.wq_waits);
   }
+
+  sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;
+  validate_receive_handle(rx_ctx);
 
   request_flush_output_sbp();
 
@@ -370,9 +393,7 @@ static void flush_output_sbp(void)
   }
 
   pk_endpoint_t *ept = sbp_tx_endpoint_get(write_thread_ctx.tx_ctx);
-  int rc = pk_endpoint_send(ept,
-                            write_thread_ctx.send_buffer,
-                            write_thread_ctx.send_buffer_offset);
+  int rc = pk_endpoint_send(ept, write_thread_ctx.send_buffer, write_thread_ctx.send_buffer_offset);
 
   if (rc != 0) {
     PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_send reported an error: %d", rc);
@@ -395,7 +416,7 @@ static void request_flush_output_sbp(void)
   int rc = write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
 
   if (rc != sizeof(write_req_ptr)) {
-    PK_LOG_ANNO(LOG_WARNING, "write() called failed: %s (%d)", strerror(errno), errno)
+    PK_LOG_ANNO(LOG_WARNING, "write() called failed: %s (%d)", strerror(errno), errno);
   }
 }
 
@@ -415,7 +436,7 @@ static size_t wq_acquire_index()
 
 static void wq_increment_pending_writes()
 {
-  while (write_thread_ctx.writes_pending == MAX_PENDING) {
+  while (atomic_load(&write_thread_ctx.writes_pending) == MAX_PENDING) {
     PK_METRICS_UPDATE(MR, MI.wq_waits);
     nanosleep((const struct timespec[]){{0, Q_SLEEP_NS}}, NULL);
   }
@@ -443,68 +464,111 @@ static void wq_wait_empty()
   assert(rc == 0);
 }
 
+NESTED_FN_TYPEDEF(void, when_empty_fn_t);
+
+static void wq_run_when_empty(when_empty_fn_t when_empty_fn)
+{
+  /*** MUTEX ACQUIRE ***/
+  int rc = pthread_mutex_lock(&write_thread_ctx.lock);
+  assert(rc == 0);
+
+  wq_wait_empty();
+  when_empty_fn();
+
+  /*** MUTEX RELEASE ***/
+  rc = pthread_mutex_unlock(&write_thread_ctx.lock);
+  assert(rc == 0);
+}
+
+static void block_all_signals(void)
+{
+  /* Make sure that this thread will not handle any signals */
+
+  int rc = 0;
+
+  sigset_t sigset_empty;
+  sigfillset(&sigset_empty);
+
+  if ((rc = pthread_sigmask(SIG_SETMASK, &sigset_empty, NULL)) != 0) {
+    PK_LOG_ANNO(LOG_WARNING, "pthread_sigmask failed: %s (%d)", strerror(rc), rc);
+  }
+}
+
 static void *write_thread_handler(void *arg)
 {
   (void)arg;
 
   piksi_log(LOG_DEBUG, "write thread starting...");
+
+  block_all_signals();
+
   int req_read_fd = write_thread_ctx.request_pipe[READ];
 
   for (;;) {
 
     fd_set fds;
-    FD_ZERO(&fds);
 
+    FD_ZERO(&fds);
     FD_SET(req_read_fd, &fds);
 
-    if (select((req_read_fd + 1), &fds, NULL, NULL, NULL) < 0) {
+    struct timeval tv = {.tv_usec = MS_TO_US(100)};
 
+    if (select((req_read_fd + 1), &fds, NULL, NULL, &tv) < 0) {
       if (errno != EBADF) {
         PK_LOG_ANNO(LOG_WARNING, "select failed: %s (%d)", strerror(errno), errno);
       }
-
-      return NULL;
+      break;
     }
 
-    void *write_req_ptr = NULL;
-    int rc = read(req_read_fd, &write_req_ptr, sizeof(write_req_ptr));
-
-    if (rc <= 0) break;
-
-    if (write_req_ptr == NULL) {
-
-      flush_output_sbp();
-      atomic_store(&write_thread_ctx.flush_pending, false);
-
+    if (FD_ISSET(req_read_fd, &fds) == 0) {
+      /* Time-out expired, continue */
       continue;
     }
 
-    write_request_t *write_req = (write_request_t *)write_req_ptr;
+    for (;;) {
 
-    bool write_success = false;
-    size_t write_count = 0;
+      void *write_req_ptr = NULL;
+      int rc = read(req_read_fd, &write_req_ptr, sizeof(write_req_ptr));
 
-    msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)write_req->msg_buffer;
-    msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
+      if (rc <= 0) break;
 
-    {
-      /*** MUTEX ACQUIRE ***/
-      rc = pthread_mutex_lock(&write_thread_ctx.lock);
-      assert(rc == 0);
+      if (write_req_ptr == NULL) {
 
-      write_success = sbp_fileio_write(msg, write_req->len, &write_count);
-      wq_decrement_and_signal();
+        flush_output_sbp();
+        atomic_store(&write_thread_ctx.flush_pending, false);
 
-      /*** MUTEX RELEASE ***/
-      rc = pthread_mutex_unlock(&write_thread_ctx.lock);
-      assert(rc == 0);
-    }
+        continue;
+      }
 
-    if (write_success) {
-      PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
-      stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+      write_request_t *write_req = (write_request_t *)write_req_ptr;
+
+      bool write_success = false;
+      size_t write_count = 0;
+
+      msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)write_req->msg_buffer;
+      msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
+
+      {
+        /*** MUTEX ACQUIRE ***/
+        rc = pthread_mutex_lock(&write_thread_ctx.lock);
+        assert(rc == 0);
+
+        write_success = sbp_fileio_write(msg, write_req->len, &write_count);
+        wq_decrement_and_signal();
+
+        /*** MUTEX RELEASE ***/
+        rc = pthread_mutex_unlock(&write_thread_ctx.lock);
+        assert(rc == 0);
+      }
+
+      if (write_success) {
+        PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
+        stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+      }
     }
   }
+
+  piksi_log(LOG_DEBUG, "write thread is stopping...");
 
   return NULL;
 }
@@ -565,7 +629,7 @@ bool sbp_fileio_setup(const char *name,
   write_thread_ctx.send_buffer_remaining = sizeof(write_thread_ctx.send_buffer);
   write_thread_ctx.send_buffer_offset = 0;
 
-  timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, NULL);
+  timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, rx_ctx);
 
   if (timer_handle == NULL) {
     PK_LOG_ANNO(LOG_ERR, "timer setup failed");
@@ -622,6 +686,8 @@ bool sbp_fileio_setup(const char *name,
 
 void sbp_fileio_teardown(const char *name)
 {
+  piksi_log(LOG_DEBUG, "starting write thread teardown...");
+
   snprintf_assert(sbp_fileio_pid_file, sizeof(sbp_fileio_pid_file), FLUSH_PID_FILE_TEMPLATE, name);
 
   int rc = unlink(sbp_fileio_pid_file);
@@ -828,6 +894,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   FIO_LOG_DEBUG("read request for '%s', seq=%u, off=%u", msg->filename, msg->sequence, msg->offset);
 
+  bool flush_cached = true;
   int st = allow_mtd_read(msg->filename);
 
   if (st == DENY_MTD_READ
@@ -839,6 +906,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
               path_validator_base_paths(g_pv_ctx));
 
     read_result = 0;
+    flush_cached = false;
 
   } else {
 
@@ -856,25 +924,21 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
       }
     }
 
-    {
-      /*** MUTEX ACQUIRE ***/
-      int rc = pthread_mutex_lock(&write_thread_ctx.lock);
-      assert(rc == 0);
-
-      wq_wait_empty();
-
-      read_result = fread(&reply->contents, 1, readlen, the_file.fp);
-      if (read_result != readlen) PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
-
-      finalize_non_cached(&the_file);
-
-      /*** MUTEX RELEASE ***/
-      rc = pthread_mutex_unlock(&write_thread_ctx.lock);
-      assert(rc == 0);
+    if (seek_result == 0) {
+      wq_run_when_empty(NESTED_FN(void, (), {
+        read_result = fread(&reply->contents, 1, readlen, the_file.fp);
+        if (read_result != readlen) {
+          PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
+        }
+        finalize_non_cached(&the_file);
+        flush_cached = false;
+      }));
     }
   }
 
 done:
+  if (flush_cached) flush_cached_fd(msg->filename, "r");
+
   update_offset(the_file, read_result, OP_INCREMENT);
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_READ_RESP, sizeof(*reply) + read_result, (u8 *)reply);
 
@@ -979,22 +1043,11 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
     return;
   }
 
-  {
-    /*** MUTEX ACQUIRE ***/
-    int rc = pthread_mutex_lock(&write_thread_ctx.lock);
-    assert(rc == 0);
-
-    wq_wait_empty();
-
+  wq_run_when_empty(NESTED_FN(void, (), {
     flush_cached_fd(filename, "r");
     flush_cached_fd(filename, "w");
-
     unlink(filename);
-
-    /*** MUTEX RELEASE ***/
-    rc = pthread_mutex_unlock(&write_thread_ctx.lock);
-    assert(rc == 0);
-  }
+  }));
 }
 
 bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *write_count)
@@ -1054,6 +1107,7 @@ bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *
   success = true;
 
 cleanup:
+  if (!success) flush_cached_fd(filename, "w");
   finalize_non_cached(&r);
   return success;
 }
@@ -1105,7 +1159,7 @@ static void queue_file_write(u8 len, u8 msg[])
   int rc = write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
 
   if (rc != sizeof(write_req_ptr)) {
-    PK_LOG_ANNO(LOG_WARNING, "write() called failed: %s (%d)", strerror(errno), errno)
+    PK_LOG_ANNO(LOG_WARNING, "write() called failed: %s (%d)", strerror(errno), errno);
   }
 }
 
