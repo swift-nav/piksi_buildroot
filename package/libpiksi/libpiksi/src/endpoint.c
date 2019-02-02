@@ -41,7 +41,7 @@
 /* Sleep for a maximum 10ms while waiting for a send to complete */
 #define MAX_SEND_SLEEP_COUNT 100000
 #define SEND_SLEEP_NS 100
-#define MAX_SEND_SLEEP_MS ((MAX_SEND_SLEEP_COUNT*SEND_SLEEP_NS)/1e6)
+#define MAX_SEND_SLEEP_MS ((MAX_SEND_SLEEP_COUNT * SEND_SLEEP_NS) / 1e6)
 
 /* 300 * 100ms = 30s of retries */
 #define CONNECT_RETRIES_MAX (300u)
@@ -399,11 +399,13 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     foreach_client(pk_ept,
                    NULL,
-                   NESTED_FN(void, (pk_endpoint_t * _endpoint, client_node_t * node, void *_context), {
-                     (void)_endpoint;
-                     (void)_context;
-                     send_impl(&node->val, data, length);
-                   }));
+                   NESTED_FN(void,
+                             (pk_endpoint_t * _endpoint, client_node_t * node, void *_context),
+                             {
+                               (void)_endpoint;
+                               (void)_context;
+                               send_impl(&node->val, data, length);
+                             }));
   }
 
   return rc;

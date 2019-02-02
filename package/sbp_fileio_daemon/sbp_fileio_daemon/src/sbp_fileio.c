@@ -393,9 +393,7 @@ static void flush_output_sbp(void)
   }
 
   pk_endpoint_t *ept = sbp_tx_endpoint_get(write_thread_ctx.tx_ctx);
-  int rc = pk_endpoint_send(ept,
-                            write_thread_ctx.send_buffer,
-                            write_thread_ctx.send_buffer_offset);
+  int rc = pk_endpoint_send(ept, write_thread_ctx.send_buffer, write_thread_ctx.send_buffer_offset);
 
   if (rc != 0) {
     PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_send reported an error: %d", rc);
@@ -519,7 +517,7 @@ static void *write_thread_handler(void *arg)
     FD_ZERO(&fds);
     FD_SET(req_read_fd, &fds);
 
-    struct timeval tv = { .tv_usec = MS_TO_US(100) };
+    struct timeval tv = {.tv_usec = MS_TO_US(100)};
 
     if (select((req_read_fd + 1), &fds, NULL, NULL, &tv) < 0) {
       if (errno != EBADF) {

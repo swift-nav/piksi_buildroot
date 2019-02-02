@@ -23,12 +23,9 @@
 #define SBP_PAYLOAD_LEN 1
 #define SBP_PAYLOAD_MAX 256
 
-#define SBP_FRAME_SIZE_MAX (SBP_START_BYTE_LEN + \
-                            SBP_MSG_TYPE_LEN + \
-                            SBP_SENDER_ID_LEN + \
-                            SBP_CRC_LEN + \
-                            SBP_PAYLOAD_LEN + \
-                            SBP_PAYLOAD_MAX)
+#define SBP_FRAME_SIZE_MAX                                                                   \
+  (SBP_START_BYTE_LEN + SBP_MSG_TYPE_LEN + SBP_SENDER_ID_LEN + SBP_CRC_LEN + SBP_PAYLOAD_LEN \
+   + SBP_PAYLOAD_MAX)
 
 struct sbp_tx_ctx_s {
   pk_endpoint_t *pk_ept;
@@ -132,12 +129,8 @@ int sbp_tx_send_from(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload, u16 s
   assert(ctx != NULL);
 
   send_buffer_reset(ctx);
-  int status = sbp_send_message(&ctx->sbp_state,
-                                msg_type,
-                                sbp_sender_id,
-                                len,
-                                payload,
-                                send_buffer_write);
+  int status =
+    sbp_send_message(&ctx->sbp_state, msg_type, sbp_sender_id, len, payload, send_buffer_write);
   if (status != SBP_OK) {
     piksi_log(LOG_ERR, "error sending SBP message: %d", status);
     return -1;
