@@ -38,9 +38,10 @@
 /* Maximum number of reads to service for one socket */
 #define ENDPOINT_SERVICE_MAX (32u)
 
-/* Sleep for a maximum 100ms while waiting for a send to complete */
-#define MAX_SEND_SLEEP_COUNT 10000
+/* Sleep for a maximum 10ms while waiting for a send to complete */
+#define MAX_SEND_SLEEP_COUNT 100000
 #define SEND_SLEEP_NS 100
+#define MAX_SEND_SLEEP_MS ((MAX_SEND_SLEEP_COUNT*SEND_SLEEP_NS)/1e6)
 
 /* 300 * 100ms = 30s of retries */
 #define CONNECT_RETRIES_MAX (300u)
@@ -398,9 +399,9 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     foreach_client(pk_ept,
                    NULL,
-                   NESTED_FN(void, (pk_endpoint_t * _ept, client_node_t * node, void *ctx), {
-                     (void)_ept;
-                     (void)ctx;
+                   NESTED_FN(void, (pk_endpoint_t * _endpoint, client_node_t * node, void *_context), {
+                     (void)_endpoint;
+                     (void)_context;
                      send_impl(&node->val, data, length);
                    }));
   }
@@ -742,10 +743,10 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
       if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCOUTQ: %s", strerror(errno));
 
       PK_LOG_ANNO(LOG_WARNING,
-                  "sendmsg returned EAGAIN for more than %dns, "
+                  "sendmsg returned EAGAIN for more than %dms, "
                   "disconnecting and dropping %d queued bytes "
                   "(path: %s, node: %p)",
-                  (SEND_SLEEP_NS * MAX_SEND_SLEEP_COUNT),
+                  MAX_SEND_SLEEP_MS,
                   sizet_to_int(length) + queued_input + queued_output,
                   ctx->ept->path,
                   ctx->node);

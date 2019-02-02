@@ -555,6 +555,7 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
   (void)_X_clean_up_##TheVar;
 
 #define MS_TO_NS(MS) ((MS)*1e6)
+#define MS_TO_US(MS) ((MS)*1e3)
 
 #ifdef __cplusplus
 }
