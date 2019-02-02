@@ -41,6 +41,17 @@ copy_duro_eeprom()
   chmod 0644 "$DURO_EEPROM_TMP_PATH"
   logi "Moving $DURO_EEPROM_TMP_PATH to $DURO_EEPROM_CFG_PATH."
   mv $DURO_EEPROM_TMP_PATH $DURO_EEPROM_CFG_PATH
+
+  # Parse eeprom and set is_duro flag if string "duro" appears in eeprom.
+  # Downstream systems can either read EEPROM contents or check is_duro flag.
+  # pfwp uses is_duro flag as an IPC method to enable can termination setting
+
+  grep -iq duro $DURO_EEPROM_CFG_PATH
+  if [ $? -eq 0 ]; then
+    echo "1" > /etc/flags/is_duro
+  else
+    echo "0" > /etc/flags/is_duro
+  fi
 }
 
 copy_duro_eeprom
