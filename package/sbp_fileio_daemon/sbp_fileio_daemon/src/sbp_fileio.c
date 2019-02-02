@@ -472,6 +472,22 @@ static void wq_wait_empty()
   assert(rc == 0);
 }
 
+NESTED_FN_TYPEDEF(void, when_empty_fn_t);
+
+static void wq_run_when_empty(when_empty_fn_t when_empty_fn)
+{
+  /*** MUTEX ACQUIRE ***/
+  int rc = pthread_mutex_lock(&write_thread_ctx.lock);
+  assert(rc == 0);
+
+  wq_wait_empty();
+  when_empty_fn();
+
+  /*** MUTEX RELEASE ***/
+  rc = pthread_mutex_unlock(&write_thread_ctx.lock);
+  assert(rc == 0);
+}
+
 static void block_all_signals(void)
 {
   /* Make sure that this thread will not handle any signals */
@@ -916,25 +932,15 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
       }
     }
 
-    if (seek_result == 0)
-    {
-      /*** MUTEX ACQUIRE ***/
-      int rc = pthread_mutex_lock(&write_thread_ctx.lock);
-      assert(rc == 0);
-
-      wq_wait_empty();
-
-      read_result = fread(&reply->contents, 1, readlen, the_file.fp);
-      if (read_result != readlen) {
-        PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
-      }
-
-      finalize_non_cached(&the_file);
-      flush_cached = false;
-
-      /*** MUTEX RELEASE ***/
-      rc = pthread_mutex_unlock(&write_thread_ctx.lock);
-      assert(rc == 0);
+    if (seek_result == 0) {
+      wq_run_when_empty(NESTED_FN(void, (), {
+        read_result = fread(&reply->contents, 1, readlen, the_file.fp);
+        if (read_result != readlen) {
+          PK_LOG_ANNO(LOG_ERR, "fread failed: %s", strerror(errno));
+        }
+        finalize_non_cached(&the_file);
+        flush_cached = false;
+      }));
     }
   }
 
@@ -1045,22 +1051,11 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context)
     return;
   }
 
-  {
-    /*** MUTEX ACQUIRE ***/
-    int rc = pthread_mutex_lock(&write_thread_ctx.lock);
-    assert(rc == 0);
-
-    wq_wait_empty();
-
+  wq_run_when_empty(NESTED_FN(void, (), {
     flush_cached_fd(filename, "r");
     flush_cached_fd(filename, "w");
-
     unlink(filename);
-
-    /*** MUTEX RELEASE ***/
-    rc = pthread_mutex_unlock(&write_thread_ctx.lock);
-    assert(rc == 0);
-  }
+  }));
 }
 
 bool sbp_fileio_write(const msg_fileio_write_req_t *msg, size_t length, size_t *write_count)
