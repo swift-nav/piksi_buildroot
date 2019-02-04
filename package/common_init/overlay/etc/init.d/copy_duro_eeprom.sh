@@ -4,6 +4,7 @@ DURO_EEPROM_PATH="/sys/devices/soc0/amba/e0005000.i2c/i2c-1/1-0050/eeprom"
 DURO_EEPROM_TMP_PATH="/cfg/duro_eeprom.tmp"
 DURO_EEPROM_CFG_PATH="/cfg/duro_eeprom"
 EEPROM_RETRY_DELAY=0.15 # seconds
+DEVICE_DURO_ID_STRING="DUROV"
 
 log_tag=copy_duro_eeprom
 
@@ -46,8 +47,7 @@ copy_duro_eeprom()
   # Downstream systems can either read EEPROM contents or check is_duro flag.
   # pfwp uses is_duro flag as an IPC method to enable can termination setting
 
-  grep -iq duro $DURO_EEPROM_CFG_PATH
-  if [ $? -eq 0 ]; then
+  if grep -q "^${DEVICE_DURO_ID_STRING}" $DURO_EEPROM_CFG_PATH; then
     echo "1" > /etc/flags/is_duro
   else
     echo "0" > /etc/flags/is_duro
