@@ -205,7 +205,7 @@ int device_uuid_get(char *str, size_t str_size)
 
 bool device_is_duro(void)
 {
-  char is_duro_flag = '0'; 
+  char is_duro_flag = '0';
   /* Existence of DEVICE_DURO_FLAG_PATH indicates EEPROM
    * has been read or has timed out */
   for (int i = 0; i < DEVICE_DURO_EEPROM_RETRY_TIMES; i++) {
