@@ -386,7 +386,7 @@ int router_reader(const u8 *data, const size_t length, void *context)
 
 static void eagain_update_send_metric(pk_endpoint_t *endpoint, size_t bytes_dropped)
 {
-  (void) endpoint;
+  (void)endpoint;
   PK_METRICS_UPDATE(router_metrics, MI.bytes_dropped, PK_METRICS_VALUE((u32)bytes_dropped));
 }
 

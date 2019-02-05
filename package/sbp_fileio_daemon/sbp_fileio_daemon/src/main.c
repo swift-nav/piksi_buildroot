@@ -206,6 +206,7 @@ int main(int argc, char *argv[])
     goto cleanup;
   }
 
+  path_validator_setup_metrics(g_pv_ctx, sbp_fileio_name);
   snprintf_assert(identity, sizeof(identity), "%s/%s", PROGRAM_NAME, sbp_fileio_name);
 
   ctx = sbp_pubsub_create(identity, pub_endpoint, sub_endpoint);

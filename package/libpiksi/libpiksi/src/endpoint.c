@@ -130,7 +130,7 @@ struct pk_endpoint_s {
   bool warned_on_discard;  /**< Warn only once for writes on read-only sockets */
   char identity[PATH_MAX]; /**< The 'identity' of this socket, used for recording metrics */
   pk_endpoint_eagain_fn_t
-    eagain_cb;             /**< Function that's called when we terminate a connection on an EAGAIN error */
+    eagain_cb; /**< Function that's called when we terminate a connection on an EAGAIN error */
 };
 
 static int create_un_socket(void);
