@@ -278,7 +278,28 @@ int pk_endpoint_set_non_blocking(pk_endpoint_t *pk_ept);
  */
 int pk_endpoint_loop_add(pk_endpoint_t *pk_ept, pk_loop_t *loop);
 
+/**
+ * Validate that the current socket handle associated with this endpoint is
+ * still valid.
+ */
 bool pk_endpoint_is_valid(pk_endpoint_t *pk_ept);
+
+typedef void (*pk_endpoint_eagain_fn_t)(pk_endpoint_t *pk_ept, size_t bytes);
+
+/**
+ * Set callback for notifying an endpoint client that a data drop has
+ * happened.
+ *
+ * In pk_endpoint_t we attempt to enforce latency over throughput by only
+ * allowing clients of server sockets to block for a certain amount of time
+ * (10ms currently).  If a client's in kernel buffer fills up (at around 160k)
+ * then we'll receive an EAGAIN error on a call to `sendmsg()` even though
+ * we're in non-blocking mode, this signals that a client is not emptying it's
+ * buffer -- we allow this state for 10ms before we close the socket to flush the
+ * in-kernel buffer.  Using `pk_endpoint_eagain_cb_set` a user of pk_endpoint_t
+ * can receive a notification that such a drop has occurred.
+ */
+void pk_endpoint_eagain_cb_set(pk_endpoint_t *pk_ept, pk_endpoint_eagain_fn_t eagain_cb);
 
 #ifdef __cplusplus
 }
