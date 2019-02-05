@@ -44,6 +44,11 @@ typedef struct {
 path_validator_t *path_validator_create(path_validator_cfg_t *cfg);
 
 /**
+ * @brief Setup metrics for the path validator.
+ */
+bool path_validator_setup_metrics(path_validator_t *ctx, const char *name);
+
+/**
  * @brief Destroys a path validator object and frees all memory associated.
  *
  * @param pctx pointer to a path_validator point, NULL'd on return.
@@ -89,6 +94,11 @@ size_t path_validator_allowed_count(path_validator_t *ctx);
  *   The buffer returned is owned by the path_validator object.
  */
 const char *path_validator_base_paths(path_validator_t *ctx);
+
+/**
+ * @brief Flush path validator metrics.
+ */
+void path_validator_flush_metrics(path_validator_t *ctx);
 
 #ifdef __cplusplus
 }

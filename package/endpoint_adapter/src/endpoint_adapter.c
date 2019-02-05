@@ -565,7 +565,7 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
           return count;
         }
       }
-      piksi_log(LOG_ERR|LOG_SBP, "Interface %s output buffer is full. Dropping data.", port_name);
+      piksi_log(LOG_ERR | LOG_SBP, "Interface %s output buffer is full. Dropping data.", port_name);
       return count;
     }
   }

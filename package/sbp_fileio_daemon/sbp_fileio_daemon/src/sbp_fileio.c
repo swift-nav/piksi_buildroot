@@ -257,11 +257,16 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
   }
 
   if (++trigger_metrics_flush == FLUSH_METRICS_EVERY) {
+
     trigger_metrics_flush = 0;
+
     pk_metrics_flush(MR);
+
     pk_metrics_reset(MR, MI.read_bytes);
     pk_metrics_reset(MR, MI.write_bytes);
     pk_metrics_reset(MR, MI.wq_waits);
+
+    path_validator_flush_metrics(g_pv_ctx);
   }
 
   sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;
@@ -693,6 +698,10 @@ void sbp_fileio_teardown(const char *name)
   int rc = unlink(sbp_fileio_pid_file);
   if (rc < 0) {
     piksi_log(LOG_ERR, "unlink of pid file '%s' failed: %s", sbp_fileio_pid_file, strerror(errno));
+  }
+
+  if (fileio_metrics != NULL) {
+    pk_metrics_destroy(&fileio_metrics);
   }
 
   close(write_thread_ctx.request_pipe[READ]);
