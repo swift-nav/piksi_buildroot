@@ -474,6 +474,11 @@ pipeline_t *create_pipeline(void);
 void print_trace(const char *assert_str, const char *file, const char *func, int lineno);
 
 /**
+ * Variant of nanosleep that automatically handles EINTR (and resumes sleeping).
+ */
+void nanosleep_autoresume(long s, long ns);
+
+/**
  * Assert a property of the code, if it fails print a backtrace before terminating.
  *
  * Uses the @c print_trace helper (which uses the `backtrace` and `backtrace_symbols` API)
