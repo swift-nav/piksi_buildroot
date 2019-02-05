@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Swift Navigation Inc.
+ * Copyright (C) 2018-2019 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -24,11 +24,16 @@
 #include <sys/types.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/metrics.h>
+#include <libpiksi/table.h>
 
 #include "path_validator.h"
 #include "sbp_fileio.h"
 
-static bool validate_path(const char *basedir_path, const char *path);
+#define MAX_CACHE_ENTRIES 128
+
+static bool validate_path(path_validator_t *ctx, const char *basedir_path, const char *path);
+static void destroy_table_entry(table_t *table, void **entry);
 
 typedef struct path_node {
   char path[PATH_MAX];
@@ -42,7 +47,23 @@ struct path_validator_s {
   size_t base_paths_size;
   path_nodes_head_t path_list;
   size_t allowed_count;
+  table_t *match_cache;
+  char metrics_ident[PATH_MAX];
+  pk_metrics_t *metrics;
 };
+
+MAKE_TABLE_WRAPPER(path, bool);
+
+#define MI path_validator_metrics_indexes
+#define MT path_validator_metrics_table
+
+/* clang-format off */
+PK_METRICS_TABLE(MT, MI,
+  PK_METRICS_ENTRY("cache/hits",     "per_second", M_U32, M_UPDATE_COUNT, M_RESET_DEF, cache_hits),
+  PK_METRICS_ENTRY("stat/calls",     "per_second", M_U32, M_UPDATE_COUNT, M_RESET_DEF, stat_calls),
+  PK_METRICS_ENTRY("realpath/calls", "per_second", M_U32, M_UPDATE_COUNT, M_RESET_DEF, realpath_calls)
+ )
+/* clang-format on */
 
 path_validator_t *path_validator_create(path_validator_cfg_t *cfg)
 {
@@ -58,7 +79,24 @@ path_validator_t *path_validator_create(path_validator_cfg_t *cfg)
   LIST_INIT(&(ctx->path_list));
   ctx->allowed_count = 0;
 
+  ctx->match_cache = table_create(MAX_CACHE_ENTRIES, destroy_table_entry);
+
   return ctx;
+}
+
+bool path_validator_setup_metrics(path_validator_t *ctx, const char *name)
+{
+  snprintf_assert(ctx->metrics_ident, sizeof(ctx->metrics_ident), "%s/%s", name, "path_validator");
+  ctx->metrics = pk_metrics_setup("sbp_fileio", ctx->metrics_ident, MT, COUNT_OF(MT));
+
+  return ctx->metrics != NULL;
+}
+
+static void destroy_table_entry(table_t *table, void **entry)
+{
+  (void)table;
+  free(*entry);
+  *entry = NULL;
 }
 
 void path_validator_destroy(path_validator_t **pctx)
@@ -73,6 +111,14 @@ void path_validator_destroy(path_validator_t **pctx)
     free(node);
   }
 
+  if ((*pctx)->match_cache != NULL) {
+    table_destroy(&(*pctx)->match_cache);
+  }
+
+  if ((*pctx)->metrics != NULL) {
+    pk_metrics_destroy(&(*pctx)->metrics);
+  }
+
   free((*pctx)->base_paths);
   free(*pctx);
 
@@ -83,9 +129,23 @@ bool path_validator_check(path_validator_t *ctx, const char *path)
 {
   path_node_t *node;
 
+  bool *cached_entry = path_table_get(ctx->match_cache, path);
+  if (cached_entry != NULL && *cached_entry) {
+    if (ctx->metrics != NULL) PK_METRICS_UPDATE(ctx->metrics, MI.cache_hits);
+    return true;
+  }
+
   LIST_FOREACH(node, &ctx->path_list, entries)
   {
-    if (validate_path(node->path, path)) return true;
+    if (validate_path(ctx, node->path, path)) {
+
+      bool *entry = malloc(sizeof(bool));
+      *entry = true;
+
+      path_table_put(ctx->match_cache, path, entry);
+
+      return true;
+    }
   }
 
   return false;
@@ -135,7 +195,6 @@ const char *path_validator_base_paths(path_validator_t *ctx)
 
   LIST_FOREACH(node, &ctx->path_list, entries)
   {
-
     if (base_paths_remaining == 0) break;
 
     FIO_LOG_DEBUG("node->path: %s", node->path);
@@ -157,13 +216,22 @@ const char *path_validator_base_paths(path_validator_t *ctx)
   return ctx->base_paths;
 }
 
+void path_validator_flush_metrics(path_validator_t *ctx)
+{
+  pk_metrics_flush(ctx->metrics);
+
+  pk_metrics_reset(ctx->metrics, MI.cache_hits);
+  pk_metrics_reset(ctx->metrics, MI.realpath_calls);
+  pk_metrics_reset(ctx->metrics, MI.stat_calls);
+}
+
 #define CHECK_PATH_BUFFER(TheCount, TheBuf)                                                  \
   if ((TheCount) >= (int)sizeof((TheBuf))) {                                                 \
     piksi_log(LOG_ERR, "%s path buffer overflow (%s:%d)", __FUNCTION__, __FILE__, __LINE__); \
     return false;                                                                            \
   }
 
-static bool validate_path(const char *basedir_path, const char *path)
+static bool validate_path(path_validator_t *ctx, const char *basedir_path, const char *path)
 {
   FIO_LOG_DEBUG("Checking path: %s against base dir: %s", path, basedir_path);
 
@@ -192,6 +260,8 @@ static bool validate_path(const char *basedir_path, const char *path)
   // Always null terminate so we know if realpath filled in the buffer
   realpath_buf[0] = '\0';
 
+  if (ctx->metrics != NULL) PK_METRICS_UPDATE(ctx->metrics, MI.realpath_calls);
+
   char *resolved = realpath(path_buf, realpath_buf);
   int error = errno;
 
@@ -213,6 +283,8 @@ static bool validate_path(const char *basedir_path, const char *path)
     char *parent_dir = dirname(dirname_buf);
 
     FIO_LOG_DEBUG("Parent dir: %s", dirname_buf);
+    if (ctx->metrics != NULL) PK_METRICS_UPDATE(ctx->metrics, MI.stat_calls);
+
     return stat(parent_dir, &s) == 0;
   }
 
