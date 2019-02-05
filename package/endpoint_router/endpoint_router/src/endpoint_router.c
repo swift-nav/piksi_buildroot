@@ -43,6 +43,8 @@ PK_METRICS_TABLE(message_metrics_table, MI,
   PK_METRICS_ENTRY("skip_framer/message/count",        "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  skip_framer_count),
   PK_METRICS_ENTRY("skip_framer/message/total_bypass", "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  skip_framer_bypass),
 
+  PK_METRICS_ENTRY("endpoint/bytes_dropped",           "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  bytes_dropped),
+
   PK_METRICS_ENTRY("message/count",     "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  count),
   PK_METRICS_ENTRY("message/size",      ".total",      M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  size_total),
   PK_METRICS_ENTRY("message/size",      "per_second",  M_U32,   M_UPDATE_AVERAGE, M_RESET_DEF,  size,
@@ -84,6 +86,7 @@ static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_
 static void process_buffer_via_framer(rule_cache_t *rule_cache,
                                       const u8 *data,
                                       const size_t length);
+static void eagain_update_send_metric(pk_endpoint_t *endpoint, size_t bytes_dropped);
 
 endpoint_send_fn_t endpoint_send_fn = NULL;
 
@@ -179,11 +182,12 @@ static int router_create_endpoints(router_cfg_t *router, pk_loop_t *loop)
                                          .type(PK_ENDPOINT_PUB_SERVER)
                                          .get());
     if (port->pub_ept == NULL) {
-      piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
+      PK_LOG_ANNO(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
 
     pk_endpoint_loop_add(port->pub_ept, loop);
+    pk_endpoint_eagain_cb_set(port->pub_ept, eagain_update_send_metric);
 
     snprintf_assert(endpoint_metric, sizeof(endpoint_metric), "router/%s/sub_server", port->metric);
 
@@ -193,11 +197,12 @@ static int router_create_endpoints(router_cfg_t *router, pk_loop_t *loop)
                                          .type(PK_ENDPOINT_SUB_SERVER)
                                          .get());
     if (port->sub_ept == NULL) {
-      piksi_log(LOG_ERR, "pk_endpoint_create() error\n");
+      PK_LOG_ANNO(LOG_ERR, "pk_endpoint_create() error\n");
       return -1;
     }
 
     pk_endpoint_loop_add(port->sub_ept, loop);
+    pk_endpoint_eagain_cb_set(port->pub_ept, eagain_update_send_metric);
   }
 
   return 0;
@@ -379,6 +384,12 @@ int router_reader(const u8 *data, const size_t length, void *context)
   return 0;
 }
 
+static void eagain_update_send_metric(pk_endpoint_t *endpoint, size_t bytes_dropped)
+{
+  (void) endpoint;
+  PK_METRICS_UPDATE(router_metrics, MI.bytes_dropped, PK_METRICS_VALUE((u32)bytes_dropped));
+}
+
 static void pre_receive_metrics()
 {
   PK_METRICS_UPDATE(router_metrics, MI.wakeups);
@@ -463,6 +474,7 @@ static void loop_1s_metrics(pk_loop_t *loop, void *handle, int status, void *con
   pk_metrics_reset(MR, MI.frame_leftovers);
   pk_metrics_reset(MR, MI.skip_framer_count);
   pk_metrics_reset(MR, MI.skip_framer_bypass);
+  pk_metrics_reset(MR, MI.bytes_dropped);
 
   pk_loop_timer_reset(handle);
 }

@@ -129,6 +129,8 @@ struct pk_endpoint_s {
   void *metrics_timer;     /**< Handle of the metrics flush timer */
   bool warned_on_discard;  /**< Warn only once for writes on read-only sockets */
   char identity[PATH_MAX]; /**< The 'identity' of this socket, used for recording metrics */
+  pk_endpoint_eagain_fn_t
+    eagain_cb;             /**< Function that's called when we terminate a connection on an EAGAIN error */
 };
 
 static int create_un_socket(void);
@@ -511,6 +513,16 @@ bool pk_endpoint_is_valid(pk_endpoint_t *pk_ept)
 }
 
 /**************************************************************************/
+/************* pk_endpoint_eagain_cb_set **********************************/
+/**************************************************************************/
+
+void pk_endpoint_eagain_cb_set(pk_endpoint_t *pk_ept, pk_endpoint_eagain_fn_t eagain_cb)
+{
+  assert(pk_ept != NULL);
+  pk_ept->eagain_cb = eagain_cb;
+}
+
+/**************************************************************************/
 /************* Helpers ****************************************************/
 /**************************************************************************/
 
@@ -547,14 +559,6 @@ static int start_un_listen(const char *path, int fd)
   return 0;
 }
 
-static void do_sleep(long ns)
-{
-  struct timespec ts = {.tv_nsec = ns};
-  while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
-    /* no-op, just need to retry nanosleep */;
-  }
-}
-
 static int connect_un_socket(int fd, const char *path, bool retry_connect)
 {
   struct sockaddr_un addr = {.sun_family = AF_UNIX};
@@ -565,7 +569,7 @@ static int connect_un_socket(int fd, const char *path, bool retry_connect)
 
   for (size_t retry = 0; retry <= CONNECT_RETRIES_MAX; retry++) {
 
-    if (retry > 0) do_sleep(MS_TO_NS(CONNECT_RETRY_SLEEP_MS));
+    if (retry > 0) nanosleep_autoresume(0, MS_TO_NS(CONNECT_RETRY_SLEEP_MS));
 
     rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     connect_errno = errno;
@@ -729,7 +733,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
     if (sendmsg_error == EAGAIN || sendmsg_error == EWOULDBLOCK) {
 
       if (++sleep_count >= MAX_SEND_SLEEP_COUNT) {
-        do_sleep(SEND_SLEEP_NS);
+        nanosleep_autoresume(0, SEND_SLEEP_NS);
         continue;
       }
 
@@ -743,15 +747,17 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
       if (error < 0) PK_LOG_ANNO(LOG_WARNING, "unable to read SIOCOUTQ: %s", strerror(errno));
 
+      int queued_total = sizet_to_int(length) + queued_input + queued_output;
       PK_LOG_ANNO(LOG_WARNING,
                   "sendmsg returned EAGAIN for more than %d ms, "
                   "disconnecting and dropping %d queued bytes "
                   "(path: %s, node: %p)",
                   MAX_SEND_SLEEP_MS,
-                  sizet_to_int(length) + queued_input + queued_output,
+                  queued_total,
                   ctx->ept->path,
                   ctx->node);
 
+      if (ctx->ept->eagain_cb != NULL) ctx->ept->eagain_cb(ctx->ept, (size_t)queued_total);
       send_close_socket_helper(ctx);
 
       return -1;
@@ -1129,6 +1135,8 @@ static pk_endpoint_t *create_impl(const char *endpoint,
   } else {
     pk_ept->identity[0] = '\0';
   }
+
+  pk_ept->eagain_cb = NULL;
 
   return pk_ept;
 
