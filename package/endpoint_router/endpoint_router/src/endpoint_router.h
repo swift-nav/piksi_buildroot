@@ -157,7 +157,7 @@ inline void rule_prefixes_destroy(rule_prefixes_t **p)
 /**
  * A typedef for specifying a send function.
  */
-typedef int (*endpoint_send_fn_t)(pk_endpoint_t *, const u8 *, const size_t);
+typedef int (*endpoint_send_fn_t)(pk_endpoint_t *, const u8 *, const size_t, pke_control_t *control);
 
 /**
  * Storage for a router 'send' function, used for unit tests.
@@ -167,7 +167,7 @@ extern endpoint_send_fn_t endpoint_send_fn;
 /**
  * Processes incoming data according to router filter processing rules.
  */
-int router_reader(const u8 *data, const size_t length, void *context);
+int router_reader(const u8 *data, const size_t length, void *context, pke_control_t *control);
 
 #ifdef __cplusplus
 }
