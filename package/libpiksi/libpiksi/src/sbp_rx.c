@@ -30,6 +30,7 @@ struct sbp_rx_ctx_s {
   char ident[PATH_MAX];
   sbp_rx_receive_buffer_cb_t receive_buffer_cb;
   void *receive_buffer_context;
+  pke_control_t *current_control_data;
 };
 
 static s32 receive_buffer_read(u8 *buff, u32 n, void *context)
@@ -42,11 +43,13 @@ static s32 receive_buffer_read(u8 *buff, u32 n, void *context)
   return uint32_to_int32(len);
 }
 
-static int receive_process(const u8 *buff, size_t length, void *context)
+static int receive_process(const u8 *buff, size_t length, void *context, pke_control_t *control)
 {
   sbp_rx_ctx_t *ctx = (sbp_rx_ctx_t *)context;
   ctx->receive_buffer = buff;
   ctx->receive_buffer_length = sizet_to_uint32(length);
+
+  ctx->current_control_data = control;
 
   while (ctx->receive_buffer_length > 0) {
     sbp_process(&ctx->sbp_state, receive_buffer_read);
@@ -55,6 +58,8 @@ static int receive_process(const u8 *buff, size_t length, void *context)
   if (ctx->receive_buffer_cb != NULL) {
     ctx->receive_buffer_cb(ctx->receive_buffer_context);
   }
+
+  ctx->current_control_data = NULL;
 
   return 0;
 }
@@ -253,6 +258,12 @@ void sbp_rx_receive_buffer_cb_set(sbp_rx_ctx_t *rx_ctx,
   rx_ctx->receive_buffer_context = context;
 }
 
+pke_control_t *sbp_rx_current_control_data(sbp_rx_ctx_t *ctx)
+{
+  assert(ctx != NULL);
+  return ctx->current_control_data;
+}
+
 int sbp_rx_callback_remove(sbp_rx_ctx_t *ctx, sbp_msg_callbacks_node_t **node)
 {
   assert(ctx != NULL);
@@ -272,8 +283,7 @@ int sbp_rx_callback_remove(sbp_rx_ctx_t *ctx, sbp_msg_callbacks_node_t **node)
 int sbp_rx_read(sbp_rx_ctx_t *ctx)
 {
   assert(ctx != NULL);
-
-  return pk_endpoint_receive(ctx->pk_ept, receive_process, ctx);
+  return pk_endpoint_receive_ex(ctx->pk_ept, receive_process, ctx);
 }
 
 void sbp_rx_reader_interrupt(sbp_rx_ctx_t *ctx)

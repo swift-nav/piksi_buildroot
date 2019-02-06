@@ -145,13 +145,16 @@ static bool valid_socket_type_for_read(pk_endpoint_t *pk_ept);
 
 static void teardown_client(client_context_t *ctx);
 
-static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc);
+static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc, pke_control_t *control_data);
 
-static int service_reads(client_context_t *ctx, pk_endpoint_receive_cb rx_cb, void *context);
+static int service_reads(client_context_t *ctx,
+                         pk_endpoint_receive_cb rx_cb,
+                         pk_endpoint_receive_ex_cb rx_ex_cb,
+                         void *context);
 
 static void send_close_socket_helper(client_context_t *ctx);
 
-static int send_impl(client_context_t *ctx, const u8 *data, size_t length);
+static int send_impl(client_context_t *ctx, const u8 *data, size_t length, pke_control_t *control_data);
 
 static void discard_read_data(client_context_t *ctx);
 
@@ -353,7 +356,7 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count)
 
   read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t * client_ctx, void *ctx), {
     size_t *length_loc = ctx;
-    return recv_impl(client_ctx, buffer, length_loc);
+    return recv_impl(client_ctx, buffer, length_loc, NULL);
   });
 
   ssize_t rc = read_and_receive_common(pk_ept, read_handler, &length);
@@ -372,7 +375,24 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
   ASSERT_TRACE(rx_cb != NULL);
 
   read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t * client_ctx, void *ctx), {
-    service_reads(client_ctx, rx_cb, ctx);
+    service_reads(client_ctx, rx_cb, NULL, ctx);
+    return 0;
+  });
+
+  return ssizet_to_int(read_and_receive_common(pk_ept, read_handler, context));
+}
+
+/**********************************************************************/
+/************* pk_endpoint_receive ************************************/
+/**********************************************************************/
+
+int pk_endpoint_receive_ex(pk_endpoint_t *pk_ept, pk_endpoint_receive_ex_cb rx_ex_cb, void *context)
+{
+  ASSERT_TRACE(pk_ept->nonblock);
+  ASSERT_TRACE(rx_ex_cb != NULL);
+
+  read_handler_fn_t read_handler = NESTED_FN(ssize_t, (client_context_t * client_ctx, void *ctx), {
+    service_reads(client_ctx, NULL, rx_ex_cb, ctx);
     return 0;
   });
 
@@ -385,6 +405,15 @@ int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, voi
 
 int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
 {
+  return pk_endpoint_send_ex(pk_ept, data, length, NULL);
+}
+
+/**********************************************************************/
+/************* pk_endpoint_send_ex ************************************/
+/**********************************************************************/
+
+int pk_endpoint_send_ex(pk_endpoint_t *pk_ept, const u8 *data, const size_t length, pke_control_t *control_data)
+{
   ASSERT_TRACE(pk_ept->type != PK_ENDPOINT_SUB && pk_ept->type != PK_ENDPOINT_SUB_SERVER);
 
   int rc = 0;
@@ -396,7 +425,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
       .poll_handle = NULL,
       .node = NULL,
     };
-    rc = send_impl(&ctx, data, length);
+    rc = send_impl(&ctx, data, length, control_data);
   } else if (pk_ept->type == PK_ENDPOINT_PUB_SERVER || pk_ept->type == PK_ENDPOINT_REP) {
     foreach_client(pk_ept,
                    &rc,
@@ -404,7 +433,7 @@ int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, const size_t length)
                              (pk_endpoint_t * _endpoint, client_node_t * node, void *_context),
                              {
                                (void)_endpoint;
-                               int _rc = send_impl(&node->val, data, length);
+                               int _rc = send_impl(&node->val, data, length, control_data);
                                if (_rc != 0) *(int *)_context = _rc;
                              }));
   }
@@ -615,13 +644,18 @@ static void teardown_client(client_context_t *ctx)
   ctx->handle = -1;
 }
 
-static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
+static int recv_impl(client_context_t *ctx, u8 *user_buffer, size_t *length_loc, pke_control_t *control_data)
 {
   ENDPOINT_DEBUG_LOG("handle: %d, ept: %p, poll_handle: %p, node: %p",
                      ctx->handle,
                      ctx->ept,
                      ctx->poll_handle,
                      ctx->node);
+
+  size_t buffer_len = *length_loc + sizeof(*control_data);
+
+  u8* buffer = calloc(1, buffer_len);
+  STAGE_CLEANUP(buffer, ({ free(buffer); }));
 
   int err = 0;
   ssize_t length = 0;
@@ -630,7 +664,7 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
   struct msghdr msg = {0};
 
   iov[0].iov_base = buffer;
-  iov[0].iov_len = *length_loc;
+  iov[0].iov_len = buffer_len;
 
   msg.msg_iov = iov;
   msg.msg_iovlen = 1;
@@ -638,6 +672,13 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
   while (1) {
 
     length = recvmsg(ctx->handle, &msg, 0);
+
+    if (control_data != NULL) {
+      memcpy(control_data, buffer, sizeof(*control_data));
+    }
+
+    length -= (ssize_t)sizeof(*control_data);
+    memcpy(user_buffer, buffer + sizeof(*control_data), (size_t)length);
 
     if (length >= 0) {
       if (length == 0) {
@@ -675,19 +716,28 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
   return PKE_SUCCESS;
 }
 
-static int service_reads(client_context_t *ctx, pk_endpoint_receive_cb rx_cb, void *context)
+static int service_reads(client_context_t *ctx,
+                         pk_endpoint_receive_cb rx_cb,
+                         pk_endpoint_receive_ex_cb rx_ex_cb,
+                         void *context)
 {
   for (size_t i = 0; i < ENDPOINT_SERVICE_MAX; i++) {
     u8 buffer[PK_ENDPOINT_RECV_BUF_SIZE] = {0};
     size_t length = sizeof(buffer);
-    int rc = recv_impl(ctx, buffer, &length);
+    pke_control_t control_data;
+    int rc = recv_impl(ctx, buffer, &length, &control_data);
     if (rc < 0) {
       if (rc == PKE_EAGAIN || rc == PKE_NOT_CONN) break;
       PK_LOG_ANNO(LOG_ERR, "failed to receive message");
       return -1;
     }
     if (length == 0) break;
-    bool stop = rx_cb(buffer, length, context) != 0;
+    bool stop = false;
+    if (rx_cb != NULL) {
+      stop = rx_cb(buffer, length, context) != 0;
+    } else {
+      stop = rx_ex_cb(buffer, length, context, &control_data) != 0;
+    }
     if (stop) break;
   }
   return 0;
@@ -700,7 +750,7 @@ static void send_close_socket_helper(client_context_t *ctx)
   teardown_client(ctx);
 }
 
-static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
+static int send_impl(client_context_t *ctx, const u8 *data, const size_t length, pke_control_t *control_data)
 {
   ENDPOINT_DEBUG_LOG("handle: %d, ept: %p, poll_handle: %p, node: %p",
                      ctx->handle,
@@ -708,14 +758,25 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
                      ctx->poll_handle,
                      ctx->node);
 
+  u8* buffer = calloc(1, length + sizeof(*control_data));
+  STAGE_CLEANUP(buffer, ({ free(buffer); }));
+
   struct iovec iov[1] = {0};
   struct msghdr msg = {0};
 
-  iov[0].iov_base = (u8 *)data;
-  iov[0].iov_len = length;
+  iov[0].iov_base = (u8 *)buffer;
+  iov[0].iov_len = sizeof(*control_data) + length;
 
   msg.msg_iov = iov;
   msg.msg_iovlen = 1;
+
+  if (control_data != NULL) {
+    memcpy(buffer, control_data, sizeof(*control_data));
+  } else {
+    memset(buffer, 0, sizeof(*control_data));
+  }
+
+  memcpy(buffer + sizeof(*control_data), data, length);
 
   size_t sleep_count = 0;
 
@@ -726,7 +787,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
     if (written != -1) {
       /* Break on success */
-      ASSERT_TRACE(written == sizet_to_int(length));
+      ASSERT_TRACE(written == sizet_to_int(sizeof(*control_data) + length));
       return 0;
     }
 
@@ -760,6 +821,7 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
       if (ctx->ept->eagain_cb != NULL) ctx->ept->eagain_cb(ctx->ept, (size_t)queued_total);
       send_close_socket_helper(ctx);
 
+      /* Return error */
       return -1;
     }
 
@@ -774,10 +836,11 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
     }
 
     send_close_socket_helper(ctx);
-
-    /* Return error */
-    return -1;
+    break;
   }
+
+  /* Return error */
+  return -1;
 }
 
 static void discard_read_data(client_context_t *ctx)
@@ -787,7 +850,7 @@ static void discard_read_data(client_context_t *ctx)
   size_t length = sizeof(read_buf);
   for (size_t count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
     if (ctx == NULL || ctx->node == NULL) break;
-    if (recv_impl(ctx, read_buf, &length) != 0) {
+    if (recv_impl(ctx, read_buf, &length, NULL) != 0) {
       break;
     }
   }

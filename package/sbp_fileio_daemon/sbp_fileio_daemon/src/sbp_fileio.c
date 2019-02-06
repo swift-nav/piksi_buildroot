@@ -98,9 +98,16 @@ static pk_metrics_t *fileio_metrics = NULL;
 typedef struct write_request {
   size_t len;
   u8 msg_buffer[SBP_FRAMING_MAX_PAYLOAD_SIZE];
+  char iface_origin[128];
 } write_request_t;
 
 #define MAX_PENDING 256
+
+typedef enum {
+  IF_MATCH_UNKNOWN = 0,
+  IF_MATCH_CONSISTENT = 1,
+  IF_MATCH_INCONSISTENT = 2,
+} iface_match_t;
 
 static struct {
   int request_pipe[2];
@@ -116,6 +123,8 @@ static struct {
   u32 send_buffer_remaining;
   u32 send_buffer_offset;
   sbp_tx_ctx_t *tx_ctx;
+  char iface_origin[128];
+  iface_match_t iface_consistent;
 } write_thread_ctx;
 
 typedef struct {
@@ -165,7 +174,10 @@ static bool test_control_dir(const char *name);
 static void flush_output_sbp(void);
 static void request_flush_output_sbp(void);
 
-static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload);
+static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload, const char *iface_origin);
+
+static void check_iface_consistency(const char *iface_origin);
+static void reset_iface_consistency(void);
 
 static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ...(FD_CACHE_COUNT - 1)] = {NULL, "", "", 0, 0}};
 
@@ -397,8 +409,18 @@ static void flush_output_sbp(void)
     return;
   }
 
+  pke_control_t control_data_store = { .type = PKE_CD_MATCH_IFACE };
+  pke_control_t *control_data = NULL;
+
+  if (write_thread_ctx.iface_consistent == IF_MATCH_CONSISTENT) {
+    control_data = &control_data_store;
+    strcpy(control_data_store.data.match_iface, write_thread_ctx.iface_origin);
+  }
+
   pk_endpoint_t *ept = sbp_tx_endpoint_get(write_thread_ctx.tx_ctx);
-  int rc = pk_endpoint_send(ept, write_thread_ctx.send_buffer, write_thread_ctx.send_buffer_offset);
+  int rc = pk_endpoint_send_ex(ept, write_thread_ctx.send_buffer, write_thread_ctx.send_buffer_offset, control_data);
+
+  reset_iface_consistency();
 
   if (rc != 0) {
     PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_send reported an error: %d", rc);
@@ -427,7 +449,8 @@ static void request_flush_output_sbp(void)
 
 static void post_receive_buffer(void *context)
 {
-  (void)context;
+  sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;
+  (void) rx_ctx;
 
   request_flush_output_sbp();
 }
@@ -553,12 +576,16 @@ static void *write_thread_handler(void *arg)
       msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)write_req->msg_buffer;
       msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
 
+      char iface_origin[128];
+
       {
         /*** MUTEX ACQUIRE ***/
         rc = pthread_mutex_lock(&write_thread_ctx.lock);
         assert(rc == 0);
 
         write_success = sbp_fileio_write(msg, write_req->len, &write_count);
+        strcpy(iface_origin, write_req->iface_origin);
+
         wq_decrement_and_signal();
 
         /*** MUTEX RELEASE ***/
@@ -568,7 +595,7 @@ static void *write_thread_handler(void *arg)
 
       if (write_success) {
         PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
-        stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+        stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply, iface_origin);
       }
     }
   }
@@ -616,7 +643,7 @@ bool sbp_fileio_setup(const char *name,
   cb_registered = cb_registered
     && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE, remove_cb, tx_ctx, NULL);
   cb_registered = cb_registered
-    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ, write_cb, tx_ctx, NULL);
+    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ, write_cb, rx_ctx, NULL);
   /* clang-format on */
 
   if (!cb_registered) {
@@ -627,12 +654,15 @@ bool sbp_fileio_setup(const char *name,
   sbp_sender_id = sbp_sender_id_get();
 
   sbp_state_init(&write_thread_ctx.sbp_state);
-  sbp_rx_receive_buffer_cb_set(rx_ctx, post_receive_buffer, NULL);
+  sbp_rx_receive_buffer_cb_set(rx_ctx, post_receive_buffer, rx_ctx);
 
   write_thread_ctx.tx_ctx = tx_ctx;
 
   write_thread_ctx.send_buffer_remaining = sizeof(write_thread_ctx.send_buffer);
   write_thread_ctx.send_buffer_offset = 0;
+
+  write_thread_ctx.iface_origin[0] = '\0';
+  write_thread_ctx.iface_consistent = IF_MATCH_UNKNOWN;
 
   timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, rx_ctx);
 
@@ -1140,8 +1170,32 @@ static s32 stage_packed_sbp_buffer(u8 *buff, u32 n, void *context)
   return uint32_to_int32(len);
 }
 
-static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload)
+static void reset_iface_consistency(void)
 {
+  write_thread_ctx.iface_origin[0] = '\0';
+  write_thread_ctx.iface_consistent = IF_MATCH_UNKNOWN;
+}
+
+static void check_iface_consistency(const char *iface_origin)
+{
+  if (write_thread_ctx.iface_consistent == IF_MATCH_UNKNOWN) {
+    strcpy(write_thread_ctx.iface_origin, iface_origin);
+    write_thread_ctx.iface_consistent = IF_MATCH_CONSISTENT;
+  } else {
+    if (write_thread_ctx.iface_consistent == IF_MATCH_CONSISTENT) {
+      if (strcmp(write_thread_ctx.iface_origin, iface_origin) == 0) {
+        write_thread_ctx.iface_consistent = IF_MATCH_CONSISTENT;
+      } else {
+        write_thread_ctx.iface_consistent = IF_MATCH_INCONSISTENT;
+      }
+    }
+  }
+}
+
+static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload, const char *iface_origin)
+{
+  check_iface_consistency(iface_origin);
+
   int status = sbp_send_message(&write_thread_ctx.sbp_state,
                                 msg_type,
                                 sbp_sender_id,
@@ -1155,13 +1209,15 @@ static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload)
   }
 }
 
-static void queue_file_write(u8 len, u8 msg[])
+static void queue_file_write(u8 len, u8 msg[], char *iface_origin)
 {
   wq_increment_pending_writes();
 
   write_request_t *write_request = &write_thread_ctx.write_requests[wq_acquire_index()];
 
   write_request->len = len;
+  strcpy(write_request->iface_origin, iface_origin);
+
   memcpy(write_request->msg_buffer, msg, len);
 
   void *write_req_ptr = write_request;
@@ -1182,8 +1238,8 @@ static void queue_file_write(u8 len, u8 msg[])
 static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
-  (void)context;
 
+  sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *) context;
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
 
   if ((len <= sizeof(*msg) + 2)
@@ -1193,5 +1249,11 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
 
-  queue_file_write(len, msg_);
+  pke_control_t *control_data = sbp_rx_current_control_data(rx_ctx);
+
+  if (control_data != NULL && control_data->type == PKE_CD_IFACE_ORIGIN) {
+    queue_file_write(len, msg_, control_data->data.origin_iface);
+  } else {
+    queue_file_write(len, msg_, "");
+  }
 }

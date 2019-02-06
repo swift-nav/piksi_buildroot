@@ -111,6 +111,8 @@ void sbp_rx_receive_buffer_cb_set(sbp_rx_ctx_t *rx_ctx,
                                   sbp_rx_receive_buffer_cb_t cb,
                                   void *context);
 
+pke_control_t *sbp_rx_current_control_data(sbp_rx_ctx_t *rx_ctx);
+
 /**
  * @brief   Remove an SBP message callback.
  * @details Remove a registered SBP message callback.
