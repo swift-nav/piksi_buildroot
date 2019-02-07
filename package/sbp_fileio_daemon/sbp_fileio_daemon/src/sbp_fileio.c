@@ -429,12 +429,6 @@ static void post_receive_buffer(void *context)
 {
   (void)context;
 
-  if (strcmp(sbp_fileio_name, "external") == 0) {
-    static int counter = 0;
-    if (counter++ != 32) return;
-    counter = 0;
-  }
-
   request_flush_output_sbp();
 }
 
