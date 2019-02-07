@@ -28,6 +28,8 @@ struct sbp_rx_ctx_s {
   void *reader_handle;
   char endpoint[PATH_MAX];
   char ident[PATH_MAX];
+  sbp_rx_receive_buffer_cb_t receive_buffer_cb;
+  void *receive_buffer_context;
 };
 
 static s32 receive_buffer_read(u8 *buff, u32 n, void *context)
@@ -48,6 +50,10 @@ static int receive_process(const u8 *buff, size_t length, void *context)
 
   while (ctx->receive_buffer_length > 0) {
     sbp_process(&ctx->sbp_state, receive_buffer_read);
+  }
+
+  if (ctx->receive_buffer_cb != NULL) {
+    ctx->receive_buffer_cb(ctx->receive_buffer_context);
   }
 
   return 0;
@@ -237,6 +243,14 @@ int sbp_rx_callback_register(sbp_rx_ctx_t *ctx,
   }
 
   return 0;
+}
+
+void sbp_rx_receive_buffer_cb_set(sbp_rx_ctx_t *rx_ctx,
+                                  sbp_rx_receive_buffer_cb_t cb,
+                                  void *context)
+{
+  rx_ctx->receive_buffer_cb = cb;
+  rx_ctx->receive_buffer_context = context;
 }
 
 int sbp_rx_callback_remove(sbp_rx_ctx_t *ctx, sbp_msg_callbacks_node_t **node)
