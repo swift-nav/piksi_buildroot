@@ -105,6 +105,12 @@ int sbp_rx_callback_register(sbp_rx_ctx_t *ctx,
                              void *context,
                              sbp_msg_callbacks_node_t **node);
 
+typedef void (*sbp_rx_receive_buffer_cb_t)(void *context);
+
+void sbp_rx_receive_buffer_cb_set(sbp_rx_ctx_t *rx_ctx,
+                                  sbp_rx_receive_buffer_cb_t cb,
+                                  void *context);
+
 /**
  * @brief   Remove an SBP message callback.
  * @details Remove a registered SBP message callback.
