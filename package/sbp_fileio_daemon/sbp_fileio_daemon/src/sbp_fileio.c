@@ -26,6 +26,7 @@
 
 #include <libsbp/file_io.h>
 
+#include <libpiksi/cast_check.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/metrics.h>
 #include <libpiksi/util.h>
@@ -38,6 +39,18 @@
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
 #define CLEANUP_FD_CACHE_MS 1e3
+
+#define SEND_BUFFER_SIZE 4096
+
+static struct {
+  sbp_state_t sbp_state;
+  u8 send_buffer[SEND_BUFFER_SIZE];
+  u32 send_buffer_remaining;
+  u32 send_buffer_offset;
+  sbp_tx_ctx_t *tx_ctx;
+} receive_buffer_ctx;
+
+static u16 sbp_sender_id = 0;
 
 static bool allow_factory_mtd = false;
 static bool allow_imageset_bin = false;
@@ -305,6 +318,18 @@ void sbp_fileio_setup_path_validator(path_validator_t *pv_ctx,
   allow_imageset_bin = allow_imageset_bin_;
 }
 
+static void post_receive_buffer(void *context)
+{
+  (void) context;
+
+  pk_endpoint_t *ept = sbp_tx_endpoint_get(receive_buffer_ctx.tx_ctx);
+  pk_endpoint_send(ept, receive_buffer_ctx.send_buffer, receive_buffer_ctx.send_buffer_offset);
+
+  /* reset buffer */
+  receive_buffer_ctx.send_buffer_remaining = sizeof(receive_buffer_ctx.send_buffer);
+  receive_buffer_ctx.send_buffer_offset = 0;
+}
+
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
@@ -350,6 +375,16 @@ bool sbp_fileio_setup(const char *name,
     PK_LOG_ANNO(LOG_ERR, "callback registration failed");
     return false;
   }
+
+  sbp_sender_id = sbp_sender_id_get();
+
+  sbp_state_init(&receive_buffer_ctx.sbp_state);
+  sbp_rx_receive_buffer_cb_set(rx_ctx, post_receive_buffer, NULL);
+
+  receive_buffer_ctx.tx_ctx = tx_ctx;
+
+  receive_buffer_ctx.send_buffer_remaining = sizeof(receive_buffer_ctx.send_buffer);
+  receive_buffer_ctx.send_buffer_offset = 0;
 
   cleanup_timer_handle = pk_loop_timer_add(loop, CLEANUP_FD_CACHE_MS, purge_fd_cache, NULL);
 
@@ -773,6 +808,29 @@ cleanup:
   return success;
 }
 
+static s32 send_buffer_write(u8 *buff, u32 n, void *context)
+{
+  (void) context;
+
+  u32 len = SWFT_MIN(receive_buffer_ctx.send_buffer_remaining, n);
+
+  memcpy(&receive_buffer_ctx.send_buffer[receive_buffer_ctx.send_buffer_offset], buff, len);
+
+  receive_buffer_ctx.send_buffer_remaining -= len;
+  receive_buffer_ctx.send_buffer_offset += len;
+
+  return uint32_to_int32(len);
+}
+
+static void stage_sbp_msg(u8 msg_type, size_t len, u8 *payload)
+{
+  if (sbp_send_message(&receive_buffer_ctx.sbp_state, msg_type, sbp_sender_id, len, payload, send_buffer_write)
+      != SBP_OK) {
+    piksi_log(LOG_ERR, "error sending SBP message");
+    return;
+  }
+}
+
 /**
  * Write to file callback. Responds to a SBP_MSG_FILEIO_WRITE_REQ message.
  *
@@ -783,9 +841,9 @@ cleanup:
 static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
+  (void)context;
 
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
 
   msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
   size_t write_count = 0;
@@ -800,5 +858,5 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   if (!sbp_fileio_write(msg, len, &write_count)) return;
 
   PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
-  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+  stage_sbp_msg(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
 }
