@@ -24,7 +24,7 @@ sbp_pubsub_ctx_t *sbp_pubsub_create(const char *ident, const char *pub_ept, cons
   assert(pub_ept != NULL);
   assert(sub_ept != NULL);
 
-  sbp_pubsub_ctx_t *ctx = (sbp_pubsub_ctx_t *)malloc(sizeof(struct sbp_pubsub_ctx_s));
+  sbp_pubsub_ctx_t *ctx = (sbp_pubsub_ctx_t *)calloc(1, sizeof(struct sbp_pubsub_ctx_s));
   if (ctx == NULL) {
     piksi_log(LOG_ERR, "error creating SBP pubsub context");
     goto failure;
