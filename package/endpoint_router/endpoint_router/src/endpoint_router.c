@@ -82,11 +82,10 @@ static struct {
 static framer_t *framer_sbp = NULL;
 
 static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void *context);
-static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_t length, pke_control_t *control);
+static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_t length);
 static void process_buffer_via_framer(rule_cache_t *rule_cache,
                                       const u8 *data,
-                                      const size_t length,
-                                      pke_control_t *control);
+                                      const size_t length);
 static void eagain_update_send_metric(pk_endpoint_t *endpoint, size_t bytes_dropped);
 
 endpoint_send_fn_t endpoint_send_fn = NULL;
@@ -300,7 +299,7 @@ static void process_forwarding_rule(const forwarding_rule_t *forwarding_rule,
   }
 }
 
-static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, const size_t length, pke_control_t *control)
+static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, const size_t length)
 {
   assert(framer_sbp != NULL);
 
@@ -312,7 +311,7 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
   }
 
   for (size_t idx = 0; idx < rule_cache->no_framer_ports_count; idx++) {
-    endpoint_send_fn(rule_cache->no_framer_ports[idx], data, length, control);
+    endpoint_send_fn(rule_cache->no_framer_ports[idx], data, length);
   }
 
   if (rule_cache->rule_count == rule_cache->no_framer_ports_count) {
@@ -331,7 +330,7 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
 
     if (frame == NULL) break;
 
-    process_buffer(rule_cache, frame, frame_length, control);
+    process_buffer(rule_cache, frame, frame_length);
     frame_count += 1;
   }
 
@@ -341,14 +340,14 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
   PK_METRICS_UPDATE(MR, MI.frame_leftovers, PK_METRICS_VALUE(leftover));
 }
 
-static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_t length, pke_control_t *control)
+static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_t length)
 {
   size_t prefix_len = rule_cache->rule_prefixes->prefix_len;
 
   if (length < prefix_len) {
     /* No match, send to all default accept ports */
     for (size_t idx = 0; idx < rule_cache->accept_ports_count; idx++) {
-      endpoint_send_fn(rule_cache->accept_ports[idx], data, length, control);
+      endpoint_send_fn(rule_cache->accept_ports[idx], data, length);
     }
     return;
   }
@@ -357,20 +356,18 @@ static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_
   if (memcmp(rule_cache->cached_ports[key].prefix, data, prefix_len) == 0) {
     /* Match, forward to list of rules */
     for (size_t idx = 0; idx < rule_cache->cached_ports[key].count; idx++) {
-      endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], data, length, control);
+      endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], data, length);
     }
   } else {
     /* No match, forward to everything that's default accept */
     for (size_t idx = 0; idx < rule_cache->accept_ports_count; idx++) {
-      endpoint_send_fn(rule_cache->accept_ports[idx], data, length, control);
+      endpoint_send_fn(rule_cache->accept_ports[idx], data, length);
     }
   }
 }
 
-int router_reader(const u8 *data, const size_t length, void *context, pke_control_t *control_data)
+int router_reader(const u8 *data, const size_t length, void *context)
 {
-  (void) control_data;
-
   PK_METRICS_UPDATE(router_metrics, MI.count);
   PK_METRICS_UPDATE(router_metrics, MI.wakeups_message_count);
 
@@ -379,9 +376,9 @@ int router_reader(const u8 *data, const size_t length, void *context, pke_contro
   rule_cache_t *rule_cache = (rule_cache_t *)context;
 
   if (options.process_sbp) {
-    process_buffer_via_framer(rule_cache, data, length, control_data);
+    process_buffer_via_framer(rule_cache, data, length);
   } else {
-    process_buffer(rule_cache, data, length, control_data);
+    process_buffer(rule_cache, data, length);
   }
 
   return 0;
@@ -425,7 +422,7 @@ static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void
   rule_cache_t *rule_cache = (rule_cache_t *)context;
 
   pre_receive_metrics();
-  pk_endpoint_receive_ex(rule_cache->sub_ept, router_reader, rule_cache);
+  pk_endpoint_receive(rule_cache->sub_ept, router_reader, rule_cache);
   post_receive_metrics();
 }
 
@@ -797,7 +794,7 @@ int main(int argc, char *argv[])
   router_t *router = NULL;
 
   endpoint_destroy_fn = pk_endpoint_destroy;
-  endpoint_send_fn = pk_endpoint_send_ex;
+  endpoint_send_fn = pk_endpoint_send;
 
   logging_init(PROGRAM_NAME);
 

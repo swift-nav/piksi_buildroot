@@ -58,19 +58,6 @@ enum {
   PKE_EAGAIN = -3,
 };
 
-typedef enum {
-  PKE_CD_IFACE_ORIGIN = 1,
-  PKE_CD_MATCH_IFACE,
-} pke_control_data_type;
-
-typedef struct {
-  u8 type;
-  union {
-    char origin_iface[128];
-    char match_iface[128];
-  } data;
-} pke_control_t;
-
 typedef struct {
   /**
    * The address for the endpoint, for pk_endpoint, currently only unix domain sockets
@@ -132,11 +119,6 @@ struct pk_endpoint_config_builder_s {
  * @brief   Piksi Endpoint Receive Callback Signature
  */
 typedef int (*pk_endpoint_receive_cb)(const u8 *data, const size_t length, void *context);
-
-/**
- * @brief   Extended endpoint receive callback signature
- */
-typedef int (*pk_endpoint_receive_ex_cb)(const u8 *data, const size_t length, void *context, pke_control_t *control_data);
 
 pk_endpoint_config_builder_t pk_endpoint_config(void);
 
@@ -213,8 +195,6 @@ ssize_t pk_endpoint_read(pk_endpoint_t *pk_ept, u8 *buffer, size_t count);
  */
 int pk_endpoint_receive(pk_endpoint_t *pk_ept, pk_endpoint_receive_cb rx_cb, void *context);
 
-int pk_endpoint_receive_ex(pk_endpoint_t *pk_ept, pk_endpoint_receive_ex_cb rx_ex_cb, void *context);
-
 /**
  * @brief   Send a message from an endpoint
  * @details Send a message from an endpoint. Create the message and flushes immediately.
@@ -228,8 +208,6 @@ int pk_endpoint_receive_ex(pk_endpoint_t *pk_ept, pk_endpoint_receive_ex_cb rx_e
  * @retval -1               An error occurred.
  */
 int pk_endpoint_send(pk_endpoint_t *pk_ept, const u8 *data, size_t length);
-
-int pk_endpoint_send_ex(pk_endpoint_t *pk_ept, const u8 *data, size_t length, pke_control_t *control_data);
 
 /**
  * @brief   Get specific error string following and operation that failed

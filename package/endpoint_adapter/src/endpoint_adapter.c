@@ -621,21 +621,9 @@ static ssize_t process_read_buffer(handle_t *read_handle,
   return length;
 }
 
-static int sub_ept_read(const uint8_t *buff, size_t length, void *context, pke_control_t *control)
+static int sub_ept_read(const uint8_t *buff, size_t length, void *context)
 {
   read_ctx_t *read_ctx = (read_ctx_t *)context;
-
-  if (control != NULL) {
-    if (control->type == PKE_CD_MATCH_IFACE) {
-#if 0
-      PK_LOG_ANNO(LOG_DEBUG, "MATCH IFACE: %s", control->data.match_iface);
-#endif
-      if (strcmp(control->data.match_iface, port_name) != 0) {
-        read_ctx->total += length;
-        return read_ctx->status;
-      }
-    }
-  }
 
   if (read_ctx->read_buf_cb(read_ctx->read_handle, read_ctx->write_handle, (uint8_t *)buff, length)
       < 0) {
@@ -654,11 +642,7 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
     PK_METRICS_UPDATE(MR, MI.rx_write_count);
     PK_METRICS_UPDATE(MR, MI.rx_write_size_total, PK_METRICS_VALUE((u32)count));
 
-    pke_control_t control_data = { .type = PKE_CD_IFACE_ORIGIN };
-    snprintf_assert(control_data.data.origin_iface, sizeof(control_data.data.origin_iface),
-                    "%s", port_name);
-
-    if (pk_endpoint_send_ex(handle->pk_ept, (uint8_t *)buffer, count, &control_data) != 0) {
+    if (pk_endpoint_send(handle->pk_ept, (uint8_t *)buffer, count) != 0) {
       return -1;
     }
 
@@ -753,7 +737,7 @@ static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *wri
       .write_handle = write_handle,
       .read_buf_cb = process_read_buffer,
     };
-    rc = pk_endpoint_receive_ex(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
+    rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
     if (rc != 0) {
       PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_receive returned error: %d", rc);
     } else if (read_ctx.status == 0) {
