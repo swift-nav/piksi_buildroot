@@ -145,6 +145,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void *context);
+static void config_cb(u16 sender_id, u8 len, u8 buf[], void *context);
 
 static off_t read_offset(open_file_t r);
 
@@ -617,6 +618,8 @@ bool sbp_fileio_setup(const char *name,
     && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE, remove_cb, tx_ctx, NULL);
   cb_registered = cb_registered
     && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ, write_cb, tx_ctx, NULL);
+  cb_registered = cb_registered
+    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_CONFIG_REQ, config_cb, tx_ctx, NULL);
   /* clang-format on */
 
   if (!cb_registered) {
@@ -1194,4 +1197,27 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   }
 
   queue_file_write(len, msg_);
+}
+
+static void config_cb(u16 sender_id, u8 len, u8 buf[], void *context)
+{
+  (void)sender_id;
+  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)context;
+
+  if ((len < 1) || (len >= SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
+    piksi_log(LOG_WARNING, "Invalid fileio remove message!");
+    return;
+  }
+
+  piksi_log(LOG_DEBUG, "fileio config request");
+
+  msg_fileio_config_req_t *msg = (msg_fileio_config_req_t *)buf;
+  u32 seq = msg->sequence;
+
+  msg_fileio_config_resp_t reply = {.sequence = seq,
+                                    .fileio_version = 0,
+                                    .window_size = 256,
+                                    .batch_size = 32};
+
+  sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_CONFIG_RESP, sizeof(reply), (u8 *)&reply);
 }
