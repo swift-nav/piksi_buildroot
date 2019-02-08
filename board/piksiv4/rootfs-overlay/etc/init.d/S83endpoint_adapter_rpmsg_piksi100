@@ -1,0 +1,15 @@
+#!/bin/sh
+
+name="endpoint_adapter_rpmsg_piksi100"
+cmd="endpoint_adapter --name rpmsg_piksi100 --file /dev/rpmsg_piksi100 -p 'ipc:///var/run/sockets/firmware.sub' -s 'ipc:///var/run/sockets/firmware.pub'"
+dir="/"
+user="ad_r100"
+priority="-18"
+
+setup_permissions()
+{
+  add_service_user $user
+  chown $user:$user /dev/rpmsg_piksi100
+}
+
+source /etc/init.d/template_runsv.inc.sh

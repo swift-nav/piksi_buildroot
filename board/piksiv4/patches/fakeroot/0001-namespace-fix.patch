@@ -1,0 +1,38 @@
+--- a/libfakeroot.c       2018-03-05 17:31:25.792452551 -0800
++++ b/libfakeroot.c       2018-03-05 17:33:50.538015155 -0800
+@@ -822,7 +822,7 @@
+     r=next_lchown(path,owner,group);
+   else
+     r=0;
+-  if(r&&(errno==EPERM))
++  if(r&&(errno==EPERM||errno==EINVAL))
+     r=0;
+ 
+   return r;
+@@ -849,7 +849,7 @@
+     r=next_lchown(path,owner,group);
+   else
+     r=0;
+-  if(r&&(errno==EPERM))
++  if(r&&(errno==EPERM||errno==EINVAL))
+     r=0;
+ 
+   return r;
+@@ -873,7 +873,7 @@
+   else
+     r=0;
+ 
+-  if(r&&(errno==EPERM))
++  if(r&&(errno==EPERM||errno==EINVAL))
+     r=0;
+ 
+   return r;
+@@ -900,7 +900,7 @@
+   else
+     r=0;
+ 
+-  if(r&&(errno==EPERM))
++  if(r&&(errno==EPERM||errno==EINVAL))
+     r=0;
+ 
+   return r;

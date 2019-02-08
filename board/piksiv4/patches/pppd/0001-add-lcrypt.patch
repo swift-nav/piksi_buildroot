@@ -1,0 +1,9 @@
+--- a/pppd/Makefile.linux
++++ b/pppd/Makefile.linux
+@@ -228,3 +228,6 @@
+ 
+ depend:
+ 	$(CPP) -M $(CFLAGS) $(PPPDSRCS) >.depend
++
++CFLAGS  += -DHAVE_CRYPT_H=1
++LIBS	+= -lcrypt
