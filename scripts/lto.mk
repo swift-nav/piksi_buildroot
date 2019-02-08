@@ -14,8 +14,8 @@ ifneq ($(DEBUG),)
 $(info LTO_PLUGIN: $(LTO_PLUGIN))
 endif
 
-# Don't use LTO for Linux or uboot
-NO_FLTO := linux-xilinx,uboot_custom,uboot,linux
+# Don't use LTO for Linux, uboot or ARM Trusted Firmware
+NO_FLTO := linux-xilinx,uboot_custom,uboot,linux,arm-trusted-firmware
 
 # The LTO wrapper analyzes the current directory and makes
 #   a decision to exclude the -flto parameter.
@@ -112,6 +112,9 @@ UBOOT_CUSTOM_POST_INSTALL_HOOKS += reenable-lto-post
 
 UBOOT_PRE_CONFIGURE_HOOKS += disable-lto-pre
 UBOOT_POST_INSTALL_HOOKS += reenable-lto-post
+
+ARM_TRUSTED_FIRMWARE_PRE_CONFIGURE_HOOKS += disable-lto-pre
+ARM_TRUSTED_FIRMWARE_POST_INSTALL_HOOKS += reenable-lto-post
 
 force-install-toolchain-wrappers:
 	$(toolchain-external-post)
