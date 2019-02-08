@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-LIBSBP_VERSION = pmiettinen/esd-1012-settings-register-resp
+LIBSBP_VERSION = v2.4.9
 LIBSBP_SITE = https://github.com/swift-nav/libsbp
 LIBSBP_SITE_METHOD = git
 LIBSBP_INSTALL_STAGING = YES
