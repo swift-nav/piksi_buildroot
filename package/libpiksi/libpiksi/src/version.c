@@ -69,6 +69,7 @@ int version_parse_str(const char *str, piksi_version_t *ver)
     } else {
       /* Fall to default (erroneous version string) */
     }
+    /* fall through */
   default: piksi_log(LOG_ERR, "Invalid version string: %s", str); return 1;
   }
 }

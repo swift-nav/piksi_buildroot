@@ -1023,7 +1023,9 @@ static pk_endpoint_t *create_impl(const char *endpoint,
 
   bool do_bind = false;
   switch (pk_ept->type) {
-  case PK_ENDPOINT_PUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_PUB_SERVER:
+    do_bind = true;
+    /* fall through */
   case PK_ENDPOINT_PUB: {
     pk_ept->sock = create_un_socket();
     if (pk_ept->sock < 0) {
@@ -1031,7 +1033,9 @@ static pk_endpoint_t *create_impl(const char *endpoint,
       goto failure;
     }
   } break;
-  case PK_ENDPOINT_SUB_SERVER: do_bind = true;
+  case PK_ENDPOINT_SUB_SERVER:
+    do_bind = true;
+    /* fall through */
   case PK_ENDPOINT_SUB: {
     pk_ept->sock = create_un_socket();
     if (pk_ept->sock < 0) {
@@ -1039,7 +1043,9 @@ static pk_endpoint_t *create_impl(const char *endpoint,
       goto failure;
     }
   } break;
-  case PK_ENDPOINT_REP: do_bind = true;
+  case PK_ENDPOINT_REP:
+    do_bind = true;
+    /* fall through */
   case PK_ENDPOINT_REQ: {
     pk_ept->sock = create_un_socket();
     if (pk_ept->sock < 0) {
