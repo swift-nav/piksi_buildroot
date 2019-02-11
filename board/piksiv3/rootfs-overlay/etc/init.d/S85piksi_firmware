@@ -76,7 +76,7 @@ start()
     if [ ! -e "/lib/firmware/rproc-remoteproc@0-fw" ]; then
       ln -s /lib/firmware/piksi_firmware.elf /lib/firmware/rproc-remoteproc@0-fw
     fi
-    modprobe zynq_remoteproc
+    modprobe zynq_remoteproc autoboot=1
     logi "Remoteproc modprobe complete: $?"
   else
     loge "ERROR: firmware not found"
