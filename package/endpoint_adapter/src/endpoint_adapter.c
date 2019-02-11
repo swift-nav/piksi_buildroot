@@ -47,9 +47,7 @@
 
 /* Sleep for a maximum 10ms while waiting for a send to complete */
 #define MAX_SEND_SLEEP_MS (10)
-#define MAX_SEND_SLEEP_NS (MS_TO_NS(MAX_SEND_SLEEP_MS))
 #define SEND_SLEEP_NS (100)
-#define MAX_SEND_SLEEP_COUNT (MAX_SEND_SLEEP_NS / SEND_SLEEP_NS)
 
 #define PROGRAM_NAME "endpoint_adapter"
 
@@ -176,8 +174,6 @@ typedef struct {
 } read_ctx_t;
 
 static bool retry_pubsub = false;
-
-static bool eagain_warned = false;
 
 static void usage(char *command)
 {
@@ -541,50 +537,65 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
   }
 }
 
-static ssize_t fd_write(int fd, const void *buffer, size_t count)
+static bool needs_outq_check(int fd)
 {
-  if (isatty(fd) && (outq > 0)) {
-    int qlen;
+  return isatty(fd) && outq > 0;
+}
+
+static bool ensure_outq_space(int fd, size_t count)
+{
+  int qlen;
+  ioctl(fd, TIOCOUTQ, &qlen);
+  if (qlen + count > outq) {
+    /* Flush the output buffer, otherwise we'll get behind and start
+     * transmitting partial SBP packets, we must drop some data here, so we
+     * choose to drop old data rather than new data.
+     */
+    tcflush(fd, TCOFLUSH);
     ioctl(fd, TIOCOUTQ, &qlen);
-    if (qlen + count > outq) {
-      /* Flush the output buffer, otherwise we'll get behind and start
-       * transmitting partial SBP packets, we must drop some data here, so we
-       * choose to drop old data rather than new data.
-       */
-      tcflush(fd, TCOFLUSH);
-      ioctl(fd, TIOCOUTQ, &qlen);
-      if (qlen != 0) {
-        if (strstr(port_name, "usb") != port_name) {
-          piksi_log(LOG_WARNING, "Could not completely flush tty: %d bytes remaining.", qlen);
-        } else {
-          /* USB gadget serial can't flush properly for some reason, ignore...
-           *   (This is ignored ad infinitum because this condition occurs on
-           *   start-up before the interface is read from, after the interface
-           *   is read from, it never occurs again.)
-           */
-          return count;
-        }
+    if (qlen != 0) {
+      if (strstr(port_name, "usb") != port_name) {
+        piksi_log(LOG_WARNING, "Could not completely flush tty: %d bytes remaining.", qlen);
+      } else {
+        /* USB gadget serial can't flush properly for some reason, ignore...
+         *   (This is ignored ad infinitum because this condition occurs on
+         *   start-up before the interface is read from, after the interface
+         *   is read from, it never occurs again.)
+         */
+        return false;
       }
-      piksi_log(LOG_ERR | LOG_SBP, "Interface %s output buffer is full. Dropping data.", port_name);
-      return count;
     }
+    piksi_log(LOG_ERR | LOG_SBP, "Interface %s output buffer is full. Dropping data.", port_name);
+    return false;
   }
+  return true;
+}
+
+static ssize_t fd_write_with_timeout(int handle,
+                                     const void *buffer,
+                                     size_t count,
+                                     const size_t max_send_sleep_ms,
+                                     const size_t per_retry_sleep_ns)
+{
+  assert(per_retry_sleep_ns != 0);
+  const size_t max_send_sleep_count = MS_TO_NS(max_send_sleep_ms) / per_retry_sleep_ns;
   size_t sleep_count = 0;
-  while (1) {
-    ssize_t ret = write(fd, buffer, count);
+  for (;;) {
+    ssize_t ret = write(handle, buffer, count);
     /* Retry if interrupted */
     if ((ret == -1) && (errno == EINTR)) {
       continue;
     } else if ((ret < 0) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
-      if (++sleep_count >= MAX_SEND_SLEEP_COUNT) {
-        nanosleep_autoresume(0, SEND_SLEEP_NS);
+      if (++sleep_count >= max_send_sleep_count) {
+        nanosleep_autoresume(0, per_retry_sleep_ns);
         continue;
       }
+      static bool eagain_warned = false;
       if (eagain_warned) {
         PK_LOG_ANNO(LOG_WARNING,
                     "call to write() to send data returned EAGAIN for more than %d ms, "
                     "dropping %u queued bytes (endpoint ident: %s)",
-                    MAX_SEND_SLEEP_MS,
+                    max_send_sleep_ms,
                     count,
                     port_name);
         eagain_warned = true;
@@ -595,6 +606,20 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
       return ret;
     }
   }
+}
+
+static ssize_t fd_write(int handle, const void *buffer, size_t count)
+{
+  if (needs_outq_check(handle)) {
+    if (!ensure_outq_space(handle, count)) {
+      /* If `ensure_outq_space` fails, we're attempt to drop and flush data,
+       * logging for this happens in `ensure_outq_space`, we need to fake
+       * that we sent the data so an error won't be reported upstream.
+       */
+      return count;
+    }
+  }
+  return fd_write_with_timeout(handle, buffer, count, MAX_SEND_SLEEP_MS, SEND_SLEEP_NS);
 }
 
 static ssize_t handle_write_all_via_framer(handle_t *handle, const void *buffer, size_t count);

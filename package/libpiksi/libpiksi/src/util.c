@@ -926,10 +926,13 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
 #undef ASSERT_FAIL_MSG
 }
 
-void nanosleep_autoresume(long s, long ns)
+size_t nanosleep_autoresume(long s, long ns)
 {
+  size_t interrupts = 0;
   struct timespec ts = {.tv_sec = s, .tv_nsec = ns};
   while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
-    /* no-op, just need to retry nanosleep */;
+    /* no-op (mostly), just need to retry nanosleep */;
+    interrupts++;
   }
+  return interrupts;
 }

@@ -118,19 +118,24 @@ struct pk_endpoint_s {
                    or bind() succeeded). */
   bool nonblock; /**< Set the socket to non-blocking mode */
   bool woke;     /**< Has the socket been woken up */
+
   client_nodes_head_t client_nodes_head; /**< The list of client nodes for a server socket */
   removed_nodes_head_t
-    removed_nodes_head;    /**< The list of client nodes that need to be removed and cleaned-up */
-  int client_count;        /**< The number of clients for a server socket */
-  pk_loop_t *loop;         /**< The event loop this endpoint is associated with */
-  void *poll_handle;       /**< The poll handle for this socket */
-  char path[PATH_MAX];     /**< The path to the socket */
+    removed_nodes_head; /**< The list of client nodes that need to be removed and cleaned-up */
+  int client_count;     /**< The number of clients for a server socket */
+
+  pk_loop_t *loop;   /**< The event loop this endpoint is associated with */
+  void *poll_handle; /**< The poll handle for this socket */
+
+  char path[PATH_MAX]; /**< The path to the socket */
+
   pk_metrics_t *metrics;   /**< The metrics object for this endpoint */
   void *metrics_timer;     /**< Handle of the metrics flush timer */
-  bool warned_on_discard;  /**< Warn only once for writes on read-only sockets */
   char identity[PATH_MAX]; /**< The 'identity' of this socket, used for recording metrics */
-  pk_endpoint_eagain_fn_t
-    eagain_cb; /**< Function that's called when we terminate a connection on an EAGAIN error */
+
+  bool warned_on_discard; /**< Warn only once for writes on read-only sockets */
+
+  pk_endpoint_eagain_fn_t eagain_cb; /**< Invoked when a connection is terminated on EAGAIN */
 };
 
 static int create_un_socket(void);

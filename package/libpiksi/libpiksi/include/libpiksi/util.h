@@ -475,8 +475,10 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
 
 /**
  * Variant of nanosleep that automatically handles EINTR (and resumes sleeping).
+ *
+ * @return the number of interrupts that occured
  */
-void nanosleep_autoresume(long s, long ns);
+size_t nanosleep_autoresume(long s, long ns);
 
 /**
  * Assert a property of the code, if it fails print a backtrace before terminating.
