@@ -20,8 +20,8 @@ $(info >>> Piksi INS is enabled, packaging with current image)
 ## The piksi_ins version is managed with piksi-releases
 include ${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/piksi_ins_version.mk
 
-PIKSI_INS_VERSION = $(PIKSI_RELEASES_INS_VERSION)
-PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
+PIKSI_INS_VERSION = 25a4deb4551765ef60f16c714cddfd038cfce650
+PIKSI_INS_SITE = git@github.com:denniszollo/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_GIT_SUBMODULES = YES
 PIKSI_INS_INSTALL_STAGING = YES
