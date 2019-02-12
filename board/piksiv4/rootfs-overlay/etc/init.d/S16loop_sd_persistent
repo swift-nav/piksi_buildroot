@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# mount qspi-persistent partition
+#
+
+case "$1" in
+  start)
+  mkdir -p /persistent
+  if [ -e /media/mmcblk0p1/persistent ]; then
+    mount -o loop /media/mmcblk0p1/persistent /persistent
+  fi
+  ;;
+  stop)
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?
