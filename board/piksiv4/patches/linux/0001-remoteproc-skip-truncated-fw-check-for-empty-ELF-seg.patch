@@ -1,0 +1,25 @@
+From d9d064c19dc1beded8f3db988cdc8136666708e0 Mon Sep 17 00:00:00 2001
+From: Jacob McNamee <jacob@swiftnav.com>
+Date: Fri, 18 Nov 2016 15:22:41 -0800
+Subject: [PATCH] remoteproc: skip truncated fw check for empty ELF segments
+
+---
+ drivers/remoteproc/remoteproc_elf_loader.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/remoteproc/remoteproc_elf_loader.c b/drivers/remoteproc/remoteproc_elf_loader.c
+index 22ab44d..dc92c45 100644
+--- a/drivers/remoteproc/remoteproc_elf_loader.c
++++ b/drivers/remoteproc/remoteproc_elf_loader.c
+@@ -175,7 +175,7 @@ rproc_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
+ 			break;
+ 		}
+ 
+-		if (offset + filesz > fw->size) {
++		if ((filesz > 0) && (offset + filesz > fw->size)) {
+ 			dev_err(dev, "truncated fw: need 0x%x avail 0x%zx\n",
+ 					offset + filesz, fw->size);
+ 			ret = -EINVAL;
+-- 
+2.6.2
+
