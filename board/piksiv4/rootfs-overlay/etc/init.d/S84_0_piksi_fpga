@@ -3,13 +3,13 @@
 name="piksi_fpga"
 
 start() {
-  bit="/lib/firmware/piksi_fpga.bit"
-  if [ -f "$bit" ]; then
+  bit="piksi_fpga.bit"
+  if [ -f /lib/firmware/"$bit" ]; then
     tries=1
     while [ $tries -le 3 ]; do
-      cat "$bit" > /dev/xdevcfg
-      prog_done=`cat /sys/devices/soc0/amba/f8007000.devcfg/prog_done`
-      if [ "$prog_done" -eq "1" ]; then
+      echo "$bit" > /sys/devices/platform/pcap/fpga_manager/fpga0/firmware
+      prog_done=`cat /sys/devices/platform/pcap/fpga_manager/fpga0/state`
+      if [ "$prog_done" = "operating" ]; then
         break
       else
         echo "ERROR: FPGA configuration failed" | logger
