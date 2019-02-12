@@ -23,7 +23,7 @@
 		ranges;
 		rproc_0_reserved: rproc@3ed00000 {
 			no-map;
-			reg = <0x0 0x3ed00000 0x0 0x1000000>;
+			reg = <0x0 0x7b000000 0x0 0x4000000>;
 		};
 	};
 
@@ -55,7 +55,7 @@
 		};
 		elf_ddr_0: ddr@3ed00000 {
 			compatible = "mmio-sram";
-			reg = <0x0 0x3ed00000 0x0 0x40000>;
+			reg = <0x0 0x7b000000 0x0 0x4000000>;
 		};
 		test_r5_0: zynqmp_r5_rproc@0 {
 			compatible = "xlnx,zynqmp-r5-remoteproc-1.0";
