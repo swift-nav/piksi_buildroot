@@ -73,10 +73,8 @@ start()
   wait_services
 
   if [ -f "/lib/firmware/piksi_firmware.elf" ]; then
-    if [ ! -e "/lib/firmware/rproc-remoteproc@0-fw" ]; then
-      ln -s /lib/firmware/piksi_firmware.elf /lib/firmware/rproc-remoteproc@0-fw
-    fi
-    modprobe zynq_remoteproc autoboot=1
+    echo "piksi_firmware.elf" > /sys/class/remoteproc/remoteproc0/firmware
+    echo "start" > /sys/class/remoteproc/remoteproc0/state
     logi "Remoteproc modprobe complete: $?"
   else
     loge "ERROR: firmware not found"
@@ -85,7 +83,7 @@ start()
 
 stop()
 {
-  rmmod zynq_remoteproc
+    echo "stop" > /sys/class/remoteproc/remoteproc0/state
 }
 
 source /etc/init.d/template_command.inc.sh
