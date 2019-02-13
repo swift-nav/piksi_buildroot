@@ -2,14 +2,41 @@
 
 name="piksi_fpga"
 
+DEV=fpga0
+DEV_FW_PATH=/sys/class/fpga_manager/$DEV/firmware
+DEV_STATE=/sys/class/fpga_manager/$DEV/state
+
+is_writing() {
+    STATE=`cat $DEV_STATE`
+
+    [ "$STATE" == "firmware request" ] && return 0
+    [ "$STATE" == "write init" ] && return 0
+    [ "$STATE" == "write" ] && return 0
+    [ "$STATE" == "write complete" ] && return 0
+
+    return 1
+}
+
+is_operating() {
+    STATE=`cat $DEV_STATE`
+    [ "$STATE" == "operating" ] && return 0
+    return 1
+}
+
 start() {
   bit="/lib/firmware/piksi_fpga.bit"
   if [ -f "$bit" ]; then
     tries=1
     while [ $tries -le 3 ]; do
-      cat "$bit" > /dev/xdevcfg
-      prog_done=`cat /sys/devices/soc0/amba/f8007000.devcfg/prog_done`
-      if [ "$prog_done" -eq "1" ]; then
+      echo "piksi_fpga.bit" > $DEV_FW_PATH
+
+      while is_writing;
+      do
+        sleep 0.1
+      done
+
+      if is_operating;
+      then
         break
       else
         echo "ERROR: FPGA configuration failed" | logger
