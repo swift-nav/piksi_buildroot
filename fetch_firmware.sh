@@ -27,12 +27,14 @@ if [[ $(uname -a) == *NixOS* ]]; then
   export LD_LIBRARY_PATH=/lib:/usr/lib
 fi
 
+FW_BUCKET=swiftnav-artifacts-pull-requests
+
 BR_VERSION=$(git describe --abbrev=0 --tags)
-FW_VERSION=${1:-v2.1.0-develop-2019020822}
+FW_VERSION=${1:-v2.1.0-develop-2019020822-16-gb4bf7091}
 NAP_VERSION=${2:-v2.1.0-develop-2019020822}
 
 CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
-FW_S3_PATH=s3://swiftnav-artifacts/piksi_firmware_private/$FW_VERSION/v3
+FW_S3_PATH=s3://$FW_BUCKET/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 NAP_S3_PATH_PROD=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 
@@ -70,7 +72,7 @@ if [[ -n "$GENERATE_REQUIREMENTS" ]]; then
   REQUIREMENTS_M4="$D/requirements.yaml.m4"
   REQUIREMENTS_OUT="${REQUIREMENTS_M4%.m4}"
   [[ -f "$REQUIREMENTS_M4" ]] || error "could not find $REQUIREMENTS_M4"
-  m4 -DFW_VERSION=$FW_VERSION -DNAP_VERSION=$NAP_VERSION $REQUIREMENTS_M4 >$REQUIREMENTS_OUT
+  m4 -DFW_BUCKET=$FW_BUCKET -DFW_VERSION=$FW_VERSION -DNAP_VERSION=$NAP_VERSION $REQUIREMENTS_M4 >$REQUIREMENTS_OUT
 elif [[ -n "$DOWNLOAD_PBR_CCACHE" ]]; then
   fetch $CCACHE_S3_PATH/piksi_br_${PBR_TARGET}_ccache.tgz .
 else
