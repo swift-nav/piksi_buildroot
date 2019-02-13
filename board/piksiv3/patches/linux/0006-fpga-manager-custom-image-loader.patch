@@ -1,0 +1,228 @@
+commit 9f6e60d2cda726da4a6ec78f48bacc9b093b256a
+Author: Matt Woodward <matthew.woodward@swift-nav.com>
+Date:   Wed Feb 13 17:44:03 2019 +1100
+
+    Support custom fpga bitstream loading
+    
+    The linux fpga manager framework is rigid in the way it supports
+    loading firmware images. The image is loaded in to memory and passed
+    directly into the driver functions. The header is a fixed size,
+    passed to the *_write_init() function, the remainder is passed to
+    *_write().
+    
+    On occasion it may be that a driver needs to handle different file
+    types, formats, and sizes. In this case it would be helpful to have
+    a custom firmware image loader. A driver can optionally provide
+    a function to load a firmware image and process it in any way required.
+    
+    The initial_header_size field is now variable. The default is still
+    defined in the driver ops structure, but can be overriden by a
+    custom image loader
+
+diff --git a/drivers/fpga/fpga-mgr.c b/drivers/fpga/fpga-mgr.c
+index 1d51f6601b71..15483e88c297 100644
+--- a/drivers/fpga/fpga-mgr.c
++++ b/drivers/fpga/fpga-mgr.c
+@@ -45,11 +45,11 @@ static int fpga_mgr_write_init_buf(struct fpga_manager *mgr,
+ 	int ret;
+ 
+ 	mgr->state = FPGA_MGR_STATE_WRITE_INIT;
+-	if (!mgr->mops->initial_header_size)
++	if (!info->initial_header_size)
+ 		ret = mgr->mops->write_init(mgr, info, NULL, 0);
+ 	else
+ 		ret = mgr->mops->write_init(
+-		    mgr, info, buf, min(mgr->mops->initial_header_size, count));
++		    mgr, info, buf, min(info->initial_header_size, count));
+ 
+ 	if (ret) {
+ 		dev_err(&mgr->dev, "Error preparing FPGA for writing\n");
+@@ -69,7 +69,7 @@ static int fpga_mgr_write_init_sg(struct fpga_manager *mgr,
+ 	char *buf;
+ 	int ret;
+ 
+-	if (!mgr->mops->initial_header_size)
++	if (!info->initial_header_size)
+ 		return fpga_mgr_write_init_buf(mgr, info, NULL, 0);
+ 
+ 	/*
+@@ -78,7 +78,7 @@ static int fpga_mgr_write_init_sg(struct fpga_manager *mgr,
+ 	 */
+ 	sg_miter_start(&miter, sgt->sgl, sgt->nents, SG_MITER_FROM_SG);
+ 	if (sg_miter_next(&miter) &&
+-	    miter.length >= mgr->mops->initial_header_size) {
++	    miter.length >= info->initial_header_size) {
+ 		ret = fpga_mgr_write_init_buf(mgr, info, miter.addr,
+ 					      miter.length);
+ 		sg_miter_stop(&miter);
+@@ -87,12 +87,12 @@ static int fpga_mgr_write_init_sg(struct fpga_manager *mgr,
+ 	sg_miter_stop(&miter);
+ 
+ 	/* Otherwise copy the fragments into temporary memory. */
+-	buf = kmalloc(mgr->mops->initial_header_size, GFP_KERNEL);
++	buf = kmalloc(info->initial_header_size, GFP_KERNEL);
+ 	if (!buf)
+ 		return -ENOMEM;
+ 
+ 	len = sg_copy_to_buffer(sgt->sgl, sgt->nents, buf,
+-				mgr->mops->initial_header_size);
++				info->initial_header_size);
+ 	ret = fpga_mgr_write_init_buf(mgr, info, buf, len);
+ 
+ 	kfree(buf);
+@@ -295,7 +295,7 @@ int fpga_mgr_firmware_load(struct fpga_manager *mgr,
+ 
+ 	mgr->state = FPGA_MGR_STATE_FIRMWARE_REQ;
+ 
+-	ret = request_firmware(&fw, image_name, dev);
++    ret = request_firmware(&fw, image_name, dev);
+ 	if (ret) {
+ 		mgr->state = FPGA_MGR_STATE_FIRMWARE_REQ_ERR;
+ 		dev_err(dev, "Error requesting firmware %s\n", image_name);
+@@ -366,6 +366,7 @@ static ssize_t firmware_store(struct device *dev,
+ 
+ 	/* flags indicates whether to do full or partial reconfiguration */
+ 	info.flags = 0;
++    info.initial_header_size = mgr->mops->initial_header_size;
+ 
+ 	/* lose terminating \n */
+ 	strcpy(image_name, buf);
+@@ -373,7 +374,10 @@ static ssize_t firmware_store(struct device *dev,
+ 	if (image_name[len - 1] == '\n')
+ 		image_name[len - 1] = 0;
+ 
+-	ret = fpga_mgr_firmware_load(mgr, &info, image_name);
++    if (mgr->mops->load_firmware)
++        ret = mgr->mops->load_firmware(mgr, &info, image_name);
++    else
++	    ret = fpga_mgr_firmware_load(mgr, &info, image_name);
+ 	if (ret)
+ 		return ret;
+ 
+diff --git a/drivers/fpga/zynq-fpga.c b/drivers/fpga/zynq-fpga.c
+index 70b15b303471..9687b3817b83 100644
+--- a/drivers/fpga/zynq-fpga.c
++++ b/drivers/fpga/zynq-fpga.c
+@@ -19,6 +19,7 @@
+ #include <linux/completion.h>
+ #include <linux/delay.h>
+ #include <linux/dma-mapping.h>
++#include <linux/firmware.h>
+ #include <linux/fpga/fpga-mgr.h>
+ #include <linux/interrupt.h>
+ #include <linux/io.h>
+@@ -546,12 +547,92 @@ static enum fpga_mgr_states zynq_fpga_ops_state(struct fpga_manager *mgr)
+ 	return FPGA_MGR_STATE_UNKNOWN;
+ }
+ 
++int find_sync(const uint8_t *data, size_t size, size_t *off, bool *swapped)
++{
++    size_t i;
++    for (i = 0; i < size - 4; i++)
++    {
++        if (memcmp(data + i, "\x66\x55\x99\xAA", 4) == 0)
++        {
++            *off = i;
++            *swapped = false;
++            return 0;
++        }
++        else if (memcmp(data + i, "\xAA\x99\x55\x66", 4) == 0)
++        {
++            *off = i;
++            *swapped = true;
++            return 0;
++        }
++    }
++
++    return -1;
++}
++
++int zynq_fpga_load_firmware(struct fpga_manager *mgr,
++        struct fpga_image_info *info,
++        const char *image_name)
++{
++    struct device *dev = &mgr->dev;
++    const struct firmware *fw;
++    int ret;
++    bool swapped;
++    size_t sync_off;
++
++    mgr->state = FPGA_MGR_STATE_FIRMWARE_REQ;
++
++    ret = request_firmware(&fw, image_name, dev);
++    if (ret)
++    {
++        mgr->state = FPGA_MGR_STATE_FIRMWARE_REQ_ERR;
++        dev_info(dev, "Error requesting firmware %s\n", image_name);
++        return ret;
++    }
++
++    ret = find_sync(fw->data, fw->size, &sync_off, &swapped);
++    if (ret)
++    {
++        dev_err(dev, "Could not find sync word\n");
++        mgr->state = FPGA_MGR_STATE_FIRMWARE_REQ_ERR;
++        release_firmware(fw);
++        return EIO;
++    }
++
++    dev_info(dev, "Found sync word at %u, swapped = %d\n", sync_off, swapped);
++
++    info->initial_header_size = sync_off + 4;
++
++    if (swapped)
++    {
++        uint8_t *kbuf = kzalloc(fw->size, GFP_KERNEL);
++        size_t i = sync_off;
++        memcpy(kbuf, fw->data, fw->size);
++        for (; i < fw->size; i += 4)
++        {
++            u32 *p = (u32*)&kbuf[i];
++            *p = swab32(*p);
++        }
++
++        ret = fpga_mgr_buf_load(mgr, info, kbuf, fw->size);
++        kfree(kbuf);
++    }
++    else
++    {
++        ret = fpga_mgr_buf_load(mgr, info, fw->data, fw->size);
++    }
++
++    release_firmware(fw);
++
++    return ret;
++}
++
+ static const struct fpga_manager_ops zynq_fpga_ops = {
+ 	.initial_header_size = 128,
+ 	.state = zynq_fpga_ops_state,
+ 	.write_init = zynq_fpga_ops_write_init,
+ 	.write_sg = zynq_fpga_ops_write,
+ 	.write_complete = zynq_fpga_ops_write_complete,
++    .load_firmware = zynq_fpga_load_firmware,
+ };
+ 
+ static int zynq_fpga_probe(struct platform_device *pdev)
+diff --git a/include/linux/fpga/fpga-mgr.h b/include/linux/fpga/fpga-mgr.h
+index 88af8dc205a6..b01ea3c68c93 100644
+--- a/include/linux/fpga/fpga-mgr.h
++++ b/include/linux/fpga/fpga-mgr.h
+@@ -92,6 +92,7 @@ struct fpga_image_info {
+ 	u32 enable_timeout_us;
+ 	u32 disable_timeout_us;
+ 	u32 config_complete_timeout_us;
++    size_t initial_header_size;
+ };
+ 
+ /**
+@@ -121,6 +122,9 @@ struct fpga_manager_ops {
+ 			      struct fpga_image_info *info);
+ 	int (*read)(struct fpga_manager *mgr, struct seq_file *s);
+ 	void (*fpga_remove)(struct fpga_manager *mgr);
++    int (*load_firmware)(struct fpga_manager *mgr,
++            struct fpga_image_info *info,
++            const char *image_name);
+ };
+ 
+ /**
