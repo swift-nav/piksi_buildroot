@@ -9,3 +9,4 @@ tmpfs		/data		tmpfs	mode=0755,nodev,size=32M	0	0
 tmpfs		/upgrade_data	tmpfs	mode=0755,nodev,size=32M	0	0
 sysfs		/sys		sysfs	defaults	0	0
 configfs	/sys/kernel/config	configfs	defaults	0	0
+debugfs /sys/kernel/debug debugfs defaults 0 0
