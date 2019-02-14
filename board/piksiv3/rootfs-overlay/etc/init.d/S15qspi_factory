@@ -8,7 +8,7 @@ case "$1" in
   # symlink mtd to /factory/mtd
   MTD_NAME=`cat /proc/mtd | grep qspi-factory | cut -d ':' -f1`
   mkdir -p /factory
-  ln -s /dev/$MTD_NAME /factory/mtd
+  dd if=/dev/$MTD_NAME of=/factory/mtd bs=512
   # run factory data tool
   factory_data_tool
   ;;
