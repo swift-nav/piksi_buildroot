@@ -31,7 +31,7 @@
 
 bool nmea_debug = false;
 
-struct sbp_nmea_state state;
+sbp2nmea_t *state;
 
 pk_endpoint_t *nmea_pub = NULL;
 
@@ -90,135 +90,112 @@ static int parse_options(int argc, char *argv[])
 
 static int notify_gpgga_rate_changed(void *context)
 {
-  (void)context;
-  sbp2nmea_set_gpgga_rate(gpgga_rate, &state);
+  sbp2nmea_rate_set(context, 1, SBP2NMEA_NMEA_GGA);
   return SETTINGS_WR_OK;
 }
 
 static int notify_gprmc_rate_changed(void *context)
 {
-  (void)context;
-  sbp2nmea_set_gprmc_rate(gprmc_rate, &state);
+  sbp2nmea_rate_set(context, 1, SBP2NMEA_NMEA_RMC);
   return SETTINGS_WR_OK;
 }
 
 static int notify_gpvtg_rate_changed(void *context)
 {
-  (void)context;
-  sbp2nmea_set_gpvtg_rate(gpvtg_rate, &state);
+  sbp2nmea_rate_set(context, 1, SBP2NMEA_NMEA_VTG);
   return SETTINGS_WR_OK;
 }
 
 static int notify_gphdt_rate_changed(void *context)
 {
-  (void)context;
-  sbp2nmea_set_gphdt_rate(gphdt_rate, &state);
+  sbp2nmea_rate_set(context, 1, SBP2NMEA_NMEA_HDT);
   return SETTINGS_WR_OK;
 }
 
 static int notify_gpgll_rate_changed(void *context)
 {
-  (void)context;
-  sbp2nmea_set_gpgll_rate(gpgll_rate, &state);
+  sbp2nmea_rate_set(context, 1, SBP2NMEA_NMEA_GLL);
   return SETTINGS_WR_OK;
 }
 
 static int notify_gpzda_rate_changed(void *context)
 {
-  (void)context;
-  sbp2nmea_set_gpzda_rate(gpzda_rate, &state);
+  sbp2nmea_rate_set(context, 1, SBP2NMEA_NMEA_ZDA);
   return SETTINGS_WR_OK;
 }
 
 static int notify_gsa_rate_changed(void *context)
 {
-  (void)context;
-  sbp2nmea_set_gsa_rate(gsa_rate, &state);
+  sbp2nmea_rate_set(context, 1, SBP2NMEA_NMEA_GSA);
   return SETTINGS_WR_OK;
 }
 
 static int notify_soln_freq_changed(void *context)
 {
-  (void)context;
-  sbp2nmea_set_soln_freq(soln_freq, &state);
+  sbp2nmea_soln_freq_set(context, soln_freq);
   return SETTINGS_WR_OK;
 }
 
 static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)context;
   (void)sender_id;
   (void)len;
-  msg_gps_time_t *gps_time = (msg_gps_time_t *)msg;
-  sbp2nmea_gps_time(gps_time, &state);
+  sbp2nmea(context, msg, SBP2NMEA_SBP_GPS_TIME);
 }
 
 static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)context;
   (void)sender_id;
   (void)len;
-  msg_baseline_heading_t *baseline_hdg = (msg_baseline_heading_t *)msg;
-  sbp2nmea_baseline_heading(baseline_hdg, &state);
+  sbp2nmea(context, msg, SBP2NMEA_SBP_HDG);
 }
 
 static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)len;
   (void)msg;
-  (void)context;
   /* Must be outbound SBP sending */
   if (sbp_sender_id_get() == sender_id) {
     uint8_t num_obs = (len - sizeof(observation_header_t)) / sizeof(packed_obs_content_t);
-    sbp2nmea_obs((msg_obs_t *)msg, num_obs, &state);
+    sbp2nmea_obs(context, (msg_obs_t *)msg, num_obs);
   } else if (sender_id > 0) {
-    sbp2nmea_set_base_id(sender_id, &state);
+    sbp2nmea_base_id_set(context, sender_id);
   }
 }
 
 static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)context;
   (void)sender_id;
   (void)len;
-  msg_utc_time_t *utc_time = (msg_utc_time_t *)msg;
-  sbp2nmea_utc_time(utc_time, &state);
+  sbp2nmea(context, msg, SBP2NMEA_SBP_UTC_TIME);
 }
 
 static void age_corrections_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)context;
   (void)sender_id;
   (void)len;
-  msg_age_corrections_t *age_corr = (msg_age_corrections_t *)msg;
-  sbp2nmea_age_corrections(age_corr, &state);
+  sbp2nmea(context, msg, SBP2NMEA_SBP_AGE_CORR);
 }
 
 static void dops_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)context;
   (void)sender_id;
   (void)len;
-  msg_dops_t *dops = (msg_dops_t *)msg;
-  sbp2nmea_dops(dops, &state);
+  sbp2nmea(context, msg, SBP2NMEA_SBP_DOPS);
 }
 
 static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)context;
   (void)sender_id;
   (void)len;
-  msg_pos_llh_t *pos_llh = (msg_pos_llh_t *)msg;
-  sbp2nmea_pos_llh(pos_llh, &state);
+  sbp2nmea(context, msg, SBP2NMEA_SBP_POS_LLH);
 }
 
 static void vel_ned_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)context;
   (void)sender_id;
   (void)len;
-  msg_vel_ned_t *vel_ned = (msg_vel_ned_t *)msg;
-  sbp2nmea_vel_ned(vel_ned, &state);
+  sbp2nmea(context, msg, SBP2NMEA_SBP_VEL_NED);
 }
 
 static int cleanup(int status);
@@ -235,8 +212,12 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE));
   }
 
-  /* Need to init state variable before we get SBP in */
-  sbp2nmea_init(&state, nmea_callback);
+  /* Need to init the converter before we get SBP in */
+  state = sbp2nmea_init(nmea_callback);
+  if (NULL == state) {
+    piksi_log(LOG_ERR, "error initializing sbp2nmea");
+    exit(cleanup(EXIT_FAILURE));
+  }
 
   if (sbp_init() != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
@@ -253,42 +234,42 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE));
   }
 
-  if (sbp_callback_register(SBP_MSG_OBS, msg_obs_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_OBS, msg_obs_callback, state) != 0) {
     piksi_log(LOG_ERR, "error setting MSG OBS callback");
     exit(cleanup(EXIT_FAILURE));
   }
 
-  if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, state) != 0) {
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
     exit(cleanup(EXIT_FAILURE));
   }
 
-  if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, state) != 0) {
     piksi_log(LOG_ERR, "error setting UTC TIME callback");
     return cleanup(EXIT_FAILURE);
   }
 
-  if (sbp_callback_register(SBP_MSG_DOPS, dops_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_DOPS, dops_callback, state) != 0) {
     piksi_log(LOG_ERR, "error setting dops callback");
     return cleanup(EXIT_FAILURE);
   }
 
-  if (sbp_callback_register(SBP_MSG_AGE_CORRECTIONS, age_corrections_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_AGE_CORRECTIONS, age_corrections_callback, state) != 0) {
     piksi_log(LOG_ERR, "error setting Age of Corrections callback");
     return cleanup(EXIT_FAILURE);
   }
 
-  if (sbp_callback_register(SBP_MSG_POS_LLH, pos_llh_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_POS_LLH, pos_llh_callback, state) != 0) {
     piksi_log(LOG_ERR, "error setting pos llh callback");
     return cleanup(EXIT_FAILURE);
   }
 
-  if (sbp_callback_register(SBP_MSG_VEL_NED, vel_ned_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_VEL_NED, vel_ned_callback, state) != 0) {
     piksi_log(LOG_ERR, "error setting vel NED callback");
     return cleanup(EXIT_FAILURE);
   }
 
-  if (sbp_callback_register(SBP_MSG_BASELINE_HEADING, baseline_heading_callback, NULL) != 0) {
+  if (sbp_callback_register(SBP_MSG_BASELINE_HEADING, baseline_heading_callback, state) != 0) {
     piksi_log(LOG_ERR, "error setting baseline heading callback");
     return cleanup(EXIT_FAILURE);
   }
@@ -373,6 +354,7 @@ int main(int argc, char *argv[])
 
 static int cleanup(int status)
 {
+  sbp2nmea_destroy(&state);
   pk_endpoint_destroy(&nmea_pub);
   sbp_deinit();
   logging_deinit();
