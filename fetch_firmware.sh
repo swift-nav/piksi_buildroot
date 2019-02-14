@@ -27,10 +27,10 @@ if [[ $(uname -a) == *NixOS* ]]; then
   export LD_LIBRARY_PATH=/lib:/usr/lib
 fi
 
-FW_BUCKET=swiftnav-artifacts-pull-requests
+FW_BUCKET=swiftnav-artifacts
 
 BR_VERSION=$(git describe --abbrev=0 --tags)
-FW_VERSION=${1:-v2.1.0-develop-2019020822-12-gaa9e3b40}
+FW_VERSION=${1:-v2.1.0-develop-2019020822}
 NAP_VERSION=${2:-v2.1.0-develop-2019020822}
 
 CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
