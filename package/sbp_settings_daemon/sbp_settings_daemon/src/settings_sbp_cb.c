@@ -16,7 +16,6 @@
 #include <unistd.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/min_ini.h>
 #include <libpiksi/util.h>
 
 #include <libsbp/settings.h>
@@ -24,60 +23,12 @@
 #include <libsettings/settings.h>
 #include <libsettings/settings_util.h>
 
-#include "settings.h"
+#include <internal/setting.h>
 
-#define SETTINGS_FILE "/persistent/config.ini"
-
-struct setting {
-  char section[SETTINGS_BUFLEN];
-  char name[SETTINGS_BUFLEN];
-  char value[SETTINGS_BUFLEN];
-  char type[SETTINGS_BUFLEN];
-  struct setting *next;
-  bool dirty;
-};
-
-static struct setting *settings_head;
-
-/* Register a new setting in our linked list */
-void setting_register(struct setting *setting)
-{
-  struct setting *s;
-
-  if (!settings_head) {
-    settings_head = setting;
-  } else {
-    for (s = settings_head; s->next; s = s->next) {
-      if ((strcmp(s->section, setting->section) == 0)
-          && (strcmp(s->next->section, setting->section) != 0))
-        break;
-    }
-    setting->next = s->next;
-    s->next = setting;
-  }
-
-  const char *default_value = "{2F9D26FF-F64C-4F9F-94FE-AE9F57758835}";
-  char buf[SETTINGS_BUFLEN] = {0};
-
-  ini_gets(setting->section, setting->name, default_value, buf, sizeof(buf), SETTINGS_FILE);
-
-  if (strcmp(buf, default_value) != 0) {
-    /* Use value from config file */
-    strncpy(setting->value, buf, sizeof(setting->value));
-    setting->dirty = true;
-  }
-}
-
-/* Lookup setting in our linked list */
-static struct setting *settings_lookup(const char *section, const char *setting)
-{
-  for (struct setting *s = settings_head; s; s = s->next)
-    if ((strcmp(s->section, section) == 0) && (strcmp(s->name, setting) == 0)) return s;
-  return NULL;
-}
+#include "settings_sbp_cb.h"
 
 static void settings_reply(sbp_tx_ctx_t *tx_ctx,
-                           struct setting *sdata,
+                           setting_t *sdata,
                            bool type,
                            bool sbp_sender_id,
                            u16 msg_type,
@@ -116,37 +67,50 @@ static void settings_reply(sbp_tx_ctx_t *tx_ctx,
 static void settings_register_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   (void)sender_id;
-
-  sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
+  settings_reg_res_t res = 0;
+  setting_t *setting = NULL;
 
   const char *section = NULL, *name = NULL, *value = NULL, *type = NULL;
   /* Expect to find at least section, name and value */
   if (settings_parse(msg, len, &section, &name, &value, &type) < SETTINGS_TOKENS_VALUE) {
     piksi_log(LOG_ERR, "Error in settings register request: parse error");
+    res = SETTINGS_REG_PARSE_FAILED;
+    goto reg_response;
   }
 
-  struct setting *sdata = settings_lookup(section, name);
+  setting = setting_lookup(section, name);
   /* Only register setting if it doesn't already exist */
-  if (sdata == NULL) {
-    sdata = calloc(1, sizeof(*sdata));
-    strncpy(sdata->section, section, sizeof(sdata->section));
-    strncpy(sdata->name, name, sizeof(sdata->name));
-    strncpy(sdata->value, value, sizeof(sdata->value));
+  if (setting == NULL) {
+    setting = calloc(1, sizeof(*setting));
+    strncpy(setting->section, section, sizeof(setting->section));
+    strncpy(setting->name, name, sizeof(setting->name));
+    strncpy(setting->value, value, sizeof(setting->value));
 
     if (type != NULL) {
-      strncpy(sdata->type, type, sizeof(sdata->type));
+      strncpy(setting->type, type, sizeof(setting->type));
     }
 
-    setting_register(sdata);
+    res = setting_register(setting);
   } else {
     piksi_log(LOG_WARNING,
               "Settings register request: %s.%s already registered",
-              sdata->section,
-              sdata->name);
+              setting->section,
+              setting->name);
+    res = SETTINGS_REG_REGISTERED;
   }
 
-  /* Reply with write message with our value */
-  settings_reply(tx_ctx, sdata, false, true, SBP_MSG_SETTINGS_WRITE, NULL, 0, 0);
+  u8 blen = 0;
+  char buf[SETTINGS_BUFLEN] = {0};
+reg_response:
+  buf[blen++] = res;
+  settings_reply(ctx,
+                 setting,
+                 false,
+                 true,
+                 SBP_MSG_SETTINGS_REGISTER_RESP,
+                 NULL,
+                 blen,
+                 sizeof(buf));
 }
 
 static void settings_write_resp_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
@@ -167,7 +131,7 @@ static void settings_write_resp_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
     return;
   }
 
-  struct setting *sdata = settings_lookup(section, name);
+  setting_t *sdata = setting_lookup(section, name);
   if (sdata == NULL) {
     piksi_log(LOG_ERR,
               "Error in settings write reply message: %s.%s not registered",
@@ -204,26 +168,13 @@ static void settings_read_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
     return;
   }
 
-  struct setting *sdata = settings_lookup(section, name);
+  setting_t *sdata = setting_lookup(section, name);
   if (sdata == NULL) {
     piksi_log(LOG_ERR, "Error in settings read request: setting not found (%s.%s)", section, name);
     return;
   }
 
   settings_reply(tx_ctx, sdata, false, false, SBP_MSG_SETTINGS_READ_RESP, NULL, 0, 0);
-}
-
-static struct setting *setting_find_by_index(u16 index)
-{
-  struct setting *sdata = settings_head;
-  u16 i = 0;
-
-  while ((i < index) && (sdata != NULL)) {
-    sdata = sdata->next;
-    i++;
-  }
-
-  return sdata;
 }
 
 static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
@@ -246,7 +197,7 @@ static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
   assert(sizeof(req->index) == sizeof(u16));
 
   /* SBP is little-endian */
-  struct setting *sdata = setting_find_by_index(le16toh(req->index));
+  setting_t *sdata = setting_find_by_index(le16toh(req->index));
   if (sdata == NULL) {
     sbp_tx_send(tx_ctx, SBP_MSG_SETTINGS_READ_BY_INDEX_DONE, 0, NULL);
     return;
@@ -280,18 +231,29 @@ static void settings_save_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
     return;
   }
 
-  for (struct setting *s = settings_head; s; s = s->next) {
-    /* Skip unchanged parameters */
-    if (!s->dirty) continue;
+  uint16_t idx = 0;
+  while (true) {
+    setting_t *setting = setting_find_by_index(idx);
 
-    if ((sec == NULL) || (strcmp(s->section, sec) != 0)) {
+    if (setting == NULL) {
+      break;
+    }
+
+    ++idx;
+
+    /* Skip unchanged parameters */
+    if (!setting->dirty) {
+      continue;
+    }
+
+    if ((sec == NULL) || (strcmp(setting->section, sec) != 0)) {
       /* New section, write section header */
-      sec = s->section;
+      sec = setting->section;
       fprintf(f, "[%s]\n", sec);
     }
 
     /* Write setting */
-    fprintf(f, "%s=%s\n", s->name, s->value);
+    fprintf(f, "%s=%s\n", setting->name, setting->value);
   }
 
   fclose(f);
@@ -327,7 +289,7 @@ static void settings_write_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
     return;
   }
 
-  struct setting *sdata = settings_lookup(section, name);
+  setting_t *sdata = setting_lookup(section, name);
   if (sdata == NULL) {
     piksi_log(LOG_ERR, "Error in settings write request: %s.%s not registered", section, name);
     settings_write_failed(tx_ctx, SETTINGS_WR_SETTING_REJECTED, msg, len);
