@@ -14,4 +14,7 @@ can_ports_enabled=$(query_config --section experimental_flags --key can_ports)
 if [[ "$can_ports_enabled" == "True" ]]; then
   echo "1" > /etc/flags/can_ports
 fi
+if [[ "$can_ports_enabled" == "False" ]]; then
+  echo "0" > /etc/flags/can_ports
+fi
 
