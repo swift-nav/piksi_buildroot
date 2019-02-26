@@ -168,13 +168,20 @@ static void settings_read_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
     return;
   }
 
-  setting_t *sdata = setting_lookup(section, name);
-  if (sdata == NULL) {
-    piksi_log(LOG_ERR, "Error in settings read request: setting not found (%s.%s)", section, name);
-    return;
+  setting_t *setting = setting_lookup(section, name);
+  if (setting == NULL) {
+    piksi_log(LOG_DEBUG, "%s: setting not found (%s.%s)", __FUNCTION__, section, name);
+
+    /* Send only section and name fields to indicate that setting was not found.
+     * Note that this is different from sending `section\0name\0\0` which stands
+     * for empty string for value field.
+     */
+    setting = &(setting_t){0};
+    strncpy(setting->section, section, sizeof(setting->section));
+    strncpy(setting->name, name, sizeof(setting->name));
   }
 
-  settings_reply(tx_ctx, sdata, false, false, SBP_MSG_SETTINGS_READ_RESP, NULL, 0, 0);
+  settings_reply(tx_ctx, setting, false, false, SBP_MSG_SETTINGS_READ_RESP, NULL, 0, 0);
 }
 
 static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
