@@ -21,7 +21,7 @@ $(info >>> Piksi INS is enabled, packaging with current image)
 include ${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/piksi_ins_version.mk
 
 PIKSI_INS_VERSION = 4af3782e935c65448a9a276370ff58fa60802a7d
-PIKSI_INS_SITE = git@github.com:denniszollo/pose_daemon_wrapper.git
+PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_GIT_SUBMODULES = YES
 PIKSI_INS_INSTALL_STAGING = YES
