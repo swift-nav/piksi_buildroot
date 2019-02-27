@@ -41,6 +41,7 @@ static void usage(char *command)
   printf("Usage: %s\n", command);
 
   puts("-h, --help            Print this message");
+  puts("-d, --debug           Output debug logging");
   puts("-n, --name    <name>  The name of this fileio daemon");
   puts("-p, --pub     <addr>  The address on which we should write the results of");
   puts("                      MSG_FILEIO_* messages");
@@ -51,8 +52,8 @@ static void usage(char *command)
   puts("-m, --mtd             Allow read access to /factory/mtd");
   puts("-i, --imageset        Allow write access to upgrade.image_set.bin, internally");
   puts("                      the file will be written to /data/upgrade.image_set.bin");
-  puts("-d, --debug           Output debug logging");
-  puts("-x, --nocache         Disable FD cache");
+  puts("-x, --no-cache        Disable FD cache");
+  puts("-l, --low-latency     Enable low latency mode");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -62,22 +63,23 @@ static int parse_options(int argc, char *argv[])
 
   // clang-format off
   const struct option long_opts[] = {
-    {"name",     required_argument, 0, 'n'},
-    {"pub",      required_argument, 0, 'p'},
-    {"sub",      required_argument, 0, 's'},
-    {"basedir",  required_argument, 0, 'b'},
-    {"mtd",      no_argument,       0, 'm'},
-    {"imageset", no_argument,       0, 'i'},
-    {"debug",    no_argument,       0, 'd'},
-    {"nocache",  no_argument,       0, 'x'},
-    {"help",     no_argument,       0, 'h'},
+    {"name",        required_argument, 0, 'n'},
+    {"pub",         required_argument, 0, 'p'},
+    {"sub",         required_argument, 0, 's'},
+    {"basedir",     required_argument, 0, 'b'},
+    {"mtd",         no_argument,       0, 'm'},
+    {"imageset",    no_argument,       0, 'i'},
+    {"debug",       no_argument,       0, 'd'},
+    {"no-cache",    no_argument,       0, 'x'},
+    {"help",        no_argument,       0, 'h'},
+    {"low-latency", no_argument,       0, 'l'},
     {0, 0, 0, 0}
   };
   // clang-format on
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "n:p:s:b:midxh", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "n:p:s:b:midxhl", long_opts, &opt_index)) != -1) {
     switch (c) {
 
     case 'n': {
@@ -117,6 +119,10 @@ static int parse_options(int argc, char *argv[])
 
     case 'x': {
       no_cache = true;
+    } break;
+
+    case 'l': {
+      low_latency = true;
     } break;
 
     default: {
@@ -245,6 +251,14 @@ int main(int argc, char *argv[])
   }
 
   piksi_log(LOG_INFO, "loop starting...");
+
+  if (no_cache) {
+    piksi_log(LOG_INFO, "disabling FD caching...");
+  }
+
+  if (low_latency) {
+    piksi_log(LOG_INFO, "enabling low latency mode...");
+  }
 
   pk_loop_run_simple(loop);
   ret = EXIT_SUCCESS;

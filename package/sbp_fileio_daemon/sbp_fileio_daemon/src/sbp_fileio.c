@@ -80,6 +80,7 @@ static char sbp_fileio_wait_flush_file[PATH_MAX] = {0};
 
 /* extern */ bool fio_debug = false;
 /* extern */ bool no_cache = false;
+/* extern */ bool low_latency = false;
 
 /* extern */ const char *sbp_fileio_name = NULL;
 
@@ -578,8 +579,14 @@ static void *write_thread_handler(void *arg)
       }
 
       if (write_success) {
+
         PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
+
         stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+
+        if (low_latency) {
+          flush_output_sbp();
+        }
       }
     }
   }

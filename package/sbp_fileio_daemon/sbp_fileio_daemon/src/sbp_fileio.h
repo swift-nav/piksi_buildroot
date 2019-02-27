@@ -50,6 +50,11 @@ extern const char *sbp_fileio_name;
 extern bool no_cache;
 
 /**
+ * Global flag that enables low latency mode
+ */
+extern bool low_latency;
+
+/**
  * A subset of @see sbp_fileio_setup for unit testing purposes.
  */
 void sbp_fileio_setup_path_validator(path_validator_t *pv_ctx,
