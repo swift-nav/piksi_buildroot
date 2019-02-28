@@ -58,6 +58,8 @@
 
 #define WQ_WAIT_SLEEP_NS 1
 
+#define WQ_WAIT_START_MS 10
+
 static u16 sbp_sender_id = 0;
 
 static bool allow_factory_mtd = false;
@@ -462,12 +464,27 @@ static void wq_increment_pending_writes()
   atomic_fetch_add(&write_thread_ctx.writes_pending, 1);
 }
 
+static void wq_signal_startup()
+{
+  /* Called WITH lock held */
+  int rc = pthread_cond_signal(&write_thread_ctx.cond);
+  assert(rc == 0);
+}
+
+static void wq_wait_startup()
+{
+  /* Called WITH lock held */
+  int rc = pthread_cond_wait(&write_thread_ctx.cond, &write_thread_ctx.lock);
+  assert(rc == 0);
+}
+
 static void wq_decrement_and_signal()
 {
   /* Called WITH lock held */
 
   if (atomic_fetch_sub(&write_thread_ctx.writes_pending, 1) == 1) {
-    pthread_cond_signal(&write_thread_ctx.cond);
+    int rc = pthread_cond_signal(&write_thread_ctx.cond);
+    assert(rc == 0);
   }
 }
 
@@ -497,6 +514,21 @@ static void wq_run_when_empty(when_empty_fn_t when_empty_fn)
   assert(rc == 0);
 }
 
+NESTED_FN_TYPEDEF(void, with_lock_fn_t);
+
+static void wq_with_lock(with_lock_fn_t with_lock_fn)
+{
+  /*** MUTEX ACQUIRE ***/
+  int rc = pthread_mutex_lock(&write_thread_ctx.lock);
+  assert(rc == 0);
+
+  with_lock_fn();
+
+  /*** MUTEX RELEASE ***/
+  rc = pthread_mutex_unlock(&write_thread_ctx.lock);
+  assert(rc == 0);
+}
+
 static void block_all_signals(void)
 {
   /* Make sure that this thread will not handle any signals */
@@ -520,6 +552,10 @@ static void *write_thread_handler(void *arg)
   block_all_signals();
 
   int req_read_fd = write_thread_ctx.request_pipe[READ];
+
+  wq_with_lock(NESTED_FN(void, (), {
+    wq_signal_startup();
+  }));
 
   for (;;) {
 
@@ -704,6 +740,12 @@ bool sbp_fileio_setup(const char *name,
 
     rc = pthread_create(&write_thread_ctx.thread, NULL, write_thread_handler, NULL);
     assert(rc == 0);
+
+    wq_with_lock(NESTED_FN(void, (), {
+      wq_wait_startup();
+    }));
+
+    nanosleep_autoresume(0, MS_TO_NS(WQ_WAIT_START_MS));
   }
 
   return true;
