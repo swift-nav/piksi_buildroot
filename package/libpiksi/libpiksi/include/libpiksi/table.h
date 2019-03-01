@@ -33,9 +33,11 @@ struct table_s;
 
 typedef struct table_s table_t;
 
-typedef void (*table_destroy_entry_fn_t)(table_t *table, void **entry);
+typedef void (*table_destroy_entry_fn_t)(void *entry);
 
-table_t *table_create(size_t size, table_destroy_entry_fn_t destroy_entry_fn);
+table_t *table_create(size_t max_size);
+table_t *table_create_ex(size_t max_size, table_destroy_entry_fn_t destroy_entry_fn);
+
 void table_destroy(table_t **table);
 
 bool table_put(table_t *table, const char *key, void *data);

@@ -548,16 +548,6 @@ static bool parse_ext_socket_line(resq_state_t *state, const char *line)
                              extra_info);
 }
 
-static void destroy_table_entry(table_t *table, void **entry)
-{
-  (void)table;
-
-  pid_entry_t *pid_entry = *entry;
-  free(pid_entry);
-
-  *entry = NULL;
-}
-
 static void run_resource_query(void *context)
 {
   char output_buffer[8192] = {0};
@@ -573,7 +563,7 @@ static void run_resource_query(void *context)
   }
 
   state->send_state = SEND_SOCKET_COUNTS_0;
-  state->pid_table = table_create(MAX_PROCESS_COUNT, destroy_table_entry);
+  state->pid_table = table_create(MAX_PROCESS_COUNT);
 
   if (state->pid_table == NULL) {
     PK_LOG_ANNO(LOG_ERR, "table creation failed");

@@ -30,10 +30,10 @@
 #include "path_validator.h"
 #include "sbp_fileio.h"
 
-#define MAX_CACHE_ENTRIES 128
+#define MAX_CACHE_ENTRIES 512
 
 static bool validate_path(path_validator_t *ctx, const char *basedir_path, const char *path);
-static void destroy_table_entry(table_t *table, void **entry);
+static void cache_lookup(table_t *match_cache, const char *path, bool result);
 
 typedef struct path_node {
   char path[PATH_MAX];
@@ -79,7 +79,7 @@ path_validator_t *path_validator_create(path_validator_cfg_t *cfg)
   LIST_INIT(&(ctx->path_list));
   ctx->allowed_count = 0;
 
-  ctx->match_cache = table_create(MAX_CACHE_ENTRIES, destroy_table_entry);
+  ctx->match_cache = table_create(MAX_CACHE_ENTRIES);
 
   return ctx;
 }
@@ -90,13 +90,6 @@ bool path_validator_setup_metrics(path_validator_t *ctx, const char *name)
   ctx->metrics = pk_metrics_setup("sbp_fileio", ctx->metrics_ident, MT, COUNT_OF(MT));
 
   return ctx->metrics != NULL;
-}
-
-static void destroy_table_entry(table_t *table, void **entry)
-{
-  (void)table;
-  free(*entry);
-  *entry = NULL;
 }
 
 void path_validator_destroy(path_validator_t **pctx)
@@ -125,11 +118,26 @@ void path_validator_destroy(path_validator_t **pctx)
   *pctx = NULL;
 }
 
+static void cache_lookup(table_t *match_cache, const char *path, bool result)
+{
+  if (table_count(match_cache) >= MAX_CACHE_ENTRIES) {
+    return;
+  }
+
+  bool *entry = malloc(sizeof(bool));
+  *entry = result;
+
+  if (!path_table_put(match_cache, path, entry)) {
+    free(entry);
+  }
+}
+
 bool path_validator_check(path_validator_t *ctx, const char *path)
 {
   path_node_t *node;
 
   bool *cached_entry = path_table_get(ctx->match_cache, path);
+
   if (cached_entry != NULL && *cached_entry) {
     if (ctx->metrics != NULL) PK_METRICS_UPDATE(ctx->metrics, MI.cache_hits);
     return true;
@@ -138,16 +146,12 @@ bool path_validator_check(path_validator_t *ctx, const char *path)
   LIST_FOREACH(node, &ctx->path_list, entries)
   {
     if (validate_path(ctx, node->path, path)) {
-
-      bool *entry = malloc(sizeof(bool));
-      *entry = true;
-
-      path_table_put(ctx->match_cache, path, entry);
-
+      cache_lookup(ctx->match_cache, path, true);
       return true;
     }
   }
 
+  /* We don't cache negative results, denying a request doesn't need to be fast */
   return false;
 }
 
