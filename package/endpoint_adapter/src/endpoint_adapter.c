@@ -47,9 +47,7 @@
 
 /* Sleep for a maximum 10ms while waiting for a send to complete */
 #define MAX_SEND_SLEEP_MS (10)
-#define MAX_SEND_SLEEP_NS (MS_TO_NS(MAX_SEND_SLEEP_MS))
 #define SEND_SLEEP_NS (100)
-#define MAX_SEND_SLEEP_COUNT (MAX_SEND_SLEEP_NS / SEND_SLEEP_NS)
 
 #define PROGRAM_NAME "endpoint_adapter"
 
@@ -122,7 +120,7 @@ typedef struct {
   filter_t *filter;
 } handle_t;
 
-static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *context);
+static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context);
 static void setup_metrics();
 
 static void die_error(const char *error);
@@ -130,28 +128,7 @@ static void die_error(const char *error);
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer, size_t count);
 
-bool debug = false;
-static io_mode_t io_mode = IO_INVALID;
-static endpoint_mode_t endpoint_mode = ENDPOINT_INVALID;
-static const char *framer_name = FRAMER_NONE_NAME;
-static const char *filter_in_name = FRAMER_NONE_NAME;
-static const char *filter_out_name = FRAMER_NONE_NAME;
-static const char *filter_in_config = NULL;
-static const char *filter_out_config = NULL;
-static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
-static bool nonblock = false;
-static int outq;
-
-static const char *pub_addr = NULL;
-static const char *sub_addr = NULL;
-static const char *port_name = NULL;
-static char file_path[PATH_MAX] = "";
-static int tcp_listen_port = -1;
-static const char *tcp_connect_addr = NULL;
-static int udp_listen_port = -1;
-static const char *udp_connect_addr = NULL;
-static int can_id = -1;
-static int can_filter = -1;
+typedef ssize_t (*read_buf_cb_t)(handle_t *read_handle, handle_t *write_handle, uint8_t *, size_t);
 
 static struct {
   pk_loop_t *loop;
@@ -165,8 +142,6 @@ static struct {
   handle_t write_handle;
 } loop_ctx;
 
-typedef ssize_t (*read_buf_cb_t)(handle_t *read_handle, handle_t *write_handle, uint8_t *, size_t);
-
 typedef struct {
   size_t total;
   ssize_t status;
@@ -175,9 +150,32 @@ typedef struct {
   read_buf_cb_t read_buf_cb;
 } read_ctx_t;
 
+/* CLI options related globals */
+bool debug = false;
+static io_mode_t io_mode = IO_INVALID;
+static endpoint_mode_t endpoint_mode = ENDPOINT_INVALID;
+static const char *framer_name = FRAMER_NONE_NAME;
+static const char *filter_in_name = FRAMER_NONE_NAME;
+static const char *filter_out_name = FRAMER_NONE_NAME;
+static const char *filter_in_config = NULL;
+static const char *filter_out_config = NULL;
+static int startup_delay_ms = STARTUP_DELAY_DEFAULT_ms;
+static bool nonblock = false;
+static int outq;
+static const char *pub_addr = NULL;
+static const char *sub_addr = NULL;
+static const char *port_name = NULL;
+static char file_path[PATH_MAX] = "";
+static int tcp_listen_port = -1;
+static const char *tcp_connect_addr = NULL;
+static int udp_listen_port = -1;
+static const char *udp_connect_addr = NULL;
+static int can_id = -1;
+static int can_filter = -1;
 static bool retry_pubsub = false;
 
-static bool eagain_warned = false;
+static uint8_t fd_read_buffer[READ_BUFFER_SIZE]; /** The read buffer */
+static bool eagain_warned = false; /** used to rate limit the EGAIN warning to once per second */
 
 static void usage(char *command)
 {
@@ -541,50 +539,64 @@ static ssize_t fd_read(int fd, void *buffer, size_t count)
   }
 }
 
-static ssize_t fd_write(int fd, const void *buffer, size_t count)
+static bool needs_outq_check(int fd)
 {
-  if (isatty(fd) && (outq > 0)) {
-    int qlen;
+  return isatty(fd) && outq > 0;
+}
+
+static bool ensure_outq_space(int fd, size_t count)
+{
+  int qlen;
+  ioctl(fd, TIOCOUTQ, &qlen);
+  if (qlen + count > outq) {
+    /* Flush the output buffer, otherwise we'll get behind and start
+     * transmitting partial SBP packets, we must drop some data here, so we
+     * choose to drop old data rather than new data.
+     */
+    tcflush(fd, TCOFLUSH);
     ioctl(fd, TIOCOUTQ, &qlen);
-    if (qlen + count > outq) {
-      /* Flush the output buffer, otherwise we'll get behind and start
-       * transmitting partial SBP packets, we must drop some data here, so we
-       * choose to drop old data rather than new data.
-       */
-      tcflush(fd, TCOFLUSH);
-      ioctl(fd, TIOCOUTQ, &qlen);
-      if (qlen != 0) {
-        if (strstr(port_name, "usb") != port_name) {
-          piksi_log(LOG_WARNING, "Could not completely flush tty: %d bytes remaining.", qlen);
-        } else {
-          /* USB gadget serial can't flush properly for some reason, ignore...
-           *   (This is ignored ad infinitum because this condition occurs on
-           *   start-up before the interface is read from, after the interface
-           *   is read from, it never occurs again.)
-           */
-          return count;
-        }
+    if (qlen != 0) {
+      if (strstr(port_name, "usb") != port_name) {
+        piksi_log(LOG_WARNING, "Could not completely flush tty: %d bytes remaining.", qlen);
+      } else {
+        /* USB gadget serial can't flush properly for some reason, ignore...
+         *   (This is ignored ad infinitum because this condition occurs on
+         *   start-up before the interface is read from, after the interface
+         *   is read from, it never occurs again.)
+         */
+        return false;
       }
-      piksi_log(LOG_ERR | LOG_SBP, "Interface %s output buffer is full. Dropping data.", port_name);
-      return count;
     }
+    piksi_log(LOG_ERR | LOG_SBP, "Interface %s output buffer is full. Dropping data.", port_name);
+    return false;
   }
+  return true;
+}
+
+static ssize_t fd_write_with_timeout(int handle,
+                                     const void *buffer,
+                                     size_t count,
+                                     const size_t max_send_sleep_ms,
+                                     const size_t per_retry_sleep_ns)
+{
+  assert(per_retry_sleep_ns != 0);
+  const size_t max_send_sleep_count = MS_TO_NS(max_send_sleep_ms) / per_retry_sleep_ns;
   size_t sleep_count = 0;
-  while (1) {
-    ssize_t ret = write(fd, buffer, count);
+  for (;;) {
+    ssize_t ret = write(handle, buffer, count);
     /* Retry if interrupted */
     if ((ret == -1) && (errno == EINTR)) {
       continue;
     } else if ((ret < 0) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
-      if (++sleep_count >= MAX_SEND_SLEEP_COUNT) {
-        nanosleep_autoresume(0, SEND_SLEEP_NS);
+      if (++sleep_count >= max_send_sleep_count) {
+        nanosleep_autoresume(0, per_retry_sleep_ns);
         continue;
       }
-      if (eagain_warned) {
+      if (!eagain_warned) {
         PK_LOG_ANNO(LOG_WARNING,
                     "call to write() to send data returned EAGAIN for more than %d ms, "
                     "dropping %u queued bytes (endpoint ident: %s)",
-                    MAX_SEND_SLEEP_MS,
+                    max_send_sleep_ms,
                     count,
                     port_name);
         eagain_warned = true;
@@ -595,6 +607,20 @@ static ssize_t fd_write(int fd, const void *buffer, size_t count)
       return ret;
     }
   }
+}
+
+static ssize_t fd_write(int handle, const void *buffer, size_t count)
+{
+  if (needs_outq_check(handle)) {
+    if (!ensure_outq_space(handle, count)) {
+      /* If `ensure_outq_space` fails, we're attempt to drop and flush data,
+       * logging for this happens in `ensure_outq_space`, we need to fake
+       * that we sent the data so an error won't be reported upstream.
+       */
+      return count;
+    }
+  }
+  return fd_write_with_timeout(handle, buffer, count, MAX_SEND_SLEEP_MS, SEND_SLEEP_NS);
 }
 
 static ssize_t handle_write_all_via_framer(handle_t *handle, const void *buffer, size_t count);
@@ -746,10 +772,9 @@ static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *wri
       rc = read_ctx.status;
     }
   } else {
-    uint8_t buffer[READ_BUFFER_SIZE];
-    rc = fd_read(read_handle->read_fd, buffer, sizeof(buffer));
+    rc = fd_read(read_handle->read_fd, fd_read_buffer, sizeof(fd_read_buffer));
     if (rc > 0) {
-      rc = process_read_buffer(read_handle, write_handle, buffer, rc);
+      rc = process_read_buffer(read_handle, write_handle, fd_read_buffer, rc);
     }
   }
 
@@ -765,7 +790,7 @@ static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *wri
                         PK_METRICS_VALUE((u32)rc));
 }
 
-static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *context)
+static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
@@ -795,6 +820,8 @@ static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *co
   pk_metrics_reset(MR, MI.tx_write_count);
   pk_metrics_reset(MR, MI.tx_write_size_total);
   pk_metrics_reset(MR, MI.tx_write_size_average);
+
+  eagain_warned = false;
 }
 
 static void setup_metrics()
@@ -878,7 +905,7 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed)
   loop_ctx.loop = pk_loop_create();
   setup_metrics();
 
-  void *handle = pk_loop_timer_add(loop_ctx.loop, 1000, do_metrics_flush, NULL);
+  void *handle = pk_loop_timer_add(loop_ctx.loop, 1000, timer_handler, NULL);
   assert(handle != NULL);
 
   if (pub_addr != NULL && read_fd != -1) {

@@ -45,8 +45,8 @@
 
 #define TIMER_PERIOD_MS 100
 
-#define PURGE_FD_CACHE_PERIOD 1000
-#define CHECK_FD_CACHE_EVERY (PURGE_FD_CACHE_PERIOD / TIMER_PERIOD_MS)
+#define PURGE_FD_CACHE_PERIOD_MS 1000
+#define CHECK_FD_CACHE_EVERY (PURGE_FD_CACHE_PERIOD_MS / TIMER_PERIOD_MS)
 
 #define FLUSH_METRICS_PERIOD 1000
 #define FLUSH_METRICS_EVERY (FLUSH_METRICS_PERIOD / TIMER_PERIOD_MS)
@@ -55,6 +55,16 @@
 
 #define READ 0
 #define WRITE 1
+
+#define WQ_WAIT_SLEEP_NS 1
+#define WQ_WAIT_START_MS 10
+#define WQ_SELECT_SLEEP_MS 100
+
+#define WQ_MAX_PENDING 256 /** This must be a power of 2 */
+
+#define FILEIO_VERSION_NUMBER 0
+#define FILEIO_WINDOW_SIZE 256
+#define FILEIO_BATCH_SIZE 32
 
 static u16 sbp_sender_id = 0;
 
@@ -100,22 +110,30 @@ typedef struct write_request {
   u8 msg_buffer[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 } write_request_t;
 
-#define MAX_PENDING 256
-
 static struct {
-  int request_pipe[2];
-  write_request_t write_requests[MAX_PENDING];
-  atomic_bool flush_pending;
-  atomic_size_t write_req_index;
-  atomic_size_t writes_pending;
-  pthread_t thread;
-  pthread_mutex_t lock;
-  pthread_cond_t cond;
-  sbp_state_t sbp_state;
-  u8 send_buffer[SEND_BUFFER_SIZE];
-  u32 send_buffer_remaining;
-  u32 send_buffer_offset;
-  sbp_tx_ctx_t *tx_ctx;
+  int
+    request_pipe[2]; /** Used by write thread to receive incoming write requests through select() */
+  write_request_t write_requests[WQ_MAX_PENDING]; /** Ring buffer of incoming write requests */
+  atomic_bool flush_pending;     /** True if a flush of FileIO write data is pending */
+  atomic_size_t write_req_index; /** The current first free index of write requests */
+  atomic_size_t writes_pending;  /** The number of write requests that are pending for the thread */
+
+  pthread_t thread;     /** Write thread object */
+  pthread_mutex_t lock; /** Mutex that protects write operations, all other operations (read /
+                           readdir / delete) block around this lock */
+
+  pthread_cond_t cond; /** If write operations is pending, all other operations will wait until the
+                          write queue is empty before performing their operations.
+
+                          **WARNING** this has the limitation that heavy write operations can
+                          potentially starve other operations. */
+
+  sbp_state_t sbp_state;            /** Used to buffer SBP response packets */
+  u8 send_buffer[SEND_BUFFER_SIZE]; /** Stores serialized outgoing SBP response packets */
+  u32 send_buffer_remaining;        /** Data remaining in `send_buffer` */
+  u32 send_buffer_offset;           /** Current unconsumed offset into `send_buffer` */
+  sbp_tx_ctx_t *tx_ctx;             /** The context to use for outgoing data */
+
 } write_thread_ctx;
 
 typedef struct {
@@ -272,8 +290,6 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
 
   sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;
   validate_receive_handle(rx_ctx);
-
-  request_flush_output_sbp();
 
   pk_loop_timer_reset(timer_handle);
 }
@@ -433,22 +449,34 @@ static void post_receive_buffer(void *context)
   request_flush_output_sbp();
 }
 
-#define Q_SLEEP_NS 1
-
 static size_t wq_acquire_index()
 {
-  return atomic_fetch_add(&write_thread_ctx.write_req_index, 1) % MAX_PENDING;
+  return atomic_fetch_add(&write_thread_ctx.write_req_index, 1) % WQ_MAX_PENDING;
 }
 
 static void wq_increment_pending_writes()
 {
-  while (atomic_load(&write_thread_ctx.writes_pending) == MAX_PENDING) {
+  while (atomic_load(&write_thread_ctx.writes_pending) == WQ_MAX_PENDING) {
     PK_METRICS_UPDATE(MR, MI.wq_waits);
-    nanosleep((const struct timespec[]){{0, Q_SLEEP_NS}}, NULL);
+    nanosleep((const struct timespec[]){{0, WQ_WAIT_SLEEP_NS}}, NULL);
   }
 
   /* Called WITHOUT lock */
   atomic_fetch_add(&write_thread_ctx.writes_pending, 1);
+}
+
+static void wq_signal_startup()
+{
+  /* Called WITH lock held */
+  int rc = pthread_cond_signal(&write_thread_ctx.cond);
+  assert(rc == 0);
+}
+
+static void wq_wait_startup()
+{
+  /* Called WITH lock held */
+  int rc = pthread_cond_wait(&write_thread_ctx.cond, &write_thread_ctx.lock);
+  assert(rc == 0);
 }
 
 static void wq_decrement_and_signal()
@@ -456,7 +484,8 @@ static void wq_decrement_and_signal()
   /* Called WITH lock held */
 
   if (atomic_fetch_sub(&write_thread_ctx.writes_pending, 1) == 1) {
-    pthread_cond_signal(&write_thread_ctx.cond);
+    int rc = pthread_cond_signal(&write_thread_ctx.cond);
+    assert(rc == 0);
   }
 }
 
@@ -480,6 +509,21 @@ static void wq_run_when_empty(when_empty_fn_t when_empty_fn)
 
   wq_wait_empty();
   when_empty_fn();
+
+  /*** MUTEX RELEASE ***/
+  rc = pthread_mutex_unlock(&write_thread_ctx.lock);
+  assert(rc == 0);
+}
+
+NESTED_FN_TYPEDEF(void, with_lock_fn_t);
+
+static void wq_with_lock(with_lock_fn_t with_lock_fn)
+{
+  /*** MUTEX ACQUIRE ***/
+  int rc = pthread_mutex_lock(&write_thread_ctx.lock);
+  assert(rc == 0);
+
+  with_lock_fn();
 
   /*** MUTEX RELEASE ***/
   rc = pthread_mutex_unlock(&write_thread_ctx.lock);
@@ -510,6 +554,8 @@ static void *write_thread_handler(void *arg)
 
   int req_read_fd = write_thread_ctx.request_pipe[READ];
 
+  wq_with_lock(NESTED_FN(void, (), { wq_signal_startup(); }));
+
   for (;;) {
 
     fd_set fds;
@@ -517,7 +563,7 @@ static void *write_thread_handler(void *arg)
     FD_ZERO(&fds);
     FD_SET(req_read_fd, &fds);
 
-    struct timeval tv = {.tv_usec = MS_TO_US(100)};
+    struct timeval tv = {.tv_usec = MS_TO_US(WQ_SELECT_SLEEP_MS)};
 
     if (select((req_read_fd + 1), &fds, NULL, NULL, &tv) < 0) {
       if (errno != EBADF) {
@@ -687,6 +733,10 @@ bool sbp_fileio_setup(const char *name,
 
     rc = pthread_create(&write_thread_ctx.thread, NULL, write_thread_handler, NULL);
     assert(rc == 0);
+
+    wq_with_lock(NESTED_FN(void, (), { wq_wait_startup(); }));
+
+    nanosleep_autoresume(0, MS_TO_NS(WQ_WAIT_START_MS));
   }
 
   return true;
@@ -710,8 +760,7 @@ void sbp_fileio_teardown(const char *name)
   close(write_thread_ctx.request_pipe[READ]);
   close(write_thread_ctx.request_pipe[WRITE]);
 
-  void *thread_return;
-  pthread_join(write_thread_ctx.thread, &thread_return);
+  pthread_join(write_thread_ctx.thread, NULL);
 }
 
 void sbp_fileio_flush(void)
@@ -1215,9 +1264,9 @@ static void config_cb(u16 sender_id, u8 len, u8 buf[], void *context)
   u32 seq = msg->sequence;
 
   msg_fileio_config_resp_t reply = {.sequence = seq,
-                                    .fileio_version = 0,
-                                    .window_size = 256,
-                                    .batch_size = 32};
+                                    .fileio_version = FILEIO_VERSION_NUMBER,
+                                    .window_size = FILEIO_WINDOW_SIZE,
+                                    .batch_size = FILEIO_BATCH_SIZE};
 
   sbp_tx_send(tx_ctx, SBP_MSG_FILEIO_CONFIG_RESP, sizeof(reply), (u8 *)&reply);
 }
