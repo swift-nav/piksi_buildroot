@@ -36,7 +36,7 @@ enum {
   IO_LOOP_SUCCESS = 0,
 };
 
-int io_loop_run(int read_fd, int write_fd, bool fork_needed);
+int io_loop_run(int read_fd, int write_fd);
 
 extern bool debug;
 

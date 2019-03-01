@@ -10,6 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "endpoint_adapter.h"
 
 #define SOCKET_LISTEN_BACKLOG_LENGTH 16
@@ -70,10 +73,15 @@ static void server_loop(int server_fd)
     int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len);
 
     if (client_fd >= 0) {
-      int wfd = dup(client_fd);
-      int rc = io_loop_run(client_fd, wfd, /* fork_needed = */ true);
+      pid_t pid = fork();
+      int rc = 0;
+      if (pid == 0) {
+        close(server_fd);
+        int wfd = dup(client_fd);
+        rc = io_loop_run(client_fd, wfd);
+        close(wfd);
+      }
       close(client_fd);
-      close(wfd);
       client_fd = -1;
       if (rc != 0) break;
     } else if ((client_fd == -1) && (errno == EINTR)) {
