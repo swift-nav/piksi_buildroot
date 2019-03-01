@@ -238,13 +238,6 @@ static bool parse_fd_line(resq_state_t *state, const char *line)
   return process_fd_entry(state, file_str, id_str);
 }
 
-static void destroy_table_entry(table_t *table, void **entry)
-{
-  (void)table;
-  free(*entry);
-  *entry = NULL;
-}
-
 static int compare_counts(const void *ptc1, const void *ptc2)
 {
   const id_to_count_t *id_to_count1 = ptc1;
@@ -266,8 +259,8 @@ static void run_resource_query(void *context)
   size_t NESTED_AXX(no_line_count) = 0;
   state->error_code = 0;
   state->send_state = SEND_FD_COUNTS_0;
-  state->pid_table = table_create(MAX_PROCESS_COUNT, destroy_table_entry);
-  state->file_table = table_create(MAX_FILE_COUNT, destroy_table_entry);
+  state->pid_table = table_create(MAX_PROCESS_COUNT);
+  state->file_table = table_create(MAX_FILE_COUNT);
   state->total_fd_count = 0;
   if (state->pid_table == NULL) {
     PK_LOG_ANNO(LOG_ERR | LOG_SBP, "file descriptor query: pid table creation failed");
