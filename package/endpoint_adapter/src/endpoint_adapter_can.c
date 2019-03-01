@@ -278,7 +278,7 @@ int can_loop(const char *can_name, u32 can_filter_in)
     pthread_t write_thread;
     pthread_create(&write_thread, NULL, can_write_thread_handler, &write_thread_ctx);
 
-    io_loop_run(pipe_from_can[READ], pipe_to_can[WRITE], /* fork_needed = */ false);
+    io_loop_run(pipe_from_can[READ], pipe_to_can[WRITE]);
 
     close(socket_can);
 

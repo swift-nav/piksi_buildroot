@@ -845,15 +845,8 @@ static void read_fd_cb(pk_loop_t *loop, void *handle, int status, void *context)
   io_loop_pubsub(loop, &loop_ctx.read_handle, &loop_ctx.pub_handle);
 }
 
-int io_loop_run(int read_fd, int write_fd, bool fork_needed)
+int io_loop_run(int read_fd, int write_fd)
 {
-  if (fork_needed) {
-    pid_t pid = fork();
-    if (pid != 0) {
-      return 0;
-    }
-  }
-
   loop_ctx.loop = pk_loop_create();
   setup_metrics();
 
@@ -943,10 +936,9 @@ int io_loop_run(int read_fd, int write_fd, bool fork_needed)
   pk_loop_destroy(&loop_ctx.loop);
   pk_metrics_destroy(&MR);
 
-  debug_printf("Exiting from pubsub (fork: %s)\n", fork_needed ? "y" : "n");
+  debug_printf("Exiting from io_loop_run ()\n");
 
   if (rc != 0) return IO_LOOP_ERROR;
-  if (fork_needed) return IO_LOOP_STOP;
 
   return IO_LOOP_SUCCESS;
 }
