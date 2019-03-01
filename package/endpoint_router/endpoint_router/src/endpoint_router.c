@@ -315,7 +315,7 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
   }
 
   if (rule_cache->rule_count == rule_cache->no_framer_ports_count) {
-    // If all we're doing is copying blobs we don't need to de-frame anything
+    /* If all we're doing is copying blobs we don't need to de-frame anything */
     PK_METRICS_UPDATE(MR, MI.skip_framer_bypass);
     return;
   }
@@ -551,8 +551,10 @@ rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cach
   }
 
   size_t filter_prefix_index = 0;
+
   u8(*all_filter_prefixes)[MAX_PREFIX_LEN] =
     calloc(total_filter_prefixes, sizeof(u8) * MAX_PREFIX_LEN);
+  assert(all_filter_prefixes != NULL);
 
   STAGE_CLEANUP(all_filter_prefixes, ({ free(all_filter_prefixes); }));
 
@@ -576,6 +578,7 @@ rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cach
 
   u8(*deduped_filter_prefixes)[MAX_PREFIX_LEN] =
     calloc(total_filter_prefixes, sizeof(u8) * MAX_PREFIX_LEN);
+  assert(deduped_filter_prefixes != NULL);
 
   STAGE_CLEANUP(deduped_filter_prefixes, ({
                   if (deduped_filter_prefixes != NULL) free(deduped_filter_prefixes);
@@ -596,6 +599,7 @@ rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cach
   }
 
   rule_prefixes_t *rule_prefixes = malloc(sizeof(rule_prefixes_t));
+  assert(rule_prefixes != NULL);
   STAGE_CLEANUP(rule_prefixes, ({
                   if (rule_prefixes != NULL) free(rule_prefixes);
                 }));
@@ -611,6 +615,7 @@ rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cach
 router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn_t load_endpoints)
 {
   router_t *router = malloc(sizeof(router_t));
+  assert(router != NULL);
   STAGE_CLEANUP(router, ({
                   if (router != NULL) free(router);
                 }));
@@ -640,6 +645,7 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
   router->accept_last_count = 0;
 
   router->port_rule_cache = calloc(router->port_count, sizeof(rule_cache_t));
+  assert(router->port_rule_cache != NULL);
 
   size_t port_index = 0;
 
@@ -660,7 +666,10 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     rule_cache->no_framer_ports_count = 0;
 
     rule_cache->accept_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
+    assert(rule_cache->accept_ports != NULL);
+
     rule_cache->no_framer_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
+    assert(rule_cache->no_framer_ports != NULL);
 
     rule_prefixes_t *rule_prefixes = extract_rule_prefixes(router, port, rule_cache);
 
@@ -698,10 +707,14 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
       fprintf(stderr, "cmph_size: %d\n", size);
 #endif
       rule_cache->cached_ports = calloc(rule_prefixes->count, sizeof(cached_port_t));
+      assert(rule_cache->cached_ports != NULL);
 
       for (size_t idx = 0; idx < rule_prefixes->count; idx++) {
+
         rule_cache->cached_ports[idx].endpoints =
           calloc(router->port_count, sizeof(pk_endpoint_t *));
+        assert(rule_cache->cached_ports[idx].endpoints != NULL);
+
         rule_cache->cached_ports[idx].count = 0;
       }
 
@@ -767,6 +780,7 @@ void router_teardown(router_t **router_loc)
     if (rule_cache->no_framer_ports != NULL) {
       free(rule_cache->no_framer_ports);
       rule_cache->no_framer_ports = NULL;
+      rule_cache->no_framer_ports_count = 0;
     }
 
     rule_prefixes_destroy(&rule_cache->rule_prefixes);

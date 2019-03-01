@@ -189,7 +189,7 @@ const char *path_validator_base_paths(path_validator_t *ctx)
   char *elided_indicator = "...,";
   size_t elided_bytes = strlen(elided_indicator) + 1;
 
-  // Reserve space so that (when needed) we can insert the elided indicator
+  /* Reserve space so that (when needed) we can insert the 'elided' (...) indicator */
   base_paths_remaining -= elided_bytes;
   assert(base_paths_remaining > 0);
 
@@ -257,7 +257,7 @@ static bool validate_path(path_validator_t *ctx, const char *basedir_path, const
   char realpath_buf[PATH_MAX] = {0};
   struct stat s;
 
-  // Always null terminate so we know if realpath filled in the buffer
+  /* Always null terminate so we know if realpath filled in the buffer */
   realpath_buf[0] = '\0';
 
   if (ctx->metrics != NULL) PK_METRICS_UPDATE(ctx->metrics, MI.realpath_calls);
@@ -278,8 +278,9 @@ static bool validate_path(path_validator_t *ctx, const char *basedir_path, const
 
     CHECK_PATH_BUFFER(count, path_buf);
 
-    // If the errno was "file not found", the prefix matches, and the parent
-    //   directory exists, then we allow this path.
+    /* If the errno was "file not found", the prefix matches, and the parent
+     *   directory exists, then we allow this path.
+     */
     char *parent_dir = dirname(dirname_buf);
 
     FIO_LOG_DEBUG("Parent dir: %s", dirname_buf);

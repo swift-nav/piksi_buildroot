@@ -119,7 +119,7 @@ static port_whitelist_config_t port_whitelist_config[PORT_MAX] = {
         MsgImuRaw                   2304/50 (messages decimated by factor of 50)
         MsgImuAux                   2305
         MsgMagRaw                   2306/50 (messages decimated by factor of 50)
-        NO **MsgFileioConfigResp** -4098 (intentionally exlcuded)
+        NO **MsgFileioConfigResp** [4098] (intentionally excluded)
         MsgSbasRaw                 30583
         MsgStartup                 65280
         MsgDgnssStatus             65282
