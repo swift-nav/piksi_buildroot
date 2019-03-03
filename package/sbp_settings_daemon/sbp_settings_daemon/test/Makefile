@@ -5,9 +5,9 @@ SOURCES= \
 
 LIBS= \
 	-luv -lsbp -lpiksi -ldl -lpthread -lsettings -lgtest \
-	../src/settings.o
+	../src/setting.o
 
-CFLAGS=-std=gnu++11 -z muldefs -I../src
+CFLAGS=-std=gnu++11 -z muldefs -I../include
 
 CROSS=
 

@@ -49,6 +49,7 @@ typedef struct pk_callback_ctx_s {
 struct pk_loop_s {
   uv_loop_t *uv_loop;
   uv_timer_t *timeout_timer;
+  int uv_last_error;
   char uv_error_msg[MSG_BUF_SIZE];
 #ifdef UNIT_TEST_WORKAROUND /* see comment at top of file */
   int uv_handle_copy;
@@ -422,6 +423,7 @@ static void uv_loop_poll_handler(uv_poll_t *poller, int status, int events)
 
   if (status < 0) {
     loop_status |= LOOP_ERROR;
+    loop->uv_last_error = status;
     strncpy(loop->uv_error_msg, uv_strerror(status), sizeof(loop->uv_error_msg));
     remove = true;
   }
@@ -568,6 +570,11 @@ void pk_loop_stop(pk_loop_t *pk_loop)
 const char *pk_loop_last_error(pk_loop_t *pk_loop)
 {
   return pk_loop->uv_error_msg;
+}
+
+bool pk_loop_match_last_error(pk_loop_t *pk_loop, int system_error)
+{
+  return pk_loop->uv_last_error == uv_translate_sys_error(system_error);
 }
 
 const char *pk_loop_describe_status(int status)

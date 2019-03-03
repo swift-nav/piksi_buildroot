@@ -330,7 +330,7 @@ void init_json_object(const char *name)
 static int notify_log_settings_changed(void *context)
 {
   (void)context;
-  piksi_log(LOG_DEBUG | LOG_SBP,
+  piksi_log(LOG_DEBUG,
             "Settings changed: enable_log_to_file = %d metrics_update_interval = %d",
             enable_log_to_file,
             metrics_update_interval);

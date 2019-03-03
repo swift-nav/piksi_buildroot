@@ -5,7 +5,7 @@
 ################################################################################
 
 BLACKMAGIC_SITE = https://github.com/swift-nav/blackmagic
-BLACKMAGIC_VERSION = 58cbb4f35023c7e1455978ac1873b1552e456c71
+BLACKMAGIC_VERSION = efbc22b3731b5bdac93a935b588f07eea0a0f5b1
 BLACKMAGIC_SITE_METHOD = git
 
 define BLACKMAGIC_BUILD_CMDS

@@ -17,25 +17,18 @@
 
 #include <gtest/gtest.h>
 
-#define BUFSIZE 256
+#include <libsettings/settings.h>
 
-struct setting {
-  char section[BUFSIZE];
-  char name[BUFSIZE];
-  char type[BUFSIZE];
-  char value[BUFSIZE];
-  struct setting *next;
-  bool dirty;
+#include <internal/setting.h>
+
+static setting_t setting_empty_uart0 = {
+  /* .section = */ "uart0",
+  /* .name = */ "enabled_sbp_messages",
+  /* .type = */ "",
+  /* .value = */ "",
+  /* .next = */ NULL,
+  /* .dirty = */ false,
 };
-
-extern "C" void setting_register(struct setting *setting);
-
-// clang-format off
-static setting setting_empty_uart0 = {
-  /* section = */ "uart0", /* name = */ "enabled_sbp_messages", /* type  = */ "",
-  /* value   = */   "",    /* next = */ NULL,                   /* dirty = */ false,
-};
-// clang-format on
 
 class SbpSettingsDaemonTests : public ::testing::Test {
 };
@@ -54,10 +47,21 @@ TEST_F(SbpSettingsDaemonTests, empty_ini_field)
   config_ini << config_ini_content;
   config_ini.close();
 
-  setting_register(&setting_empty_uart0);
+  settings_reg_res_t res = setting_register(&setting_empty_uart0);
 
+  ASSERT_EQ(SETTINGS_REG_OK_PERM, res);
   ASSERT_TRUE(setting_empty_uart0.dirty);
   ASSERT_STREQ("", setting_empty_uart0.value);
+
+  setting_t *setting = setting_lookup(setting_empty_uart0.section, setting_empty_uart0.name);
+  ASSERT_TRUE(setting != NULL);
+  ASSERT_STREQ(setting_empty_uart0.section, setting->section);
+  ASSERT_STREQ(setting_empty_uart0.name, setting->name);
+
+  setting = setting_find_by_index(0);
+  ASSERT_TRUE(setting != NULL);
+  ASSERT_STREQ(setting_empty_uart0.section, setting->section);
+  ASSERT_STREQ(setting_empty_uart0.name, setting->name);
 }
 
 int main(int argc, char **argv)

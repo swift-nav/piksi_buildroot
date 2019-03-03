@@ -250,7 +250,7 @@ index 84916e929..72f3b2e3b 100644
 +#ifdef DEBUG_RUNSVDIR
 +			fprintf(stderr, "wait_sv_create: got notification that '%s' was created\n", event->name);
 +#endif
-+			strncpy(new_dirs[dirs_idx++], event->name, PATH_MAX);
++			strncpy(new_dirs[dirs_idx++], event->name, NAME_MAX);
 +			need_rescan = 1;
 +		} else if (event->mask & IN_DELETE) {
 +#ifdef DEBUG_RUNSVDIR
@@ -260,7 +260,7 @@ index 84916e929..72f3b2e3b 100644
 +#ifdef DEBUG_RUNSVDIR
 +			fprintf(stderr, "wait_sv_create: got notification that '%s' was moved\n", event->name);
 +#endif
-+			strncpy(new_dirs[dirs_idx++], event->name, PATH_MAX);
++			strncpy(new_dirs[dirs_idx++], event->name, NAME_MAX);
 +			need_rescan = 1;
 +		} else {
 +			bb_error_msg("wait_sv_create: unhandled inotify event");

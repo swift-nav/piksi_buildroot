@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2016-2019 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -30,23 +30,19 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
+enum {
+  IO_LOOP_ERROR = -2,
+  IO_LOOP_STOP = -1,
+  IO_LOOP_SUCCESS = 0,
+};
 
-void io_loop_start(int read_fd, int write_fd);
-void io_loop_start_can(int read_fd, int write_fd);
-void io_loop_wait(void);
-void io_loop_wait_one(void);
-void io_loop_terminate(void);
+int io_loop_run(int read_fd, int write_fd);
 
 extern bool debug;
 
-#define debug_printf(format, ...)         \
-  if (debug)                              \
-    fprintf(stdout,                       \
-            "[PID %d] %s+%d(%s) " format, \
-            getpid(),                     \
-            __FILE__,                     \
-            __LINE__,                     \
-            __FUNCTION__,                 \
-            ##__VA_ARGS__);
+#define debug_printf(format, ...)                             \
+  {                                                           \
+    if (debug) PK_LOG_ANNO(LOG_DEBUG, format, ##__VA_ARGS__); \
+  }
 
 #endif /* SWIFTNAV_ENDPOINT_ADAPTER_H */

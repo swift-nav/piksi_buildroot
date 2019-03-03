@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Copyright (C) 2016-2019 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,9 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+
 #include <unistd.h>
+
+#include <libpiksi/logging.h>
+
 #include "endpoint_adapter.h"
 
 static int is_pipe(const char *file_path)
@@ -64,9 +68,7 @@ int file_loop(const char *file_path, int need_read, int need_write)
     debug_printf("Open %s for write, fd=%d\n", file_path, fd_write);
   }
 
-  io_loop_start(fd_read, fd_write);
-  io_loop_wait();
-  io_loop_terminate();
+  io_loop_run(fd_read, fd_write);
 
   if (need_read) {
     close(fd_read);

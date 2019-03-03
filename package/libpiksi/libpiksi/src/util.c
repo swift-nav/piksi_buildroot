@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -41,10 +42,8 @@
 #define DEVICE_HARDWARE_VERSION_FILE_PATH "/factory/hardware_version"
 #define DEVICE_HARDWARE_VERSION_MAX_LENGTH (64u)
 
-#define DEVICE_DURO_EEPROM_PATH "/cfg/duro_eeprom"
-#define DEVICE_DURO_MAX_CONTENTS_SIZE (128u)
-#define DEVICE_DURO_ID_STRING "DUROV0"
-#define POSEDAEMON_FILE_PATH "/usr/bin/PoseDaemon"
+#define DEVICE_DURO_FLAG_PATH "/etc/flags/is_duro"
+#define POSEDAEMON_FILE_PATH "/usr/bin/PoseDaemon.enc"
 #define SMOOTHPOSE_LICENSE_FILE_PATH "/persistent/licenses/smoothpose_license.json"
 #define DEVICE_DURO_EEPROM_RETRY_INTERVAL_MS 250
 #define DEVICE_DURO_EEPROM_RETRY_TIMES 6
@@ -218,21 +217,21 @@ int device_uuid_get(char *str, size_t str_size)
 
 bool device_is_duro(void)
 {
-  char duro_eeprom_sig[DEVICE_DURO_MAX_CONTENTS_SIZE];
-  /* DEVICE_DURO_EEPROM_PATH will be created by S18 whether
-   * there is EEPROM or not */
+  char is_duro_flag = '0';
+  /* Existence of DEVICE_DURO_FLAG_PATH indicates EEPROM
+   * has been read or has timed out */
   for (int i = 0; i < DEVICE_DURO_EEPROM_RETRY_TIMES; i++) {
-    if (access(DEVICE_DURO_EEPROM_PATH, F_OK) == 0) {
+    if (access(DEVICE_DURO_FLAG_PATH, F_OK) == 0) {
       break;
     }
     usleep(DEVICE_DURO_EEPROM_RETRY_INTERVAL_MS * 1000);
   }
-  if (file_read_string(DEVICE_DURO_EEPROM_PATH, duro_eeprom_sig, sizeof(duro_eeprom_sig)) != 0) {
+  if (file_read_string(DEVICE_DURO_FLAG_PATH, &is_duro_flag, sizeof(is_duro_flag)) != 0) {
     piksi_log(LOG_WARNING, "Failed to read DURO eeprom contents");
     return false;
   }
 
-  return (memcmp(duro_eeprom_sig, DEVICE_DURO_ID_STRING, strlen(DEVICE_DURO_ID_STRING)) == 0);
+  return (is_duro_flag == '1');
 }
 
 static bool device_has_ins(void)
@@ -925,4 +924,15 @@ void print_trace(const char *assert_str, const char *file, const char *func, int
   free(strings);
 
 #undef ASSERT_FAIL_MSG
+}
+
+size_t nanosleep_autoresume(long s, long ns)
+{
+  size_t interrupts = 0;
+  struct timespec ts = {.tv_sec = s, .tv_nsec = ns};
+  while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
+    /* no-op (mostly), just need to retry nanosleep */;
+    interrupts++;
+  }
+  return interrupts;
 }

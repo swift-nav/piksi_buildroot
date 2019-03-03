@@ -1,5 +1,9 @@
 MOUNT_BASE="/media"
-MOUNTNAME="mmcblk0p1"
+if grep -q "root=/dev/mmcblk0" /proc/device-tree/chosen/bootargs; then
+	MOUNTNAME="nonexistant"
+else
+	MOUNTNAME="mmcblk0p1"
+fi
 MOUNTPOINT="$MOUNT_BASE/$MOUNTNAME"
 
 # Wait 30 seconds for the sdcard to be mounted

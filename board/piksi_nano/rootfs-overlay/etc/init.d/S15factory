@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# initialize factory data
+#
+
+case "$1" in
+  start)
+  mkdir -p /factory
+  if [ ! -e /factory/uuid ]; then
+    uuidgen | sed "s/-//g" > /factory/uuid
+  fi
+  ;;
+  stop)
+  ;;
+  restart|reload)
+  ;;
+  *)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+
+exit $?

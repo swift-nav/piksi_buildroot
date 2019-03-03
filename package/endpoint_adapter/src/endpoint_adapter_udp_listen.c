@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2017 Swift Navigation Inc.
- * Contact: Mark Fine <mark@swiftnav.com>
+ * Copyright (C) 2017-2019 Swift Navigation Inc.
+ * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -9,6 +9,8 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
+
+#include <libpiksi/logging.h>
 
 #include "endpoint_adapter.h"
 
@@ -42,7 +44,6 @@ static int socket_create(int port)
 
 err:
   close(fd);
-  fd = -1;
   return ret;
 }
 
@@ -54,8 +55,7 @@ int udp_listen_loop(int port)
     return 1;
   }
 
-  io_loop_start(fd, -1);
-  io_loop_wait();
+  io_loop_run(fd, -1);
   close(fd);
 
   return 0;

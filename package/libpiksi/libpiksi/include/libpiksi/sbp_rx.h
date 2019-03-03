@@ -105,6 +105,12 @@ int sbp_rx_callback_register(sbp_rx_ctx_t *ctx,
                              void *context,
                              sbp_msg_callbacks_node_t **node);
 
+typedef void (*sbp_rx_receive_buffer_cb_t)(void *context);
+
+void sbp_rx_receive_buffer_cb_set(sbp_rx_ctx_t *rx_ctx,
+                                  sbp_rx_receive_buffer_cb_t cb,
+                                  void *context);
+
 /**
  * @brief   Remove an SBP message callback.
  * @details Remove a registered SBP message callback.
@@ -165,6 +171,8 @@ void sbp_rx_reader_interrupt_reset(sbp_rx_ctx_t *ctx);
  * @return bool             True if the interrupt was requested.
  */
 bool sbp_rx_reader_interrupt_requested(sbp_rx_ctx_t *ctx);
+
+pk_endpoint_t *sbp_rx_endpoint_get(sbp_rx_ctx_t *ctx);
 
 #ifdef __cplusplus
 } // extern "C"

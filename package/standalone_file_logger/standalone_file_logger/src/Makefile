@@ -3,8 +3,8 @@ SOURCES= \
 	rotating_logger.cc \
 	standalone_file_logger.cc
 
-LIBS=-luv -lsbp -lpiksi -lsettings
-CFLAGS=-std=gnu++11
+LIBS=-luv -lsbp -lpiksi -lsettings -lpthread
+CFLAGS=-std=gnu++11 -ggdb3
 ARFLAGS=rcs $(LTO_PLUGIN)
 
 CROSS=
