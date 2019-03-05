@@ -363,14 +363,17 @@ docker-sync-setup:
 	@docker volume create --name=$(DOCKER_BUILD_VOLUME)-sync
 	@echo "Done, run: make docker-sync-start"
 
-docker-sync-start:
-	@docker-sync start -c .docker-sync.yml
-
 docker-sync-logs:
 	@docker-sync logs -c .docker-sync.yml
 
+docker-sync-start:
+	@docker-sync start -c .docker-sync.yml
+
 docker-sync-stop:
 	@docker-sync stop -c .docker-sync.yml
+
+docker-sync-restart:
+	@docker-sync stop -c .docker-sync.yml && docker-sync start -c .docker-sync.yml
 
 docker-sync-clean:
 	@docker-sync clean -c .docker-sync.yml || echo "docker-sync clean failed..."

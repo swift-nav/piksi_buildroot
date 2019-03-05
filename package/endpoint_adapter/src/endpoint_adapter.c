@@ -613,7 +613,7 @@ static ssize_t fd_write(int handle, const void *buffer, size_t count)
 {
   if (needs_outq_check(handle)) {
     if (!ensure_outq_space(handle, count)) {
-      /* If `ensure_outq_space` fails, we're attempt to drop and flush data,
+      /* If `ensure_outq_space` fails, we're attempting to drop and flush data,
        * logging for this happens in `ensure_outq_space`, we need to fake
        * that we sent the data so an error won't be reported upstream.
        */
