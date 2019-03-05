@@ -767,7 +767,9 @@ void sbp_fileio_teardown(const char *name)
   close(write_thread_ctx.request_pipe[READ]);
   close(write_thread_ctx.request_pipe[WRITE]);
 
-  pthread_join(write_thread_ctx.thread, NULL);
+  if (!disable_threading) {
+    pthread_join(write_thread_ctx.thread, NULL);
+  }
 }
 
 void sbp_fileio_flush(void)
