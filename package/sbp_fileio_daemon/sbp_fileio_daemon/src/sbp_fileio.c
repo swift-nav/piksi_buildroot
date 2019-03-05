@@ -744,6 +744,9 @@ bool sbp_fileio_setup(const char *name,
     wq_with_lock(NESTED_FN(void, (), { wq_wait_startup(); }));
 
     nanosleep_autoresume(0, MS_TO_NS(WQ_WAIT_START_MS));
+
+  } else {
+    piksi_log(LOG_DEBUG, "threading disabled...");
   }
 
   return true;
@@ -1254,7 +1257,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
 
-  if (disable_threading) {
+  if (!disable_threading) {
     queue_file_write(len, msg_);
   } else {
     size_t write_count = 0;
