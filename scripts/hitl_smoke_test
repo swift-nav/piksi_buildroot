@@ -209,10 +209,10 @@ def main():
         write_metrics_yaml(scenario, runs)
         R().call("scripts/publish.sh", "metrics.yaml").check()
 
-        pr_comment = gen_hitl_comment(gen_job_list(capture_ids), gen_pass_fail_list(), gen_detailed_list())
+    pr_comment = gen_hitl_comment(gen_job_list(capture_ids), gen_pass_fail_list(), gen_detailed_list())
 
-        print("PR comment:\n{}".format(pr_comment))
-        post_github_comment(pr_comment)
+    print("PR comment:\n{}".format(pr_comment))
+    post_github_comment(pr_comment)
             
 
 if __name__ == '__main__':
