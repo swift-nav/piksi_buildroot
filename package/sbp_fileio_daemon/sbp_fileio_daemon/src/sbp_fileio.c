@@ -504,6 +504,11 @@ NESTED_FN_TYPEDEF(void, when_empty_fn_t);
 
 static void wq_run_when_empty(when_empty_fn_t when_empty_fn)
 {
+  if (disable_threading) {
+    when_empty_fn();
+    return;
+  }
+
   /*** MUTEX ACQUIRE ***/
   int rc = pthread_mutex_lock(&write_thread_ctx.lock);
   assert(rc == 0);
