@@ -90,6 +90,7 @@ static char sbp_fileio_wait_flush_file[PATH_MAX] = {0};
 /* extern */ bool no_cache = false;
 
 /* extern */ const char *sbp_fileio_name = NULL;
+/* extern */ bool disable_threading = false;
 
 #define MI fileio_metrics_indexes
 #define MT fileio_metrics_table
@@ -503,6 +504,11 @@ NESTED_FN_TYPEDEF(void, when_empty_fn_t);
 
 static void wq_run_when_empty(when_empty_fn_t when_empty_fn)
 {
+  if (disable_threading) {
+    when_empty_fn();
+    return;
+  }
+
   /*** MUTEX ACQUIRE ***/
   int rc = pthread_mutex_lock(&write_thread_ctx.lock);
   assert(rc == 0);
@@ -722,7 +728,8 @@ bool sbp_fileio_setup(const char *name,
               errno);
   }
 
-  {
+  if (!disable_threading) {
+
     int rc = -1;
 
     rc = pthread_mutex_init(&write_thread_ctx.lock, NULL);
@@ -737,6 +744,9 @@ bool sbp_fileio_setup(const char *name,
     wq_with_lock(NESTED_FN(void, (), { wq_wait_startup(); }));
 
     nanosleep_autoresume(0, MS_TO_NS(WQ_WAIT_START_MS));
+
+  } else {
+    piksi_log(LOG_DEBUG, "threading disabled...");
   }
 
   return true;
@@ -760,7 +770,9 @@ void sbp_fileio_teardown(const char *name)
   close(write_thread_ctx.request_pipe[READ]);
   close(write_thread_ctx.request_pipe[WRITE]);
 
-  pthread_join(write_thread_ctx.thread, NULL);
+  if (!disable_threading) {
+    pthread_join(write_thread_ctx.thread, NULL);
+  }
 }
 
 void sbp_fileio_flush(void)
@@ -1245,7 +1257,17 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
     return;
   }
 
-  queue_file_write(len, msg_);
+  if (!disable_threading) {
+    queue_file_write(len, msg_);
+  } else {
+    size_t write_count = 0;
+    msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
+    if (sbp_fileio_write(msg, len, &write_count)) {
+      stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+      PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
+    }
+    flush_output_sbp();
+  }
 }
 
 static void config_cb(u16 sender_id, u8 len, u8 buf[], void *context)

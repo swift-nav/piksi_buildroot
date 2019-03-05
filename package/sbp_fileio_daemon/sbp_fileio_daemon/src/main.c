@@ -53,6 +53,7 @@ static void usage(char *command)
   puts("                      the file will be written to /data/upgrade.image_set.bin");
   puts("-d, --debug           Output debug logging");
   puts("-x, --nocache         Disable FD cache");
+  puts("-t, --no-threading    Disable threading");
 }
 
 static int parse_options(int argc, char *argv[])
@@ -62,22 +63,23 @@ static int parse_options(int argc, char *argv[])
 
   // clang-format off
   const struct option long_opts[] = {
-    {"name",     required_argument, 0, 'n'},
-    {"pub",      required_argument, 0, 'p'},
-    {"sub",      required_argument, 0, 's'},
-    {"basedir",  required_argument, 0, 'b'},
-    {"mtd",      no_argument,       0, 'm'},
-    {"imageset", no_argument,       0, 'i'},
-    {"debug",    no_argument,       0, 'd'},
-    {"nocache",  no_argument,       0, 'x'},
-    {"help",     no_argument,       0, 'h'},
+    {"name",         required_argument, 0, 'n'},
+    {"pub",          required_argument, 0, 'p'},
+    {"sub",          required_argument, 0, 's'},
+    {"basedir",      required_argument, 0, 'b'},
+    {"mtd",          no_argument,       0, 'm'},
+    {"imageset",     no_argument,       0, 'i'},
+    {"debug",        no_argument,       0, 'd'},
+    {"nocache",      no_argument,       0, 'x'},
+    {"help",         no_argument,       0, 'h'},
+    {"no-threading", no_argument,       0, 't'},
     {0, 0, 0, 0}
   };
   // clang-format on
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "n:p:s:b:midxh", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "n:p:s:b:midxht", long_opts, &opt_index)) != -1) {
     switch (c) {
 
     case 'n': {
@@ -117,6 +119,10 @@ static int parse_options(int argc, char *argv[])
 
     case 'x': {
       no_cache = true;
+    } break;
+
+    case 't': {
+      disable_threading = true;
     } break;
 
     default: {
