@@ -123,7 +123,7 @@ These test runs are kicked off whenever you push a new commit to this PR. All pa
 ### gnss-analysis results
 At least one run must complete for these links to have data.
 
-#### passfail"
+#### passfail
 {PASS_FAIL_LIST}
 
 #### detailed
