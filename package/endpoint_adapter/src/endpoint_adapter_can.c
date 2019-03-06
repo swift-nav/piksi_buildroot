@@ -209,7 +209,8 @@ int can_loop(const char *can_name, u32 can_filter_in)
 
     struct can_filter rfilter[1];
     rfilter[0].can_id = can_filter;
-    rfilter[0].can_mask = CAN_SFF_MASK;
+    // rfilter[0].can_mask = CAN_SFF_MASK;
+    rfilter[0].can_mask = 0;
 
     if (setsockopt(socket_can, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter))) {
       piksi_log(LOG_ERR, "could not set filter for %s", can_name);
