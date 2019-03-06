@@ -21,6 +21,10 @@ ping_log_file=/var/log/ping.log
 
 skylark_enabled()
 {
+  if ! [[ -f $skylark_enabled_file ]]; then
+    return 0
+  fi
+
   if [ x`cat $skylark_enabled_file` != "x0" ]; then
     return 0
   else
@@ -30,6 +34,10 @@ skylark_enabled()
 
 ntrip_enabled()
 {
+  if ! [[ -f $ntrip_enabled_file ]]; then
+    return 0
+  fi
+
   if [ x`cat $ntrip_enabled_file` != "x0" ]; then
     return 0
   else
