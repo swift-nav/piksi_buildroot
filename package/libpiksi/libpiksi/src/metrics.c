@@ -22,6 +22,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -243,8 +244,11 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
 void pk_metrics_flush(const pk_metrics_t *metrics)
 {
   for (size_t idx = 0; idx < metrics->count; idx++) {
-    write_metric(&metrics->descriptors[idx]);
+    const metrics_descriptor_t *desc = &metrics->descriptors[idx];
+    flock(fileno(desc->stream), LOCK_EX);
+    write_metric(desc);
     fflush(metrics->descriptors[idx].stream);
+    flock(fileno(desc->stream), LOCK_UN);
   }
 }
 
@@ -321,7 +325,7 @@ const char *pk_metrics_status_text(pk_metrics_status_t status)
 
 pk_metrics_time_t pk_metrics_gettime(void)
 {
-  struct timespec s;
+  struct timespec s = { 0 };
 
   int rc = clock_gettime(CLOCK_MONOTONIC, &s);
 
@@ -330,8 +334,12 @@ pk_metrics_time_t pk_metrics_gettime(void)
     return (pk_metrics_time_t){.ns = 0};
   }
 
-  const time_t sec_in_ns = 1000000000;
-  return (pk_metrics_time_t){.ns = (u64)((s.tv_sec * sec_in_ns) + (time_t)s.tv_nsec)};
+  const u64 sec_in_ns = 1000000000;
+
+  u64 seconds = (u64) s.tv_sec;
+  u64 nanoseconds = (u64) s.tv_nsec;
+
+  return (pk_metrics_time_t){.ns = (seconds * sec_in_ns) + nanoseconds};
 }
 
 pk_metrics_value_t pk_metrics_reset_default(pk_metrics_type_t type, pk_metrics_value_t initial)
@@ -407,8 +415,7 @@ pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
     return (pk_metrics_value_t){.data.as_f64 = update.value.data.as_f64 - current_value.data.as_f64,
                                 .type = METRICS_TYPE_F64};
   case METRICS_TYPE_TIME:
-    return (pk_metrics_value_t){.data.as_time.ns =
-                                  update.value.data.as_time.ns - current_value.data.as_time.ns,
+    return (pk_metrics_value_t){.data.as_time.ns = update.value.data.as_time.ns - current_value.data.as_time.ns,
                                 .type = METRICS_TYPE_TIME};
   case METRICS_TYPE_UNKNOWN:
   default: break;
@@ -625,7 +632,8 @@ static void write_metric(const metrics_descriptor_t *desc)
   fseek(desc->stream, 0, SEEK_SET);
   ftruncate(fileno(desc->stream), 0);
 
-  double timeval = 0;
+  u64 timeval_s = 0;
+  u64 timeval_ms = 0;
 
   switch (desc->type) {
   case METRICS_TYPE_U32: fprintf(desc->stream, "%u\n", desc->value.data.as_u32); return;
@@ -634,10 +642,11 @@ static void write_metric(const metrics_descriptor_t *desc)
   case METRICS_TYPE_S64: fprintf(desc->stream, "%" PRIi64 "\n", desc->value.data.as_s64); return;
   case METRICS_TYPE_F64: fprintf(desc->stream, "%f\n", desc->value.data.as_f64); return;
   case METRICS_TYPE_TIME:
-    timeval = (double)desc->value.data.as_time.ns / 1e6;
-    fprintf(desc->stream, "%0.03f\n", timeval);
+    timeval_s = desc->value.data.as_time.ns / 1000000;
+    timeval_ms = desc->value.data.as_time.ns % 1000000;
+    fprintf(desc->stream, "%" PRIu64 ".%" PRIu64 "\n", timeval_s, timeval_ms);
     return;
-  case METRICS_TYPE_UNKNOWN:
+  case METRICS_TYPE_UNKNOWN: /* fall through */
   default: break;
   }
 
