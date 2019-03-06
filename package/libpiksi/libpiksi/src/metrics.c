@@ -325,7 +325,7 @@ const char *pk_metrics_status_text(pk_metrics_status_t status)
 
 pk_metrics_time_t pk_metrics_gettime(void)
 {
-  struct timespec s = { 0 };
+  struct timespec s = {0};
 
   int rc = clock_gettime(CLOCK_MONOTONIC, &s);
 
@@ -336,8 +336,8 @@ pk_metrics_time_t pk_metrics_gettime(void)
 
   const u64 sec_in_ns = 1000000000;
 
-  u64 seconds = (u64) s.tv_sec;
-  u64 nanoseconds = (u64) s.tv_nsec;
+  u64 seconds = (u64)s.tv_sec;
+  u64 nanoseconds = (u64)s.tv_nsec;
 
   return (pk_metrics_time_t){.ns = (seconds * sec_in_ns) + nanoseconds};
 }
@@ -415,7 +415,8 @@ pk_metrics_value_t pk_metrics_updater_delta(pk_metrics_type_t type,
     return (pk_metrics_value_t){.data.as_f64 = update.value.data.as_f64 - current_value.data.as_f64,
                                 .type = METRICS_TYPE_F64};
   case METRICS_TYPE_TIME:
-    return (pk_metrics_value_t){.data.as_time.ns = update.value.data.as_time.ns - current_value.data.as_time.ns,
+    return (pk_metrics_value_t){.data.as_time.ns =
+                                  update.value.data.as_time.ns - current_value.data.as_time.ns,
                                 .type = METRICS_TYPE_TIME};
   case METRICS_TYPE_UNKNOWN:
   default: break;
