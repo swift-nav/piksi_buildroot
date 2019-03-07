@@ -1,12 +1,12 @@
 #!/bin/sh
 
-METRICS_DIR="/var/log/metrics/"
 METRICS_OUTPUT_FILE="/var/log/metrics.json"
 
-name="metrics_daemon"
-cmd="metrics_daemon"
-dir="/"
-user="metricsd"
+export name="metrics_daemon"
+export cmd="metrics_daemon"
+export dir="/"
+export user="metricsd"
+export priority="20"
 
 setup_permissions()	
 {	
