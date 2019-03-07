@@ -1,9 +1,10 @@
-#!/bin/ash
+#!/bin/sh
 
-name="resource_monitor"
-cmd="resource_monitor"
-dir="/"
-user="resmond"
+export name="resource_monitor"
+export cmd="resource_monitor"
+export dir="/"
+export user="resmond"
+export priority="20"
 
 setup_permissions()
 {
