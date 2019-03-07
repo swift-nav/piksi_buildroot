@@ -12,16 +12,20 @@
 
 #define _GNU_SOURCE
 
+#include <limits.h>
+#include <search.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <search.h>
-#include <limits.h>
+
 #include <libsbp/linux.h>
+
+#include <libpiksi/cast_check.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/util.h>
 #include <libpiksi/runit.h>
 #include <libpiksi/table.h>
+#include <libpiksi/util.h>
+
 #include "query_sys_state.h"
 #include "resource_monitor.h"
 #include "resource_query.h"
@@ -98,6 +102,32 @@ static bool is_real_file_path(const char *path)
     return true;
 }
 
+static bool get_proc_cmdline(const char *id_str, char *buf, size_t buf_len)
+{
+  const char *the_command[] = {"sudo", "/usr/bin/get_proc_cmdline", id_str, NULL};
+
+  buffer_fn_t buffer_fn = NESTED_FN(ssize_t, (char *buffer, size_t length, void *ctx), {
+    (void)ctx;
+    for (unsigned int i = 0; i < length; i++) {
+      if (buffer[i] == '\0') {
+        buffer[i] = ' ';
+      }
+    }
+    return (ssize_t)length;
+  });
+
+  run_command_t run_config = {.argv = the_command,
+                              .buffer = buf,
+                              .length = buf_len,
+                              .func = buffer_fn};
+
+  if (run_command(&run_config) != 0) {
+    return false;
+  }
+
+  return true;
+}
+
 static bool process_fd_entry(resq_state_t *state, const char *file_str, const char *id_str)
 {
   pid_entry_t *entry = pid_table_get(state->pid_table, id_str);
@@ -121,45 +151,14 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
       return false;
     }
     new_entry.pid = (u16)pid;
-    size_t file_path_len = (size_t)(15 + s);
-    char cmdline_file[file_path_len];
-    s = snprintf(&cmdline_file[0], file_path_len, "/proc/%s/cmdline", id_str);
-    if (s < 0 || (size_t)s >= file_path_len) {
-#ifdef DEBUG_QUERY_FD_TAB
-      PK_LOG_ANNO(LOG_WARNING,
-                  "file descriptor query: failed to cmdline file string : %s",
-                  cmdline_file);
-#endif
+    new_entry.cmdline[0] = '\0';
+    entry = calloc(1, sizeof(pid_entry_t));
+    *entry = new_entry;
+    bool added = pid_table_put(state->pid_table, id_str, entry);
+    if (!added) {
+      PK_LOG_ANNO(LOG_ERR, "failed to add entry for pid '%s'", id_str);
+      free(entry);
       return false;
-    }
-    cmdline_file[file_path_len - 1] = '\0';
-    buffer_fn_t copy_cmdline = NESTED_FN(ssize_t, (char *buffer, size_t length, void *ctx), {
-      (void)ctx;
-      memcpy(&new_entry.cmdline[0], buffer, length);
-      for (unsigned int i = 0; i < length; i++) {
-        if (new_entry.cmdline[i] == '\0') {
-          new_entry.cmdline[i] = ' ';
-        }
-      }
-      return (ssize_t)length;
-    });
-
-    char buf[COMMAND_LINE_MAX] = {0};
-    run_command_t run_config = {.input = NULL,
-                                .context = NULL,
-                                .argv = (const char *[]){"sudo", "/bin/cat", cmdline_file, NULL},
-                                .buffer = buf,
-                                .length = sizeof(buf) - 1,
-                                .func = copy_cmdline};
-    if (run_command(&run_config) == 0) {
-      entry = calloc(1, sizeof(pid_entry_t));
-      *entry = new_entry;
-      bool added = pid_table_put(state->pid_table, id_str, entry);
-      if (!added) {
-        PK_LOG_ANNO(LOG_ERR, "failed to add entry for pid '%s'", id_str);
-        free(entry);
-        return false;
-      }
     }
   }
   if (entry != NULL) {
@@ -333,8 +332,13 @@ static void run_resource_query(void *context)
     state->send_state = SEND_ERROR;
     return;
   }
+
+  for (size_t i = 0; i < ITEM_COUNT; i++) {
+    state->top10_pid_counts[i] = "";
+    state->top10_file_counts[i] = "";
+  }
+
   size_t pid_count = table_count(state->pid_table);
-  if (pid_count < ITEM_COUNT) return;
   id_to_count_t *NESTED_AXX(pid_to_count) = alloca(pid_count * sizeof(id_to_count_t));
 
   table_foreach_key(state->pid_table,
@@ -350,29 +354,35 @@ static void run_resource_query(void *context)
                               }));
 
   qsort(pid_to_count, pid_count, sizeof(id_to_count_t), compare_counts);
-  size_t file_count = table_count(state->file_table);
-  if (file_count < ITEM_COUNT) return;
-  id_to_count_t *NESTED_AXX(file_to_count) = alloca(file_count * sizeof(id_to_count_t));
 
-  table_foreach_key(state->file_table,
-                    NULL,
-                    NESTED_FN(bool,
-                              (table_t * table, const char *key, size_t index, void *context1),
-                              {
-                                (void)context1;
-                                file_entry_t *entry = file_table_get(table, key);
-                                file_to_count[index].id = key;
-                                file_to_count[index].count = entry->fd_count;
-                                return true;
-                              }));
-
-  qsort(file_to_count, file_count, sizeof(id_to_count_t), compare_counts);
   for (size_t i = 0; i < ITEM_COUNT && i < pid_count; i++) {
     state->top10_pid_counts[i] = pid_to_count[i].id;
 #ifdef DEBUG_QUERY_FD_TAB
     PK_LOG_ANNO(LOG_DEBUG, "TOP 10 FD PID : %s : %d", pid_to_count[i].id, pid_to_count[i].count);
 #endif
   }
+
+  size_t file_count = table_count(state->file_table);
+  id_to_count_t *NESTED_AXX(file_to_count) = alloca(file_count * sizeof(id_to_count_t));
+
+  size_t file_to_count_size = 0;
+  table_foreach_key(state->file_table,
+                    &file_to_count_size,
+                    NESTED_FN(bool,
+                              (table_t * table, const char *key, size_t _index, void *context1),
+                              {
+                                (void)_index;
+                                size_t *file_to_count_size_ = context1;
+                                file_entry_t *entry = file_table_get(table, key);
+                                if (strncmp(key, "/", 1) != 0) return true;
+                                size_t index = (*file_to_count_size_)++;
+                                file_to_count[index].id = key;
+                                file_to_count[index].count = entry->fd_count;
+                                return true;
+                              }));
+
+  qsort(file_to_count, file_to_count_size, sizeof(id_to_count_t), compare_counts);
+
   for (size_t i = 0; i < ITEM_COUNT && i < file_count; i++) {
     state->top10_file_counts[i] = file_to_count[i].id;
 #ifdef DEBUG_QUERY_FD_TAB
@@ -402,16 +412,32 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
   case SEND_FD_COUNTS_7:
   case SEND_FD_COUNTS_8:
   case SEND_FD_COUNTS_9: {
-    pid_entry_t *entry = pid_table_get(state->pid_table, state->top10_pid_counts[index]);
+
+    const char *pid_str = state->top10_pid_counts[index];
+
+    if (pid_str[0] == '\0') {
+      return false;
+    }
+
+    pid_entry_t *entry = pid_table_get(state->pid_table, pid_str);
+
     *msg_type = SBP_MSG_LINUX_PROCESS_FD_COUNT;
     msg_linux_process_fd_count_t *fd_counts = (msg_linux_process_fd_count_t *)sbp_buf;
+
     fd_counts->index = (u8)index;
     fd_counts->pid = entry->pid;
     fd_counts->fd_count = entry->fd_count;
+
+    if (entry->cmdline[0] == '\0') {
+      get_proc_cmdline(pid_str, entry->cmdline, sizeof(entry->cmdline));
+    }
+
     size_t cmdline_len = strlen(entry->cmdline);
     if (cmdline_len + sizeof(msg_linux_process_fd_count_t) > SBP_FRAMING_MAX_PAYLOAD_SIZE)
       cmdline_len = SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_count_t);
+
     strncpy(fd_counts->cmdline, entry->cmdline, cmdline_len);
+
 #ifdef DEBUG_QUERY_FD_TAB
     PK_LOG_ANNO(LOG_DEBUG,
                 "index : %d pid: %d : fd_count : %d cmd line : %s",
@@ -421,40 +447,73 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
                 fd_counts->cmdline);
 #endif
     *len = (u8)(sizeof(msg_linux_process_fd_count_t) + cmdline_len);
+
   } break;
-  case SEND_FD_SUMMARY:
+
+  case SEND_FD_SUMMARY: {
+
     *msg_type = SBP_MSG_LINUX_PROCESS_FD_SUMMARY;
+
     msg_linux_process_fd_summary_t *fd_summary = (msg_linux_process_fd_summary_t *)sbp_buf;
     fd_summary->sys_fd_count = state->total_fd_count;
-    int nBytes = 0;
+
+    const size_t fd_summary_max_size =
+      SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_summary_t);
+
+    size_t consumed = 0;
     for (int i = 0; i < ITEM_COUNT; i++) {
-      unsigned int buf_space =
-        (unsigned int)(SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_summary_t)
-                       - (unsigned int)nBytes);
-      file_entry_t *file_entry = file_table_get(state->file_table, state->top10_file_counts[i]);
-      nBytes += snprintf(&fd_summary->most_opened[nBytes],
-                         buf_space,
-                         "%d%c%s%c",
-                         file_entry->fd_count,
-                         '\0',
-                         file_entry->file_str,
-                         '\0');
+
+      const char *file_str = state->top10_file_counts[i];
+      if (file_str[0] == '\0') {
+        continue;
+      }
+
+      size_t remaining = fd_summary_max_size - consumed;
+      file_entry_t *file_entry = file_table_get(state->file_table, file_str);
+
+      /* FD summary data is formatted like this:
+       *
+       *     <count><NULL><file_name><NULL><count><NULL><file_name>...
+       *
+       * So, snprintf will provide a trailing NULL terminator.
+       **/
+      int _consumed = snprintf(&fd_summary->most_opened[consumed],
+                               remaining,
+                               "%d%c%s",
+                               file_entry->fd_count,
+                               '\0',
+                               file_entry->file_str);
+      if (_consumed < 0) {
+        PK_LOG_ANNO(LOG_ERR, "sprintf failed: %s", strerror(errno));
+        break;
+      }
+
+      consumed += int_to_sizet(_consumed) + 1 /* NULL terminator */;
+
 #ifdef DEBUG_QUERY_FD_TAB
       PK_LOG_ANNO(LOG_DEBUG,
-                  "Summary:%d : %d %s bytes",
-                  nBytes,
+                  "summary: %zu: %d %s bytes",
+                  consumed,
                   file_entry->fd_count,
                   file_entry->file_str);
 #endif
-      if ((SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_summary_t) - 1)
-          < (unsigned int)nBytes) {
-        nBytes = (SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_linux_process_fd_summary_t) - 1);
+      if (consumed > fd_summary_max_size) {
+        consumed = fd_summary_max_size;
+        fd_summary->most_opened[consumed - 2] = '\0';
+        fd_summary->most_opened[consumed - 1] = '\0';
         break;
       }
     }
-    fd_summary->most_opened[nBytes] = '\0'; // set two NULL to indicate termination
-    *len = (u8)(sizeof(msg_linux_process_fd_summary_t) + (unsigned)nBytes + 1);
+
+    /* set two NULL to indicate termination */
+    if (consumed < fd_summary_max_size) {
+      fd_summary->most_opened[consumed++] = '\0';
+    }
+
+    *len = (u8)(sizeof(msg_linux_process_fd_summary_t) + consumed);
+
     break;
+  }
   case SEND_ERROR:
     PK_LOG_ANNO(LOG_ERR, "file descriptor query failed, error code: %d", state->error_code);
     *len = 0;
@@ -495,7 +554,14 @@ static void *init_resource_query()
     goto error;
   }
 
+  for (size_t i = 0; i < ITEM_COUNT; i++) {
+    state->top10_pid_counts[i] = "";
+    state->top10_file_counts[i] = "";
+  }
+
   state->pid_table = NULL;
+  state->file_table = NULL;
+
   return state;
 
 error:
