@@ -22,6 +22,8 @@ define SKYLARK_DAEMON_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/src/skylark_daemon $(TARGET_DIR)/usr/bin
 endef
 
+ifeq ($(BR2_PACKAGE_SKYLARK_DAEMON),y)
 BR2_ROOTFS_OVERLAY += "${SKYLARK_DAEMON_SITE}/overlay"
+endif
 
 $(eval $(generic-package))
