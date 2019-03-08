@@ -17,6 +17,7 @@ SOURCES_TESTS = \
 	test_sha256.cc \
 	test_table.cc \
 	test_version.cc \
+	test_kmin.cc \
 
 SOURCES_STR_TESTS = \
 	test_str.cc
