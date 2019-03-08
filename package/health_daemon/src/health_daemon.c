@@ -41,6 +41,8 @@
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
 
+/* #define ENABLE_SKYLARK_MONITOR */
+
 struct health_ctx_s {
   bool health_debug;
   pk_loop_t *loop;
@@ -79,7 +81,9 @@ static health_monitor_init_fn_pair_t health_monitor_init_pairs[] = {
   {baseline_threshold_health_monitor_init, baseline_threshold_health_monitor_deinit},
   {glo_obs_timeout_health_monitor_init, glo_obs_timeout_health_monitor_deinit},
   {glo_bias_timeout_health_monitor_init, glo_bias_timeout_health_monitor_deinit},
+#ifdef ENABLE_SKYLARK_MONITOR
   {skylark_monitor_init, skylark_monitor_deinit},
+#endif
   {ntrip_obs_timeout_health_monitor_init, ntrip_obs_timeout_health_monitor_deinit},
   {gnss_time_health_monitor_init, gnss_time_health_monitor_deinit},
   {base_num_sats_health_monitor_init, base_num_sats_health_monitor_deinit},

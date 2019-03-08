@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/sh
 
 interface_name=$1 ; shift
 tty_device=$1     ; shift
@@ -21,6 +21,9 @@ if [ "$USEPEERDNS" = "1" ]; then
 fi
 
 ntrip_daemon --reconnect
-skylark_daemon --reconnect-dl
+
+if command -v skylark_daemon 1>/dev/null 2>/dev/null; then
+  skylark_daemon --reconnect-dl
+fi
 
 # vim: ft=sh:
