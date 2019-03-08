@@ -74,8 +74,7 @@ static void do_kmin_test(size_t kmin_size_,
 
   kmin_invert(kmin, invert);
 
-  kmin_element_t results[kmin_count] = {0};
-  size_t result_count = kmin_find(kmin, 0, kmin_count, results);
+  size_t result_count = kmin_find(kmin, 0, kmin_count);
 
   ASSERT_EQ(result_count, kmin_count);
 
@@ -91,19 +90,19 @@ static void do_kmin_test(size_t kmin_size_,
     fprintf(stderr,
             "results[%d].score = %d, results[%d].ident = %s\n",
             x,
-            results[x].score,
+            kmin_score_at(kmin, x),
             x,
-            results[x].ident);
+            kmin_ident_at(kmin, x));
 
-    char ident[STR_SIZE] = {0};
+    char expected_ident_str[STR_SIZE] = {0};
 
     size_t expected_ident = invert ? score_x : kmin_size_ - score_x - 1;
     u32 expected_score = (u32)(invert ? kmin_size_ - 1 - score_x : score_x);
 
-    snprintf(ident, sizeof(ident), IDENT_TEMPLATE, expected_ident);
+    snprintf(expected_ident_str, sizeof(expected_ident_str), IDENT_TEMPLATE, expected_ident);
 
-    ASSERT_STREQ(results[x].ident, ident);
-    ASSERT_EQ(results[x].score, expected_score);
+    ASSERT_STREQ(expected_ident_str, kmin_ident_at(kmin, x));
+    ASSERT_EQ(expected_score, kmin_score_at(kmin, x));
   }
 
   kmin_destroy(&kmin);

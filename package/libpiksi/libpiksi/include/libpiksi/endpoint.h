@@ -306,3 +306,5 @@ void pk_endpoint_eagain_cb_set(pk_endpoint_t *pk_ept, pk_endpoint_eagain_fn_t ea
 #endif
 
 #endif /* LIBPIKSI_ENDPOINT_H */
+
+/** @} */

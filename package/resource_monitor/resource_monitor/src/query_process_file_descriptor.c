@@ -273,13 +273,11 @@ static void populate_maximums(table_t *the_table,
   bool compact = kmin_compact(max_fds);
   GOTO_FAIL(WHEN(!compact), AND_REPORT("kmin_compact failed"));
 
-  kmin_element_t fd_maxes[ITEM_COUNT] = {0};
-  ssize_t kmin_count = kmin_find(max_fds, 0, ITEM_COUNT, fd_maxes);
-
+  ssize_t kmin_count = kmin_find(max_fds, 0, ITEM_COUNT);
   GOTO_FAIL(WHEN(kmin_count < 0), AND_REPORT("kmin_find failed"));
 
   for (size_t i = 0; i < ssizet_to_sizet(kmin_count); i++) {
-    top10[i] = fd_maxes[i].ident;
+    top10[i] = kmin_ident_at(max_fds, i);
   }
 
 fail:
