@@ -18,13 +18,20 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/util.h>
 
+typedef struct kmin_element_s {
+  bool is_filled;
+  u32 score;
+  const char *ident;
+} kmin_element_t;
+
 struct kmin_s {
   kmin_element_t *arr;
   size_t size;
   size_t filled;
   bool invert;
   kmin_algorithm_t algo;
-  size_t largest_filled;
+  kmin_element_t *result;
+  size_t result_count;
 };
 
 #define KMIN_COMPARE(l, r) ((l).score == (r).score ? 0 : ((l).score < (r).score ? -1 : 1))
@@ -120,8 +127,10 @@ kmin_t *kmin_create_ex(size_t size, kmin_algorithm_t algo)
   ctx->size = size;
   ctx->algo = algo;
 
-  ctx->largest_filled = 0;
   ctx->filled = 0;
+
+  ctx->result = NULL;
+  ctx->result_count = 0;
 
   return ctx;
 }
@@ -129,6 +138,11 @@ kmin_t *kmin_create_ex(size_t size, kmin_algorithm_t algo)
 void kmin_destroy(kmin_t **pctx)
 {
   if (pctx == NULL || *pctx == NULL) return;
+
+  if ((*pctx)->result != NULL) {
+    free((*pctx)->result);
+    (*pctx)->result = NULL;
+  }
 
   free((*pctx)->arr);
   (*pctx)->arr = NULL;
@@ -182,6 +196,14 @@ void kmin_invert(kmin_t *kmin, bool invert)
 
 bool kmin_put(kmin_t *kmin, size_t index, u32 score, const char *ident)
 {
+  if (kmin->result != NULL) {
+
+    free(kmin->result);
+
+    kmin->result = NULL;
+    kmin->result_count = 0;
+  }
+
   if (index >= kmin->size) {
     return false;
   }
@@ -195,7 +217,6 @@ bool kmin_put(kmin_t *kmin, size_t index, u32 score, const char *ident)
   kmin->arr[index].is_filled = true;
 
   kmin->filled++;
-  kmin->largest_filled = SWFT_MAX(index, kmin->largest_filled);
 
   return true;
 }
@@ -236,7 +257,7 @@ static void handle_macro_timsort(kmin_t *kmin)
   }
 }
 
-ssize_t kmin_find(kmin_t *kmin, size_t kstart, size_t count, kmin_element_t *results)
+ssize_t kmin_find(kmin_t *kmin, size_t kstart, size_t count)
 {
   if (kmin->filled != kmin->size) {
     PK_LOG_ANNO(LOG_ERR, "fill size must equal allocated size");
@@ -248,7 +269,20 @@ ssize_t kmin_find(kmin_t *kmin, size_t kstart, size_t count, kmin_element_t *res
     return -1;
   }
 
+  if (kmin->result != NULL) {
+    free(kmin->result);
+    kmin->result = NULL;
+  }
+
   count = SWFT_MIN(kmin->size, count);
+  kmin->result = calloc(count, sizeof(kmin_element_t));
+
+  if (kmin->result == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "calloc failed");
+    return -1;
+  }
+
+  kmin->result_count = count;
 
   switch (kmin->algo) {
   case KMIN_ALGORITHM_STDLIB_QSORT: handle_stdlib_qsort(kmin); break;
@@ -259,8 +293,62 @@ ssize_t kmin_find(kmin_t *kmin, size_t kstart, size_t count, kmin_element_t *res
   }
 
   for (size_t k = kstart; k < count; k++) {
-    results[k] = kmin->arr[k];
+    kmin->result[k] = kmin->arr[k];
   }
 
   return sizet_to_ssizet(count);
+}
+
+ssize_t kmin_result_count(kmin_t *kmin)
+{
+  if (kmin->result == NULL) {
+
+    PK_LOG_ANNO(LOG_ERR, "no results ready");
+    return -1;
+  }
+
+  return sizet_to_ssizet(kmin->result_count);
+}
+
+bool kmin_result_at(kmin_t *kmin, size_t index, u32 *score_out, const char **ident_out)
+{
+  if (kmin->result == NULL) {
+    PK_LOG_ANNO(LOG_ERR, "no results ready");
+    return false;
+  }
+
+  if (index >= kmin->result_count) {
+    PK_LOG_ANNO(LOG_ERR, "requested index too large");
+    return false;
+  }
+
+  if (score_out != NULL) {
+    *score_out = kmin->result[index].score;
+  }
+
+  if (ident_out != NULL) {
+    *ident_out = kmin->result[index].ident;
+  }
+
+  return true;
+}
+
+u32 kmin_score_at(kmin_t *kmin, size_t index)
+{
+  u32 score = 0;
+
+  bool result_at = kmin_result_at(kmin, index, &score, NULL);
+  assert(result_at);
+
+  return score;
+}
+
+const char *kmin_ident_at(kmin_t *kmin, size_t index)
+{
+  const char *ident = NULL;
+
+  bool result_at = kmin_result_at(kmin, index, NULL, &ident);
+  assert(result_at);
+
+  return ident;
 }

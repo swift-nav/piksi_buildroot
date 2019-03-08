@@ -12,7 +12,8 @@
 
 /**
  * @file    kmin.h
- * @brief   kmin algorithm
+ *
+ * @brief   Find the K minimum (or maximum) elements of a group
  *
  * @defgroup    kmin
  * @addtogroup  kmin
@@ -28,41 +29,142 @@
 extern "C" {
 #endif
 
+/**
+ * @brief The sort algorithm to use for finding K-minimum values
+ */
 typedef enum {
-  KMIN_ALGORITHM_STDLIB_QSORT,
-  KMIN_ALGORITHM_KLIB_INTROSORT,
-  KMIN_ALGORITHM_MACRO_TIMSORT,
-  KMIN_ALGORITHM_MACRO_QSORT,
+  KMIN_ALGORITHM_STDLIB_QSORT,   /**< C stdlib qsort */
+  KMIN_ALGORITHM_KLIB_INTROSORT, /**< klib introsort */
+  KMIN_ALGORITHM_MACRO_TIMSORT,  /**< The "timsort" (from Python) algorithm, fastest for partially
+                                    ordered data. */
+  KMIN_ALGORITHM_MACRO_QSORT, /**< A macro version of quick sort, slightly faster than the built-in
+                                 qsort because there's no function overhead */
 } kmin_algorithm_t;
 
-typedef struct kmin_element_s {
-  bool is_filled;
-  u32 score;
-  const char *ident;
-} kmin_element_t;
-
+/**
+ * @brief Opaque context for kmin object
+ */
 typedef struct kmin_s kmin_t;
 
+/**
+ * @brief Create a kmin object with the default algorithm (@c KMIN_ALGORITHM_MACRO_TIMSORT)
+ *
+ * @param[in] elements   The number of elements this set will cover
+ *
+ * @return               Pointer to the created context, or NULL on failure
+ */
 kmin_t *kmin_create(size_t elements);
 
+/**
+ * @brief Create a kmin object with the default algorithm (@c KMIN_ALGORITHM_MACRO_TIMSORT)
+ *
+ * @param[in] elements   The number of elements this set will cover
+ * @param[in] algo       The sort algorithm to use, see @c kmin_algorithm_t
+ *
+ * @return               Pointer to the created context, or NULL on failure
+ */
 kmin_t *kmin_create_ex(size_t elements, kmin_algorithm_t algo);
 
+/**
+ * @brief Destory a kmin object
+ *
+ * @param[inout] kmin    The object being free'd, NULL'd on completion
+ */
 void kmin_destroy(kmin_t **kmin);
 
+/**
+ * @brief The max size of the set being covered
+ */
 size_t kmin_size(kmin_t *kmin);
 
+/**
+ * @brief How many elements of the current set have been filled.
+ */
 size_t kmin_filled(kmin_t *kmin);
 
+/**
+ * @brief Compact the set so that the filled elements match the total size.
+ *
+ * @details This is useful if you know the size of an input set but what to
+ *          exclude some elements from the final set.
+ *
+ * @return  True if the compaction succeeded.  Only fails if memory allocation fails.
+ */
 bool kmin_compact(kmin_t *kmin);
 
+/**
+ * @brief Invert the sort and return maximums instead of minimums.
+ */
 void kmin_invert(kmin_t *kmin, bool invert);
 
+/**
+ * @brief Insert an element into the set.
+ *
+ * @param[in] kmin    The kmin object
+ *
+ * @return    False if index is outside the bounds of the set, or if
+ *            memory allocation fails.
+ */
 bool kmin_put(kmin_t *kmin, size_t index, u32 score, const char *ident);
 
-ssize_t kmin_find(kmin_t *kmin, size_t kstart, size_t count, kmin_element_t *result_array);
+/**
+ * @brief Find the K smallest (or largest) elements of the set.
+ *
+ * @param[in] kmin    The kmin object
+ * @param[in] kstart  The Kth element to start at
+ * @param[in] count   The number of elements from the Kth element
+ *
+ * @return    The number of elements in the result set, -1 on failure.
+ */
+ssize_t kmin_find(kmin_t *kmin, size_t kstart, size_t count);
+
+/**
+ * @brief The number of elements in the result set
+ *
+ * @return    -1 if the result set has not been computed yet, or the size
+ *            of the result set on success.
+ */
+ssize_t kmin_result_count(kmin_t *kmin);
+
+/**
+ * @brief Fetch a particular element from a result set.
+ *
+ * @param[in]  kmin    The kmin object
+ * @param[out] index   The requested index
+ * @param[out] score   The output score
+ * @param[out] ident   The output ident
+ *
+ * @return    False if the result set has not been computed yet or if
+ *            the request index is outside the bounds of the result set.
+ */
+bool kmin_result_at(kmin_t *kmin, size_t index, u32 *score, const char **ident);
+
+/**
+ * @brief Fetch a score element from a result set.
+ *
+ * @param[in]  kmin    The kmin object
+ * @param[out] index   The requested index
+ *
+ * @return    The request score, asserts internally if an invalid index
+ *            is requested, or if the result set hasn't been computed yet.
+ */
+u32 kmin_score_at(kmin_t *kmin, size_t index);
+
+/**
+ * @brief Fetch a ident element from a result set.
+ *
+ * @param[in]  kmin    The kmin object
+ * @param[out] index   The requested index
+ *
+ * @return    The request ident, asserts internally if an invalid index
+ *            is requested, or if the result set hasn't been computed yet.
+ */
+const char *kmin_ident_at(kmin_t *kmin, size_t index);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
+
+/** @} */
