@@ -145,16 +145,22 @@ nano-image: nano-config
 nano-clean:
 	rm -rf buildroot/nano_output
 
-rebuild-changed: export BUILD_TEMP=/tmp SINCE=$(SINCE)
+rebuild-changed: export BUILD_TEMP=/tmp SINCE=$(SINCE) IGNORE=$(_REBUILD_CHANGED_IGNORE)
 rebuild-changed: _rebuild_changed
 
-REBUILD_CHANGED_IGNORE := release_lockdown|piksi_ins|sample_daemon|llvm_o|llvm_v|build_tools
+_REBUILD_CHANGED_IGNORE_DEFAULT := release_lockdown,piksi_ins,sample_daemon,llvm_o,llvm_v,build_tools
+
+ifneq ($(IGNORE),)
+_REBUILD_CHANGED_IGNORE := $(IGNORE),$(_REBUILD_CHANGED_IGNORE_DEFAULT)
+else
+_REBUILD_CHANGED_IGNORE := $(_REBUILD_CHANGED_IGNORE_DEFAULT)
+endif
 
 _rebuild_changed:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot \
-			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) \
-				scripts/changed_project_targets.py | grep -v -E '($(REBUILD_CHANGED_IGNORE))') \
+			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) IGNORE=$(IGNORE) \
+				scripts/changed_project_targets.py) \
 			O=output
 
 _print_db:
@@ -176,7 +182,7 @@ docker-populate-volume:
 docker-setup: docker-build-image docker-populate-volume
 
 docker-rebuild-changed:
-	docker run $(DOCKER_ARGS) -e BUILD_TEMP=/host/tmp -e SINCE=$(SINCE) \
+	docker run $(DOCKER_ARGS) -e BUILD_TEMP=/host/tmp -e SINCE=$(SINCE) -e IGNORE=$(_REBUILD_CHANGED_IGNORE) \
 		$(DOCKER_TAG) \
 		make _rebuild_changed
 

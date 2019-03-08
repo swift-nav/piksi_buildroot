@@ -108,11 +108,20 @@ for line in get_files_changed():
 
 deps = scrape_deps()
 
+ignore = set()
+ignore_env_value = os.environ.get('IGNORE')
+
+if ignore_env_value is not None:
+    ignore = ignore.union(set(ignore_env_value.split(',')))
+
 for dep in reversed(topological(deps)):
     if dep in packages:
-        target = (dep + b'-dirclean').decode('utf8')
+        dep = dep.decode('utf8')
+        if dep in ignore:
+            continue
+        target = dep + '-dirclean'
         print(target)
-        target = (dep + b'-rebuild').decode('utf8')
+        target = dep + '-rebuild'
         print(target)
 
 # vim: et:sts=4:sw=4:ts=4:
