@@ -53,5 +53,8 @@ uint32_t framer_process(void *state,
 
   uint32_t data_offset = 0;
   piksi_log(LOG_ERR, "J1939 framer_process");
-  return data_offset;
+  for (int i = 0; i < data_length; i++) {
+    piksi_log(LOG_ERR, "%02X", data[i]);
+  }
+  return data_length;
 }
