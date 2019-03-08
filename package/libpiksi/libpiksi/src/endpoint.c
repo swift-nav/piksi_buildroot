@@ -60,10 +60,8 @@
 #ifdef DEBUG_ENDPOINT
 #  define ENDPOINT_DEBUG_LOG(ThePattern, ...) \
      PK_LOG_ANNO(LOG_DEBUG, ThePattern, ##__VA_ARGS__)
-#  define NDEBUG_UNUSED(X)
 #else
 #  define ENDPOINT_DEBUG_LOG(...)
-#  define NDEBUG_UNUSED(X) (void)(X)
 #endif
 /* clang-format on */
 
