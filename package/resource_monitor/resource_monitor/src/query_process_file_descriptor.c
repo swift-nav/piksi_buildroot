@@ -21,6 +21,7 @@
 #include <libsbp/linux.h>
 
 #include <libpiksi/cast_check.h>
+#include <libpiksi/kmin.h>
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
 #include <libpiksi/table.h>
@@ -31,14 +32,40 @@
 #include "resource_query.h"
 #include "resmon_common.h"
 
-//#define DEBUG_QUERY_FD_TAB
-
 #define ITEM_COUNT 10
 #define MAX_PROCESS_COUNT 2048
-#define MAX_FILE_COUNT 1024 * 16
+#define MAX_FILE_COUNT (1024 * 16)
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
-#define LSOF_CMD_BUF_LENGTH 1024 * 4
+#define LSOF_CMD_BUF_LENGTH (1024 * 4)
 #define COMMAND_LINE_MAX (256u)
+
+/* clang-format off */
+/* #define DEBUG_QUERY_FD_TAB */
+#ifdef DEBUG_QUERY_FD_TAB
+#  define QPF_DEBUG_LOG(ThePattern, ...) \
+     PK_LOG_ANNO(LOG_DEBUG, ThePattern, ##__VA_ARGS__)
+#else
+#  define QPF_DEBUG_LOG(...)
+#endif
+/* clang-format on */
+
+#define WHEN(WhenExpr) WhenExpr
+
+#define AND_REPORT(TheMsg) TheMsg
+
+#define GOTO_FAIL(Expr, Msg)     \
+  do {                           \
+    if ((Expr)) {                \
+      PK_LOG_ANNO(LOG_ERR, Msg); \
+      goto fail;                 \
+    }                            \
+  } while (0)
+
+
+typedef struct {
+  bool put_success;
+  kmin_t *max_fds;
+} populate_ctx_t;
 
 typedef enum {
   SEND_FD_COUNTS_0,
@@ -80,11 +107,6 @@ typedef struct {
   const char *top10_pid_counts[ITEM_COUNT];
   const char *top10_file_counts[ITEM_COUNT];
 } resq_state_t;
-
-typedef struct id_to_count {
-  u16 count;
-  const char *id;
-} id_to_count_t;
 
 enum {
   FD_STATE_ID_STR = 0,
@@ -136,18 +158,14 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
     pid_entry_t new_entry = {0};
     int s = snprintf(new_entry.id_str, sizeof(entry->id_str), "%s", id_str);
     if (s < 0 || (size_t)s >= sizeof(entry->id_str)) {
-#ifdef DEBUG_QUERY_FD_TAB
       PK_LOG_ANNO(LOG_WARNING, "file descriptor query: failed to copy pid string");
-#endif
       return false;
     }
     unsigned long pid = 0;
     if (!strtoul_all(10, id_str, &pid)) {
-#ifdef DEBUG_QUERY_FD_TAB
       PK_LOG_ANNO(LOG_WARNING,
                   "file descriptor query: failed to convert pid str to number: %s",
                   strerror(errno));
-#endif
       return false;
     }
     new_entry.pid = (u16)pid;
@@ -170,22 +188,18 @@ static bool process_fd_entry(resq_state_t *state, const char *file_str, const ch
       file_entry_t new_entry = {0};
       int s = snprintf(new_entry.file_str, sizeof(new_entry.file_str), "%s", file_str);
       if (s < 0 || (size_t)s >= sizeof(file_entry->file_str)) {
-#ifdef DEBUG_QUERY_FD_TAB
         PK_LOG_ANNO(LOG_WARNING,
                     "file descriptor query: failed to copy file string '%s'",
                     file_str);
-#endif
         return false;
       }
       file_entry = calloc(1, sizeof(file_entry_t));
       *file_entry = new_entry;
       bool added = file_table_put(state->file_table, file_str, file_entry);
       if (!added) {
-#ifdef DEBUG_QUERY_FD_TAB
-        PK_LOG_ANNO(LOG_WARNING,
+        PK_LOG_ANNO(LOG_ERR,
                     "file descriptor query: failed to add entry for file string '%s'",
                     file_str);
-#endif
         free(file_entry);
         return false;
       }
@@ -229,46 +243,113 @@ static bool parse_fd_line(resq_state_t *state, const char *line)
                                             }};
 
   if (!parse_tab_line(line, FD_STATE_ID_STR, FD_STATE_DONE, line_specs, "\t")) {
-#ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_ERR, "file descriptor query: parse_tab_line failed :%s\n", line);
-#endif
+    PK_LOG_ANNO(LOG_WARNING, "file descriptor query: parse_tab_line failed :%s\n", line);
     return false;
   }
   return process_fd_entry(state, file_str, id_str);
 }
 
-static int compare_counts(const void *ptc1, const void *ptc2)
+static void populate_maximums(table_t *the_table,
+                              char const *top10[],
+                              table_foreach_fn_t foreach_key_fn)
 {
-  const id_to_count_t *id_to_count1 = ptc1;
-  const id_to_count_t *id_to_count2 = ptc2;
-  return -((int)id_to_count1->count - (int)id_to_count2->count);
+  for (size_t i = 0; i < ITEM_COUNT; i++) {
+    top10[i] = "";
+  }
+
+  size_t table_count_ = table_count(the_table);
+  kmin_t *max_fds = kmin_create(table_count_);
+
+  GOTO_FAIL(WHEN(max_fds == NULL), AND_REPORT("kmin_create failed"));
+
+  /* Get maximums instead of minimums */
+  kmin_invert(max_fds, true);
+
+  populate_ctx_t ctx = {.put_success = true, .max_fds = max_fds};
+
+  table_foreach_key(the_table, &ctx, foreach_key_fn);
+  GOTO_FAIL(WHEN(!ctx.put_success), AND_REPORT("kmin_put failed"));
+
+  bool compact = kmin_compact(max_fds);
+  GOTO_FAIL(WHEN(!compact), AND_REPORT("kmin_compact failed"));
+
+  kmin_element_t fd_maxes[ITEM_COUNT] = {0};
+  ssize_t kmin_count = kmin_find(max_fds, 0, ITEM_COUNT, fd_maxes);
+
+  GOTO_FAIL(WHEN(kmin_count < 0), AND_REPORT("kmin_find failed"));
+
+  for (size_t i = 0; i < ssizet_to_sizet(kmin_count); i++) {
+    top10[i] = fd_maxes[i].ident;
+  }
+
+fail:
+  kmin_destroy(&max_fds);
+}
+
+static void populate_max_by_pid(resq_state_t *state)
+{
+  table_foreach_fn_t foreach_key_fn =
+    NESTED_FN(bool, (table_t * table, const char *key, size_t index, void *p), {
+      populate_ctx_t *ctx = p;
+
+      pid_entry_t *entry = pid_table_get(table, key);
+      ctx->put_success = kmin_put(ctx->max_fds, index, entry->fd_count, key);
+
+      return ctx->put_success;
+    });
+
+  populate_maximums(state->pid_table, state->top10_pid_counts, foreach_key_fn);
+}
+
+static void populate_max_by_file(resq_state_t *state)
+{
+  table_foreach_fn_t foreach_key_fn =
+    NESTED_FN(bool, (table_t * table, const char *key, size_t index, void *p), {
+      populate_ctx_t *ctx = p;
+
+      file_entry_t *entry = file_table_get(table, key);
+      if (strncmp(key, "/", 1) != 0) return true;
+
+      ctx->put_success = kmin_put(ctx->max_fds, index, entry->fd_count, key);
+
+      return ctx->put_success;
+    });
+
+  populate_maximums(state->file_table, state->top10_file_counts, foreach_key_fn);
 }
 
 static void run_resource_query(void *context)
 {
   resq_state_t *state = context;
+
   if (state->pid_table != NULL) {
     table_destroy(&state->pid_table);
   }
+
   if (state->file_table != NULL) {
     table_destroy(&state->file_table);
   }
+
   char leftover_buffer[LSOF_CMD_BUF_LENGTH] = {0};
   leftover_t NESTED_AXX(leftover) = {.buf = leftover_buffer, .size = 0};
+
   size_t NESTED_AXX(no_line_count) = 0;
+
   state->error_code = 0;
   state->send_state = SEND_FD_COUNTS_0;
   state->pid_table = table_create(MAX_PROCESS_COUNT);
   state->file_table = table_create(MAX_FILE_COUNT);
   state->total_fd_count = 0;
+
   if (state->pid_table == NULL) {
-    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "file descriptor query: pid table creation failed");
+    PK_LOG_ANNO(LOG_ERR, "file descriptor query: pid table creation failed");
     state->error_code = 1;
     state->send_state = SEND_ERROR;
     return;
   }
+
   if (state->file_table == NULL) {
-    PK_LOG_ANNO(LOG_ERR | LOG_SBP, "file descriptor query: file table creation failed");
+    PK_LOG_ANNO(LOG_ERR, "file descriptor query: file table creation failed");
     state->error_code = 2;
     state->send_state = SEND_ERROR;
     return;
@@ -276,9 +357,7 @@ static void run_resource_query(void *context)
 
   line_fn_t line_func = NESTED_FN(bool, (const char *line), {
     if (!parse_fd_line(state, line)) {
-#ifdef DEBUG_QUERY_FD_TAB
-      PK_LOG_ANNO(LOG_ERR, "file descriptor query: parse_fd_line failed ");
-#endif
+      PK_LOG_ANNO(LOG_WARNING, "file descriptor query: parse_fd_line failed ");
       return false;
     }
     return true;
@@ -290,30 +369,25 @@ static void run_resource_query(void *context)
 
     /* foreach_line requires a null terminated string */
     buffer[length] = '\0';
-#ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_DEBUG, "length: %d, buffer: <<%s>>", length, buffer);
-#endif
+
+    QPF_DEBUG_LOG("length: %d, buffer: <<%s>>", length, buffer);
 
     ssize_t consumed = foreach_line(buffer, &leftover, line_func);
     if (consumed < 0) {
-      PK_LOG_ANNO(LOG_WARNING, "there was an error parsing the 'ss' output");
+      PK_LOG_ANNO(LOG_WARNING, "there was an error parsing the 'lsof' output");
       return -1;
     }
 
     if (leftover.line_count == 0 && ++no_line_count >= 2) {
-#ifdef DEBUG_QUERY_FD_TAB
       PK_LOG_ANNO(LOG_WARNING, "command output had no newlines");
-#endif
       return -1;
     }
 
-#ifdef DEBUG_QUERY_FD_TAB
     if (leftover.size > 0) {
-      PK_LOG_ANNO(LOG_DEBUG, "leftover: '%s'", leftover.buf);
+      QPF_DEBUG_LOG("leftover: '%s'", leftover.buf);
     }
-#endif
-    no_line_count = 0;
 
+    no_line_count = 0;
     return (ssize_t)length;
   });
 
@@ -324,6 +398,7 @@ static void run_resource_query(void *context)
                               .buffer = buf,
                               .length = sizeof(leftover_buffer) - 1,
                               .func = buffer_fn};
+
   if (run_command(&run_config) != 0) {
     PK_LOG_ANNO(LOG_ERR,
                 "file descriptor query: error running 'lsof' command: %s",
@@ -333,74 +408,26 @@ static void run_resource_query(void *context)
     return;
   }
 
-  for (size_t i = 0; i < ITEM_COUNT; i++) {
-    state->top10_pid_counts[i] = "";
-    state->top10_file_counts[i] = "";
-  }
+  populate_max_by_pid(state);
 
-  size_t pid_count = table_count(state->pid_table);
-  id_to_count_t *NESTED_AXX(pid_to_count) = alloca(pid_count * sizeof(id_to_count_t));
-
-  table_foreach_key(state->pid_table,
-                    NULL,
-                    NESTED_FN(bool,
-                              (table_t * table, const char *key, size_t index, void *context1),
-                              {
-                                (void)context1;
-                                pid_entry_t *entry = pid_table_get(table, key);
-                                pid_to_count[index].id = key;
-                                pid_to_count[index].count = entry->fd_count;
-                                return true;
-                              }));
-
-  qsort(pid_to_count, pid_count, sizeof(id_to_count_t), compare_counts);
-
-  for (size_t i = 0; i < ITEM_COUNT && i < pid_count; i++) {
-    state->top10_pid_counts[i] = pid_to_count[i].id;
-#ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_DEBUG, "TOP 10 FD PID : %s : %d", pid_to_count[i].id, pid_to_count[i].count);
-#endif
-  }
-
-  size_t file_count = table_count(state->file_table);
-  id_to_count_t *NESTED_AXX(file_to_count) = alloca(file_count * sizeof(id_to_count_t));
-
-  size_t file_to_count_size = 0;
-  table_foreach_key(state->file_table,
-                    &file_to_count_size,
-                    NESTED_FN(bool,
-                              (table_t * table, const char *key, size_t _index, void *context1),
-                              {
-                                (void)_index;
-                                size_t *file_to_count_size_ = context1;
-                                file_entry_t *entry = file_table_get(table, key);
-                                if (strncmp(key, "/", 1) != 0) return true;
-                                size_t index = (*file_to_count_size_)++;
-                                file_to_count[index].id = key;
-                                file_to_count[index].count = entry->fd_count;
-                                return true;
-                              }));
-
-  qsort(file_to_count, file_to_count_size, sizeof(id_to_count_t), compare_counts);
-
-  for (size_t i = 0; i < ITEM_COUNT && i < file_count; i++) {
-    state->top10_file_counts[i] = file_to_count[i].id;
-#ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_DEBUG, "TOP 10 FD FILE : %s : %d", file_to_count[i].id, file_to_count[i].count);
-#endif
-  }
+  populate_max_by_file(state);
 }
 
 static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
 {
   resq_state_t *state = context;
+
   if (state->send_state == SEND_DONE) return false;
+
   if (table_count(state->pid_table) < ITEM_COUNT || table_count(state->file_table) < ITEM_COUNT) {
     state->error_code = 4;
     state->send_state = SEND_ERROR;
   }
-  assert(0 == SEND_FD_COUNTS_0);
+
+  static_assert(0 == SEND_FD_COUNTS_0, "SEND_FD_COUNTS_0 value should be 0");
+
   size_t index = (size_t)state->send_state;
+
   switch (state->send_state) {
   case SEND_FD_COUNTS_0:
   case SEND_FD_COUNTS_1:
@@ -438,14 +465,12 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
 
     strncpy(fd_counts->cmdline, entry->cmdline, cmdline_len);
 
-#ifdef DEBUG_QUERY_FD_TAB
-    PK_LOG_ANNO(LOG_DEBUG,
-                "index : %d pid: %d : fd_count : %d cmd line : %s",
-                fd_counts->index,
-                fd_counts->pid,
-                fd_counts->fd_count,
-                fd_counts->cmdline);
-#endif
+    QPF_DEBUG_LOG("index : %d pid: %d : fd_count : %d cmd line : %s",
+                  fd_counts->index,
+                  fd_counts->pid,
+                  fd_counts->fd_count,
+                  fd_counts->cmdline);
+
     *len = (u8)(sizeof(msg_linux_process_fd_count_t) + cmdline_len);
 
   } break;
@@ -490,13 +515,11 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
 
       consumed += int_to_sizet(_consumed) + 1 /* NULL terminator */;
 
-#ifdef DEBUG_QUERY_FD_TAB
-      PK_LOG_ANNO(LOG_DEBUG,
-                  "summary: %zu: %d %s bytes",
-                  consumed,
-                  file_entry->fd_count,
-                  file_entry->file_str);
-#endif
+      QPF_DEBUG_LOG("summary: %zu: %d %s bytes",
+                    consumed,
+                    file_entry->fd_count,
+                    file_entry->file_str);
+
       if (consumed > fd_summary_max_size) {
         consumed = fd_summary_max_size;
         fd_summary->most_opened[consumed - 2] = '\0';
@@ -514,38 +537,41 @@ static bool query_fd_prepare(u16 *msg_type, u8 *len, u8 *sbp_buf, void *context)
 
     break;
   }
+
+  case SEND_DONE: break;
+
   case SEND_ERROR:
     PK_LOG_ANNO(LOG_ERR, "file descriptor query failed, error code: %d", state->error_code);
     *len = 0;
     return false;
-  case SEND_DONE:
-  default: {
+
+  default:
     PK_LOG_ANNO(LOG_ERR, "file descriptor query: invalid state value: %d", state->send_state);
     return false;
   }
-  }
+
   state->send_state++;
+
   return true;
 }
 
 static void *init_resource_query()
 {
   u16 pid_count = 0;
+
   resq_state_t *state = calloc(1, sizeof(resq_state_t));
   resq_read_property_t read_prop = {.id = QUERY_SYS_PROP_PID_COUNT, .type = RESQ_PROP_U16};
+
   if (!resq_read_property(QUERY_SYS_STATE_NAME, &read_prop)) {
     PK_LOG_ANNO(LOG_WARNING,
                 "failed to read 'pid count' property from '%s' module",
                 QUERY_SYS_STATE_NAME);
     goto error;
   }
+
   pid_count = read_prop.property.u16;
-#ifdef DEBUG_QUERY_FD_TAB
-  PK_LOG_ANNO(LOG_DEBUG,
-              "'%s' module reported %d processes on the system",
-              QUERY_SYS_STATE_NAME,
-              pid_count);
-#endif
+  QPF_DEBUG_LOG("'%s' module reported %d processes on the system", QUERY_SYS_STATE_NAME, pid_count);
+
   if (pid_count > MAX_PROCESS_COUNT) {
     PK_LOG_ANNO(LOG_ERR,
                 "detected more than %d processes on the system: %d",
