@@ -479,9 +479,10 @@ static ssize_t can_read(int skt, void *buffer, size_t count)
     if ((ret == -1) && (errno == EINTR)) {
       continue;
     } else {
-      assert(count >= frame.can_dlc);
-      memcpy(buffer, frame.data, frame.can_dlc);
-      return frame.can_dlc;
+      assert(count >= sizeof(frame.can_id) + frame.can_dlc);
+      memcpy(buffer, &frame.can_id, sizeof(frame.can_id));
+      memcpy(buffer + sizeof(frame.can_id), frame.data, frame.can_dlc);
+      return sizeof(frame.can_id) + frame.can_dlc;
     }
   }
 }
