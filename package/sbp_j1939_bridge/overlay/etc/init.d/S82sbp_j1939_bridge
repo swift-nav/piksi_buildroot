@@ -5,5 +5,10 @@ cmd="sbp_j1939_bridge"
 dir="/"
 user="br_j1939"
 
+setup_permissions()
+{
+  add_service_user $user
+}
+
 source /etc/init.d/template_runsv.inc.sh
 
