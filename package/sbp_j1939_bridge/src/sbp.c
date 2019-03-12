@@ -67,6 +67,11 @@ failure:
   return -1;
 }
 
+pk_loop_t *sbp_get_loop(void)
+{
+  return ctx.loop;
+}
+
 void sbp_deinit(void)
 {
   if (ctx.loop != NULL) {

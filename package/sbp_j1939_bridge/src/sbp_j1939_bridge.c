@@ -135,6 +135,11 @@ int main(int argc, char *argv[])
     exit(cleanup(&j1939_sub, EXIT_FAILURE));
   }
 
+  loop = sbp_get_loop();
+  if (loop == NULL) {
+    exit(cleanup(&j1939_sub, EXIT_FAILURE));
+  }
+
   if (pk_loop_endpoint_reader_add(loop, j1939_sub, j1939_reader_handler, j1939_sub) == NULL) {
     piksi_log(LOG_ERR, "error adding reader");
     exit(cleanup(&j1939_sub, EXIT_FAILURE));
