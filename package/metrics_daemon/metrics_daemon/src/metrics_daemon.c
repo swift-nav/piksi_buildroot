@@ -17,6 +17,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/file.h>
+
 #include <json-c/json.h>
 
 #include <libpiksi/logging.h>
@@ -197,7 +199,9 @@ int handle_walk_path(const char *fpath, const struct stat *sb, int tflag)
         piksi_log(LOG_ERR, "error opening %s : %s", fpath, strerror(errno));
         return -1;
       }
+      flock(fileno(fp), LOCK_EX);
       fread(&buf[0], (unsigned int)file_len, 1, fp);
+      flock(fileno(fp), LOCK_UN);
       fclose(fp);
       number = atof(&buf[0]);
     } else {

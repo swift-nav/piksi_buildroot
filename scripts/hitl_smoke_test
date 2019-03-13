@@ -26,7 +26,8 @@ HITL_VIEWER_BUILD_TYPE = "buildroot_pr"
 
 # HITL scenarios to kick off, and # of runs for each scenario.
 SCENARIOS = (
-    ("live-roof-650-townsend-post", 1),
+    ("live-roof-650-townsend", 1),
+    ("live-roof-650-townsend-dropouts-zero-baseline", 1),
 )
 
 if os.environ.get('TRAVIS_OS_NAME') != 'linux':
@@ -122,7 +123,7 @@ These test runs are kicked off whenever you push a new commit to this PR. All pa
 ### gnss-analysis results
 At least one run must complete for these links to have data.
 
-#### passfail"
+#### passfail
 {PASS_FAIL_LIST}
 
 #### detailed
@@ -208,10 +209,10 @@ def main():
         write_metrics_yaml(scenario, runs)
         R().call("scripts/publish.sh", "metrics.yaml").check()
 
-        pr_comment = gen_hitl_comment(gen_job_list(capture_ids), gen_pass_fail_list(), gen_detailed_list())
+    pr_comment = gen_hitl_comment(gen_job_list(capture_ids), gen_pass_fail_list(), gen_detailed_list())
 
-        print("PR comment:\n{}".format(pr_comment))
-        post_github_comment(pr_comment)
+    print("PR comment:\n{}".format(pr_comment))
+    post_github_comment(pr_comment)
             
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Swift Navigation Inc.
+ * Copyright (C) 2018-2019 Swift Navigation Inc.
  * Contact: Swift Navigation <dev@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -10,11 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* Adapted from: https://github.com/novaua/ExpC/blob/master/glibc_hash_tbl/main.c */
-
-#define _GNU_SOURCE
 #include <assert.h>
-#include <search.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,33 +19,31 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/table.h>
 
+#include "vendor/uthash.h"
+
+typedef struct hash_entry_s {
+  char *key;
+  void *data;
+  UT_hash_handle hh;
+} hash_entry;
+
 typedef struct table_s {
-  struct hsearch_data htab;
-  size_t size;
   table_destroy_entry_fn_t destroy_entry;
-  char *keys[];
+  hash_entry *hash_entries;
+  size_t max_entries;
 } table_t;
 
-#define TABLE_T_INITIALIZER                     \
-  (table_t)                                     \
-  {                                             \
-    .htab = (struct hsearch_data){0}, .size = 0 \
-  }
-
-table_t *table_create(size_t size, table_destroy_entry_fn_t destroy_entry_fn)
+table_t *table_create(size_t max_entries)
 {
-  table_t *table = NULL;
-  size_t sizeof_keys = size * sizeof(*table->keys[0]);
+  return table_create_ex(max_entries, NULL);
+}
 
-  table = malloc(sizeof(*table) + sizeof_keys);
-  *table = TABLE_T_INITIALIZER;
+table_t *table_create_ex(size_t max_entries, table_destroy_entry_fn_t destroy_entry_fn)
+{
+  table_t *table = calloc(1, sizeof(*table));
 
-  hcreate_r(size, &table->htab);
-
-  table->size = size;
   table->destroy_entry = destroy_entry_fn;
-
-  bzero(table->keys, sizeof_keys);
+  table->max_entries = max_entries;
 
   return table;
 }
@@ -59,79 +53,81 @@ void table_destroy(table_t **ptable)
   if (ptable == NULL || *ptable == NULL) return;
 
   table_t *table = *ptable;
+  hash_entry *entry, *tmp;
 
-  for (size_t i = 0; i < table->htab.filled; ++i) {
-#ifdef DEBUG_PIKSI_TABLE
-    PK_LOG_ANNO(LOG_DEBUG, "free'ing entry with key '%s'", table->keys[i]);
-#endif
-    void *dt = table_get(table, table->keys[i]);
-    assert(dt && "no data!");
-
-    table->destroy_entry(table, &dt);
-    assert(dt == NULL);
+  HASH_ITER(hh, table->hash_entries, entry, tmp)
+  {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+    HASH_DEL(table->hash_entries, entry);
+#pragma GCC diagnostic pop
+    if (table->destroy_entry != NULL) {
+      table->destroy_entry(entry->data);
+    } else {
+      free(entry->data);
+    }
+    free(entry->key);
+    free(entry);
   }
 
-  for (size_t i = 0; i < table->htab.filled; ++i) {
-#ifdef DEBUG_PIKSI_TABLE
-    PK_LOG_ANNO(LOG_DEBUG, "free'ing key '%s'", table->keys[i]);
-#endif
-    free(table->keys[i]);
-
-    table->keys[i] = NULL;
-  }
-
-  hdestroy_r(&table->htab);
   free(table);
-
   *ptable = NULL;
 }
 
 bool table_put(table_t *table, const char *key, void *data)
 {
-  int n = 0;
-  ENTRY e, *ep = NULL;
+  hash_entry *entry = NULL;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch-default"
+  HASH_FIND_STR(table->hash_entries, key, entry);
+#pragma GCC diagnostic pop
 
-  e.key = strdup(key);
-  e.data = data;
-
-  unsigned int fb = table->htab.filled;
-  n = hsearch_r(e, ENTER, &ep, &table->htab);
-
-  if (fb < table->htab.filled) {
-    if (table->keys[fb] != 0) {
-      PK_LOG_ANNO(LOG_ERR, "no free space");
-      return false;
-    }
-    table->keys[fb] = e.key;
-  } else {
+  if (entry != NULL) {
     PK_LOG_ANNO(LOG_ERR, "overwrite is not supported");
     return false;
   }
 
-  return n != 0;
+  if (table_count(table) >= table->max_entries) {
+    PK_LOG_ANNO(LOG_ERR, "table entries exhausted");
+    return false;
+  }
+
+  hash_entry *new_entry = calloc(1, sizeof(*new_entry));
+
+  new_entry->key = strdup(key);
+  new_entry->data = data;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch-default"
+  HASH_ADD_KEYPTR(hh, table->hash_entries, new_entry->key, strlen(new_entry->key), new_entry);
+#pragma GCC diagnostic pop
+
+  return true;
 }
 
 void *table_get(table_t *table, const char *key_in)
 {
-  int n = 0;
-  ENTRY e = {0}, *ep = NULL;
+  hash_entry *entry = NULL;
 
-  e.key = (char *)key_in;
-  n = hsearch_r(e, FIND, &ep, &table->htab);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch-default"
+  HASH_FIND_STR(table->hash_entries, key_in, entry);
+#pragma GCC diagnostic push
 
-  if (!n) return NULL;
-
-  return ep->data;
+  return entry != NULL ? entry->data : NULL;
 }
 
 void table_foreach_key(table_t *table, void *context, table_foreach_fn_t func)
 {
-  for (unsigned int idx = 0; idx < table->htab.filled; idx++) {
-    if (!func(table, table->keys[idx], (size_t)idx, context)) break;
+  size_t index = 0;
+  hash_entry *entry, *tmp;
+  HASH_ITER(hh, table->hash_entries, entry, tmp)
+  {
+    if (!func(table, entry->key, index++, context)) break;
   }
 }
 
 size_t table_count(table_t *table)
 {
-  return (size_t)table->htab.filled;
+  return HASH_COUNT(table->hash_entries);
 }

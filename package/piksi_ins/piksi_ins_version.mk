@@ -1,4 +1,4 @@
 # The piksi-releases project is used to manage the piksi_ins version,
 #   any updates here will be overwritten the next time piksi-releases
 #   is run.
-PIKSI_RELEASES_INS_VERSION = cd70721298e0c1491b966eca0c99017b3b72ff3d
+PIKSI_RELEASES_INS_VERSION = v2.1.0-develop-2019030823

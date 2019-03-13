@@ -15,7 +15,8 @@ cmd="sbp_fileio_daemon \
 --sub ipc:///var/run/sockets/fileio_${daemon_name}.pub \
 --basedir $ndb_dir \
 --basedir $flag_dir \
---mtd"
+--mtd \
+--no-threading"
 dir="/"
 user="fileio"
 
