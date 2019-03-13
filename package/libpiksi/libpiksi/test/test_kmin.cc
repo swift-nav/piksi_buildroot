@@ -35,13 +35,9 @@ const bool run_long_tests = false;
     return;                                     \
   }
 
-static void do_kmin_test(size_t kmin_size_,
-                         size_t kmin_count,
-                         kmin_algorithm_t algo,
-                         bool invert,
-                         bool skip_even)
+static void do_kmin_test(size_t kmin_size_, size_t kmin_count, bool invert, bool skip_even)
 {
-  kmin_t *kmin = kmin_create_ex(kmin_size_, algo);
+  kmin_t *kmin = kmin_create(kmin_size_);
   ASSERT_NE(kmin, nullptr);
 
   char **strings = (char **)calloc(kmin_size_, sizeof(char *));
@@ -117,44 +113,26 @@ static void do_kmin_test(size_t kmin_size_,
 
 TEST_F(LibpiksiTests, kmin_small)
 {
-  do_kmin_test(KMIN_SMALL_SIZE, KMIN_COUNT, KMIN_ALGORITHM_MACRO_QSORT, false, false);
+  do_kmin_test(KMIN_SMALL_SIZE, KMIN_COUNT, false, false);
 }
 
 TEST_F(LibpiksiTests, kmin_small_compact)
 {
-  do_kmin_test(KMIN_SMALL_SIZE, KMIN_COUNT, KMIN_ALGORITHM_MACRO_QSORT, false, true);
+  do_kmin_test(KMIN_SMALL_SIZE, KMIN_COUNT, false, true);
 }
 
 TEST_F(LibpiksiTests, kmin_medium)
 {
-  do_kmin_test(KMIN_MEDIUM_SIZE, KMIN_COUNT, KMIN_ALGORITHM_MACRO_TIMSORT, false, false);
+  do_kmin_test(KMIN_MEDIUM_SIZE, KMIN_COUNT, false, false);
 }
 
 TEST_F(LibpiksiTests, kmin_medium_invert)
 {
-  do_kmin_test(KMIN_MEDIUM_SIZE, KMIN_COUNT, KMIN_ALGORITHM_MACRO_TIMSORT, true, false);
-}
-
-TEST_F(LibpiksiTests, kmin_large_macro_qsort)
-{
-  SKIP_LONG_TEST();
-  do_kmin_test(KMIN_LARGE_SIZE, KMIN_COUNT, KMIN_ALGORITHM_MACRO_QSORT, false, false);
+  do_kmin_test(KMIN_MEDIUM_SIZE, KMIN_COUNT, true, false);
 }
 
 TEST_F(LibpiksiTests, kmin_large_macro_timsort)
 {
   SKIP_LONG_TEST();
-  do_kmin_test(KMIN_LARGE_SIZE, KMIN_COUNT, KMIN_ALGORITHM_MACRO_TIMSORT, false, false);
-}
-
-TEST_F(LibpiksiTests, kmin_large_stdlib_qsort)
-{
-  SKIP_LONG_TEST();
-  do_kmin_test(KMIN_LARGE_SIZE, KMIN_COUNT, KMIN_ALGORITHM_STDLIB_QSORT, false, false);
-}
-
-TEST_F(LibpiksiTests, kmin_large_klib_introsort)
-{
-  SKIP_LONG_TEST();
-  do_kmin_test(KMIN_LARGE_SIZE, KMIN_COUNT, KMIN_ALGORITHM_KLIB_INTROSORT, false, false);
+  do_kmin_test(KMIN_LARGE_SIZE, KMIN_COUNT, false, false);
 }
