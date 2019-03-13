@@ -99,7 +99,7 @@ static int skylark_download_adapter_execfn(void)
     "endpoint_adapter",
     "--name",
     "skylark_download",
-    "-f",
+    "--framer-in",
     "sbp",
     "--file",
     DOWNLOAD_FIFO_FILE_PATH,

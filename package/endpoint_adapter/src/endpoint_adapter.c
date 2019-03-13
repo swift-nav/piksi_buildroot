@@ -63,6 +63,9 @@ PK_METRICS_TABLE(MT, MI,
   PK_METRICS_ENTRY("error/mismatch",           "total",          M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, mismatch),
   PK_METRICS_ENTRY("error/send/bytes_dropped", "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, bytes_dropped),
 
+  PK_METRICS_ENTRY("rx/frame/count",           "per_second",     M_U32,         M_UPDATE_SUM,     M_RESET_DEF, rx_frames),
+  PK_METRICS_ENTRY("tx/frame/count",           "per_second",     M_U32,         M_UPDATE_SUM,     M_RESET_DEF, tx_frames),
+
   PK_METRICS_ENTRY("rx/read/count",            "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, rx_read_count),
   PK_METRICS_ENTRY("rx/read/size/per_second",  "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, rx_read_size_total),
   PK_METRICS_ENTRY("rx/read/size/per_second",  "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, rx_read_size_average,
@@ -154,7 +157,8 @@ typedef struct {
 bool debug = false;
 static io_mode_t io_mode = IO_INVALID;
 static endpoint_mode_t endpoint_mode = ENDPOINT_INVALID;
-static const char *framer_name = FRAMER_NONE_NAME;
+static const char *framer_in_name = FRAMER_NONE_NAME;
+static const char *framer_out_name = FRAMER_NONE_NAME;
 static const char *filter_in_name = FRAMER_NONE_NAME;
 static const char *filter_out_name = FRAMER_NONE_NAME;
 static const char *filter_in_config = NULL;
@@ -192,7 +196,8 @@ static void usage(char *command)
   fprintf(stderr, "\t\tsource socket, may be combined with --pub\n");
 
   fprintf(stderr, "\nFramer Mode - optional\n");
-  fprintf(stderr, "\t-f, --framer <framer>\n");
+  fprintf(stderr, "\t --framer-in <input-framer>\n");
+  fprintf(stderr, "\t --framer-out <output-framer>\n");
 
   fprintf(stderr, "\nFilter Mode - optional\n");
   fprintf(stderr, "\t--filter-in <filter>\n");
@@ -244,13 +249,16 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_CAN,
     OPT_ID_CAN_FILTER,
     OPT_ID_RETRY_PUBSUB,
+    OPT_ID_FRAMER_IN,
+    OPT_ID_FRAMER_OUT,
   };
 
   /* clang-format off */
   const struct option long_opts[] = {
     {"pub",               required_argument, 0, 'p'},
     {"sub",               required_argument, 0, 's'},
-    {"framer",            required_argument, 0, 'f'},
+    {"framer-in",         required_argument, 0, OPT_ID_FRAMER_IN},
+    {"framer-out",        required_argument, 0, OPT_ID_FRAMER_OUT},
     {"stdio",             no_argument,       0, OPT_ID_STDIO},
     {"name",              required_argument, 0, OPT_ID_NAME},
     {"file",              required_argument, 0, OPT_ID_FILE},
@@ -275,7 +283,7 @@ static int parse_options(int argc, char *argv[])
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "p:s:f:", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "p:s:", long_opts, &opt_index)) != -1) {
     switch (c) {
     case OPT_ID_CAN: {
       io_mode = IO_CAN;
@@ -375,9 +383,18 @@ static int parse_options(int argc, char *argv[])
       sub_addr = optarg;
     } break;
 
-    case 'f': {
+    case OPT_ID_FRAMER_IN: {
       if (framer_interface_valid(optarg) == 0) {
-        framer_name = optarg;
+        framer_in_name = optarg;
+      } else {
+        fprintf(stderr, "invalid framer\n");
+        return -1;
+      }
+    } break;
+
+    case OPT_ID_FRAMER_OUT: {
+      if (framer_interface_valid(optarg) == 0) {
+        framer_out_name = optarg;
       } else {
         fprintf(stderr, "invalid framer\n");
         return -1;
@@ -623,7 +640,7 @@ static ssize_t fd_write(int handle, const void *buffer, size_t count)
   return fd_write_with_timeout(handle, buffer, count, MAX_SEND_SLEEP_MS, SEND_SLEEP_NS);
 }
 
-static ssize_t handle_write_all_via_framer(handle_t *handle, const void *buffer, size_t count);
+static ssize_t handle_write_all_via_framer(handle_t *handle, const uint8_t *buffer, size_t count);
 
 static ssize_t process_read_buffer(handle_t *read_handle,
                                    handle_t *write_handle,
@@ -661,14 +678,14 @@ static int sub_ept_read(const uint8_t *buff, size_t length, void *context)
   return read_ctx->status;
 }
 
-static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
+static ssize_t handle_write(handle_t *handle, const uint8_t *buffer, size_t count)
 {
   if (handle->pk_ept != NULL) {
 
     PK_METRICS_UPDATE(MR, MI.rx_write_count);
     PK_METRICS_UPDATE(MR, MI.rx_write_size_total, PK_METRICS_VALUE((u32)count));
 
-    if (pk_endpoint_send(handle->pk_ept, (uint8_t *)buffer, count) != 0) {
+    if (pk_endpoint_send(handle->pk_ept, buffer, count) != 0) {
       return -1;
     }
 
@@ -681,12 +698,11 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
   return fd_write(handle->write_fd, buffer, count);
 }
 
-static ssize_t handle_write_all(handle_t *handle, const void *buffer, size_t count)
+static ssize_t handle_write_all(handle_t *handle, const uint8_t *buffer, size_t count)
 {
   uint32_t buffer_index = 0;
   while (buffer_index < count) {
-    ssize_t write_count =
-      handle_write(handle, &((uint8_t *)buffer)[buffer_index], count - buffer_index);
+    ssize_t write_count = handle_write(handle, &buffer[buffer_index], count - buffer_index);
     if (write_count < 0) {
       return write_count;
     }
@@ -696,22 +712,19 @@ static ssize_t handle_write_all(handle_t *handle, const void *buffer, size_t cou
 }
 
 static ssize_t handle_write_one_via_framer(handle_t *handle,
-                                           const void *buffer,
+                                           const uint8_t *buffer,
                                            size_t count,
                                            size_t *frames)
 {
   uint32_t buffer_index = 0;
-  *frames = 0;
   for (;;) {
     const uint8_t *frame;
     uint32_t frame_length;
-    buffer_index += framer_process(handle->framer,
-                                   &((uint8_t *)buffer)[buffer_index],
-                                   count - buffer_index,
-                                   &frame,
-                                   &frame_length);
+    uint32_t remaining = count - buffer_index;
+    buffer_index +=
+      framer_process(handle->framer, &buffer[buffer_index], remaining, &frame, &frame_length);
     if (frame == NULL) {
-      return buffer_index;
+      break;
     }
     /* Pass frame through filter */
     if (filter_process(handle->filter, frame, frame_length) != 0) {
@@ -731,24 +744,26 @@ static ssize_t handle_write_one_via_framer(handle_t *handle,
   return buffer_index;
 }
 
-static ssize_t handle_write_all_via_framer(handle_t *handle, const void *buffer, size_t count)
+static ssize_t handle_write_all_via_framer(handle_t *handle, const uint8_t *buffer, size_t bufsize)
 {
+  ssize_t write_result = -1;
   uint32_t buffer_index = 0;
+  size_t frame_count = 0;
   for (;;) {
-    size_t frames;
-    ssize_t write_count = handle_write_one_via_framer(handle,
-                                                      &((uint8_t *)buffer)[buffer_index],
-                                                      count - buffer_index,
-                                                      &frames);
-    if (write_count < 0) {
-      return write_count;
+    size_t remaining = bufsize - buffer_index;
+    write_result =
+      handle_write_one_via_framer(handle, &buffer[buffer_index], remaining, &frame_count);
+    if (write_result < 0) {
+      break;
     }
-    buffer_index += write_count;
-    if (frames == 0) {
+    buffer_index += write_result;
+    if (buffer_index >= bufsize) {
+      write_result = bufsize;
       break;
     }
   }
-  return buffer_index;
+  UPDATE_IO_LOOP_METRIC(handle, MI.tx_frames, MI.rx_frames, PK_METRICS_VALUE((u32)frame_count));
+  return write_result;
 }
 
 static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *write_handle)
@@ -806,6 +821,9 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
   pk_metrics_flush(MR);
 
   pk_metrics_reset(MR, MI.bytes_dropped);
+
+  pk_metrics_reset(MR, MI.rx_frames);
+  pk_metrics_reset(MR, MI.tx_frames);
 
   pk_metrics_reset(MR, MI.rx_read_count);
   pk_metrics_reset(MR, MI.rx_read_size_total);
@@ -918,7 +936,7 @@ int io_loop_run(int read_fd, int write_fd)
                     loop_ctx.pub_ept,
                     -1,
                     -1,
-                    framer_name,
+                    framer_in_name,
                     filter_in_name,
                     filter_in_config)
         != 0) {
@@ -962,7 +980,7 @@ int io_loop_run(int read_fd, int write_fd)
                     NULL,
                     -1,
                     write_fd,
-                    FRAMER_NONE_NAME,
+                    framer_out_name,
                     filter_out_name,
                     filter_out_config)
         != 0) {
