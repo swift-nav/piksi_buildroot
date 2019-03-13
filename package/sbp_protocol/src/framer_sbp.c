@@ -64,7 +64,8 @@ static s32 sbp_write(u8 *buff, u32 n, void *context)
 
 void *framer_create(void)
 {
-  framer_sbp_state_t *s = (framer_sbp_state_t *)malloc(sizeof(*s));
+  framer_sbp_state_t *s = calloc(1, sizeof(*s));
+
   if (s == NULL) {
     return NULL;
   }
@@ -109,7 +110,8 @@ uint32_t framer_process(void *state,
                            s->sbp_state.msg_buff,
                            sbp_write)
           == SBP_OK) {
-        *frame = s->send_buffer, *frame_length = c.write_offset;
+        *frame = s->send_buffer;
+        *frame_length = c.write_offset;
         return c.read_offset;
       } else {
         syslog(LOG_ERR, "SBP send error");
