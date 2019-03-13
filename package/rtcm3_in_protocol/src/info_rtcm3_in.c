@@ -23,7 +23,7 @@ int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
 {
   return snprintf(buf,
                   buf_size,
-                  "-f rtcm3 "
+                  "--framer-in rtcm3 --framer-out none "
                   "-p 'ipc:///var/run/sockets/rtcm3_external.sub'",
                   port_name);
 }
