@@ -79,8 +79,6 @@ static struct {
   .process_sbp = false,
 };
 
-static framer_t *framer_sbp = NULL;
-
 static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void *context);
 static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_t length);
 static void process_buffer_via_framer(rule_cache_t *rule_cache,
@@ -301,7 +299,9 @@ static void process_forwarding_rule(const forwarding_rule_t *forwarding_rule,
 
 static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, const size_t length)
 {
-  assert(framer_sbp != NULL);
+  assert(rule_cache->framer != NULL);
+
+  u32 leftover = 0;
 
   size_t buffer_index = 0;
   u32 frame_count = 0;
@@ -322,11 +322,14 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
 
   while (buffer_index < length) {
 
-    const uint8_t *frame;
-    uint32_t frame_length;
+    const uint8_t *frame = NULL;
+    uint32_t frame_length = 0;
 
-    buffer_index +=
-      framer_process(framer_sbp, &data[buffer_index], length - buffer_index, &frame, &frame_length);
+    buffer_index += framer_process(rule_cache->framer,
+                                   &data[buffer_index],
+                                   length - buffer_index,
+                                   &frame,
+                                   &frame_length);
 
     if (frame == NULL) break;
 
@@ -334,7 +337,7 @@ static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, 
     frame_count += 1;
   }
 
-  u32 leftover = length - buffer_index;
+  leftover = length - buffer_index;
 
   PK_METRICS_UPDATE(MR, MI.frame_count, PK_METRICS_VALUE(frame_count));
   PK_METRICS_UPDATE(MR, MI.frame_leftovers, PK_METRICS_VALUE(leftover));
@@ -656,6 +659,11 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     rule_cache->sub_ept = port->sub_ept;
     rule_cache->rule_count = 0;
 
+    if (options.process_sbp) {
+      rule_cache->framer = framer_create("sbp");
+      assert(rule_cache->framer != NULL);
+    }
+
     forwarding_rule_t *rules = port->forwarding_rules_list;
 
     for (/* empty */; rules != NULL; rules = rules->next) {
@@ -794,6 +802,10 @@ void router_teardown(router_t **router_loc)
       cmph_io_struct_vector_adapter_destroy(rule_cache->cmph_io_adapter);
       rule_cache->cmph_io_adapter = NULL;
     }
+
+    if (rule_cache->framer != NULL) {
+      framer_destroy(&rule_cache->framer);
+    }
   }
 
   free(router->port_rule_cache);
@@ -827,9 +839,6 @@ int main(int argc, char *argv[])
     fprintf(stderr, "error importing protocols\n");
     exit(EXIT_FAILURE);
   }
-
-  framer_sbp = framer_create("sbp");
-  assert(framer_sbp != NULL);
 
   router_metrics = pk_metrics_setup("endpoint_router", options.name, MT, COUNT_OF(MT));
   if (router_metrics == NULL) {
@@ -883,6 +892,5 @@ static int cleanup(int result,
   pk_loop_destroy(loop_loc);
   pk_metrics_destroy(metrics_loc);
   logging_deinit();
-  if (framer_sbp != NULL) framer_destroy(&framer_sbp);
   return result;
 }

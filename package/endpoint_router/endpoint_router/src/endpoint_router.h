@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+typedef struct framer_s framer_t;
+
 typedef enum {
   FILTER_ACTION_ACCEPT, /** A prefix which if matched, will cause data to be forwarded. */
   FILTER_ACTION_REJECT, /** A prefix which if matched, will cause data to be ignored. */
@@ -91,6 +93,7 @@ typedef struct {
   rule_prefixes_t *rule_prefixes;     /** A list of all rule prefixes */
   size_t rule_count;                  /** A count of all rules */
   pk_endpoint_t *sub_ept;             /** The SUB enpoint that feeds this rule cache */
+  framer_t *framer;                   /** The framer associated with this endpoint */
 } rule_cache_t;
 
 typedef struct {
