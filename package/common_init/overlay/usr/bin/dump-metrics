@@ -5,4 +5,4 @@ cd "/var/log/metrics/$1" || exit 1
 find . \
   -type f \
   -not -name '.*' \
-  -exec sh -c 'f=$1; printf "$f: "; cat $f' _ {} \;
+  -exec sh -c 'f=$1; printf "$f: "; flock $f cat $f' _ {} \;

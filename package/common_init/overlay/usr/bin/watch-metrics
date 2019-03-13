@@ -1,3 +1,4 @@
 #!/bin/sh
 
-watch -n1 "dump-metrics $1"
+interval=0.5
+watch -n$interval "dump-metrics $1"
