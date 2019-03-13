@@ -30,40 +30,18 @@ extern "C" {
 #endif
 
 /**
- * @brief The sort algorithm to use for finding K-minimum values
- */
-typedef enum {
-  KMIN_ALGORITHM_STDLIB_QSORT,   /**< C stdlib qsort */
-  KMIN_ALGORITHM_KLIB_INTROSORT, /**< klib introsort */
-  KMIN_ALGORITHM_MACRO_TIMSORT,  /**< The "timsort" (from Python) algorithm, fastest for partially
-                                    ordered data. */
-  KMIN_ALGORITHM_MACRO_QSORT, /**< A macro version of quick sort, slightly faster than the built-in
-                                 qsort because there's no function overhead */
-} kmin_algorithm_t;
-
-/**
  * @brief Opaque context for kmin object
  */
 typedef struct kmin_s kmin_t;
 
 /**
- * @brief Create a kmin object with the default algorithm (@c KMIN_ALGORITHM_MACRO_TIMSORT)
+ * @brief Create a kmin object
  *
  * @param[in] elements   The number of elements this set will cover
  *
  * @return               Pointer to the created context, or NULL on failure
  */
 kmin_t *kmin_create(size_t elements);
-
-/**
- * @brief Create a kmin object with the default algorithm (@c KMIN_ALGORITHM_MACRO_TIMSORT)
- *
- * @param[in] elements   The number of elements this set will cover
- * @param[in] algo       The sort algorithm to use, see @c kmin_algorithm_t
- *
- * @return               Pointer to the created context, or NULL on failure
- */
-kmin_t *kmin_create_ex(size_t elements, kmin_algorithm_t algo);
 
 /**
  * @brief Destory a kmin object
@@ -101,6 +79,9 @@ void kmin_invert(kmin_t *kmin, bool invert);
  * @brief Insert an element into the set.
  *
  * @param[in] kmin    The kmin object
+ * @param[in] index   The index of the item in the set
+ * @param[in] score   The score (ranking) for this item
+ * @param[in] ident   A string identity describing the item
  *
  * @return    False if index is outside the bounds of the set, or if
  *            memory allocation fails.
