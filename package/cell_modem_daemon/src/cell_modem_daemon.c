@@ -15,7 +15,7 @@
 #include <unistd.h>
 
 #include <libpiksi/logging.h>
-#include <libpiksi/sbp_pubsub.h>
+#include <libpiksi/sbp_tx.h>
 #include <libpiksi/loop.h>
 #include <libpiksi/settings_client.h>
 #include <libpiksi/serial_utils.h>
@@ -30,7 +30,6 @@
 #define PROGRAM_NAME "cell_modem_daemon"
 #define SETTINGS_METRICS_NAME ("settings/" PROGRAM_NAME)
 
-#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP Internal Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP Internal In */
 
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE (255u)
@@ -40,7 +39,7 @@ u8 *port_name = NULL;
 u8 *command_string = NULL;
 
 struct cell_modem_ctx_s {
-  sbp_pubsub_ctx_t *sbp_ctx;
+  sbp_tx_ctx_t *sbp_tx_ctx;
   serial_port_t *port;
 };
 
@@ -114,7 +113,7 @@ static void send_cell_modem_status(struct cell_modem_ctx_s *cell_modem_ctx)
     piksi_log(LOG_ERR, "Cell Modem Status surpassing SBP frame size");
     return;
   } else {
-    sbp_tx_send(sbp_pubsub_tx_ctx_get(cell_modem_ctx->sbp_ctx),
+    sbp_tx_send(cell_modem_ctx->sbp_tx_ctx,
                 SBP_MSG_CELL_MODEM_STATUS,
                 (u8)(0xFF & message_length),
                 (u8 *)&cell_status_msg);
@@ -142,7 +141,7 @@ static void cell_status_timer_callback(pk_loop_t *loop,
 
 static int cleanup(pk_loop_t **pk_loop_loc,
                    pk_settings_ctx_t **settings_ctx_loc,
-                   sbp_pubsub_ctx_t **pubsub_ctx_loc,
+                   sbp_tx_ctx_t **tx_ctx_loc,
                    serial_port_t **port_loc,
                    int status);
 
@@ -150,9 +149,9 @@ int main(int argc, char *argv[])
 {
   pk_loop_t *loop = NULL;
   pk_settings_ctx_t *settings_ctx = NULL;
-  sbp_pubsub_ctx_t *ctx = NULL;
+  sbp_tx_ctx_t *ctx = NULL;
   serial_port_t *port = NULL;
-  struct cell_modem_ctx_s cell_modem_ctx = {.sbp_ctx = NULL, .port = NULL};
+  struct cell_modem_ctx_s cell_modem_ctx = {.sbp_tx_ctx = NULL, .port = NULL};
 
   logging_init(PROGRAM_NAME);
 
@@ -181,11 +180,11 @@ int main(int argc, char *argv[])
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
     }
 
-    ctx = sbp_pubsub_create(PROGRAM_NAME, SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+    ctx = sbp_tx_create(PROGRAM_NAME, SBP_PUB_ENDPOINT);
     if (ctx == NULL) {
       exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
     }
-    cell_modem_ctx.sbp_ctx = ctx;
+    cell_modem_ctx.sbp_tx_ctx = ctx;
 
     if (pk_loop_timer_add(loop,
                           CELL_STATUS_UPDATE_INTERVAL,
@@ -209,10 +208,6 @@ int main(int argc, char *argv[])
 
     cell_modem_init(loop, settings_ctx);
 
-    if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx), loop) != 0) {
-      exit(cleanup(&loop, &settings_ctx, &ctx, &port, EXIT_FAILURE));
-    }
-
     pk_loop_run_simple(loop);
   }
 
@@ -221,14 +216,14 @@ int main(int argc, char *argv[])
 
 static int cleanup(pk_loop_t **pk_loop_loc,
                    pk_settings_ctx_t **settings_ctx_loc,
-                   sbp_pubsub_ctx_t **pubsub_ctx_loc,
+                   sbp_tx_ctx_t **tx_ctx_loc,
                    serial_port_t **port_loc,
                    int status)
 {
   cell_modem_deinit();
   pk_loop_destroy(pk_loop_loc);
-  if (*pubsub_ctx_loc != NULL) {
-    sbp_pubsub_destroy(pubsub_ctx_loc);
+  if (*tx_ctx_loc != NULL) {
+    sbp_tx_destroy(tx_ctx_loc);
   }
   pk_settings_destroy(settings_ctx_loc);
   serial_port_destroy(port_loc);
