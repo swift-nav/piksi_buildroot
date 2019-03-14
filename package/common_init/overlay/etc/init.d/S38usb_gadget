@@ -31,7 +31,17 @@ CONFIGURATION="CDC ${ACM}"
 CONFIGURATION1="CDC ${ACM}+ECM"
 CONFIGURATION2="CDC ${ACM}+RNDIS"
 
+load_modules()
+{
+  modprobe udc_xilinx
+  modprobe u_serial
+  modprobe u_ether
+  modprobe libcomposite
+  modprobe usb_f_acm
+}
+
 start() {
+  load_modules
   # Create gadget
   cd /sys/kernel/config/usb_gadget
   mkdir g1
