@@ -286,6 +286,7 @@ static void ept_rpmsg_cb(struct rpmsg_channel *rpdev, void *data, int len, void 
   len_in = kfifo_in(&ept_params->rx_fifo, data, (unsigned int)len);
   if (len_in != len) {
     /* There was no space for incoming data */
+    dev_err(ept_params->device, "rx data truncated, incoming count = %d, copied count = %d\n", len, len_in);
     return;
   }
 
