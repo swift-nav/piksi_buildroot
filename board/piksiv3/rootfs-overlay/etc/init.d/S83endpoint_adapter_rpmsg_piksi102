@@ -1,0 +1,21 @@
+#!/bin/sh
+
+export name="endpoint_adapter_rpmsg_piksi102"
+
+export cmd="endpoint_adapter\
+ --name rpmsg_piksi102\
+ --file /dev/rpmsg_piksi102\
+ --framer-in rpmsg_stats\
+ -p 'ipc:///var/run/sockets/rpmsg_stats_external.sub'\
+ -s 'ipc:///var/run/sockets/rpmsg_stats_external.pub'"
+
+export dir="/"
+export user="ad_r102"
+
+setup_permissions()
+{
+  add_service_user $user
+  chown $user:$user /dev/rpmsg_piksi102
+}
+
+source /etc/init.d/template_runsv.inc.sh

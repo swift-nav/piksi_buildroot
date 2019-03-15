@@ -1,0 +1,5 @@
+config BR2_PACKAGE_RPMSG_STATS_DAEMON
+	bool "rpmsg_stats_daemon"
+	select BR2_PACKAGE_LIBUV
+	select BR2_PACKAGE_LIBPIKSI
+  select BR2_PACKAGE_LIBSWIFTNAV

@@ -1,0 +1,20 @@
+name: RPMSG_STATS_ROUTER
+
+ports:
+  - name: RPMSG_STATS_PORT_INTERNAL
+    metric: "rpmsg_stats/internal"
+    pub_addr: "ipc:///var/run/sockets/rpmsg_stats_internal.pub"
+    sub_addr: "ipc:///var/run/sockets/rpmsg_stats_internal.sub"
+    forwarding_rules:
+      - dst_port: RPMSG_STATS_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT }
+
+  - name: RPMSG_STATS_PORT_EXTERNAL
+    metric: "rpmsg_stats/external"
+    pub_addr: "ipc:///var/run/sockets/rpmsg_stats_external.pub"
+    sub_addr: "ipc:///var/run/sockets/rpmsg_stats_external.sub"
+    forwarding_rules:
+      - dst_port: RPMSG_STATS_PORT_INTERNAL
+        filters:
+          - { action: ACCEPT }

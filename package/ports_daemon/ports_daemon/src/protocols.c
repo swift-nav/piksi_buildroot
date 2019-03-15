@@ -53,6 +53,10 @@ static int import(const char *filename)
     goto error;
   }
 
+  if (strlen(setting_name) == 0) {
+    goto skip;
+  }
+
   port_adapter_opts_get_fn_t port_adapter_opts_get;
   DLSYM_CAST(port_adapter_opts_get) = dlsym(handle, "port_adapter_opts_get");
   if (port_adapter_opts_get == NULL) {
@@ -84,6 +88,10 @@ static int import(const char *filename)
 error:
   dlclose(handle);
   return -1;
+
+skip:
+  dlclose(handle);
+  return 0;
 }
 
 int protocols_import(const char *path)
