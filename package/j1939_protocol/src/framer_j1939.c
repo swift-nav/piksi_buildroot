@@ -57,9 +57,11 @@ uint32_t framer_process(void *state,
   framer_j1939_state_t *s = (framer_j1939_state_t *)state;
 
   uint32_t data_offset = 0;
+
   piksi_log(LOG_ERR, "J1939 framer_process");
   if (data_length >= 4) {
-    piksi_log(LOG_ERR, "can_id: %02X%02X%02X%02X", data[0], data[1], data[2], data[3]);
+    piksi_log(LOG_ERR, "can_id: %02X%02X%02X%02X", data[3], data[2], data[1], data[0]);
+
   } else {
     piksi_log(LOG_ERR, "J1939 framer_process short");
     for (int i = 0; i < data_length; i++) {
