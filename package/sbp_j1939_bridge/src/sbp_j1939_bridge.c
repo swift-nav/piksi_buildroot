@@ -26,10 +26,85 @@
 #define J1939_SUB_ENDPOINT "ipc:///var/run/sockets/j1939_internal.pub" /* J1939 Internal Out */
 #define J1939_PUB_ENDPOINT "ipc:///var/run/sockets/j1939_internal.sub" /* J1939 Internal In */
 
+#define J1939_HEADER_LENGTH 4
+
 bool j1939_debug = false;
 
 struct j1939_sbp_state {
-  int counter;
+  u32 PGN;
+  u8 priority;
+  bool extended_data_page;
+  bool data_page;
+  u8 pdu_format;
+  u8 pdu_specific;
+  u8 source_address;
+  u8 *payload;
+  u8 payload_length;
+};
+
+struct j1939_message {
+  int (*handler)(const u8 *payload, const u8 payload_length);
+  u32 PGN;
+  u8 payload_length;
+};
+
+static int handle_slope_sensor_info_2(const u8 *payload, const u8 payload_length)
+{
+  u32 pitch = 0;
+  for (int i = 0; i < 3; i++) {
+    pitch += payload[i] << (8 * i);
+  }
+
+  u32 roll = 0;
+  for (int i = 0; i < 3; i++) {
+    roll += payload[i + 3] << (8 * i);
+  }
+
+  (void) payload_length;
+  piksi_log(LOG_ERR, "slope - pitch: %.2f roll %.2f", pitch / 32768.0 - 250, roll / 32768.0 - 250);
+  return 0;
+}
+
+static int handle_angular_rate(const u8 *payload, const u8 payload_length)
+{
+  u16 angular_velocity[3] = {0, 0, 0}; /* x, y, z axes */
+  for (int i = 0; i < 3; i++) {
+    angular_velocity[i] = payload[i*2] + (payload[i*2 + 1] << 8);
+  }
+
+  (void) payload_length;
+  piksi_log(LOG_ERR, "Angular Rate X, Y, Z : %.2f, %.2f, %.2f", angular_velocity[0] / 128.0 - 250, angular_velocity[1] / 128.0 - 250, angular_velocity[2] / 128.0 - 250);
+  return 0;
+}
+
+static int handle_acceleration_sensor(const u8 *payload, const u8 payload_length)
+{
+  u16 acceleration[3] = {0, 0, 0}; /* x, y, z axes */
+  for (int i = 0; i < 3; i++) {
+    acceleration[i] = payload[i*2] + (payload[i*2 + 1] << 8);
+  }
+
+  (void) payload_length;
+  piksi_log(LOG_ERR, "Acceleration X, Y, Z : %.2f, %.2f, %.2f", acceleration[0] / 100 - 320, acceleration[1] / 100 - 320, acceleration[2] / 100 - 320);
+  return 0;
+}
+
+static struct j1939_message j1939_messages[] = {
+  {
+    .handler = handle_slope_sensor_info_2,
+    .PGN = 61481,
+    .payload_length = 8,
+  },
+  {
+    .handler = handle_angular_rate,
+    .PGN = 61482,
+    .payload_length = 8,
+  },
+  {
+    .handler = handle_acceleration_sensor,
+    .PGN = 61485,
+    .payload_length = 8,
+  },
 };
 
 struct j1939_sbp_state j1939_to_sbp_state;
@@ -44,6 +119,24 @@ static int notify_simulator_enable_changed(void *context)
   return 0;
 }
 
+static void parse_PGN(const u8 *data, struct j1939_sbp_state *state)
+{
+  u8 byte0 = data[3] & 0x1F; /* CAN ID is only 29 bit, not 32. little endian */
+  state->priority = byte0 >> 2;
+  state->extended_data_page = (byte0 & (1 << 1)) >> 1;
+  state->data_page = byte0 & 1;
+
+  state->pdu_format = data[2];
+  state->pdu_specific = data[1];
+  state->source_address = data[0];
+
+  state->PGN =
+    state->extended_data_page << 17 |
+    state->data_page << 16 |
+    state->pdu_format << 8 |
+    state->pdu_specific;
+}
+
 static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *context)
 {
   (void)data;
@@ -51,7 +144,31 @@ static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *con
   (void)context;
   struct j1939_sbp_state *state = (struct j1939_sbp_state*) context;
   (void)state;
-  piksi_log(LOG_ERR, "j19392sbp_decode_frame");
+
+  if (length < 4) {
+    piksi_log(LOG_ERR, "j19392sbp_decode_frame too short");
+    for (u8 i = 0; i < length; i++) {
+      piksi_log(LOG_ERR, "%02X ", data[i]);
+    }
+    return 0;
+  } else {
+    parse_PGN(data, state);
+  }
+
+  bool found = false;
+  struct j1939_message *message;
+  for (message = j1939_messages; message < j1939_messages + sizeof(j1939_messages) / sizeof(j1939_messages[0]); message++) {
+    if (state->PGN == message->PGN) {
+      message->handler(data + J1939_HEADER_LENGTH, length);
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    piksi_log(LOG_ERR, "Unknown PGN: %d", state->PGN);
+  }
+
   return 0;
 }
 
