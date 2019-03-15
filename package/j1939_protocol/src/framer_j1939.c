@@ -62,15 +62,17 @@ uint32_t framer_process(void *state,
   if (data_length >= 4) {
     piksi_log(LOG_ERR, "can_id: %02X%02X%02X%02X", data[3], data[2], data[1], data[0]);
 
+    memcpy(&s->buffer, data, data_length);
+    *frame = s->buffer;
+    *frame_length = data_length;
   } else {
     piksi_log(LOG_ERR, "J1939 framer_process short");
     for (int i = 0; i < data_length; i++) {
       piksi_log(LOG_ERR, "%02X", data[i]);
     }
+    *frame = NULL;
+    *frame_length = 0;
   }
 
-  memcpy(&s->buffer, data, data_length);
-  *frame = s->buffer;
-  *frame_length = J1939_FRAME_SIZE_MAX;
   return data_length;
 }
