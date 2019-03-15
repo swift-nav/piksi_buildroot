@@ -15,7 +15,7 @@ $(info LTO_PLUGIN: $(LTO_PLUGIN))
 endif
 
 # Don't use LTO for Linux or uboot
-NO_FLTO := linux-xilinx,uboot_custom,uboot,linux,PoseDaemon,ip_unlock_test
+NO_FLTO := linux-xilinx,uboot_custom,uboot,linux,piksi_ins
 
 # The LTO wrapper analyzes the current directory and makes
 #   a decision to exclude the -flto parameter.
