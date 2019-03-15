@@ -85,7 +85,7 @@ static int handle_acceleration_sensor(const u8 *payload, const u8 payload_length
   }
 
   (void) payload_length;
-  piksi_log(LOG_ERR, "Acceleration X, Y, Z : %.2f, %.2f, %.2f", acceleration[0] / 100 - 320, acceleration[1] / 100 - 320, acceleration[2] / 100 - 320);
+  piksi_log(LOG_ERR, "Acceleration X, Y, Z : %.2f, %.2f, %.2f", acceleration[0] - 320, acceleration[1] - 320, acceleration[2] - 320);
   return 0;
 }
 
