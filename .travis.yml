@@ -86,6 +86,7 @@ matrix:
         - TRAVIS_TARGET=sdk
         - BR2_BUILD_SAMPLE_DAEMON=y
         - BR2_BUILD_PIKSI_INS_REF=y
+        - FORCE_SDK_BUILD=y
       script:
         - ./scripts/travis.sh script
       after_success:
