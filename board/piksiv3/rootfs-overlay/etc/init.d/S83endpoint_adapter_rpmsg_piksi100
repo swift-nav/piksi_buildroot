@@ -1,12 +1,14 @@
 #!/bin/sh
 
 export name="endpoint_adapter_rpmsg_piksi100"
-export cmd="endpoint_adapter \
-  --name rpmsg_piksi100 \
-  --framer-in sbp \
-  --file /dev/rpmsg_piksi100 \
-  -p 'ipc:///var/run/sockets/firmware.sub' \
-  -s 'ipc:///var/run/sockets/firmware.pub'"
+
+export cmd="endpoint_adapter\
+ --name rpmsg_piksi100\
+ --framer-in sbp\
+ --file /dev/rpmsg_piksi100\
+ -p 'ipc:///var/run/sockets/firmware.sub'\
+ -s 'ipc:///var/run/sockets/firmware.pub'"
+
 export dir="/"
 export user="ad_r100"
 export priority="-18"
