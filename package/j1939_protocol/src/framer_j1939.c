@@ -26,6 +26,7 @@ typedef struct {
   uint32_t buffer_length;
   uint32_t refill_count;
   uint32_t remove_count;
+  int count;
 } framer_j1939_state_t;
 
 void *framer_create(void)
@@ -38,6 +39,7 @@ void *framer_create(void)
   s->buffer_length = 0;
   s->refill_count = 0;
   s->remove_count = 0;
+  s->count = 0;
 
   return (void *)s;
 }
@@ -57,21 +59,27 @@ uint32_t framer_process(void *state,
   framer_j1939_state_t *s = (framer_j1939_state_t *)state;
 
   uint32_t data_offset = 0;
+  *frame = NULL;
+  *frame_length = 0;
 
-  piksi_log(LOG_ERR, "J1939 framer_process");
-  if (data_length >= 4) {
-    piksi_log(LOG_ERR, "can_id: %02X%02X%02X%02X", data[3], data[2], data[1], data[0]);
+  if (s->count == 10) {
+    s->count = 0;
 
-    memcpy(&s->buffer, data, data_length);
-    *frame = s->buffer;
-    *frame_length = data_length;
-  } else {
-    piksi_log(LOG_ERR, "J1939 framer_process short");
-    for (int i = 0; i < data_length; i++) {
-      piksi_log(LOG_ERR, "%02X", data[i]);
+    piksi_log(LOG_ERR, "J1939 framer_process");
+    if (data_length >= 4) {
+      piksi_log(LOG_ERR, "can_id: %02X%02X%02X%02X", data[3], data[2], data[1], data[0]);
+
+      memcpy(&s->buffer, data, data_length);
+      *frame = s->buffer;
+      *frame_length = data_length;
+    } else {
+      piksi_log(LOG_ERR, "J1939 framer_process short");
+      for (int i = 0; i < data_length; i++) {
+        piksi_log(LOG_ERR, "%02X", data[i]);
+      }
     }
-    *frame = NULL;
-    *frame_length = 0;
+  } else {
+    s->count += 1;
   }
 
   return data_length;
