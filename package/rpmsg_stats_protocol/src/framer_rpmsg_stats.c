@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -21,18 +22,22 @@
 #include <rpmsg_stats/rpmsg_stats.h>
 
 typedef struct {
-  union d {
+  union {
     uint8_t buffer[sizeof(rpmsg_stats_t)];
     rpmsg_stats_t stats;
-  }
+  } d;
   size_t offset;
   bool need_signature;
+  bool need_eom;
 } framer_rpmsg_state_t;
+
+static const size_t packet_size = offsetof(rpmsg_stats_t, eom) - offsetof(rpmsg_stats_t, version);
 
 void *framer_create(void)
 {
   framer_rpmsg_state_t *s = malloc(sizeof(*s));
   s->need_signature = true;
+  s->need_eom = false;
   s->offset = 0;
   if (s == NULL) return NULL;
   return (void *)s;
@@ -57,19 +62,46 @@ uint32_t framer_process(void *state,
   uint32_t offset = 0;
   uint32_t frame_length = 0;
 
+  *frame_out = NULL;
+  *frame_length_out = 0;
+
   while (offset < data_length) {
     if (s->need_signature) {
       if (sizeof(s->d.stats.signature) <= (data_length - offset)) {
         uint32_t signature = RPMSG_STATS_SIGNATURE;
-        if (memcmp(data[offset], &signature, sizeof(signature)) == 0) {
+        if (memcmp(&data[offset], &signature, sizeof(signature)) == 0) {
           s->need_signature = false;
-        } 
+          s->d.stats.signature = signature;
+        }
         offset += 4;
       } else {
-        offset = data_length;
+        // Not enough data to read signature
+        break;
+      }
+    } else if (s->need_eom) {
+      if (sizeof(s->d.stats.eom) <= (data_length - offset)) {
+        uint32_t eom_sig = RPMSG_STATS_EOM_SIGNATURE;
+        if (memcmp(&data[offset], &eom_sig, sizeof(eom_sig)) == 0) {
+          s->need_eom = false;
+          s->d.stats.eom = eom_sig;
+          *frame_out = s->d.buffer;
+          *frame_length_out = sizeof(s->d.stats);
+        }
+        offset += 4;
+        // Reset
+        s->need_signature = true;
+        s->need_eom = false;
+      } else {
+        // Not enough data to read eom
+        break;
       }
     } else {
       s->d.buffer[s->offset++] = data[offset++];
+      if (s->offset == packet_size) {
+        s->need_eom = true;
+      }
     }
   }
+
+  return offset;
 }

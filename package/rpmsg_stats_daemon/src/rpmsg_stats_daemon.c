@@ -22,24 +22,22 @@
 #include <libpiksi/endpoint.h>
 #include <libpiksi/loop.h>
 
-#define PROGRAM_NAME "nmea_daemon"
+#include "rpmsg_stats.h"
 
-#define NMEA_PUB_ENDPOINT "ipc:///var/run/sockets/nmea_external.pub" /* NMEA Pub */
-#define NMEA_METRIC_NAME "nmea/sub"
+#define PROGRAM_NAME "rpmsg_stats_daemon"
 
-#define BASE_DIRECTORY "/var/run/nmea"
+#define RPMSG_STATS_PUB_ENDPOINT "ipc:///var/run/sockets/rpmsg_stats_external.pub"
+#define RPMSG_STATS_METRIC_NAME "rpmsg_stats/sub"
 
-#define NO_FIX_GGA "$GPGGA,,,,,,0,,,,M,,M,,*66"
+#define BASE_DIRECTORY "/var/run/rpmsg_stats"
 
-const char *const NMEA_GGA_OUTPUT_PATH = BASE_DIRECTORY "/GGA";
+bool rpmsg_stats_debug = false;
 
-bool nmea_debug = false;
-
-typedef struct nmea_ctx_s {
+typedef struct rpmsg_stats_ctx_s {
   pk_endpoint_t *sub_ept;
   pk_loop_t *loop;
   int result;
-} nmea_ctx_t;
+} rpmsg_stats_ctx_t;
 
 static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void *context);
 
@@ -47,27 +45,28 @@ static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void
 
 char buffer[MAX_BUFFER];
 
-static void nmea_reader_handler(pk_loop_t *loop, void *handle, int status, void *context)
+static void rpmsg_stats_reader_handler(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)loop;
   (void)handle;
   (void)status;
 
-  nmea_ctx_t *ctx = (nmea_ctx_t *)context;
+  rpmsg_stats_ctx_t *ctx = (rpmsg_stats_ctx_t *)context;
 
   if (pk_endpoint_receive(ctx->sub_ept, handle_frame_cb, ctx) != 0) {
     piksi_log(LOG_ERR, "endpoint receive failed, stopping loop...");
     ctx->result = EXIT_FAILURE;
   }
+
   if (ctx->result == EXIT_FAILURE) {
-    piksi_log(LOG_ERR, "nmea frame handler failed, stopping loop...");
+    piksi_log(LOG_ERR, "rpmsg_stats frame handler failed, stopping loop...");
     pk_loop_stop(loop);
   }
 }
 
 static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void *context)
 {
-  nmea_ctx_t *ctx = (nmea_ctx_t *)context;
+  rpmsg_stats_ctx_t *ctx = (rpmsg_stats_ctx_t *)context;
 
   if (ctx->result == EXIT_FAILURE) {
     sbp_log(LOG_ERR, "previous frame result was failure, skipping frame");
@@ -75,51 +74,16 @@ static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void
   }
 
   {
-    // Bounds check: MAX_BUFFER-1 so we can always null terminate the string
-    if (frame_length == 0 || frame_length > (MAX_BUFFER - 1)) {
+    if (frame_length == 0 || frame_length > MAX_BUFFER) {
+
       sbp_log(LOG_ERR, "invalid frame size: %lu", frame_length);
       ctx->result = EXIT_FAILURE;
+
       return -1;
     }
 
-    memcpy(buffer, frame_data, MAX_BUFFER - 1);
-    buffer[frame_length] = '\0';
-  }
-
-  if (strstr(buffer, "GGA") == NULL) {
-    if (nmea_debug) {
-      piksi_log(LOG_DEBUG, "ignoring non-GGA message");
-    }
-    return 0;
-  }
-
-  if (nmea_debug) {
-    piksi_log(LOG_DEBUG, "got GGA message: %s", buffer);
-  }
-
-  char tmp_file_name[] = BASE_DIRECTORY "/temp_nmea_gga.XXXXXX";
-
-  int fd_temp = mkstemp(tmp_file_name);
-  fchmod(fd_temp, 0644);
-
-  if (fd_temp < 0) {
-    sbp_log(LOG_ERR, "error creating temp file: %s", strerror(errno));
-    ctx->result = EXIT_FAILURE;
-    return -1;
-  }
-
-  FILE *fp = fdopen(fd_temp, "w+");
-
-  if (strstr(buffer, "\r\n") != NULL) {
-    fprintf(fp, "%s", buffer);
-  } else {
-    fprintf(fp, "%s\r\n", buffer);
-  }
-
-  fclose(fp);
-
-  if (rename(tmp_file_name, NMEA_GGA_OUTPUT_PATH) < 0) {
-    sbp_log(LOG_WARNING, "rename failed: %s", strerror(errno));
+    memcpy(buffer, frame_data, MAX_BUFFER);
+    /* TODO: do something with data */
   }
 
   return 0;
@@ -147,18 +111,18 @@ static int parse_options(int argc, char *argv[])
   int opt;
   while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
     switch (opt) {
-    case OPT_ID_DEBUG: nmea_debug = true; break;
+    case OPT_ID_DEBUG: rpmsg_stats_debug = true; break;
     default: puts("Invalid option"); return -1;
     }
   }
   return 0;
 }
 
-static int cleanup(int result, nmea_ctx_t *ctx);
+static int cleanup(int result, rpmsg_stats_ctx_t *ctx);
 
 int main(int argc, char *argv[])
 {
-  nmea_ctx_t ctx = {.sub_ept = NULL, .loop = NULL, .result = EXIT_SUCCESS};
+  rpmsg_stats_ctx_t ctx = {.sub_ept = NULL, .loop = NULL, .result = EXIT_SUCCESS};
 
   logging_init(PROGRAM_NAME);
 
@@ -169,8 +133,8 @@ int main(int argc, char *argv[])
   }
 
   ctx.sub_ept = pk_endpoint_create(pk_endpoint_config()
-                                     .endpoint(NMEA_PUB_ENDPOINT)
-                                     .identity(NMEA_METRIC_NAME)
+                                     .endpoint(RPMSG_STATS_PUB_ENDPOINT)
+                                     .identity(RPMSG_STATS_METRIC_NAME)
                                      .type(PK_ENDPOINT_SUB)
                                      .get());
   if (ctx.sub_ept == NULL) {
@@ -184,17 +148,8 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
-  if (pk_loop_endpoint_reader_add(ctx.loop, ctx.sub_ept, nmea_reader_handler, &ctx) == NULL) {
+  if (pk_loop_endpoint_reader_add(ctx.loop, ctx.sub_ept, rpmsg_stats_reader_handler, &ctx) == NULL) {
     piksi_log(LOG_ERR, "error registering reader");
-    exit(cleanup(EXIT_FAILURE, &ctx));
-  }
-
-  FILE *fp = fopen(NMEA_GGA_OUTPUT_PATH, "w");
-  if (fp != NULL) {
-    fprintf(fp, "%s\r\n", NO_FIX_GGA);
-    fclose(fp);
-  } else {
-    piksi_log(LOG_SBP | LOG_ERR, "unable to open '%s'");
     exit(cleanup(EXIT_FAILURE, &ctx));
   }
 
@@ -203,9 +158,10 @@ int main(int argc, char *argv[])
   exit(cleanup(ctx.result, &ctx));
 }
 
-static int cleanup(int result, nmea_ctx_t *ctx)
+static int cleanup(int result, rpmsg_stats_ctx_t *ctx)
 {
   pk_loop_destroy(&ctx->loop);
   pk_endpoint_destroy(&ctx->sub_ept);
+
   return result;
 }

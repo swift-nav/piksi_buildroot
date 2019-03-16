@@ -1,2 +1,3 @@
 config BR2_PACKAGE_RPMSG_STATS_PROTOCOL
 	bool "rpmsg_stats_protocol"
+  select BR2_PACKAGE_RPMSG_STATS_DAEMON
