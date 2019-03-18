@@ -5,12 +5,12 @@ export name="endpoint_adapter_rpmsg_piksi101"
 export cmd="endpoint_adapter\
  --name rpmsg_piksi101\
  --file /dev/rpmsg_piksi101\
- -p 'ipc:///var/run/sockets/nmea_firmware.sub'\
- -s 'ipc:///var/run/sockets/nmea_firmware.pub'"
+ --framer-in rpmsg_stats\
+ -p 'ipc:///var/run/sockets/rpmsg_stats_external.sub'\
+ -s 'ipc:///var/run/sockets/rpmsg_stats_external.pub'"
 
 export dir="/"
 export user="ad_r101"
-export priority="-18"
 
 setup_permissions()
 {
