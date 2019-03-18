@@ -17,15 +17,21 @@ RUN \
       build-essential \
       wget
 
-RUN \
-  pwd && mkdir -p cmake-build && cd cmake-build && \
-  wget https://cmake.org/files/v3.10/cmake-3.10.1.tar.gz && \
-  tar -xvzf cmake-3.10.1.tar.gz && \
-  cd cmake-3.10.1 && ./configure && \
-  make -j4 install && \
-  cd ../.. && rm -rf cmake-build
+ENV CMAKE_VER2=3.10
+ENV CMAKE_VER3=${CMAKE_VER2}.3
+
+ENV CMAKE_URL=https://cmake.org/files/v${CMAKE_VER2}/cmake-${CMAKE_VER3}-Linux-x86_64.tar.gz
 
 RUN \
+  mkdir /opt/cmake && \
+  wget -qO- ${CMAKE_URL} | \
+    tar xzf - --strip-components 1 -C /opt/cmake
+
+ENV PATH=/opt/cmake/bin:${PATH}
+
+RUN \
+  cmake --version && \
+  ln -sf /opt/cmake/bin/cmake /usr/local/bin && \
   apt-get --no-install-recommends -y --force-yes install \
       git \
       python \
