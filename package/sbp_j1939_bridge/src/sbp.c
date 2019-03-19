@@ -17,8 +17,8 @@
 
 #include "sbp.h"
 
-#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/j1939_internal.pub" /* SBP External Out */
-#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/j1939_internal.sub" /* SBP External In */
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP External Out */
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP External In */
 
 static struct {
   pk_loop_t *loop;
@@ -88,6 +88,17 @@ void sbp_deinit(void)
 settings_ctx_t *sbp_get_settings_ctx(void)
 {
   return ctx.settings_ctx;
+}
+
+void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id, void *context)
+{
+  (void)context;
+  sbp_tx_ctx_t *tx_ctx = sbp_pubsub_tx_ctx_get(ctx.pubsub_ctx);
+  if (tx_ctx == NULL) {
+    return;
+  }
+
+  sbp_tx_send_from(tx_ctx, msg_type, len, payload, sender_id);
 }
 
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context)
