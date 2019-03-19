@@ -37,6 +37,8 @@
 
 #define NEW_DIR_MODE (0777)
 
+static const char *default_metrics_path = METRICS_PATH;
+
 typedef struct {
   pk_metrics_type_t type;
   pk_metrics_updater_fn_t update_fn;
@@ -183,8 +185,12 @@ ssize_t pk_metrics_add(pk_metrics_t *metrics,
 
   metrics_descriptor_t *desc = &metrics->descriptors[metrics->count];
 
+  const char *env_metrics_path = getenv("PK_METRICS_PATH");
+  const char *metrics_base_path =
+    env_metrics_path != NULL ? env_metrics_path : default_metrics_path;
+
   char metric_dir_path[PATH_MAX];
-  int res = snprintf(metric_dir_path, sizeof(metric_dir_path), "%s/%s", METRICS_PATH, path);
+  int res = snprintf(metric_dir_path, sizeof(metric_dir_path), "%s/%s", metrics_base_path, path);
 
   if (res < 0) {
     PK_LOG_ANNO(LOG_ERR, "metrics add failed: %s", strerror(errno));

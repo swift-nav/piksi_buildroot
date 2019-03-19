@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 
 #include "endpoint_router.h"
 #include "endpoint_router_load.h"
@@ -23,6 +24,7 @@
 #define PROGRAM_NAME "router"
 
 static char *test_data_dir;
+static char *target_dir;
 
 class EndpointRouterTests : public ::testing::Test {
 };
@@ -271,6 +273,21 @@ TEST_F(EndpointRouterTests, DedupeRulePrefixes)
   free(rule_cache.accept_ports);
 }
 
+TEST_F(EndpointRouterTests, RunRouter)
+{
+  char command[1024];
+  snprintf_assert(command,
+                  sizeof(command),
+                  "TARGET_DIR=%s TEST_DATA_DIR=%s %s/test_router.bash",
+                  target_dir,
+                  test_data_dir,
+                  test_data_dir);
+
+  int rc = system(command);
+
+  EXPECT_EQ(rc, 0);
+}
+
 int main(int argc, char **argv)
 {
   endpoint_destroy_fn = dummy_pk_endpoint_destroy;
@@ -283,6 +300,9 @@ int main(int argc, char **argv)
 
   test_data_dir = getenv("TEST_DATA_DIR");
   assert(test_data_dir != NULL);
+
+  target_dir = getenv("TARGET_DIR");
+  assert(target_dir != NULL);
 
   int rc = RUN_ALL_TESTS();
 

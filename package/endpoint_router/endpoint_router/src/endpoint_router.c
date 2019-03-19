@@ -94,7 +94,6 @@ static void usage(char *command)
 
   puts("-f, --file <config.yml>");
   puts("--name <name>");
-  puts("--sbp");
   puts("--print");
   puts("--debug");
 }
@@ -238,33 +237,31 @@ static void cache_match_process(const forwarding_rule_t *forwarding_rule,
 
   assert(length >= rule_cache->rule_prefixes->prefix_len);
 
+  if (rule_cache->hash == NULL) {
+    /* Port only has one accept rule, no need for a hash, incoming packets should
+     *   get picked up by the rule_cache_t->accept_ports list
+     */
+    return;
+  }
+
+  uint32_t key =
+    cmph_search(rule_cache->hash, (const char *)data, rule_cache->rule_prefixes->prefix_len);
+
   switch (filter->action) {
   case FILTER_ACTION_ACCEPT: {
-
-    if (rule_cache->hash != NULL) {
-
-      uint32_t key =
-        cmph_search(rule_cache->hash, (const char *)data, rule_cache->rule_prefixes->prefix_len);
-      rule_cache->cached_ports[key].endpoints[rule_cache->cached_ports[key].count++] =
-        forwarding_rule->dst_port->pub_ept;
-      memcpy(rule_cache->cached_ports[key].prefix, data, rule_cache->rule_prefixes->prefix_len);
-
-    } else {
-      /* Port only has one accept rule, no need for a hash, incoming packets should
-       *   get picked up by the rule_cache_t->accept_ports list
-       */
-    }
-
+    rule_cache->cached_ports[key].endpoints[rule_cache->cached_ports[key].count++] =
+      forwarding_rule->dst_port->pub_ept;
   } break;
-
   case FILTER_ACTION_REJECT: {
-    /* NOOP */
+    rule_cache->cached_ports[key].endpoints[rule_cache->cached_ports[key].count++] =
+      NULL;
   } break;
-
   default: {
     piksi_log(LOG_ERR, "invalid filter action\n");
   } break;
   }
+
+  memcpy(rule_cache->cached_ports[key].prefix, data, rule_cache->rule_prefixes->prefix_len);
 }
 
 static void process_forwarding_rule(const forwarding_rule_t *forwarding_rule,
@@ -359,7 +356,9 @@ static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_
   if (memcmp(rule_cache->cached_ports[key].prefix, data, prefix_len) == 0) {
     /* Match, forward to list of rules */
     for (size_t idx = 0; idx < rule_cache->cached_ports[key].count; idx++) {
-      endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], data, length);
+      if (rule_cache->cached_ports[key].endpoints[idx] != NULL) {
+        endpoint_send_fn(rule_cache->cached_ports[key].endpoints[idx], data, length);
+      }
     }
   } else {
     /* No match, forward to everything that's default accept */
@@ -857,8 +856,8 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  PK_METRICS_UPDATE(MR, MI.skip_framer, PK_METRICS_VALUE(router->skip_framer_count));
-  PK_METRICS_UPDATE(MR, MI.accept_last, PK_METRICS_VALUE(router->accept_last_count));
+  PK_METRICS_UPDATE(MR, MI.skip_framer, PK_METRICS_VALUE((u32)router->skip_framer_count));
+  PK_METRICS_UPDATE(MR, MI.accept_last, PK_METRICS_VALUE((u32)router->accept_last_count));
 
   /* Print router config and exit if requested */
   if (options.print) {
