@@ -18,6 +18,7 @@
 #include <libsbp/navigation.h>
 #include <libsbp/orientation.h>
 #include <libsbp/sbp.h>
+#include <libsbp/tracking.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -148,6 +149,19 @@ static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *con
   sbp2nmea(context, msg, SBP2NMEA_SBP_HDG);
 }
 
+static void nmea_gsv_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)sender_id;
+  (void)context;
+
+  msg_wrapped_nmea_gsv_dep_t *msg_nmea_gsv = (msg_wrapped_nmea_gsv_dep_t *)msg;  
+  size_t nmea_str_len = len - sizeof(*msg_nmea_gsv);
+
+  if (pk_endpoint_send(nmea_pub, (u8 *)msg_nmea_gsv->gsv_sentence, nmea_str_len) != 0) {
+    piksi_log(LOG_ERR, "Error sending nmea gsv string to nmea_internal");
+  }
+}
+
 static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)len;
@@ -266,6 +280,11 @@ int main(int argc, char *argv[])
 
   if (sbp_callback_register(SBP_MSG_BASELINE_HEADING, baseline_heading_callback, &state) != 0) {
     piksi_log(LOG_ERR, "error setting baseline heading callback");
+    return cleanup(EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_WRAPPED_NMEA_GSV_DEP, nmea_gsv_callback, &state) != 0) {
+    piksi_log(LOG_ERR, "error setting nmea gsv callback");
     return cleanup(EXIT_FAILURE);
   }
 
