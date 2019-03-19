@@ -17,13 +17,16 @@
 
 #include "sbp.h"
 
+#define METRICS_NAME "sbp_j1939_bridge"
+#define SETTINGS_METRICS_NAME ("settings/" METRICS_NAME)
+
 #define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP External Out */
 #define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP External In */
 
 static struct {
   pk_loop_t *loop;
   sbp_pubsub_ctx_t *pubsub_ctx;
-  settings_ctx_t *settings_ctx;
+  pk_settings_ctx_t *settings_ctx;
   bool simulator_enabled;
 } ctx = {
   .loop = NULL,
@@ -39,7 +42,7 @@ int sbp_init(void)
     goto failure;
   }
 
-  ctx.pubsub_ctx = sbp_pubsub_create(SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
+  ctx.pubsub_ctx = sbp_pubsub_create(METRICS_NAME, SBP_PUB_ENDPOINT, SBP_SUB_ENDPOINT);
   if (ctx.pubsub_ctx == NULL) {
     goto failure;
   }
@@ -49,13 +52,13 @@ int sbp_init(void)
     goto failure;
   }
 
-  ctx.settings_ctx = settings_create();
+  ctx.settings_ctx = pk_settings_create(SETTINGS_METRICS_NAME);
   if (ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
     goto failure;
   }
 
-  if (settings_attach(ctx.settings_ctx, ctx.loop) != 0) {
+  if (pk_settings_attach(ctx.settings_ctx, ctx.loop) != 0) {
     piksi_log(LOG_ERR, "Error registering for settings read!");
     goto failure;
   }
@@ -67,11 +70,6 @@ failure:
   return -1;
 }
 
-pk_loop_t *sbp_get_loop(void)
-{
-  return ctx.loop;
-}
-
 void sbp_deinit(void)
 {
   if (ctx.loop != NULL) {
@@ -81,11 +79,16 @@ void sbp_deinit(void)
     sbp_pubsub_destroy(&ctx.pubsub_ctx);
   }
   if (ctx.settings_ctx != NULL) {
-    settings_destroy(&ctx.settings_ctx);
+    pk_settings_destroy(&ctx.settings_ctx);
   }
 }
 
-settings_ctx_t *sbp_get_settings_ctx(void)
+pk_loop_t *sbp_get_loop(void)
+{
+  return ctx.loop;
+}
+
+pk_settings_ctx_t *sbp_get_settings_ctx(void)
 {
   return ctx.settings_ctx;
 }

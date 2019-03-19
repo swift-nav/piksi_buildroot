@@ -89,6 +89,15 @@ static void *can_read_thread_handler(void *arg)
         continue;
       }
 
+      if (strncmp(framer_in_name, "j1939", 5) == 0) {
+        if (write(pctx->read_pipe_fd, &frame.can_id, sizeof(frame.can_id)) < 0) {
+
+          PK_LOG_ANNO(LOG_WARNING, "pipe write() failed: %s (%d)", strerror(errno), errno);
+          break;
+        }
+      }
+
+
       if (write(pctx->read_pipe_fd, frame.data, frame.can_dlc) < 0) {
 
         PK_LOG_ANNO(LOG_WARNING, "pipe write() failed: %s (%d)", strerror(errno), errno);
