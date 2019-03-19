@@ -1,7 +1,7 @@
 #!/bin/sh
 
 export name="endpoint_router_rpmsg_stats"
-export cmd="endpoint_router --name rpmsg_stats -f /etc/endpoint_router/rpmsg_stats.yml"
+export cmd="endpoint_router --name rpmsg_stats -f /etc/endpoint_router/rpmsg_stats_router.yml"
 export dir="/"
 export user="rt_rpmsg_stats"
 

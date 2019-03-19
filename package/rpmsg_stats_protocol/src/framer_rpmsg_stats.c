@@ -31,15 +31,25 @@ typedef struct {
   bool need_eom;
 } framer_rpmsg_state_t;
 
-static const size_t packet_size = offsetof(rpmsg_stats_t, eom) - offsetof(rpmsg_stats_t, version);
+#define DATA_START offsetof(rpmsg_stats_t, version)
+
+static const size_t data_start = DATA_START;
+static const size_t packet_size = offsetof(rpmsg_stats_t, eom) - DATA_START;
+
+static void reset_state(framer_rpmsg_state_t *s)
+{
+  s->need_signature = true;
+  s->need_eom = false;
+  s->offset = data_start;
+}
 
 void *framer_create(void)
 {
   framer_rpmsg_state_t *s = malloc(sizeof(*s));
-  s->need_signature = true;
-  s->need_eom = false;
-  s->offset = 0;
+  reset_state(s);
+
   if (s == NULL) return NULL;
+
   return (void *)s;
 }
 
@@ -88,16 +98,14 @@ uint32_t framer_process(void *state,
           *frame_length_out = sizeof(s->d.stats);
         }
         offset += 4;
-        // Reset
-        s->need_signature = true;
-        s->need_eom = false;
+        reset_state(s);
       } else {
         // Not enough data to read eom
         break;
       }
     } else {
       s->d.buffer[s->offset++] = data[offset++];
-      if (s->offset == packet_size) {
+      if (s->offset - data_start == packet_size) {
         s->need_eom = true;
       }
     }

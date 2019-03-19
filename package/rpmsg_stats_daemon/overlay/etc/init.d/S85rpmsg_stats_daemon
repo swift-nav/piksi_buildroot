@@ -3,6 +3,6 @@
 export name="rpmsg_stats_daemon"
 export cmd="rpmsg_stats_daemon"
 export dir="/"
-export user="rpmsg_stats_daemon"
+export user="rpmsg_statsd"
 
 source /etc/init.d/template_runsv.inc.sh

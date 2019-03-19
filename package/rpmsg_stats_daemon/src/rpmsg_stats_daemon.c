@@ -26,7 +26,7 @@
 
 #define PROGRAM_NAME "rpmsg_stats_daemon"
 
-#define RPMSG_STATS_PUB_ENDPOINT "ipc:///var/run/sockets/rpmsg_stats_external.pub"
+#define RPMSG_STATS_PUB_ENDPOINT "ipc:///var/run/sockets/rpmsg_stats_internal.pub"
 #define RPMSG_STATS_METRIC_NAME "rpmsg_stats/sub"
 
 #define BASE_DIRECTORY "/var/run/rpmsg_stats"
@@ -73,18 +73,29 @@ static int handle_frame_cb(const u8 *frame_data, const size_t frame_length, void
     return -1;
   }
 
-  {
-    if (frame_length == 0 || frame_length > MAX_BUFFER) {
+  if (frame_length == 0 || frame_length > MAX_BUFFER) {
 
-      sbp_log(LOG_ERR, "invalid frame size: %lu", frame_length);
-      ctx->result = EXIT_FAILURE;
+    sbp_log(LOG_ERR, "invalid frame size: %lu", frame_length);
+    ctx->result = EXIT_FAILURE;
 
-      return -1;
-    }
-
-    memcpy(buffer, frame_data, MAX_BUFFER);
-    /* TODO: do something with data */
+    return -1;
   }
+
+  memcpy(buffer, frame_data, MAX_BUFFER);
+  rpmsg_stats_t *stats = (rpmsg_stats_t *)buffer;
+
+  piksi_log(LOG_DEBUG,
+            "stats: dropped_bytes: %u, write_count: %u, write_bytes: %u, "
+            "read_count: %u, read_bytes: %u, send_fails: %u, sem_timeouts: %u, "
+            "sem_wakeups: %u",
+            stats->dropped_bytes,
+            stats->write_count,
+            stats->write_bytes,
+            stats->read_count,
+            stats->read_bytes,
+            stats->send_fails,
+            stats->sem_timeouts,
+            stats->sem_wakeups);
 
   return 0;
 }
