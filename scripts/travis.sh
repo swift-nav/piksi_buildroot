@@ -18,8 +18,6 @@ validate_travis_target()
 {
   if [[ "${TRAVIS_TARGET}" == "release" ]]; then
     :
-  elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
-    :
   elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
     :
   elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
@@ -82,8 +80,6 @@ list_published_files()
     files="${files} \
       buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin \
       buildroot/output/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin"
-  elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
-    : # Just push build log
   elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
     # Push all images (failsafe, internal, dev)
     files="${files} \
@@ -118,27 +114,6 @@ check_format_errors() {
     git --no-pager diff
     exit 1
   fi
-}
-
-#######################################################################
-# Docker build variant ################################################
-#######################################################################
-
-handle_docker_script_phase()
-{
-  spawn_ticker
-  ./scripts/docker_travis.sh 2>&1 | capture_build_log
-}
-
-handle_docker_after_success_phase()
-{
-  PRODUCT_VERSION=v3 PRODUCT_REV=prod \
-    ./scripts/publish.sh $BUILD_LOG
-}
-
-handle_docker_after_failure_phase()
-{
-  do_default_after_failure_actions
 }
 
 #######################################################################
