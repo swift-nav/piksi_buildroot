@@ -14,14 +14,14 @@
 #include <assert.h>
 #include <getopt.h>
 #include <libpiksi/logging.h>
-#include <libpiksi/settings.h>
+#include <libpiksi/settings_client.h>
 #include <libsbp/sbp.h>
 #include <libsbp/imu.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <libsettings/settings.h>
 #define PROGRAM_NAME "sbp_j1939_bridge"
 
 #define J1939_SUB_ENDPOINT "ipc:///var/run/sockets/j1939_internal.pub" /* J1939 Internal Out */
@@ -257,7 +257,7 @@ static int cleanup(pk_endpoint_t **j1939_ept_loc, int status);
 
 int main(int argc, char *argv[])
 {
-  settings_ctx_t *settings_ctx = NULL;
+  pk_settings_ctx_t *settings_ctx = NULL;
   (void) settings_ctx;
   pk_loop_t *loop = NULL;
   pk_endpoint_t *j1939_sub = NULL;
@@ -279,13 +279,19 @@ int main(int argc, char *argv[])
     exit(cleanup(&j1939_sub, EXIT_FAILURE));
   }
 
-  j1939_pub = pk_endpoint_create(J1939_PUB_ENDPOINT, PK_ENDPOINT_PUB);
+  j1939_pub = pk_endpoint_create(pk_endpoint_config()
+                                   .endpoint(J1939_PUB_ENDPOINT)
+                                   .type(PK_ENDPOINT_PUB)
+                                   .get());
   if (j1939_pub == NULL) {
     piksi_log(LOG_ERR, "error creating PUB socket");
     exit(cleanup(&j1939_sub, EXIT_FAILURE));
   }
 
-  j1939_sub = pk_endpoint_create(J1939_SUB_ENDPOINT, PK_ENDPOINT_SUB);
+  j1939_sub = pk_endpoint_create(pk_endpoint_config()
+                                   .endpoint(J1939_SUB_ENDPOINT)
+                                   .type(PK_ENDPOINT_SUB)
+                                   .get());
   if (j1939_sub == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(cleanup(&j1939_sub, EXIT_FAILURE));

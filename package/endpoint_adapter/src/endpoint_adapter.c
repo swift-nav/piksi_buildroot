@@ -543,39 +543,6 @@ static pk_endpoint_t *pk_endpoint_start(int type)
   return pk_ept;
 }
 
-static ssize_t can_read(int skt, void *buffer, size_t count)
-{
-  while (1) {
-    struct can_frame frame = {0};
-    /* Non-blocking */
-    struct timeval tv = {0, 0};
-    fd_set fds;
-
-    FD_ZERO(&fds);
-    FD_SET(skt, &fds);
-
-    if (select((skt + 1), &fds, NULL, NULL, &tv) < 0) {
-      return 0;
-    }
-
-    if (FD_ISSET(skt, &fds) == 0) {
-      continue;
-    }
-
-    ssize_t ret = read(skt, &frame, sizeof(frame));
-
-    /* Retry if interrupted */
-    if ((ret == -1) && (errno == EINTR)) {
-      continue;
-    } else {
-      assert(count >= sizeof(frame.can_id) + frame.can_dlc);
-      memcpy(buffer, &frame.can_id, sizeof(frame.can_id));
-      memcpy(buffer + sizeof(frame.can_id), frame.data, frame.can_dlc);
-      return sizeof(frame.can_id) + frame.can_dlc;
-    }
-  }
-}
-
 static ssize_t fd_read(int fd, void *buffer, size_t count)
 {
   while (1) {
