@@ -1000,8 +1000,11 @@ int main(int argc, char *argv[])
   } break;
 
   case IO_CAN: {
-    extern int can_loop(const char *name, u32 filter, const char *framer);
-    ret = can_loop(port_name, can_filter, framer_in_name);
+    extern int can_loop(const char *name,
+                        u32 filter,
+                        const char *framer_in,
+                        const char *framer_out);
+    ret = can_loop(port_name, can_filter, framer_in_name, framer_out_name);
   } break;
 
   default: break;
