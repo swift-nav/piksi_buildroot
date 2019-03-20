@@ -40,6 +40,7 @@ static u32 can_filter;
 typedef struct {
   int can_read_fd;
   int read_pipe_fd;
+  const char *framer;
 } read_thread_context_t;
 
 typedef struct {
@@ -89,19 +90,21 @@ static void *can_read_thread_handler(void *arg)
         continue;
       }
 
-      if (strncmp(framer_in_name, "j1939", 5) == 0) {
-        if (write(pctx->read_pipe_fd, &frame.can_id, sizeof(frame.can_id)) < 0) {
+      if (strncmp(pctx->framer, "j1939", 5) == 0) {
+        u8 full_frame[12];
+        memcpy(full_frame, &frame.can_id, sizeof(frame.can_id));
+        memcpy(full_frame + sizeof(frame.can_id), frame.data, frame.can_dlc);
+        if (write(pctx->read_pipe_fd, full_frame, sizeof(frame.can_id) + frame.can_dlc) < 0) {
 
           PK_LOG_ANNO(LOG_WARNING, "pipe write() failed: %s (%d)", strerror(errno), errno);
           break;
         }
-      }
+      } else {
+        if (write(pctx->read_pipe_fd, frame.data, frame.can_dlc) < 0) {
 
-
-      if (write(pctx->read_pipe_fd, frame.data, frame.can_dlc) < 0) {
-
-        PK_LOG_ANNO(LOG_WARNING, "pipe write() failed: %s (%d)", strerror(errno), errno);
-        break;
+          PK_LOG_ANNO(LOG_WARNING, "pipe write() failed: %s (%d)", strerror(errno), errno);
+          break;
+        }
       }
     }
   }
@@ -201,7 +204,7 @@ static void *can_write_thread_handler(void *arg)
   return NULL;
 }
 
-int can_loop(const char *can_name, u32 can_filter_in)
+int can_loop(const char *can_name, u32 can_filter_in, const char *framer_in_name)
 {
   while (1) {
     /* Open CAN socket */
@@ -275,6 +278,7 @@ int can_loop(const char *can_name, u32 can_filter_in)
     read_thread_context_t read_thread_ctx = {
       .can_read_fd = socket_can,
       .read_pipe_fd = pipe_from_can[WRITE],
+      .framer = framer_in_name,
     };
 
     pthread_t read_thread;

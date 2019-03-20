@@ -25,7 +25,10 @@
 #define PROGRAM_NAME "sbp_j1939_bridge"
 
 #define J1939_SUB_ENDPOINT "ipc:///var/run/sockets/j1939_internal.pub" /* J1939 Internal Out */
+#define J1939_SUB_METRICS "j1939/sub"
+
 #define J1939_PUB_ENDPOINT "ipc:///var/run/sockets/j1939_internal.sub" /* J1939 Internal In */
+#define J1939_PUB_METRICS "j1939/pub"
 
 #define J1939_HEADER_LENGTH 4
 
@@ -281,6 +284,7 @@ int main(int argc, char *argv[])
 
   j1939_pub = pk_endpoint_create(pk_endpoint_config()
                                    .endpoint(J1939_PUB_ENDPOINT)
+                                   .identity(J1939_PUB_METRICS)
                                    .type(PK_ENDPOINT_PUB)
                                    .get());
   if (j1939_pub == NULL) {
@@ -290,6 +294,7 @@ int main(int argc, char *argv[])
 
   j1939_sub = pk_endpoint_create(pk_endpoint_config()
                                    .endpoint(J1939_SUB_ENDPOINT)
+                                   .identity(J1939_SUB_METRICS)
                                    .type(PK_ENDPOINT_SUB)
                                    .get());
   if (j1939_sub == NULL) {
