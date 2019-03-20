@@ -35,6 +35,8 @@
 #define BUFFER_SIZE (4096)
 static uint8_t pipe_read_buffer[BUFFER_SIZE];
 
+static bool is_j1939 = false;
+
 static u32 can_filter;
 
 typedef struct {
@@ -46,6 +48,7 @@ typedef struct {
 typedef struct {
   int can_write_fd;
   int write_pipe_fd;
+  const char *framer;
 } write_thread_context_t;
 
 static void *can_read_thread_handler(void *arg)
@@ -90,7 +93,7 @@ static void *can_read_thread_handler(void *arg)
         continue;
       }
 
-      if (strncmp(pctx->framer, "j1939", 5) == 0) {
+      if (is_j1939) {
         u8 full_frame[12];
         memcpy(full_frame, &frame.can_id, sizeof(frame.can_id));
         memcpy(full_frame + sizeof(frame.can_id), frame.data, frame.can_dlc);
@@ -204,8 +207,15 @@ static void *can_write_thread_handler(void *arg)
   return NULL;
 }
 
-int can_loop(const char *can_name, u32 can_filter_in, const char *framer_in_name)
+int can_loop(const char *can_name,
+             u32 can_filter_in,
+             const char *framer_in_name,
+             const char *framer_out_name)
 {
+  if (strncmp(framer_in_name, "j1939", 5) == 0) {
+    is_j1939 = true;
+  }
+
   while (1) {
     /* Open CAN socket */
     struct sockaddr_can addr;
@@ -221,8 +231,11 @@ int can_loop(const char *can_name, u32 can_filter_in, const char *framer_in_name
 
     struct can_filter rfilter[1];
     rfilter[0].can_id = can_filter;
-    // rfilter[0].can_mask = CAN_SFF_MASK;
-    rfilter[0].can_mask = 0;
+    if (is_j1939) {
+      rfilter[0].can_mask = 0;
+    } else {
+      rfilter[0].can_mask = CAN_SFF_MASK;
+    }
 
     if (setsockopt(socket_can, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter))) {
       piksi_log(LOG_ERR, "could not set filter for %s", can_name);
@@ -287,6 +300,7 @@ int can_loop(const char *can_name, u32 can_filter_in, const char *framer_in_name
     write_thread_context_t write_thread_ctx = {
       .can_write_fd = socket_can,
       .write_pipe_fd = pipe_to_can[READ],
+      .framer = framer_out_name,
     };
 
     pthread_t write_thread;

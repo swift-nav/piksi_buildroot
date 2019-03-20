@@ -8,7 +8,7 @@ SBP_J1939_BRIDGE_VERSION = 0.1
 SBP_J1939_BRIDGE_SITE = \
 	"${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_j1939_bridge"
 SBP_J1939_BRIDGE_SITE_METHOD = local
-SBP_J1939_BRIDGE_DEPENDENCIES = libuv libsbp libpiksi
+SBP_J1939_BRIDGE_DEPENDENCIES = libuv libsbp libpiksi libsettings
 
 define SBP_J1939_BRIDGE_USERS
 	br_j1939 -1 br_j1939 -1 * - - -

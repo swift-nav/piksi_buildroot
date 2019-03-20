@@ -10,18 +10,23 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "sbp.h"
 #include <assert.h>
 #include <getopt.h>
-#include <libpiksi/logging.h>
-#include <libpiksi/settings_client.h>
-#include <libsbp/sbp.h>
-#include <libsbp/imu.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <libpiksi/logging.h>
+#include <libpiksi/settings_client.h>
+
+#include <libsbp/sbp.h>
+#include <libsbp/imu.h>
+
 #include <libsettings/settings.h>
+
+#include "sbp.h"
+
 #define PROGRAM_NAME "sbp_j1939_bridge"
 
 #define J1939_SUB_ENDPOINT "ipc:///var/run/sockets/j1939_internal.pub" /* J1939 Internal Out */
@@ -36,7 +41,7 @@ bool j1939_debug = false;
 
 struct imu_raw_msg {
   u32 tow;
-  u8  tow_f;
+  u8 tow_f;
   u16 acc_x;
   u16 acc_y;
   u16 acc_z;
@@ -59,12 +64,12 @@ struct j1939_sbp_state {
 };
 
 struct j1939_message {
-  int (*handler)(const u8 *payload, const u8 payload_length, struct j1939_sbp_state *state);
+  int (*handler)(const u8 *payload, struct j1939_sbp_state *state);
   u32 PGN;
   u8 payload_length;
 };
 
-static int handle_slope_sensor_info_2(const u8 *payload, const u8 payload_length, struct j1939_sbp_state *state)
+static int handle_slope_sensor_info_2(const u8 *payload, struct j1939_sbp_state *state)
 {
   u32 pitch = 0;
   for (int i = 0; i < 3; i++) {
@@ -76,43 +81,35 @@ static int handle_slope_sensor_info_2(const u8 *payload, const u8 payload_length
     roll += payload[i + 3] << (8 * i);
   }
 
-  (void) payload_length;
-  (void) state;
-  piksi_log(LOG_ERR, "slope - pitch: %.2f roll %.2f", pitch / 32768.0 - 250, roll / 32768.0 - 250);
+  (void)state;
 
   return 0;
 }
 
-static int handle_angular_rate(const u8 *payload, const u8 payload_length, struct j1939_sbp_state *state)
+static int handle_angular_rate(const u8 *payload, struct j1939_sbp_state *state)
 {
   u16 angular_velocity[3] = {0, 0, 0}; /* x, y, z axes */
   for (int i = 0; i < 3; i++) {
-    angular_velocity[i] = payload[i*2] + (payload[i*2 + 1] << 8);
+    angular_velocity[i] = payload[i * 2] + (payload[i * 2 + 1] << 8);
   }
 
-  (void) payload_length;
-  piksi_log(LOG_ERR, "Angular Rate X, Y, Z : %.2f, %.2f, %.2f", angular_velocity[0] / 128.0 - 250, angular_velocity[1] / 128.0 - 250, angular_velocity[2] / 128.0 - 250);
-
   state->imu_raw.gyr_x = angular_velocity[0];
-  state->imu_raw.gyr_x = angular_velocity[1];
-  state->imu_raw.gyr_x = angular_velocity[2];
+  state->imu_raw.gyr_y = angular_velocity[1];
+  state->imu_raw.gyr_z = angular_velocity[2];
 
   return 0;
 }
 
-static int handle_acceleration_sensor(const u8 *payload, const u8 payload_length, struct j1939_sbp_state *state)
+static int handle_acceleration_sensor(const u8 *payload, struct j1939_sbp_state *state)
 {
   u16 acceleration[3] = {0, 0, 0}; /* x, y, z axes */
   for (int i = 0; i < 3; i++) {
-    acceleration[i] = payload[i*2] + (payload[i*2 + 1] << 8);
+    acceleration[i] = payload[i * 2] + (payload[i * 2 + 1] << 8);
   }
 
-  (void) payload_length;
-  piksi_log(LOG_ERR, "Acceleration X, Y, Z : %.2f, %.2f, %.2f", (acceleration[0] - 32000) / 100.0, (acceleration[1] - 32000) / 100.0, (acceleration[2] - 32000) / 100.0);
-
   state->imu_raw.acc_x = acceleration[0];
-  state->imu_raw.acc_x = acceleration[0];
-  state->imu_raw.acc_x = acceleration[0];
+  state->imu_raw.acc_y = acceleration[1];
+  state->imu_raw.acc_z = acceleration[2];
   return 0;
 }
 
@@ -144,32 +141,25 @@ static void parse_PGN(const u8 *data, struct j1939_sbp_state *state)
 {
   u8 byte0 = data[3] & 0x1F; /* CAN ID is only 29 bit, not 32. little endian */
   state->priority = byte0 >> 2;
-  state->extended_data_page = (byte0 & (1 << 1)) >> 1;
+  state->extended_data_page = (byte0 >> 1) & 1;
   state->data_page = byte0 & 1;
 
   state->pdu_format = data[2];
   state->pdu_specific = data[1];
   state->source_address = data[0];
 
-  state->PGN =
-    state->extended_data_page << 17 |
-    state->data_page << 16 |
-    state->pdu_format << 8 |
-    state->pdu_specific;
+  state->PGN = state->extended_data_page << 17 | state->data_page << 16 | state->pdu_format << 8
+               | state->pdu_specific;
 }
 
 static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *context)
 {
-  (void)data;
-  (void)length;
-  (void)context;
-  struct j1939_sbp_state *state = (struct j1939_sbp_state*) context;
-  (void)state;
+  struct j1939_sbp_state *state = (struct j1939_sbp_state *)context;
 
-  if (length < 4) {
-    piksi_log(LOG_ERR, "j19392sbp_decode_frame too short");
+  if (length < J1939_HEADER_LENGTH) {
+    piksi_log(LOG_WARNING, "j19392sbp_decode_frame too short");
     for (u8 i = 0; i < length; i++) {
-      piksi_log(LOG_ERR, "%02X ", data[i]);
+      piksi_log(LOG_WARNING, "%02X ", data[i]);
     }
     return 0;
   } else {
@@ -178,10 +168,20 @@ static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *con
 
   bool found = false;
   struct j1939_message *message;
-  for (message = j1939_messages; message < j1939_messages + sizeof(j1939_messages) / sizeof(j1939_messages[0]); message++) {
+  for (message = j1939_messages;
+       message < j1939_messages + sizeof(j1939_messages) / sizeof(j1939_messages[0]);
+       message++) {
     if (state->PGN == message->PGN) {
-      message->handler(data + J1939_HEADER_LENGTH, length, state);
       found = true;
+      if (message->payload_length != length - J1939_HEADER_LENGTH) {
+        piksi_log(LOG_ERR,
+                  "Wrong payload length for PGN: %d - Expected: %d Received %d",
+                  message->PGN,
+                  message->payload_length,
+                  length - J1939_HEADER_LENGTH);
+      } else {
+        message->handler(data + J1939_HEADER_LENGTH, state);
+      }
       break;
     }
   }
@@ -191,13 +191,12 @@ static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *con
   }
 
   switch (state->PGN) {
-    case 61482: /* gyr_* info */
-    case 61485: /* acc_* info */
-      sbp_message_send(SBP_MSG_IMU_RAW, sizeof(struct imu_raw_msg), (u8 *)&state->imu_raw, 0, NULL);
-      break;
+  case 61482: /* gyr_* info */
+  case 61485: /* acc_* info */
+    sbp_message_send(SBP_MSG_IMU_RAW, sizeof(struct imu_raw_msg), (u8 *)&state->imu_raw, 0, NULL);
+    break;
 
-    default:
-      break;
+  default: break;
   }
 
   return 0;
@@ -260,8 +259,6 @@ static int cleanup(pk_endpoint_t **j1939_ept_loc, int status);
 
 int main(int argc, char *argv[])
 {
-  pk_settings_ctx_t *settings_ctx = NULL;
-  (void) settings_ctx;
   pk_loop_t *loop = NULL;
   pk_endpoint_t *j1939_sub = NULL;
 
