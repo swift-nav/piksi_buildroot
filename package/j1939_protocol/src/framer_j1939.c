@@ -65,7 +65,6 @@ uint32_t framer_process(void *state,
   if (s->count == 10) {
     s->count = 0;
 
-    piksi_log(LOG_ERR, "J1939 framer_process");
     if (data_length >= 4) {
       piksi_log(LOG_ERR, "can_id: %02X%02X%02X%02X", data[3], data[2], data[1], data[0]);
 
