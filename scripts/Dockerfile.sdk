@@ -39,7 +39,7 @@ ENV PATH=/opt/cmake/bin:${PATH}
 WORKDIR /work
 
 RUN \
-  git clone --single-branch -b ${branch} --recursive --depth=1 \
+  git clone --single-branch -b ${branch} --recursive --depth=100 \
     https://github.com/swift-nav/piksi_buildroot.git \
     .
 
