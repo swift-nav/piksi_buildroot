@@ -416,7 +416,7 @@ should_build_sdk_image()
 
 handle_sdk_script_phase()
 {
-  if ! should_build_sdk_image then
+  if ! should_build_sdk_image; then
     echo '>>> Not building SDK image (not a tagged build or not requested)...'
     return
   fi
@@ -443,7 +443,7 @@ handle_sdk_script_phase()
 
 handle_sdk_after_success_phase()
 {
-  if ! should_build_sdk_image then
+  if ! should_build_sdk_image; then
     return
   fi
  
