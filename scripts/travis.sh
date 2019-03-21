@@ -414,6 +414,17 @@ should_build_sdk_image()
   return 1
 }
 
+get_branch_name()
+{
+  if [[ -n "${TRAVIS_PULL_REQUEST_BRANCH:-}" ]]; then
+    echo $TRAVIS_PULL_REQUEST_BRANCH
+  elif [[ -n "${TRAVIS_BRANCH:-}" ]]; then
+    echo $TRAVIS_BRANCH
+  else
+    git branch --list | head -1 | sed s@^..@@
+  fi
+}
+
 handle_sdk_script_phase()
 {
   set -x
@@ -427,7 +438,7 @@ handle_sdk_script_phase()
 
   local tag=piksi_br_sdk_build
   local build_dir=$(mktemp -d)
-  local branch_name=$(git branch --list | head -1 | sed s@^..@@)
+  local branch_name=$(get_branch_name)
 
   cp -v scripts/Dockerfile.sdk "$build_dir/Dockerfile"
 
