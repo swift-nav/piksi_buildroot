@@ -82,7 +82,7 @@ matrix:
         - ./scripts/travis.sh after_failure
     
     # Toolcahin build: builds normally, but also builds the
-    #   SDK sample app, piksi_ins_ref, and exports a buidlroot
+    #   SDK sample app, piksi_ins_ref, and exports a buildroot
     #   toolchain
     - env:
         - TRAVIS_TARGET=toolchain
