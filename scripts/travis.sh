@@ -434,7 +434,7 @@ handle_sdk_script_phase()
 
   branch_name=$(git branch --list | head -1 | sed s@^..@@)
   docker build \
-    --build-arg branch=$branch_name -t $tag . | capture_build_log
+    --build-arg branch=$branch_name -t $tag .
 
   echo '>>> Copying artifacts for SDK image build...'
 
