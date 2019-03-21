@@ -47,7 +47,7 @@ validate_travis_target()
 }
 
 ticker_pid=
-trap '[[ -z "${ticker_pid}" ]] || kill "${ticker_pid}" || :' EXIT
+trap '( [[ -z "${ticker_pid}" ]] || kill "${ticker_pid}" || : ) &>/dev/null' EXIT
 
 SLEEP_TIME=60
 
@@ -59,7 +59,7 @@ spawn_ticker()
 
 kill_ticker()
 {
-  [[ -z "${ticker_pid}" ]] || kill "${ticker_pid}" || : &>/dev/null
+  ( [[ -z "${ticker_pid}" ]] || kill "${ticker_pid}" || : ) &>/dev/null
 }
 
 capture_build_log()
@@ -416,6 +416,8 @@ should_build_sdk_image()
 
 handle_sdk_script_phase()
 {
+  set -x
+
   if ! should_build_sdk_image; then
     echo '>>> Not building SDK image (not a tagged build or not requested)...'
     return
