@@ -9,10 +9,19 @@ PHASE=$1; shift
 #######################################################################
 
 BUILD_LOG=build_${TRAVIS_TARGET}.out
+FILE=$(basename $0)
 
 #######################################################################
 # Library code ########################################################
 #######################################################################
+
+die_error()
+{
+  local err=$1; shift
+
+  echo "ERROR: ${err} (${BASH_SOURCE[1]##*/}:${FUNCNAME[1]}[${BASH_LINENO[0]}])" >&2
+  exit 1
+}
 
 validate_travis_target()
 {
@@ -33,8 +42,7 @@ validate_travis_target()
   elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
     :
   else
-    echo "ERROR: unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}" >&2
-    exit 1
+    die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
   fi
 }
 
@@ -105,6 +113,8 @@ list_published_files()
   elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
     files="${files} \
       buildroot/output/images/piksiv3_prod/PiksiMulti-SDK-v*.bin"
+  else
+    die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
   fi
 
   echo "$files"
@@ -240,6 +250,33 @@ ccache_variant()
     echo "release"
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     echo "host"
+  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+    echo "release"
+  else
+    die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
+  fi
+}
+
+handle_after_success_phase()
+{
+  if [[ "${TRAVIS_TARGET}" == "release" ]]; then
+    handle_release_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
+    handle_docker_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
+    handle_internal_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "toolchain" ]]; then
+    handle_toolchain_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
+    handle_host_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
+    handle_nano_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "format" ]]; then
+    handle_format_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+    handle_sdk_after_success_phase
+  else
+    
   fi
 }
 
@@ -427,6 +464,10 @@ handle_script_phase()
     handle_nano_script_phase
   elif [[ "${TRAVIS_TARGET}" == "format" ]]; then
     handle_format_script_phase
+  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+    handle_sdk_script_phase
+  else
+    die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
   fi
 }
 
@@ -446,6 +487,10 @@ handle_after_success_phase()
     handle_nano_after_success_phase
   elif [[ "${TRAVIS_TARGET}" == "format" ]]; then
     handle_format_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+    handle_sdk_after_success_phase
+  else
+    die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
   fi
 }
 
@@ -465,6 +510,10 @@ handle_after_failure_phase()
     handle_nano_after_failure_phase
   elif [[ "${TRAVIS_TARGET}" == "format" ]]; then
     handle_format_after_failure_phase
+  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+    handle_sdk_after_failure_phase
+  else
+    die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
   fi
 }
 
