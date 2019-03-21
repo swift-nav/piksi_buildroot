@@ -32,14 +32,14 @@ matrix:
         - ./scripts/travis.sh after_failure
 
     # Check if docker base image needs to be re-built
-    - env:
-        - TRAVIS_TARGET=docker
-      script:
-        - ./scripts/travis.sh script
-      after_success:
-        - ./scripts/travis.sh after_success
-      after_failure:
-        - ./scripts/travis.sh after_failure
+#    - env:
+#        - TRAVIS_TARGET=docker
+#      script:
+#        - ./scripts/travis.sh script
+#      after_success:
+#        - ./scripts/travis.sh after_success
+#      after_failure:
+#        - ./scripts/travis.sh after_failure
 
     # Normal image build
     - env:
@@ -72,14 +72,14 @@ matrix:
         - ./scripts/travis.sh after_failure
 
     # Nano image build, for Starling-EVK
-    - env:
-        - TRAVIS_TARGET=nano
-      script:
-        - ./scripts/travis.sh script
-      after_success:
-        - ./scripts/travis.sh after_success
-      after_failure:
-        - ./scripts/travis.sh after_failure
+#    - env:
+#        - TRAVIS_TARGET=nano
+#      script:
+#        - ./scripts/travis.sh script
+#      after_success:
+#        - ./scripts/travis.sh after_success
+#      after_failure:
+#        - ./scripts/travis.sh after_failure
     
     # Toolcahin build: builds normally, but also builds the
     #   SDK sample app, piksi_ins_ref, and exports a buildroot
