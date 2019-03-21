@@ -312,7 +312,7 @@ handle_sdk_after_success_phase()
   if ./scripts/should_build_sdk_and_ccache.sh; then
 
     PRODUCT_VERSION=v3 PRODUCT_REV=prod \
-      ./scripts/publish.sh piksi_sdk.txz
+      ./scripts/publish.sh piksi_br_toolchain.txz
 
     make docker-ccache-archive
     ./scripts/publish.sh piksi_br_$(ccache_variant)_ccache.tgz

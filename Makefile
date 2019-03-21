@@ -79,6 +79,14 @@ image: config
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V)
 
+image-sdk: config
+	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
+		$(MAKE) rel-lockdown-clean
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) dev-tools-clean dev-tools-build
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) -C buildroot O=output V=$(V)
+
 clean-ccache:
 	rm -rf buildroot/output/ccache/*
 
@@ -295,17 +303,17 @@ docker-clang-format:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		./scripts/run-clang-format
 
-docker-make-sdk:
+docker-make-export-toolchain:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make sdk
+		make export-toolchain
 
-sdk:
+export-toolchain:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output V=$(V) sdk
 	@echo '>>>' Uninstalling piksi toolchain wrappers...
 	$(MAKE) -C buildroot force-uninstall-toolchain-wrappers
-	@echo '>>>' Creating SDK archive...
-	tar -cJf piksi_sdk.txz -C buildroot/output/host .
+	@echo '>>>' Creating buildroot toolchain archive...
+	tar -cJf piksi_br_toolchain.txz -C buildroot/output/host .
 
 define _pull_ccache
 	( DOWNLOAD_PBR_CCACHE=y PBR_TARGET=$(1) ./fetch_firmware.sh && \

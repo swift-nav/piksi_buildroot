@@ -38,6 +38,11 @@ NAP_S3_PATH_PROD=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
 
+error() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
 fetch() {
   case $@ in
     s3://swiftnav-releases/*) aws s3 cp --no-sign-request "$@";;
@@ -46,9 +51,9 @@ fetch() {
   esac
 }
 
-error() {
-  echo "ERROR: $*" >&2
-  exit 1
+fetch_sdk_fpga() {
+  fetch $NAP_S3_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
+  sha1sum $FIRMWARE_DIR/piksi_fpga.bit >$FIRMWARE_DIR/piksi_sdk_fpga.sha1sum
 }
 
 download_fw() {
@@ -63,7 +68,7 @@ download_fw() {
 
   # Download piksi_fpga, try the prod variant first, then sdk variant
   fetch $NAP_S3_PATH_PROD/piksi_prod_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit \
-    || fetch $NAP_S3_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit \
+    || fetch_sdk_fpga \
     || error "failed to download piksi_fpga.bit"
 }
 
