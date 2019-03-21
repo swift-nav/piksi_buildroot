@@ -401,11 +401,22 @@ handle_format_after_failure_phase()
 # SDK build variant ###################################################
 #######################################################################
 
+should_build_sdk_image()
+{
+  if [[ -n "${FORCE_SDK_BUILD:-}" ]]; then
+    return 0
+  fi
+
+  if ./scripts/need_tag_artifacts.sh; then
+    return 0
+  fi
+
+  return 1
+}
+
 handle_sdk_script_phase()
 {
-  if   [[ -n "${FORCE_SDK_BUILD:-}" ]] || \
-     ! ./scripts/need_tag_artifacts.sh;
-  then
+  if ! should_build_sdk_image then
     echo '>>> Not building SDK image (not a tagged build or not requested)...'
     return
   fi
@@ -432,9 +443,7 @@ handle_sdk_script_phase()
 
 handle_sdk_after_success_phase()
 {
-  if   [[ -n "${FORCE_SDK_BUILD:-}" ]] || \
-     ! ./scripts/need_tag_artifacts.sh;
-  then
+  if ! should_build_sdk_image then
     return
   fi
  
