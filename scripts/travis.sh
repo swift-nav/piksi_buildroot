@@ -425,6 +425,7 @@ handle_sdk_script_phase()
 
   local tag=piksi_br_sdk_build
   local build_dir=$(mktemp -d)
+  local branch_name=$(git branch --list | head -1 | sed s@^..@@)
 
   cp scripts/Dockerfile.sdk "$build_dir/Dockerfile"
 
@@ -432,7 +433,6 @@ handle_sdk_script_phase()
 
   echo '>>> Running fully self-contained docker build...'
 
-  branch_name=$(git branch --list | head -1 | sed s@^..@@)
   docker build \
     --build-arg branch=$branch_name -t $tag .
 
