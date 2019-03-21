@@ -39,9 +39,10 @@ ENV PATH=/opt/cmake/bin:${PATH}
 WORKDIR /work
 
 RUN \
-  git clone --single-branch ${branch} \
+  git clone --single-branch -b ${branch} \
     --recursive --shallow-submodules --depth=1 \
-    https://github.com/swift-nav/piksi_buildroot.git .
+    https://github.com/swift-nav/piksi_buildroot.git \
+    .
 
 RUN make firmware
 RUN make image-sdk
