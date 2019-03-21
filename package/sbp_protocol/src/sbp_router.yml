@@ -123,6 +123,11 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # SBP_MSG_OBS
           - { action: REJECT }
+      - dst_port: SBP_PORT_HEADING_FORWARD
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x0F, 0x02] } # SBP_MSG_BASELINE_HEADING
+          - { action: ACCEPT, prefix: [0x55, 0x0C, 0x02] } # SBP_MSG_BASELINE_NED
+          - { action: REJECT }
 
   - name: SBP_PORT_FILEIO_FIRMWARE
     pub_addr: "ipc:///var/run/sockets/fileio_firmware.pub"
@@ -226,3 +231,11 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x06, 0x7F] } # MSG_LINUX_PROCESS_FD_COUNT
           - { action: ACCEPT, prefix: [0x55, 0x07, 0x7F] } # MSG_LINUX_PROCESS_FD_SUMMARY
           - { action: REJECT }
+
+  - name: SBP_PORT_HEADING_FORWARD
+    pub_addr: "ipc:///var/run/sockets/heading_forward.pub"
+    sub_addr: "ipc:///var/run/sockets/heading_forward.sub"
+    forwarding_rules:
+      - dst_port: SBP_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT }
