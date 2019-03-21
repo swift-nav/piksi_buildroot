@@ -426,7 +426,7 @@ handle_sdk_script_phase()
   local tag=piksi_br_sdk_build
   local build_dir=$(mktemp -d)
 
-  cp scripts/Dockerfile.sdk "$build_dir"
+  cp scripts/Dockerfile.sdk "$build_dir/Dockerfile"
 
   pushd $build_dir
 
