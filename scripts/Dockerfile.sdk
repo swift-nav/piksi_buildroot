@@ -1,5 +1,7 @@
 FROM ubuntu:bionic
 
+ARG branch=master
+
 ENV DEBIAN_FRONTEND=noninteractive
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 
@@ -35,9 +37,11 @@ RUN wget -O /tmp/cmake_installer.sh ${CMAKE_INSTALLER} && \
 ENV PATH=/opt/cmake/bin:${PATH}
 
 WORKDIR /work
-   
-RUN git clone https://github.com/swift-nav/piksi_buildroot.git .
-RUN git submodule update --init --recursive
+
+RUN \
+  git clone --single-branch ${branch} \
+    --recursive --shallow-submodules --depth=1 \
+    https://github.com/swift-nav/piksi_buildroot.git .
 
 RUN make firmware
 RUN make image-sdk

@@ -432,7 +432,12 @@ handle_sdk_script_phase()
 
   echo '>>> Running fully self-contained docker build...'
 
-  docker build -t $tag . | capture_build_log
+  branch_name=$(git branch --list | head -1 | sed s@^..@@)
+  docker build \
+    --build-arg branch=$branch_name -t $tag . | capture_build_log
+
+  echo '>>> Copying artifacts for SDK image build...'
+
   docker run --name ${tag}-run --rm -it ls -l buildroot/output/images
   docker run -v $PWD:/output --name ${tag}-run --rm cp -vr buildroot/output/images/ /output/
 
