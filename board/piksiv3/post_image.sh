@@ -39,7 +39,6 @@ UBOOT_VERSION=$(grep "$UBOOT_VERSION_REGEX" $UBOOT_MK_PATH | sed "s/${UBOOT_VERS
 UBOOT_BASE_DIR=$(find $BUILD_DIR -maxdepth 1 -type d -name "uboot_custom-${UBOOT_VERSION}")
 
 SDK_FPGA_SHA1="${BR2_EXTERNAL_piksi_buildroot_PATH}/firmware/prod/piksi_sdk_fpga.sha1sum"
-EAS_TOOL_PATH=${HOST_DIR}/usr/bin/encrypt_and_sign
 
 DEV_BIN_PATH=$OUTPUT_DIR/PiksiMulti-DEV-$FILE_GIT_STRING.bin
 FAILSAFE_BIN_PATH=$OUTPUT_DIR/PiksiMulti-FAILSAFE-$FILE_GIT_STRING.bin
@@ -168,19 +167,21 @@ generate_failsafe()
 
 encrypt_and_sign()
 {
-  if [[ ! -f "$EAS_TOOL_PATH" ]]; then
-    echo "ERROR: 'encrypt_and_sign' tool not found at path: $encr_tool" >&2
+  local eas_tool_path=${HOST_DIR}/usr/bin/encrypt_and_sign
+  if [[ ! -f "$eas_tool_path" ]]; then
+    echo "ERROR: 'encrypt_and_sign' tool not found at path: $eas_tool_path" >&2
     exit 1
   fi
-  $encr_tool $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
+  $eas_tool_path $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
   rm ${INTERNAL_BIN_PATH}
 }
 
 rename_if_sdk_build()
 {
+  local eas_tool_path=${HOST_DIR}/usr/bin/encrypt_and_sign
   if [[ -e "$INTERNAL_BIN_PATH" ]]; then
-    if [[ -f "$EAS_TOOL_PATH" ]]; then
-      echo "ERROR: found 'encrypt_and_sign', for \"SDK\" builds, this tool not *SHOULD NOT BE* locatable ($encr_tool)" >&2
+    if [[ -f "$eas_tool_path" ]]; then
+      echo "ERROR: found 'encrypt_and_sign', for \"SDK\" builds, this tool not *SHOULD NOT BE* locatable ($eas_tool_path)" >&2
       exit 1
     fi
     if [[ -e $SDK_FPGA_SHA1 ]]; then
