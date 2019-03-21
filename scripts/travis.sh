@@ -427,8 +427,6 @@ get_branch_name()
 
 handle_sdk_script_phase()
 {
-  set -x
-
   if ! should_build_sdk_image; then
     echo '>>> Not building SDK image (not a tagged build or not requested)...'
     return
