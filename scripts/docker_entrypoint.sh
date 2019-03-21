@@ -3,6 +3,8 @@
 export USER
 export GID
 
+export PATH
+
 ## Fix-up ssh
 
 if [ -d "/host/home/.ssh" ]; then
@@ -59,7 +61,7 @@ sudo find /root -type f -exec chmod g+rw {} \;
 [ -d "/piksi_buildroot/buildroot/nano_output/images" ] && \
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/nano_output/images"
 
-sudo --preserve-env --user="$USER" --shell -- "$@"
+sudo --preserve-env --user="$USER" PATH="$PATH" --shell -- "$@"
 err_code=$?
 
 [ -e "/home/$USER/.bash_history" ] \
