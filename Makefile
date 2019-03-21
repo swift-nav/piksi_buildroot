@@ -26,10 +26,14 @@ config:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=output piksiv3_defconfig
 
+dev-tools-clean: export BR2_BUILD_PIKSI_INS=
 dev-tools-clean: pkg-piksi_dev_tools-dirclean
 
+dev-tools-build: export BR2_BUILD_PIKSI_INS=
 dev-tools-build: pkg-piksi_dev_tools
 
+rel-lockdown-clean: export BR2_BUILD_PIKSI_INS=
+rel-lockdown-clean: export BR2_BUILD_RELEASE_OPEN=y
 rel-lockdown-clean: pkg-release_lockdown-dirclean
 
 POST_IMAGE_ENV = HW_CONFIG=prod \
@@ -55,6 +59,17 @@ define _release_ins_build
 			$(MAKE) pkg-piksi_ins-rebuild
 endef
 
+define _build_devtools
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) rel-lockdown-clean
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) dev-tools-clean dev-tools-build
+endef
+
+define _invoke_buildroot_default
+	$(BUILD_ENV_ARGS) $(MAKE) -C buildroot O=output V=$(V)
+endef
+
 image-release-open: export BR2_BUILD_RELEASE_OPEN=y
 image-release-open: config
 	$(call _release_build,:)
@@ -71,21 +86,13 @@ image-release-ins:
 image: export BR2_BUILD_STARLING_DAEMON=y
 image: export BR2_BUILD_PIKSI_INS=y
 image: config
-	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
-		$(MAKE) rel-lockdown-clean
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) dev-tools-clean dev-tools-build
+	$(_build_devtools)
 	$(_release_ins_build)
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot O=output V=$(V)
+	$(_invoke_buildroot_default)
 
 image-sdk: config
-	$(BUILD_ENV_ARGS) BR2_BUILD_RELEASE_OPEN=y \
-		$(MAKE) rel-lockdown-clean
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) dev-tools-clean dev-tools-build
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot O=output V=$(V)
+	$(_build_devtools)
+	$(_invoke_buildroot_default)
 
 clean-ccache:
 	rm -rf buildroot/output/ccache/*
@@ -183,6 +190,10 @@ docker-rebuild-changed:
 docker-make-image:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make image
+
+docker-make-image-sdk:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make image-sdk
 
 docker-make-image-release-open:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \

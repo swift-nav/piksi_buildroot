@@ -22,13 +22,15 @@ validate_travis_target()
     :
   elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
     :
-  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+  elif [[ "${TRAVIS_TARGET}" == "toolchain" ]]; then
     :
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     :
   elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
     :
   elif [[ "${TRAVIS_TARGET}" == "format" ]]; then
+    :
+  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
     :
   else
     echo "ERROR: unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}" >&2
@@ -45,6 +47,11 @@ spawn_ticker()
 {
   ( set +e; while true; do sleep $SLEEP_TIME; echo ...; done ) &
   ticker_pid=$!
+}
+
+kill_ticker()
+{
+  [[ -z "${ticker_pid}" ]] || kill "${ticker_pid}" || : &>/dev/null
 }
 
 capture_build_log()
@@ -88,13 +95,16 @@ list_published_files()
     # Push all images (failsafe, internal, dev)
     files="${files} \
          buildroot/output/images/piksiv3_prod/*"
-  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+  elif [[ "${TRAVIS_TARGET}" == "toolchain" ]]; then
     : # Just push build log
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     : # Just push build log
   elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
     files="${files} \
       buildroot/nano_output/images/sdcard.img"
+  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+    files="${files} \
+      buildroot/output/images/piksiv3_prod/PiksiMulti-SDK-v*.bin"
   fi
 
   echo "$files"
@@ -208,7 +218,7 @@ handle_host_script_phase()
 {
   make docker-setup
 
-  if ! ./scripts/should_build_sdk_and_ccache.sh; then
+  if ! ./scripts/need_tag_artifacts.sh; then
     make docker-host-pull-ccache
     export CCACHE_READONLY=1
   fi
@@ -226,7 +236,7 @@ ccache_variant()
     exit 1
   elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
     echo "release"
-  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
+  elif [[ "${TRAVIS_TARGET}" == "toolchain" ]]; then
     echo "release"
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     echo "host"
@@ -240,7 +250,7 @@ handle_host_after_success_phase()
   PRODUCT_VERSION=v3 PRODUCT_REV=prod \
     ./scripts/publish.sh $(list_published_files)
 
-  if ./scripts/should_build_sdk_and_ccache.sh; then
+  if ./scripts/need_tag_artifacts.sh; then
     make host-ccache-archive
     ./scripts/publish.sh piksi_br_$(ccache_variant)_ccache.tgz
   fi
@@ -283,33 +293,37 @@ handle_nano_after_failure_phase()
 }
 
 #######################################################################
-# SDK build variant ###################################################
+# Toolchain build variant #############################################
 #######################################################################
 
-handle_sdk_script_phase()
+handle_toolchain_script_phase()
 {
   make docker-setup
   make docker-make-firmware
 
-  if ! ./scripts/should_build_sdk_and_ccache.sh; then
+  if ! ./scripts/need_tag_artifacts.sh; then
     make docker-pull-ccache
     export CCACHE_READONLY=1
   fi
 
   spawn_ticker
-  make docker-make-image 2>&1 | capture_build_log
 
-  if ./scripts/should_build_sdk_and_ccache.sh; then
-    make docker-make-sdk 2>&1 | capture_build_log
+  export BR2_BUILD_SAMPLE_DAEMON=y
+  export BR2_BUILD_PIKSI_INS_REF=y
+
+  make docker-make-image-sdk 2>&1 | capture_build_log
+
+  if ./scripts/need_tag_artifacts.sh; then
+    make docker-export-toolchain 2>&1 | capture_build_log
   fi
 }
 
-handle_sdk_after_success_phase()
+handle_toolchain_after_success_phase()
 {
   PRODUCT_VERSION=v3 PRODUCT_REV=prod \
     ./scripts/publish.sh $(list_published_files)
 
-  if ./scripts/should_build_sdk_and_ccache.sh; then
+  if ./scripts/need_tag_artifacts.sh; then
 
     PRODUCT_VERSION=v3 PRODUCT_REV=prod \
       ./scripts/publish.sh piksi_br_toolchain.txz
@@ -319,7 +333,7 @@ handle_sdk_after_success_phase()
   fi
 }
 
-handle_sdk_after_failure_phase()
+handle_toolchain_after_failure_phase()
 {
   do_default_after_failure_actions
 }
@@ -344,6 +358,56 @@ handle_format_after_failure_phase()
 }
 
 #######################################################################
+# SDK build variant ###################################################
+#######################################################################
+
+handle_sdk_script_phase()
+{
+  if   [[ -n "${FORCE_SDK_BUILD:-}" ]] || \
+     ! ./scripts/need_tag_artifacts.sh;
+  then
+    echo '>>> Not building SDK image (not a tagged build or not requested)...'
+    return
+  fi
+
+  spawn_ticker
+
+  local tag=piksi_br_sdk_build
+  local build_dir=$(mktemp -d)
+
+  cp scripts/Dockerfile.sdk "$build_dir"
+
+  pushd $build_dir
+
+  echo '>>> Running fully self-contained docker build...'
+
+  docker build -t $tag . | capture_build_log
+  docker run --name ${tag}-run --rm -it ls -l buildroot/output/images
+  docker run -v $PWD:/output --name ${tag}-run --rm cp -vr buildroot/output/images/ /output/
+
+  popd
+
+  kill_ticker
+}
+
+handle_sdk_after_success_phase()
+{
+  if   [[ -n "${FORCE_SDK_BUILD:-}" ]] || \
+     ! ./scripts/need_tag_artifacts.sh;
+  then
+    return
+  fi
+ 
+  PRODUCT_VERSION=v3 PRODUCT_REV=prod \
+    ./scripts/publish.sh $(list_published_files)
+}
+
+handle_sdk_after_failure_phase()
+{
+  do_default_after_failure_actions
+}
+
+#######################################################################
 # Travis build phase handling #########################################
 #######################################################################
 
@@ -355,8 +419,8 @@ handle_script_phase()
     handle_docker_script_phase
   elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
     handle_internal_script_phase
-  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
-    handle_sdk_script_phase
+  elif [[ "${TRAVIS_TARGET}" == "toolchain" ]]; then
+    handle_toolchain_script_phase
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     handle_host_script_phase
   elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
@@ -374,8 +438,8 @@ handle_after_success_phase()
     handle_docker_after_success_phase
   elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
     handle_internal_after_success_phase
-  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
-    handle_sdk_after_success_phase
+  elif [[ "${TRAVIS_TARGET}" == "toolchain" ]]; then
+    handle_toolchain_after_success_phase
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     handle_host_after_success_phase
   elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
@@ -393,8 +457,8 @@ handle_after_failure_phase()
     handle_docker_after_failure_phase
   elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
     handle_internal_after_failure_phase
-  elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
-    handle_sdk_after_failure_phase
+  elif [[ "${TRAVIS_TARGET}" == "toolchain" ]]; then
+    handle_toolchain_after_failure_phase
   elif [[ "${TRAVIS_TARGET}" == "host" ]]; then
     handle_host_after_failure_phase
   elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
@@ -447,3 +511,5 @@ else
   echo "ERROR: unknown build phase" >&2
   exit 1
 fi
+
+# vim: expandtab:shiftwidth=2:softtabstop=2:tabstop=2:

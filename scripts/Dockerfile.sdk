@@ -1,0 +1,47 @@
+FROM ubuntu:bionic
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+
+RUN apt-get update
+
+ENV BUILDROOT_MIN_PACKAGES \
+  build-essential \
+  wget \
+  awscli \
+  python \
+  unzip \
+  m4 \
+  git \
+  file \
+  cpio \
+  rsync \
+  bc \
+  lzip \
+  ccache
+
+RUN \
+  apt-get --no-install-recommends -y --force-yes upgrade && \
+  apt-get --no-install-recommends -y --force-yes install \
+    ${BUILDROOT_MIN_PACKAGES}
+
+# Manually install recent cmake so buildroot doesn't
+#   try to install its own.
+ENV CMAKE_INSTALLER https://cmake.org/files/v3.10/cmake-3.10.3-Linux-x86_64.sh 
+RUN wget -O /tmp/cmake_installer.sh ${CMAKE_INSTALLER} && \
+    mkdir -p /opt/cmake && \
+    bash /tmp/cmake_installer.sh --skip-license --prefix=/opt/cmake
+
+ENV PATH=/opt/cmake/bin:${PATH}
+
+WORKDIR /work
+   
+RUN git clone https://github.com/swift-nav/piksi_buildroot.git .
+RUN git submodule update --init --recursive
+
+RUN make firmware
+
+RUN make image-sdk
+RUN make export-toolchain
+
+# vim: ft=dockerfile:
