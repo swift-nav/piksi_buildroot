@@ -233,7 +233,6 @@ ports:
           - { action: REJECT }
 
   - name: SBP_PORT_HEADING_FORWARD
-    metric: "sbp/heading_forward"
     pub_addr: "ipc:///var/run/sockets/heading_forward.pub"
     sub_addr: "ipc:///var/run/sockets/heading_forward.sub"
     forwarding_rules:
