@@ -241,9 +241,6 @@ ccache_variant()
 {
   if [[ "${TRAVIS_TARGET}" == "release" ]]; then
     echo "release"
-  elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
-    echo "ERROR: invalid build variant for ccache" >&2
-    exit 1
   elif [[ "${TRAVIS_TARGET}" == "internal" ]]; then
     echo "release"
   elif [[ "${TRAVIS_TARGET}" == "toolchain" ]]; then
@@ -252,6 +249,12 @@ ccache_variant()
     echo "host"
   elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
     echo "release"
+  elif [[ "${TRAVIS_TARGET}" == "docker" ]]; then
+    die_error "invalid build variant for ccache: ${TRAVIS_TARGET}"
+  elif [[ "${TRAVIS_TARGET}" == "nano" ]]; then
+    die_error "invalid build variant for ccache: ${TRAVIS_TARGET}"
+  elif [[ "${TRAVIS_TARGET}" == "format" ]]; then
+    die_error "invalid build variant for ccache: ${TRAVIS_TARGET}"
   else
     die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
   fi
@@ -276,7 +279,7 @@ handle_after_success_phase()
   elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
     handle_sdk_after_success_phase
   else
-    
+    die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
   fi
 }
 
