@@ -427,21 +427,23 @@ handle_sdk_script_phase()
   local build_dir=$(mktemp -d)
   local branch_name=$(git branch --list | head -1 | sed s@^..@@)
 
-  cp scripts/Dockerfile.sdk "$build_dir/Dockerfile"
+  cp -v scripts/Dockerfile.sdk "$build_dir/Dockerfile"
 
-  pushd $build_dir
+  pushd $build_dir &>/dev/null
 
   echo '>>> Running fully self-contained docker build...'
 
   docker build \
-    --build-arg branch=$branch_name -t $tag .
+    --build-arg branch=$branch_name \
+    --tag $tag \
+    .
 
   echo '>>> Copying artifacts for SDK image build...'
 
   docker run --name ${tag}-run --rm -it ls -l buildroot/output/images
   docker run -v $PWD:/output --name ${tag}-run --rm cp -vr buildroot/output/images/ /output/
 
-  popd
+  popd &>/dev/null
 
   kill_ticker
 }
