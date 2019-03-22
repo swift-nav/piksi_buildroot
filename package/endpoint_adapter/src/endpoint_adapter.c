@@ -84,7 +84,17 @@ PK_METRICS_TABLE(MT, MI,
   PK_METRICS_ENTRY("tx/write/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, tx_write_count),
   PK_METRICS_ENTRY("tx/write/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, tx_write_size_total),
   PK_METRICS_ENTRY("tx/write/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, tx_write_size_average,
-                   M_AVERAGE_OF(MI,         tx_write_size_total, tx_write_count))
+                   M_AVERAGE_OF(MI,         tx_write_size_total, tx_write_count)),
+
+  PK_METRICS_ENTRY("alt/read/count",           "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, alt_read_count),
+  PK_METRICS_ENTRY("alt/read/size/per_second", "total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, alt_read_size_total),
+  PK_METRICS_ENTRY("alt/read/size/per_second", "average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, alt_read_size_average,
+                   M_AVERAGE_OF(MI,         alt_read_size_total, alt_read_count)),
+
+  PK_METRICS_ENTRY("alt/write/count",          "per_second",     M_U32,         M_UPDATE_COUNT,   M_RESET_DEF, alt_write_count),
+  PK_METRICS_ENTRY("alt/write/size/per_second","total",          M_U32,         M_UPDATE_SUM,     M_RESET_DEF, alt_write_size_total),
+  PK_METRICS_ENTRY("alt/write/size/per_second","average",        M_U32,         M_UPDATE_AVERAGE, M_RESET_DEF, alt_write_size_average,
+                   M_AVERAGE_OF(MI,         alt_write_size_total,alt_write_count))
 )
 /* clang-format on */
 
@@ -128,6 +138,9 @@ static void setup_metrics();
 
 static void die_error(const char *error);
 
+static ssize_t handle_write_all_via_framer(handle_t *handle, const uint8_t *buffer, size_t bufsize);
+static void handle_alt_write(handle_t *handle, const uint8_t *buffer, size_t count);
+
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer, size_t count);
 
@@ -136,13 +149,17 @@ typedef ssize_t (*read_buf_cb_t)(handle_t *read_handle, handle_t *write_handle, 
 static struct {
   pk_loop_t *loop;
   void *loop_sub_handle;
+  void *loop_alt_sub_handle;
   void *read_fd_handle;
   pk_endpoint_t *pub_ept;
   pk_endpoint_t *sub_ept;
+  pk_endpoint_t *alt_pub_ept;
+  pk_endpoint_t *alt_sub_ept;
   handle_t pub_handle;
   handle_t sub_handle;
   handle_t read_handle;
   handle_t write_handle;
+  handle_t alt_sub_handle;
 } loop_ctx;
 
 typedef struct {
@@ -168,6 +185,8 @@ static bool nonblock = false;
 static int outq;
 static const char *pub_addr = NULL;
 static const char *sub_addr = NULL;
+static const char *alt_pub_addr = NULL;
+static const char *alt_sub_addr = NULL;
 static const char *port_name = NULL;
 static char file_path[PATH_MAX] = "";
 static int tcp_listen_port = -1;
@@ -216,6 +235,10 @@ static void usage(char *command)
   fprintf(stderr, "\t--can <can_id>\n");
   fprintf(stderr, "\t--can-f <can_filter>\n");
 
+  fprintf(stderr, "\nAlternate pub/sub sockets - select one or more\n");
+  fprintf(stderr, "\t--pub2 <ipc_path>\n");
+  fprintf(stderr, "\t--sub2 <ipc_path>\n");
+
   fprintf(stderr, "\nMisc options\n");
   fprintf(stderr, "\t--startup-delay <ms>\n");
   fprintf(stderr, "\t\ttime to delay after opening a socket\n");
@@ -251,6 +274,8 @@ static int parse_options(int argc, char *argv[])
     OPT_ID_RETRY_PUBSUB,
     OPT_ID_FRAMER_IN,
     OPT_ID_FRAMER_OUT,
+    OPT_ID_BYPASS_PUB,
+    OPT_ID_BYPASS_SUB,
   };
 
   /* clang-format off */
@@ -277,6 +302,8 @@ static int parse_options(int argc, char *argv[])
     {"can",               required_argument, 0, OPT_ID_CAN},
     {"can-f",             required_argument, 0, OPT_ID_CAN_FILTER},
     {"retry",             no_argument,       0, OPT_ID_RETRY_PUBSUB},
+    {"pub2",              required_argument, 0, OPT_ID_BYPASS_PUB},
+    {"sub2",              required_argument, 0, OPT_ID_BYPASS_SUB},
     {0, 0, 0, 0},
   };
   /* clang-format on */
@@ -381,6 +408,14 @@ static int parse_options(int argc, char *argv[])
     case 's': {
       endpoint_mode = ENDPOINT_PUBSUB;
       sub_addr = optarg;
+    } break;
+
+    case OPT_ID_BYPASS_PUB: {
+      alt_pub_addr = optarg;
+    } break;
+
+    case OPT_ID_BYPASS_SUB: {
+      alt_sub_addr = optarg;
     } break;
 
     case OPT_ID_FRAMER_IN: {
@@ -505,20 +540,22 @@ static int handle_init(handle_t *handle,
   return 0;
 }
 
-static pk_endpoint_t *pk_endpoint_start(int type)
+static pk_endpoint_t *endpoint_start(pk_endpoint_type type, bool alt)
 {
   char metric_name[METRIC_NAME_LEN] = {0};
+
   const char *addr = NULL;
+  const char *alt_metric = alt ? "/alt" : "";
 
   switch (type) {
   case PK_ENDPOINT_PUB: {
-    addr = pub_addr;
-    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s/pub", port_name);
+    addr = alt ? alt_pub_addr : pub_addr;
+    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s%s/pub", port_name, alt_metric);
   } break;
 
   case PK_ENDPOINT_SUB: {
-    addr = sub_addr;
-    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s/sub", port_name);
+    addr = alt ? alt_sub_addr : sub_addr;
+    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s%s/sub", port_name, alt_metric);
   } break;
 
   default: {
@@ -640,14 +677,19 @@ static ssize_t fd_write(int handle, const void *buffer, size_t count)
   return fd_write_with_timeout(handle, buffer, count, MAX_SEND_SLEEP_MS, SEND_SLEEP_NS);
 }
 
-static ssize_t handle_write_all_via_framer(handle_t *handle, const uint8_t *buffer, size_t count);
-
 static ssize_t process_read_buffer(handle_t *read_handle,
                                    handle_t *write_handle,
                                    uint8_t *buffer,
                                    size_t length)
 {
-  UPDATE_IO_LOOP_METRIC(read_handle, MI.rx_read_count, MI.tx_read_count);
+  if (read_handle->pk_ept != NULL && read_handle->pk_ept == loop_ctx.alt_sub_ept) {
+    /* Update "alt" read metrics metric update */
+    PK_METRICS_UPDATE(MR, MI.alt_read_count);
+    PK_METRICS_UPDATE(MR, MI.alt_read_size_total, PK_METRICS_VALUE((u32)length));
+  } else {
+    /* Normal metric update */
+    UPDATE_IO_LOOP_METRIC(read_handle, MI.rx_read_count, MI.tx_read_count);
+  }
 
   ssize_t write_count = handle_write_all_via_framer(write_handle, buffer, length);
 
@@ -660,6 +702,8 @@ static ssize_t process_read_buffer(handle_t *read_handle,
     PK_LOG_ANNO(LOG_ERR, "input vs output mismatch: data read (%d) != data written(%d)");
     PK_METRICS_UPDATE(MR, MI.mismatch);
   }
+
+  handle_alt_write(write_handle, buffer, length);
 
   return length;
 }
@@ -676,6 +720,19 @@ static int sub_ept_read(const uint8_t *buff, size_t length, void *context)
   }
 
   return read_ctx->status;
+}
+
+static void handle_alt_write(handle_t *handle, const uint8_t *buffer, size_t count)
+{
+  if (handle->pk_ept != NULL && loop_ctx.alt_pub_ept != NULL) {
+
+    PK_METRICS_UPDATE(MR, MI.alt_write_count);
+    PK_METRICS_UPDATE(MR, MI.alt_write_size_total, PK_METRICS_VALUE((u32)count));
+
+    if (pk_endpoint_send(loop_ctx.alt_pub_ept, buffer, count) != 0) {
+      PK_LOG_ANNO(LOG_WARNING, "alt write failed");
+    }
+  }
 }
 
 static ssize_t handle_write(handle_t *handle, const uint8_t *buffer, size_t count)
@@ -778,7 +835,7 @@ static void io_loop_pubsub(pk_loop_t *loop, handle_t *read_handle, handle_t *wri
       .write_handle = write_handle,
       .read_buf_cb = process_read_buffer,
     };
-    rc = pk_endpoint_receive(loop_ctx.sub_ept, sub_ept_read, &read_ctx);
+    rc = pk_endpoint_receive(read_handle->pk_ept, sub_ept_read, &read_ctx);
     if (rc != 0) {
       PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_receive returned error: %d", rc);
     } else if (read_ctx.status == 0) {
@@ -818,6 +875,9 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
   PK_METRICS_UPDATE(MR, MI.tx_read_size_average);
   PK_METRICS_UPDATE(MR, MI.tx_write_size_average);
 
+  PK_METRICS_UPDATE(MR, MI.alt_read_size_average);
+  PK_METRICS_UPDATE(MR, MI.alt_write_size_average);
+
   pk_metrics_flush(MR);
 
   pk_metrics_reset(MR, MI.bytes_dropped);
@@ -838,6 +898,14 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
   pk_metrics_reset(MR, MI.tx_write_count);
   pk_metrics_reset(MR, MI.tx_write_size_total);
   pk_metrics_reset(MR, MI.tx_write_size_average);
+
+  pk_metrics_reset(MR, MI.alt_read_count);
+  pk_metrics_reset(MR, MI.alt_read_size_total);
+  pk_metrics_reset(MR, MI.alt_read_size_average);
+
+  pk_metrics_reset(MR, MI.alt_write_count);
+  pk_metrics_reset(MR, MI.alt_write_size_total);
+  pk_metrics_reset(MR, MI.alt_write_size_average);
 
   eagain_warned = false;
 }
@@ -894,11 +962,16 @@ static bool handle_loop_status(pk_loop_t *loop, int status)
 static void sub_reader_cb(pk_loop_t *loop, void *handle, int status, void *context)
 {
   (void)handle;
-  (void)context;
+  pk_endpoint_t *sub_ept = context;
 
   if (!handle_loop_status(loop, status)) return;
 
-  io_loop_pubsub(loop_ctx.loop, &loop_ctx.sub_handle, &loop_ctx.write_handle);
+  if (sub_ept == loop_ctx.sub_ept) {
+    io_loop_pubsub(loop_ctx.loop, &loop_ctx.sub_handle, &loop_ctx.write_handle);
+  } else {
+    assert(sub_ept == loop_ctx.alt_sub_ept);
+    io_loop_pubsub(loop_ctx.loop, &loop_ctx.alt_sub_handle, &loop_ctx.write_handle);
+  }
 }
 
 static void read_fd_cb(pk_loop_t *loop, void *handle, int status, void *context)
@@ -914,6 +987,10 @@ static void read_fd_cb(pk_loop_t *loop, void *handle, int status, void *context)
 int io_loop_run(int read_fd, int write_fd)
 {
   loop_ctx.loop = pk_loop_create();
+
+  loop_ctx.alt_pub_ept = NULL;
+  loop_ctx.alt_sub_ept = NULL;
+
   setup_metrics();
 
   void *handle = pk_loop_timer_add(loop_ctx.loop, 1000, timer_handler, NULL);
@@ -921,9 +998,9 @@ int io_loop_run(int read_fd, int write_fd)
 
   if (pub_addr != NULL && read_fd != -1) {
 
-    loop_ctx.pub_ept = pk_endpoint_start(PK_ENDPOINT_PUB);
+    loop_ctx.pub_ept = endpoint_start(PK_ENDPOINT_PUB, false);
     if (loop_ctx.pub_ept == NULL) {
-      die_error("pk_endpoint_start(PK_ENDPOINT_PUB) returned NULL\n");
+      die_error("endpoint_start(PK_ENDPOINT_PUB, false) returned NULL\n");
     }
 
     loop_ctx.read_fd_handle = pk_loop_poll_add(loop_ctx.loop, read_fd, read_fd_cb, NULL);
@@ -955,15 +1032,23 @@ int io_loop_run(int read_fd, int write_fd)
     }
   }
 
+  if (alt_pub_addr != NULL) {
+    debug_printf("setting up alt pub socket");
+    loop_ctx.alt_pub_ept = endpoint_start(PK_ENDPOINT_PUB, true);
+    if (loop_ctx.alt_pub_ept == NULL) {
+      die_error("endpoint_start(PK_ENDPOINT_PUB, true) returned NULL\n");
+    }
+  }
+
   if (sub_addr != NULL && write_fd != -1) {
 
-    loop_ctx.sub_ept = pk_endpoint_start(PK_ENDPOINT_SUB);
+    loop_ctx.sub_ept = endpoint_start(PK_ENDPOINT_SUB, false);
     if (loop_ctx.sub_ept == NULL) {
-      die_error("pk_endpoint_start(PK_ENDPOINT_SUB) returned NULL");
+      die_error("endpoint_start(PK_ENDPOINT_SUB, false) returned NULL");
     }
 
     loop_ctx.loop_sub_handle =
-      pk_loop_endpoint_reader_add(loop_ctx.loop, loop_ctx.sub_ept, sub_reader_cb, NULL);
+      pk_loop_endpoint_reader_add(loop_ctx.loop, loop_ctx.sub_ept, sub_reader_cb, loop_ctx.sub_ept);
 
     if (handle_init(&loop_ctx.sub_handle,
                     loop_ctx.sub_ept,
@@ -985,6 +1070,32 @@ int io_loop_run(int read_fd, int write_fd)
                     filter_out_config)
         != 0) {
       die_error("handle_init for write_fd returned error\n");
+    }
+  }
+
+  if (alt_sub_addr != NULL) {
+
+    debug_printf("setting up alt sub socket");
+
+    loop_ctx.alt_sub_ept = endpoint_start(PK_ENDPOINT_SUB, true);
+    if (loop_ctx.alt_sub_ept == NULL) {
+      die_error("endpoint_start(PK_ENDPOINT_PUB, true) returned NULL\n");
+    }
+
+    loop_ctx.loop_alt_sub_handle = pk_loop_endpoint_reader_add(loop_ctx.loop,
+                                                               loop_ctx.alt_sub_ept,
+                                                               sub_reader_cb,
+                                                               loop_ctx.alt_sub_ept);
+
+    if (handle_init(&loop_ctx.alt_sub_handle,
+                    loop_ctx.alt_sub_ept,
+                    -1,
+                    -1,
+                    FRAMER_NONE_NAME,
+                    FILTER_NONE_NAME,
+                    NULL)
+        != 0) {
+      die_error("handle_init for sub returned error\n");
     }
   }
 
