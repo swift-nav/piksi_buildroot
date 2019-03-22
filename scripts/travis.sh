@@ -115,8 +115,7 @@ list_published_files()
     files="${files} \
       buildroot/nano_output/images/sdcard.img"
   elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
-    files="${files} \
-      buildroot/output/images/piksiv3_prod/PiksiMulti-SDK-v*.bin"
+    files="${files} PiksiMulti-SDK-v*.bin"
   else
     die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
   fi
@@ -455,14 +454,14 @@ handle_sdk_script_phase()
 
   echo '>>> Copying artifacts for the SDK image build...'
 
+  popd &>/dev/null
+
   docker run --name ${tag}-run --rm ${tag} \
     ls -l buildroot/output/images/
 
   docker run --name ${tag}-run --rm ${tag} \
     -v $PWD:/output \
     cp -vr buildroot/output/images/ /output/
-
-  popd &>/dev/null
 
   kill_ticker
 }
