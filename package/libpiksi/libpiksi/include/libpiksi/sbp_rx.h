@@ -45,25 +45,6 @@ typedef struct sbp_rx_ctx_s sbp_rx_ctx_t;
 sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint);
 
 /**
- * @brief   Create an SBP RX context.
- *
- * @details Create and initialize an SBP RX context used to receive SBP
- *          messages.  This variant allows for multiple endpoints to be
- *          associated with one rx context.
- *
- * @param[in] ident    The identity of this pub/sub pair, typically used for metrics.
- * @param[in] configs  Array of endpoint configs, these will be used to create an
- *                     internal array of endpoints to receive data from.
- * @param[in] count    The number of endpoints
- *
- * @return             Pointer to the created context, or NULL if the
- *                     operation failed.
- */
-sbp_rx_ctx_t *sbp_rx_create_ex(const char *ident,
-                               const pk_endpoint_config_t configs[],
-                               size_t count);
-
-/**
  * @brief   Destroy an SBP RX context.
  * @details Deinitialize and destroy an SBP RX context.
  *
@@ -196,11 +177,7 @@ void sbp_rx_reader_interrupt_reset(sbp_rx_ctx_t *ctx);
  */
 bool sbp_rx_reader_interrupt_requested(sbp_rx_ctx_t *ctx);
 
-/**
- * @brief Checks that all endpoints are still valid, that is, they point
- *        to a file descriptor that does not have an error status.
- */
-bool sbp_rx_all_endpoints_valid(sbp_rx_ctx_t *ctx);
+pk_endpoint_t *sbp_rx_endpoint_get(sbp_rx_ctx_t *ctx);
 
 #ifdef __cplusplus
 } // extern "C"
