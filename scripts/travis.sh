@@ -8,8 +8,12 @@ PHASE=$1; shift
 # Global state ########################################################
 #######################################################################
 
-BUILD_LOG=build_${TRAVIS_TARGET}.out
+ROOT=$( (cd "$(dirname "$0")/.." || exit 1 >/dev/null; pwd -P) )
+
+BUILD_LOG=$ROOT/build_${TRAVIS_TARGET}.out
 FILE=$(basename $0)
+
+echo ">>> Build log: $BUILD_LOG"
 
 #######################################################################
 # Library code ########################################################
@@ -447,9 +451,9 @@ handle_sdk_script_phase()
   docker build \
     --build-arg branch=$branch_name \
     --tag $tag \
-    .
+    . | capture_build_log
 
-  echo '>>> Copying artifacts for SDK image build...'
+  echo '>>> Copying artifacts for the SDK image build...'
 
   docker run --name ${tag}-run --rm -it ls -l buildroot/output/images
   docker run -v $PWD:/output --name ${tag}-run --rm cp -vr buildroot/output/images/ /output/
