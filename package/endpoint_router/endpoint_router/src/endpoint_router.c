@@ -19,15 +19,10 @@
 #include <libpiksi/logging.h>
 #include <libpiksi/metrics.h>
 #include <libpiksi/util.h>
-#include <libpiksi/protocols.h>
-#include <libpiksi/framer.h>
 
 #include "endpoint_router.h"
 #include "endpoint_router_load.h"
 #include "endpoint_router_print.h"
-
-#define PROTOCOL_LIBRARY_PATH_ENV_NAME "PROTOCOL_LIBRARY_PATH"
-#define PROTOCOL_LIBRARY_PATH_DEFAULT "/usr/lib/endpoint_protocols"
 
 #define PROGRAM_NAME "router"
 
@@ -39,9 +34,6 @@ static pk_metrics_t *router_metrics = NULL;
 
 /* clang-format off */
 PK_METRICS_TABLE(message_metrics_table, MI,
-
-  PK_METRICS_ENTRY("skip_framer/message/count",        "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  skip_framer_count),
-  PK_METRICS_ENTRY("skip_framer/message/total_bypass", "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  skip_framer_bypass),
 
   PK_METRICS_ENTRY("endpoint/bytes_dropped",           "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  bytes_dropped),
 
@@ -60,7 +52,6 @@ PK_METRICS_TABLE(message_metrics_table, MI,
   PK_METRICS_ENTRY("frame/count",       "per_second",  M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_count),
   PK_METRICS_ENTRY("frame/leftover",    "bytes",       M_U32,   M_UPDATE_SUM,     M_RESET_DEF,  frame_leftovers),
 
-  PK_METRICS_ENTRY("ports/skip_framer", "count",       M_U32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  skip_framer),
   PK_METRICS_ENTRY("ports/accept_last", "count",       M_U32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  accept_last)
  )
 /* clang-format on */
@@ -70,20 +61,15 @@ static struct {
   const char *name;
   bool print;
   bool debug;
-  bool process_sbp;
 } options = {
   .filename = NULL,
   .name = NULL,
   .print = false,
   .debug = false,
-  .process_sbp = false,
 };
 
 static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void *context);
 static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_t length);
-static void process_buffer_via_framer(rule_cache_t *rule_cache,
-                                      const u8 *data,
-                                      const size_t length);
 static void eagain_update_send_metric(pk_endpoint_t *endpoint, size_t bytes_dropped);
 
 endpoint_send_fn_t endpoint_send_fn = NULL;
@@ -113,7 +99,6 @@ static int parse_options(int argc, char *argv[])
     {"name",      required_argument, 0, OPT_ID_NAME},
     {"print",     no_argument,       0, OPT_ID_PRINT},
     {"debug",     no_argument,       0, OPT_ID_DEBUG},
-    {"sbp",       no_argument,       0, OPT_ID_SBP},
     {0, 0, 0, 0},
   };
   /* clang-format on */
@@ -137,10 +122,6 @@ static int parse_options(int argc, char *argv[])
 
     case OPT_ID_DEBUG: {
       options.debug = true;
-    } break;
-
-    case OPT_ID_SBP: {
-      options.process_sbp = true;
     } break;
 
     default: {
@@ -253,8 +234,7 @@ static void cache_match_process(const forwarding_rule_t *forwarding_rule,
       forwarding_rule->dst_port->pub_ept;
   } break;
   case FILTER_ACTION_REJECT: {
-    rule_cache->cached_ports[key].endpoints[rule_cache->cached_ports[key].count++] =
-      NULL;
+    rule_cache->cached_ports[key].endpoints[rule_cache->cached_ports[key].count++] = NULL;
   } break;
   default: {
     piksi_log(LOG_ERR, "invalid filter action\n");
@@ -294,52 +274,6 @@ static void process_forwarding_rule(const forwarding_rule_t *forwarding_rule,
   }
 }
 
-static void process_buffer_via_framer(rule_cache_t *rule_cache, const u8 *data, const size_t length)
-{
-  assert(rule_cache->framer != NULL);
-
-  u32 leftover = 0;
-
-  size_t buffer_index = 0;
-  u32 frame_count = 0;
-
-  if (rule_cache->no_framer_ports_count > 0) {
-    PK_METRICS_UPDATE(MR, MI.skip_framer_count);
-  }
-
-  for (size_t idx = 0; idx < rule_cache->no_framer_ports_count; idx++) {
-    endpoint_send_fn(rule_cache->no_framer_ports[idx], data, length);
-  }
-
-  if (rule_cache->rule_count == rule_cache->no_framer_ports_count) {
-    /* If all we're doing is copying blobs we don't need to de-frame anything */
-    PK_METRICS_UPDATE(MR, MI.skip_framer_bypass);
-    return;
-  }
-
-  while (buffer_index < length) {
-
-    const uint8_t *frame = NULL;
-    uint32_t frame_length = 0;
-
-    buffer_index += framer_process(rule_cache->framer,
-                                   &data[buffer_index],
-                                   length - buffer_index,
-                                   &frame,
-                                   &frame_length);
-
-    if (frame == NULL) break;
-
-    process_buffer(rule_cache, frame, frame_length);
-    frame_count += 1;
-  }
-
-  leftover = length - buffer_index;
-
-  PK_METRICS_UPDATE(MR, MI.frame_count, PK_METRICS_VALUE(frame_count));
-  PK_METRICS_UPDATE(MR, MI.frame_leftovers, PK_METRICS_VALUE(leftover));
-}
-
 static void process_buffer(rule_cache_t *rule_cache, const u8 *data, const size_t length)
 {
   size_t prefix_len = rule_cache->rule_prefixes->prefix_len;
@@ -377,11 +311,7 @@ int router_reader(const u8 *data, const size_t length, void *context)
 
   rule_cache_t *rule_cache = (rule_cache_t *)context;
 
-  if (options.process_sbp) {
-    process_buffer_via_framer(rule_cache, data, length);
-  } else {
-    process_buffer(rule_cache, data, length);
-  }
+  process_buffer(rule_cache, data, length);
 
   return 0;
 }
@@ -474,8 +404,6 @@ static void loop_1s_metrics(pk_loop_t *loop, void *handle, int status, void *con
   pk_metrics_reset(MR, MI.latency_total);
   pk_metrics_reset(MR, MI.frame_count);
   pk_metrics_reset(MR, MI.frame_leftovers);
-  pk_metrics_reset(MR, MI.skip_framer_count);
-  pk_metrics_reset(MR, MI.skip_framer_bypass);
   pk_metrics_reset(MR, MI.bytes_dropped);
 
   pk_loop_timer_reset(handle);
@@ -532,15 +460,6 @@ rule_prefixes_t *extract_rule_prefixes(router_t *router, port_t *port, rule_cach
       }
 
       if (filter->next == NULL) filter_last = filter;
-    }
-
-    if (rule->skip_framer) {
-      PK_LOG_ANNO(LOG_DEBUG,
-                  "adding no framer port: src=%s, dst=%s",
-                  port->name,
-                  rule->dst_port_name);
-      rule_cache->no_framer_ports[rule_cache->no_framer_ports_count++] = rule->dst_port->pub_ept;
-      if (router != NULL) router->skip_framer_count++;
     }
 
     total_filter_prefixes += filter_prefix_count;
@@ -643,7 +562,6 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     router->port_count++;
   }
 
-  router->skip_framer_count = 0;
   router->accept_last_count = 0;
 
   router->port_rule_cache = calloc(router->port_count, sizeof(rule_cache_t));
@@ -658,11 +576,6 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     rule_cache->sub_ept = port->sub_ept;
     rule_cache->rule_count = 0;
 
-    if (options.process_sbp) {
-      rule_cache->framer = framer_create("sbp");
-      assert(rule_cache->framer != NULL);
-    }
-
     forwarding_rule_t *rules = port->forwarding_rules_list;
 
     for (/* empty */; rules != NULL; rules = rules->next) {
@@ -670,13 +583,9 @@ router_t *router_create(const char *filename, pk_loop_t *loop, load_endpoints_fn
     }
 
     rule_cache->accept_ports_count = 0;
-    rule_cache->no_framer_ports_count = 0;
 
     rule_cache->accept_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
     assert(rule_cache->accept_ports != NULL);
-
-    rule_cache->no_framer_ports = calloc(rule_cache->rule_count, sizeof(pk_endpoint_t *));
-    assert(rule_cache->no_framer_ports != NULL);
 
     rule_prefixes_t *rule_prefixes = extract_rule_prefixes(router, port, rule_cache);
 
@@ -784,12 +693,6 @@ void router_teardown(router_t **router_loc)
       rule_cache->accept_ports = NULL;
     }
 
-    if (rule_cache->no_framer_ports != NULL) {
-      free(rule_cache->no_framer_ports);
-      rule_cache->no_framer_ports = NULL;
-      rule_cache->no_framer_ports_count = 0;
-    }
-
     rule_prefixes_destroy(&rule_cache->rule_prefixes);
 
     if (rule_cache->hash != NULL) {
@@ -800,10 +703,6 @@ void router_teardown(router_t **router_loc)
     if (rule_cache->cmph_io_adapter != NULL) {
       cmph_io_struct_vector_adapter_destroy(rule_cache->cmph_io_adapter);
       rule_cache->cmph_io_adapter = NULL;
-    }
-
-    if (rule_cache->framer != NULL) {
-      framer_destroy(&rule_cache->framer);
     }
   }
 
@@ -828,17 +727,6 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  const char *protocol_library_path = getenv(PROTOCOL_LIBRARY_PATH_ENV_NAME);
-  if (protocol_library_path == NULL) {
-    protocol_library_path = PROTOCOL_LIBRARY_PATH_DEFAULT;
-  }
-
-  if (protocols_import(protocol_library_path) != 0) {
-    syslog(LOG_ERR, "error importing protocols");
-    fprintf(stderr, "error importing protocols\n");
-    exit(EXIT_FAILURE);
-  }
-
   router_metrics = pk_metrics_setup("endpoint_router", options.name, MT, COUNT_OF(MT));
   if (router_metrics == NULL) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
@@ -856,7 +744,6 @@ int main(int argc, char *argv[])
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
   }
 
-  PK_METRICS_UPDATE(MR, MI.skip_framer, PK_METRICS_VALUE((u32)router->skip_framer_count));
   PK_METRICS_UPDATE(MR, MI.accept_last, PK_METRICS_VALUE((u32)router->accept_last_count));
 
   /* Print router config and exit if requested */

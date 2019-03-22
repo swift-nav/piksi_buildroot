@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-typedef struct framer_s framer_t;
-
 typedef enum {
   FILTER_ACTION_ACCEPT, /** A prefix which if matched, will cause data to be forwarded. */
   FILTER_ACTION_REJECT, /** A prefix which if matched, will cause data to be ignored. */
@@ -39,10 +37,9 @@ typedef struct filter_s {
 } filter_t;
 
 typedef struct forwarding_rule_s {
-  const char *dst_port_name; /** The name of the destination port */
-  struct port_s *dst_port;   /** The port that data will be forwarded to */
-  filter_t *filters_list;    /** The list of filters that will trigger forwarding rule */
-  bool skip_framer;
+  const char *dst_port_name;      /** The name of the destination port */
+  struct port_s *dst_port;        /** The port that data will be forwarded to */
+  filter_t *filters_list;         /** The list of filters that will trigger forwarding rule */
   struct forwarding_rule_s *next; /** The next fowarding fule */
 } forwarding_rule_t;
 
@@ -88,21 +85,17 @@ typedef struct {
   cached_port_t *cached_ports;        /** An array of prefixes with an array of associated ports */
   size_t accept_ports_count;          /** A count of ports that are "accept everything" ports */
   pk_endpoint_t **accept_ports;       /** The actual ports that default to accepting everything  */
-  size_t no_framer_ports_count;       /** Count of the list of ports that skip the framer */
-  pk_endpoint_t **no_framer_ports;    /** List of ports that skip the framer */
   rule_prefixes_t *rule_prefixes;     /** A list of all rule prefixes */
   size_t rule_count;                  /** A count of all rules */
   pk_endpoint_t *sub_ept;             /** The SUB enpoint that feeds this rule cache */
-  framer_t *framer;                   /** The framer associated with this endpoint */
 } rule_cache_t;
 
 typedef struct {
   router_cfg_t *router_cfg;      /** Router config structure */
   rule_cache_t *port_rule_cache; /** A cache structure for each 'SUB' socket in the router config */
   size_t port_count;             /** A count of all SUB ports */
-  size_t skip_framer_count; /** How many rule destination ports within the config skip framing */
-  size_t accept_last_count; /** How many rule destination ports within the config default to an
-                                "accept everything" filter as the last filter. */
+  size_t accept_last_count;      /** How many rule destination ports within the config default to an
+                                     "accept everything" filter as the last filter. */
 } router_t;
 
 void debug_printf(const char *msg, ...);
