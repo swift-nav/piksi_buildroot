@@ -55,15 +55,19 @@
 /* Maximum number of clients in the listen() backlog */
 #define MAX_BACKLOG 128
 
-/* clang-format off */
+/* #define DEBUG_RECV_IMPL */
+#ifdef DEBUG_RECV_IMPL
+#define RECV_IMPL_DEBUG_LOG(ThePattern, ...) PK_LOG_ANNO(LOG_DEBUG, ThePattern, ##__VA_ARGS__)
+#else
+#define RECV_IMPL_DEBUG_LOG(...)
+#endif
+
 /* #define DEBUG_ENDPOINT */
 #ifdef DEBUG_ENDPOINT
-#  define ENDPOINT_DEBUG_LOG(ThePattern, ...) \
-     PK_LOG_ANNO(LOG_DEBUG, ThePattern, ##__VA_ARGS__)
+#define ENDPOINT_DEBUG_LOG(ThePattern, ...) PK_LOG_ANNO(LOG_DEBUG, ThePattern, ##__VA_ARGS__)
 #else
-#  define ENDPOINT_DEBUG_LOG(...)
+#define ENDPOINT_DEBUG_LOG(...)
 #endif
-/* clang-format on */
 
 #define MI endpoint_metrics_indexes
 #define MT endpoint_metrics_table
@@ -644,7 +648,7 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
 
     if (length >= 0) {
       if (length == 0) {
-        ENDPOINT_DEBUG_LOG("socket closed");
+        RECV_IMPL_DEBUG_LOG("socket closed");
         if (ctx->node != NULL) record_disconnect(ctx->node);
         PK_METRICS_UPDATE(MR(ctx->ept), MI.read_close_count);
         teardown_client(ctx);
@@ -657,7 +661,7 @@ static int recv_impl(client_context_t *ctx, u8 *buffer, size_t *length_loc)
 
     if (errno == EINTR) {
       /* Retry if interrupted */
-      ENDPOINT_DEBUG_LOG("got EINTR from recvmsg: %s", strerror(errno));
+      RECV_IMPL_DEBUG_LOG("got EINTR from recvmsg: %s", strerror(errno));
       continue;
     }
 
