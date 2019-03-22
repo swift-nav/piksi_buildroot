@@ -276,6 +276,13 @@ int sbp_rx_read(sbp_rx_ctx_t *ctx)
   return pk_endpoint_receive(ctx->pk_ept, receive_process, ctx);
 }
 
+int sbp_rx_read_ex(sbp_rx_ctx_t *ctx, pk_endpoint_t *ept)
+{
+  assert(ctx != NULL);
+
+  return pk_endpoint_receive(ept, receive_process, ctx);
+}
+
 void sbp_rx_reader_interrupt(sbp_rx_ctx_t *ctx)
 {
   assert(ctx != NULL);
