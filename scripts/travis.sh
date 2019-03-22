@@ -455,8 +455,12 @@ handle_sdk_script_phase()
 
   echo '>>> Copying artifacts for the SDK image build...'
 
-  docker run --name ${tag}-run --rm -it ls -l buildroot/output/images
-  docker run -v $PWD:/output --name ${tag}-run --rm cp -vr buildroot/output/images/ /output/
+  docker run --name ${tag}-run --rm ${tag} \
+    ls -l buildroot/output/images/
+
+  docker run --name ${tag}-run --rm ${tag} \
+    -v $PWD:/output \
+    cp -vr buildroot/output/images/ /output/
 
   popd &>/dev/null
 
