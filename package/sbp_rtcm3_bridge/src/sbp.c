@@ -101,7 +101,9 @@ void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id, void *co
     return;
   }
 
-  sbp_tx_send_from(tx_ctx, msg_type, len, payload, sender_id);
+  if (sbp_tx_send_from(tx_ctx, msg_type, len, payload, sender_id) < 0) {
+    PK_LOG_ANNO(LOG_WARNING, "sbp_tx_send_from failed");
+  }
 }
 
 int sbp_callback_register(u16 msg_type, sbp_msg_callback_t cb, void *context)
