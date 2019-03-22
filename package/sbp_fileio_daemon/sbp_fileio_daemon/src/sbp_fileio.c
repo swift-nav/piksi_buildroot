@@ -108,14 +108,25 @@ static pk_metrics_t *fileio_metrics = NULL;
 
 typedef struct write_request {
   size_t len;
+  size_t pubsub_idx;
   u8 msg_buffer[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 } write_request_t;
+
+typedef struct pubsub_ctx_s {
+  sbp_state_t sbp_state;            /** Used to buffer SBP response packets */
+  u8 send_buffer[SEND_BUFFER_SIZE]; /** Stores serialized outgoing SBP response packets */
+  u32 send_buffer_remaining;        /** Data remaining in `send_buffer` */
+  u32 send_buffer_offset;           /** Current unconsumed offset into `send_buffer` */
+  sbp_rx_ctx_t *rx_ctx;             /** The context to use for incoming data */
+  sbp_tx_ctx_t *tx_ctx;             /** The context to use for outgoing data */
+  pk_endpoint_t *tx_ept;
+} pubsub_ctx_t;
 
 static struct {
   int
     request_pipe[2]; /** Used by write thread to receive incoming write requests through select() */
   write_request_t write_requests[WQ_MAX_PENDING]; /** Ring buffer of incoming write requests */
-  atomic_bool flush_pending;     /** True if a flush of FileIO write data is pending */
+  atomic_size_t flush_pending;   /** >= 0 if a flush of FileIO write data is pending */
   atomic_size_t write_req_index; /** The current first free index of write requests */
   atomic_size_t writes_pending;  /** The number of write requests that are pending for the thread */
 
@@ -129,11 +140,8 @@ static struct {
                           **WARNING** this has the limitation that heavy write operations can
                           potentially starve other operations. */
 
-  sbp_state_t sbp_state;            /** Used to buffer SBP response packets */
-  u8 send_buffer[SEND_BUFFER_SIZE]; /** Stores serialized outgoing SBP response packets */
-  u32 send_buffer_remaining;        /** Data remaining in `send_buffer` */
-  u32 send_buffer_offset;           /** Current unconsumed offset into `send_buffer` */
-  sbp_tx_ctx_t *tx_ctx;             /** The context to use for outgoing data */
+  pubsub_ctx_t *pubsub_contexts;
+  size_t pubsub_count;
 
 } write_thread_ctx;
 
@@ -182,10 +190,10 @@ static open_file_t open_file(const char *path, const char *mode, int oflag, mode
 
 static bool test_control_dir(const char *name);
 
-static void flush_output_sbp(void);
-static void request_flush_output_sbp(void);
+static void flush_output_sbp(size_t pubsub_idx);
+static void request_flush_output_sbp(size_t idx);
 
-static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload);
+static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload, size_t pubsub_idx);
 
 static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ...(FD_CACHE_COUNT - 1)] = {NULL, "", "", 0, 0}};
 
@@ -260,6 +268,7 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
   (void)loop;
   (void)status;
   (void)handle;
+  (void)context;
 
   static int trigger_cache_purge = 0;
   static int trigger_metrics_flush = 0;
@@ -289,8 +298,10 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
     path_validator_flush_metrics(g_pv_ctx);
   }
 
-  sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;
-  validate_receive_handle(rx_ctx);
+  for (size_t i = 0; i < write_thread_ctx.pubsub_count; i++) {
+    pubsub_ctx_t *ctx = &write_thread_ctx.pubsub_contexts[i];
+    validate_receive_handle(ctx->rx_ctx);
+  }
 
   pk_loop_timer_reset(timer_handle);
 }
@@ -409,31 +420,34 @@ void sbp_fileio_setup_path_validator(path_validator_t *pv_ctx,
   allow_imageset_bin = allow_imageset_bin_;
 }
 
-static void flush_output_sbp(void)
+static void flush_output_sbp(size_t pubsub_idx)
 {
-  if (write_thread_ctx.send_buffer_offset == 0) {
+  pubsub_ctx_t *ctx = &write_thread_ctx.pubsub_contexts[pubsub_idx];
+
+  if (ctx->send_buffer_offset == 0) {
     return;
   }
 
-  pk_endpoint_t *ept = sbp_tx_endpoint_get(write_thread_ctx.tx_ctx);
-  int rc = pk_endpoint_send(ept, write_thread_ctx.send_buffer, write_thread_ctx.send_buffer_offset);
-
+  int rc = pk_endpoint_send(ctx->tx_ept, ctx->send_buffer, ctx->send_buffer_offset);
   if (rc != 0) {
     PK_LOG_ANNO(LOG_WARNING, "pk_endpoint_send reported an error: %d", rc);
   }
 
   /* reset buffer */
-  write_thread_ctx.send_buffer_remaining = sizeof(write_thread_ctx.send_buffer);
-  write_thread_ctx.send_buffer_offset = 0;
+  ctx->send_buffer_remaining = sizeof(ctx->send_buffer);
+  ctx->send_buffer_offset = 0;
 }
 
-static void request_flush_output_sbp(void)
+static void request_flush_output_sbp(size_t idx)
 {
-  if (atomic_load(&write_thread_ctx.flush_pending)) {
-    return;
-  }
+  size_t expected = SIZET_MAX;
 
-  atomic_store(&write_thread_ctx.flush_pending, true);
+  for (;;) {
+    bool success = atomic_compare_exchange_weak(&write_thread_ctx.flush_pending, &expected, idx);
+    if (success) {
+      break;
+    }
+  }
 
   void *write_req_ptr = NULL;
   int rc = write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
@@ -445,9 +459,8 @@ static void request_flush_output_sbp(void)
 
 static void post_receive_buffer(void *context)
 {
-  (void)context;
-
-  request_flush_output_sbp();
+  size_t pubsub_idx = (size_t)context;
+  request_flush_output_sbp(pubsub_idx);
 }
 
 static size_t wq_acquire_index()
@@ -592,8 +605,14 @@ static void *write_thread_handler(void *arg)
 
       if (write_req_ptr == NULL) {
 
-        flush_output_sbp();
-        atomic_store(&write_thread_ctx.flush_pending, false);
+        flush_output_sbp(write_thread_ctx.flush_pending);
+
+        size_t expected = write_thread_ctx.flush_pending;
+        size_t desired = SIZET_MAX;
+
+        bool cmp =
+          atomic_compare_exchange_strong(&write_thread_ctx.flush_pending, &expected, desired);
+        assert(cmp);
 
         continue;
       }
@@ -621,7 +640,10 @@ static void *write_thread_handler(void *arg)
 
       if (write_success) {
         PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
-        stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+        stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP,
+                         sizeof(reply),
+                         (u8 *)&reply,
+                         write_req->pubsub_idx);
       }
     }
   }
@@ -639,8 +661,8 @@ bool sbp_fileio_setup(const char *name,
                       path_validator_t *pv_ctx,
                       bool allow_factory_mtd_,
                       bool allow_imageset_bin_,
-                      sbp_rx_ctx_t *rx_ctx,
-                      sbp_tx_ctx_t *tx_ctx)
+                      sbp_pubsub_ctx_t *pubsub_contexts[],
+                      size_t pubsub_count)
 {
   if (!test_control_dir(name)) {
     /* failure logging happens within the function */
@@ -660,36 +682,49 @@ bool sbp_fileio_setup(const char *name,
   sbp_fileio_setup_path_validator(pv_ctx, allow_factory_mtd_, allow_imageset_bin_);
 
   bool cb_registered = true;
+  write_thread_ctx.pubsub_contexts = calloc(pubsub_count, sizeof(pubsub_ctx_t));
 
-  /* clang-format off */
-  cb_registered = cb_registered
-    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ, read_cb, tx_ctx, NULL);
-  cb_registered = cb_registered
-    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ, read_dir_cb, tx_ctx, NULL);
-  cb_registered = cb_registered
-    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE, remove_cb, tx_ctx, NULL);
-  cb_registered = cb_registered
-    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ, write_cb, tx_ctx, NULL);
-  cb_registered = cb_registered
-    && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_CONFIG_REQ, config_cb, tx_ctx, NULL);
-  /* clang-format on */
+  for (size_t i = 0; i < pubsub_count; i++) {
 
-  if (!cb_registered) {
-    PK_LOG_ANNO(LOG_ERR, "callback registration failed");
-    return false;
+    sbp_pubsub_ctx_t *pubsub_ctx = pubsub_contexts[i];
+
+    sbp_tx_ctx_t *tx_ctx = sbp_pubsub_tx_ctx_get(pubsub_ctx);
+    sbp_rx_ctx_t *rx_ctx = sbp_pubsub_rx_ctx_get(pubsub_ctx);
+
+    /* clang-format off */
+    cb_registered = cb_registered
+      && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_REQ, read_cb, tx_ctx, NULL);
+    cb_registered = cb_registered
+      && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_READ_DIR_REQ, read_dir_cb, tx_ctx, NULL);
+    cb_registered = cb_registered
+      && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_REMOVE, remove_cb, tx_ctx, NULL);
+    cb_registered = cb_registered
+      && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_WRITE_REQ, write_cb, (void *) i, NULL);
+    cb_registered = cb_registered
+      && 0 == sbp_rx_callback_register(rx_ctx, SBP_MSG_FILEIO_CONFIG_REQ, config_cb, tx_ctx, NULL);
+    /* clang-format on */
+
+    if (!cb_registered) {
+      PK_LOG_ANNO(LOG_ERR, "callback registration failed");
+      return false;
+    }
+
+    sbp_state_init(&write_thread_ctx.pubsub_contexts[i].sbp_state);
+    sbp_state_set_io_context(&write_thread_ctx.pubsub_contexts[i].sbp_state, (void *)i);
+
+    sbp_rx_receive_buffer_cb_set(rx_ctx, post_receive_buffer, (void *)i);
+
+    pubsub_ctx_t *ctx = &write_thread_ctx.pubsub_contexts[i];
+
+    ctx->send_buffer_remaining = sizeof(ctx->send_buffer);
+    ctx->send_buffer_offset = 0;
+
+    ctx->tx_ept = sbp_tx_endpoint_get(tx_ctx);
+    ctx->rx_ctx = rx_ctx;
   }
 
   sbp_sender_id = sbp_sender_id_get();
-
-  sbp_state_init(&write_thread_ctx.sbp_state);
-  sbp_rx_receive_buffer_cb_set(rx_ctx, post_receive_buffer, NULL);
-
-  write_thread_ctx.tx_ctx = tx_ctx;
-
-  write_thread_ctx.send_buffer_remaining = sizeof(write_thread_ctx.send_buffer);
-  write_thread_ctx.send_buffer_offset = 0;
-
-  timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, rx_ctx);
+  timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, NULL);
 
   if (timer_handle == NULL) {
     PK_LOG_ANNO(LOG_ERR, "timer setup failed");
@@ -773,6 +808,9 @@ void sbp_fileio_teardown(const char *name)
   if (!disable_threading) {
     pthread_join(write_thread_ctx.thread, NULL);
   }
+
+  free(write_thread_ctx.pubsub_contexts);
+  write_thread_ctx.pubsub_contexts = NULL;
 }
 
 void sbp_fileio_flush(void)
@@ -1187,26 +1225,27 @@ cleanup:
 
 static s32 stage_packed_sbp_buffer(u8 *buff, u32 n, void *context)
 {
-  (void)context;
+  size_t pubsub_idx = (size_t)context;
 
-  u32 len = SWFT_MIN(write_thread_ctx.send_buffer_remaining, n);
+  pubsub_ctx_t *ctx = &write_thread_ctx.pubsub_contexts[pubsub_idx];
+  u32 len = SWFT_MIN(ctx->send_buffer_remaining, n);
 
   if (len != n) {
-    flush_output_sbp();
-    len = SWFT_MIN(write_thread_ctx.send_buffer_remaining, n);
+    flush_output_sbp(pubsub_idx);
+    len = SWFT_MIN(ctx->send_buffer_remaining, n);
   }
 
-  memcpy(&write_thread_ctx.send_buffer[write_thread_ctx.send_buffer_offset], buff, len);
+  memcpy(&ctx->send_buffer[ctx->send_buffer_offset], buff, len);
 
-  write_thread_ctx.send_buffer_remaining -= len;
-  write_thread_ctx.send_buffer_offset += len;
+  ctx->send_buffer_remaining -= len;
+  ctx->send_buffer_offset += len;
 
   return uint32_to_int32(len);
 }
 
-static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload)
+static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload, size_t pubsub_idx)
 {
-  int status = sbp_send_message(&write_thread_ctx.sbp_state,
+  int status = sbp_send_message(&write_thread_ctx.pubsub_contexts[pubsub_idx].sbp_state,
                                 msg_type,
                                 sbp_sender_id,
                                 len,
@@ -1219,7 +1258,7 @@ static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload)
   }
 }
 
-static void queue_file_write(u8 len, u8 msg[])
+static void queue_file_write(u8 len, u8 msg[], size_t pubsub_idx)
 {
   wq_increment_pending_writes();
 
@@ -1227,6 +1266,8 @@ static void queue_file_write(u8 len, u8 msg[])
 
   write_request->len = len;
   memcpy(write_request->msg_buffer, msg, len);
+
+  write_request->pubsub_idx = pubsub_idx;
 
   void *write_req_ptr = write_request;
   int rc = write(write_thread_ctx.request_pipe[WRITE], &write_req_ptr, sizeof(write_req_ptr));
@@ -1246,7 +1287,7 @@ static void queue_file_write(u8 len, u8 msg[])
 static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
 {
   (void)sender_id;
-  (void)context;
+  size_t pubsub_idx = (size_t)context;
 
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
 
@@ -1258,15 +1299,15 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   }
 
   if (!disable_threading) {
-    queue_file_write(len, msg_);
+    queue_file_write(len, msg_, pubsub_idx);
   } else {
     size_t write_count = 0;
     msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
     if (sbp_fileio_write(msg, len, &write_count)) {
-      stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply);
+      stage_output_sbp(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8 *)&reply, pubsub_idx);
       PK_METRICS_UPDATE(MR, MI.write_bytes, PK_METRICS_VALUE((u32)write_count));
     }
-    flush_output_sbp();
+    flush_output_sbp(pubsub_idx);
   }
 }
 
