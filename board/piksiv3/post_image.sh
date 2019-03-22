@@ -180,11 +180,11 @@ rename_if_sdk_build()
 {
   local eas_tool_path=${HOST_DIR}/usr/bin/encrypt_and_sign
   if [[ -e "$INTERNAL_BIN_PATH" ]]; then
-    if [[ -f "$eas_tool_path" ]]; then
-      echo "ERROR: found 'encrypt_and_sign', for \"SDK\" builds, this tool not *SHOULD NOT BE* locatable ($eas_tool_path)" >&2
-      exit 1
-    fi
     if [[ -e $SDK_FPGA_SHA1 ]]; then
+      if [[ -f "$eas_tool_path" ]]; then
+        echo "ERROR: found 'encrypt_and_sign', for \"SDK\" builds, this tool not *SHOULD NOT BE* locatable ($eas_tool_path)" >&2
+        exit 1
+      fi
       local sha=$(sha1sum "$FIRMWARE_DIR/piksi_fpga.bit" | cut -d' ' -f1)
       if [[ "$sha" == "$(cat $SDK_FPGA_SHA1 | cut -d' ' -f1)" ]]; then
         mv -v "$INTERNAL_BIN_PATH" "$SDK_BIN_PATH"
