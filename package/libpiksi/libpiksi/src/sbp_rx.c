@@ -19,18 +19,30 @@
 
 #include <libpiksi/sbp_rx.h>
 
-struct sbp_rx_ctx_s {
+typedef struct endpoint_ctx_s {
+  pk_endpoint_config_t config;
   pk_endpoint_t *pk_ept;
+  char ident[PATH_MAX];
+  char endpoint[PATH_MAX];
   sbp_state_t sbp_state;
+  void *reader_handle;
+  sbp_rx_ctx_t *rx_ctx; /* TODO: might not need this? */
+  size_t index; /* TODO: might not need this? */
   const u8 *receive_buffer;
   u32 receive_buffer_length;
+} endpoint_ctx_t;
+
+struct sbp_rx_ctx_s {
   bool reader_interrupt;
-  void *reader_handle;
-  char endpoint[PATH_MAX];
-  char ident[PATH_MAX];
   sbp_rx_receive_buffer_cb_t receive_buffer_cb;
   void *receive_buffer_context;
+  size_t endpoint_count;
+  endpoint_ctx_t endpoints[];
 };
+
+static int rx_detach(endpoint_ctx_t *ept_ctx);
+static int rx_attach(endpoint_ctx_t *ept_ctx, pk_loop_t *pk_loop);
+static int rx_read(endpoint_ctx_t *ctx);
 
 static s32 receive_buffer_read(u8 *buff, u32 n, void *context)
 {
@@ -44,12 +56,13 @@ static s32 receive_buffer_read(u8 *buff, u32 n, void *context)
 
 static int receive_process(const u8 *buff, size_t length, void *context)
 {
-  sbp_rx_ctx_t *ctx = (sbp_rx_ctx_t *)context;
-  ctx->receive_buffer = buff;
-  ctx->receive_buffer_length = sizet_to_uint32(length);
+  endpoint_ctx_t *ep_ctx = context;
 
-  while (ctx->receive_buffer_length > 0) {
-    sbp_process(&ctx->sbp_state, receive_buffer_read);
+  ept_ctx->receive_buffer = buff;
+  ept_ctx->receive_buffer_length = sizet_to_uint32(length);
+
+  while (ept_ctx->receive_buffer_length > 0) {
+    sbp_process(&ept_ctx->sbp_state, receive_buffer_read);
   }
 
   if (ctx->receive_buffer_cb != NULL) {
@@ -68,14 +81,6 @@ static const char *get_socket_ident(const char *ident)
 
 sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
 {
-  assert(endpoint != NULL);
-
-  sbp_rx_ctx_t *ctx = (sbp_rx_ctx_t *)malloc(sizeof(sbp_rx_ctx_t));
-  if (ctx == NULL) {
-    piksi_log(LOG_ERR, "error allocating context");
-    goto failure;
-  }
-
   pk_endpoint_config_t cfg = (pk_endpoint_config_t){
     .endpoint = endpoint,
     .identity = get_socket_ident(ident),
@@ -83,29 +88,60 @@ sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
     .retry_connect = false,
   };
 
-  ctx->pk_ept = pk_endpoint_create(cfg);
+  return sbp_rx_create_ex(ident, &cfg, 1);
+}
 
-  bzero(ctx->endpoint, sizeof(ctx->endpoint));
-  bzero(ctx->ident, sizeof(ctx->ident));
+sbp_rx_ctx_t *sbp_rx_create_ex(const char *ident,
+                               const pk_endpoint_config_t configs[],
+                               size_t count)
+{
+  assert(endpoint != NULL);
 
-  if (ctx->pk_ept == NULL) {
-    piksi_log(LOG_ERR, "error creating SUB endpoint for rx ctx");
+  sbp_rx_ctx_t *ctx = calloc(1, sizeof(sbp_rx_ctx_t));
+  if (ctx == NULL) {
+    piksi_log(LOG_ERR, "error allocating context");
     goto failure;
   }
 
-  strncpy(ctx->endpoint, endpoint, sizeof(ctx->endpoint) - 1);
-  strncpy(ctx->ident, ident, sizeof(ctx->ident) - 1);
+  ctx->endpoints = calloc(count, sizeof(endpoint_ctx_t));
+  ctx->endpoint_count = count;
+
+  for (size_t i = 0; i < count; i++) {
+
+    endpoint_ctx_t *ept_ctx = &ctx->endpoints[i];
+    pk_endpoint_config_t cfg = configs[i];
+
+    ept_ctx->pk_ept = pk_endpoint_create(cfg);
+
+    if (ept_ctx->pk_ept == NULL) {
+      piksi_log(LOG_ERR, "error creating SUB endpoint for rx ctx");
+      goto failure;
+    }
+
+    strncpy(ept_ctx->endpoint, endpoint, sizeof(ctx->endpoint) - 1);
+    strncpy(ept_ctx->ident, ident, sizeof(ctx->ident) - 1);
+
+    ept_ctx->config = cfg;
+    ept_ctx->rx_ctx = ctx;
+    ept_ctx->reader_handle = NULL;
+    ept_ctx->index = i;
+
+    /* Change storage to something we own */
+    ept_ctx->config.endpoint = ept_ctx->endpoint;
+    ept_ctx->config.ident = ept_ctx->ident;
+
+    sbp_state_init(&ctx->sbp_state);
+    sbp_state_set_io_context(&ctx->sbp_state, ctx);
+  }
 
   ctx->reader_interrupt = false;
-  ctx->reader_handle = NULL;
-
-  sbp_state_init(&ctx->sbp_state);
-  sbp_state_set_io_context(&ctx->sbp_state, ctx);
 
   return ctx;
 
 failure:
+  free(ctx->endpoints);
   sbp_rx_destroy(&ctx);
+
   return NULL;
 }
 
@@ -115,7 +151,12 @@ void sbp_rx_destroy(sbp_rx_ctx_t **ctx_loc)
     return;
   }
   sbp_rx_ctx_t *ctx = *ctx_loc;
-  pk_endpoint_destroy(&ctx->pk_ept);
+  for (size_t i = 0; i < ctx->endpoint_count) {
+    pk_endpoint_destroy(&ctx->endpoints[i].pk_ept);
+    ctx->endpoints[i].pk_ept = NULL;
+  }
+  free(ctx->endpoints);
+  ctx->endpoints = NULL;
   free(ctx);
   *ctx_loc = NULL;
 }
@@ -125,13 +166,13 @@ static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, int st
   (void)handle;
 
   int force_new_fd = -1;
+  endpoint_ctx_t *ept_ctx = context;
 
-  sbp_rx_ctx_t *rx_ctx = (sbp_rx_ctx_t *)context;
   if (status & LOOP_DISCONNECTED) {
 
     piksi_log(LOG_WARNING, "sbp_rx: reader disconnected, reconnecting...");
 
-    if (sbp_rx_detach(rx_ctx) < 0) {
+    if (rx_detach(ept_ctx) < 0) {
       PK_LOG_ANNO(LOG_ERR, "error detaching endpoint from loop");
       goto fail;
     }
@@ -146,23 +187,15 @@ static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, int st
     force_new_fd = open("/dev/null", O_RDWR);
 
     /* Socket was disconnected, reconnect */
-    pk_endpoint_destroy(&rx_ctx->pk_ept);
+    pk_endpoint_destroy(&ept_ctx->pk_ept);
+    ept_ctx->pk_ept = pk_endpoint_create(ept_ctx->config);
 
-    pk_endpoint_config_t cfg = (pk_endpoint_config_t){
-      .endpoint = rx_ctx->endpoint,
-      .identity = get_socket_ident(rx_ctx->ident),
-      .type = PK_ENDPOINT_SUB,
-      .retry_connect = false,
-    };
-
-    rx_ctx->pk_ept = pk_endpoint_create(cfg);
-
-    if (rx_ctx->pk_ept == NULL) {
+    if (ept_ctx->pk_ept == NULL) {
       PK_LOG_ANNO(LOG_ERR, "error creating SUB endpoint");
       goto fail;
     }
 
-    if (sbp_rx_attach(rx_ctx, pk_loop) < 0) {
+    if (rx_attach(ept_ctx, pk_loop) < 0) {
       PK_LOG_ANNO(LOG_ERR, "error re-attaching endpoint to loop");
       goto fail;
     }
@@ -171,7 +204,7 @@ static void rx_ctx_reader_loop_callback(pk_loop_t *pk_loop, void *handle, int st
   }
 
   sbp_rx_reader_interrupt_reset(rx_ctx);
-  int rc = sbp_rx_read(rx_ctx);
+  int rc = rx_read(ept_ctx);
 
   if (rc != 0) {
     PK_LOG_ANNO(LOG_WARNING, "sbp_rx_read failed, rc = %d", rc);
@@ -185,15 +218,18 @@ fail:
   if (force_new_fd != -1) close(force_new_fd);
 }
 
-int sbp_rx_attach(sbp_rx_ctx_t *ctx, pk_loop_t *pk_loop)
+static int rx_attach(endpoint_ctx_t *ept_ctx, pk_loop_t *pk_loop)
 {
   assert(ctx != NULL);
   assert(pk_loop != NULL);
 
-  ctx->reader_handle =
-    pk_loop_endpoint_reader_add(pk_loop, ctx->pk_ept, rx_ctx_reader_loop_callback, ctx);
+  ept_ctx->reader_handle =
+    pk_loop_endpoint_reader_add(pk_loop,
+                                ept_ctx->pk_ept,
+                                rx_ctx_reader_loop_callback,
+                                ept_ctx);
 
-  if (ctx->reader_handle == NULL) {
+  if (ept_ctx->reader_handle == NULL) {
     piksi_log(LOG_ERR, "error adding rx_ctx reader to loop");
     return -1;
   }
@@ -201,21 +237,41 @@ int sbp_rx_attach(sbp_rx_ctx_t *ctx, pk_loop_t *pk_loop)
   return 0;
 }
 
-int sbp_rx_detach(sbp_rx_ctx_t *ctx)
+int sbp_rx_attach(sbp_rx_ctx_t *ctx, pk_loop_t *pk_loop)
 {
   assert(ctx != NULL);
 
-  if (ctx->reader_handle == NULL) {
-    return 0; // Nothing to do here
+  for (int i = 0; i < ctx->endpoint_count; i++) {
+    if (rx_attach(ctx->endpoints[i], pk_loop) < 0) {
+      return -1;
+    }
   }
 
-  if (pk_loop_remove_handle(ctx->reader_handle) != 0) {
+  return 0;
+}
+
+static int rx_detach(endpoint_ctx_t *ept_ctx)
+{
+  if (ept_ctx->reader_handle == NULL) {
+    return 0; /* Nothing to do here */
+  }
+
+  if (pk_loop_remove_handle(ept_ctx->reader_handle) != 0) {
     piksi_log(LOG_ERR, "error removing reader from loop");
     return -1;
   }
 
-  ctx->reader_handle = NULL;
+  ept_ctx->reader_handle = NULL;
   return 0;
+}
+
+int sbp_rx_detach(sbp_rx_ctx_t *ctx)
+{
+  assert(ctx != NULL);
+
+  for (int i = 0; i < ctx->endpoint_count; i++) {
+    rx_detach(ctx->endpoints[i]);
+  }
 }
 
 int sbp_rx_callback_register(sbp_rx_ctx_t *ctx,
@@ -269,42 +325,46 @@ int sbp_rx_callback_remove(sbp_rx_ctx_t *ctx, sbp_msg_callbacks_node_t **node)
   return 0;
 }
 
-int sbp_rx_read(sbp_rx_ctx_t *ctx)
+static int rx_read(endpoint_ctx_t *ept_ctx)
 {
-  assert(ctx != NULL);
-
-  return pk_endpoint_receive(ctx->pk_ept, receive_process, ctx);
+  return pk_endpoint_receive(ept_ctx->pk_ept, receive_process, ept_ctx);
 }
 
-int sbp_rx_read_ex(sbp_rx_ctx_t *ctx, pk_endpoint_t *ept)
+int sbp_rx_read(sbp_rx_ctx_t *ctx)
 {
-  assert(ctx != NULL);
-
-  return pk_endpoint_receive(ept, receive_process, ctx);
+  int rc = 0;
+  for (size_t i = 0; i < ctx->endpoint_count; i++) {
+    int new_rc = rx_read(ctx->endpoints[i]);
+    rc = new_rc != 0 ? new_rc : rc;
+  }
+  return rc;
 }
 
 void sbp_rx_reader_interrupt(sbp_rx_ctx_t *ctx)
 {
   assert(ctx != NULL);
-
   ctx->reader_interrupt = true;
 }
 
 void sbp_rx_reader_interrupt_reset(sbp_rx_ctx_t *ctx)
 {
   assert(ctx != NULL);
-
   ctx->reader_interrupt = false;
 }
 
 bool sbp_rx_reader_interrupt_requested(sbp_rx_ctx_t *ctx)
 {
   assert(ctx != NULL);
-
   return ctx->reader_interrupt;
 }
 
-pk_endpoint_t *sbp_rx_endpoint_get(sbp_rx_ctx_t *ctx)
+bool sbp_rx_all_endpoints_valid(sbp_rx_ctx_t *ctx)
 {
-  return ctx->pk_ept;
+  assert(ctx != NULL);
+  for (size_t i = 0; i < ctx->endpoint_count; i++) {
+    if (!pk_endpoint_is_valid(ctx->endpoints[i])) {
+      return false;
+    }
+  }
+  return true;
 }
