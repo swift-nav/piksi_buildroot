@@ -456,12 +456,11 @@ handle_sdk_script_phase()
 
   popd &>/dev/null
 
-  docker run --name ${tag}-run --rm ${tag} \
-    ls -l buildroot/output/images/
+  docker run --name ${tag}-run --rm \
+    ${tag} ls -l buildroot/output/images/
 
-  docker run --name ${tag}-run --rm ${tag} \
-    -v $PWD:/output \
-    cp -vr buildroot/output/images/ /output/
+  docker run --name ${tag}-run --rm -v $PWD:/output \
+    ${tag} cp -vr buildroot/output/images/ /output/
 
   kill_ticker
 }
