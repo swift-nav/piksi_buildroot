@@ -33,6 +33,7 @@ struct sbp_tx_ctx_s {
   sbp_state_t sbp_state;
   u8 send_buffer[SBP_FRAME_SIZE_MAX];
   u32 send_buffer_length;
+  FILE *fp_dump;
 };
 
 static void send_buffer_reset(sbp_tx_ctx_t *ctx)
@@ -52,10 +53,28 @@ static s32 send_buffer_write(u8 *buff, u32 n, void *context)
   return uint32_to_int32(len);
 }
 
+static void handle_tx_dump(sbp_tx_ctx_t *ctx)
+{
+  if (ctx->fp_dump == NULL) {
+    return;
+  }
+
+  if (fwrite(ctx->send_buffer, 1, ctx->send_buffer_length, ctx->fp_dump) < ctx->send_buffer_length) {
+    PK_LOG_ANNO(LOG_WARNING, "fwrite failed: %s", strerror(errno));
+    return;
+  }
+
+  if (fflush(ctx->fp_dump) != 0) {
+    PK_LOG_ANNO(LOG_WARNING, "fflush failed: %s", strerror(errno));
+    return;
+  }
+}
+
 static int send_buffer_flush(sbp_tx_ctx_t *ctx)
 {
   int result = pk_endpoint_send(ctx->pk_ept, ctx->send_buffer, ctx->send_buffer_length);
   if (result == 0) {
+    handle_tx_dump(ctx);
     ctx->send_buffer_length = 0;
   }
   return result;
@@ -99,6 +118,8 @@ sbp_tx_ctx_t *sbp_tx_create(const char *ident, const char *endpoint)
   sbp_state_init(&ctx->sbp_state);
   sbp_state_set_io_context(&ctx->sbp_state, ctx);
 
+  ctx->fp_dump = NULL;
+
   return ctx;
 
 failure:
@@ -113,6 +134,10 @@ void sbp_tx_destroy(sbp_tx_ctx_t **ctx_loc)
   }
   sbp_tx_ctx_t *ctx = *ctx_loc;
   pk_endpoint_destroy(&ctx->pk_ept);
+  if (ctx->fp_dump != NULL) {
+    fclose(ctx->fp_dump);
+    ctx->fp_dump = NULL;
+  }
   free(ctx);
   *ctx_loc = NULL;
 }
@@ -142,4 +167,12 @@ int sbp_tx_send_from(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload, u16 s
 pk_endpoint_t *sbp_tx_endpoint_get(sbp_tx_ctx_t *ctx)
 {
   return ctx->pk_ept;
+}
+
+bool sbp_tx_dump_to_file(sbp_tx_ctx_t *ctx, const char *filename)
+{
+  FILE *fp = fopen(filename, "wb");
+  if (fp == NULL) return false;
+  ctx->fp_dump = fp;
+  return true;
 }

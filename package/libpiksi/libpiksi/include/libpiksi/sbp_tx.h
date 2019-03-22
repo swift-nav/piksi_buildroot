@@ -91,7 +91,16 @@ int sbp_tx_send(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload);
  */
 int sbp_tx_send_from(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload, u16 sbp_sender_id);
 
+/**
+ * @brief Fetch the underlying endpoint for this object.
+ */
 pk_endpoint_t *sbp_tx_endpoint_get(sbp_tx_ctx_t *ctx);
+
+/**
+ *
+ */
+
+bool sbp_tx_dump_to_file(sbp_tx_ctx_t *ctx, const char *filename);
 
 #ifdef __cplusplus
 } // extern "C"
