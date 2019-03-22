@@ -115,7 +115,7 @@ list_published_files()
     files="${files} \
       buildroot/nano_output/images/sdcard.img"
   elif [[ "${TRAVIS_TARGET}" == "sdk" ]]; then
-    files="${files} PiksiMulti-SDK-v*.bin"
+    files="${files} images/piksiv3_prod/PiksiMulti-SDK-v*.bin"
   else
     die_error "unknown TRAVIS_TARGET value: ${TRAVIS_TARGET}"
   fi
