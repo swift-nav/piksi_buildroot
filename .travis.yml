@@ -71,11 +71,21 @@ matrix:
       after_failure:
         - ./scripts/travis.sh after_failure
 
-    # Normal build + SDK sample app + piksi_ins_ref
+    # Toolchain build: builds normally, but also builds the
+    #   SDK sample app, piksi_ins_ref, and exports a buildroot
+    #   toolchain
+    - env:
+        - TRAVIS_TARGET=toolchain
+      script:
+        - ./scripts/travis.sh script
+      after_success:
+        - ./scripts/travis.sh after_success
+      after_failure:
+        - ./scripts/travis.sh after_failure
+
+    # Creates a build with SSH enabled, no INS, no private artifacts
     - env:
         - TRAVIS_TARGET=sdk
-        - BR2_BUILD_SAMPLE_DAEMON=y
-        - BR2_BUILD_PIKSI_INS_REF=y
       script:
         - ./scripts/travis.sh script
       after_success:

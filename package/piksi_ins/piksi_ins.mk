@@ -24,7 +24,6 @@ PIKSI_INS_VERSION = $(PIKSI_RELEASES_INS_VERSION)
 PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_GIT_SUBMODULES = YES
-PIKSI_INS_INSTALL_STAGING = YES
 PIKSI_INS_INSTALL_TARGET = YES
 PIKSI_INS_DEPENDENCIES = \
 	libuv libsbp libpiksi libsettings eigen host-build_tools pfw_welcome
