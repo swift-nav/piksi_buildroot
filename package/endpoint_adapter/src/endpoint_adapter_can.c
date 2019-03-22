@@ -207,12 +207,9 @@ static void *can_write_thread_handler(void *arg)
   return NULL;
 }
 
-int can_loop(const char *can_name,
-             u32 can_filter_in,
-             const char *framer_in_name,
-             const char *framer_out_name)
+int can_loop(const char *can_name, u32 can_filter_in, const char *framer_name)
 {
-  if (strncmp(framer_in_name, "j1939", 5) == 0) {
+  if (strncmp(framer_name, "j1939", 5) == 0) {
     is_j1939 = true;
   }
 
@@ -291,7 +288,7 @@ int can_loop(const char *can_name,
     read_thread_context_t read_thread_ctx = {
       .can_read_fd = socket_can,
       .read_pipe_fd = pipe_from_can[WRITE],
-      .framer = framer_in_name,
+      .framer = framer_name,
     };
 
     pthread_t read_thread;
@@ -300,7 +297,7 @@ int can_loop(const char *can_name,
     write_thread_context_t write_thread_ctx = {
       .can_write_fd = socket_can,
       .write_pipe_fd = pipe_to_can[READ],
-      .framer = framer_out_name,
+      .framer = framer_name,
     };
 
     pthread_t write_thread;

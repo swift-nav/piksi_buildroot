@@ -23,7 +23,7 @@ int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
 {
   return snprintf(buf,
                   buf_size,
-                  "--framer-in j1939 --framer-out none "
+                  "--framer j1939 "
                   "-p 'ipc:///var/run/sockets/j1939_external.sub'",
                   port_name);
 }

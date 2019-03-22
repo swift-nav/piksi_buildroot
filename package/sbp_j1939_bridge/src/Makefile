@@ -1,6 +1,6 @@
 TARGET=sbp_j1939_bridge
 SOURCES= sbp_j1939_bridge.c sbp.c
-LIBS=-luv -lsbp -lpiksi -lsettings
+LIBS=-luv -lsbp -lpiksi
 CFLAGS=-std=gnu11 -Wmissing-prototypes -Wimplicit -Wshadow -Wswitch-default -Wswitch-enum -Wundef -Wuninitialized -Wpointer-arith -Wstrict-prototypes -Wcast-align -Wformat=2 -Wimplicit-function-declaration -Wredundant-decls -Wformat-security -Wall -Wextra -Wno-strict-prototypes -Werror -ggdb
 
 CROSS=
