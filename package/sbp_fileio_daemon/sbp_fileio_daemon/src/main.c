@@ -73,13 +73,14 @@ static int parse_options(int argc, char *argv[])
     {"nocache",      no_argument,       0, 'x'},
     {"help",         no_argument,       0, 'h'},
     {"no-threading", no_argument,       0, 't'},
+    {"enable-bypass",no_argument,       0, 'y'},
     {0, 0, 0, 0}
   };
   // clang-format on
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "n:p:s:b:midxht", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "n:p:s:b:midxhty", long_opts, &opt_index)) != -1) {
     switch (c) {
 
     case 'n': {
@@ -123,6 +124,10 @@ static int parse_options(int argc, char *argv[])
 
     case 't': {
       disable_threading = true;
+    } break;
+
+    case 'y': {
+      enable_bypass = true;
     } break;
 
     default: {
