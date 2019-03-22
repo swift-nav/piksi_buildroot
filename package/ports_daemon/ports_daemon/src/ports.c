@@ -87,25 +87,25 @@ typedef int (*opts_get_fn_t)(char *buf, size_t buf_size, const opts_data_t *opts
 static int opts_get_tcp_server(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
   uint32_t port = opts_data->tcp_server_data.port;
-  return snprintf(buf, buf_size, "--name %s --tcp-l %u", opts_data->tcp_server_data.name, port);
+  return snprintf(buf, buf_size, "--name %s --bypass-pub ipc:///var/run/sockets/fw_ex_bypass.sub --bypass-sub ipc:///var/run/sockets/fw_ex_bypass.pub --tcp-l %u", opts_data->tcp_server_data.name, port);
 }
 
 static int opts_get_tcp_client(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
   const char *address = opts_data->tcp_client_data.address;
-  return snprintf(buf, buf_size, "--name %s --tcp-c %s", opts_data->tcp_client_data.name, address);
+  return snprintf(buf, buf_size, "--name %s --bypass-pub ipc:///var/run/sockets/fw_ex_bypass.sub --bypass-sub ipc:///var/run/sockets/fw_ex_bypass.pub --tcp-c %s", opts_data->tcp_client_data.name, address);
 }
 
 static int opts_get_udp_server(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
   uint32_t port = opts_data->udp_server_data.port;
-  return snprintf(buf, buf_size, "--name %s --udp-l %u", opts_data->udp_server_data.name, port);
+  return snprintf(buf, buf_size, "--name %s --bypass-pub ipc:///var/run/sockets/fw_ex_bypass.sub --udp-l %u", opts_data->udp_server_data.name, port);
 }
 
 static int opts_get_udp_client(char *buf, size_t buf_size, const opts_data_t *opts_data)
 {
   const char *address = opts_data->udp_client_data.address;
-  return snprintf(buf, buf_size, "--name %s --udp-c %s", opts_data->udp_client_data.name, address);
+  return snprintf(buf, buf_size, "--name %s --bypass-sub ipc:///var/run/sockets/fw_ex_bypass.pub --udp-c %s", opts_data->udp_client_data.name, address);
 }
 
 static int opts_get_can(char *buf, size_t buf_size, const opts_data_t *opts_data)
