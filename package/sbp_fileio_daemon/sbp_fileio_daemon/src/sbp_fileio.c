@@ -92,6 +92,8 @@ static char sbp_fileio_wait_flush_file[PATH_MAX] = {0};
 /* extern */ const char *sbp_fileio_name = NULL;
 /* extern */ bool disable_threading = false;
 
+/* extern */ bool enable_bypass = false;
+
 #define MI fileio_metrics_indexes
 #define MT fileio_metrics_table
 #define MR fileio_metrics
@@ -134,6 +136,10 @@ static struct {
   u32 send_buffer_remaining;        /** Data remaining in `send_buffer` */
   u32 send_buffer_offset;           /** Current unconsumed offset into `send_buffer` */
   sbp_tx_ctx_t *tx_ctx;             /** The context to use for outgoing data */
+
+  sbp_rx_ctx_t *rx_ctx;
+  pk_endpoint_t *pub_bypass;
+  pk_endpoint_t *sub_bypass;
 
 } write_thread_ctx;
 
@@ -415,7 +421,7 @@ static void flush_output_sbp(void)
     return;
   }
 
-  pk_endpoint_t *ept = sbp_tx_endpoint_get(write_thread_ctx.tx_ctx);
+  pk_endpoint_t *ept = enable_bypass ? write_thread_ctx.pub_bypass : sbp_tx_endpoint_get(write_thread_ctx.tx_ctx);
   int rc = pk_endpoint_send(ept, write_thread_ctx.send_buffer, write_thread_ctx.send_buffer_offset);
 
   if (rc != 0) {
@@ -631,6 +637,18 @@ static void *write_thread_handler(void *arg)
   return NULL;
 }
 
+static void loop_reader_callback(pk_loop_t *loop, void *handle, int status, void *context)
+{
+  (void)loop;
+  (void)handle;
+  (void)status;
+  (void)context;
+#if 0
+  PK_LOG_ANNO(LOG_DEBUG, "bypass read data");
+#endif
+  sbp_rx_read_ex(write_thread_ctx.rx_ctx, write_thread_ctx.sub_bypass);
+}
+
 /** Setup file IO
  * Registers relevant SBP callbacks for file IO operations.
  */
@@ -685,11 +703,48 @@ bool sbp_fileio_setup(const char *name,
   sbp_rx_receive_buffer_cb_set(rx_ctx, post_receive_buffer, NULL);
 
   write_thread_ctx.tx_ctx = tx_ctx;
+  write_thread_ctx.rx_ctx = rx_ctx;
 
   write_thread_ctx.send_buffer_remaining = sizeof(write_thread_ctx.send_buffer);
   write_thread_ctx.send_buffer_offset = 0;
 
   timer_handle = pk_loop_timer_add(loop, TIMER_PERIOD_MS, timer_handler, rx_ctx);
+
+  if (enable_bypass) {
+    write_thread_ctx.pub_bypass =  pk_endpoint_create(pk_endpoint_config()
+                                    .endpoint("ipc:///var/run/sockets/fw_ex_bypass.pub")
+                                    .identity("bypass/pub/fw_ex")
+                                    .type(PK_ENDPOINT_PUB_SERVER)
+                                    .get());
+
+    if (write_thread_ctx.pub_bypass == NULL) {
+      PK_LOG_ANNO(LOG_ERR, "pk_endpoint_create failed");
+      return false;
+    }
+
+    pk_endpoint_loop_add(write_thread_ctx.pub_bypass, loop);
+
+    write_thread_ctx.sub_bypass =  pk_endpoint_create(pk_endpoint_config()
+                                    .endpoint("ipc:///var/run/sockets/fw_ex_bypass.sub")
+                                    .identity("bypass/sub/fw_ex")
+                                    .type(PK_ENDPOINT_SUB_SERVER)
+                                    .get());
+
+    if (write_thread_ctx.sub_bypass == NULL) {
+      PK_LOG_ANNO(LOG_ERR, "pk_endpoint_create failed");
+      return false;
+    }
+
+    pk_endpoint_loop_add(write_thread_ctx.sub_bypass, loop);
+
+    if (!pk_loop_endpoint_reader_add(loop,
+                                     write_thread_ctx.sub_bypass,
+                                     loop_reader_callback,
+                                     NULL)) {
+      PK_LOG_ANNO(LOG_ERR, "pk_loop_endpoint_reader_add failed");
+      return false;
+    }
+  }
 
   if (timer_handle == NULL) {
     PK_LOG_ANNO(LOG_ERR, "timer setup failed");

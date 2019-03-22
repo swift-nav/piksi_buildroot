@@ -54,6 +54,8 @@ extern bool no_cache;
  */
 extern bool disable_threading;
 
+extern bool enable_bypass;
+
 /**
  * A subset of @see sbp_fileio_setup for unit testing purposes.
  */
