@@ -45,8 +45,8 @@
 #define FILTER_NONE_NAME "none"
 #define METRIC_NAME_LEN 128
 
-/* Sleep for a maximum 10ms while waiting for a send to complete */
-#define MAX_SEND_SLEEP_MS (10)
+/* Sleep for a maximum 1s while waiting for a send to complete */
+#define MAX_SEND_SLEEP_MS (1000)
 #define SEND_SLEEP_NS (100)
 
 #define PROGRAM_NAME "endpoint_adapter"
@@ -612,14 +612,16 @@ static ssize_t fd_write_with_timeout(int handle,
       if (!eagain_warned) {
         PK_LOG_ANNO(LOG_WARNING,
                     "call to write() to send data returned EAGAIN for more than %d ms, "
-                    "dropping %u queued bytes (endpoint ident: %s)",
+                    "%u queued bytes are pending (endpoint ident: %s), max_send_sleep_count: %zu",
                     max_send_sleep_ms,
                     count,
-                    port_name);
+                    port_name,
+                    max_send_sleep_count);
         eagain_warned = true;
       }
       PK_METRICS_UPDATE(MR, MI.bytes_dropped, PK_METRICS_VALUE((u32)count));
-      return count;
+      sleep_count = 0;
+      continue;
     } else {
       return ret;
     }
