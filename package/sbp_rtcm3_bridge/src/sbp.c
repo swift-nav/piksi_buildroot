@@ -52,6 +52,10 @@ int sbp_init(void)
     goto failure;
   }
 
+  if (!sbp_tx_dump_to_file(sbp_pubsub_tx_ctx_get(ctx.pubsub_ctx), "/tmp/sbp_rtcm3_bridge.sbp_tx")) {
+    piksi_log(LOG_WARNING, "Error setting up sbp tx dump!");
+  }
+
   ctx.settings_ctx = pk_settings_create(SETTINGS_METRICS_NAME);
   if (ctx.settings_ctx == NULL) {
     piksi_log(LOG_ERR, "Error registering for settings!");
