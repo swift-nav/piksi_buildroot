@@ -96,7 +96,6 @@ matrix:
     # Creates a build with SSH enabled, no INS, no private artifacts
     - env:
         - TRAVIS_TARGET=sdk
-        - FORCE_SDK_BUILD=y
       script:
         - ./scripts/travis.sh script
       after_success:
