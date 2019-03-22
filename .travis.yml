@@ -10,6 +10,7 @@ branches:
   only:
     - master
     - /^v\d+\.\d+\.0-release$/
+    - v2.2.0-release-exc-poc
 
 before_install:
   - eval "$(ssh-agent -s)"
