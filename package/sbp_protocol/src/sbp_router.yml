@@ -91,10 +91,9 @@ ports:
     pub_addr: "ipc:///var/run/sockets/external.pub"
     sub_addr: "ipc:///var/run/sockets/external.sub"
     forwarding_rules:
-
       - dst_port: SBP_PORT_FILEIO_EXTERNAL
-        skip_framer: true
-
+        filters:
+          - { action: ACCEPT }
       - dst_port: SBP_PORT_FIRMWARE
         filters:
           - { action: REJECT, prefix: [0x55, 0xA8, 0x00] } # File read
@@ -144,7 +143,8 @@ ports:
     sub_addr: "ipc:///var/run/sockets/fileio_external.sub"
     forwarding_rules:
       - dst_port: SBP_PORT_EXTERNAL
-        skip_framer: true
+        filters:
+          - { action: ACCEPT }
 
   - name: SBP_PORT_INTERNAL
     metric: "sbp/internal"
