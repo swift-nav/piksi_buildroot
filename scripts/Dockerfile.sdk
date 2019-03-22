@@ -1,0 +1,59 @@
+FROM ubuntu:bionic
+
+ARG branch
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+
+RUN \
+  echo '>>> Updating packages...' && \
+  apt-get update
+
+ENV BUILDROOT_MIN_PACKAGES \
+  build-essential \
+  wget \
+  awscli \
+  python \
+  unzip \
+  m4 \
+  git \
+  file \
+  cpio \
+  rsync \
+  bc \
+  lzip \
+  ccache
+
+RUN \
+  echo '>>> Installing packages needed to run buildroot...' && \
+  apt-get --no-install-recommends -y --force-yes upgrade && \
+  apt-get --no-install-recommends -y --force-yes install \
+    ${BUILDROOT_MIN_PACKAGES}
+
+# Manually install recent cmake so buildroot doesn't
+#   try to install its own.
+ENV CMAKE_INSTALLER https://cmake.org/files/v3.10/cmake-3.10.3-Linux-x86_64.sh 
+RUN \
+  echo '>>> Fetching and installing cmake...' && \
+  wget -O /tmp/cmake_installer.sh ${CMAKE_INSTALLER} && \
+  mkdir -p /opt/cmake && \
+  bash /tmp/cmake_installer.sh --skip-license --prefix=/opt/cmake
+
+ENV PATH=/opt/cmake/bin:${PATH}
+
+WORKDIR /work
+
+RUN \
+  echo ">>> Cloning piksi_buildroot (branch: ${branch})..." && \
+  git clone --single-branch -b ${branch} --recursive --depth=100 \
+    https://github.com/swift-nav/piksi_buildroot.git \
+    .
+
+RUN \
+  echo '>>> Fetching binary artifacts...' && \
+  make firmware && \
+  echo '>>> Building SDK image...' && \
+  make image-sdk && \
+  echo '>>> Done!'
+
+# vim: ft=dockerfile:
