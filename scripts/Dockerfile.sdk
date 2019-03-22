@@ -44,7 +44,7 @@ ENV PATH=/opt/cmake/bin:${PATH}
 WORKDIR /work
 
 RUN \
-  echo '>>> Cloning piksi_buildroot (branch: ${branch})...' && \
+  echo ">>> Cloning piksi_buildroot (branch: ${branch})..." && \
   git clone --single-branch -b ${branch} --recursive --depth=100 \
     https://github.com/swift-nav/piksi_buildroot.git \
     .
