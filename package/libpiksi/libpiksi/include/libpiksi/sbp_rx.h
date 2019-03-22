@@ -174,6 +174,8 @@ bool sbp_rx_reader_interrupt_requested(sbp_rx_ctx_t *ctx);
 
 pk_endpoint_t *sbp_rx_endpoint_get(sbp_rx_ctx_t *ctx);
 
+int sbp_rx_read_ex(sbp_rx_ctx_t *ctx, pk_endpoint_t *ept);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
