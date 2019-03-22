@@ -150,12 +150,7 @@ static int opts_get_tcp_client(char *buf,
                                const port_config_t *port_config)
 {
   const char *address = opts_data->tcp_client_data.address;
-  return snprintf(buf,
-                  buf_size,
-                  "--name %s --tcp-c %s%s",
-                  port_config->name,
-                  address,
-                  get_fileio_opts(port_config));
+  return snprintf(buf, buf_size, "--name %s --tcp-c %s", port_config->name, address);
 }
 
 static int opts_get_udp_server(char *buf,
@@ -217,7 +212,7 @@ static port_config_t port_configs[] = {
   {
     .name = "usb0",
     .opts = "--name usb0 --file /dev/tty.usb0 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
-    .opts_get = NULL,
+    .opts_get = opts_get_uart,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
@@ -229,7 +224,7 @@ static port_config_t port_configs[] = {
     .name = FIXED_SBP_USB_PORT_NAME,
     .opts = "--name " FIXED_SBP_USB_PORT_NAME
             " --file /dev/tty.usb2 --nonblock --outq " USB_SERIAL_XMIT_SIZE,
-    .opts_get = NULL,
+    .opts_get = opts_get_uart,
     .type = PORT_TYPE_USB,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,

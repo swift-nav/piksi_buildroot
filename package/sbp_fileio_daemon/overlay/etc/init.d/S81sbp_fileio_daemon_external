@@ -11,11 +11,32 @@ control_dir="/var/run/sbp_fileio_${daemon_name}"
 dir_perm=0755
 file_perm=0644
 
+## The ports below must be specified in matched pairs
+## and must match up with the ports specified in ports.c
+## of ports_daemon.
+
 name="sbp_fileio_daemon_${daemon_name}"
 cmd="sbp_fileio_daemon \
 --name ${daemon_name} \
---pub ipc:///var/run/sockets/fileio_${daemon_name}.sub \
---sub ipc:///var/run/sockets/fileio_${daemon_name}.pub \
+\
+--pub-s ipc:///var/run/sockets/fileio/tcp_server0.pub \
+--sub-s ipc:///var/run/sockets/fileio/tcp_server0.sub \
+\
+--pub-s ipc:///var/run/sockets/fileio/tcp_server1.pub \
+--sub-s ipc:///var/run/sockets/fileio/tcp_server1.sub \
+\
+--pub-s ipc:///var/run/sockets/fileio/usb0.pub \
+--sub-s ipc:///var/run/sockets/fileio/usb0.sub \
+\
+--pub-s ipc:///var/run/sockets/fileio/usb2.pub \
+--sub-s ipc:///var/run/sockets/fileio/usb2.sub \
+\
+--pub-s ipc:///var/run/sockets/fileio/uart0.pub \
+--sub-s ipc:///var/run/sockets/fileio/uart0.sub \
+\
+--pub-s ipc:///var/run/sockets/fileio/uart1.pub \
+--sub-s ipc:///var/run/sockets/fileio/uart1.sub \
+\
 --basedir $fileio_dir \
 --basedir $persist_dir \
 --basedir $media_dir \
