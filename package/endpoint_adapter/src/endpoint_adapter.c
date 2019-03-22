@@ -587,7 +587,6 @@ static ssize_t process_read_buffer(handle_t *read_handle,
 
   if (write_count != length) {
     PK_LOG_ANNO(LOG_ERR, "input vs output mismatch: data read (%d) != data written(%d)");
-    PK_METRICS_UPDATE(MR, MI.mismatch);
   }
 
   return length;
@@ -611,18 +610,12 @@ static ssize_t handle_write(handle_t *handle, const void *buffer, size_t count)
 {
   if (handle->pk_ept != NULL) {
 
-    PK_METRICS_UPDATE(MR, MI.rx_write_count);
-    PK_METRICS_UPDATE(MR, MI.rx_write_size_total, PK_METRICS_VALUE((u32)count));
-
     if (pk_endpoint_send(handle->pk_ept, (uint8_t *)buffer, count) != 0) {
       return -1;
     }
 
     return count;
   }
-
-  PK_METRICS_UPDATE(MR, MI.tx_write_count);
-  PK_METRICS_UPDATE(MR, MI.tx_write_size_total, PK_METRICS_VALUE((u32)count));
 
   return fd_write(handle->write_fd, buffer, count);
 }
@@ -743,12 +736,6 @@ static void do_metrics_flush(pk_loop_t *loop, void *handle, int status, void *co
   (void)handle;
   (void)status;
   (void)context;
-
-  PK_METRICS_UPDATE(MR, MI.rx_read_size_average);
-  PK_METRICS_UPDATE(MR, MI.rx_write_size_average);
-
-  PK_METRICS_UPDATE(MR, MI.tx_read_size_average);
-  PK_METRICS_UPDATE(MR, MI.tx_write_size_average);
 
   pk_metrics_flush(MR);
 

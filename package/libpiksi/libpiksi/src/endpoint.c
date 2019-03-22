@@ -28,6 +28,7 @@
 #include <linux/sockios.h>
 
 #include <libpiksi/logging.h>
+#include <libpiksi/metrics.h>
 #include <libpiksi/util.h>
 #include <libpiksi/loop.h>
 
@@ -59,6 +60,24 @@
 #  define ENDPOINT_DEBUG_LOG(...)
 #  define NDEBUG_UNUSED(X) (void)(X)
 #endif
+/* clang-format on */
+
+#define MI endpoint_metrics_indexes
+#define MT endpoint_metrics_table
+
+#define MR(X) ((X)->metrics)
+
+/* clang-format off */
+PK_METRICS_TABLE(endpoint_metrics_table, MI,
+  PK_METRICS_ENTRY("client/count",       "total",       M_S32,   M_UPDATE_ASSIGN,  M_RESET_DEF,  client_count),
+  PK_METRICS_ENTRY("client/wakes",       "per_second",  M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  wakes_per_s),
+  PK_METRICS_ENTRY("send/close",         "count",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  send_close_count),
+  PK_METRICS_ENTRY("read/close",         "count",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  read_close_count),
+  PK_METRICS_ENTRY("read/discard",       "count",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  read_discard_count),
+  PK_METRICS_ENTRY("accept/count",       "total",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  accept_count),
+  PK_METRICS_ENTRY("accept/error",       "total",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  accept_error),
+  PK_METRICS_ENTRY("disconnect/count",   "total",       M_U32,   M_UPDATE_COUNT,   M_RESET_DEF,  disconnect_count)
+  )
 /* clang-format on */
 
 typedef struct client_node client_node_t;
@@ -654,7 +673,6 @@ static int send_impl(client_context_t *ctx, const u8 *data, const size_t length)
 
 static void discard_read_data(client_context_t *ctx)
 {
-  PK_METRICS_UPDATE(MR(ctx->ept), MI.read_discard_count);
   u8 read_buf[PK_ENDPOINT_RECV_BUF_SIZE];
   size_t length = sizeof(read_buf);
   for (size_t count = 0; count < ENDPOINT_SERVICE_MAX; count++) {
