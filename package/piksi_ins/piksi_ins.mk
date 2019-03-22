@@ -20,7 +20,6 @@ $(info >>> Piksi INS is enabled, packaging with current image)
 PIKSI_INS_VERSION = v2.2.5
 PIKSI_INS_SITE = git@github.com:carnegieroboticsllc/piksi_ins.git
 PIKSI_INS_SITE_METHOD = git
-PIKSI_INS_INSTALL_STAGING = YES
 PIKSI_INS_INSTALL_TARGET = YES
 PIKSI_INS_DEPENDENCIES = \
 	libuv libsbp libpiksi eigen host-build_tools pfw_welcome

@@ -23,12 +23,11 @@ fi
 bold=$(tput rev 2>/dev/null || :)
 normal=$(tput sgr0 2>/dev/null || :)
 
-CFG=piksiv3_$HW_CONFIG
-get_git_string_script="$(dirname "$0")"/get_git_string.sh
-GIT_STRING=$($get_git_string_script)
+GIT_STRING=$("$(dirname "$0")"/get_git_string.sh)
 # remove the githash from the filename for useability
 FILE_GIT_STRING=${GIT_STRING%%-g*}
 
+CFG=piksiv3_$HW_CONFIG
 OUTPUT_DIR=$BINARIES_DIR/${CFG}
 FIRMWARE_DIR=$TARGET_DIR/lib/firmware
 
@@ -39,9 +38,12 @@ UBOOT_VERSION=$(grep "$UBOOT_VERSION_REGEX" $UBOOT_MK_PATH | sed "s/${UBOOT_VERS
 
 UBOOT_BASE_DIR=$(find $BUILD_DIR -maxdepth 1 -type d -name "uboot_custom-${UBOOT_VERSION}")
 
+SDK_FPGA_SHA1="${BR2_EXTERNAL_piksi_buildroot_PATH}/firmware/prod/piksi_sdk_fpga.sha1sum"
+
 DEV_BIN_PATH=$OUTPUT_DIR/PiksiMulti-DEV-$FILE_GIT_STRING.bin
 FAILSAFE_BIN_PATH=$OUTPUT_DIR/PiksiMulti-FAILSAFE-$FILE_GIT_STRING.bin
 INTERNAL_BIN_PATH=$OUTPUT_DIR/PiksiMulti-INTERNAL-$FILE_GIT_STRING.bin
+SDK_BIN_PATH=$OUTPUT_DIR/PiksiMulti-SDK-$FILE_GIT_STRING.bin
 REL_OPEN_BIN_PATH=$OUTPUT_DIR/PiksiMulti-UNPROTECTED-$FILE_GIT_STRING.bin
 REL_PROT_BIN_PATH=$OUTPUT_DIR/PiksiMulti-$FILE_GIT_STRING.bin
 
@@ -165,16 +167,30 @@ generate_failsafe()
 
 encrypt_and_sign()
 {
-  local encr_tool=${HOST_DIR}/usr/bin/encrypt_and_sign
-
-  if [[ ! -f "$encr_tool" ]]; then
-
-    echo "ERROR: 'encrypt_and_sign' tool not found at path: $encr_tool" >&2
+  local eas_tool_path=${HOST_DIR}/usr/bin/encrypt_and_sign
+  if [[ ! -f "$eas_tool_path" ]]; then
+    echo "ERROR: 'encrypt_and_sign' tool not found at path: $eas_tool_path" >&2
     exit 1
   fi
-
-  $encr_tool $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
+  $eas_tool_path $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
   rm ${INTERNAL_BIN_PATH}
+}
+
+rename_if_sdk_build()
+{
+  local eas_tool_path=${HOST_DIR}/usr/bin/encrypt_and_sign
+  if [[ -e "$INTERNAL_BIN_PATH" ]]; then
+    if [[ -e $SDK_FPGA_SHA1 ]]; then
+      if [[ -f "$eas_tool_path" ]]; then
+        echo "ERROR: found 'encrypt_and_sign', for \"SDK\" builds, this tool not *SHOULD NOT BE* locatable ($eas_tool_path)" >&2
+        exit 1
+      fi
+      local sha=$(sha1sum "$FIRMWARE_DIR/piksi_fpga.bit" | cut -d' ' -f1)
+      if [[ "$sha" == "$(cat $SDK_FPGA_SHA1 | cut -d' ' -f1)" ]]; then
+        mv -v "$INTERNAL_BIN_PATH" "$SDK_BIN_PATH"
+      fi
+    fi 
+  fi
 }
 
 mkdir -p $OUTPUT_DIR
@@ -208,6 +224,8 @@ if [[ -e $FIRMWARE_DIR/piksi_firmware.elf ]] && \
       mv -v ${INTERNAL_BIN_PATH} ${REL_OPEN_BIN_PATH}
   fi
 
+  rename_if_sdk_build
+
 else
   echo "*** WARNING: NO FIRMWARE FILES FOUND, NOT BUILDING PRODUCTION IMAGE ***"
 fi
@@ -216,11 +234,16 @@ fi
 REL_OPEN_BIN_PATH=${REL_OPEN_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 REL_PROT_BIN_PATH=${REL_PROT_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 INTERNAL_BIN_PATH=${INTERNAL_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
+SDK_BIN_PATH=${SDK_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 DEV_BIN_PATH=${DEV_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 FAILSAFE_BIN_PATH=${FAILSAFE_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 
 if [[ -f "${BR2_EXTERNAL_piksi_buildroot_PATH:-}/$INTERNAL_BIN_PATH" ]]; then
   echo -e "${bold}>>> INTERNAL firmware image located at:${normal}\n\t$INTERNAL_BIN_PATH"
+fi
+
+if [[ -f "${BR2_EXTERNAL_piksi_buildroot_PATH:-}/$SDK_BIN_PATH" ]]; then
+  echo -e "${bold}>>> SDK firmware image located at:${normal}\n\t$SDK_BIN_PATH"
 fi
 
 if [[ -n "${BR2_BUILD_RELEASE_OPEN:-}" ]]; then

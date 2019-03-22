@@ -27,16 +27,19 @@ if [[ $(uname -a) == *NixOS* ]]; then
   export LD_LIBRARY_PATH=/lib:/usr/lib
 fi
 
-BR_VERSION=$(git describe --abbrev=0 --tags)
 FW_VERSION=${1:-M4_FW_VERSION}
 NAP_VERSION=${2:-M4_NAP_VERSION}
 
-CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
 FW_S3_PATH=s3://M4_BUCKET/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://M4_BUCKET/piksi_fpga/$NAP_VERSION
 NAP_S3_PATH_PROD=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
+
+error() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
 
 fetch() {
   case $@ in
@@ -46,9 +49,9 @@ fetch() {
   esac
 }
 
-error() {
-  echo "ERROR: $*" >&2
-  exit 1
+fetch_sdk_fpga() {
+  fetch $NAP_S3_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit
+  sha1sum $FIRMWARE_DIR/piksi_fpga.bit >$FIRMWARE_DIR/piksi_sdk_fpga.sha1sum
 }
 
 download_fw() {
@@ -63,10 +66,9 @@ download_fw() {
 
   # Download piksi_fpga, try the prod variant first, then sdk variant
   fetch $NAP_S3_PATH_PROD/piksi_prod_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit \
-ifelse(M4_BUCKET, swiftnav-releases,
-`    || fetch $NAP_S3_PATH/piksi_sdk_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit \
-    || error "failed to download piksi_fpga.bit"',
-`    || error "failed to download piksi_fpga.bit"')
+ifelse(M4_BUCKET, swiftnav-releases, `    || fetch_sdk_fpga \
+')dnl
+    || error "failed to download piksi_fpga.bit"
 }
 
 if [[ -n "$GENERATE_REQUIREMENTS" ]]; then
@@ -75,6 +77,8 @@ if [[ -n "$GENERATE_REQUIREMENTS" ]]; then
   [[ -f "$REQUIREMENTS_M4" ]] || error "could not find $REQUIREMENTS_M4"
   m4 -DFW_VERSION=$FW_VERSION -DNAP_VERSION=$NAP_VERSION $REQUIREMENTS_M4 >$REQUIREMENTS_OUT
 elif [[ -n "$DOWNLOAD_PBR_CCACHE" ]]; then
+  BR_VERSION=$(git describe --abbrev=0 --tags)
+  CCACHE_S3_PATH=s3://swiftnav-artifacts/piksi_buildroot/$BR_VERSION
   fetch $CCACHE_S3_PATH/piksi_br_${PBR_TARGET}_ccache.tgz .
 else
   download_fw
