@@ -42,11 +42,9 @@ echo "Publish TAG ($TRAVIS_TAG)"
 for file in "$@"; do
     KEY="$BUILD_PATH/$(basename $file)"
     if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-        if [[ "$TRAVIS_BRANCH" == master || "$TRAVIS_TAG" == v* || "$TRAVIS_BRANCH" == v*-release ]]; then
-            OBJECT="s3://$BUCKET/$KEY"
-            echo "Pushing to $OBJECT"
-            aws s3 cp "$file" "$OBJECT"
-        fi
+        OBJECT="s3://$BUCKET/$KEY"
+        echo "Pushing to $OBJECT"
+        aws s3 cp "$file" "$OBJECT"
     else
         OBJECT="s3://$PRS_BUCKET/$KEY"
         echo "Pushing to $OBJECT"
