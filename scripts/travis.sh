@@ -404,6 +404,8 @@ handle_format_after_failure_phase()
 # SDK build variant ###################################################
 #######################################################################
 
+FORCE_SDK_BUILD=TRUE
+
 should_build_sdk_image()
 {
   if [[ -n "${FORCE_SDK_BUILD:-}" ]]; then
