@@ -226,10 +226,10 @@ pipeline {
                     }
                 }
 
-                stage('toolchain') {
+                stage('Toolchain') {
                     when {
                         expression {
-                            context.isStageIncluded()
+                            context.isStageIncluded(name: 'Toolchain', includeOnEmpty: false)
                         }
                     }
                     agent {
@@ -248,9 +248,9 @@ pipeline {
                         crlKeyAdd()
 
                         script {
-                            builder.make(target: "firmware")
-                            builder.make(target: "image")
-                            builder.make(target: "export-toolchain")
+                            // TODO: Need to figure out how to invoke docker-in-docker
+                            //   or figure out a different way to build the SDK image
+                            //   within Jenkins.
                         }
                     }
                     post {
