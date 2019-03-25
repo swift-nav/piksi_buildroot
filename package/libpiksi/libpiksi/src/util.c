@@ -217,21 +217,22 @@ int device_uuid_get(char *str, size_t str_size)
 
 bool device_is_duro(void)
 {
-  char is_duro_flag = '0';
+  bool flag_file_exists = false;
   /* Existence of DEVICE_DURO_FLAG_PATH indicates EEPROM
    * has been read or has timed out */
   for (int i = 0; i < DEVICE_DURO_EEPROM_RETRY_TIMES; i++) {
     if (access(DEVICE_DURO_FLAG_PATH, F_OK) == 0) {
+      flag_file_exists = true;
       break;
     }
     usleep(DEVICE_DURO_EEPROM_RETRY_INTERVAL_MS * 1000);
   }
-  if (file_read_string(DEVICE_DURO_FLAG_PATH, &is_duro_flag, sizeof(is_duro_flag)) != 0) {
-    piksi_log(LOG_WARNING, "Failed to read DURO eeprom contents");
-    return false;
+
+  if (!flag_file_exists) {
+    piksi_log(LOG_WARNING, "Duro Flag file (%s) access check unsuccessful", DEVICE_DURO_FLAG_PATH);
   }
 
-  return (is_duro_flag == '1');
+  return (file_read_value(DEVICE_DURO_FLAG_PATH));
 }
 
 static bool device_has_ins(void)
