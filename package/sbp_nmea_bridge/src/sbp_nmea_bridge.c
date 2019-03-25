@@ -40,6 +40,7 @@ static int gphdt_rate = 1;
 static int gpgll_rate = 10;
 static int gpzda_rate = 10;
 static int gsa_rate = 10;
+static int gpgst_rate = 1;
 
 static float soln_freq = 10.0;
 
@@ -125,6 +126,12 @@ static int notify_gpzda_rate_changed(void *context)
 static int notify_gsa_rate_changed(void *context)
 {
   sbp2nmea_rate_set(context, gsa_rate, SBP2NMEA_NMEA_GSA);
+  return SETTINGS_WR_OK;
+}
+
+static int notify_gpgst_rate_changed(void *context)
+{
+  sbp2nmea_rate_set(context, gpgst_rate, SBP2NMEA_NMEA_GST);
   return SETTINGS_WR_OK;
 }
 
@@ -342,6 +349,16 @@ int main(int argc, char *argv[])
                              SETTINGS_TYPE_FLOAT,
                              notify_soln_freq_changed,
                              &state);
+
+  pk_settings_register_watch(settings_ctx,
+                             "nmea",
+                             "gpgst_msg_rate",
+                             &gpgst_rate,
+                             sizeof(gpgst_rate),
+                             SETTINGS_TYPE_INT,
+                             notify_gpgst_rate_changed,
+                             &state);
+
   sbp_run();
 
   exit(cleanup(EXIT_SUCCESS));
