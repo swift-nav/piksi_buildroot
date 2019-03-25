@@ -250,7 +250,7 @@ pipeline {
                         script {
                             builder.make(target: "firmware")
                             builder.make(target: "image")
-                            builder.make(target: "toolchain")
+                            builder.make(target: "export-toolchain")
                         }
                     }
                     post {
