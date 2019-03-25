@@ -247,10 +247,10 @@ pipeline {
                         gitPrep()
                         crlKeyAdd()
 
-                        script {
-                            // TODO: Need to figure out how to invoke docker-in-docker
-                            //   or figure out a different way to build the SDK image
-                            //   within Jenkins.
+                        script {                       
+                            builder.make(target: "firmware")
+                            builder.make(target: "image")
+                            builder.make(target: "export-toolchain")
                         }
                     }
                     post {
