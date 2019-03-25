@@ -226,7 +226,7 @@ pipeline {
                     }
                 }
 
-                stage('SDK') {
+                stage('toolchain') {
                     when {
                         expression {
                             context.isStageIncluded()
@@ -250,14 +250,14 @@ pipeline {
                         script {
                             builder.make(target: "firmware")
                             builder.make(target: "image")
-                            builder.make(target: "sdk")
+                            builder.make(target: "toolchain")
                         }
                     }
                     post {
                         success {
                             script {
                                 context.archivePatterns(
-                                        patterns: ['piksi_sdk.txz'],
+                                        patterns: ['piksi_br_toolchain.txz'],
                                         addPath: 'v3/prod'
                                 )
                             }
