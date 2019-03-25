@@ -189,11 +189,11 @@ static void dops_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   sbp2nmea(context, msg, SBP2NMEA_SBP_DOPS);
 }
 
-static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void pos_llh_cov_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
   (void)len;
-  sbp2nmea(context, msg, SBP2NMEA_SBP_POS_LLH);
+  sbp2nmea(context, msg, SBP2NMEA_SBP_POS_LLH_COV);
 }
 
 static void vel_ned_callback(u16 sender_id, u8 len, u8 msg[], void *context)
@@ -261,8 +261,8 @@ int main(int argc, char *argv[])
     return cleanup(EXIT_FAILURE);
   }
 
-  if (sbp_callback_register(SBP_MSG_POS_LLH, pos_llh_callback, &state) != 0) {
-    piksi_log(LOG_ERR, "error setting pos llh callback");
+  if (sbp_callback_register(SBP_MSG_POS_LLH_COV, pos_llh_cov_callback, &state) != 0) {
+    piksi_log(LOG_ERR, "error setting pos llh cov callback");
     return cleanup(EXIT_FAILURE);
   }
 
