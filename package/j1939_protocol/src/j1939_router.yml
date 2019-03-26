@@ -2,7 +2,6 @@
 name: J1939_ROUTER
 ports:
   - name: J1939_PORT_INTERNAL
-    metric: "j1939/internal"
     pub_addr: "ipc:///var/run/sockets/j1939_internal.pub"
     sub_addr: "ipc:///var/run/sockets/j1939_internal.sub"
     forwarding_rules:
@@ -11,7 +10,6 @@ ports:
           - { action: ACCEPT }
 
   - name: J1939_PORT_EXTERNAL
-    metric: "j1939/external"
     pub_addr: "ipc:///var/run/sockets/j1939_external.pub"
     sub_addr: "ipc:///var/run/sockets/j1939_external.sub"
     forwarding_rules:

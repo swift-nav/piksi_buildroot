@@ -189,6 +189,7 @@ static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *con
   switch (state->PGN) {
   case 61482: /* gyr_* info */
   case 61485: /* acc_* info */
+    piksi_log(LOG_ERR, "Found IMU PGN %d", state->PGN);
     sbp_message_send(SBP_MSG_IMU_RAW, sizeof(struct imu_raw_msg), (u8 *)&state->imu_raw, 0, NULL);
     break;
 

@@ -20,8 +20,8 @@
 #define METRICS_NAME "sbp_j1939_bridge"
 #define SETTINGS_METRICS_NAME ("settings/" METRICS_NAME)
 
-#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP External Out */
-#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP External In */
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
 
 static struct {
   pk_loop_t *loop;
@@ -98,6 +98,7 @@ void sbp_message_send(u16 msg_type, u8 len, u8 *payload, u16 sender_id, void *co
   (void)context;
   sbp_tx_ctx_t *tx_ctx = sbp_pubsub_tx_ctx_get(ctx.pubsub_ctx);
   if (tx_ctx == NULL) {
+    piksi_log(LOG_ERR, "ctx.pubsub_ctx == NULL, aborting");
     return;
   }
 
