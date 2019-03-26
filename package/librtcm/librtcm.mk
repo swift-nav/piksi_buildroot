@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-LIBRTCM_VERSION = v0.2.41
+LIBRTCM_VERSION = woodfell/standardise_cmake_dependencies
 LIBRTCM_SITE = https://github.com/swift-nav/librtcm
 LIBRTCM_SITE_METHOD = git
 LIBRTCM_INSTALL_STAGING = YES
