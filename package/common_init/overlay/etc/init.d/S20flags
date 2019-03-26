@@ -19,3 +19,10 @@ elif [[ "$can_ports_enabled" == "False" ]]; then
   echo "0" > /etc/flags/can_ports
 fi
 
+# used by PFWP to determine IMU default
+if detect_piksi_ins; then
+  echo "1" > /etc/flags/ins_active
+else
+  echo "0" > /etc/flags/ins_active
+fi
+
