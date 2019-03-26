@@ -97,13 +97,11 @@ static void *can_read_thread_handler(void *arg)
       if (is_j1939) {
         memcpy(full_frame, &frame.can_id, sizeof(frame.can_id));
         memcpy(full_frame + sizeof(frame.can_id), frame.data, frame.can_dlc);
-        piksi_log(LOG_ERR, "Sending J1939 bytes: %d", sizeof(frame.can_id) + frame.can_dlc);
-        int num_written = write(pctx->read_pipe_fd, full_frame, sizeof(frame.can_id) + frame.can_dlc);
+        int num_written =
+          write(pctx->read_pipe_fd, full_frame, sizeof(frame.can_id) + frame.can_dlc);
         if (num_written < 0) {
           PK_LOG_ANNO(LOG_WARNING, "pipe write() failed: %s (%d)", strerror(errno), errno);
           break;
-        } else {
-          piksi_log(LOG_ERR, "Wrote %d bytes", num_written);
         }
       } else {
         if (write(pctx->read_pipe_fd, frame.data, frame.can_dlc) < 0) {

@@ -20,8 +20,8 @@
 #define METRICS_NAME "sbp_j1939_bridge"
 #define SETTINGS_METRICS_NAME ("settings/" METRICS_NAME)
 
-#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/external.pub" /* SBP External Out */
-#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/external.sub" /* SBP External In */
+#define SBP_SUB_ENDPOINT "ipc:///var/run/sockets/internal.pub" /* SBP External Out */
+#define SBP_PUB_ENDPOINT "ipc:///var/run/sockets/internal.sub" /* SBP External In */
 
 static struct {
   pk_loop_t *loop;

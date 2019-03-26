@@ -47,18 +47,15 @@ uint32_t framer_process(void *state,
                         const uint8_t **frame,
                         uint32_t *frame_length)
 {
-  if (data_length == 0) {
-    piksi_log(LOG_ERR, "data_length = 0");
-    return 0;
-  }
-
   framer_j1939_state_t *s = (framer_j1939_state_t *)state;
 
   uint32_t data_offset = 0;
   *frame = NULL;
   *frame_length = 0;
 
-  if (data_length >= 4) {
+  if (data_length == 0) {
+    return 0;
+  } else if (data_length >= 4) {
     memcpy(&s->buffer, data, data_length);
     *frame = s->buffer;
     *frame_length = data_length;
