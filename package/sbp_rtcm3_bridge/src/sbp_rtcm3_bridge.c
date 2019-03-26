@@ -45,6 +45,7 @@ struct rtcm3_out_state sbp_to_rtcm3_state;
 bool simulator_enabled_watch = false;
 
 pk_endpoint_t *rtcm3_pub = NULL;
+pk_endpoint_t *rtcm3_sub = NULL;
 
 /* settings */
 
@@ -255,20 +256,19 @@ static int notify_rcv_ant_descriptor_changed(void *context)
   return SETTINGS_WR_OK;
 }
 
-static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status);
+static int cleanup(int status);
 
 int main(int argc, char *argv[])
 {
   pk_settings_ctx_t *settings_ctx = NULL;
   pk_loop_t *loop = NULL;
-  pk_endpoint_t *rtcm3_sub = NULL;
 
   logging_init(PROGRAM_NAME);
 
   if (parse_options(argc, argv) != 0) {
     piksi_log(LOG_ERR, "invalid arguments");
     usage(argv[0]);
-    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
+    exit(cleanup(EXIT_FAILURE));
   }
 
   /* Need to init rtcm3_to_sbp_state and sbp_to_rtcm3_state variables before
@@ -278,7 +278,7 @@ int main(int argc, char *argv[])
 
   if (sbp_init() != 0) {
     piksi_log(LOG_ERR, "error initializing SBP");
-    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
+    exit(cleanup(EXIT_FAILURE));
   }
 
   rtcm3_pub = pk_endpoint_create(pk_endpoint_config()
@@ -288,12 +288,12 @@ int main(int argc, char *argv[])
                                    .get());
   if (rtcm3_pub == NULL) {
     piksi_log(LOG_ERR, "error creating PUB socket");
-    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
+    exit(cleanup(EXIT_FAILURE));
   }
 
   loop = sbp_get_loop();
   if (loop == NULL) {
-    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
+    exit(cleanup(EXIT_FAILURE));
   }
 
   rtcm3_sub = pk_endpoint_create(pk_endpoint_config()
@@ -303,46 +303,46 @@ int main(int argc, char *argv[])
                                    .get());
   if (rtcm3_sub == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
-    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
+    exit(cleanup(EXIT_FAILURE));
   }
 
   if (pk_loop_endpoint_reader_add(loop, rtcm3_sub, rtcm3_reader_handler, rtcm3_sub) == NULL) {
     piksi_log(LOG_ERR, "error adding reader");
-    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
+    exit(cleanup(EXIT_FAILURE));
   }
 
   if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting GPS TIME callback");
-    exit(cleanup(&rtcm3_sub, EXIT_FAILURE));
+    exit(cleanup(EXIT_FAILURE));
   }
 
   if (sbp_callback_register(SBP_MSG_UTC_TIME, utc_time_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting UTC TIME callback");
-    return cleanup(&rtcm3_sub, EXIT_FAILURE);
+    return cleanup(EXIT_FAILURE);
   }
 
   if (sbp_callback_register(SBP_MSG_EPHEMERIS_GLO_DEP_D, ephemeris_glo_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting EPHEMERIS GLO callback");
-    return cleanup(&rtcm3_sub, EXIT_FAILURE);
+    return cleanup(EXIT_FAILURE);
   }
   if (sbp_callback_register(SBP_MSG_EPHEMERIS_GLO, ephemeris_glo_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting EPHEMERIS GLO callback");
-    return cleanup(&rtcm3_sub, EXIT_FAILURE);
+    return cleanup(EXIT_FAILURE);
   }
 
   if (sbp_callback_register(SBP_MSG_BASE_POS_ECEF, base_pos_ecef_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting base pos ECEF callback");
-    return cleanup(&rtcm3_sub, EXIT_FAILURE);
+    return cleanup(EXIT_FAILURE);
   }
 
   if (sbp_callback_register(SBP_MSG_GLO_BIASES, glo_bias_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting GLO bias callback callback");
-    return cleanup(&rtcm3_sub, EXIT_FAILURE);
+    return cleanup(EXIT_FAILURE);
   }
 
   if (sbp_callback_register(SBP_MSG_OBS, obs_callback, NULL) != 0) {
     piksi_log(LOG_ERR, "error setting obs callback callback");
-    return cleanup(&rtcm3_sub, EXIT_FAILURE);
+    return cleanup(EXIT_FAILURE);
   }
 
   settings_ctx = sbp_get_settings_ctx();
@@ -396,12 +396,13 @@ int main(int argc, char *argv[])
 
   sbp_run();
 
-  exit(cleanup(&rtcm3_sub, EXIT_SUCCESS));
+  exit(cleanup(EXIT_SUCCESS));
 }
 
-static int cleanup(pk_endpoint_t **rtcm_ept_loc, int status)
+static int cleanup(int status)
 {
-  pk_endpoint_destroy(rtcm_ept_loc);
+  pk_endpoint_destroy(&rtcm3_pub);
+  pk_endpoint_destroy(&rtcm3_sub);
   sbp_deinit();
   logging_deinit();
   return status;
