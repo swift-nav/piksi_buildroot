@@ -1,7 +1,0 @@
-/var/log/metrics.json {
-      su metricsd metricsd
-      size 10M
-      copytruncate
-      rotate 1
-      missingok
-}

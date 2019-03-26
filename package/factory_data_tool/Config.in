@@ -1,4 +1,0 @@
-config BR2_PACKAGE_FACTORY_DATA_TOOL
-	bool "factory_data_tool"
-	select BR2_PACKAGE_UBOOT_CUSTOM
-	select BR2_PACKAGE_ZLIB

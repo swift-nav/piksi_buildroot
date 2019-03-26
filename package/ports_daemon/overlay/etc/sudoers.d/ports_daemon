@@ -1,2 +1,0 @@
-portsd ALL=(ALL) NOPASSWD: /sbin/ip
-portsd ALL=(ALL) NOPASSWD: /sbin/ifconfig

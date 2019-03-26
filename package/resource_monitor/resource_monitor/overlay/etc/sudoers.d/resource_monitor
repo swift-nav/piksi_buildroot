@@ -1,4 +1,0 @@
-resmond ALL=(ALL) NOPASSWD: /sbin/ss
-resmond ALL=(ALL) NOPASSWD: /usr/bin/lsof
-resmond ALL=(ALL) NOPASSWD: /usr/bin/get_proc_cmdline
-Defaults:resmond !syslog

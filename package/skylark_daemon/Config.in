@@ -1,7 +1,0 @@
-config BR2_PACKAGE_SKYLARK_DAEMON
-  bool "skylark_daemon"
-  select BR2_PACKAGE_LIBUV
-  select BR2_PACKAGE_LIBSBP
-  select BR2_PACKAGE_LIBPIKSI
-  select BR2_PACKAGE_LIBCURL
-  select BR2_PACKAGE_LIBNETWORK

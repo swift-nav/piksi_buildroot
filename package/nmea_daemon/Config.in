@@ -1,4 +1,0 @@
-config BR2_PACKAGE_NMEA_DAEMON
-	bool "nmea_daemon"
-	select BR2_PACKAGE_LIBUV
-	select BR2_PACKAGE_LIBPIKSI
