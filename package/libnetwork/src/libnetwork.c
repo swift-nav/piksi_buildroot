@@ -68,7 +68,7 @@ static const int MAX_GGA_UPLOAD_READ_ERRORS = 5;
 
 typedef struct context_node context_node_t;
 
-typedef struct {
+typedef struct fifo_info_s {
 
   bool configured;
 
@@ -83,6 +83,10 @@ typedef struct {
 
 } fifo_info_t;
 
+typedef struct curl_slist *(*refresh_headers_fn_t)(network_context_t *ctx,
+                                                   CURL *curl,
+                                                   struct curl_slist *headers);
+
 // clang-format off
 struct network_context_s {
 
@@ -95,7 +99,7 @@ struct network_context_s {
   CURL *curl;                  /**< The current cURL handle */
 
   curl_off_t bytes_transfered; /**< Current number of bytes transferred */
-  curl_off_t stall_count;      /**< Number of times the bytes transferred have not changed */
+  time_t byte_move_time;       /**< Time at which we first noticed that the cnxn stalled. */
 
   long response_code;          /**< Response Code from last transfer request */
   int (*response_code_check)(network_context_t* ctx); /**< Optional function reference to act on response code*/
@@ -119,7 +123,7 @@ struct network_context_s {
   double gga_xfer_secs;        /**< The number of seconds between GGA upload times */
   time_t last_xfer_time;       /**< Time of the last GGA sentence uploaded (for NTRIP only) */
 
-  char* gga_xfer_buffer;       /**< Buffer to cache the last GGA sentence uploaded */
+  char *gga_xfer_buffer;       /**< Buffer to cache the last GGA sentence uploaded */
   size_t gga_xfer_buflen;      /**< The max capacity of the GGA sentence cache */
   size_t gga_xfer_fill;        /**< How much of the GGA sentence buffer is filled */
 
@@ -127,8 +131,13 @@ struct network_context_s {
 
   bool gga_rev1;               /**< Should we use rev1 style GGA sentence? */
 
-  size_t max_bytes;            /* Maximum number of bytes to download / upload */
-  size_t cur_bytes;            /* Current number of bytes downloaded / uploaded */
+  size_t max_bytes;            /**< Maximum number of bytes to download / upload */
+  size_t cur_bytes;            /**< Current number of bytes downloaded / uploaded */
+
+  struct curl_slist *headers;
+    /**< The headers that are delivered with an HTTP request */
+  refresh_headers_fn_t refresh_headers_fn;
+    /**< Optional function to refresh headers when a connection is cycled. */
 };
 // clang-format on
 
@@ -149,7 +158,7 @@ static network_context_t empty_context = {
   .socket_fd = CURL_SOCKET_BAD,
   .curl = NULL,
   .bytes_transfered = 0,
-  .stall_count = 0,
+  .byte_move_time = 0,
   .shutdown_signaled = false,
   .cycle_connection_signaled = false,
   .response_code = 0,
@@ -179,6 +188,8 @@ static network_context_t empty_context = {
   .gga_rev1 = false,
   .max_bytes = SIZE_MAX,
   .cur_bytes = 0,
+  .headers = NULL,
+  .refresh_headers_fn = NULL,
 };
 // clang-format on
 
@@ -191,6 +202,8 @@ static network_context_t empty_context = {
 static void trim_crlf(char *buf, size_t *byte_count) __attribute__((nonnull(1)));
 static void log_with_rate_limit(network_context_t *ctx, int priority, const char *format, ...)
   __attribute__((nonnull(1, 3)));
+
+static void network_reset_counters(network_context_t *context);
 
 const char *libnetwork_status_text(network_status_t status)
 {
@@ -830,10 +843,10 @@ static void service_control_fifo(network_context_t *ctx)
  */
 static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
 {
+  time_t now = time(NULL);
   service_control_fifo(ctx);
 
   if (ctx->shutdown_signaled) {
-    ctx->stall_count = 0;
     return -1;
   }
 
@@ -844,13 +857,12 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
                         "%s: forced reconnect requested",
                         libnetwork_describe_type(ctx->type));
     ctx->cycle_connection_signaled = false;
-    ctx->stall_count = 0;
 
     return -1;
   }
 
   if (ctx->bytes_transfered == bytes) {
-    if (ctx->stall_count++ > MAX_STALLED_INTERVALS) {
+    if ((now - ctx->byte_move_time) >= MAX_STALL_TIME_S) {
 
       log_with_rate_limit(ctx,
                           LOG_WARNING,
@@ -861,11 +873,10 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
     }
   } else {
     ctx->bytes_transfered = bytes;
-    ctx->stall_count = 0;
+    ctx->byte_move_time = now;
   }
 
   if (ctx->gga_xfer_secs > 0) {
-    time_t now = time(NULL);
     if (now - ctx->last_xfer_time >= ctx->gga_xfer_secs) {
       curl_easy_pause(ctx->curl, CURLPAUSE_CONT);
     }
@@ -889,11 +900,11 @@ static int network_download_progress(void *data,
   curl_off_t delta = dlnow - ctx->bytes_transfered;
   if (ctx->debug && delta > 0) {
     piksi_log(LOG_DEBUG,
-              "down bytes: now=%lld, prev=%lld, delta=%lld, count %lld",
+              "down bytes: now=%lld, prev=%lld, delta=%lld, byte_move_time=%lld",
               dlnow,
               ctx->bytes_transfered,
               delta,
-              ctx->stall_count);
+              (long long)ctx->byte_move_time);
   }
 
   return network_progress_check(ctx, dlnow);
@@ -913,10 +924,10 @@ static int network_upload_progress(void *data,
 
   if (ctx->debug) {
     piksi_log(LOG_DEBUG,
-              "up bytes (%lld) %lld count %lld",
+              "up bytes (%lld) %lld byte_move_time=%lld",
               ulnow,
               ctx->bytes_transfered,
-              ctx->stall_count);
+              (long long)ctx->byte_move_time);
   }
 
   return network_progress_check(ctx, ulnow);
@@ -973,11 +984,13 @@ static int network_sockopt(void *data, curl_socket_t fd, curlsocktype purpose)
 
 static CURL *network_setup(network_context_t *ctx)
 {
+  time_t now = time(NULL);
+
   ctx->shutdown_signaled = false;
 
-  ctx->last_xfer_time = 0;
   ctx->bytes_transfered = 0;
-  ctx->stall_count = 0;
+  ctx->last_xfer_time = now;
+  ctx->byte_move_time = now;
 
   CURLcode code = curl_global_init(CURL_GLOBAL_ALL);
   if (code != CURLE_OK) {
@@ -998,8 +1011,12 @@ static CURL *network_setup(network_context_t *ctx)
   return curl;
 }
 
-static void network_teardown(CURL *curl)
+static void network_teardown(CURL *curl, struct curl_slist **headers)
 {
+  if (headers != NULL && *headers != NULL) {
+    curl_slist_free_all(*headers);
+    *headers = NULL;
+  }
   curl_easy_cleanup(curl);
   curl_global_cleanup();
 }
@@ -1034,6 +1051,19 @@ static void log_with_rate_limit(network_context_t *ctx, int priority, const char
 }
 
 
+static void refresh_headers(network_context_t *ctx, CURL *curl)
+{
+  assert(ctx != NULL);
+
+  if (ctx->refresh_headers_fn == NULL) return;
+
+  ctx->headers = ctx->refresh_headers_fn(ctx, curl, ctx->headers);
+
+  if (ctx->headers) {
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, ctx->headers);
+  }
+}
+
 static CURLcode network_request(network_context_t *ctx, CURL *curl)
 {
   char error_buf[CURL_ERROR_SIZE] = {0};
@@ -1051,6 +1081,7 @@ static CURLcode network_request(network_context_t *ctx, CURL *curl)
   // clang-format on
 
   CURLcode code = CURLE_OK;
+  long response = 0;
 
   while (true) {
 
@@ -1064,11 +1095,11 @@ static CURLcode network_request(network_context_t *ctx, CURL *curl)
       if (ctx->debug) {
         piksi_log(LOG_DEBUG, "cURL aborted by callback");
       }
-      continue;
+      goto retry_connection;
     }
 
     if (code == CURLE_OK) {
-      long response = 0;
+      response = 0;
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
       ctx->response_code = response;
       if (response != HTTP_RESPONSE_CODE_OK) {
@@ -1094,26 +1125,32 @@ static CURLcode network_request(network_context_t *ctx, CURL *curl)
       break;
     }
 
-    ctx->last_xfer_time = 0;
-    ctx->bytes_transfered = 0;
-    ctx->stall_count = -MAX_STALLED_INTERVALS;
+  retry_connection:
+    network_reset_counters(ctx);
+    refresh_headers(ctx, curl);
   }
 
   return code;
 }
 
-static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
+static struct curl_slist *ntrip_init_headers(network_context_t *ctx,
+                                             CURL *curl,
+                                             struct curl_slist *headers)
 {
-  struct curl_slist *chunk = NULL;
+  if (headers != NULL) {
+    curl_slist_free_all(headers);
+    headers = NULL;
+  }
 
-  chunk = curl_slist_append(chunk, "Ntrip-Version: Ntrip/2.0");
-  chunk = curl_slist_append(chunk, "Expect:");
+  headers = curl_slist_append(headers, "Ntrip-Version: Ntrip/2.0");
+  headers = curl_slist_append(headers, "Expect:");
 
   int retries = 0;
   while (!device_has_gps_time() && NTRIP_INIT_RETRY_COUNT_MAX > retries++) {
     usleep(NTRIP_INIT_RETRY_COOLDOWN_US);
   }
-  piksi_log(LOG_DEBUG | LOG_SBP, "ntrip_init: device has gps time");
+
+  piksi_log(LOG_DEBUG | LOG_SBP, "%s: device has gps time", __FUNCTION__);
 
   char gga_string[128] = {0};
   size_t gga_len = fetch_gga_buffer(ctx, gga_string, sizeof(gga_string) - 1);
@@ -1124,15 +1161,15 @@ static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
     size_t c = snprintf(header_buf, sizeof(header_buf), "Ntrip-GGA: %s", gga_string);
     assert(c < sizeof(header_buf));
 
-    curl_slist_append(chunk, header_buf);
+    curl_slist_append(headers, header_buf);
 
   } else {
-    piksi_log(LOG_WARNING, "was not able to insert NTRIP GGA header");
+    piksi_log(LOG_WARNING, "%s: was not able to insert NTRIP GGA header", __FUNCTION__);
   }
 
   curl_easy_setopt(curl, CURLOPT_USERAGENT, "NTRIP swift-ntrip-client/1.0");
 
-  return chunk;
+  return headers;
 }
 
 static struct curl_slist *skylark_init(CURL *curl)
@@ -1143,12 +1180,12 @@ static struct curl_slist *skylark_init(CURL *curl)
   char device_buf[256];
   snprintf(device_buf, sizeof(device_buf), "Device-Uid: %s", uuid_buf);
 
-  struct curl_slist *chunk = NULL;
-  chunk = curl_slist_append(chunk, device_buf);
+  struct curl_slist *headers = NULL;
+  headers = curl_slist_append(headers, device_buf);
 
   curl_easy_setopt(curl, CURLOPT_USERAGENT, "skylark-agent/1.0");
 
-  return chunk;
+  return headers;
 }
 
 static int ntrip_response_code_check(network_context_t *ctx)
@@ -1163,17 +1200,20 @@ static int ntrip_response_code_check(network_context_t *ctx)
   return 0;
 }
 
-static network_status_t network_reset_bytes(network_context_t *context)
+static void network_reset_counters(network_context_t *context)
 {
+  time_t now = time(NULL);
   context->cur_bytes = 0;
-  return NETWORK_STATUS_SUCCESS;
+  context->bytes_transfered = 0;
+  context->last_xfer_time = now;
+  context->byte_move_time = now;
 }
 
-static void network_setup_download(struct curl_slist *chunk, network_context_t *ctx, CURL *curl)
+static void network_setup_download(network_context_t *ctx, CURL *curl, struct curl_slist *headers)
 {
   // clang-format off
-  if (chunk) {
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER,      chunk);
+  if (headers) {
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER,      headers);
   }
   curl_easy_setopt(curl, CURLOPT_URL,               ctx->url);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,     network_download_write);
@@ -1185,7 +1225,7 @@ static void network_setup_download(struct curl_slist *chunk, network_context_t *
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,       ctx);
   // clang-format on
 
-  network_reset_bytes(ctx);
+  network_reset_counters(ctx);
 }
 
 void ntrip_download(network_context_t *ctx)
@@ -1195,7 +1235,7 @@ void ntrip_download(network_context_t *ctx)
     return;
   }
 
-  struct curl_slist *chunk = ntrip_init(ctx, curl);
+  ctx->headers = ntrip_init_headers(ctx, curl, NULL);
 
   if (ctx->gga_xfer_secs > 0) {
 
@@ -1206,7 +1246,7 @@ void ntrip_download(network_context_t *ctx)
     curl_easy_setopt(curl, CURLOPT_READDATA,         ctx);
     // clang-format on
 
-    chunk = curl_slist_append(chunk, "Transfer-Encoding:");
+    ctx->headers = curl_slist_append(ctx->headers, "Transfer-Encoding:");
 
   } else {
     ctx->response_code_check = ntrip_response_code_check;
@@ -1225,12 +1265,12 @@ void ntrip_download(network_context_t *ctx)
     }
   }
 
-  network_setup_download(chunk, ctx, curl);
+  ctx->refresh_headers_fn = ntrip_init_headers;
 
+  network_setup_download(ctx, curl, ctx->headers);
   network_request(ctx, curl);
 
-  curl_slist_free_all(chunk);
-  network_teardown(curl);
+  network_teardown(curl, &ctx->headers);
 }
 
 void skylark_download(network_context_t *ctx)
@@ -1240,15 +1280,13 @@ void skylark_download(network_context_t *ctx)
     return;
   }
 
-  struct curl_slist *chunk = skylark_init(curl);
-  chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
+  ctx->headers = skylark_init(curl);
+  ctx->headers = curl_slist_append(ctx->headers, "Accept: application/vnd.swiftnav.broker.v1+sbp2");
 
-  network_setup_download(chunk, ctx, curl);
-
+  network_setup_download(ctx, curl, ctx->headers);
   network_request(ctx, curl);
 
-  curl_slist_free_all(chunk);
-  network_teardown(curl);
+  network_teardown(curl, &ctx->headers);
 }
 
 void skylark_upload(network_context_t *ctx)
@@ -1258,12 +1296,13 @@ void skylark_upload(network_context_t *ctx)
     return;
   }
 
-  struct curl_slist *chunk = skylark_init(curl);
-  chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
-  chunk = curl_slist_append(chunk, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
+  ctx->headers = skylark_init(curl);
+  ctx->headers = curl_slist_append(ctx->headers, "Transfer-Encoding: chunked");
+  ctx->headers =
+    curl_slist_append(ctx->headers, "Content-Type: application/vnd.swiftnav.broker.v1+sbp2");
 
   // clang-format off
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       chunk);
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER,       ctx->headers);
   curl_easy_setopt(curl, CURLOPT_PUT,              1L);
   curl_easy_setopt(curl, CURLOPT_URL,              ctx->url);
   curl_easy_setopt(curl, CURLOPT_READFUNCTION,     network_upload_read);
@@ -1275,11 +1314,10 @@ void skylark_upload(network_context_t *ctx)
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,      ctx);
   // clang-format on
 
-  network_reset_bytes(ctx);
+  network_reset_counters(ctx);
   network_request(ctx, curl);
 
-  curl_slist_free_all(chunk);
-  network_teardown(curl);
+  network_teardown(curl, &ctx->headers);
 }
 
 bool ota_enquire(network_context_t *ctx)
@@ -1299,17 +1337,15 @@ bool ota_enquire(network_context_t *ctx)
   version_current_get_str(fw_buf, sizeof(fw_buf));
   snprintf_assert(fw_hdr_buf, sizeof(fw_hdr_buf), "Current-Version: %s", fw_buf);
 
-  struct curl_slist *chunk = NULL;
-  chunk = curl_slist_append(chunk, uuid_hdr_buf);
-  chunk = curl_slist_append(chunk, fw_hdr_buf);
-  chunk = curl_slist_append(chunk, "Accept: application/vnd.swiftnav.devices.v1+json");
+  ctx->headers = curl_slist_append(ctx->headers, uuid_hdr_buf);
+  ctx->headers = curl_slist_append(ctx->headers, fw_hdr_buf);
+  ctx->headers =
+    curl_slist_append(ctx->headers, "Accept: application/vnd.swiftnav.devices.v1+json");
 
-  network_setup_download(chunk, ctx, curl);
+  network_setup_download(ctx, curl, ctx->headers);
 
   CURLcode ret = network_request(ctx, curl);
-
-  curl_slist_free_all(chunk);
-  network_teardown(curl);
+  network_teardown(curl, &ctx->headers);
 
   return (CURLE_OK == ret);
 }
@@ -1321,10 +1357,10 @@ bool ota_download(network_context_t *ctx)
     return false;
   }
 
-  network_setup_download(NULL, ctx, curl);
+  network_setup_download(ctx, curl, NULL);
 
   CURLcode ret = network_request(ctx, curl);
-  network_teardown(curl);
+  network_teardown(curl, &ctx->headers);
 
   return (CURLE_OK == ret);
 }
