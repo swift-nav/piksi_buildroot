@@ -51,6 +51,20 @@ typedef struct sbp_tx_ctx_s sbp_tx_ctx_t;
 sbp_tx_ctx_t *sbp_tx_create(const char *ident, const char *endpoint);
 
 /**
+ * @brief   Create an SBP TX context.
+ * @details Create and initialize an SBP TX context used to send SBP
+ *          messages.
+ *
+ * @param[in] ident         The identity of this pub/sub pair, typically used for metrics.
+ * @param[in] endpoint      Description of endpoint to connect to.
+ * @param[in] server        True if this is a server socket.
+ *
+ * @return                  Pointer to the created context, or NULL if the
+ *                          operation failed.
+ */
+sbp_tx_ctx_t *sbp_tx_create_ex(const char *ident, const char *endpoint, bool server);
+
+/**
  * @brief   Destroy an SBP TX context.
  * @details Deinitialize and destroy an SBP TX context.
  *
@@ -92,6 +106,31 @@ int sbp_tx_send(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload);
 int sbp_tx_send_from(sbp_tx_ctx_t *ctx, u16 msg_type, u8 len, u8 *payload, u16 sbp_sender_id);
 
 pk_endpoint_t *sbp_tx_endpoint_get(sbp_tx_ctx_t *ctx);
+
+/**
+ * @brief   Attach TX Context to a given Piksi loop
+ * @details Attach TX Context to a given Piksi loop
+ *
+ * @param[in] ctx           Pointer to the SBP TX Context.
+ * @param[in] pk_loop       Pointer to the Piksi loop to use.
+ *
+ * @return                  The operation result.
+ * @retval 0                Context attached successfully.
+ * @retval -1               An error occurred.
+ */
+int sbp_tx_attach(sbp_tx_ctx_t *ctx, pk_loop_t *pk_loop);
+
+/**
+ * @brief   Detach TX Context from a given Piksi loop
+ * @details Detach TX Context from a given Piksi loop
+ *
+ * @param[in] ctx           Pointer to the SBP TX Context.
+ *
+ * @return                  The operation result.
+ * @retval 0                Context detached successfully.
+ * @retval -1               An error occurred.
+ */
+int sbp_tx_detach(sbp_tx_ctx_t *ctx);
 
 #ifdef __cplusplus
 } // extern "C"

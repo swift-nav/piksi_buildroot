@@ -198,7 +198,7 @@ static void flush_endpoint_metrics(pk_loop_t *loop, void *handle, int status, vo
 /************* pk_endpoint_config *************************************/
 /**********************************************************************/
 
-static pk_endpoint_config_builder_t config_builder;
+static __thread pk_endpoint_config_builder_t config_builder;
 
 static pk_endpoint_config_builder_t cfg_builder_endpoint(const char *endpoint)
 {
