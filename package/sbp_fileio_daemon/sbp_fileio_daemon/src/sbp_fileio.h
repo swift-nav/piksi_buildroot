@@ -15,7 +15,7 @@
 
 #include <libsbp/file_io.h>
 
-#include <libpiksi/sbp_rx.h>
+#include <libpiksi/sbp_pubsub.h>
 #include <libpiksi/sbp_tx.h>
 
 #include "path_validator.h"
@@ -54,8 +54,6 @@ extern bool no_cache;
  */
 extern bool disable_threading;
 
-extern bool enable_bypass;
-
 /**
  * A subset of @see sbp_fileio_setup for unit testing purposes.
  */
@@ -84,8 +82,8 @@ bool sbp_fileio_setup(const char *name,
                       path_validator_t *pv_ctx,
                       bool allow_factory_mtd,
                       bool allow_imageset_bin,
-                      sbp_rx_ctx_t *rx_ctx,
-                      sbp_tx_ctx_t *tx_ctx);
+                      sbp_pubsub_ctx_t *pubsub_contexts[],
+                      size_t pubsub_count);
 
 /**
  * Teardown a named FileIO daemon.

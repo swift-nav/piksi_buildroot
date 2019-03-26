@@ -21,8 +21,19 @@
 
 #define PROGRAM_NAME "sbp_fileio_daemon"
 
-static const char *pub_endpoint = NULL;
-static const char *sub_endpoint = NULL;
+#define MAX_ENDPOINTS 16
+
+typedef struct endpoint_spec_s {
+  const char *endpoint;
+  bool server;
+} endpoint_spec_t;
+
+static endpoint_spec_t pub_endpoint[MAX_ENDPOINTS] = {0};
+static endpoint_spec_t sub_endpoint[MAX_ENDPOINTS] = {0};
+
+static size_t pub_endpoint_count = 0;
+static size_t sub_endpoint_count = 0;
+
 static path_validator_t *g_pv_ctx = NULL;
 
 static bool allow_factory_mtd = false;
@@ -44,8 +55,10 @@ static void usage(char *command)
   puts("-n, --name    <name>  The name of this fileio daemon");
   puts("-p, --pub     <addr>  The address on which we should write the results of");
   puts("                      MSG_FILEIO_* messages");
+  puts("--pub-s       <addr>  Same as --pub, but open a server socket");
   puts("-s, --sub     <addr>  The address on which we should listen for MSG_FILEIO_*");
   puts("                      messages");
+  puts("--sub-s       <addr>  Same as --sub, but open a server socket");
   puts("-b, --basedir <path>  The base directory that should prefix all read, write,");
   puts("                      remove and list operations.");
   puts("-m, --mtd             Allow read access to /factory/mtd");
@@ -65,7 +78,9 @@ static int parse_options(int argc, char *argv[])
   const struct option long_opts[] = {
     {"name",         required_argument, 0, 'n'},
     {"pub",          required_argument, 0, 'p'},
+    {"pub-s",        required_argument, 0, 'P'},
     {"sub",          required_argument, 0, 's'},
+    {"sub-s",        required_argument, 0, 'S'},
     {"basedir",      required_argument, 0, 'b'},
     {"mtd",          no_argument,       0, 'm'},
     {"imageset",     no_argument,       0, 'i'},
@@ -73,7 +88,6 @@ static int parse_options(int argc, char *argv[])
     {"nocache",      no_argument,       0, 'x'},
     {"help",         no_argument,       0, 'h'},
     {"no-threading", no_argument,       0, 't'},
-    {"enable-bypass",no_argument,       0, 'y'},
     {0, 0, 0, 0}
   };
   // clang-format on
@@ -81,18 +95,36 @@ static int parse_options(int argc, char *argv[])
   int c;
   int opt_index;
   while ((c = getopt_long(argc, argv, "n:p:s:b:midxhty", long_opts, &opt_index)) != -1) {
-    switch (c) {
 
+    bool server = false;
+
+    switch (c) {
     case 'n': {
       sbp_fileio_name = optarg;
     } break;
 
+    case 'P':
+      server = true;
+      /* fall through */
     case 'p': {
-      pub_endpoint = optarg;
+      if (pub_endpoint_count >= MAX_ENDPOINTS) {
+        fprintf(stderr, "Error: too many pub endpoints specified\n");
+        return -1;
+      }
+      pub_endpoint[pub_endpoint_count].server = server;
+      pub_endpoint[pub_endpoint_count++].endpoint = optarg;
     } break;
 
+    case 'S':
+      server = true;
+      /* fall through */
     case 's': {
-      sub_endpoint = optarg;
+      if (sub_endpoint_count >= MAX_ENDPOINTS) {
+        fprintf(stderr, "Error: too many sub endpoints specified\n");
+        return -1;
+      }
+      pub_endpoint[sub_endpoint_count].server = server;
+      sub_endpoint[sub_endpoint_count++].endpoint = optarg;
     } break;
 
     case 'b': {
@@ -126,10 +158,6 @@ static int parse_options(int argc, char *argv[])
       disable_threading = true;
     } break;
 
-    case 'y': {
-      enable_bypass = true;
-    } break;
-
     default: {
       printf("invalid option\n");
       return -1;
@@ -142,8 +170,13 @@ static int parse_options(int argc, char *argv[])
     return -1;
   }
 
-  if ((pub_endpoint == NULL) || (sub_endpoint == NULL)) {
+  if ((pub_endpoint_count == 0) || (sub_endpoint_count == 0)) {
     fprintf(stderr, "Endpoints not specified\n");
+    return -1;
+  }
+
+  if (pub_endpoint_count != sub_endpoint_count) {
+    fprintf(stderr, "Endpoints must be specified in pairs\n");
     return -1;
   }
 
@@ -198,10 +231,11 @@ int main(int argc, char *argv[])
 {
   bool setup = false;
   pk_loop_t *loop = NULL;
-  sbp_pubsub_ctx_t *ctx = NULL;
+  sbp_pubsub_ctx_t **pubsub_contexts = NULL;
   char identity[128] = {0};
-
   int ret = EXIT_FAILURE;
+  size_t pubsub_idx = 0;
+
   logging_init(PROGRAM_NAME);
 
   g_pv_ctx = path_validator_create(NULL);
@@ -218,20 +252,25 @@ int main(int argc, char *argv[])
   }
 
   path_validator_setup_metrics(g_pv_ctx, sbp_fileio_name);
-  snprintf_assert(identity, sizeof(identity), "%s/%s", PROGRAM_NAME, sbp_fileio_name);
-
-  ctx = sbp_pubsub_create(identity, pub_endpoint, sub_endpoint);
-  if (ctx == NULL) {
-    goto cleanup;
-  }
 
   loop = pk_loop_create();
   if (loop == NULL) {
     goto cleanup;
   }
 
-  if (sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx), loop) != 0) {
-    goto cleanup;
+  pubsub_contexts = calloc(MAX_ENDPOINTS, sizeof(sbp_pubsub_ctx_t*));
+  for (pubsub_idx = 0; pubsub_idx < pub_endpoint_count; pubsub_idx++) {
+    snprintf_assert(identity, sizeof(identity), "%s/%s/%zu", PROGRAM_NAME, sbp_fileio_name, pubsub_idx);
+    pubsub_contexts[pubsub_idx] = sbp_pubsub_create_ex(identity,
+                                                       pub_endpoint[pubsub_idx].endpoint,
+                                                       sub_endpoint[pubsub_idx].endpoint,
+                                                       pub_endpoint[pubsub_idx].server);
+    if (pubsub_contexts[pubsub_idx] == NULL) {
+      goto cleanup;
+    }
+    if (sbp_pubsub_attach(pubsub_contexts[pubsub_idx], loop) != 0) {
+      goto cleanup;
+    }
   }
 
   if (pk_loop_signal_handler_add(loop, SIGUSR1, sigusr1_signal_cb, NULL) == NULL) {
@@ -248,8 +287,8 @@ int main(int argc, char *argv[])
                            g_pv_ctx,
                            allow_factory_mtd,
                            allow_imageset_bin,
-                           sbp_pubsub_rx_ctx_get(ctx),
-                           sbp_pubsub_tx_ctx_get(ctx));
+                           pubsub_contexts,
+                           pub_endpoint_count);
 
   if (!setup) {
     goto cleanup;
@@ -263,7 +302,13 @@ int main(int argc, char *argv[])
 cleanup:
   piksi_log(LOG_INFO, "loop stopping...");
 
-  sbp_pubsub_destroy(&ctx);
+  for (size_t idx = 0; idx < pubsub_idx; idx++) {
+    sbp_pubsub_destroy(&pubsub_contexts[idx]);
+  }
+
+  free(pubsub_contexts);
+  pubsub_contexts = NULL;
+
   pk_loop_destroy(&loop);
 
   path_validator_destroy(&g_pv_ctx);
