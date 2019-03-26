@@ -72,11 +72,11 @@ static void sbp_msg_heartbeat_callback(u16 sender_id, u8 len, u8 msg_[], void *c
 
 static void sbp_msg_tracking_state_callback(u16 sender_id, u8 len, u8 msg_[], void *ctx)
 {
-  msg_tracking_state_t *msg = (void *)msg_;
+  msg_measurement_state_t *msg = (void *)msg_;
   int states = len / sizeof(tracking_channel_state_t);
   int sats = 0;
   for (int i = 0; i < states; i++) {
-    if ((msg->states[i].sid.sat != 0) || (msg->states[i].sid.code != 0)) sats++;
+    if ((msg->states[i].mesid.sat != 0) || (msg->states[i].mesid.code != 0)) sats++;
   }
   soln_state.sats = sats;
 }
@@ -93,7 +93,7 @@ void firmware_state_init(sbp_rx_ctx_t *ctx)
   sbp_rx_callback_register(ctx, SBP_MSG_BASELINE_ECEF, sbp_msg_baseline_ecef_callback, NULL, NULL);
   sbp_rx_callback_register(ctx, SBP_MSG_HEARTBEAT, sbp_msg_heartbeat_callback, NULL, NULL);
   sbp_rx_callback_register(ctx,
-                           SBP_MSG_TRACKING_STATE,
+                           SBP_MSG_MEASUREMENT_STATE,
                            sbp_msg_tracking_state_callback,
                            NULL,
                            NULL);
