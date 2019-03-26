@@ -25,7 +25,7 @@ PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_GIT_SUBMODULES = YES
 PIKSI_INS_INSTALL_TARGET = YES
 PIKSI_INS_DEPENDENCIES = \
-	libuv libsbp piksi_apps libsettings eigen host-build_tools pfw_welcome
+	libuv libsbp piksi_apps libsettings eigen host-build_tools 
 
 ifeq ($(BR2_PACKAGE_PIKSI_INS),y)
 BR2_ROOTFS_OVERLAY += "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/overlay"
