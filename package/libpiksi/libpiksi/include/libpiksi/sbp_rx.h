@@ -45,6 +45,20 @@ typedef struct sbp_rx_ctx_s sbp_rx_ctx_t;
 sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint);
 
 /**
+ * @brief   Create an SBP RX context.
+ * @details Create and initialize an SBP RX context used to receive SBP
+ *          messages.
+ *
+ * @param[in] ident         The identity of this pub/sub pair, typically used for metrics.
+ * @param[in] endpoint      Description of endpoint to connect to.
+ * @param[in] server        True if this is a server socket.
+ *
+ * @return                  Pointer to the created context, or NULL if the
+ *                          operation failed.
+ */
+sbp_rx_ctx_t *sbp_rx_create_ex(const char *ident, const char *endpoint, bool server);
+
+/**
  * @brief   Destroy an SBP RX context.
  * @details Deinitialize and destroy an SBP RX context.
  *
@@ -172,6 +186,9 @@ void sbp_rx_reader_interrupt_reset(sbp_rx_ctx_t *ctx);
  */
 bool sbp_rx_reader_interrupt_requested(sbp_rx_ctx_t *ctx);
 
+/**
+ * Fetch the underlying enpoint for this object
+ */
 pk_endpoint_t *sbp_rx_endpoint_get(sbp_rx_ctx_t *ctx);
 
 #ifdef __cplusplus

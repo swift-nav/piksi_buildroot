@@ -21,6 +21,14 @@ struct sbp_pubsub_ctx_s {
 
 sbp_pubsub_ctx_t *sbp_pubsub_create(const char *ident, const char *pub_ept, const char *sub_ept)
 {
+  return sbp_pubsub_create_ex(ident, pub_ept, sub_ept, false);
+}
+
+sbp_pubsub_ctx_t *sbp_pubsub_create_ex(const char *ident,
+                                       const char *pub_ept,
+                                       const char *sub_ept,
+                                       bool server)
+{
   assert(pub_ept != NULL);
   assert(sub_ept != NULL);
 
@@ -30,13 +38,13 @@ sbp_pubsub_ctx_t *sbp_pubsub_create(const char *ident, const char *pub_ept, cons
     goto failure;
   }
 
-  ctx->tx_ctx = sbp_tx_create(ident, pub_ept);
+  ctx->tx_ctx = sbp_tx_create_ex(ident, pub_ept, server);
   if (ctx->tx_ctx == NULL) {
     piksi_log(LOG_ERR, "error creating SBP TX context");
     goto failure;
   }
 
-  ctx->rx_ctx = sbp_rx_create(ident, sub_ept);
+  ctx->rx_ctx = sbp_rx_create_ex(ident, sub_ept, server);
   if (ctx->rx_ctx == NULL) {
     piksi_log(LOG_ERR, "error creating SBP RX context");
     goto failure;
@@ -73,4 +81,22 @@ sbp_rx_ctx_t *sbp_pubsub_rx_ctx_get(sbp_pubsub_ctx_t *ctx)
   assert(ctx != NULL);
 
   return ctx->rx_ctx;
+}
+
+int sbp_pubsub_attach(sbp_pubsub_ctx_t *ctx, pk_loop_t *loop)
+{
+  int rc = 0;
+  rc = sbp_rx_attach(sbp_pubsub_rx_ctx_get(ctx), loop);
+  if (rc != 0) return rc;
+  rc = sbp_tx_attach(sbp_pubsub_tx_ctx_get(ctx), loop);
+  return rc;
+}
+
+int sbp_pubsub_detach(sbp_pubsub_ctx_t *ctx)
+{
+  int rc = 0;
+  rc = sbp_rx_detach(sbp_pubsub_rx_ctx_get(ctx));
+  if (rc != 0) return rc;
+  rc = sbp_tx_detach(sbp_pubsub_tx_ctx_get(ctx));
+  return rc;
 }
