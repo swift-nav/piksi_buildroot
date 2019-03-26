@@ -1,5 +1,5 @@
-config BR2_PACKAGE_GNSS_CONVERTORS
-	bool "gnss_convertors"
+config BR2_PACKAGE_GNSS_CONVERTERS
+	bool "gnss_converters"
 	select BR2_PACKAGE_LIBSBP
 	select BR2_PACKAGE_LIBRTCM
 	select BR2_PACKAGE_LIBSWIFTNAV
