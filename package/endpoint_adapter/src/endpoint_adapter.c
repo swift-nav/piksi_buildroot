@@ -129,7 +129,7 @@ static void setup_metrics();
 static void die_error(const char *error);
 
 static ssize_t handle_write_all_via_framer(handle_t *handle, const uint8_t *buffer, size_t count);
-static void handle_bypass_write(handle_t *handle, const uint8_t *buffer, size_t count);
+static void handle_alt_write(handle_t *handle, const uint8_t *buffer, size_t count);
 
 typedef ssize_t (*read_fn_t)(handle_t *handle, void *buffer, size_t count);
 typedef ssize_t (*write_fn_t)(handle_t *handle, const void *buffer, size_t count);
@@ -139,17 +139,17 @@ typedef ssize_t (*read_buf_cb_t)(handle_t *read_handle, handle_t *write_handle, 
 static struct {
   pk_loop_t *loop;
   void *loop_sub_handle;
-  void *loop_bypass_sub_handle;
+  void *loop_alt_sub_handle;
   void *read_fd_handle;
   pk_endpoint_t *pub_ept;
   pk_endpoint_t *sub_ept;
-  pk_endpoint_t *bypass_pub_ept;
-  pk_endpoint_t *bypass_sub_ept;
+  pk_endpoint_t *alt_pub_ept;
+  pk_endpoint_t *alt_sub_ept;
   handle_t pub_handle;
   handle_t sub_handle;
   handle_t read_handle;
   handle_t write_handle;
-  handle_t bypass_sub_handle;
+  handle_t alt_sub_handle;
 } loop_ctx;
 
 typedef struct {
@@ -175,8 +175,8 @@ static bool nonblock = false;
 static int outq;
 static const char *pub_addr = NULL;
 static const char *sub_addr = NULL;
-static const char *bypass_pub_addr = NULL;
-static const char *bypass_sub_addr = NULL;
+static const char *alt_pub_addr = NULL;
+static const char *alt_sub_addr = NULL;
 static const char *port_name = NULL;
 static char file_path[PATH_MAX] = "";
 static int tcp_listen_port = -1;
@@ -225,9 +225,9 @@ static void usage(char *command)
   fprintf(stderr, "\t--can <can_id>\n");
   fprintf(stderr, "\t--can-f <can_filter>\n");
 
-  fprintf(stderr, "\nRouter bypass - select one or more\n");
-  fprintf(stderr, "\t--bypass-pub <ipc_path>\n");
-  fprintf(stderr, "\t--bypass-sub <ipc_path>\n");
+  fprintf(stderr, "\nAlternate pub/sub sockets - select one or more\n");
+  fprintf(stderr, "\t--pub2 <ipc_path>\n");
+  fprintf(stderr, "\t--sub2 <ipc_path>\n");
 
   fprintf(stderr, "\nMisc options\n");
   fprintf(stderr, "\t--startup-delay <ms>\n");
@@ -292,8 +292,8 @@ static int parse_options(int argc, char *argv[])
     {"can",               required_argument, 0, OPT_ID_CAN},
     {"can-f",             required_argument, 0, OPT_ID_CAN_FILTER},
     {"retry",             no_argument,       0, OPT_ID_RETRY_PUBSUB},
-    {"bypass-pub",        required_argument, 0, OPT_ID_BYPASS_PUB},
-    {"bypass-sub",        required_argument, 0, OPT_ID_BYPASS_SUB},
+    {"pub2",              required_argument, 0, OPT_ID_BYPASS_PUB},
+    {"sub2",              required_argument, 0, OPT_ID_BYPASS_SUB},
     {0, 0, 0, 0},
   };
   /* clang-format on */
@@ -401,11 +401,11 @@ static int parse_options(int argc, char *argv[])
     } break;
 
     case OPT_ID_BYPASS_PUB: {
-      bypass_pub_addr = optarg;
+      alt_pub_addr = optarg;
     } break;
 
     case OPT_ID_BYPASS_SUB: {
-      bypass_sub_addr = optarg;
+      alt_sub_addr = optarg;
     } break;
 
     case OPT_ID_FRAMER_IN: {
@@ -530,22 +530,22 @@ static int handle_init(handle_t *handle,
   return 0;
 }
 
-static pk_endpoint_t *endpoint_start(pk_endpoint_type type, bool bypass)
+static pk_endpoint_t *endpoint_start(pk_endpoint_type type, bool alt)
 {
   char metric_name[METRIC_NAME_LEN] = {0};
 
   const char *addr = NULL;
-  const char *bypass_metric = bypass ? "/bypass" : "";
+  const char *alt_metric = alt ? "/alt" : "";
 
   switch (type) {
   case PK_ENDPOINT_PUB: {
-    addr = bypass ? bypass_pub_addr : pub_addr;
-    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s%s/pub", port_name, bypass_metric);
+    addr = alt ? alt_pub_addr : pub_addr;
+    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s%s/pub", port_name, alt_metric);
   } break;
 
   case PK_ENDPOINT_SUB: {
-    addr = bypass ? bypass_sub_addr : sub_addr;
-    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s%s/sub", port_name, bypass_metric);
+    addr = alt ? alt_sub_addr : sub_addr;
+    snprintf_assert(metric_name, sizeof(metric_name), "adapter/%s%s/sub", port_name, alt_metric);
   } break;
 
   default: {
@@ -688,7 +688,7 @@ static ssize_t process_read_buffer(handle_t *read_handle,
     PK_METRICS_UPDATE(MR, MI.mismatch);
   }
 
-  handle_bypass_write(write_handle, buffer, length);
+  handle_alt_write(write_handle, buffer, length);
 
   return length;
 }
@@ -707,20 +707,17 @@ static int sub_ept_read(const uint8_t *buff, size_t length, void *context)
   return read_ctx->status;
 }
 
-static void handle_bypass_write(handle_t *handle, const uint8_t *buffer, size_t count)
+static void handle_alt_write(handle_t *handle, const uint8_t *buffer, size_t count)
 {
-  if (handle->pk_ept != NULL && loop_ctx.bypass_pub_ept != NULL) {
-#if 0
-    PK_LOG_ANNO(LOG_DEBUG, "bypass write");
-#endif
+  if (handle->pk_ept != NULL && loop_ctx.alt_pub_ept != NULL) {
     /* TODO: update different metrics
      *
     PK_METRICS_UPDATE(MR, MI.rx_write_count);
     PK_METRICS_UPDATE(MR, MI.rx_write_size_total, PK_METRICS_VALUE((u32)count));
     */
 
-    if (pk_endpoint_send(loop_ctx.bypass_pub_ept, buffer, count) != 0) {
-      PK_LOG_ANNO(LOG_WARNING, "bypass write failed");
+    if (pk_endpoint_send(loop_ctx.alt_pub_ept, buffer, count) != 0) {
+      PK_LOG_ANNO(LOG_WARNING, "alt write failed");
     }
   }
 }
@@ -948,8 +945,8 @@ static void sub_reader_cb(pk_loop_t *loop, void *handle, int status, void *conte
   if (sub_ept == loop_ctx.sub_ept) {
     io_loop_pubsub(loop_ctx.loop, &loop_ctx.sub_handle, &loop_ctx.write_handle);
   } else {
-    assert(sub_ept == loop_ctx.bypass_sub_ept);
-    io_loop_pubsub(loop_ctx.loop, &loop_ctx.bypass_sub_handle, &loop_ctx.write_handle);
+    assert(sub_ept == loop_ctx.alt_sub_ept);
+    io_loop_pubsub(loop_ctx.loop, &loop_ctx.alt_sub_handle, &loop_ctx.write_handle);
   }
 }
 
@@ -967,8 +964,8 @@ int io_loop_run(int read_fd, int write_fd)
 {
   loop_ctx.loop = pk_loop_create();
 
-  loop_ctx.bypass_pub_ept = NULL;
-  loop_ctx.bypass_sub_ept = NULL;
+  loop_ctx.alt_pub_ept = NULL;
+  loop_ctx.alt_sub_ept = NULL;
 
   setup_metrics();
 
@@ -1011,10 +1008,10 @@ int io_loop_run(int read_fd, int write_fd)
     }
   }
 
-  if (bypass_pub_addr != NULL) {
-    PK_LOG_ANNO(LOG_DEBUG, "setting up bypass pub socket");
-    loop_ctx.bypass_pub_ept = endpoint_start(PK_ENDPOINT_PUB, true);
-    if (loop_ctx.bypass_pub_ept == NULL) {
+  if (alt_pub_addr != NULL) {
+    debug_printf("setting up alt pub socket");
+    loop_ctx.alt_pub_ept = endpoint_start(PK_ENDPOINT_PUB, true);
+    if (loop_ctx.alt_pub_ept == NULL) {
       die_error("endpoint_start(PK_ENDPOINT_PUB, true) returned NULL\n");
     }
   }
@@ -1052,20 +1049,20 @@ int io_loop_run(int read_fd, int write_fd)
     }
   }
 
-  if (bypass_sub_addr != NULL) {
+  if (alt_sub_addr != NULL) {
 
-    PK_LOG_ANNO(LOG_DEBUG, "setting up bypass sub socket");
+    debug_printf("setting up alt sub socket");
 
-    loop_ctx.bypass_sub_ept = endpoint_start(PK_ENDPOINT_SUB, true);
-    if (loop_ctx.bypass_sub_ept == NULL) {
+    loop_ctx.alt_sub_ept = endpoint_start(PK_ENDPOINT_SUB, true);
+    if (loop_ctx.alt_sub_ept == NULL) {
       die_error("endpoint_start(PK_ENDPOINT_PUB, true) returned NULL\n");
     }
 
-    loop_ctx.loop_bypass_sub_handle =
-      pk_loop_endpoint_reader_add(loop_ctx.loop, loop_ctx.bypass_sub_ept, sub_reader_cb, loop_ctx.bypass_sub_ept);
+    loop_ctx.loop_alt_sub_handle =
+      pk_loop_endpoint_reader_add(loop_ctx.loop, loop_ctx.alt_sub_ept, sub_reader_cb, loop_ctx.alt_sub_ept);
 
-    if (handle_init(&loop_ctx.bypass_sub_handle,
-                    loop_ctx.bypass_sub_ept,
+    if (handle_init(&loop_ctx.alt_sub_handle,
+                    loop_ctx.alt_sub_ept,
                     -1,
                     -1,
                     FRAMER_NONE_NAME,
