@@ -68,6 +68,11 @@ static const char *get_socket_ident(const char *ident)
 
 sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
 {
+  return sbp_rx_create_ex(ident, endpoint, false);
+}
+
+sbp_rx_ctx_t *sbp_rx_create_ex(const char *ident, const char *endpoint, bool server)
+{
   assert(endpoint != NULL);
 
   sbp_rx_ctx_t *ctx = (sbp_rx_ctx_t *)malloc(sizeof(sbp_rx_ctx_t));
@@ -79,7 +84,7 @@ sbp_rx_ctx_t *sbp_rx_create(const char *ident, const char *endpoint)
   pk_endpoint_config_t cfg = (pk_endpoint_config_t){
     .endpoint = endpoint,
     .identity = get_socket_ident(ident),
-    .type = PK_ENDPOINT_SUB,
+    .type = server ? PK_ENDPOINT_SUB_SERVER : PK_ENDPOINT_SUB,
     .retry_connect = false,
   };
 
@@ -299,5 +304,7 @@ bool sbp_rx_reader_interrupt_requested(sbp_rx_ctx_t *ctx)
 
 pk_endpoint_t *sbp_rx_endpoint_get(sbp_rx_ctx_t *ctx)
 {
+  assert(ctx != NULL);
+
   return ctx->pk_ept;
 }
