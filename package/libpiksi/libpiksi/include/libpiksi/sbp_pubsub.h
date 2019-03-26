@@ -58,6 +58,26 @@ typedef struct sbp_pubsub_ctx_s sbp_pubsub_ctx_t;
 sbp_pubsub_ctx_t *sbp_pubsub_create(const char *ident, const char *pub_ept, const char *sub_ept);
 
 /**
+ * @brief   Create an SBP PUB/SUB context.
+ * @details Create and initialize an SBP PUB/SUB context. This is a
+ *          helper module used to set up a typical configuration consisting of
+ *          the following:
+ *          @li SBP TX context
+ *          @li SBP RX context
+ *          @li SBP PUB socket, associated with the TX context
+ *          @li SBP SUB socket, associated with the RX context
+ *
+ * @param[in] ident         The identity of this pub/sub pair, typically used for metrics.
+ * @param[in] pub_ept       String describing the SBP PUB endpoint to use.
+ * @param[in] sub_ept       String describing the SBP SUB endpoint to use.
+ * @param[in] server        Is this a server socket?
+ *
+ * @return                  Pointer to the created context, or NULL if the
+ *                          operation failed.
+ */
+sbp_pubsub_ctx_t *sbp_pubsub_create_ex(const char *ident, const char *pub_ept, const char *sub_ept, bool server);
+
+/**
  * @brief   Destroy an SBP PUB/SUB context.
  * @details Deinitialize and destroy an SBP PUB/SUB context.
  *
@@ -88,6 +108,26 @@ sbp_tx_ctx_t *sbp_pubsub_tx_ctx_get(sbp_pubsub_ctx_t *ctx);
  * @return                  Pointer to the SBP RX context.
  */
 sbp_rx_ctx_t *sbp_pubsub_rx_ctx_get(sbp_pubsub_ctx_t *ctx);
+
+/**
+ * @brief   Attach this pubsub pair to a pk_loop_t object.
+ *
+ * @param[in] ctx           Pointer to the context to use.
+ * @param[in] loop          The loop to attach to
+ *
+ * @return                  0 on success, -1 on failure
+ */
+int sbp_pubsub_attach(sbp_pubsub_ctx_t *ctx, pk_loop_t *loop);
+
+/**
+ * @brief   Detach this pubsub pair from a pk_loop_t object.
+ *
+ * @param[in] ctx           Pointer to the context to use.
+ *
+ * @return                  0 on success, -1 on failure
+ */
+int sbp_pubsub_detach(sbp_pubsub_ctx_t *ctx);
+
 
 #ifdef __cplusplus
 } // extern "C"
