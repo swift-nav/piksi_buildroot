@@ -21,6 +21,7 @@
 
 #include <libpiksi/logging.h>
 #include <libpiksi/runit.h>
+#include <libpiksi/util.h>
 
 #include "can.h"
 #include "ports.h"
@@ -43,6 +44,8 @@
 // See https://elixir.bootlin.com/linux/v4.6/source/drivers/usb/gadget/function/u_serial.c#L83
 #define USB_SERIAL_XMIT_SIZE "8192"
 
+#define RUNIT_SERVICE_DIR "/var/run/ports_daemon/sv"
+
 typedef enum {
   PORT_TYPE_UART,
   PORT_TYPE_USB,
@@ -60,19 +63,15 @@ typedef enum {
 
 typedef union {
   struct {
-    char name[16];
     uint32_t port;
   } tcp_server_data;
   struct {
-    char name[16];
     char address[256];
   } tcp_client_data;
   struct {
-    char name[16];
     uint32_t port;
   } udp_server_data;
   struct {
-    char name[16];
     char address[256];
   } udp_client_data;
   struct {
@@ -80,46 +79,11 @@ typedef union {
   } can_data;
 } opts_data_t;
 
-typedef int (*opts_get_fn_t)(char *buf, size_t buf_size, const opts_data_t *opts_data);
+struct port_config_s;
 
-#define RUNIT_SERVICE_DIR "/var/run/ports_daemon/sv"
+typedef int (*opts_get_fn_t)(char *buf, size_t buf_size, const opts_data_t *opts_data, const struct port_config_s* port_config);
 
-static int opts_get_tcp_server(char *buf, size_t buf_size, const opts_data_t *opts_data)
-{
-  uint32_t port = opts_data->tcp_server_data.port;
-  return snprintf(buf, buf_size, "--name %s --bypass-pub ipc:///var/run/sockets/fw_ex_bypass.sub --bypass-sub ipc:///var/run/sockets/fw_ex_bypass.pub --tcp-l %u", opts_data->tcp_server_data.name, port);
-}
-
-static int opts_get_tcp_client(char *buf, size_t buf_size, const opts_data_t *opts_data)
-{
-  const char *address = opts_data->tcp_client_data.address;
-  return snprintf(buf, buf_size, "--name %s --bypass-pub ipc:///var/run/sockets/fw_ex_bypass.sub --bypass-sub ipc:///var/run/sockets/fw_ex_bypass.pub --tcp-c %s", opts_data->tcp_client_data.name, address);
-}
-
-static int opts_get_udp_server(char *buf, size_t buf_size, const opts_data_t *opts_data)
-{
-  uint32_t port = opts_data->udp_server_data.port;
-  return snprintf(buf, buf_size, "--name %s --bypass-pub ipc:///var/run/sockets/fw_ex_bypass.sub --udp-l %u", opts_data->udp_server_data.name, port);
-}
-
-static int opts_get_udp_client(char *buf, size_t buf_size, const opts_data_t *opts_data)
-{
-  const char *address = opts_data->udp_client_data.address;
-  return snprintf(buf, buf_size, "--name %s --bypass-sub ipc:///var/run/sockets/fw_ex_bypass.pub --udp-c %s", opts_data->udp_client_data.name, address);
-}
-
-static int opts_get_can(char *buf, size_t buf_size, const opts_data_t *opts_data)
-{
-  u8 nmbr = opts_data->can_data.number;
-  return snprintf(buf,
-                  buf_size,
-                  "--name can%" PRIu8 " --can %" PRIu32 " --can-f %" PRIu32,
-                  nmbr,
-                  can_get_id(nmbr),
-                  can_get_filter(nmbr));
-}
-
-typedef struct {
+typedef struct port_config_s {
   const char *const name;
   const char *const opts;
   const opts_get_fn_t opts_get;
@@ -132,11 +96,75 @@ typedef struct {
   bool first_start;
 } port_config_t;
 
+static int mode_lookup(const char *mode_name, u8 *mode);
+
+static char *get_fileio_opts(const port_config_t *port_config)
+{
+  static char fileio_opts[256] = {0};
+
+  u8 mode_sbp = MODE_DISABLED;
+
+  int rc = mode_lookup(MODE_NAME_SBP, &mode_sbp);
+  assert(rc == 0 );
+
+  if (port_config->mode == mode_sbp) {
+    snprintf_assert(fileio_opts,
+                    sizeof(fileio_opts),
+                    " --pub2 ipc:///var/run/sockets/fileio/%s.sub "
+                    "--sub2 ipc:///var/run/sockets/fileio/%s.pub ",
+                    port_config->name,
+                    port_config->name);
+  }
+  return fileio_opts;
+}
+
+static int opts_get_uart(char *buf, size_t buf_size, const opts_data_t *opts_data, const port_config_t *port_config)
+{
+  (void)opts_data;
+  return snprintf(buf, buf_size, "%s", get_fileio_opts(port_config));
+}
+
+static int opts_get_tcp_server(char *buf, size_t buf_size, const opts_data_t *opts_data, const port_config_t *port_config)
+{
+  uint32_t port = opts_data->tcp_server_data.port;
+  return snprintf(buf, buf_size, "--name %s --tcp-l %u%s", port_config->name, port, get_fileio_opts(port_config));
+}
+
+static int opts_get_tcp_client(char *buf, size_t buf_size, const opts_data_t *opts_data, const port_config_t *port_config)
+{
+  const char *address = opts_data->tcp_client_data.address;
+  return snprintf(buf, buf_size, "--name %s --tcp-c %s%s", port_config->name, address, get_fileio_opts(port_config));
+}
+
+static int opts_get_udp_server(char *buf, size_t buf_size, const opts_data_t *opts_data, const port_config_t *port_config)
+{
+  uint32_t port = opts_data->udp_server_data.port;
+  return snprintf(buf, buf_size, "--name %s --udp-l %u", port_config->name, port);
+}
+
+static int opts_get_udp_client(char *buf, size_t buf_size, const opts_data_t *opts_data, const port_config_t *port_config)
+{
+  const char *address = opts_data->udp_client_data.address;
+  return snprintf(buf, buf_size, "--name %s --udp-c %s", port_config->name, address);
+}
+
+static int opts_get_can(char *buf, size_t buf_size, const opts_data_t *opts_data, const port_config_t *port_config)
+{
+  (void)port_config;
+  u8 nmbr = opts_data->can_data.number;
+  return snprintf(buf,
+                  buf_size,
+                  "--name can%" PRIu8 " --can %" PRIu32 " --can-f %" PRIu32,
+                  nmbr,
+                  can_get_id(nmbr),
+                  can_get_filter(nmbr));
+}
+
 static port_config_t port_configs[] = {
   {
     .name = "uart0",
     .opts = "--name uart0 --file /dev/ttyPS0 --nonblock --outq " SERIAL_XMIT_SIZE,
-    .opts_get = NULL,
+    .opts_get = opts_get_uart,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
@@ -147,7 +175,7 @@ static port_config_t port_configs[] = {
   {
     .name = "uart1",
     .opts = "--name uart1 --file /dev/ttyPS1 --nonblock --outq " SERIAL_XMIT_SIZE,
-    .opts_get = NULL,
+    .opts_get = opts_get_uart,
     .type = PORT_TYPE_UART,
     .mode_name_default = MODE_NAME_DEFAULT,
     .mode = MODE_DISABLED,
@@ -181,7 +209,6 @@ static port_config_t port_configs[] = {
   {
     .name = "tcp_server0",
     .opts = "",
-    .opts_data.tcp_server_data.name = "tcp_server0",
     .opts_data.tcp_server_data.port = 55555,
     .opts_get = opts_get_tcp_server,
     .type = PORT_TYPE_TCP_SERVER,
@@ -194,7 +221,6 @@ static port_config_t port_configs[] = {
   {
     .name = "tcp_server1",
     .opts = "",
-    .opts_data.tcp_server_data.name = "tcp_server1",
     .opts_data.tcp_server_data.port = 55556,
     .opts_get = opts_get_tcp_server,
     .type = PORT_TYPE_TCP_SERVER,
@@ -207,7 +233,6 @@ static port_config_t port_configs[] = {
   {
     .name = "tcp_client0",
     .opts = "",
-    .opts_data.tcp_client_data.name = "tcp_client0",
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
@@ -220,7 +245,6 @@ static port_config_t port_configs[] = {
   {
     .name = "tcp_client1",
     .opts = "",
-    .opts_data.tcp_client_data.name = "tcp_client1",
     .opts_data.tcp_client_data.address = "",
     .opts_get = opts_get_tcp_client,
     .type = PORT_TYPE_TCP_CLIENT,
@@ -233,7 +257,6 @@ static port_config_t port_configs[] = {
   {
     .name = "udp_server0",
     .opts = "",
-    .opts_data.udp_server_data.name = "udp_server0",
     .opts_data.udp_server_data.port = 55557,
     .opts_get = opts_get_udp_server,
     .type = PORT_TYPE_UDP_SERVER,
@@ -246,7 +269,6 @@ static port_config_t port_configs[] = {
   {
     .name = "udp_server1",
     .opts = "",
-    .opts_data.udp_server_data.name = "udp_server1",
     .opts_data.udp_server_data.port = 55558,
     .opts_get = opts_get_udp_server,
     .type = PORT_TYPE_UDP_SERVER,
@@ -259,7 +281,6 @@ static port_config_t port_configs[] = {
   {
     .name = "udp_client0",
     .opts = "",
-    .opts_data.udp_client_data.name = "udp_client0",
     .opts_data.udp_client_data.address = "",
     .opts_get = opts_get_udp_client,
     .type = PORT_TYPE_UDP_CLIENT,
@@ -272,7 +293,6 @@ static port_config_t port_configs[] = {
   {
     .name = "udp_client1",
     .opts = "",
-    .opts_data.udp_client_data.name = "udp_client1",
     .opts_data.udp_client_data.address = "",
     .opts_get = opts_get_udp_client,
     .type = PORT_TYPE_UDP_CLIENT,
@@ -320,7 +340,7 @@ static u8 protocol_index_to_mode(int protocol_index)
 
 static int port_configure(port_config_t *port_config, bool updating_mode)
 {
-  char cmd[512];
+  char cmd[1024];
 
   // clang-format off
   runit_config_t cfg = (runit_config_t){
@@ -362,12 +382,12 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
   }
 
   /* Prepare the command used to launch endpoint_adapter. */
-  char mode_opts[256] = {0};
+  char mode_opts[512] = {0};
   protocol->port_adapter_opts_get(mode_opts, sizeof(mode_opts), port_config->name);
 
-  char opts[256] = {0};
+  char opts[512] = {0};
   if (port_config->opts_get != NULL) {
-    port_config->opts_get(opts, sizeof(opts), &port_config->opts_data);
+    port_config->opts_get(opts, sizeof(opts), &port_config->opts_data, port_config);
   }
 
   snprintf(cmd, sizeof(cmd), "endpoint_adapter %s %s %s", port_config->opts, opts, mode_opts);
