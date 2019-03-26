@@ -14,12 +14,21 @@ file_perm=0644
 name="sbp_fileio_daemon_${daemon_name}"
 cmd="sbp_fileio_daemon \
 --name ${daemon_name} \
---pub ipc:///var/run/sockets/fileio_${daemon_name}.sub \
---sub ipc:///var/run/sockets/fileio_${daemon_name}.pub \
+--pub-s ipc:///var/run/sockets/fileio/tcp_server0.pub \
+--sub-s ipc:///var/run/sockets/fileio/tcp_server0.sub \
+--pub-s ipc:///var/run/sockets/fileio/tcp_server1.pub \
+--sub-s ipc:///var/run/sockets/fileio/tcp_server1.sub \
+--pub-s ipc:///var/run/sockets/fileio/tcp_client0.pub \
+--sub-s ipc:///var/run/sockets/fileio/tcp_client0.sub \
+--pub-s ipc:///var/run/sockets/fileio/tcp_client1.pub \
+--sub-s ipc:///var/run/sockets/fileio/tcp_client1.sub \
+--pub-s ipc:///var/run/sockets/fileio/uart0.pub \
+--sub-s ipc:///var/run/sockets/fileio/uart0.sub \
+--pub-s ipc:///var/run/sockets/fileio/uart1.pub \
+--sub-s ipc:///var/run/sockets/fileio/uart1.sub \
 --basedir $fileio_dir \
 --basedir $persist_dir \
 --basedir $media_dir \
---enable-bypass \
 --imageset"
 
 dir="/"
