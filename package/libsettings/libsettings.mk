@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-LIBSETTINGS_VERSION = v0.1.8
+LIBSETTINGS_VERSION = woodfell/standardise_cmake_dependencies
 LIBSETTINGS_SITE = https://github.com/swift-nav/libsettings
 LIBSETTINGS_SITE_METHOD = git
 LIBSETTINGS_INSTALL_STAGING = YES
