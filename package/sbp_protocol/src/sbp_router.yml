@@ -55,6 +55,7 @@ ports:
         filters:
           - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # MSG_OBS
           - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH
+          - { action: ACCEPT, prefix: [0x55, 0x11, 0x02] } # MSG_POS_LLH_COV
           - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED
           - { action: ACCEPT, prefix: [0x55, 0x02, 0x01] } # MSG_GPS_TIME
           - { action: ACCEPT, prefix: [0x55, 0x03, 0x01] } # MSG_UTC_TIME
