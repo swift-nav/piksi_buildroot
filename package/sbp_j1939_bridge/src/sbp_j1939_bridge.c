@@ -32,6 +32,7 @@
 #define J1939_PUB_ENDPOINT "ipc:///var/run/sockets/j1939_internal.sub" /* J1939 Internal In */
 
 #define J1939_HEADER_LENGTH 4
+#define MAX_IMU_SENSORS 4
 
 bool j1939_debug = false;
 
@@ -58,6 +59,8 @@ struct j1939_sbp_state {
   u8 payload_length;
   struct imu_raw_msg imu_raw;
 };
+
+static u8 seen_id[MAX_IMU_SENSORS] = {0};
 
 struct j1939_message {
   int (*handler)(const u8 *payload, struct j1939_sbp_state *state);
@@ -163,6 +166,7 @@ static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *con
   }
 
   bool found = false;
+  int sensor_id_index = -1;
   struct j1939_message *message;
   for (message = j1939_messages;
        message < j1939_messages + sizeof(j1939_messages) / sizeof(j1939_messages[0]);
@@ -176,6 +180,16 @@ static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *con
                   message->payload_length,
                   length - J1939_HEADER_LENGTH);
       } else {
+        for (sensor_id_index = 0; sensor_id_index < MAX_IMU_SENSORS; sensor_id_index++) {
+          if (seen_id[sensor_id_index] == 0) {
+            seen_id[sensor_id_index] = state->source_address;
+          }
+
+          if (seen_id[sensor_id_index] == state->source_address) {
+            break;
+          }
+        }
+
         message->handler(data + J1939_HEADER_LENGTH, state);
       }
       break;
@@ -190,7 +204,11 @@ static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *con
   switch (state->PGN) {
   case 61482: /* gyr_* info */
   case 61485: /* acc_* info */
-    sbp_message_send(SBP_MSG_IMU_RAW, sizeof(struct imu_raw_msg), (u8 *)&state->imu_raw, 0, NULL);
+    if (sensor_id_index < MAX_IMU_SENSORS) {
+      sbp_message_send(SBP_MSG_IMU_RAW, sizeof(struct imu_raw_msg), (u8 *)&state->imu_raw, sensor_id_index + 1, NULL);
+    } else {
+      piksi_log(LOG_ERR, "Too many sensor id's detected");
+    }
     break;
 
   default: break;
