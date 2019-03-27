@@ -11,7 +11,11 @@ endef
 ifeq      ($(BR2_HAS_PIKSI_INS),y)
 ifneq     ($(BR2_BUILD_RELEASE_PROTECTED),y)
 
-$(info >>> *** WARNING: Piksi INS was enabled, but image is not protected! ***)
+define PIKSI_INS_PRE_BUILD1
+	echo '>>> *** WARNING: Piksi INS was enabled, but image is not protected! ***'
+endef
+
+PIKSI_INS_PRE_BUILD_HOOKS += PIKSI_INS_PRE_BUILD1
 
 endif # ! ($(BR2_BUILD_RELEASE_PROTECTED),y)
 
@@ -42,7 +46,13 @@ $(eval $(cmake-package))
 else
 
 ifeq      ($(BR2_BUILD_PIKSI_INS),y)
-$(info >>> *** WARNING: Piksi INS was enabled, but access to project failed! ***)
+
+define PIKSI_INS_PRE_BUILD2
+	echo '>>> *** WARNING: Piksi INS was enabled, but access to project failed! ***'
+endef
+
+PIKSI_INS_PRE_BUILD_HOOKS += PIKSI_INS_PRE_BUILD2
+
 endif
 
 PIKSI_INS_VERSION = 1.0
