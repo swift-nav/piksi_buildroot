@@ -11,7 +11,11 @@ endef
 ifeq      ($(BR2_HAS_PIKSI_INS),y)
 ifneq     ($(BR2_BUILD_RELEASE_PROTECTED),y)
 
-$(info >>> *** WARNING: Piksi INS was enabled, but image is not protected! ***)
+define PIKSI_INS_PRE_BUILD1
+	echo '>>> *** WARNING: Piksi INS was enabled, but image is not protected! ***'
+endef
+
+PIKSI_INS_PRE_BUILD_HOOKS += PIKSI_INS_PRE_BUILD1
 
 endif # ! ($(BR2_BUILD_RELEASE_PROTECTED),y)
 
@@ -24,7 +28,6 @@ PIKSI_INS_VERSION = $(PIKSI_RELEASES_INS_VERSION)
 PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_GIT_SUBMODULES = YES
-PIKSI_INS_INSTALL_STAGING = YES
 PIKSI_INS_INSTALL_TARGET = YES
 PIKSI_INS_DEPENDENCIES = \
 	libuv libsbp libpiksi libsettings eigen host-build_tools pfw_welcome
@@ -43,7 +46,13 @@ $(eval $(cmake-package))
 else
 
 ifeq      ($(BR2_BUILD_PIKSI_INS),y)
-$(info >>> *** WARNING: Piksi INS was enabled, but access to project failed! ***)
+
+define PIKSI_INS_PRE_BUILD2
+	echo '>>> *** WARNING: Piksi INS was enabled, but access to project failed! ***'
+endef
+
+PIKSI_INS_PRE_BUILD_HOOKS += PIKSI_INS_PRE_BUILD2
+
 endif
 
 PIKSI_INS_VERSION = 1.0

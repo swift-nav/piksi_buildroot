@@ -226,10 +226,10 @@ pipeline {
                     }
                 }
 
-                stage('SDK') {
+                stage('Toolchain') {
                     when {
                         expression {
-                            context.isStageIncluded()
+                            context.isStageIncluded(name: 'Toolchain', includeOnEmpty: false)
                         }
                     }
                     agent {
@@ -247,17 +247,17 @@ pipeline {
                         gitPrep()
                         crlKeyAdd()
 
-                        script {
+                        script {                       
                             builder.make(target: "firmware")
                             builder.make(target: "image")
-                            builder.make(target: "sdk")
+                            builder.make(target: "export-toolchain")
                         }
                     }
                     post {
                         success {
                             script {
                                 context.archivePatterns(
-                                        patterns: ['piksi_sdk.txz'],
+                                        patterns: ['piksi_br_toolchain.txz'],
                                         addPath: 'v3/prod'
                                 )
                             }
