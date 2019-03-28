@@ -58,6 +58,13 @@ start() {
     copy_from_net $server_ip "config.ini" $persistent_output_path
     # Download custom script if present on network boot.
     copy_from_net $server_ip "init_script.sh" $script_path
+    # Download rootfs overlay if present on network boot
+    copy_from_net $server_ip "rootfs-overlay.tar.gz" $script_path
+  fi
+
+  # Extract rootfs overlay if present
+  if [ -f "$script_path/rootfs-overlay.tar.gz" ]; then
+    cd / && tar -vxzf $script_path/rootfs-overlay.tar.gz
   fi
 
   # Run custom script if present
