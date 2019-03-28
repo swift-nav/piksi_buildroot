@@ -72,6 +72,8 @@ typedef enum {
 
 const char *libnetwork_status_text(network_status_t status);
 
+const char *libnetwork_describe_type(network_type_t type);
+
 /**
  * @brief Create a context for a libnetwork session
  *
