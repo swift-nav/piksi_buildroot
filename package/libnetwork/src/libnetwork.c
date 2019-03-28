@@ -48,22 +48,23 @@
 #define NTRIP_INIT_RETRY_COOLDOWN_US (200000L)
 #define NTRIP_INIT_RETRY_COUNT_MAX (NTRIP_INIT_RETRY_COOLDOWN_US / NTRIP_INIT_TIMEOUT_S)
 
-/** How large to configure the recv buffer to avoid excessive buffering. */
-const long RECV_BUFFER_SIZE = 16 * 1024L;
-/** Max number of callbacks from CURLOPT_XFERINFOFUNCTION before we attempt to
+/** Max amount time we can not see data movement from CURLOPT_XFERINFOFUNCTION before we attempt to
  * reconnect to the server */
-const curl_off_t MAX_STALLED_INTERVALS = 300;
+#define MAX_STALL_TIME_S (10)
+
+/** How large to configure the recv buffer to avoid excessive buffering. */
+static const long RECV_BUFFER_SIZE = 16 * 1024L;
 
 /** Threshold at which to issue a warning that the pipe will fill up. */
-const double PIPE_WARN_THRESHOLD = 0.90;
+static const double PIPE_WARN_THRESHOLD = 0.90;
 /** Min amount time between "pipe full" warning messages. */
-const double PIPE_WARN_SECS = 5;
+static const double PIPE_WARN_SECS = 5;
 
 /** How often CURL errors should be reported */
-const time_t ERROR_REPORTING_INTERVAL = 10;
+static const time_t ERROR_REPORTING_INTERVAL = 10;
 
 /** Max number of consecutive errors reading GGA sentence file */
-const int MAX_GGA_UPLOAD_READ_ERRORS = 5;
+static const int MAX_GGA_UPLOAD_READ_ERRORS = 5;
 
 typedef struct context_node context_node_t;
 
@@ -206,6 +207,19 @@ const char *libnetwork_status_text(network_status_t status)
   default: return "<unknown>";
   }
   // clang-format on
+}
+
+const char *libnetwork_describe_type(network_type_t type)
+{
+  switch (type) {
+  case NETWORK_TYPE_NTRIP_DOWNLOAD: return "NTRIP";
+  case NETWORK_TYPE_SKYLARK_UPLOAD: return "SKYLARK/U";
+  case NETWORK_TYPE_SKYLARK_DOWNLOAD: return "SKYLARK/D";
+  case NETWORK_TYPE_OTA: return "OTA";
+  case NETWORK_TYPE_INVALID: return "INVALID";
+  case NETWORK_TYPE_ALL: return "ALL";
+  default: return "<unknown>";
+  }
 }
 
 void libnetwork_shutdown(network_type_t type)
@@ -535,27 +549,36 @@ static size_t network_download_write(char *buf, size_t size, size_t n, void *dat
   }
 
   if (network_byte_limit(ctx, size * n)) {
-    return -1;
+    return 0;
   }
 
   warn_on_pipe_full(ctx->fd, size * n, ctx->debug);
 
-  while (true) {
-    ssize_t ret = write(ctx->fd, buf, size * n);
-    if (ret < 0 && errno == EINTR) {
+  size_t remaining = size * n;
+  size_t offset = 0;
+
+  ssize_t write_ret = -1;
+
+  for (;;) {
+
+    write_ret = write(ctx->fd, &buf[offset], remaining);
+    if (write_ret < 0 && errno == EINTR) {
       continue;
     }
 
-    ctx->cur_bytes += ret;
+    ctx->cur_bytes += write_ret;
+
+    remaining -= write_ret;
+    offset += remaining;
 
     if (ctx->debug) {
-      piksi_log(LOG_DEBUG, "write bytes (%d) %d", size * n, ret);
+      piksi_log(LOG_DEBUG, "write bytes, remaining=%d, write_ret=%d", remaining, write_ret);
     }
 
-    return ret;
+    if (remaining == 0) break;
   }
 
-  return -1;
+  return write_ret < 0 ? 0 : write_ret;
 }
 
 static size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
@@ -563,7 +586,7 @@ static size_t network_upload_read(char *buf, size_t size, size_t n, void *data)
   network_context_t *ctx = data;
 
   if (network_byte_limit(ctx, size * n)) {
-    return -1;
+    return 0;
   }
 
   while (true) {
@@ -816,8 +839,10 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
 
   if (ctx->cycle_connection_signaled) {
 
-    sbp_log(LOG_WARNING, "forced re-connect requested");
-
+    log_with_rate_limit(ctx,
+                        LOG_WARNING,
+                        "%s: forced reconnect requested",
+                        libnetwork_describe_type(ctx->type));
     ctx->cycle_connection_signaled = false;
     ctx->stall_count = 0;
 
@@ -827,8 +852,10 @@ static int network_progress_check(network_context_t *ctx, curl_off_t bytes)
   if (ctx->bytes_transfered == bytes) {
     if (ctx->stall_count++ > MAX_STALLED_INTERVALS) {
 
-      log_with_rate_limit(ctx, LOG_WARNING, "connection stalled");
-      ctx->stall_count = 0;
+      log_with_rate_limit(ctx,
+                          LOG_WARNING,
+                          "%s: connection unresponsive",
+                          libnetwork_describe_type(ctx->type));
 
       return -1;
     }
@@ -1026,6 +1053,7 @@ static CURLcode network_request(network_context_t *ctx, CURL *curl)
   CURLcode code = CURLE_OK;
 
   while (true) {
+
     code = curl_easy_perform(curl);
 
     if (ctx->shutdown_signaled) {
@@ -1044,11 +1072,20 @@ static CURLcode network_request(network_context_t *ctx, CURL *curl)
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response);
       ctx->response_code = response;
       if (response != HTTP_RESPONSE_CODE_OK) {
-        log_with_rate_limit(ctx, LOG_INFO, "curl request (response: %d)", response);
+        log_with_rate_limit(ctx,
+                            LOG_INFO,
+                            "%s: HTTP request response: %d",
+                            libnetwork_describe_type(ctx->type),
+                            response);
         network_response_code_check(ctx);
       }
     } else {
-      log_with_rate_limit(ctx, LOG_WARNING, "curl request (error: %d) \"%s\"", code, error_buf);
+      log_with_rate_limit(ctx,
+                          LOG_WARNING,
+                          "%s: cURL request error: %d, \"%s\"",
+                          libnetwork_describe_type(ctx->type),
+                          code,
+                          error_buf);
     }
 
     if (ctx->continuous) {
@@ -1056,6 +1093,10 @@ static CURLcode network_request(network_context_t *ctx, CURL *curl)
     } else {
       break;
     }
+
+    ctx->last_xfer_time = 0;
+    ctx->bytes_transfered = 0;
+    ctx->stall_count = -MAX_STALLED_INTERVALS;
   }
 
   return code;
@@ -1142,10 +1183,10 @@ static void network_setup_download(struct curl_slist *chunk, network_context_t *
   curl_easy_setopt(curl, CURLOPT_NOPROGRESS,        0L);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION,   network_sockopt);
   curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,       ctx);
+  // clang-format on
 
   network_reset_bytes(ctx);
 }
-// clang-format on
 
 void ntrip_download(network_context_t *ctx)
 {
