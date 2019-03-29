@@ -41,6 +41,7 @@ static int gpgll_rate = 10;
 static int gpzda_rate = 10;
 static int gsa_rate = 10;
 static int gpgst_rate = 1;
+static int gpgsv_rate = 10;
 
 static float soln_freq = 10.0;
 
@@ -135,6 +136,12 @@ static int notify_gpgst_rate_changed(void *context)
   return SETTINGS_WR_OK;
 }
 
+static int notify_gpgsv_rate_changed(void *context)
+{
+  sbp2nmea_rate_set(context, gpgsv_rate, SBP2NMEA_NMEA_GSV);
+  return SETTINGS_WR_OK;
+}
+
 static int notify_soln_freq_changed(void *context)
 {
   sbp2nmea_soln_freq_set(context, soln_freq);
@@ -144,15 +151,13 @@ static int notify_soln_freq_changed(void *context)
 static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
-  (void)len;
-  sbp2nmea(context, msg, SBP2NMEA_SBP_GPS_TIME);
+  sbp2nmea(context, len, msg, SBP2NMEA_SBP_GPS_TIME);
 }
 
 static void baseline_heading_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
-  (void)len;
-  sbp2nmea(context, msg, SBP2NMEA_SBP_HDG);
+  sbp2nmea(context, len, msg, SBP2NMEA_SBP_HDG);
 }
 
 static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
@@ -171,36 +176,43 @@ static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
-  (void)len;
-  sbp2nmea(context, msg, SBP2NMEA_SBP_UTC_TIME);
+  sbp2nmea(context, len, msg, SBP2NMEA_SBP_UTC_TIME);
 }
 
 static void age_corrections_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
-  (void)len;
-  sbp2nmea(context, msg, SBP2NMEA_SBP_AGE_CORR);
+  sbp2nmea(context, len, msg, SBP2NMEA_SBP_AGE_CORR);
 }
 
 static void dops_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
-  (void)len;
-  sbp2nmea(context, msg, SBP2NMEA_SBP_DOPS);
+  sbp2nmea(context, len, msg, SBP2NMEA_SBP_DOPS);
 }
 
 static void pos_llh_cov_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
-  (void)len;
-  sbp2nmea(context, msg, SBP2NMEA_SBP_POS_LLH_COV);
+  sbp2nmea(context, len, msg, SBP2NMEA_SBP_POS_LLH_COV);
 }
 
 static void vel_ned_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id;
-  (void)len;
-  sbp2nmea(context, msg, SBP2NMEA_SBP_VEL_NED);
+  sbp2nmea(context, len, msg, SBP2NMEA_SBP_VEL_NED);
+}
+
+static void sv_az_el_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)sender_id;
+  sbp2nmea(context, len, msg, SBP2NMEA_SBP_SV_AZ_EL);
+}
+
+static void measurement_state_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)sender_id;
+  sbp2nmea(context, len, msg, SBP2NMEA_SBP_MEASUREMENT_STATE);
 }
 
 static int cleanup(int status);
@@ -276,6 +288,17 @@ int main(int argc, char *argv[])
     return cleanup(EXIT_FAILURE);
   }
 
+  if (sbp_callback_register(SBP_MSG_SV_AZ_EL, sv_az_el_callback, &state) != 0) {
+    piksi_log(LOG_ERR, "error setting SV az/el callback");
+    return cleanup(EXIT_FAILURE);
+  }
+
+  if (sbp_callback_register(SBP_MSG_MEASUREMENT_STATE, measurement_state_callback, &state) != 0) {
+    piksi_log(LOG_ERR, "error setting measurement state callback");
+    return cleanup(EXIT_FAILURE);
+  }
+
+
   settings_ctx = sbp_get_settings_ctx();
 
   pk_settings_register(settings_ctx,
@@ -341,6 +364,24 @@ int main(int argc, char *argv[])
                        notify_gsa_rate_changed,
                        &state);
 
+  pk_settings_register(settings_ctx,
+                       "nmea",
+                       "gpgst_msg_rate",
+                       &gpgst_rate,
+                       sizeof(gpgst_rate),
+                       SETTINGS_TYPE_INT,
+                       notify_gpgst_rate_changed,
+                       &state);
+
+  pk_settings_register(settings_ctx,
+                       "nmea",
+                       "gpgsv_msg_rate",
+                       &gpgsv_rate,
+                       sizeof(gpgsv_rate),
+                       SETTINGS_TYPE_INT,
+                       notify_gpgsv_rate_changed,
+                       &state);
+
   pk_settings_register_watch(settings_ctx,
                              "solution",
                              "soln_freq",
@@ -348,15 +389,6 @@ int main(int argc, char *argv[])
                              sizeof(soln_freq),
                              SETTINGS_TYPE_FLOAT,
                              notify_soln_freq_changed,
-                             &state);
-
-  pk_settings_register_watch(settings_ctx,
-                             "nmea",
-                             "gpgst_msg_rate",
-                             &gpgst_rate,
-                             sizeof(gpgst_rate),
-                             SETTINGS_TYPE_INT,
-                             notify_gpgst_rate_changed,
                              &state);
 
   sbp_run();

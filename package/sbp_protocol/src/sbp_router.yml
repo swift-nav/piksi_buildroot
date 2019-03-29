@@ -54,7 +54,6 @@ ports:
       - dst_port: SBP_PORT_NMEA_BRIDGE
         filters:
           - { action: ACCEPT, prefix: [0x55, 0x4A, 0x00] } # MSG_OBS
-          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # MSG_POS_LLH
           - { action: ACCEPT, prefix: [0x55, 0x11, 0x02] } # MSG_POS_LLH_COV
           - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # MSG_VEL_NED
           - { action: ACCEPT, prefix: [0x55, 0x02, 0x01] } # MSG_GPS_TIME
@@ -62,6 +61,8 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x08, 0x02] } # MSG_DOPS
           - { action: ACCEPT, prefix: [0x55, 0x0F, 0x02] } # MSG_BASELINE_HEADING
           - { action: ACCEPT, prefix: [0x55, 0x10, 0x02] } # MSG_AGE_CORRECTIONS
+          - { action: ACCEPT, prefix: [0x55, 0x97, 0x00] } # MSG_SV_AZ_EL
+          - { action: ACCEPT, prefix: [0x55, 0x61, 0x00] } # MSG_MEASUREMENT_STATE
           - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
