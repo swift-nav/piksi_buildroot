@@ -22,9 +22,9 @@ endif # ! ($(BR2_BUILD_RELEASE_PROTECTED),y)
 $(info >>> Piksi INS is enabled, packaging with current image)
 
 ## The piksi_ins version is managed with piksi-releases
-include ${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/piksi_ins_version.mk
+#include ${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/piksi_ins_version.mk
 
-PIKSI_INS_VERSION = $(PIKSI_RELEASES_INS_VERSION)
+PIKSI_INS_VERSION = 3f5acfdbc0363780bf23594ce0b111939a95890c
 PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_GIT_SUBMODULES = YES
