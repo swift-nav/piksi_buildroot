@@ -27,13 +27,12 @@ if [[ $(uname -a) == *NixOS* ]]; then
   export LD_LIBRARY_PATH=/lib:/usr/lib
 fi
 
-FW_BUCKET=swiftnav-artifacts
-
-FW_VERSION=${1:-v2.1.0-develop-2019032221}
-NAP_VERSION=${2:-v2.1.0-develop-2019032221}
+FW_BUCKET=swiftnav-releases
+FW_VERSION=${1:-v2.3.0}
+NAP_VERSION=${2:-v2.3.0}
 
 FW_S3_PATH=s3://$FW_BUCKET/piksi_firmware_private/$FW_VERSION/v3
-NAP_S3_PATH=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
+NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
 NAP_S3_PATH_PROD=s3://swiftnav-artifacts/piksi_fpga/$NAP_VERSION
 
 export AWS_DEFAULT_REGION="us-west-2"
@@ -68,6 +67,7 @@ download_fw() {
 
   # Download piksi_fpga, try the prod variant first, then sdk variant
   fetch $NAP_S3_PATH_PROD/piksi_prod_fpga.bit $FIRMWARE_DIR/piksi_fpga.bit \
+    || fetch_sdk_fpga \
     || error "failed to download piksi_fpga.bit"
 }
 
