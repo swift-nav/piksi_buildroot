@@ -83,9 +83,6 @@ static char sbp_fileio_wait_flush_file[PATH_MAX] = {0};
 
 #define IMAGESET_BIN_NAME "upgrade.image_set.bin"
 
-#define FD_CACHE_COUNT 32
-#define CACHE_CLOSE_AGE 3
-
 /* extern */ bool fio_debug = false;
 /* extern */ bool no_cache = false;
 
@@ -110,46 +107,6 @@ typedef struct write_request {
   u8 msg_buffer[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 } write_request_t;
 
-static struct {
-  int
-    request_pipe[2]; /** Used by write thread to receive incoming write requests through select() */
-  write_request_t write_requests[WQ_MAX_PENDING]; /** Ring buffer of incoming write requests */
-  atomic_bool flush_pending;     /** True if a flush of FileIO write data is pending */
-  atomic_size_t write_req_index; /** The current first free index of write requests */
-  atomic_size_t writes_pending;  /** The number of write requests that are pending for the thread */
-
-  pthread_t thread;     /** Write thread object */
-  pthread_mutex_t lock; /** Mutex that protects write operations, all other operations (read /
-                           readdir / delete) block around this lock */
-
-  pthread_cond_t cond; /** If write operations is pending, all other operations will wait until the
-                          write queue is empty before performing their operations.
-
-                          **WARNING** this has the limitation that heavy write operations can
-                          potentially starve other operations. */
-
-  sbp_state_t sbp_state;            /** Used to buffer SBP response packets */
-  u8 send_buffer[SEND_BUFFER_SIZE]; /** Stores serialized outgoing SBP response packets */
-  u32 send_buffer_remaining;        /** Data remaining in `send_buffer` */
-  u32 send_buffer_offset;           /** Current unconsumed offset into `send_buffer` */
-  sbp_tx_ctx_t *tx_ctx;             /** The context to use for outgoing data */
-
-} write_thread_ctx;
-
-typedef struct {
-  FILE *fp;
-  bool cached;
-  size_t *offset;
-} open_file_t;
-
-typedef struct {
-  FILE *fp;
-  char path[PATH_MAX];
-  char mode[4];
-  time_t opened_at;
-  size_t offset;
-} fd_cache_t;
-
 enum {
   DENY_MTD_READ = 0,
   NO_MTD_READ,
@@ -165,19 +122,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void *context);
 static void config_cb(u16 sender_id, u8 len, u8 buf[], void *context);
 
-static off_t read_offset(open_file_t r);
-
-enum {
-  OP_INCREMENT,
-  OP_ASSIGN,
-};
-
-static void update_offset(open_file_t r, off_t offset, int op);
-
-static void flush_fd_cache();
 static void timer_handler(pk_loop_t *loop, void *handle, int status, void *context);
-static void flush_cached_fd(const char *path, const char *mode);
-static open_file_t open_file(const char *path, const char *mode, int oflag, mode_t perm);
 
 static bool test_control_dir(const char *name);
 
@@ -186,52 +131,7 @@ static void request_flush_output_sbp(void);
 
 static void stage_output_sbp(u8 msg_type, size_t len, u8 *payload);
 
-static fd_cache_t fd_cache[FD_CACHE_COUNT] = {[0 ...(FD_CACHE_COUNT - 1)] = {NULL, "", "", 0, 0}};
-
 path_validator_t *g_pv_ctx;
-
-open_file_t empty_open_file = (open_file_t){
-  .fp = NULL,
-  .cached = false,
-  .offset = NULL,
-};
-
-fd_cache_t empty_cache_entry = (fd_cache_t){
-  .fp = NULL,
-  .path = "",
-  .mode = "",
-  .opened_at = -1,
-  .offset = 0,
-};
-
-static off_t read_offset(open_file_t r)
-{
-  if (r.offset == NULL) return -1;
-  return (off_t)*r.offset;
-}
-
-static void update_offset(open_file_t r, off_t offset, int op)
-{
-  if (r.offset == NULL) return;
-
-  if (op == OP_INCREMENT)
-    (*r.offset) += offset;
-  else if (op == OP_ASSIGN)
-    (*r.offset) = offset;
-  else
-    PK_LOG_ANNO(LOG_ERR, "invalid operation: %d", op);
-}
-
-static void flush_fd_cache()
-{
-  for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
-
-    if (fd_cache[idx].fp == NULL) continue;
-
-    fclose(fd_cache[idx].fp);
-    fd_cache[idx] = empty_cache_entry;
-  }
-}
 
 static void validate_receive_handle(sbp_rx_ctx_t *rx_ctx)
 {
@@ -265,14 +165,7 @@ static void timer_handler(pk_loop_t *loop, void *handle, int status, void *conte
 
   if (++trigger_cache_purge == CHECK_FD_CACHE_EVERY) {
     trigger_cache_purge = 0;
-    time_t now = time(NULL);
-    for (size_t idx = 0; idx < FD_CACHE_COUNT; idx++) {
-      if (fd_cache[idx].fp == NULL) continue;
-      if ((now - fd_cache[idx].opened_at) >= CACHE_CLOSE_AGE) {
-        fclose(fd_cache[idx].fp);
-        fd_cache[idx] = empty_cache_entry;
-      }
-    }
+    fd_cache_flush(fd_ctx
   }
 
   if (++trigger_metrics_flush == FLUSH_METRICS_EVERY) {
