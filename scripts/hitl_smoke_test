@@ -19,7 +19,7 @@ import sys
 import json
 
 HITL_API_GITHUB_USER = "swiftnav-travis"
-HITL_API_URL = "https://hitlapi.swiftnav.com/"
+HITL_API_URL = "https://hitl-api.ce.swiftnav.com/"
 
 HITL_API_BUILD_TYPE = "buildroot_pull_request"
 HITL_VIEWER_BUILD_TYPE = "buildroot_pr"
