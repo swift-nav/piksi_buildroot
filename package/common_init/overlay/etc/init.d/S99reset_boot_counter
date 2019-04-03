@@ -32,7 +32,7 @@ if fw_printenv env_version_major; then
     post_boot_counter=$(fw_printenv -n post_boot_counter)
     if [[ $pre_boot_counter != 1 || $post_boot_counter != 1 ]]; then
       if [[ $pre_boot_counter == 0 ]]; then
-        logw --sbp "pre_boot_counter = 0; Have you upgraded dev image?"
+        logw --sbp "pre_boot_counter = 0; dev image needs upgrade"
       else
         loge --sbp "Unexpected boot counter values! pre_boot_counter: ${pre_boot_counter} post_boot_counter ${post_boot_counter}"
       fi;
@@ -42,6 +42,6 @@ if fw_printenv env_version_major; then
     fw_setenv post_boot_counter 0
   fi;
 else
-  logi --sbp "No boot counters detected, upgrading U-Boot environment"
+  logi --sbp "No uboot environment version found, intializing..."
   $(initialize_uboot_environment)
 fi;
