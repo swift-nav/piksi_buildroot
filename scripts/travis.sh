@@ -332,7 +332,7 @@ handle_toolchain_script_phase()
   make docker-make-image-sdk 2>&1 | capture_build_log
 
   if ./scripts/need_tag_artifacts.sh; then
-    make docker-export-toolchain 2>&1 | capture_build_log
+    make docker-make-export-toolchain 2>&1 | capture_build_log
   fi
 }
 
