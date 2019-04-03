@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-LIBSETTINGS_VERSION = pmiettinen/esd-1204-parallel-requests
+LIBSETTINGS_VERSION = v0.1.11
 LIBSETTINGS_SITE = https://github.com/swift-nav/libsettings
 LIBSETTINGS_SITE_METHOD = git
 LIBSETTINGS_INSTALL_STAGING = YES
