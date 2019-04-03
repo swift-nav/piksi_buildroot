@@ -84,7 +84,8 @@ matrix:
         - ./scripts/travis.sh after_failure
 
     # Creates a build with SSH enabled, no INS, no private artifacts
-    - env:
+    - if: branch != master
+      env:
         - TRAVIS_TARGET=sdk
       script:
         - ./scripts/travis.sh script
