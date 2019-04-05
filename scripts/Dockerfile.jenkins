@@ -2,7 +2,8 @@
 # so we'll have to hard code it here. Make sure to also update docker_version_tag when updating
 # the tag here.
 
-FROM swiftnav/buildroot-base:2019.03.15
+# TODO: replace with actual image tag once it's created
+FROM 571934480752.dkr.ecr.us-west-2.amazonaws.com/buildroot-base:test
 
 # Add a "jenkins" user with sudo capabilities
 RUN useradd -u 1001 -ms /bin/bash -G sudo jenkins
@@ -10,9 +11,9 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Use newer ccache to fix issue with parallel cleanup
 RUN cd /tmp && \
-    wget https://www.samba.org/ftp/ccache/ccache-3.4.2.tar.gz && \
-    tar fxvz ccache-3.4.2.tar.gz && \
-    cd ccache-3.4.2 && \
+    wget https://www.samba.org/ftp/ccache/ccache-3.6.tar.gz && \
+    tar fxvz ccache-3.6.tar.gz && \
+    cd ccache-3.6 && \
     ./configure && \
     make install
 #ENV PATH=/usr/lib/ccache:${PATH}
