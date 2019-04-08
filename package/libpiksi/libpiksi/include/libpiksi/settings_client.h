@@ -266,6 +266,15 @@ int pk_settings_loop_send_command(const char *metrics_ident,
                                   const char *command_description,
                                   const char *control_socket);
 
+/**
+ * @brief   Accessor function to get attached loop from settings context.
+ *
+ * @param[in] ctx        Pointer to the context to use.
+ *
+ * @return               Pointer to the attached Piksi loop, or NULL.
+ */
+pk_loop_t *pk_settings_get_loop(pk_settings_ctx_t *ctx);
+
 #ifdef __cplusplus
 }
 #endif
