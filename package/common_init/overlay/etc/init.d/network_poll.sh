@@ -78,9 +78,24 @@ should_warn_on_no_inet()
   fi
 }
 
+warn_check_disabled_logged=
+
+warn_check_disabled()
+{
+  [[ -n "$warn_check_disabled_logged" ]] || return 1
+  echo "Network status check disabled" | sbp_log --warn
+  warn_check_disabled_logged=y
+}
+
 check_enabled()
 {
-  [[ -n "$(cat "$polling_period_file")" ]]
+  if [[ -n "$(cat "$polling_period_file")" ]]; then
+    warn_check_disabled
+    return 1
+  else
+    warn_check_disabled_logged=
+    return 0
+  fi
 }
 
 sleep_connectivity_check()
