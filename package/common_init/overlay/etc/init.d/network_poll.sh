@@ -5,6 +5,8 @@
 default_check_period=10
 default_retry_period=1
 
+recheck_enabled_period=1
+
 skylark_enabled_file=/var/run/skylark/enabled
 ntrip_enabled_file=/var/run/ntrip/enabled
 
@@ -76,6 +78,11 @@ should_warn_on_no_inet()
   fi
 }
 
+check_enabled()
+{
+  [[ -n "$(cat "$polling_period_file")" ]]
+}
+
 sleep_connectivity_check()
 {
   period=$(cat $polling_period_file)
@@ -125,6 +132,10 @@ child_pid=$!
 trap 'kill $child_pid; exit' EXIT STOP TERM HUP
 
 while true; do
+  if ! check_enabled; then
+    sleep $recheck_enabled_period
+    continue
+  fi
   log_start
   if ping -w 5 -c 1 8.8.8.8 >>$(ping_log) 2>&1 || \
      ping -w 5 -c 1 114.114.114.114 >>$(ping_log) 2>&1; then
