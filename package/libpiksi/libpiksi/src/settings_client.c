@@ -192,9 +192,14 @@ pk_settings_ctx_t *pk_settings_create(const char *ident)
     api.wait = wait_wrap,
     api.wait_deinit = NULL,
     api.signal = signal_wrap,
+    api.wait_thd = NULL,
+    api.signal_thd = NULL,
+    api.lock = NULL,
+    api.unlock = NULL,
     api.register_cb = reg_cb_wrap,
     api.unregister_cb = unreg_cb_wrap,
     api.log = piksi_log,
+    api.log_preformat = false,
   };
 
   ctx->settings = settings_create(id, &api);
