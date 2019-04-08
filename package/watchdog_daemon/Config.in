@@ -1,0 +1,3 @@
+config BR2_PACKAGE_WATCHDOG_DAEMON
+  bool "watchdog_daemon"
+  select BR2_PACKAGE_LIBPIKSI

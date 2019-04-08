@@ -1,0 +1,13 @@
+#!/bin/sh
+
+name="watchdog_daemon"
+cmd="watchdog_daemon"
+dir="/"
+user="watchdogd"
+
+setup_permissions()
+{
+  chown watchdogd:watchdogd /dev/watchdog0
+}
+
+source /etc/init.d/template_runsv.inc.sh
