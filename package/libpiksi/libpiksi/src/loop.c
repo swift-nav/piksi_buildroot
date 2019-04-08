@@ -19,6 +19,8 @@
 
 #define MSG_BUF_SIZE 128
 
+#define WATCHDOG_KICK_PERIOD 3000
+
 /**
  * Libuv for some reason gets a file descriptor value of 0 (which appears
  * to be valid) in the docker unit test environment... however, it later
@@ -387,6 +389,26 @@ void *pk_loop_timer_add(pk_loop_t *pk_loop, u64 period_ms, pk_loop_cb callback, 
 failure:
   pk_loop_destroy_uv_handle((uv_handle_t *)uv_timer);
   return NULL;
+}
+
+static void pk_loop_watchdog_kick(pk_loop_t *loop,
+                                  void *handle, int status, void *context)
+{
+  (void)loop; (void)handle; (void)status;
+
+  sem_t *sem = context;
+  sem_post(sem);
+}
+
+void *pk_loop_watchdog_add(pk_loop_t *pk_loop, const char *watchdog_id)
+{
+  char name[NAME_MAX];
+  snprintf(name, sizeof(name), "/wdg-%s", watchdog_id);
+  mode_t oldmode = umask(0);
+  sem_t *sem = sem_open(name, O_CREAT, 0666, 0);
+  umask(oldmode);
+  return pk_loop_timer_add(pk_loop, WATCHDOG_KICK_PERIOD,
+                           pk_loop_watchdog_kick, sem);
 }
 
 int pk_loop_timer_reset(void *handle)
