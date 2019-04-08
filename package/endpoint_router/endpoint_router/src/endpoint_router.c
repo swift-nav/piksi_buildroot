@@ -59,11 +59,13 @@ PK_METRICS_TABLE(message_metrics_table, MI,
 static struct {
   const char *filename;
   const char *name;
+  const char *watchdog;
   bool print;
   bool debug;
 } options = {
   .filename = NULL,
   .name = NULL,
+  .watchdog = NULL,
   .print = false,
   .debug = false,
 };
@@ -80,6 +82,7 @@ static void usage(char *command)
 
   puts("-f, --file <config.yml>");
   puts("--name <name>");
+  puts("-w, --watchdog <watchdog semaphore>");
   puts("--print");
   puts("--debug");
 }
@@ -97,6 +100,7 @@ static int parse_options(int argc, char *argv[])
   const struct option long_opts[] = {
     {"file",      required_argument, 0, 'f'},
     {"name",      required_argument, 0, OPT_ID_NAME},
+    {"watchdog",  required_argument, 0, 'w'},
     {"print",     no_argument,       0, OPT_ID_PRINT},
     {"debug",     no_argument,       0, OPT_ID_DEBUG},
     {0, 0, 0, 0},
@@ -105,11 +109,15 @@ static int parse_options(int argc, char *argv[])
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "f:", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "f:w:", long_opts, &opt_index)) != -1) {
     switch (c) {
 
     case 'f': {
       options.filename = optarg;
+    } break;
+
+    case 'w': {
+      options.watchdog = optarg;
     } break;
 
     case OPT_ID_PRINT: {
@@ -736,6 +744,10 @@ int main(int argc, char *argv[])
   loop = pk_loop_create();
   if (loop == NULL) {
     exit(cleanup(EXIT_FAILURE, &loop, &router, &router_metrics));
+  }
+
+  if (options.watchdog) {
+    pk_loop_watchdog_add(loop, options.watchdog);
   }
 
   /* Load router from config file */

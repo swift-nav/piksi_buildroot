@@ -24,6 +24,6 @@ else
   router_config="/etc/endpoint_router/sbp_router.yml"
 fi
 
-export cmd="endpoint_router --name sbp -f $router_config"
+export cmd="endpoint_router -w sbp_router --name sbp -f $router_config"
 
 source /etc/init.d/template_runsv.inc.sh
