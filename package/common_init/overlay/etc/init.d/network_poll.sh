@@ -4,6 +4,7 @@
 
 default_check_period=10
 default_retry_period=1
+default_ping_addresses=8.8.8.8,114.114.114.114
 
 recheck_enabled_period=1
 
@@ -14,6 +15,7 @@ ntrip_enabled_file=/var/run/ntrip/enabled
 piksi_sys_dir=/var/run/piksi_sys
 polling_period_file=$piksi_sys_dir/network_polling_period
 polling_retry_file=$piksi_sys_dir/network_polling_retry_period
+polling_addresses_file=$piksi_sys_dir/network_polling_addresses
 network_available_file=$piksi_sys_dir/network_available
 ping_log_enabled_file=$piksi_sys_dir/enable_ping_logging
 
@@ -83,7 +85,7 @@ warn_check_disabled_logged=
 warn_check_disabled()
 {
   [[ -n "$warn_check_disabled_logged" ]] || return 1
-  echo "Network status check disabled" | sbp_log --warn
+  echo "Network status LED disabled (network check frequency set to zero)." | sbp_log --warn
   warn_check_disabled_logged=y
 }
 
@@ -129,6 +131,31 @@ log_stop()
   echo "--- PING STOP: $(date -Is)" >>$(ping_log)
 }
 
+ping_addesses()
+{
+  local addresses
+  addresses="$(cat "$network_polling_addresses")"
+
+  if [[ -n "$addresses" ]]; then
+    echo "$default_ping_addresses" | tr ',' '\n'
+  fi
+
+  echo "$addresses" | tr ',' '\n' 
+}
+
+run_ping()
+{
+  local IFS=$'\n'
+
+  for address in $(ping_addesses); do
+    if ping -w 5 -c 1 "$address"; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 ## Main script:
 
 while true; do
@@ -152,8 +179,7 @@ while true; do
     continue
   fi
   log_start
-  if ping -w 5 -c 1 8.8.8.8 >>$(ping_log) 2>&1 || \
-     ping -w 5 -c 1 114.114.114.114 >>$(ping_log) 2>&1; then
+  if run_ping; then
     log_stop
     echo 1 >$network_available_file
     sleep_connectivity_check
