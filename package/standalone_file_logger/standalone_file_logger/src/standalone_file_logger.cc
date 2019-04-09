@@ -35,11 +35,12 @@
 #define POLL_PERIOD_DEFAULT_s 30
 #define FILL_THRESHOLD_DEFAULT_p 95
 
-static const char *const logging_filesystem_names[] = {"FAT", "F2FS", NULL};
+static const char *const logging_filesystem_names[] = {"FAT", "F2FS", "NTFS", NULL};
 
 typedef enum {
   LOGGING_FILESYSTEM_FAT,
   LOGGING_FILESYSTEM_F2FS,
+  LOGGING_FILESYSTEM_NTFS,
 } logging_fs_t;
 
 static struct {
@@ -183,7 +184,7 @@ static int logging_filesystem_notify(void *context)
             logging_fs_type_prev.value,
             logging_fs_type_prev.is_set);
 
-  if (logging_fs_type != LOGGING_FILESYSTEM_F2FS) {
+  if (logging_fs_type != LOGGING_FILESYSTEM_F2FS && logging_fs_type != LOGGING_FILESYSTEM_NTFS) {
     save_prev_logging_fs_type_value();
     return SETTINGS_WR_OK;
   }
@@ -199,12 +200,12 @@ static int logging_filesystem_notify(void *context)
   const int str_max = 128;
 
   const char warning_strs[str_count][str_max] =
-    {"Logging file-system: ************************************************************",
-     "Logging file-system: Detected that the logging file-system was changed to F2FS...",
+    {"Logging file-system: *****************************************************************",
+     "Logging file-system: Detected that the logging file-system was changed to F2FS/NTFS...",
      "Logging file-system: ... this will ERASE any removable media attached to system!",
      "Logging file-system: The file-system will be reformatted on the next reboot...",
      "Logging file-system: ...settings must be persisted for this to take effect.",
-     "Logging file-system: ************************************************************"};
+     "Logging file-system: *****************************************************************"};
 
   for (size_t x = str_count; x > 0; --x)
     sbp_log(LOG_WARNING, warning_strs[x - 1]);

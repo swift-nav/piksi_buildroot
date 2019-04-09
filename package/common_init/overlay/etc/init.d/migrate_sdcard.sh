@@ -24,23 +24,36 @@ partition_disk()
 EOF
 }
 
-format_with_f2fs()
+format_with_fs_type()
 {
   local dev="/dev/$1"; shift
-  local fstype=$(lsblk -o FSTYPE $dev | tail -n -1)
+  local new_fs_type=$1; shift
+
+  local fstype
+  fstype=$(lsblk -o FSTYPE "$dev" | tail -n -1)
 
   logi "Existing fs type: ${fstype}"
 
-  local pkname=$(lsblk -o PKNAME $dev | tail -n -1)
+  local pkname
+  pkname=$(lsblk -o PKNAME "$dev" | tail -n -1)
 
   logi "Creating partition table on ${pkname}..."
-  partition_disk /dev/$pkname
+  partition_disk "/dev/$pkname"
 
   # Force the kernel to re-read the partition table
-  blockdev --rereadpt /dev/$pkname
+  blockdev --rereadpt "/dev/$pkname"
 
-  logi "Formatting partition with F2FS..."
-  mkfs -t f2fs $dev || logw "Formatting failed"
+  logi "Formatting partition with ${new_fs_type}..."
+  if [[ "$new_fs_type" == "f2fs" ]]; then
+    mkfs.f2fs "$dev" || logw "Formatting failed"
+  elif [[ "$new_fs_type" == "f2fs" ]]; then
+    mkfs.ntfs --fast "$dev" || logw "Formatting failed"
+  else
+    loge "Unknown filesystem type: ${new_fs_type}"
+    return 1
+  fi
+
+  return 0
 }
 
 list_partitions()
@@ -51,7 +64,7 @@ list_partitions()
 wait_for_sdcard_mount
 
 for dev in $(list_partitions); do
-  devname=${dev:2}
+  devname="${dev:2}"
   if needs_migration "$devname"; then
 
     # Stop services that use the sdcard
@@ -61,11 +74,13 @@ for dev in $(list_partitions); do
     # Disable automount...
     echo >/var/run/automount_disabled
 
-    mountpoint=$(lsblk -o MOUNTPOINT /dev/$devname | tail -n -1)
-    [[ -z "$mountpoint" ]] || umount $mountpoint
+    mountpoint=$(lsblk -o MOUNTPOINT "/dev/$devname" | tail -n -1)
+    [[ -z "$mountpoint" ]] || umount "$mountpoint"
 
-    logw "Migrating '${devname}' to F2FS..."
-    format_with_f2fs "$devname"
+    new_fs_type=$(fetch_new_fs_type)
+    logw "Migrating '${devname}' to ${new_fs_type}..."
+
+    format_with_fs_type "$devname" "$new_fs_type"
 
     reboot -f
   fi
