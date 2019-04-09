@@ -2,14 +2,14 @@
 
 log_tag=copy_sys_logs
 
-source /etc/init.d/sdcard.sh
+source /etc/init.d/storage_media.sh
 source /etc/init.d/logging.sh
 
 setup_loggers
 
 should_run()
 {
-  if needs_migration $MOUNTNAME; then
+  if needs_migration $SDCARD_MOUNTNAME; then
     logw --sbp "Exiting: the SD card needs to be migrated..."
     return 1
   fi
@@ -35,7 +35,7 @@ if ! should_run; then
   exit 0
 fi
 
-log_dir="$MOUNTPOINT/logs"
+log_dir="$SDCARD_MOUNTPOINT/logs"
 mkdir -p "$log_dir"
 
 N=1

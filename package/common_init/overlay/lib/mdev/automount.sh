@@ -3,7 +3,7 @@
 destdir=/media
 log_tag=automount
 
-source /etc/init.d/sdcard.sh
+source /etc/init.d/storage_media.sh
 source /etc/init.d/logging.sh
 
 setup_loggers
@@ -32,21 +32,33 @@ do_mount()
 
   local mount_options=
 
-  if detect_f2fs $devname; then
+  if detect_f2fs "$devname"; then
     mount_options="-o data_flush,noextent_cache,sync"
   fi
 
   logi "Mounting '${dev}' to '${mountpoint}'"
 
-  mkdir -p $mountpoint || exit 1
+  mkdir -p "$mountpoint" || exit 1
 
-  if ! mount -t auto $mount_options $dev $mountpoint 1>$logger_stdout 2>$logger_stderr; then
-    loge "Mount failed, cleaning up mount point..."
-    rmdir $mountpoint
-    exit 1
+  if detect_ntfs "$devname"; then
+    if ! ntfs-3g "$dev" "$mountpoint" \
+         1>$logger_stdout 2>$logger_stderr;
+    then
+      loge "Mount failed, cleaning up mount point..."
+      rmdir "$mountpoint"
+      exit 1
+    fi
+  else
+    if ! mount -t auto $mount_options "$dev" "$mountpoint" \
+         1>$logger_stdout 2>$logger_stderr;
+    then
+      loge "Mount failed, cleaning up mount point..."
+      rmdir "$mountpoint"
+      exit 1
+    fi
   fi
 
-  if detect_f2fs $devname; then
+  if detect_f2fs "$devname" || detect_ntfs "$devname"; then
     chmod 1777 "$mountpoint/."
   fi
 }
@@ -61,11 +73,11 @@ logd "Invoked..."
 case "${ACTION}" in
 add|"")
   logd "Card added..."
-  do_umount ${MDEV}
-  do_mount ${MDEV}
+  do_umount "${MDEV}"
+  do_mount "${MDEV}"
   ;;
 remove)
   logd "Card removed..."
-  do_umount ${MDEV}
+  do_umount "${MDEV}"
   ;;
 esac
