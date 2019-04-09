@@ -485,26 +485,22 @@ static int network_polling_notify(void *context)
 
     [0].name = "network_polling_frequency",
     [0].count = ({
-      if (network_polling_frequency <= 0) {
-        snprintf(formatters[0].buf, "");
-      } else {
+      network_polling_frequency <= 0 ? 
+        snprintf(formatters[0].buf, sizeof(formatters[0].buf), "") :
         snprintf(formatters[0].buf,
                  sizeof(formatters[0].buf),
                  "%.02f",
                  (1.0 / network_polling_frequency));
-      }
     }),
 
     [1].name = "network_polling_retry_frequency",
     [1].count = ({
-      if (network_polling_frequency <= 0) {
-        snprintf(formatters[1].buf, "");
-      } else {
+      network_polling_frequency <= 0 ? 
+        snprintf(formatters[1].buf, sizeof(formatters[1].buf), "") :
         snprintf(formatters[1].buf,
-                 sizeof(formatters[1].buf),
+                 sizeof(formatters[0].buf),
                  "%.02f",
                  (1.0 / network_polling_retry_frequency));
-      }
     }),
 
     [2].name = "log_ping_activity",
