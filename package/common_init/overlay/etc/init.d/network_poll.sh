@@ -82,22 +82,28 @@ should_warn_on_no_inet()
 
 warn_check_disabled_logged=
 
+reset_warn_check_disabled()
+{
+  warn_check_disabled_logged=y
+}
+
 warn_check_disabled()
 {
-  [[ -n "$warn_check_disabled_logged" ]] || return 0
+  if [[ -n "$warn_check_disabled_logged" ]]; then
+    return 0
+  fi
 
   echo "Network status LED disabled (network check frequency set to zero)." | \
     sbp_log --warn
+
   warn_check_disabled_logged=y
 }
 
 check_enabled()
 {
   if [[ -z "$(cat "$polling_period_file")" ]]; then
-    warn_check_disabled
     return 1
   else
-    warn_check_disabled_logged=
     return 0
   fi
 }
@@ -168,8 +174,10 @@ while true; do
     sleep 10
   fi
   if ! check_enabled; then
+    warn_check_disabled
     continue
   fi
+  reset_warn_check_disabled
   if [ x`cat $network_available_file` != "x1" ]; then
     echo "No route to Internet" | sbp_log --warn
   fi
@@ -180,6 +188,7 @@ trap 'kill $child_pid; exit' EXIT STOP TERM HUP
 
 while true; do
   if ! check_enabled; then
+    echo 0 >$network_available_file
     sleep $recheck_enabled_period
     continue
   fi
