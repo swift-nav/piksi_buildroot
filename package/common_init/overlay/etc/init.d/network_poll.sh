@@ -4,7 +4,7 @@
 
 default_check_period=10
 default_retry_period=1
-default_ping_addresses=8.8.8.8,114.114.114.114
+default_ping_addresses=8.8.8.8
 
 recheck_enabled_period=1
 

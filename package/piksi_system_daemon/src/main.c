@@ -47,7 +47,7 @@
 
 static double network_polling_frequency = 0.1;
 static double network_polling_retry_frequency = 1;
-static char network_polling_addresses[1024] = "8.8.8.8,114.114.114.114";
+static char network_polling_addresses[1024] = "8.8.8.8";
 static bool log_ping_activity = false;
 
 #define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
@@ -485,22 +485,20 @@ static int network_polling_notify(void *context)
 
     [0].name = "network_polling_frequency",
     [0].count = ({
-      network_polling_frequency <= 0 ? 
-        snprintf(formatters[0].buf, sizeof(formatters[0].buf), "") :
-        snprintf(formatters[0].buf,
-                 sizeof(formatters[0].buf),
-                 "%.02f",
-                 (1.0 / network_polling_frequency));
+      network_polling_frequency <= 0 ? snprintf(formatters[0].buf, sizeof(formatters[0].buf), "")
+                                     : snprintf(formatters[0].buf,
+                                                sizeof(formatters[0].buf),
+                                                "%.02f",
+                                                (1.0 / network_polling_frequency));
     }),
 
     [1].name = "network_polling_retry_frequency",
     [1].count = ({
-      network_polling_frequency <= 0 ? 
-        snprintf(formatters[1].buf, sizeof(formatters[1].buf), "") :
-        snprintf(formatters[1].buf,
-                 sizeof(formatters[0].buf),
-                 "%.02f",
-                 (1.0 / network_polling_retry_frequency));
+      network_polling_frequency <= 0 ? snprintf(formatters[1].buf, sizeof(formatters[1].buf), "")
+                                     : snprintf(formatters[1].buf,
+                                                sizeof(formatters[0].buf),
+                                                "%.02f",
+                                                (1.0 / network_polling_retry_frequency));
     }),
 
     [2].name = "log_ping_activity",
