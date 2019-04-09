@@ -84,7 +84,7 @@ warn_check_disabled_logged=
 
 reset_warn_check_disabled()
 {
-  warn_check_disabled_logged=y
+  warn_check_disabled_logged=
 }
 
 warn_check_disabled()
