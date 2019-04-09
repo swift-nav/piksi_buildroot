@@ -84,14 +84,16 @@ warn_check_disabled_logged=
 
 warn_check_disabled()
 {
-  [[ -n "$warn_check_disabled_logged" ]] || return 1
-  echo "Network status LED disabled (network check frequency set to zero)." | sbp_log --warn
+  [[ -n "$warn_check_disabled_logged" ]] || return 0
+
+  echo "Network status LED disabled (network check frequency set to zero)." | \
+    sbp_log --warn
   warn_check_disabled_logged=y
 }
 
 check_enabled()
 {
-  if [[ -n "$(cat "$polling_period_file")" ]]; then
+  if [[ -z "$(cat "$polling_period_file")" ]]; then
     warn_check_disabled
     return 1
   else
@@ -134,7 +136,7 @@ log_stop()
 ping_addesses()
 {
   local addresses
-  addresses="$(cat "$network_polling_addresses")"
+  addresses="$(cat "$polling_addresses_file")"
 
   if [[ -n "$addresses" ]]; then
     echo "$default_ping_addresses" | tr ',' '\n'
@@ -148,7 +150,7 @@ run_ping()
   local IFS=$'\n'
 
   for address in $(ping_addesses); do
-    if ping -w 5 -c 1 "$address"; then
+    if ping -w 5 -c 1 "$address" >>"$(ping_log)" 2>&1; then
       return 0
     fi
   done
@@ -164,6 +166,9 @@ while true; do
     continue
   else
     sleep 10
+  fi
+  if ! check_enabled; then
+    continue
   fi
   if [ x`cat $network_available_file` != "x1" ]; then
     echo "No route to Internet" | sbp_log --warn
