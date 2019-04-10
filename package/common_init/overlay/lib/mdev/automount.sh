@@ -51,7 +51,7 @@ do_mount()
   else
     if ! mount -t auto $mount_options "$dev" "$mountpoint" \
          1>$logger_stdout 2>$logger_stderr;
-  then
+    then
       loge "Mount failed, cleaning up mount point..."
       rmdir "$mountpoint"
       exit 1
