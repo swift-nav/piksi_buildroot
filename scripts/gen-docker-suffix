@@ -4,6 +4,10 @@ import sys
 import hashlib
 
 sha1 = hashlib.new('sha1')
-sha1.update(sys.stdin.read())
+
+if (sys.version_info > (3, 0)):
+    sha1.update(sys.stdin.read().encode('utf8'))
+else:
+    sha1.update(sys.stdin.read())
 
 print(sha1.hexdigest()[:12])
