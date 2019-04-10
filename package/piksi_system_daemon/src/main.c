@@ -47,6 +47,7 @@
 
 static double network_polling_frequency = 0.1;
 static double network_polling_retry_frequency = 1;
+static char network_polling_addresses[1024] = "8.8.8.8";
 static bool log_ping_activity = false;
 
 #define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
@@ -54,6 +55,7 @@ static bool log_ping_activity = false;
 
 #define NETWORK_POLLING_PERIOD_FILE "/var/run/piksi_sys/network_polling_period"
 #define NETWORK_POLLING_RETRY_PERIOD_FILE "/var/run/piksi_sys/network_polling_retry_period"
+#define NETWORK_POLLING_ADDRESSES_FILE "/var/run/piksi_sys/network_polling_addresses"
 #define ENABLE_PING_LOGGING_FILE "/var/run/piksi_sys/enable_ping_logging"
 
 static const char const *ip_mode_enum_names[] = {"Static", "DHCP", NULL};
@@ -483,18 +485,21 @@ static int network_polling_notify(void *context)
 
     [0].name = "network_polling_frequency",
     [0].count = ({
-      snprintf(formatters[0].buf,
-               sizeof(formatters[0].buf),
-               "%.02f",
-               (1.0 / network_polling_frequency));
+      network_polling_frequency <= 0 ? snprintf(formatters[0].buf, sizeof(formatters[0].buf), "")
+                                     : snprintf(formatters[0].buf,
+                                                sizeof(formatters[0].buf),
+                                                "%.02f",
+                                                (1.0 / network_polling_frequency));
     }),
 
     [1].name = "network_polling_retry_frequency",
     [1].count = ({
-      snprintf(formatters[1].buf,
-               sizeof(formatters[1].buf),
-               "%.02f",
-               (1.0 / network_polling_retry_frequency));
+      network_polling_retry_frequency <= 0
+        ? snprintf(formatters[1].buf, sizeof(formatters[1].buf), "")
+        : snprintf(formatters[1].buf,
+                   sizeof(formatters[0].buf),
+                   "%.02f",
+                   (1.0 / network_polling_retry_frequency));
     }),
 
     [2].name = "log_ping_activity",
@@ -513,10 +518,11 @@ static int network_polling_notify(void *context)
   }
 
   /* clang-format off */
-  struct { const char* filename; const char* value; } settings_value_files[3] = {
+  struct { const char* filename; const char* value; } settings_value_files[4] = {
     [0].filename = NETWORK_POLLING_PERIOD_FILE,       [0].value = formatters[0].buf,
     [1].filename = NETWORK_POLLING_RETRY_PERIOD_FILE, [1].value = formatters[1].buf,
     [2].filename = ENABLE_PING_LOGGING_FILE,          [2].value = formatters[2].buf,
+    [3].filename = NETWORK_POLLING_ADDRESSES_FILE,    [3].value = network_polling_addresses,
   };
   /* clang-format on */
 
@@ -624,6 +630,14 @@ int main(void)
                        &network_polling_frequency,
                        sizeof(network_polling_frequency),
                        SETTINGS_TYPE_FLOAT,
+                       network_polling_notify,
+                       NULL);
+  pk_settings_register(settings_ctx,
+                       "system",
+                       "connectivity_check_addresses",
+                       &network_polling_addresses,
+                       sizeof(network_polling_addresses),
+                       SETTINGS_TYPE_STRING,
                        network_polling_notify,
                        NULL);
   pk_settings_register(settings_ctx,
