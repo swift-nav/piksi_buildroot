@@ -35,7 +35,7 @@ const char const *watchdog_sem_names[] = {
   "sbp_router",
   "ports_daemon",
 };
-#define WATCHDOG_SEM_COUNT (sizeof(watchdog_sem_names)/sizeof(watchdog_sem_names[0]))
+#define WATCHDOG_SEM_COUNT (sizeof(watchdog_sem_names) / sizeof(watchdog_sem_names[0]))
 static sem_t *watchdog_sem[WATCHDOG_SEM_COUNT];
 
 static int hw_watchdog_fd;
@@ -44,12 +44,14 @@ static uint32_t watchdog_sem_flags = 0;
 
 static void watchdog_sem_poll(pk_loop_t *loop, void *handle, int status, void *context)
 {
-  (void)loop; (void)handle; (void)status; (void)context;
+  (void)loop;
+  (void)handle;
+  (void)status;
+  (void)context;
 
   /* Poll watchdog semaphores */
   for (unsigned i = 0; i < WATCHDOG_SEM_COUNT; i++) {
-    if ((watchdog_sem[i] == SEM_FAILED) ||
-        (sem_trywait(watchdog_sem[i])) == 0) {
+    if ((watchdog_sem[i] == SEM_FAILED) || (sem_trywait(watchdog_sem[i])) == 0) {
       watchdog_sem_flags &= ~(1 << i);
     }
   }
@@ -70,7 +72,8 @@ static void watchdog_sem_setup(pk_loop_t *loop)
     if (watchdog_sem[i] == SEM_FAILED) {
       piksi_log(LOG_SBP | LOG_WARNING,
                 "Failed to open watchdog semaphore %s: %s",
-                watchdog_sem_names[i], strerror(errno));
+                watchdog_sem_names[i],
+                strerror(errno));
     }
   }
   pk_loop_timer_add(loop, WATCHDOG_POLL_PERIOD, watchdog_sem_poll, NULL);
@@ -121,9 +124,14 @@ int main(void)
     goto cleanup;
   }
 
-  pk_settings_register(settings_ctx, "experimental_flags", "hw_watchdog_enabled",
-                       &hw_watchdog_enabled, sizeof(hw_watchdog_enabled),
-                       SETTINGS_TYPE_BOOL, watchdog_notify_enable, NULL);
+  pk_settings_register(settings_ctx,
+                       "experimental_flags",
+                       "hw_watchdog_enabled",
+                       &hw_watchdog_enabled,
+                       sizeof(hw_watchdog_enabled),
+                       SETTINGS_TYPE_BOOL,
+                       watchdog_notify_enable,
+                       NULL);
 
   pk_loop_run_simple(loop);
 

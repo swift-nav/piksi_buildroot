@@ -391,10 +391,11 @@ failure:
   return NULL;
 }
 
-static void pk_loop_watchdog_kick(pk_loop_t *loop,
-                                  void *handle, int status, void *context)
+static void pk_loop_watchdog_kick(pk_loop_t *loop, void *handle, int status, void *context)
 {
-  (void)loop; (void)handle; (void)status;
+  (void)loop;
+  (void)handle;
+  (void)status;
 
   sem_t *sem = context;
   sem_post(sem);
@@ -407,8 +408,7 @@ void *pk_loop_watchdog_add(pk_loop_t *pk_loop, const char *watchdog_id)
   mode_t oldmode = umask(0);
   sem_t *sem = sem_open(name, O_CREAT, 0666, 0);
   umask(oldmode);
-  return pk_loop_timer_add(pk_loop, WATCHDOG_KICK_PERIOD,
-                           pk_loop_watchdog_kick, sem);
+  return pk_loop_timer_add(pk_loop, WATCHDOG_KICK_PERIOD, pk_loop_watchdog_kick, sem);
 }
 
 int pk_loop_timer_reset(void *handle)
