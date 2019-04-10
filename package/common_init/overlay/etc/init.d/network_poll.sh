@@ -143,7 +143,7 @@ log_stop()
   echo "--- PING STOP: $(date -Is)" >>$(ping_log)
 }
 
-ping_addesses()
+ping_addresses()
 {
   local addresses
   addresses="$(cat "$polling_addresses_file")"
@@ -159,7 +159,7 @@ run_ping()
 {
   local IFS=$'\n'
 
-  for address in $(ping_addesses); do
+  for address in $(ping_addresses); do
     if ping -w 5 -c 1 "$address" >>"$(ping_log)" 2>&1; then
       return 0
     fi
