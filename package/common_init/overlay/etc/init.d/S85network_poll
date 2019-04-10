@@ -16,6 +16,7 @@ setup_permissions()
   configure_file_resource $user $piksi_sys_dir/network_available 0644
   configure_file_resource $user $piksi_sys_dir/network_polling_period 0644
   configure_file_resource $user $piksi_sys_dir/network_polling_retry_period 0644
+  configure_file_resource $user $piksi_sys_dir/network_polling_addresses 0644
   configure_file_resource $user $piksi_sys_dir/enable_ping_logging 0644
 
   configure_file_resource $user /var/log/ping.log 0644
