@@ -269,7 +269,8 @@ static int logging_filesystem_notify(void *context)
    *   F2FS -> NTFS
    *   NTFS -> F2FS
    *
-   * Transitions that should NOT cause a warning (no data will be erased, card will not be migrated):
+   * Transitions that should NOT cause a warning (no data will be erased, card will not be
+   * migrated):
    *
    *   None -> FAT
    *   F2FS -> FAT
@@ -292,9 +293,7 @@ static int logging_filesystem_notify(void *context)
   case FSTT_FAT_TO_NTFS:  /* Fall through */
   case FSTT_FAT_TO_F2FS:  /* Fall through */
   case FSTT_F2FS_TO_NTFS: /* Fall through */
-  case FSTT_NTFS_TO_F2FS: /* Fall through */
-    issue_migration_warning();
-    break;
+  case FSTT_NTFS_TO_F2FS: /* Fall through */ issue_migration_warning(); break;
   }
 
   save_prev_logging_fs_type_value();
