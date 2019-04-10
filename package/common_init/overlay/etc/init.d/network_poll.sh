@@ -1,5 +1,10 @@
 #!/bin/ash
 
+export name="network_poll"
+export log_tag=$name
+
+source /etc/init.d/logging.sh
+
 ## Resources and configuration:
 
 default_check_period=10
@@ -93,8 +98,7 @@ warn_check_disabled()
     return 0
   fi
 
-  echo "Network status LED disabled (network check frequency set to zero)." | \
-    sbp_log --warn
+  logw "Network status LED disabled (network check frequency set to zero)."
 
   warn_check_disabled_logged=y
 }
@@ -145,10 +149,10 @@ ping_addesses()
   addresses="$(cat "$polling_addresses_file")"
 
   if [[ -n "$addresses" ]]; then
+    echo "$addresses" | tr ',' '\n'
+  else
     echo "$default_ping_addresses" | tr ',' '\n'
   fi
-
-  echo "$addresses" | tr ',' '\n' 
 }
 
 run_ping()
@@ -179,7 +183,7 @@ while true; do
   fi
   reset_warn_check_disabled
   if [ x`cat $network_available_file` != "x1" ]; then
-    echo "No route to Internet" | sbp_log --warn
+    logw "No route to Internet"
   fi
 done &
 
