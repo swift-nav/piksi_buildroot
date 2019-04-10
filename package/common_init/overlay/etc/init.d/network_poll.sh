@@ -98,7 +98,7 @@ warn_check_disabled()
     return 0
   fi
 
-  logw "Network status LED disabled (network check frequency set to zero)."
+  logw --sbp "Network status LED disabled (network check frequency set to zero)."
 
   warn_check_disabled_logged=y
 }
@@ -183,7 +183,7 @@ while true; do
   fi
   reset_warn_check_disabled
   if [ x`cat $network_available_file` != "x1" ]; then
-    logw "No route to Internet"
+    logw --sbp "No route to Internet"
   fi
 done &
 
