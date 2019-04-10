@@ -1,9 +1,17 @@
 #!/bin/ash
 
+export name="network_poll"
+export log_tag=$name
+
+source /etc/init.d/logging.sh
+
 ## Resources and configuration:
 
 default_check_period=10
 default_retry_period=1
+default_ping_addresses=8.8.8.8
+
+recheck_enabled_period=1
 
 skylark_enabled_file=/var/run/skylark/enabled
 ntrip_enabled_file=/var/run/ntrip/enabled
@@ -12,6 +20,7 @@ ntrip_enabled_file=/var/run/ntrip/enabled
 piksi_sys_dir=/var/run/piksi_sys
 polling_period_file=$piksi_sys_dir/network_polling_period
 polling_retry_file=$piksi_sys_dir/network_polling_retry_period
+polling_addresses_file=$piksi_sys_dir/network_polling_addresses
 network_available_file=$piksi_sys_dir/network_available
 ping_log_enabled_file=$piksi_sys_dir/enable_ping_logging
 
@@ -76,6 +85,33 @@ should_warn_on_no_inet()
   fi
 }
 
+warn_check_disabled_logged=
+
+reset_warn_check_disabled()
+{
+  warn_check_disabled_logged=
+}
+
+warn_check_disabled()
+{
+  if [[ -n "$warn_check_disabled_logged" ]]; then
+    return 0
+  fi
+
+  logw --sbp "Network status LED disabled (network check frequency set to zero)."
+
+  warn_check_disabled_logged=y
+}
+
+check_enabled()
+{
+  if [[ -z "$(cat "$polling_period_file")" ]]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
 sleep_connectivity_check()
 {
   period=$(cat $polling_period_file)
@@ -107,6 +143,31 @@ log_stop()
   echo "--- PING STOP: $(date -Is)" >>$(ping_log)
 }
 
+ping_addresses()
+{
+  local addresses
+  addresses="$(cat "$polling_addresses_file")"
+
+  if [[ -n "$addresses" ]]; then
+    echo "$addresses" | tr ',' '\n'
+  else
+    echo "$default_ping_addresses" | tr ',' '\n'
+  fi
+}
+
+run_ping()
+{
+  local IFS=$'\n'
+
+  for address in $(ping_addresses); do
+    if ping -w 5 -c 1 "$address" >>"$(ping_log)" 2>&1; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 ## Main script:
 
 while true; do
@@ -116,8 +177,13 @@ while true; do
   else
     sleep 10
   fi
+  if ! check_enabled; then
+    warn_check_disabled
+    continue
+  fi
+  reset_warn_check_disabled
   if [ x`cat $network_available_file` != "x1" ]; then
-    echo "No route to Internet" | sbp_log --warn
+    logw --sbp "No route to Internet"
   fi
 done &
 
@@ -125,9 +191,13 @@ child_pid=$!
 trap 'kill $child_pid; exit' EXIT STOP TERM HUP
 
 while true; do
+  if ! check_enabled; then
+    echo 0 >$network_available_file
+    sleep $recheck_enabled_period
+    continue
+  fi
   log_start
-  if ping -w 5 -c 1 8.8.8.8 >>$(ping_log) 2>&1 || \
-     ping -w 5 -c 1 114.114.114.114 >>$(ping_log) 2>&1; then
+  if run_ping; then
     log_stop
     echo 1 >$network_available_file
     sleep_connectivity_check
