@@ -10,3 +10,4 @@ build/
 .docker-sync/
 .docker-sync.yml
 .docker-compose.yml
+.check-docker-sync
