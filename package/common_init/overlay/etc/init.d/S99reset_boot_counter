@@ -31,5 +31,4 @@ if fw_printenv env_version_major; then
   fi;
 else
   logi --sbp "No uboot environment version found, not doing anything..."
-  $(initialize_uboot_environment)
 fi;
