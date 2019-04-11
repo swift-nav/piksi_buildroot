@@ -28,8 +28,8 @@ if [[ $(uname -a) == *NixOS* ]]; then
 fi
 
 FW_BUCKET=swiftnav-releases
-FW_VERSION=${1:-v2.3.3}
-NAP_VERSION=${2:-v2.3.3}
+FW_VERSION=${1:-v2.3.4}
+NAP_VERSION=${2:-v2.3.4}
 
 FW_S3_PATH=s3://$FW_BUCKET/piksi_firmware_private/$FW_VERSION/v3
 NAP_S3_PATH=s3://swiftnav-releases/piksi_fpga/$NAP_VERSION
