@@ -10,18 +10,6 @@ source /etc/init.d/logging.sh
 
 source /etc/init.d/common.sh
 
-initialize_uboot_environment()
-{
-  fw_setenv env_version_major 0
-  fw_setenv env_version_minor 1
-  fw_setenv env_version_minor_minor 0
-  fw_setenv pre_boot_counter 0
-  fw_setenv post_boot_counter 0
-  fw_setenv increment_boot_counter "setexpr pre_boot_counter \${pre_boot_counter} + 1; saveenv;"
-  fw_setenv pre_load_tasks "run increment_boot_counter;"
-  fw_setenv bootcmd "run pre_load_tasks; run fpgaload; run sdboot; run netboot;"
-}
-
 if fw_printenv env_version_major; then
   env_version_major=$(fw_printenv -n env_version_major)
   env_version_minor=$(fw_printenv -n env_version_minor)
@@ -42,6 +30,5 @@ if fw_printenv env_version_major; then
     fw_setenv post_boot_counter 0
   fi;
 else
-  logi --sbp "No uboot environment version found, intializing..."
-  $(initialize_uboot_environment)
+  logi --sbp "No uboot environment version found, not doing anything..."
 fi;
