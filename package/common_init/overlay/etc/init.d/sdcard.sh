@@ -1,50 +1,86 @@
-MOUNT_BASE="/media"
+# shellcheck disable=SC2039
+
+_mount_base="/media"
+
 if grep -q "root=/dev/mmcblk0" /proc/device-tree/chosen/bootargs; then
-	MOUNTNAME="nonexistant"
+  SDCARD_MOUNTNAME="nonexistant"
 else
-	MOUNTNAME="mmcblk0p1"
+	SDCARD_MOUNTNAME="mmcblk0p1"
 fi
-MOUNTPOINT="$MOUNT_BASE/$MOUNTNAME"
+
+export SDCARD_MOUNTNAME
+export USB_DRIVE_MOUNTNAME="sda1"
+
+export SDCARD_MOUNTPOINT="$_mount_base/$SDCARD_MOUNTNAME"
+export USB_DRIVE_MOUNTPOINT="$_mount_base/$USB_DRIVE_MOUNTNAME"
 
 # Wait 30 seconds for the sdcard to be mounted
-wait_sdcard_limit=30
+_wait_mount_limit=30
 
-is_mounted()
+_sdcard_debug_log()
 {
-  grep -q $MOUNTPOINT /proc/mounts
+  [[ -z "${DEBUG_SDCARD:-}" ]] || logd "$*"
 }
 
-inotify_wait_mountpoint()
+_is_mounted()
 {
-  [[ -e "$MOUNTPOINT" ]] || inotifywait -e create "$MOUNT_BASE" -q -t 1 | grep -q "CREATE $MOUNTNAME"
+  local mountname=$1; shift
+  local mountpoint=$_mount_base/$mountname
+
+  _sdcard_debug_log "_is_mounted: $mountpoint"
+
+  grep -q "$mountpoint" /proc/mounts
 }
 
-seconds_since_start() {
-  local the_time=$(cut -f1 -d' ' </proc/uptime)
-  echo ${the_time/.*}
+_inotify_wait_mountpoint()
+{
+  local mountname=$1; shift
+  local mountpoint=$_mount_base/$mountname
+
+  _sdcard_debug_log "_inotify_wait_mountpoint: $mountpoint"
+
+  [[ -e "$mountpoint" ]] || inotifywait -e create "$_mount_base" -q -t 1 \
+    | grep -q "CREATE $mountname"
 }
 
-wait_for_sdcard_mount()
+_seconds_since_start() {
+
+  local the_time
+  the_time=$(cut -f1 -d' ' </proc/uptime)
+
+  _sdcard_debug_log "_seconds_since_start"
+
+  echo "${the_time/.*}"
+}
+
+wait_for_mount()
 {
-  local start_time=$(seconds_since_start)
+  local mountname=$1; shift
+  local mountpoint=$_mount_base/$mountname
+
+  _sdcard_debug_log "wait_for_mount: $mountpoint"
+
+  local start_time=
   local current_time=
 
-  while ! inotify_wait_mountpoint; do
+  start_time=$(_seconds_since_start)
 
-    current_time=$(seconds_since_start)
-    if [[ $(( current_time - start_time )) -gt $wait_sdcard_limit ]]; then
-      logi "Ending wait for sdcard mount..."
+  while ! _inotify_wait_mountpoint "$mountname"; do
+
+    current_time=$(_seconds_since_start)
+    if [[ $(( current_time - start_time )) -gt $_wait_mount_limit ]]; then
+      logi "Ending wait for $mountname..."
       exit 0
     fi
 
     continue;
   done
 
-  while ! is_mounted; do
+  while ! _is_mounted "$mountname"; do
 
-    current_time=$(seconds_since_start)
-    if [[ $(( current_time - start_time )) -gt $wait_sdcard_limit ]]; then
-      logi "Ending wait for sdcard mount..."
+    current_time=$(_seconds_since_start)
+    if [[ $(( current_time - start_time )) -gt $_wait_mount_limit ]]; then
+      logi "Ending wait for $mountname..."
       exit 0
     fi
 
@@ -52,32 +88,47 @@ wait_for_sdcard_mount()
     continue;
   done
 
-  if ! [[ -d "$MOUNTPOINT" ]]; then
-    logw "Mountpoint exists, but is not a directory"
+  if ! [[ -d "$mountpoint" ]]; then
+    loge "Mountpoint exists, but is not a directory"
   fi
 }
 
-is_f2fs_enabled()
+wait_for_sdcard_mount()
 {
+  _sdcard_debug_log "wait_for_sdcard_mount"
+  wait_for_mount "$SDCARD_MOUNTNAME"
+}
+
+wait_for_usb_drive_mount()
+{
+  _sdcard_debug_log "wait_for_usb_drive_mount"
+  wait_for_mount "$USB_DRIVE_MOUNTNAME"
+}
+
+_is_f2fs_enabled()
+{
+  _sdcard_debug_log "_is_f2fs_enabled"
   [[ "$(query_config --section standalone_logging --key logging_file_system)" == "F2FS" ]]
 }
 
-is_ntfs_enabled()
+_is_ntfs_enabled()
 {
+  _sdcard_debug_log "_is_ntfs_enabled"
   [[ "$(query_config --section standalone_logging --key logging_file_system)" == "NTFS" ]]
 }
 
 fetch_new_fs_type()
 {
   local devname=$1; shift
+  _sdcard_debug_log "fetch_new_fs_type: $devname"
 
-  if is_f2fs_enabled; then
+  if _is_f2fs_enabled; then
     if detect_f2fs "$devname"; then
       echo ""
     else
       echo "f2fs"
     fi
-  elif is_ntfs_enabled; then
+  elif _is_ntfs_enabled; then
     if detect_ntfs "$devname"; then
       echo ""
     else
@@ -91,20 +142,21 @@ fetch_new_fs_type()
 needs_migration()
 {
   local devname=$1; shift
+  _sdcard_debug_log "needs_migration: $devname"
 
-  if ! is_f2fs_enabled && ! is_ntfs_enabled; then
-    logd "Did not detect F2FS or NTFS in config"
+  if ! _is_f2fs_enabled && ! _is_ntfs_enabled; then
+    _sdcard_debug_log "Did not detect F2FS or NTFS in config"
     return 1 # no
   fi
 
-  if is_f2fs_enabled; then
-    if detect_f2fs $devname; then
+  if _is_f2fs_enabled; then
+    if detect_f2fs "$devname"; then
       return 1 # no
     fi
   fi
 
-  if is_ntfs_enabled; then
-    if detect_ntfs $devname; then
+  if _is_ntfs_enabled; then
+    if detect_ntfs "$devname"; then
       return 1 # no
     fi
   fi
@@ -112,17 +164,19 @@ needs_migration()
   return 0 # yes
 }
 
-detect_fs_type()
+_detect_fs_type()
 {
   local devname=$1; shift
   local desired_fs_type=$1; shift
+
+  _sdcard_debug_log "_detect_fs_type: devname=$devname, desired_fs_type=$desired_fs_type"
 
   local dev="/dev/$devname"
   local fstype
 
   fstype=$(lsblk "$dev" -o FSTYPE | tail -n -1)
 
-  logd "detect_fs_type: file-system type: '$fstype'"
+  _sdcard_debug_log "_detect_fs_type: file-system type: '$fstype'"
 
   if [[ "$fstype" == "$desired_fs_type" ]]; then
     return 0
@@ -134,11 +188,15 @@ detect_fs_type()
 detect_f2fs()
 {
   local devname=$1; shift
-  detect_fs_type "$devname" "f2fs"
+  _sdcard_debug_log "detect_f2fs: $devname"
+
+  _detect_fs_type "$devname" "f2fs"
 }
 
 detect_ntfs()
 {
   local devname=$1; shift
-  detect_fs_type "$devname" "ntfs"
+  _sdcard_debug_log "detect_ntfs: $devname"
+
+  _detect_fs_type "$devname" "ntfs"
 }

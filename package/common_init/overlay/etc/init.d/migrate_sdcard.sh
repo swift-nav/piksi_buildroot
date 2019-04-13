@@ -1,5 +1,10 @@
 #!/bin/ash
 
+# shellcheck disable=SC2039,SC2169,SC1091
+
+[[ -z "${DEBUG:-}" ]] || set -x
+DEBUG_SDCARD=y
+
 export name="migrate_sdcard"
 export log_tag=$name
 
@@ -12,7 +17,9 @@ partition_disk()
 {
   local dev="$1"; shift
 
-  sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' <<EOF | fdisk $dev
+  logd "partition_disk: dev=$dev"
+
+  sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' <<EOF | fdisk "$dev"
       o # clear the in memory partition table
       n # new partition
       p # primary partition
@@ -28,6 +35,8 @@ format_with_fs_type()
 {
   local dev="/dev/$1"; shift
   local new_fs_type=$1; shift
+
+  logd "format_with_fs_type: dev=$dev, new_fs_type=$new_fs_type"
 
   local fstype
   fstype=$(lsblk -o FSTYPE "$dev" | tail -n -1)
@@ -45,9 +54,9 @@ format_with_fs_type()
 
   logi "Formatting partition with ${new_fs_type}..."
   if [[ "$new_fs_type" == "f2fs" ]]; then
-    mkfs.f2fs "$dev" || logw "Formatting failed"
-  elif [[ "$new_fs_type" == "f2fs" ]]; then
-    mkfs.ntfs --fast "$dev" || logw "Formatting failed"
+    mkfs.f2fs "$dev" || logw "Formatting F2FS failed"
+  elif [[ "$new_fs_type" == "ntfs" ]]; then
+    mkfs.ntfs --fast "$dev" || logw "Formatting NTFS failed"
   else
     loge "Unknown filesystem type: ${new_fs_type}"
     return 1
@@ -58,30 +67,72 @@ format_with_fs_type()
 
 list_partitions()
 {
-  lsblk -o NAME,TYPE | grep "$MOUNTNAME" | grep ' part$' | awk '{print $1}' | tail -n -1
+  local mountname=$1; shift
+  lsblk -o NAME,TYPE | grep "$mountname" | grep ' part$' | awk '{print $1}' | tail -n -1
 }
 
-wait_for_sdcard_mount
+_reboot_after_migrate=
 
-for dev in $(list_partitions); do
-  devname="${dev:2}"
-  if needs_migration "$devname"; then
+migrate_storage()
+{
+  local mountname=$1
+  logd "migrate_storage: $mountname"
 
-    # Stop services that use the sdcard
-    /etc/init.d/S83standalone_file_logger stop
-    /etc/init.d/S98copy_sys_logs stop
+  wait_for_mount "$mountname"
 
-    # Disable automount...
-    echo >/var/run/automount_disabled
+  for dev in $(list_partitions "$mountname"); do
+    devname="${dev:2}"
+    if needs_migration "$devname"; then
 
-    mountpoint=$(lsblk -o MOUNTPOINT "/dev/$devname" | tail -n -1)
-    [[ -z "$mountpoint" ]] || umount "$mountpoint"
+      # Stop services that use the sdcard
+      /etc/init.d/S83standalone_file_logger stop
+      /etc/init.d/S98copy_sys_logs stop
 
-    new_fs_type=$(fetch_new_fs_type)
-    logw "Migrating '${devname}' to ${new_fs_type}..."
+      # Disable automount...
+      echo >/var/run/automount_disabled
 
-    format_with_fs_type "$devname" "$new_fs_type"
+      mountpoint=$(lsblk -o MOUNTPOINT "/dev/$devname" | tail -n -1)
 
-    reboot -f
-  fi
-done
+      [[ -z "$mountpoint" ]] || umount "$mountpoint" || {
+        logw --sbp "Failed to migrate '${devname}' to ${new_fs_type}..."
+        return 1; 
+      }
+
+      new_fs_type=$(fetch_new_fs_type)
+      logw --sbp "Migrating '${devname}' to ${new_fs_type}..."
+
+      format_with_fs_type "$devname" "$new_fs_type" || return 1
+      _reboot_after_migrate=y
+
+      logi  "Done migrating '${devname}' to ${new_fs_type}..."
+    fi
+  done
+}
+
+migrate_sdcard()
+{
+  logd "migrate_sdcard"
+  migrate_storage "$SDCARD_MOUNTNAME"
+}
+
+migrate_usb_drive()
+{
+  logd "migrate_usb_drive"
+  migrate_storage "$USB_DRIVE_MOUNTNAME"
+}
+
+migrate_sdcard &
+migrate_sdcard_pid=$!
+
+migrate_usb_drive &
+migrate_usb_drive_pid=$!
+
+wait $migrate_sdcard_pid $migrate_usb_drive_pid
+
+[[ -z "$_reboot_after_migrate" ]] || {
+
+  logw --sbp "Done migrating storage media, rebooting..."
+  sleep 0.1
+
+  reboot -f
+}
