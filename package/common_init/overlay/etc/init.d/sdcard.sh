@@ -14,6 +14,9 @@ export USB_DRIVE_MOUNTNAME="sda1"
 export SDCARD_MOUNTPOINT="$_mount_base/$SDCARD_MOUNTNAME"
 export USB_DRIVE_MOUNTPOINT="$_mount_base/$USB_DRIVE_MOUNTNAME"
 
+export STORAGE_TYPE_F2FS="F2FS"
+export STORAGE_TYPE_NTFS="NTFS"
+
 # Wait 30 seconds for the sdcard to be mounted
 _wait_mount_limit=30
 
@@ -148,13 +151,13 @@ fetch_new_fs_type()
     if detect_f2fs "$devname"; then
       echo ""
     else
-      echo "f2fs"
+      echo "$STORAGE_TYPE_F2FS"
     fi
   elif _is_ntfs_enabled; then
     if detect_ntfs "$devname"; then
       echo ""
     else
-      echo "ntfs"
+      echo "$STORAGE_TYPE_NTFS"
     fi
   else
       echo ""
@@ -219,7 +222,8 @@ detect_f2fs()
   local devname=$1; shift
   _sdcard_debug_log "detect_f2fs: $devname"
 
-  _detect_fs_type "$devname" "f2fs"
+  local ls_blk_str=f2fs
+  _detect_fs_type "$devname" "$ls_blk_str"
 }
 
 detect_ntfs()
@@ -227,5 +231,6 @@ detect_ntfs()
   local devname=$1; shift
   _sdcard_debug_log "detect_ntfs: $devname"
 
-  _detect_fs_type "$devname" "ntfs"
+  local ls_blk_str=ntfs
+  _detect_fs_type "$devname" "$ls_blk_str"
 }
