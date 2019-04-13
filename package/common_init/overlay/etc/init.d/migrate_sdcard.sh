@@ -3,7 +3,7 @@
 # shellcheck disable=SC2039,SC2169,SC1091
 
 [[ -z "${DEBUG:-}" ]] || set -x
-export DEBUG_SDCARD=y
+#export DEBUG_SDCARD=y
 
 export name="migrate_sdcard"
 export log_tag=$name
@@ -55,7 +55,7 @@ format_with_fs_type()
   logi "Formatting partition with ${new_fs_type}..."
   if [[ "$new_fs_type" == "$STORAGE_TYPE_F2FS" ]]; then
     mkfs.f2fs "$dev" || logw "Formatting F2FS failed"
-  elif [[ "$new_fs_type" == "$STORAGE_NTFS" ]]; then
+  elif [[ "$new_fs_type" == "$STORAGE_TYPE_NTFS" ]]; then
     mkfs.ntfs --fast "$dev" || logw "Formatting NTFS failed"
   else
     loge "Unknown filesystem type: ${new_fs_type}"
