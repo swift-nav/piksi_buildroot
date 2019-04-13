@@ -53,6 +53,16 @@ _seconds_since_start() {
   echo "${the_time/.*}"
 }
 
+set_stop_wait_for_mount()
+{
+  echo >/var/run/stop_wait_for_mount
+}
+
+stop_wait_for_mount()
+{
+  [[ -f /var/run/stop_wait_for_mount ]]
+}
+
 wait_for_mount()
 {
   local mountname=$1; shift
@@ -68,9 +78,15 @@ wait_for_mount()
   while ! _inotify_wait_mountpoint "$mountname"; do
 
     current_time=$(_seconds_since_start)
+
     if [[ $(( current_time - start_time )) -gt $_wait_mount_limit ]]; then
-      logi "Ending wait for $mountname..."
-      exit 0
+      logi "Ending wait for $mountname (inotify)..."
+      return 0
+    fi
+
+    if stop_wait_for_mount; then
+      logi "Wait for $mountname stopped (inotify)..."
+      return 0
     fi
 
     continue;
@@ -79,9 +95,15 @@ wait_for_mount()
   while ! _is_mounted "$mountname"; do
 
     current_time=$(_seconds_since_start)
+
     if [[ $(( current_time - start_time )) -gt $_wait_mount_limit ]]; then
-      logi "Ending wait for $mountname..."
-      exit 0
+      logi "Ending wait for $mountname (_is_mounted)..."
+      return 0
+    fi
+
+    if stop_wait_for_mount; then
+      logi "Wait for $mountname stopped (_is_mounted)..."
+      return 0
     fi
 
     sleep 0.5;
@@ -144,8 +166,15 @@ needs_migration()
   local devname=$1; shift
   _sdcard_debug_log "needs_migration: $devname"
 
+  local dev="/dev/$mountname"
+
+  if ! [[ -c $dev ]]; then
+    _sdcard_debug_log "needs_migration: device not present: $dev"
+    return 1 # no
+  fi
+
   if ! _is_f2fs_enabled && ! _is_ntfs_enabled; then
-    _sdcard_debug_log "Did not detect F2FS or NTFS in config"
+    _sdcard_debug_log "needs_migration: did not detect F2FS or NTFS in config"
     return 1 # no
   fi
 

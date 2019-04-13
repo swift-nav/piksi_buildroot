@@ -71,7 +71,15 @@ list_partitions()
   lsblk -o NAME,TYPE | grep "$mountname" | grep ' part$' | awk '{print $1}' | tail -n -1
 }
 
-_reboot_after_migrate=
+set_reboot_after_migrate()
+{
+  echo >/var/run/reboot_after_migrate
+}
+
+reboot_after_migrate()
+{
+  [[ -f /var/run/reboot_after_migrate ]]
+}
 
 migrate_storage()
 {
@@ -98,13 +106,15 @@ migrate_storage()
         return 1; 
       }
 
-      new_fs_type=$(fetch_new_fs_type)
-      logw --sbp "Migrating '${devname}' to ${new_fs_type}..."
+      new_fs_type=$(fetch_new_fs_type "$devname")
+      logw --sbp "Migrating '$devname' to $new_fs_type..."
 
       format_with_fs_type "$devname" "$new_fs_type" || return 1
-      _reboot_after_migrate=y
 
       logi  "Done migrating '${devname}' to ${new_fs_type}..."
+
+      set_reboot_after_migrate
+      set_stop_wait_for_mount
     fi
   done
 }
@@ -129,10 +139,13 @@ migrate_usb_drive_pid=$!
 
 wait $migrate_sdcard_pid $migrate_usb_drive_pid
 
-[[ -z "$_reboot_after_migrate" ]] || {
+if reboot_after_migrate; then
 
   logw --sbp "Done migrating storage media, rebooting..."
   sleep 0.1
 
   reboot -f
-}
+
+else
+  logi "Done migrating storage media..."
+fi
