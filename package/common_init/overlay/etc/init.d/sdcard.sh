@@ -171,7 +171,7 @@ needs_migration()
 
   local dev="/dev/$mountname"
 
-  if ! [[ -c $dev ]]; then
+  if ! [[ -e $dev ]]; then
     _sdcard_debug_log "needs_migration: device not present: $dev"
     return 1 # no
   fi
@@ -183,16 +183,19 @@ needs_migration()
 
   if _is_f2fs_enabled; then
     if detect_f2fs "$devname"; then
+      _sdcard_debug_log "needs_migration: already F2FS: $dev"
       return 1 # no
     fi
   fi
 
   if _is_ntfs_enabled; then
     if detect_ntfs "$devname"; then
+      _sdcard_debug_log "needs_migration: already NTFS: $dev"
       return 1 # no
     fi
   fi
 
+  _sdcard_debug_log "needs_migration: need migration: $dev"
   return 0 # yes
 }
 

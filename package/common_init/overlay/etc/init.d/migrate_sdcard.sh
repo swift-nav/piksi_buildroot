@@ -3,7 +3,7 @@
 # shellcheck disable=SC2039,SC2169,SC1091
 
 [[ -z "${DEBUG:-}" ]] || set -x
-#DEBUG_SDCARD=y
+export DEBUG_SDCARD=y
 
 export name="migrate_sdcard"
 export log_tag=$name
