@@ -2,7 +2,7 @@
 
 log_tag=copy_sys_logs
 
-source /etc/init.d/sdcard.sh
+source /etc/init.d/stroage_media.sh
 source /etc/init.d/logging.sh
 
 setup_loggers

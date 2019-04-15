@@ -8,7 +8,7 @@
 export name="migrate_sdcard"
 export log_tag=$name
 
-source /etc/init.d/sdcard.sh
+source /etc/init.d/storage_media.sh
 source /etc/init.d/logging.sh
 
 setup_loggers
