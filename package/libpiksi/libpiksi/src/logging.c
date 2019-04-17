@@ -107,11 +107,12 @@ static void piksi_vklog(int priority, const char *format, va_list ap)
   bool result = userspace_printk(msg);
 
   if (result != true) {
-    const char *error_note = "Unable to log to kernel: %s";
+#define ERROR_NOTE "Unable to log to kernel: %s"
     char *with_error =
-      (char *)alloca(strlen(error_note) + strlen(with_preamble) + 1 /* terminator */);
-    sprintf(with_error, error_note, with_preamble);
+      (char *)alloca(strlen(ERROR_NOTE) + strlen(with_preamble) + 1 /* terminator */);
+    sprintf(with_error, ERROR_NOTE, with_preamble);
     piksi_vlog(LOG_ERR, with_error, ap);
+#undef ERROR_NOTE
   }
 }
 
@@ -145,7 +146,7 @@ void piksi_log(int priority, const char *format, ...)
 {
   va_list ap;
   va_start(ap, format);
-  piksi_vlog(priority | LOG_KMSG, format, ap);
+  piksi_vlog(priority | (int)LOG_KMSG, format, ap);
   va_end(ap);
 }
 
