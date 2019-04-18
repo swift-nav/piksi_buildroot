@@ -29,6 +29,7 @@
 
 static void settings_reply(sbp_tx_ctx_t *tx_ctx,
                            setting_t *sdata,
+                           bool value,
                            bool type,
                            bool sbp_sender_id,
                            u16 msg_type,
@@ -47,7 +48,7 @@ static void settings_reply(sbp_tx_ctx_t *tx_ctx,
 
   int res = settings_format(sdata->section,
                             sdata->name,
-                            sdata->value,
+                            value ? sdata->value : NULL,
                             type ? sdata->type : NULL,
                             buf + offset,
                             blen - offset);
@@ -105,6 +106,7 @@ reg_response:
   buf[blen++] = res;
   settings_reply(ctx,
                  setting,
+                 true,
                  false,
                  true,
                  SBP_MSG_SETTINGS_REGISTER_RESP,
@@ -155,6 +157,7 @@ static void settings_write_resp_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 static void settings_read_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
 {
   sbp_tx_ctx_t *tx_ctx = (sbp_tx_ctx_t *)ctx;
+  bool send_value = true;
 
   if (sender_id != SBP_SENDER_ID) {
     piksi_log(LOG_ERR, "Error in settings read request: invalid sender");
@@ -179,9 +182,10 @@ static void settings_read_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
     setting = &(setting_t){0};
     strncpy(setting->section, section, sizeof(setting->section));
     strncpy(setting->name, name, sizeof(setting->name));
+    send_value = false;
   }
 
-  settings_reply(tx_ctx, setting, false, false, SBP_MSG_SETTINGS_READ_RESP, NULL, 0, 0);
+  settings_reply(tx_ctx, setting, send_value, false, false, SBP_MSG_SETTINGS_READ_RESP, NULL, 0, 0);
 }
 
 static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
@@ -215,6 +219,7 @@ static void settings_read_by_index_cb(u16 sender_id, u8 len, u8 *msg, void *ctx)
   memcpy(buf, msg, len);
   settings_reply(tx_ctx,
                  sdata,
+                 true,
                  true,
                  false,
                  SBP_MSG_SETTINGS_READ_BY_INDEX_RESP,
