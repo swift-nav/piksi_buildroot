@@ -35,17 +35,19 @@
 #define POLL_PERIOD_DEFAULT_s 30
 #define FILL_THRESHOLD_DEFAULT_p 95
 
-static const char *const logging_filesystem_names[] = {"FAT", "F2FS", NULL};
+static const char *const logging_filesystem_names[] = {"FAT", "F2FS", "NTFS", NULL};
 
 typedef enum {
   LOGGING_FILESYSTEM_FAT,
   LOGGING_FILESYSTEM_F2FS,
+  LOGGING_FILESYSTEM_NTFS,
 } logging_fs_t;
 
 static struct {
   bool is_set;
   logging_fs_t value;
 } logging_fs_type_prev = {false, LOGGING_FILESYSTEM_FAT};
+
 static logging_fs_t logging_fs_type = LOGGING_FILESYSTEM_FAT;
 
 static bool copy_system_logs_enable = false;
@@ -172,6 +174,82 @@ static void save_prev_logging_fs_type_value()
   logging_fs_type_prev.is_set = true;
 }
 
+typedef enum {
+  FSTT_UNKNOWN = -1,
+  FSTT_NO_DIFFERENCE,
+  FSTT_NONE_TO_F2FS,
+  FSTT_NONE_TO_NTFS,
+  FSTT_NONE_TO_FAT,
+  FSTT_FAT_TO_F2FS,
+  FSTT_FAT_TO_NTFS,
+  FSTT_F2FS_TO_NTFS,
+  FSTT_NTFS_TO_F2FS,
+  FSTT_F2FS_TO_FAT,
+  FSTT_NTFS_TO_FAT,
+} fs_type_transition_t;
+
+static fs_type_transition_t classify_fs_transition()
+{
+  if (logging_fs_type_prev.is_set && logging_fs_type_prev.value == logging_fs_type) {
+    /* Shouldn't be possible? Settings framework shouldn't issue a change in this case. */
+    return FSTT_NO_DIFFERENCE;
+  }
+  if (!logging_fs_type_prev.is_set && logging_fs_type == LOGGING_FILESYSTEM_F2FS) {
+    return FSTT_NONE_TO_F2FS;
+  }
+  if (!logging_fs_type_prev.is_set && logging_fs_type == LOGGING_FILESYSTEM_NTFS) {
+    return FSTT_NONE_TO_NTFS;
+  }
+  if (!logging_fs_type_prev.is_set && logging_fs_type == LOGGING_FILESYSTEM_NTFS) {
+    return FSTT_NONE_TO_FAT;
+  }
+  if (logging_fs_type_prev.is_set && logging_fs_type_prev.value == LOGGING_FILESYSTEM_FAT
+      && logging_fs_type == LOGGING_FILESYSTEM_F2FS) {
+    return FSTT_FAT_TO_F2FS;
+  }
+  if (logging_fs_type_prev.is_set && logging_fs_type_prev.value == LOGGING_FILESYSTEM_FAT
+      && logging_fs_type == LOGGING_FILESYSTEM_NTFS) {
+    return FSTT_FAT_TO_NTFS;
+  }
+  if (logging_fs_type_prev.is_set && logging_fs_type_prev.value == LOGGING_FILESYSTEM_F2FS
+      && logging_fs_type == LOGGING_FILESYSTEM_NTFS) {
+    return FSTT_F2FS_TO_NTFS;
+  }
+  if (logging_fs_type_prev.is_set && logging_fs_type_prev.value == LOGGING_FILESYSTEM_NTFS
+      && logging_fs_type == LOGGING_FILESYSTEM_F2FS) {
+    return FSTT_NTFS_TO_F2FS;
+  }
+  if (logging_fs_type_prev.is_set && logging_fs_type_prev.value == LOGGING_FILESYSTEM_NTFS
+      && logging_fs_type == LOGGING_FILESYSTEM_FAT) {
+    return FSTT_NTFS_TO_FAT;
+  }
+  if (logging_fs_type_prev.is_set && logging_fs_type_prev.value == LOGGING_FILESYSTEM_F2FS
+      && logging_fs_type == LOGGING_FILESYSTEM_FAT) {
+    return FSTT_F2FS_TO_FAT;
+  }
+  return FSTT_UNKNOWN;
+}
+
+static void issue_migration_warning()
+{
+  const int str_count = 6;
+  const int str_max = 128;
+
+  const char warning_strs[str_count][str_max] =
+    {"Logging file-system: *****************************************************************",
+     "Logging file-system: Detected that the logging file-system was changed to F2FS/NTFS...",
+     "Logging file-system: ... this will ERASE any removable media attached to system!",
+     "Logging file-system: The file-system will be reformatted on the next reboot...",
+     "Logging file-system: ...settings must be persisted for this to take effect.",
+     "Logging file-system: *****************************************************************"};
+
+  for (size_t x = str_count; x > 0; --x)
+    sbp_log(LOG_WARNING, warning_strs[x - 1]);
+
+  for (size_t x = 0; x < str_count; ++x)
+    piksi_log(LOG_WARNING, warning_strs[x]);
+}
+
 static int logging_filesystem_notify(void *context)
 {
   (void)context;
@@ -183,34 +261,42 @@ static int logging_filesystem_notify(void *context)
             logging_fs_type_prev.value,
             logging_fs_type_prev.is_set);
 
-  if (logging_fs_type != LOGGING_FILESYSTEM_F2FS) {
-    save_prev_logging_fs_type_value();
-    return SETTINGS_WR_OK;
-  }
+  /*
+   * Transitions that should issue a warning (because data will be erased):
+   *
+   *   None -> F2FS
+   *   None -> NTFS
+   *   F2FS -> NTFS
+   *   NTFS -> F2FS
+   *
+   * Transitions that should NOT cause a warning (no data will be erased, card will not be
+   * migrated):
+   *
+   *   None -> FAT
+   *   F2FS -> FAT
+   *   NTFS -> FAT
+   */
 
-  if (!logging_fs_type_prev.is_set || logging_fs_type_prev.value != LOGGING_FILESYSTEM_FAT) {
-    save_prev_logging_fs_type_value();
-    return SETTINGS_WR_OK;
+  fs_type_transition_t transition_type = classify_fs_transition();
+
+  switch (classify_fs_transition()) {
+  case FSTT_NO_DIFFERENCE:
+    PK_LOG_ANNO(LOG_DEBUG, "detected no difference in settings values");
+    break;
+  case FSTT_F2FS_TO_FAT: /* Fall through */
+  case FSTT_NONE_TO_FAT: /* Fall through */
+  case FSTT_NTFS_TO_FAT:
+    /* No warning needed */
+    break;
+  case FSTT_NONE_TO_F2FS: /* Fall through */
+  case FSTT_NONE_TO_NTFS: /* Fall through */
+  case FSTT_FAT_TO_NTFS:  /* Fall through */
+  case FSTT_FAT_TO_F2FS:  /* Fall through */
+  case FSTT_F2FS_TO_NTFS: /* Fall through */
+  case FSTT_NTFS_TO_F2FS: issue_migration_warning(); break;
   }
 
   save_prev_logging_fs_type_value();
-
-  const int str_count = 6;
-  const int str_max = 128;
-
-  const char warning_strs[str_count][str_max] =
-    {"Logging file-system: ************************************************************",
-     "Logging file-system: Detected that the logging file-system was changed to F2FS...",
-     "Logging file-system: ... this will ERASE any removable media attached to system!",
-     "Logging file-system: The file-system will be reformatted on the next reboot...",
-     "Logging file-system: ...settings must be persisted for this to take effect.",
-     "Logging file-system: ************************************************************"};
-
-  for (size_t x = str_count; x > 0; --x)
-    sbp_log(LOG_WARNING, warning_strs[x - 1]);
-
-  for (size_t x = 0; x < str_count; ++x)
-    piksi_log(LOG_WARNING, warning_strs[x]);
 
   return SETTINGS_WR_OK;
 }

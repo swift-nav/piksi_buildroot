@@ -1,0 +1,8 @@
+#!/bin/sh
+
+name="migrate_storage_media"
+cmd="/etc/init.d/migrate_storage_media.sh"
+dir="/"
+user=""
+
+source /etc/init.d/template_process.inc.sh
