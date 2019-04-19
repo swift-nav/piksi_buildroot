@@ -573,3 +573,8 @@ int pk_settings_loop_send_command(const char *metrics_ident,
 #undef CHECK_PK_EPT_ERR
 #undef CMD_INFO_MSG
 }
+
+pk_loop_t *pk_settings_get_loop(pk_settings_ctx_t *ctx)
+{
+  return ctx->loop;
+}

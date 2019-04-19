@@ -5,6 +5,7 @@ export name="endpoint_adapter_rpmsg_piksi100"
 export cmd="endpoint_adapter\
  --name rpmsg_piksi100\
  --framer-in sbp\
+ -w rpmsg_piksi\
  --file /dev/rpmsg_piksi100\
  -p 'ipc:///var/run/sockets/firmware.sub'\
  -s 'ipc:///var/run/sockets/firmware.pub'"

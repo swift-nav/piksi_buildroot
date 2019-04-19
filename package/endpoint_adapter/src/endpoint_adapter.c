@@ -196,6 +196,7 @@ static const char *udp_connect_addr = NULL;
 static int can_id = -1;
 static int can_filter = -1;
 static bool retry_pubsub = false;
+static const char *watchdog_sem = NULL;
 
 static uint8_t fd_read_buffer[READ_BUFFER_SIZE]; /** The read buffer */
 static bool eagain_warned = false; /** used to rate limit the EGAIN warning to once per second */
@@ -207,6 +208,7 @@ static void usage(char *command)
   fprintf(stderr, "\nGeneral\n");
   fprintf(stderr, "\t--name\n");
   fprintf(stderr, "\t\tthe name of this adapter (typically used for metrics and logging)\n");
+  fprintf(stderr, "\t-w, --watchdog <watchdog semaphore>\n");
 
   fprintf(stderr, "\nEndpoint Modes - select one or two (see notes)\n");
   fprintf(stderr, "\t-p, --pub <addr>\n");
@@ -285,6 +287,7 @@ static int parse_options(int argc, char *argv[])
     {"framer-in",         required_argument, 0, OPT_ID_FRAMER_IN},
     {"framer-out",        required_argument, 0, OPT_ID_FRAMER_OUT},
     {"stdio",             no_argument,       0, OPT_ID_STDIO},
+    {"watchdog",          required_argument, 0, 'w'},
     {"name",              required_argument, 0, OPT_ID_NAME},
     {"file",              required_argument, 0, OPT_ID_FILE},
     {"tcp-l",             required_argument, 0, OPT_ID_TCP_LISTEN},
@@ -310,7 +313,7 @@ static int parse_options(int argc, char *argv[])
 
   int c;
   int opt_index;
-  while ((c = getopt_long(argc, argv, "p:s:", long_opts, &opt_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "w:p:s:", long_opts, &opt_index)) != -1) {
     switch (c) {
     case OPT_ID_CAN: {
       io_mode = IO_CAN;
@@ -328,6 +331,11 @@ static int parse_options(int argc, char *argv[])
     case OPT_ID_NAME: {
       port_name = optarg;
     } break;
+
+    case 'w': {
+      watchdog_sem = optarg;
+      break;
+    }
 
     case OPT_ID_FILE: {
       io_mode = IO_FILE;
@@ -997,6 +1005,10 @@ int io_loop_run(int read_fd, int write_fd)
 
   void *handle = pk_loop_timer_add(loop_ctx.loop, 1000, timer_handler, NULL);
   assert(handle != NULL);
+
+  if (watchdog_sem) {
+    pk_loop_watchdog_add(loop_ctx.loop, watchdog_sem);
+  }
 
   if (pub_addr != NULL && read_fd != -1) {
 

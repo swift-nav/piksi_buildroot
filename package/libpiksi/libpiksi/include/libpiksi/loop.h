@@ -112,6 +112,17 @@ void *pk_loop_signal_handler_add(pk_loop_t *pk_loop,
 void *pk_loop_timer_add(pk_loop_t *pk_loop, u64 period_ms, pk_loop_cb callback, void *context);
 
 /**
+ * @brief   Periodically kick the watchdog daemon
+ * @details Convenience funciton to add a timer that kicks the watchdog
+ *
+ * @param[in] pk_loop       Pointer to the Piksi loop to use.
+ * @param[in] watchdog_id   Pointer to string identifying the watchdog to kick.
+ *
+ * @return                  Timer handle if added successfully, otherwise NULL
+ */
+void *pk_loop_watchdog_add(pk_loop_t *pk_loop, const char *watchdog_id);
+
+/**
  * @brief   Reset a timer
  * @details Reset a timer using the handle returned during add
  *

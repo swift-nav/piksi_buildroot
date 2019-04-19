@@ -78,6 +78,8 @@ static int parse_options(int argc, char *argv[])
 
 static void settings_init(pk_settings_ctx_t *s)
 {
+  pk_loop_watchdog_add(pk_settings_get_loop(s), "ports_daemon");
+
   if (whitelists_init(s, can_enabled) != 0) exit(EXIT_FAILURE);
 
   if (ports_init(s, can_enabled) != 0) exit(EXIT_FAILURE);
