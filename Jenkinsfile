@@ -46,45 +46,6 @@ pipeline {
     stages {
         stage('Build') {
             parallel {
-                // This is a stage that can be used to quickly try some changes.
-                // It won't run if STAGE_INCLUDE is empty. To run it, set the STAGE_INCLUDE parameter
-                // to "s3-test".
-//                stage('s3-test') {
-//                    when {
-//                        // Run only when specifically included via the STAGE_INCLUDE parameter.
-//                        expression {
-//                            context.isStageIncluded(name: 'S3-test', includeOnEmpty: false)
-//                        }
-//                    }
-//                    agent {
-//                        dockerfile {
-//                            filename dockerFile
-//                            args dockerMountArgs
-//                        }
-//                    }
-//                    steps {
-//                        stageStart()
-//                        gitPrep()
-//                        crlKeyAdd()
-//
-//                        // create a dummy file that we can save later
-//                        sh("mkdir -p a/b/c && touch dummy_file.txt a/b/c/PiksiMulti_1.bin a/b/c/PiksiMulti_2.bin a/b/c/somefile.txt")
-//                    }
-//                    post {
-//                        success {
-//                            script {
-//                                context.archivePatterns(
-//                                        patterns: ['a/b/c/*.bin'],
-//                                        addPath: 'dummy/addme'
-//                                )
-//                            }
-//                        }
-//                        always {
-//                            cleanUp()
-//                        }
-//                    }
-//                }
-//
                 stage('Release') {
                     when {
                         expression {
