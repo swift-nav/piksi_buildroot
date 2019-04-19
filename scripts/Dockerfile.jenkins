@@ -9,15 +9,6 @@ FROM 571934480752.dkr.ecr.us-west-2.amazonaws.com/buildroot-base:test
 RUN useradd -u 1001 -ms /bin/bash -G sudo jenkins
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-# Use newer ccache to fix issue with parallel cleanup
-RUN cd /tmp && \
-    wget https://www.samba.org/ftp/ccache/ccache-3.6.tar.gz && \
-    tar fxvz ccache-3.6.tar.gz && \
-    cd ccache-3.6 && \
-    ./configure && \
-    make install
-#ENV PATH=/usr/lib/ccache:${PATH}
-
 # Enable 'jenkins' user to clone from github
 USER jenkins
 SHELL ["/bin/bash", "-c"]
