@@ -2,8 +2,7 @@
 # so we'll have to hard code it here. Make sure to also update docker_version_tag when updating
 # the tag here.
 
-# TODO: replace with actual image tag once it's created
-FROM swiftnav/buildroot-base:test
+FROM swiftnav/buildroot-base:2019-04-22
 
 # Add a "jenkins" user with sudo capabilities
 RUN useradd -u 1001 -ms /bin/bash -G sudo jenkins

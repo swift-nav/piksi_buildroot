@@ -3,8 +3,9 @@
 // Use 'ci-jenkins@someref' to pull shared lib from a different branch/tag than the default.
 // Default is configured in Jenkins and should be from "stable" tag.
 
-// TODO: Remove branch after ci-jenkins PR is merged/tagged
-@Library("ci-jenkins@klaus/pr-class") import com.swiftnav.ci.*
+// TODO: Change from stable-pbr to stable after everything works fine.
+// Meanwhile, the stable-pbr will allow us to quickly fix issues in the shared libs after this gets merged.
+@Library("ci-jenkins@stable-pbr") import com.swiftnav.ci.*
 
 String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
