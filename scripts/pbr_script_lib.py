@@ -65,7 +65,6 @@ class Runner(object):
         """
         Run a shell command.
         """
-        print("In lib.call with cmd='{}'".format(cmd))
         if self._stdin_fp is not None:
             self._proc_args = [cmd]
             self._proc_kw = { 'stdin': self._stdin_fp }

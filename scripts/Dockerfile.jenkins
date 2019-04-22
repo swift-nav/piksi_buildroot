@@ -3,7 +3,7 @@
 # the tag here.
 
 # TODO: replace with actual image tag once it's created
-FROM 571934480752.dkr.ecr.us-west-2.amazonaws.com/buildroot-base:test
+FROM swiftnav/buildroot-base:test
 
 # Add a "jenkins" user with sudo capabilities
 RUN useradd -u 1001 -ms /bin/bash -G sudo jenkins
