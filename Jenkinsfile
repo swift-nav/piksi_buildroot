@@ -92,9 +92,6 @@ pipeline {
                             context.isStageIncluded()
                         }
                     }
-                    environment {
-                        GENERATE_REQUIREMENTS=1
-                    }
                     agent {
                         dockerfile {
                             filename dockerFile
@@ -107,6 +104,7 @@ pipeline {
                         crlKeyAdd()
 
                         script {
+                            sh('GENERATE_REQUIREMENTS=1 ./scripts/fetch_firmware.sh')
                             builder.make(target: "firmware")
                             builder.make(target: "image")
                             createPrDescription(context: context)
@@ -125,6 +123,7 @@ pipeline {
                                 ],
                             )
                             if (context.isPrPush()) {
+
                                 hitl.triggerForPr()
                                 context.archivePatterns(
                                     patterns: [
