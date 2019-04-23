@@ -104,7 +104,7 @@ pipeline {
                         crlKeyAdd()
 
                         script {
-                            sh('GENERATE_REQUIREMENTS=1 ./scripts/fetch_firmware.sh')
+                            sh('GENERATE_REQUIREMENTS=1 ./fetch_firmware.sh')
                             builder.make(target: "firmware")
                             builder.make(target: "image")
                             createPrDescription(context: context)
