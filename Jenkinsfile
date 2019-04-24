@@ -107,7 +107,9 @@ pipeline {
                             sh('GENERATE_REQUIREMENTS=1 ./fetch_firmware.sh')
                             builder.make(target: "firmware")
                             builder.make(target: "image")
-                            createPrDescription(context: context)
+                            if (context.isPrPush()) {
+                                createPrDescription(context: context)
+                            }
                             context.archivePatterns(
                                 patterns: [
                                     'buildroot/output/images/piksiv3_prod/PiksiMulti*',
@@ -123,7 +125,6 @@ pipeline {
                                 ],
                             )
                             if (context.isPrPush()) {
-
                                 hitl.triggerForPr()
                                 context.archivePatterns(
                                     patterns: [
