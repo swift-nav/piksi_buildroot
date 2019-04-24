@@ -16,9 +16,9 @@
 
 import os
 import sys
-import json
+import requests
 
-HITL_API_GITHUB_USER = "swiftnav-travis"
+HITL_API_GITHUB_USER = os.environ['HITL_API_GITHUB_USER']
 HITL_API_URL = "https://hitl-api.ce.swiftnav.com/"
 
 HITL_API_BUILD_TYPE = "buildroot_pull_request"
@@ -30,25 +30,15 @@ SCENARIOS = (
     ("live-roof-650-townsend-dropouts-zero-baseline", 1),
 )
 
-if os.environ.get('TRAVIS_OS_NAME') != 'linux':
-    sys.stderr.write("Exiting: TRAVIS_OS_NAME != linux ...\n")
-    sys.exit(0)
-
-if os.environ.get('TESTENV') == 'lint':
-    sys.stderr.write("Exiting: TESTENV == lint ...\n")
-    sys.exit(0)
-
-if os.environ.get('TRAVIS_PULL_REQUEST') == 'false':
-    sys.stderr.write("Exiting: TRAVIS_PULL_REQUEST == false ...\n")
-    sys.exit(0)
-
 try:
-    TRAVIS_PULL_REQUEST = os.environ['TRAVIS_PULL_REQUEST']
-    TRAVIS_BUILD_ID = os.environ['TRAVIS_BUILD_ID']
+    GITHUB_PULL_REQUEST = os.environ['GITHUB_PULL_REQUEST']
+    JENKINS_BUILD_ID = os.environ['BUILD_NUMBER']
     HITL_API_GITHUB_TOKEN = os.environ['HITL_API_GITHUB_TOKEN']
     GITHUB_COMMENT_TOKEN = os.environ['GITHUB_COMMENT_TOKEN']
+    JENKINS_BUILD_URL = os.environ['BUILD_URL']
+    REPO = os.environ['REPO']
 except KeyError as exc:
-    sys.stderr.write("Required Travis environment variable not found: {}\n".format(exc))
+    sys.stderr.write("Required environment variable not found: {}\n".format(exc))
     sys.exit(1)
 
 os.chdir(os.path.realpath(os.path.dirname(__file__)))
@@ -68,13 +58,8 @@ print(">>> TESTER_EMAIL = {}".format(TESTER_EMAIL))
 BUILD_VERSION=os.environ.get('BUILD_VERSION', R().call("git", "describe", "--tags", "--dirty", "--always").to_str())
 print(">>> BUILD_VERSION = {}".format(BUILD_VERSION))
 
-REPO=os.path.basename(find_dot_git())
-print(">>> REPO = {}".format(REPO))
-
-COMMENT_URL = "https://api.github.com/repos/swift-nav/{}/issues/{}/comments".format(REPO, TRAVIS_PULL_REQUEST)
+COMMENT_URL = "https://api.github.com/repos/swift-nav/{}/issues/{}/comments".format(REPO, GITHUB_PULL_REQUEST)
 COMMENT_HEADER = "## HITL smoke tests: {}".format(BUILD_VERSION)
-
-TRAVIS_BUILD_URL = "https://travis-ci.org/swift-nav/{}/builds/{}".format(REPO, TRAVIS_BUILD_ID)
 
 
 def clear_metrics_yaml():
@@ -85,7 +70,7 @@ def clear_metrics_yaml():
 def gen_hitl_error_comment():
     return (
         "{}\nThere was an error using the HITL API to kick off smoke tests for this commit.\nSee {}"
-        .format(COMMENT_HEADER, TRAVIS_BUILD_URL)
+        .format(COMMENT_HEADER, JENKINS_BUILD_URL)
     )
 
 
@@ -93,9 +78,9 @@ def post_github_comment(comment_body):
     post_data = {
         "body": comment_body
     }
-    json_data = json.dumps(post_data)
     try:
-        R().call("curl", "-u", "{}:".format(GITHUB_COMMENT_TOKEN), "-X", "POST", COMMENT_URL, "-d", json_data).check()
+        response = requests.post(COMMENT_URL, auth=(HITL_API_GITHUB_USER, GITHUB_COMMENT_TOKEN), json=post_data)
+        print("Comment-post result: {}".format(response.content))
     except Exception as exc:
         sys.stdout.write("There was an error posting a comment to GitHub.  The error:\n\n")
         sys.stdout.write(str(exc) + "\n")
@@ -195,10 +180,10 @@ def main():
         hitl_api_url = build_url(HITL_API_URL, "jobs", query_args)
         print(">>> Posting to HITL API URL: {}".format(hitl_api_url))
 
-        auth = "{}:{}".format(HITL_API_GITHUB_USER, HITL_API_GITHUB_TOKEN)
         try:
-            json_result = R().call("curl", "-u", auth, "-X", "POST", hitl_api_url).to_str()
-            result = json.loads(json_result)
+            resp = requests.post(hitl_api_url,
+                                 auth=(HITL_API_GITHUB_USER, HITL_API_GITHUB_TOKEN))
+            result = resp.json()
             capture_ids.append(result['id'])
         except Exception as exc:
             sys.stdout.write("There was an error using the HITL API. Posted comment to GitHub PR. The error:\n\n")
@@ -207,13 +192,13 @@ def main():
             sys.exit(1)
 
         write_metrics_yaml(scenario, runs)
-        R().call("scripts/publish.sh", "metrics.yaml").check()
+        # metrics.yaml should be published by Jenkins pipeline
 
     pr_comment = gen_hitl_comment(gen_job_list(capture_ids), gen_pass_fail_list(), gen_detailed_list())
 
     print("PR comment:\n{}".format(pr_comment))
     post_github_comment(pr_comment)
-            
+
 
 if __name__ == '__main__':
     main()
