@@ -19,8 +19,8 @@ NO_FLTO := linux-xilinx,uboot_custom,uboot,linux
 
 # The LTO wrapper analyzes the current directory and makes
 #   a decision to exclude the -flto parameter.
-FLTO_WRAPPER := $(BASE_DIR)/../../scripts/flto-wrapper.c.m4
-M4_INC := $(BASE_DIR)/../../scripts
+FLTO_WRAPPER := $(BR2_EXTERNAL_piksi_buildroot_PATH)/scripts/flto-wrapper.c.m4
+M4_INC := $(BR2_EXTERNAL_piksi_buildroot_PATH)/scripts
 
 define make-toolchain-wrapper
 	$(Q)[ -f $(TOOLCHAIN_EXTERNAL_BIN)/$1.real ] || (     \

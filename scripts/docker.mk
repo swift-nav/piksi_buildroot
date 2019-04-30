@@ -21,7 +21,7 @@ AWS_VARIABLES := $(AWS_VARIABLES) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_K
 endif
 
 ifneq ($(CCACHE_READONLY),)
-DCKR_CCACHE_RO_VAR := -e CCACHE_READONLY=$(CCACHE_READONLY)
+DOCKER_CCACHE_RO_VAR := -e CCACHE_READONLY=$(CCACHE_READONLY)
 endif
 
 ifeq ($(PIKSI_NON_INTERACTIVE_BUILD),)
@@ -31,31 +31,26 @@ endif
 DOCKER_BUILD_VOLUME = piksi-buildroot$(_DOCKER_SUFFIX)
 DOCKER_TAG = piksi-buildroot$(_DOCKER_SUFFIX)
 
-DOCKER_ENV_ARGS :=                                                            \
+DOCKER_ENV_ARGS =                                                             \
   -e USER=$(SANITIZED_USER)                                                   \
   -e GID=$(GID)                                                               \
   -e HW_CONFIG=$(HW_CONFIG)                                                   \
+  -e VARIANT=$(VARIANT)                                                       \
   -e BR2_EXTERNAL=/piksi_buildroot                                            \
-  -e BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF)                           \
-  -e BR2_HAS_PIKSI_INS=$(BR2_HAS_PIKSI_INS)                                   \
-  -e BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON)                       \
-  -e BR2_BUILD_STARLING_DAEMON=$(BR2_BUILD_STARLING_DAEMON)                   \
-  -e BR2_BUILD_RELEASE_PROTECTED=$(BR2_BUILD_RELEASE_PROTECTED)               \
   -e GITHUB_TOKEN=$(GITHUB_TOKEN)                                             \
   -e DISABLE_NIXOS_SUPPORT=$(DISABLE_NIXOS_SUPPORT)                           \
   $(AWS_VARIABLES)                                                            \
-  $(DCKR_CCACHE_RO_VAR)                                                       \
+  $(DOCKER_CCACHE_RO_VAR)                                                     \
   --user $(SANITIZED_USER)                                                    \
 
 ifeq (,$(wildcard .docker-sync.yml))
 
-BUILD_VOLUME_ARGS := \
+BUILD_VOLUME_ARGS = \
   -v $(CURDIR):/piksi_buildroot \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot
 
-RUN_VOLUME_ARGS := \
-  -v $(CURDIR)/buildroot/output/images:/piksi_buildroot/buildroot/output/images \
-  -v $(CURDIR)/buildroot/nano_output/images:/piksi_buildroot/buildroot/nano_output/images
+RUN_VOLUME_ARGS = \
+  -v $(CURDIR)/buildroot/output_$(VARIANT)/images:/piksi_buildroot/buildroot/output_$(VARIANT)/images
 
 else
 
@@ -80,8 +75,10 @@ DOCKER_RUN_ARGS := \
   $(RUN_VOLUME_ARGS) \
   --security-opt seccomp:unconfined --cap-add=SYS_PTRACE
 
+realpath = $(shell python -c "print(__import__('os').path.realpath('$(1)'))")
+
 ifneq ($(SSH_AUTH_SOCK),)
-DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(shell python -c "print(__import__('os').path.realpath('$(SSH_AUTH_SOCK)'))"):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
+DOCKER_RUN_ARGS := $(DOCKER_RUN_ARGS) -v $(call realpath,$(SSH_AUTH_SOCK)):/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent
 endif
 
 DOCKER_ARGS := --sig-proxy=false $(DOCKER_RUN_ARGS)
