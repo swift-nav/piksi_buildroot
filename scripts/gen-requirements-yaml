@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+
+'''Generating requirements.yaml that is consumed by HITL'''
+
+import os
+import sys
+
+import pbr_script_lib as PBR
+
+
+TEMPLATE = ("""---
+-
+  name: prod
+  resources:
+    -
+      prefix: v3/prod
+      files:
+        - uImage.piksiv3_prod
+  artifacts:
+    -
+      bucket: {fw_bucket}
+      prefix: piksi_firmware_private/{fw_version}/v3
+      files:
+        - piksi_firmware_v3_prod.stripped.elf
+    -
+      bucket: swiftnav-artifacts
+      prefix: piksi_fpga/{nap_version}
+      files:
+        - piksi_prod_fpga.bit
+""")
+
+
+def _main():
+    os.chdir(PBR.find_dot_git())
+    if len(sys.argv) < 2:
+        sys.stderr.write(
+            '>>> ERROR: usage: {} <variant>\n'.format(sys.argv[0]))
+        sys.exit(1)
+    print('>>> {}...'.format(__doc__))
+    variant = PBR.find_build_variant(sys.argv[1])
+    artifact_set_name = PBR.get_variant_prop(variant, 'artifact_set')
+    rtos_elf_artifact = PBR.get_named_artifact(artifact_set_name, 'rtos_elf')
+    fpga_bitstream_artifact = PBR.get_named_artifact(artifact_set_name,
+                                                     'fpga_bitstream')
+    rtos_version = PBR.get_artifact_prop(rtos_elf_artifact, 'version')
+    rtos_bucket = PBR.get_artifact_prop(rtos_elf_artifact, 's3_bucket')
+    fpga_version = PBR.get_artifact_prop(fpga_bitstream_artifact, 'version')
+    with open('requirements.yaml', 'wb') as fp_requirements:
+        requirements_yaml = TEMPLATE.format(fw_bucket=rtos_bucket,
+                                            fw_version=rtos_version,
+                                            nap_version=fpga_version)
+        fp_requirements.write(requirements_yaml.encode('utf8'))
+
+
+if __name__ == '__main__':
+    _main()

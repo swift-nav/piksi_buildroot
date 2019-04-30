@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+'''Fetch build variant property by name'''
+
+import os
+import sys
+
+import pbr_script_lib as PBR
+
+
+def _main():
+    os.chdir(PBR.find_dot_git())
+    if len(sys.argv) < 3:
+        sys.stderr.write(
+            '>>> ERROR: usage: {} <variant> <property> [<keywords...>]\n'.format(sys.argv[0]))
+        sys.exit(1)
+    target_variant = sys.argv[1]
+    variant_property = sys.argv[2]
+    variant = PBR.find_build_variant(target_variant)
+    addl_kwargs = {}
+    if len(sys.argv) > 3:
+        for arg in sys.argv[3:]:
+            key, val = arg.split('=', 1)
+            addl_kwargs[key] = val
+    print(PBR.get_variant_prop(variant, variant_property, **addl_kwargs))
+
+
+if __name__ == '__main__':
+    _main()
