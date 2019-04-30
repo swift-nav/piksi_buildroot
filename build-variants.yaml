@@ -1,0 +1,86 @@
+---
+version: 1
+variants:
+  -
+   variant:
+     variant_name: 'internal'
+     encrypted: false
+     artifact_set: 'internal'
+     image_name:
+       'PiksiMulti-INTERNAL-{version}.bin'
+     output: 'output/internal'
+     pre_flight:
+       - run: './scripts/verify-aws-access'
+       - run: './scripts/verify-piksi-ins-axx'
+       - run: './scripts/verify-generated-configs'
+     config_fragments:
+       - path: configs/fragments/piksiv3/core
+       - path: configs/fragments/piksiv3/core_packages
+       - path: configs/fragments/piksiv3/piksi_ins
+       - blob: 'BR2_PACKAGE_PIKSI_INS_REF=y'
+       - blob: 'BR2_PACKAGE_SAMPLE_DAEMON=y'
+       - blob: 'BR2_PACKAGE_STARLING_DAEMON=y'
+       - blob: 'BR2_PACKAGE_PIKSI_DEV_TOOLS=y'
+     config_output:
+       'configs/piksiv3_internal_defconfig'
+  -
+   variant:
+     variant_name: 'release'
+     encrypted: true
+     artifact_set: 'multi'
+     image_name: 'PiksiMulti-{version}.bin'
+     output: 'output/release'
+     pre_flight: { from: 'internal' }
+     config_fragments:
+       - path: configs/fragments/piksiv3/core
+       - path: configs/fragments/piksiv3/core_packages
+       - path: configs/fragments/piksiv3/piksi_ins
+       - blob: 'BR2_PACKAGE_RELEASE_LOCKDOWN=y'
+     config_output:
+       'configs/piksiv3_release_defconfig'
+  -
+   variant:
+     variant_name: 'unprotected'
+     encrypted: false
+     artifact_set: 'multi'
+     image_name: 'PiksiMulti-UNPROTECTED-{version}.bin'
+     output: 'output/unprotected'
+     pre_flight:
+       - run: './scripts/verify-aws-access'
+       - run: './scripts/verify-generated-configs'
+     config_fragments:
+       - path: configs/fragments/piksiv3/core
+       - path: configs/fragments/piksiv3/core_packages
+       - blob: 'BR2_PACKAGE_RELEASE_LOCKDOWN=y'
+     config_output:
+       'configs/piksiv3_unprotected_defconfig'
+  -
+   variant:
+     variant_name: 'nano'
+     encrypted: false
+     artifact_set: 'nano'
+     image_name: null
+     output: 'output/nano'
+     pre_flight:
+       - run: './scripts/verify-aws-access'
+       - run: './scripts/verify-generated-configs'
+     config_fragments:
+       - path: configs/fragments/nano
+     config_output:
+       'configs/piksi_nano_defconfig'
+  -
+   variant:
+     variant_name: 'host'
+     encrypted: false
+     artifact_set: 'host'
+     image_name: null
+     output: 'output/host'
+     pre_flight:
+       - run: './scripts/verify-aws-access'
+       - run: './scripts/verify-generated-configs'
+     config_fragments:
+       - path: configs/fragments/host
+     config_output:
+       'configs/host_defconfig'
+
+# vim: ft=yaml:
