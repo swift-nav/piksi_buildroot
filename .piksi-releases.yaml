@@ -1,0 +1,9 @@
+---
+
+version: 1
+
+post_tag:
+  run_script: ./scripts/release-post-tag
+
+public_artifacts:
+  run_script: ./scripts/list-public-artifacts
