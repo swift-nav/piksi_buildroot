@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+d=$(mktemp)
+trap 'rm $d' EXIT
+
+yaml2json <"external-artifacts.yaml" >"$d"
+
+q_artifacts='.artifact_sets[]|.artifact_set.artifacts[]'
+t_pub_artifacts='"\(.s3_repository) \(.version) \(.s3_object)"'
+f_upgrade_tool='select(.name=="piksi_upgrade_tool")'
+
+field() { fnum=$1; shift; echo "$@" | awk "{print \$$fnum}"; }
+
+gen_s3_pathes() {
+
+  while read -r line; do
+
+    repo=$(field 1 "$line")
+    version=$(field 2 "$line")
+    object=$(field 3 "$line")
+
+    echo "${repo//'{version}'/} ${version} ${object}"
+
+  done < <(jq -r "${q_artifacts}|${f_upgrade_tool}|$t_pub_artifacts" "$d")
+}
+
+gen_s3_pathes | uniq
