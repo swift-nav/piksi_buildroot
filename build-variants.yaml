@@ -82,5 +82,23 @@ variants:
        - path: configs/fragments/host
      config_output:
        'configs/host_defconfig'
+  -
+   variant:
+     variant_name: 'sdk'
+     encrypted: false
+     artifact_set: 'sdk'
+     image_name:
+       'PiksiMulti-SDK-{version}.bin'
+     output: 'output/sdk'
+     pre_flight:
+       - run: './scripts/verify-aws-access'
+       - run: './scripts/verify-generated-configs'
+     config_fragments:
+       - path: configs/fragments/piksiv3/core
+       - path: configs/fragments/piksiv3/core_packages
+       - blob: 'BR2_PACKAGE_SAMPLE_DAEMON=y'
+       - blob: 'BR2_PACKAGE_PIKSI_DEV_TOOLS=y'
+     config_output:
+       'configs/piksiv3_sdk_defconfig'
 
 # vim: ft=yaml:

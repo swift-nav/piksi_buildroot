@@ -9,6 +9,14 @@ from pbr_script_lib import Runner as R
 import pbr_script_lib as PBR
 
 
+def check_s3_url(variant, s3_url):
+    if variant == 'sdk':
+        print(">>> *** AWS S3 \"NO SIGN REQUEST\" ***")
+        R().call('aws', 's3', 'cp', '--no-sign-request', '--dryrun', s3_url, 's3obj.test').check()
+    else:
+        R().call('aws', 's3', 'cp', '--dryrun', s3_url, 's3obj.test').check()
+
+
 def _main():
     os.chdir(PBR.find_dot_git())
     if len(sys.argv) < 2:
@@ -18,16 +26,17 @@ def _main():
     target_variant = sys.argv[1]
     print('>>> {}...'.format(__doc__))
     sys.stdout.flush()
-    if 'JENKINS_SKIP_AWS_AUTH_CHECK' not in os.environ:
-        missing_aws_vars = ('AWS_ACCESS_KEY_ID' not in os.environ or
-                            'AWS_SECRET_ACCESS_KEY' not in os.environ)
-        aws_creds_conf = os.path.exists(os.path.expanduser('~/.aws/credentials'))
-        if missing_aws_vars and not aws_creds_conf:
-            sys.stderr.write(
-                '>>> ERROR: environment variable AWS_ACCESS_KEY_ID was not set\n' +
-                '>>>        and no ~/.aws/credentials was found, aws s3 commands\n' +
-                '>>>        are not likely to succeed\n')
-            sys.exit(1)
+    if target_variant != 'sdk':
+        if 'JENKINS_SKIP_AWS_AUTH_CHECK' not in os.environ:
+            missing_aws_vars = ('AWS_ACCESS_KEY_ID' not in os.environ or
+                                'AWS_SECRET_ACCESS_KEY' not in os.environ)
+            aws_creds_conf = os.path.exists(os.path.expanduser('~/.aws/credentials'))
+            if missing_aws_vars and not aws_creds_conf:
+                sys.stderr.write(
+                    '>>> ERROR: environment variable AWS_ACCESS_KEY_ID was not set\n' +
+                    '>>>        and no ~/.aws/credentials was found, aws s3 commands\n' +
+                    '>>>        are not likely to succeed\n')
+                sys.exit(1)
     variant = PBR.find_build_variant(target_variant)
     artifact_set_name = variant['artifact_set']
     artifact_set = PBR.get_artifact_set(artifact_set_name)
@@ -44,7 +53,7 @@ def _main():
         s3_url = PBR.build_s3_artifact_url(artifact)
         try:
             print('>>> Validating access to {}'.format(s3_url))
-            R().call('aws', 's3', 'ls', s3_url).check()
+            check_s3_url(target_variant, s3_url)
         except ValueError as exc:
             sys.stderr.write('>>> ERROR: S3 access to {} failed\n'
                              .format(s3_url))
