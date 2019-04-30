@@ -64,7 +64,10 @@ define SBP_FILEIO_DAEMON_INSTALL_STAGING_CMDS
 endef
 
 SBP_FILEIO_DAEMON_OVERLAY = "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_fileio_daemon/overlay"
+
+ifeq ($(BR2_PACKAGE_SBP_FILEIO_DAEMON),y)
 BR2_ROOTFS_OVERLAY += "${SBP_FILEIO_DAEMON_OVERLAY}"
+endif
 
 $(eval $(generic-package))
 

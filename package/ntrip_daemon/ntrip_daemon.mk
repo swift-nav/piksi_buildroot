@@ -22,6 +22,8 @@ define NTRIP_DAEMON_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/src/ntrip_daemon $(TARGET_DIR)/usr/bin
 endef
 
+ifeq ($(BR2_PACKAGE_NTRIP_DAEMON),y)
 BR2_ROOTFS_OVERLAY += "${NTRIP_DAEMON_SITE}/overlay"
+endif
 
 $(eval $(generic-package))

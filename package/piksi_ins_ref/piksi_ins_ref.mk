@@ -4,8 +4,6 @@
 #
 ################################################################################
 
-ifeq    ($(BR2_HAS_PIKSI_INS_REF),y)
-
 PIKSI_INS_REF_VERSION = v2.3.0
 PIKSI_INS_REF_SITE = ssh://git@github.com/swift-nav/piksi_inertial_ipsec_crl.git
 PIKSI_INS_REF_SITE_METHOD = git
@@ -60,5 +58,3 @@ define PIKSI_INS_REF_INSTALL_TARGET_CMDS
 endef
 
 $(eval $(generic-package))
-
-endif # ($(BR2_HAS_PIKSI_INS_REF),y)
