@@ -41,6 +41,8 @@ define PORTS_DAEMON_INSTALL_TARGET_CMDS
 	$(PORTS_DAEMON_RUN_TESTS)
 endef
 
+ifeq ($(BR2_PACKAGE_PORTS_DAEMON),y)
 BR2_ROOTFS_OVERLAY += "${PORTS_DAEMON_SITE}/overlay"
+endif
 
 $(eval $(generic-package))

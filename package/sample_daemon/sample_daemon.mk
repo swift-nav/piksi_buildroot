@@ -4,8 +4,6 @@
 #
 ################################################################################
 
-ifeq    ($(BR2_BUILD_SAMPLE_DAEMON),y)
-
 SAMPLE_DAEMON_VERSION = 0.1
 SAMPLE_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sample_daemon"
@@ -24,8 +22,8 @@ define SAMPLE_DAEMON_BUILD_CMDS
 	$(MAKE) CROSS=$(TARGET_CROSS) LD=$(TARGET_LD) -C $(@D)/src all
 endef
 
+ifeq ($(BR2_PACKAGE_SAMPLE_DAEMON),y)
 BR2_ROOTFS_OVERLAY += "${SAMPLE_DAEMON_SITE}/overlay"
+endif
 
 $(eval $(generic-package))
-
-endif # ($(BR2_BUILD_SAMPLE_DAEMON),y)

@@ -48,5 +48,8 @@ define METRICS_DAEMON_BUILD_CMDS
   $(METRICS_DAEMON_BUILD_CMDS_TESTS)
 endef
 
+ifeq ($(BR2_PACKAGE_METRICS_DAEMON),y)
 BR2_ROOTFS_OVERLAY += "${METRICS_DAEMON_SITE}/overlay"
+endif
+
 $(eval $(generic-package))
