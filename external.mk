@@ -4,9 +4,15 @@ include $(BR2_EXTERNAL_piksi_buildroot_PATH)/scripts/aws-setup.mk
 include $(BR2_EXTERNAL_piksi_buildroot_PATH)/scripts/test-support.mk
 include $(BR2_EXTERNAL_piksi_buildroot_PATH)/scripts/warnings.mk
 
-ifneq ($(BR2_DISABLE_LTO),)
+ifeq ($(VARIANT),host)
+PBR_DISABLE_LTO := y
+endif
 
-$(info *** Disabling compiler LTO pass... ***)
+ifneq ($(PBR_DISABLE_LTO),)
+
+$(info >>> **************************************)
+$(info >>> *** Disabling compiler LTO pass... ***)
+$(info >>> **************************************)
 
 BR2_TARGET_OPTIMIZATION := $(filter-out,$(BR2_TARGET_OPTIMIZATION),-flto)
 BR2_TARGET_CFLAGS := $(filter-out,$(BR2_TARGET_CFLAGS),-flto)

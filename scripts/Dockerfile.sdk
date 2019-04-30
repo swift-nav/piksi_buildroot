@@ -50,10 +50,8 @@ RUN \
     .
 
 RUN \
-  echo '>>> Fetching binary artifacts...' && \
-  make firmware && \
   echo '>>> Building SDK image...' && \
-  make image-sdk && \
+  make VARIANT=sdk image && \
   echo '>>> Done!'
 
 # vim: ft=dockerfile:
