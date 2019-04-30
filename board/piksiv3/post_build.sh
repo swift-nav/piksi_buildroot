@@ -10,7 +10,7 @@ echo "Installing firmware images for hardware configuration: $HW_CONFIG"
 
 ROOTFS=$1
 FIRMWARE_DIR_ROOTFS=$ROOTFS/lib/firmware
-FIRMWARE_DIR=$BASE_DIR/../../firmware
+FIRMWARE_DIR=${BR2_EXTERNAL_piksi_buildroot_PATH}/firmware
 
 VERSION_DIR=$ROOTFS/uimage_ver
 mkdir -p $VERSION_DIR
