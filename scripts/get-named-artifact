@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+'''Fetch variant output directory'''
+
+import os
+import sys
+
+import pbr_script_lib as PBR
+
+
+def _main():
+    os.chdir(PBR.find_dot_git())
+    if len(sys.argv) < 4:
+        sys.stderr.write(
+            '>>> ERROR: usage: {} <variant> <name> <field>\n'.format(sys.argv[0]))
+        sys.exit(1)
+    sys.stderr.write(str.join(' ', sys.argv))
+    sys.stderr.write('\n')
+    target_variant = sys.argv[1]
+    artifact_name = sys.argv[2]
+    field_name = sys.argv[3]
+    variant = PBR.find_build_variant(target_variant)
+    artifact_set_name = variant['artifact_set']
+    artifact = PBR.get_named_artifact(artifact_set_name, artifact_name)
+    print(PBR.get_artifact_prop(artifact, field_name))
+
+
+if __name__ == '__main__':
+    _main()

@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+
+'''Generate variant configs'''
+
+import os
+import hashlib
+
+import pbr_script_lib as PBR
+
+
+def _write_output_config(variant, config_output):
+    with open(config_output, 'wb') as fp_output:
+        for fragment in variant['config_fragments']:
+            if 'path' in fragment:
+                config_frag_filename = fragment['path']
+                print('>>> Using input fragment: {}'.format(config_frag_filename))
+                with open(config_frag_filename, 'rb') as frag_fp:
+                    fp_output.write(frag_fp.read())
+            if 'blob' in fragment:
+                config_frag_blob = fragment['blob']
+                print('>>> Using input fragment: {}'.format(config_frag_blob))
+                config_frag_blob += '\n'
+                fp_output.write(config_frag_blob.encode('utf8'))
+
+
+def _write_config_hash(config_output):
+    with open(config_output, 'rb') as config_fp:
+        hashpath = PBR.get_config_hash_path(config_output)
+        with open(hashpath, 'wb') as hash_fp:
+            sha256 = hashlib.new('sha256')
+            sha256.update(config_fp.read())
+            hash_fp.write(sha256.hexdigest().encode('utf8'))
+
+
+def _main():
+    os.chdir(PBR.find_dot_git())
+    print('>>> {}...'.format(__doc__))
+    for variant in PBR.list_build_variants():
+        config_output = variant['config_output']
+        print('>>> Writing to config: {}'.format(config_output))
+        _write_output_config(variant, config_output)
+        _write_config_hash(config_output)
+
+
+if __name__ == '__main__':
+    _main()
