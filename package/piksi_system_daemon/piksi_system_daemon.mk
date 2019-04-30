@@ -30,6 +30,8 @@ define PIKSI_SYSTEM_DAEMON_USERS
 	piksi_sys -1 piksi_sys -1 * - - -
 endef
 
+ifeq ($(BR2_PACKAGE_PIKSI_SYSTEM_DAEMON),y)
 BR2_ROOTFS_OVERLAY += "${PIKSI_SYSTEM_DAEMON_SITE}/overlay"
+endif
 
 $(eval $(generic-package))

@@ -18,6 +18,8 @@ define CSAC_DAEMON_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/src/csac_daemon $(TARGET_DIR)/usr/bin
 endef
 
+ifeq ($(BR2_PACKAGE_CSAC_DAEMON),y)
 BR2_ROOTFS_OVERLAY += "${CSAC_DAEMON_SITE}/overlay"
+endif
 
 $(eval $(generic-package))

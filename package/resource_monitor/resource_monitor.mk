@@ -32,9 +32,7 @@ endef
 endif #  BR2_BUILD_TESTS
 
 ifeq ($(BR2_RUN_TESTS),y)
-
 RESOURCE_MONITOR_TESTS_RUN = $(call pbr_proot_valgrind_test,run_resource_monitor_test)
-
 endif
 
 define RESOURCE_MONITOR_INSTALL_TARGET_CMDS
@@ -50,6 +48,8 @@ define RESOURCE_MONITOR_BUILD_CMDS
   $(RESOURCE_MONITOR_BUILD_CMDS_TESTS)
 endef
 
+ifeq ($(BR2_PACKAGE_RESOURCE_MONITOR),y)
 BR2_ROOTFS_OVERLAY += "${RESOURCE_MONITOR_SITE}/overlay"
+endif
 
 $(eval $(generic-package))
