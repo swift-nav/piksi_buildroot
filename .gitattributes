@@ -1,1 +1,2 @@
 docker/entrypoint.sh text eol=lf
+configs/*_defconfig text eol=lf

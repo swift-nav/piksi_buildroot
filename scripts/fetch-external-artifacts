@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+
+'''
+Fetch external artifacts for a specific build variant, as described
+by build-variants.yaml and external-artifacts.yaml.
+'''
+
+import os
+import sys
+
+from pbr_script_lib import Runner as R
+import pbr_script_lib as PBR
+
+os.chdir(PBR.find_dot_git())
+
+
+def _main():
+    if len(sys.argv) < 2:
+        sys.stderr.write(
+            '>>> ERROR: usage: {} <variant>\n'.format(sys.argv[0]))
+        sys.exit(1)
+    print('>>> Fetch external artifacts started...')
+    target_variant = sys.argv[1]
+    variant = PBR.find_build_variant(target_variant)
+    artifact_set_name = variant['artifact_set']
+    artifact_set = PBR.get_artifact_set(artifact_set_name)
+    for artifact in artifact_set:
+        ref_sha256 = PBR.get_artifact_prop(artifact, 'sha256')
+        local_path = PBR.get_artifact_prop(artifact, 'local_path')
+        if os.path.exists(local_path) and ref_sha256 == PBR.sha256digest(local_path):
+            print('>>> SHA256 matched (no download needed): {}'
+                  .format(local_path))
+            continue
+        s3_url = PBR.build_s3_artifact_url(artifact)
+        print('>>> Downloading: {}'.format(s3_url))
+        R().call('aws', 's3', 'cp', s3_url, local_path).check()
+        digest = PBR.sha256digest(local_path)
+        if digest != ref_sha256:
+            sys.stderr.write(
+                '>>> ERROR: digest did not match for remote artifact: {}\n'.format(s3_url))
+            sys.exit(1)
+
+if __name__ == '__main__':
+    _main()
