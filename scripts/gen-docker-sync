@@ -1,60 +1,111 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 
-docker_build_volume=$1; shift
-docker_sync_uid=$1; shift
-docker_host=$1; shift
+import os
+import sys
 
-die_usage() {
-  echo "$(basename "$0"): <DOCKER_BUILD_VOLUME> <DOCKER_SYNC_UID> <DOCKER_HOST>"
-  exit 1
-}
+import pbr_script_lib as PBR
 
-[[ -n "$docker_host" ]] || { echo $'ERROR: no <DOCKER_HOST> specified\n' >&2; die_usage; }
+DOCKER_BUILD_VOLUME = None
+DOCKER_SYNC_UID = None
+DOCKER_HOST = None
 
-cat >.docker-sync.yml <<EOF
-version: "2"
+VARIANT_SYNC_IGNORE_TEMPLATE = ('''
+      - "-ignore='Path buildroot/output/{build_variant}/build'"
+      - "-ignore='Path buildroot/output/{build_variant}/target'"
+      - "-ignore='Path buildroot/output/{build_variant}/host'"
+      - "-ignore='Path buildroot/output/{build_variant}/staging'"''')
+
+VARIANT_WATCH_EXCLUDE_TEMPLATE = ("""
+      - 'buildroot/output/{build_variant}/build'
+      - 'buildroot/output/{build_variant}/target'
+      - 'buildroot/output/{build_variant}/host'
+      - 'buildroot/output/{build_variant}/staging'""")
+
+DOCKER_SYNC_CFG_TEMPLATE = """version: "2"
 options:
   verbose: True
   compose-file-path: .docker-compose.yml
 syncs:
-  ${docker_build_volume}-sync:
-    notify_terminal: true
+  {docker_build_volume}-sync:
+#    notify_terminal: true
     src: '.'
-    sync_host_ip: '$(echo "${docker_host}" | sed s@tcp://@@ | cut -d: -f1)'
+    sync_host_ip: '{docker_host}'
     sync_strategy: 'unison'
-    sync_userid: '${docker_sync_uid}'
-    sync_args:
-      - "-ignore='Path buildroot/output/build'"
+    sync_userid: '{docker_sync_uid}'
+    sync_args:{build_variant_sync_ignores}
       - "-ignore='Path buildroot/output/ccache'"
-      - "-ignore='Path buildroot/output/target'"
-      - "-ignore='Path buildroot/output/host'"
-      - "-ignore='Path buildroot/output/staging'"
-      - "-ignore='Path buildroot/host_output'"
       - "-ignore='Path buildroot/dl'"
       - "-ignore='Path .docker-sync*'"
       - "-ignore='Path .docker-compose.yml'"
       - "-ignore='Name .*.sw?'"
-    watch_excludes:
-      - 'buildroot/output/build'
+    watch_strategy: 'fswatch'
+    watch_excludes:{build_variant_watch_excludes}
       - 'buildroot/output/ccache'
-      - 'buildroot/output/target'
-      - 'buildroot/output/host'
-      - 'buildroot/output/staging'
-      - 'buildroot/host_output'
       - 'buildroot/dl'
-EOF
+"""
 
-cat >.docker-compose.yml <<EOF
-version: "2"
+DOCKER_COMOSE_TEMPLATE = """version: "2"
 services:
-  ${docker_build_volume}-sync:
+  {docker_build_volume}-sync:
     image: alpine
-    container_name: '${docker_build_volume}-sync'
+    container_name: '{docker_build_volume}-sync'
     command: ['watch', '-n1', '-t', 'date']
-    user: ${docker_sync_uid}
+    user: {docker_sync_uid}
     volumes:
-      - ${docker_build_volume}-sync:/piksi_buildroot:nocopy # nocopy is important
+      - {docker_build_volume}-sync:/piksi_buildroot:nocopy # nocopy is important
 volumes:
-  ${docker_build_volume}-sync:
+  {docker_build_volume}-sync:
     external: true
-EOF
+"""
+
+
+def _gen_configs(docker_sync_cfg_fp, docker_compose_cfg_fp):
+    variant_sync_ignores = []
+    variant_watch_excludes = []
+    for variant in PBR.list_build_variants():
+        variant_sync_ignores.append(
+            VARIANT_SYNC_IGNORE_TEMPLATE.format(build_variant=variant['variant_name']))
+        variant_watch_excludes.append(
+            VARIANT_WATCH_EXCLUDE_TEMPLATE.format(build_variant=variant['variant_name']))
+    variant_sync_ignores_str = str.join('', variant_sync_ignores)
+    variant_watch_excludes_str = str.join('', variant_watch_excludes)
+    _docker_host = DOCKER_HOST.replace('tcp://', '').split(':')[0]
+    docker_sync_cfg_fp.write(
+        DOCKER_SYNC_CFG_TEMPLATE.format(docker_host=_docker_host,
+                                        build_variant_sync_ignores=variant_sync_ignores_str,
+                                        build_variant_watch_excludes=variant_watch_excludes_str,
+                                        docker_build_volume=DOCKER_BUILD_VOLUME,
+                                        docker_sync_uid=DOCKER_SYNC_UID)
+        .encode('utf8')
+    )
+    docker_compose_cfg_fp.write(
+        DOCKER_COMOSE_TEMPLATE.format(docker_build_volume=DOCKER_BUILD_VOLUME,
+                                      docker_sync_uid=DOCKER_SYNC_UID)
+        .encode('utf8')
+    )
+
+
+def _main():
+
+    global DOCKER_BUILD_VOLUME
+    global DOCKER_SYNC_UID
+    global DOCKER_HOST
+
+    os.chdir(PBR.find_dot_git())
+
+    if len(sys.argv) < 4:
+        sys.stdout.write(
+            "usage: {} <DOCKER_BUILD_VOLUME> <DOCKER_SYNC_UID> <DOCKER_HOST>".format(sys.argv[0]))
+        sys.exit(1)
+
+    DOCKER_BUILD_VOLUME = sys.argv[1]
+    DOCKER_SYNC_UID = sys.argv[2]
+    DOCKER_HOST = sys.argv[3]
+
+    with open('.docker-sync.yml', 'wb') as docker_sync_cfg_fp:
+        with open('.docker-compose.yml', 'wb') as docker_compose_cfg_fp:
+            _gen_configs(docker_sync_cfg_fp, docker_compose_cfg_fp)
+
+
+if __name__ == '__main__':
+    _main()

@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+
+'''Running the build variant pre-flight checks'''
+
+import os
+import sys
+
+import pbr_script_lib as PBR
+from pbr_script_lib import Runner as R
+
+
+def _main():
+    os.chdir(PBR.find_dot_git())
+    if len(sys.argv) < 2:
+        sys.stderr.write(
+            '>>> ERROR: usage: {} <variant>\n'.format(sys.argv[0]))
+        sys.exit(1)
+    print('>>> {}...'.format(__doc__))
+    sys.stdout.flush()
+    target_variant = sys.argv[1]
+    PBR.clear_preflight_context()
+    variant = PBR.find_build_variant(target_variant)
+    preflight_checks = variant['pre_flight']
+    if 'from' in preflight_checks:
+        from_variant = PBR.find_build_variant(preflight_checks['from'])
+        preflight_checks = from_variant['pre_flight']
+    for check in preflight_checks:
+        run = check['run']
+        try:
+            R().call(run, target_variant).check()
+        except ValueError as exc:
+            print('>>> ERROR: pre-flight check failed: {}'.format(run))
+            print('>>> {}'.format(exc))
+            sys.exit(1)
+
+
+if __name__ == '__main__':
+    _main()

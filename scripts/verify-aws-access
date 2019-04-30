@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+
+'''Verifying AWS S3 access to required resources'''
+
+import os
+import sys
+
+from pbr_script_lib import Runner as R
+import pbr_script_lib as PBR
+
+
+def _main():
+    os.chdir(PBR.find_dot_git())
+    if len(sys.argv) < 2:
+        sys.stderr.write(
+            '>>> ERROR: usage: {} <variant>\n'.format(sys.argv[0]))
+        sys.exit(1)
+    target_variant = sys.argv[1]
+    print('>>> {}...'.format(__doc__))
+    sys.stdout.flush()
+    if 'JENKINS_SKIP_AWS_AUTH_CHECK' not in os.environ:
+        missing_aws_vars = ('AWS_ACCESS_KEY_ID' not in os.environ or
+                            'AWS_SECRET_ACCESS_KEY' not in os.environ)
+        aws_creds_conf = os.path.exists(os.path.expanduser('~/.aws/credentials'))
+        if missing_aws_vars and not aws_creds_conf:
+            sys.stderr.write(
+                '>>> ERROR: environment variable AWS_ACCESS_KEY_ID was not set\n' +
+                '>>>        and no ~/.aws/credentials was found, aws s3 commands\n' +
+                '>>>        are not likely to succeed\n')
+            sys.exit(1)
+    variant = PBR.find_build_variant(target_variant)
+    artifact_set_name = variant['artifact_set']
+    artifact_set = PBR.get_artifact_set(artifact_set_name)
+    for artifact in artifact_set:
+        local_path = artifact['local_path']
+        ref_sha256 = artifact['sha256']
+        if os.path.exists(local_path):
+            sha = PBR.sha256digest(local_path)
+            if sha == ref_sha256:
+                basename = os.path.basename(local_path)
+                print(">>> Not validating access to '{}', already downloaded..."
+                      .format(basename))
+                continue
+        s3_url = PBR.build_s3_artifact_url(artifact)
+        try:
+            print('>>> Validating access to {}'.format(s3_url))
+            R().call('aws', 's3', 'ls', s3_url).check()
+        except ValueError as exc:
+            sys.stderr.write('>>> ERROR: S3 access to {} failed\n'
+                             .format(s3_url))
+            sys.stderr.write('>>> {}\n'.format(exc))
+            sys.exit(1)
+
+
+if __name__ == '__main__':
+    _main()

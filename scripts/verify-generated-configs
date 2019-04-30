@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+
+'''Verifying that generated configs are in sync with input fragments'''
+
+import os
+import sys
+
+import pbr_script_lib as PBR
+
+
+def _main():
+    os.chdir(PBR.find_dot_git())
+    print('>>> {}...'.format(__doc__))
+    sys.stdout.flush()
+    # TODO: Verify that fragments have been added to an output config
+    for variant in PBR.list_build_variants():
+        config_output = variant['config_output']
+        hash_path = PBR.get_config_hash_path(config_output)
+        the_hash = None
+        try:
+            with open(hash_path, 'rb') as hash_fp:
+                the_hash = hash_fp.read().strip().decode('utf8')
+        except IOError:
+            sys.stderr.write(
+                '>>> ERROR: failed to read config hash record: {}\n'.format(hash_path))
+            sys.exit(1)
+        if the_hash is None:
+            sys.stderr.write(
+                '>>> ERROR: hash record was empty for config: {}\n'.format(config_output))
+            sys.exit(1)
+        digest = PBR.sha256digest(config_output)
+        if digest != the_hash:
+            sys.stderr.write(
+                '>>> ERROR: config hashes do not match, please run ' +
+                '`make gen-variant-configs` to update\n')
+            sys.stderr.write('>>> Input config: {}\n'.format(config_output))
+            sys.stderr.write('>>> \tactual hash: {}\n'.format(digest))
+            sys.stderr.write('>>> \texpected hash: {}\n'.format(the_hash))
+            sys.exit(1)
+
+
+if __name__ == '__main__':
+    _main()

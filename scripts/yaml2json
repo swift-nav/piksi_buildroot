@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+'''
+Wrapper for running the yaml2json binaries.
+'''
+
+import os
+import sys
+
+from pbr_script_lib import yaml2json_filename
+
+
+def _run_yaml2json():
+    yaml2json_exec = yaml2json_filename()
+    return os.execv(yaml2json_exec, [yaml2json_exec] + sys.argv[1:])
+
+
+if __name__ == '__main__':
+    _run_yaml2json()
+
+
+# vim: sw=4:sts=4:ts=4:ai:et:
