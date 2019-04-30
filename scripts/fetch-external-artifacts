@@ -14,6 +14,14 @@ import pbr_script_lib as PBR
 os.chdir(PBR.find_dot_git())
 
 
+def s3_cp(variant, s3_url, local_path):
+    if variant == 'sdk':
+        print(">>> *** AWS S3 \"NO SIGN REQUEST\" ***")
+        R().call('aws', 's3', 'cp', '--no-sign-request', s3_url, local_path).check()
+    else:
+        R().call('aws', 's3', 'cp', s3_url, local_path).check()
+
+
 def _main():
     if len(sys.argv) < 2:
         sys.stderr.write(
@@ -33,7 +41,7 @@ def _main():
             continue
         s3_url = PBR.build_s3_artifact_url(artifact)
         print('>>> Downloading: {}'.format(s3_url))
-        R().call('aws', 's3', 'cp', s3_url, local_path).check()
+        s3_cp(target_variant, s3_url, local_path)
         digest = PBR.sha256digest(local_path)
         if digest != ref_sha256:
             sys.stderr.write(

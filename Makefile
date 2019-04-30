@@ -221,6 +221,10 @@ docker-make-image-release-ins:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make image-release-ins
 
+docker-make-config:
+	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
+		make config
+
 docker-make-clean:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make clean

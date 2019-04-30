@@ -6,9 +6,13 @@ if [[ $(uname) != *Darwin* ]]; then
 fi
 
 if ! command -v docker-sync &>/dev/null; then
-  gem install docker-sync || { echo "ERROR: failed to install docker-sync" >&2; exit 1; }
+  gem install docker-sync || { echo "ERROR: docker-sync is not installed" >&2; exit 1; }
 fi
 
 if ! command -v unison &>/dev/null; then
-  brew install unison || { echo "ERROR: failed to install unison" >&2; exit 1; }
+  brew install unison || { echo "ERROR: unison is not installed" >&2; exit 1; }
+fi
+
+if [[ -z "${DOCKER_HOST:-}" ]]; then
+  { echo "ERROR: DOCKER_HOST environment variable not set" >&2; exit 1; }
 fi
