@@ -1,52 +1,31 @@
 # File: env-setup.mk
 
-# Allow override of ccache dir from env var
-ifeq ($(CCACHE_DIR),)
-CCACHE_DIR := $(CURDIR)/buildroot/output/ccache
+ifeq ($(VARIANT),)
+$(info >>> Using default variant 'internal')
+VARIANT := internal
+else
+$(info >>> Building for variant: $(VARIANT))
 endif
 
+VARIANT_OUTPUT := $(shell ./scripts/get-variant-prop $(VARIANT) output)
+VARIANT_CONFIG := $(shell basename $(shell ./scripts/get-variant-prop $(VARIANT) config_output))
+
+ifneq ($(VARIANT),host)
+
+CCACHE_DIR = $(CURDIR)/buildroot/ccache
+
 ifneq ($(CCACHE_READONLY),)
-CCACHE_RO_VAR := CCACHE_READONLY=$(CCACHE_READONLY)
+CCACHE_RO_VAR = CCACHE_READONLY=$(CCACHE_READONLY)
+endif
+
 endif
 
 BUILD_ENV_ARGS = \
   BR2_EXTERNAL=$(BR2_EXTERNAL) \
-  BR2_HAS_PIKSI_INS_REF=$(BR2_HAS_PIKSI_INS_REF) \
-  BR2_HAS_PIKSI_INS=$(BR2_HAS_PIKSI_INS) \
-  BR2_BUILD_RELEASE_PROTECTED=$(BR2_BUILD_RELEASE_PROTECTED) \
-  BR2_BUILD_RELEASE_OPEN=$(BR2_BUILD_RELEASE_OPEN) \
-  BR2_BUILD_PIKSI_INS_REF=$(BR2_BUILD_PIKSI_INS_REF) \
-  BR2_BUILD_PIKSI_INS=$(BR2_BUILD_PIKSI_INS) \
-  BR2_BUILD_SAMPLE_DAEMON=$(BR2_BUILD_SAMPLE_DAEMON) \
-  BR2_BUILD_STARLING_DAEMON=$(BR2_BUILD_STARLING_DAEMON) \
-  BR2_CCACHE_DIR=$(CCACHE_DIR) \
   HW_CONFIG=$(HW_CONFIG) \
   $(CCACHE_RO_VAR)
 
-
-ifeq ("$(OS)","Windows_NT")
-USER := $(USERNAME)
-UID  := 1000
-GID  := 1000
-else
 UID := $(shell id -u)
 GID := $(shell id -g)
-endif
-
-PIKSI_INS_REF_REPO := git@github.com:swift-nav/piksi_inertial_ipsec_crl.git
-
-ifneq ($(BR2_BUILD_PIKSI_INS_REF),)
-BR2_HAS_PIKSI_INS_REF := $(shell git ls-remote $(PIKSI_INS_REF_REPO) &>/dev/null && echo y)
-endif
-
-export BR2_HAS_PIKSI_INS_REF
-
-PIKSI_INS_REPO := git@github.com:swift-nav/pose_daemon_wrapper.git
-
-ifneq ($(BR2_BUILD_PIKSI_INS),)
-BR2_HAS_PIKSI_INS := $(shell git ls-remote $(PIKSI_INS_REPO) &>/dev/null && echo y)
-endif
-
-export BR2_HAS_PIKSI_INS
 
 LAST_GIT_TAG := $(shell git describe --abbrev=0 --tags)
