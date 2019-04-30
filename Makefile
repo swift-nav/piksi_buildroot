@@ -194,7 +194,8 @@ export-toolchain:
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=$(VARIANT_OUTPUT) V=$(V) sdk
 	@echo '>>>' Uninstalling piksi toolchain wrappers...
-	$(MAKE) -C buildroot force-uninstall-toolchain-wrappers
+	$(BUILD_ENV_ARGS) \
+		$(MAKE) -C buildroot O=$(VARIANT_OUTPUT) V=$(V) force-uninstall-toolchain-wrappers
 	@echo '>>>' Creating buildroot toolchain archive...
 	tar -cJf piksi_br_toolchain.txz -C buildroot/$(VARIANT_OUTPUT)/host .
 
