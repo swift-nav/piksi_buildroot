@@ -20,6 +20,12 @@ if [[ -z "${BR2_EXTERNAL_piksi_buildroot_PATH:-}" ]]; then
   echo "ERROR: the variable 'BR2_EXTERNAL_piksi_buildroot_PATH' cannot be empty"
 fi
 
+if [[ -z "${VARIANT:-}" ]]; then
+  echo "ERROR: the variable 'VARIANT' cannot be empty"
+fi
+
+SCRIPTS="${BR2_EXTERNAL_piksi_buildroot_PATH}/scripts"
+
 bold=$(tput rev 2>/dev/null || :)
 normal=$(tput sgr0 2>/dev/null || :)
 
@@ -42,10 +48,12 @@ SDK_FPGA_SHA1="${BR2_EXTERNAL_piksi_buildroot_PATH}/firmware/prod/piksi_sdk_fpga
 
 DEV_BIN_PATH=$OUTPUT_DIR/PiksiMulti-DEV-$FILE_GIT_STRING.bin
 FAILSAFE_BIN_PATH=$OUTPUT_DIR/PiksiMulti-FAILSAFE-$FILE_GIT_STRING.bin
+
+IMAGE_NAME=$("$SCRIPTS/get-variant-prop" "$VARIANT" image_name version=$FILE_GIT_STRING)
+IMAGE_BIN_PATH=$OUTPUT_DIR/$IMAGE_NAME
+
 INTERNAL_BIN_PATH=$OUTPUT_DIR/PiksiMulti-INTERNAL-$FILE_GIT_STRING.bin
-SDK_BIN_PATH=$OUTPUT_DIR/PiksiMulti-SDK-$FILE_GIT_STRING.bin
-REL_OPEN_BIN_PATH=$OUTPUT_DIR/PiksiMulti-UNPROTECTED-$FILE_GIT_STRING.bin
-REL_PROT_BIN_PATH=$OUTPUT_DIR/PiksiMulti-$FILE_GIT_STRING.bin
+BUILD_TYPE_DETECTED=INTERNAL
 
 if [[ -z "${UBOOT_BASE_DIR:-}" ]]; then
   echo "ERROR: Could not find uboot directory" >&2
@@ -115,7 +123,7 @@ generate_prod()
 
   $UBOOT_PROD_DIR/tools/image_table_util                                      \
   --append --print --print-images                                             \
-  --out "$INTERNAL_BIN_PATH"                                                  \
+  --out "$IMAGE_BIN_PATH"                                                  \
   --name "$GIT_STRING"                                                        \
   --timestamp $(date +%s)                                                     \
   --hardware v3_$HW_CONFIG                                                    \
@@ -136,7 +144,7 @@ generate_failsafe()
 {
   [[ -z "${BR2_JUST_GEN_FAILSAFE:-}" ]] || local only=" (only)"
 
-  echo -n ">>> Generating FAILSAFE firmware image${only:-}... "
+  echo ">>> Starting FAILSAFE firmware image${only:-} generation..."
 
   # Ensure log is empty
   true >$LOG_FILE
@@ -152,6 +160,7 @@ generate_failsafe()
     | tee -a $LOG_FILE &>$LOG_DEBUG
 
   if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+    echo "ERROR: generating failsafe image:"
     cat $LOG_FILE
     exit 1
   fi
@@ -162,7 +171,7 @@ generate_failsafe()
       cp -v $FAILSAFE_BIN_PATH $FIRMWARE_DIR/PiksiMulti-FAILSAFE.bin
   fi
 
-  echo "done."
+  echo ">>> Done generating FAILSAFE firmware image${only:-}..."
 }
 
 encrypt_and_sign()
@@ -172,14 +181,14 @@ encrypt_and_sign()
     echo "ERROR: 'encrypt_and_sign' tool not found at path: $eas_tool_path" >&2
     exit 1
   fi
-  $eas_tool_path $INTERNAL_BIN_PATH $REL_PROT_BIN_PATH
-  rm ${INTERNAL_BIN_PATH}
+  "$eas_tool_path" "$IMAGE_BIN_PATH" "${IMAGE_BIN_PATH}.enc"
+  mv "${IMAGE_BIN_PATH}.enc" "$IMAGE_BIN_PATH"
 }
 
 rename_if_sdk_build()
 {
   local eas_tool_path=${HOST_DIR}/usr/bin/encrypt_and_sign
-  if [[ -e "$INTERNAL_BIN_PATH" ]]; then
+  if [[ -e "$IMAGE_BIN_PATH" ]]; then
     if [[ -e $SDK_FPGA_SHA1 ]]; then
       if [[ -f "$eas_tool_path" ]]; then
         echo "ERROR: found 'encrypt_and_sign', for \"SDK\" builds, this tool not *SHOULD NOT BE* locatable ($eas_tool_path)" >&2
@@ -187,7 +196,8 @@ rename_if_sdk_build()
       fi
       local sha=$(sha1sum "$FIRMWARE_DIR/piksi_fpga.bit" | cut -d' ' -f1)
       if [[ "$sha" == "$(cat $SDK_FPGA_SHA1 | cut -d' ' -f1)" ]]; then
-        mv -v "$INTERNAL_BIN_PATH" "$SDK_BIN_PATH"
+        echo '>>> SDK build detected....'
+        BUILD_TYPE_DETECTED=SDK
       fi
     fi
   fi
@@ -211,17 +221,36 @@ fi
 
 cp $BINARIES_DIR/uImage.${CFG} $OUTPUT_DIR
 
+BR2_BUILD_RELEASE_OPEN=
+BR2_BUILD_RELEASE_PROTECTED=
+
+if [[ "$("$SCRIPTS/get-variant-prop" "$VARIANT" encrypted)" == True ]]; then
+  BR2_BUILD_RELEASE_PROTECTED=y
+fi
+
+if [[ "$VARIANT" == "unprotected" ]]; then
+  BR2_BUILD_RELEASE_OPEN=y
+fi
+
+if [[ "$VARIANT" == "base" ]]; then
+  BUILD_TYPE_DETECTED=BASE
+fi
+
 if [[ -e $FIRMWARE_DIR/piksi_firmware.elf ]] && \
    [[ -e $FIRMWARE_DIR/piksi_fpga.bit ]]; then
 
   generate_prod
 
   if [[ -n "${BR2_BUILD_RELEASE_PROTECTED:-}" ]]; then
+    echo '>>> Protected build detected...'
+    BUILD_TYPE_DETECTED=PROTECTED
+
     encrypt_and_sign
   fi
 
   if [[ -n "${BR2_BUILD_RELEASE_OPEN:-}" ]]; then
-      mv -v ${INTERNAL_BIN_PATH} ${REL_OPEN_BIN_PATH}
+    echo '>>> Unprotected build detected...'
+    BUILD_TYPE_DETECTED=UNPROTECTED
   fi
 
   rename_if_sdk_build
@@ -231,27 +260,12 @@ else
 fi
 
 # Strip absolute path in case we're inside the docker container
-REL_OPEN_BIN_PATH=${REL_OPEN_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
-REL_PROT_BIN_PATH=${REL_PROT_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
-INTERNAL_BIN_PATH=${INTERNAL_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
-SDK_BIN_PATH=${SDK_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
+IMAGE_BIN_PATH=${IMAGE_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 DEV_BIN_PATH=${DEV_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 FAILSAFE_BIN_PATH=${FAILSAFE_BIN_PATH#${BR2_EXTERNAL_piksi_buildroot_PATH}/}
 
-if [[ -f "${BR2_EXTERNAL_piksi_buildroot_PATH:-}/$INTERNAL_BIN_PATH" ]]; then
-  echo -e "${bold}>>> INTERNAL firmware image located at:${normal}\n\t$INTERNAL_BIN_PATH"
-fi
-
-if [[ -f "${BR2_EXTERNAL_piksi_buildroot_PATH:-}/$SDK_BIN_PATH" ]]; then
-  echo -e "${bold}>>> SDK firmware image located at:${normal}\n\t$SDK_BIN_PATH"
-fi
-
-if [[ -n "${BR2_BUILD_RELEASE_OPEN:-}" ]]; then
-  echo -e "${bold}>>> RELEASE/OPEN firmware image located at:${normal}\n\t$REL_OPEN_BIN_PATH"
-fi
-
-if [[ -n "${BR2_BUILD_RELEASE_PROTECTED:-}" ]]; then
-  echo -e "${bold}>>> RELEASE/PROTECTED firmware image located at:${normal}\n\t$REL_PROT_BIN_PATH"
+if [[ -f "${BR2_EXTERNAL_piksi_buildroot_PATH:-}/$IMAGE_BIN_PATH" ]]; then
+  echo -e "${bold}>>> $BUILD_TYPE_DETECTED firmware image located at:${normal}\n\t$IMAGE_BIN_PATH"
 fi
 
 echo -e "${bold}>>> DEV firmware image located at:${normal}\n\t$DEV_BIN_PATH"
