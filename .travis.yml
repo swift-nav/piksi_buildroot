@@ -45,6 +45,17 @@ matrix:
 
     # Release image build
     - env:
+        - TRAVIS_TARGET=unprotected
+      script:
+        - ./scripts/travis.sh script
+      after_success:
+        - ./scripts/travis.sh after_success
+      after_failure:
+        - ./scripts/travis.sh after_failure
+#      if: type != pull_request
+
+    # Release image build
+    - env:
         - TRAVIS_TARGET=release
       script:
         - ./scripts/travis.sh script
@@ -52,6 +63,7 @@ matrix:
         - ./scripts/travis.sh after_success
       after_failure:
         - ./scripts/travis.sh after_failure
+#      if: type != pull_request
 
     # Host image build to run tests
     - env:
@@ -73,11 +85,9 @@ matrix:
       after_failure:
         - ./scripts/travis.sh after_failure
 
-    # Toolchain build: builds normally, but also builds the
-    #   SDK sample app, piksi_ins_ref, and exports a buildroot
-    #   toolchain
+    # Base station image build
     - env:
-        - TRAVIS_TARGET=toolchain
+        - TRAVIS_TARGET=base
       script:
         - ./scripts/travis.sh script
       after_success:
@@ -94,6 +104,7 @@ matrix:
         - ./scripts/travis.sh after_success
       after_failure:
         - ./scripts/travis.sh after_failure
+#      if: type != pull_request AND branch != master
 
 env:
   global:

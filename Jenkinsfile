@@ -34,6 +34,8 @@ pipeline {
     parameters {
         string(name: "REF", defaultValue: "master", description: "git ref for piksi_buildroot repo")
         choice(name: "LOG_LEVEL", choices: ['info', 'debug', 'warning', 'error'])
+        booleanParam(name: "FORCE_TOOLCHAIN_BUILD", defaultValue: false, description: "Force a toolchain build");
+        booleanParam(name: "FORCE_SDK_BUILD", defaultValue: false, description: "Force an SDK build");
     }
 
     environment {
@@ -42,6 +44,7 @@ pipeline {
         BR2_DL_DIR="/mnt/efs/buildroot/downloads"
         // Needed to add multiple private keys
         SSH_AUTH_SOCK="/tmp/ssh_auth_sock"
+        JENKINS_SKIP_AWS_AUTH_CHECK="y"
     }
 
     stages {
@@ -59,23 +62,23 @@ pipeline {
                             args dockerMountArgs
                         }
                     }
+                    environment {
+                        VARIANT = "release"
+                    }
                     steps {
                         stageStart()
                         gitPrep()
                         crlKeyAdd()
 
                         script {
-                            builder.make(target: "firmware")
-                            builder.make(target: "image-release-open")
-                            builder.make(target: "image-release-ins")
+                            builder.make(target: "image")
                         }
                     }
                     post {
                         success {
                             script {
                                 context.archivePatterns(
-                                        patterns: ['buildroot/output/images/piksiv3_prod/PiksiMulti-v*.bin',
-                                                   'buildroot/output/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin'],
+                                        patterns: ['buildroot/output/release/images/piksiv3_prod/PiksiMulti-v*.bin'],
                                         addPath: 'v3/prod'
                                 )
                             }
@@ -86,10 +89,10 @@ pipeline {
                     }
                 }
 
-                stage('Internal') {
+                stage('Unprotected') {
                     when {
                         expression {
-                            context.isStageIncluded()
+                            context.isStageIncluded(name: 'Unprotected')
                         }
                     }
                     agent {
@@ -98,40 +101,97 @@ pipeline {
                             args dockerMountArgs
                         }
                     }
+                    environment {
+                        VARIANT = "unprotected"
+                    }
                     steps {
                         stageStart()
                         gitPrep()
                         crlKeyAdd()
 
                         script {
-                            sh('GENERATE_REQUIREMENTS=1 ./fetch_firmware.sh')
-                            builder.make(target: "firmware")
                             builder.make(target: "image")
-                            if (context.isPrPush()) {
-                                createPrDescription(context: context)
+                        }
+                    }
+                    post {
+                        success {
+                            script {
+                                context.archivePatterns(
+                                        patterns: ['buildroot/output/unprotected/images/piksiv3_prod/PiksiMulti-UNPROTECTED-v*.bin'],
+                                        addPath: 'v3/prod'
+                                )
                             }
+                        }
+                        always {
+                            cleanUp()
+                        }
+                    }
+                }
+
+
+                stage('Internal') {
+                    when {
+                        expression {
+                            context.isStageIncluded(name: 'Internal')
+                        }
+                    }
+                    agent {
+                        dockerfile {
+                            filename dockerFile
+                            args dockerMountArgs
+                        }
+                    }
+                    environment {
+                        VARIANT = "internal"
+                    }
+                    steps {
+                        stageStart()
+                        gitPrep()
+                        crlKeyAdd()
+
+                        script {
+
+                            builder.make(target: "image")
+
+                            if (needTagArtifacts(context: context)) {
+                              builder.make(target: "export-toolchain")
+                              context.archivePatterns(
+                                patterns: [
+                                  'piksi_br_toolchain.txz'
+                                ]
+                              )
+                            }
+
                             context.archivePatterns(
                                 patterns: [
-                                    'buildroot/output/images/piksiv3_prod/PiksiMulti*',
-                                    'buildroot/output/images/piksiv3_prod/uImage*',
-                                    'buildroot/output/images/piksiv3_prod/boot.bin',
+                                    'buildroot/output/internal/images/piksiv3_prod/PiksiMulti*',
+                                    'buildroot/output/internal/images/piksiv3_prod/uImage*',
+                                    'buildroot/output/internal/images/piksiv3_prod/boot.bin',
                                 ],
                                 addPath: 'v3/prod',
                             )
-                            context.archivePatterns(
-                                patterns: [
-                                    'requirements.yaml',
-                                    'pr_description.yaml',
-                                ],
-                            )
+
                             if (context.isPrPush()) {
-                                hitl.triggerForPr()
+                                sh('./scripts/gen-requirements-yaml internal')
+                                createPrDescription(context: context)
+                                context.archivePatterns(
+                                    patterns: [
+                                        'requirements.yaml',
+                                        'pr_description.yaml',
+                                    ],
+                                )
+
+                                sh('git diff')
+
+                                hitl.triggerForPr() // this generates metrics.yaml
                                 context.archivePatterns(
                                     patterns: [
                                         'metrics.yaml',
                                     ],
                                 )
+
                             }
+
                             hitl.addComments()
                         }
                     }
@@ -145,7 +205,7 @@ pipeline {
                 stage('Host') {
                     when {
                         expression {
-                            context.isStageIncluded()
+                            context.isStageIncluded(name: 'Host')
                         }
                     }
                     agent {
@@ -154,13 +214,16 @@ pipeline {
                             args dockerMountArgs + " " + dockerSecArgs
                         }
                     }
+                    environment {
+                        VARIANT = "host"
+                    }
                     steps {
                         stageStart()
                         gitPrep()
                         crlKeyAdd()
 
                         script {
-                            builder.make(target: "host-image")
+                            builder.make(target: "image")
                         }
                     }
                     post {
@@ -173,7 +236,7 @@ pipeline {
                 stage('Nano') {
                     when {
                         expression {
-                            context.isStageIncluded()
+                            context.isStageIncluded(name: 'Nano')
                         }
                     }
                     agent {
@@ -182,21 +245,23 @@ pipeline {
                             args dockerMountArgs
                         }
                     }
+                    environment {
+                        VARIANT = "nano"
+                    }
                     steps {
                         stageStart()
                         gitPrep()
                         crlKeyAdd()
 
                         script {
-                            builder.make(target: "nano-config")
-                            builder.make(target: "nano-image")
+                            builder.make(target: "image")
                         }
                     }
                     post {
                         success {
                             script {
                                 context.archivePatterns(
-                                        patterns: ['buildroot/nano_output/images/sdcard.img'],
+                                        patterns: ['buildroot/output/nano/images/sdcard.img'],
                                         addPath: 'nano/evt1'
                                 )
                             }
@@ -207,38 +272,42 @@ pipeline {
                     }
                 }
 
-                stage('Toolchain') {
+                stage('SDK') {
                     when {
                         expression {
-                            context.isStageIncluded(name: 'Toolchain', includeOnEmpty: false)
+                            context.isStageIncluded(name: 'SDK') && needSdkBuild(context: context)
                         }
                     }
                     agent {
-                        dockerfile {
-                            filename dockerFile
-                            args dockerMountArgs
-                        }
+                        node('docker.m')
                     }
                     environment {
-                        BR2_BUILD_SAMPLE_DAEMON = "y"
-                        BR2_BUILD_PIKSI_INS_REF = "y"
+                        VARIANT = "sdk"
                     }
                     steps {
                         stageStart()
-                        gitPrep()
-                        crlKeyAdd()
-
                         script {
-                            builder.make(target: "firmware")
-                            builder.make(target: "image")
-                            builder.make(target: "export-toolchain")
+                          def tag = 'piksi_br_sdk_build'
+                          def branch = sdkBranchName(context: context)
+                          def wsDir = pwd()
+                          def tempDir = pwd(tmp:true)
+                          context.logger.info("SDK build: Copying Dockerfile from wsDir=${wsDir} to tempDir=${tempDir}")
+                          sh("cp ${wsDir}/scripts/Dockerfile.sdk ${tempDir}/Dockerfile")
+                          dir(tempDir) {
+                            context.logger.info("SDK build: running docker build (branch=${branch}, tag=${tag})...")
+                            sh("docker build --build-arg branch=${branch} -t ${tag} .")
+                            deleteDir()
+                          }
+                          sh("mkdir -p buildroot/output/sdk/images")
+                          sh("docker run --name ${tag}-run --rm ${tag} ls -l buildroot/output/sdk/images")
+                          sh("docker run --name ${tag}-run --rm -v ${wsDir}/buildroot/output/sdk:/output ${tag} cp -vr buildroot/output/sdk/images/ /output/")
                         }
                     }
                     post {
                         success {
                             script {
                                 context.archivePatterns(
-                                        patterns: ['piksi_br_toolchain.txz'],
+                                        patterns: ['buildroot/output/sdk/images/piksiv3_prod/PiksiMulti-SDK-v*.bin'],
                                         addPath: 'v3/prod'
                                 )
                             }
@@ -247,6 +316,7 @@ pipeline {
                             cleanUp()
                         }
                     }
+
                 }
 
                 stage('Format Check') {
@@ -318,8 +388,10 @@ def cleanUp() {
      */
     cleanWs(
         externalDelete: 'sudo rm -rf %s',
-        patterns: [[pattern: 'buildroot/host_output/target/fake_persist', type: 'INCLUDE'],
-                   [pattern: 'buildroot/host_output/target/persistent', type: 'INCLUDE'],
+        patterns: [[pattern: 'buildroot/output/host/target/fake_persist', type: 'INCLUDE'],
+                   [pattern: 'buildroot/output/host/target/persistent', type: 'INCLUDE'],
+                   [pattern: 'buildroot/output/host/target/persistent', type: 'INCLUDE'],
+                   [pattern: 'buildroot/output/sdk/images', type: 'INCLUDE'],
         ])
 }
 
@@ -350,4 +422,97 @@ def createPrDescription(Map args=[:]) {
             |tag:
             |""".stripMargin()
     )
+}
+
+def gitBranchName(Map args=[:]) {
+
+    assert args.context
+
+    return args.context.pipe.sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+}
+
+def prBranchName(Map args=[:]) {
+
+    assert args.context
+
+    def pr = new PullRequest(context: args.context)
+    pr.update()
+
+    return "${pr.data.head.ref}"
+}
+
+def sdkBranchName(Map args=[:]) {
+
+    assert args.context
+
+    if (args.context.isPrPush()) {
+      return prBranchName(context: args.context)
+    }
+
+    return gitBranchName(context: args.context)
+}
+
+def needSdkBuild(Map args=[:]) {
+
+    assert args.context
+
+    if (args.context.pipe.params.FORCE_SDK_BUILD) {
+      args.context.logger.info("needSdkBuild: true; FORCE_SDK_BUILD")
+      return true
+    }
+
+    if (args.context.isPrPush()) {
+      args.context.logger.info("needSdkBuild: false; isPrPush")
+      return false
+    }
+
+    def branchName = gitBranchName(context: args.context)
+    def isRelBranch = branchName ==~ /^v.*-release$/
+
+    args.context.logger.info("needSdkBuild: ${isRelBranch}")
+
+    if (!isRelBranch) {
+
+      args.context.logger.info("needSdkBuild: false; !isRelBranch")
+      return false
+    }
+
+    if (!args.context.isTagPush()) {
+
+      args.context.logger.info("needSdkBuild: false; !isTagPush")
+      return false
+    }
+
+    return true
+}
+
+def needTagArtifacts(Map args=[:]) {
+
+    assert args.context
+
+    if (args.context.pipe.params.FORCE_TOOLCHAIN_BUILD != null && 
+        args.context.pipe.params.FORCE_TOOLCHAIN_BUILD != "") {
+
+      args.context.logger.info("needTagArtifacts: true; FORCE_TOOLCHAIN_BUILD was set")
+      return true
+    }
+
+    args.context.logger.info(
+      "Found !FORCE_TOOLCHAIN_BUILD")
+
+    if (args.context.isPrPush()) {
+
+      args.context.logger.info("needTagArtifacts: false; isPrPush")
+      return false
+    }
+
+    if (!args.context.isTagPush()) {
+
+      args.context.logger.info("needTagArtifacts: false; !isTagPush")
+      return false
+    }
+
+    args.context.logger.info("needTagArtifacts: true; !isPrPush; isTagPush")
+
+    return true
 }
