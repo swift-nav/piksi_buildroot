@@ -28,4 +28,21 @@ define UBOOT_CUSTOM_BUILD_CMDS
 	)
 endef
 
+define UBOOT_CUSTOM_POST_INSTALL
+	@echo '>>>' uboot_custom post install...
+	@if [ "$(VARIANT)" == "release" ]; then \
+		echo '>>>' uboot_custom post install: release image, running custom steps...; \
+		HW_CONFIG=$(HW_CONFIG) \
+		BINARIES_DIR=$(BINARIES_DIR) \
+		TARGET_DIR=$(TARGET_DIR) \
+		BUILD_DIR=$(BUILD_DIR) \
+		BR2_JUST_GEN_FAILSAFE=y \
+			"${BR2_EXTERNAL_piksi_buildroot_PATH}/board/piksiv3/post_image.sh"; \
+	else \
+		echo '>>>' uboot_custom post install: not a release image, no custom steps...; \
+	fi
+endef
+
+UBOOT_CUSTOM_POST_INSTALL_TARGET_HOOKS += UBOOT_CUSTOM_POST_INSTALL
+
 $(eval $(generic-package))

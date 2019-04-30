@@ -1,2 +1,2 @@
-config BR2_RELEASE_LOCKDOWN
+config BR2_PACKAGE_RELEASE_LOCKDOWN
 	bool "release_lockdown"

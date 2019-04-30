@@ -22,6 +22,8 @@ define COMMON_INIT_USERS
 	pk_log -1 pk_log -1 * - - -
 endef
 
+ifeq ($(BR2_PACKAGE_COMMON_INIT),y)
 BR2_ROOTFS_OVERLAY += "${COMMON_INIT_SITE}/overlay"
+endif
 
 $(eval $(generic-package))

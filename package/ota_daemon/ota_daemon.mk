@@ -4,8 +4,6 @@
 #
 ################################################################################
 
-ifeq ($(BR2_PACKAGE_OTA_DAEMON),y)
-
 OTA_DAEMON_VERSION = 0.1
 OTA_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/ota_daemon"
@@ -24,8 +22,8 @@ define OTA_DAEMON_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/src/ota_daemon $(TARGET_DIR)/usr/bin
 endef
 
+ifeq ($(BR2_PACKAGE_OTA_DAEMON),y)
 BR2_ROOTFS_OVERLAY += "${OTA_DAEMON_SITE}/overlay"
+endif
 
 $(eval $(generic-package))
-
-endif
