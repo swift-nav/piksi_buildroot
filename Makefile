@@ -7,158 +7,57 @@ ifeq ($(HW_CONFIG),)
 HW_CONFIG    := prod
 endif
 
-.PHONY: all firmware config image clean host-config host-image host-clean     \
-        docker-setup docker-make-image docker-make-clean                      \
-        docker-make-host-image docker-make-host-clean docker-run              \
-        docker-shell \
-        docker-host-config docker-config pkg-% docker-pkg-%                   \
-        docker-rebuild-changed rebuild-changed _rebuild_changed               \
-				docker-host-pkg-%                                                     \
+.PHONY: all config image clean                                  \
+        docker-setup docker-make-image docker-make-clean        \
+        docker-config docker-run docker-shell                   \
+        docker-config pkg-% docker-pkg-%                        \
+        docker-rebuild-changed rebuild-changed _rebuild_changed
 
-all: firmware image
+all: image
 
 include scripts/docker.mk
 
-firmware:
-	./fetch_firmware.sh
+external-artifacts:
+	@./scripts/fetch-external-artifacts $(VARIANT)
 
 config:
 	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot O=output piksiv3_defconfig
+		$(MAKE) -C buildroot O=$(VARIANT_OUTPUT) VARIANT=$(VARIANT) $(VARIANT_CONFIG)
 
-dev-tools-clean: export BR2_BUILD_PIKSI_INS=
-dev-tools-clean: pkg-piksi_dev_tools-dirclean
+pre-flight-checks:
+	@./scripts/run-preflight-checks $(VARIANT)
 
-dev-tools-build: export BR2_BUILD_PIKSI_INS=
-dev-tools-build: pkg-piksi_dev_tools
-
-rel-lockdown-clean: export BR2_BUILD_PIKSI_INS=
-rel-lockdown-clean: export BR2_BUILD_RELEASE_OPEN=y
-rel-lockdown-clean: pkg-release_lockdown-dirclean
-
-POST_IMAGE_ENV = HW_CONFIG=prod \
-                 BINARIES_DIR=buildroot/output/images \
-                 TARGET_DIR=buildroot/output/target \
-                 BUILD_DIR=buildroot/output/build \
-                 BR2_EXTERNAL_piksi_buildroot_PATH=$(PWD)
-
-define _release_build
+image: pre-flight-checks external-artifacts config
 	$(BUILD_ENV_ARGS) \
-		$(MAKE) flush-rootfs rel-lockdown-clean
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot O=output V=$(V) uboot_custom
-	@$(POST_IMAGE_ENV) BR2_JUST_GEN_FAILSAFE=y ./board/piksiv3/post_image.sh
-	$(1)
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot O=output V=$(V)
-endef
-
-define _release_ins_build
-	[ -z "$(BR2_BUILD_PIKSI_INS)" ] || \
-		$(BUILD_ENV_ARGS) \
-			$(MAKE) pkg-piksi_ins-rebuild
-endef
-
-define _starling_daemon_build
-	[ -z "$(BR2_BUILD_STARLING_DAEMON)" ] || \
-		$(BUILD_ENV_ARGS) \
-			$(MAKE) pkg-starling_daemon-rebuild
-endef
-
-define _build_devtools
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) rel-lockdown-clean
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) dev-tools-clean dev-tools-build
-endef
-
-define _invoke_buildroot_default
-	$(BUILD_ENV_ARGS) $(MAKE) -C buildroot O=output V=$(V)
-endef
-
-image-release-open: export BR2_BUILD_RELEASE_OPEN=y
-image-release-open: config
-	$(call _release_build,:)
-
-image-release-protected: export BR2_BUILD_RELEASE_PROTECTED=y
-image-release-protected: config
-	$(call _release_build,$(_release_ins_build))
-
-image-release-ins: export BR2_BUILD_PIKSI_INS=y
-image-release-ins:
-	$(BUILD_ENV_ARGS) \
-		$(MAKE) image-release-protected
-
-image: export BR2_BUILD_STARLING_DAEMON=y
-image: export BR2_BUILD_PIKSI_INS=y
-image: config
-	$(_build_devtools)
-	$(_release_ins_build)
-	$(_starling_daemon_build)
-	$(_invoke_buildroot_default)
-
-image-sdk: config
-	$(_build_devtools)
-	$(_invoke_buildroot_default)
+		$(MAKE) -C buildroot O=$(VARIANT_OUTPUT) VARIANT=$(VARIANT) V=$(V)
 
 clean-ccache:
 	rm -rf buildroot/output/ccache/*
 
 clean:
-	find buildroot/output -mindepth 1 -maxdepth 1 \
-		\( ! -path buildroot/output/images -and ! -path buildroot/output/ccache \) \
+	find buildroot/$(VARIANT_OUTPUT) -mindepth 1 -maxdepth 1 \
+		\( ! -path buildroot/$(VARIANT_OUTPUT)/images \) \
 		-print -exec rm -rf {} \;
-	rm -rf buildroot/output/images/*
+	rm -rf buildroot/$(VARIANT_OUTPUT)/images/*
 
 flush-rootfs:
-	find buildroot/output -name .stamp_target_installed -delete
-	rm -rf buildroot/output/target/*
+	find buildroot/$(VARIANT_OUTPUT)/target -name .stamp_target_installed -delete
+	rm -rf buildroot/$(VARIANT_OUTPUT)/target/*
 
 # 'Package-specific:'
-# '  pkg-<pkg>                  - Build and install <pkg> and all its dependencies'
-# '  pkg-<pkg>-source           - Only download the source files for <pkg>'
-# '  pkg-<pkg>-extract          - Extract <pkg> sources'
-# '  pkg-<pkg>-patch            - Apply patches to <pkg>'
-# '  pkg-<pkg>-depends          - Build <pkg>'\''s dependencies'
-# '  pkg-<pkg>-configure        - Build <pkg> up to the configure step'
-# '  pkg-<pkg>-build            - Build <pkg> up to the build step'
-# '  pkg-<pkg>-dirclean         - Remove <pkg> build directory'
-# '  pkg-<pkg>-reconfigure      - Restart the build from the configure step'
+# '  pkg-<pkg>                  - Build and install <pkg> and all its dependencies'	
+# '  pkg-<pkg>-source           - Only download the source files for <pkg>'	
+# '  pkg-<pkg>-extract          - Extract <pkg> sources'	
+# '  pkg-<pkg>-patch            - Apply patches to <pkg>'	
+# '  pkg-<pkg>-depends          - Build <pkg>'\''s dependencies'	
+# '  pkg-<pkg>-configure        - Build <pkg> up to the configure step'	
+# '  pkg-<pkg>-build            - Build <pkg> up to the build step'	
+# '  pkg-<pkg>-dirclean         - Remove <pkg> build directory'	
+# '  pkg-<pkg>-reconfigure      - Restart the build from the configure step'	
 # '  pkg-<pkg>-rebuild          - Restart the build from the build step'
 pkg-%: config
 	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot $* O=output
-
-host-pkg-%: host-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DISABLE_LTO=y \
-		$(MAKE) -C buildroot $* O=host_output
-
-host-config:
-	BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DISABLE_LTO=y \
-		$(MAKE) -C buildroot O=host_output host_defconfig
-
-host-image: host-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) BR2_DISABLE_LTO=y \
-		$(MAKE) -C buildroot O=host_output
-
-host-clean:
-	rm -rf buildroot/host_output
-
-nano-pkg-%: nano-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		$(MAKE) -C buildroot $* O=nano_output
-
-nano-config:
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		$(MAKE) -C buildroot O=nano_output piksi_nano_defconfig
-
-nano-image: export BR2_BUILD_STARLING_DAEMON=y
-nano-image: nano-config
-	BR2_EXTERNAL=$(BR2_EXTERNAL) \
-		$(MAKE) -C buildroot O=nano_output
-
-nano-clean:
-	rm -rf buildroot/nano_output
+		$(MAKE) -C buildroot $* O=$(VARIANT_OUTPUT) VARIANT=$(VARIANT)
 
 rebuild-changed: export BUILD_TEMP=/tmp SINCE=$(SINCE) IGNORE=$(_REBUILD_CHANGED_IGNORE)
 rebuild-changed: _rebuild_changed
@@ -176,11 +75,11 @@ _rebuild_changed:
 		$(MAKE) -C buildroot \
 			$(shell BUILD_TEMP=$(BUILD_TEMP) SINCE=$(SINCE) IGNORE=$(IGNORE) \
 				scripts/changed_project_targets.py) \
-			O=output
+			O=$(VARIANT_OUTPUT) VARIANT=$(VARIANT)
 
 _print_db:
 	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot all O=output -np
+		$(MAKE) -C buildroot all O=$(VARIANT_OUTPUT) VARIANT=$(VARIANT) -np
 
 docker-build-image:
 	docker build --no-cache --force-rm \
@@ -197,33 +96,17 @@ docker-populate-volume:
 docker-setup: docker-build-image docker-populate-volume
 
 docker-rebuild-changed:
-	docker run $(DOCKER_ARGS) -e BUILD_TEMP=/host/tmp -e SINCE=$(SINCE) -e IGNORE=$(_REBUILD_CHANGED_IGNORE) \
+	docker run \
+		$(DOCKER_ARGS) \
+		-e BUILD_TEMP=/host/tmp \
+		-e SINCE=$(SINCE) \
+		-e IGNORE=$(_REBUILD_CHANGED_IGNORE) \
 		$(DOCKER_TAG) \
 		make _rebuild_changed
 
 docker-make-image:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
 		make image
-
-docker-make-image-sdk:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make image-sdk
-
-docker-make-image-release-open:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make image-release-open
-
-docker-make-image-release-protected:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make image-release-protected
-
-docker-make-image-release-ins:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make image-release-ins
-
-docker-make-config:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make config
 
 docker-make-clean:
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
@@ -238,45 +121,13 @@ docker-make-clean-volume:
 
 docker-make-clean-all: docker-make-clean docker-make-clean-volume
 
-docker-make-host-image:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make host-image
-
-docker-make-host-clean:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make host-clean
-
-docker-host-config:
-	docker run -e BR2_DISABLE_LTO=y $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
-		make -C buildroot O=host_output host_defconfig
-
-docker-make-nano-image:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make nano-image
-
-docker-make-nano-clean:
-	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make nano-clean
-
-docker-nano-config:
-	docker run -e BR2_DISABLE_LTO=y $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
-		make nano-config
-
 docker-config:
 	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
-		make -C buildroot O=output piksiv3_defconfig
-
-docker-host-pkg-%: docker-host-config
-	docker run -e BR2_DISABLE_LTO=y $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make -C buildroot $* O=host_output
-
-docker-nano-pkg-%: docker-nano-config
-	docker run -e $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make -C buildroot $* O=nano_output
+		make -C buildroot O=$(VARIANT_OUTPUT) VARIANT=$(VARIANT) $(VARIANT_CONFIG)
 
 docker-pkg-%: docker-config
 	docker run $(DOCKER_ARGS) $(DOCKER_TAG) \
-		make -C buildroot $* O=output
+		make -C buildroot $* O=$(VARIANT_OUTPUT) VARIANT=$(VARIANT)
 
 docker-shell docker-run:
 	docker run $(DOCKER_RUN_ARGS) --name=$(DOCKER_TAG) \
@@ -341,50 +192,18 @@ docker-make-export-toolchain:
 
 export-toolchain:
 	$(BUILD_ENV_ARGS) \
-		$(MAKE) -C buildroot O=output V=$(V) sdk
+		$(MAKE) -C buildroot O=$(VARIANT_OUTPUT) V=$(V) sdk
 	@echo '>>>' Uninstalling piksi toolchain wrappers...
 	$(MAKE) -C buildroot force-uninstall-toolchain-wrappers
 	@echo '>>>' Creating buildroot toolchain archive...
-	tar -cJf piksi_br_toolchain.txz -C buildroot/output/host .
-
-define _pull_ccache
-	( DOWNLOAD_PBR_CCACHE=y PBR_TARGET=$(1) ./fetch_firmware.sh && \
-	  mkdir -p buildroot/$(2)/ccache && \
-	  tar -C buildroot/$(2)/ccache -xzf piksi_br_$(1)_ccache.tgz ) || \
-   echo "Warning: was not able to download ccache for $(LAST_GIT_TAG)"
-endef
-
-define _archive_ccache
-	tar -C buildroot/$(2)/ccache -czf piksi_br_$(1)_ccache.tgz .
-endef
-
-pull-ccache:
-	$(call _pull_ccache,release,output)
-
-docker-pull-ccache:
-	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
-		make pull-ccache
-
-host-pull-ccache:
-	$(call _pull_ccache,host,host_output)
-
-docker-host-pull-ccache:
-	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
-		make host-pull-ccache
+	tar -cJf piksi_br_toolchain.txz -C buildroot/$(VARIANT_OUTPUT)/host .
 
 ccache-archive:
-	$(call _archive_ccache,release,output)
+	tar -C buildroot/ccache -czf piksi_br_ccache.tgz .
 
 docker-ccache-archive:
 	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
 		make ccache-archive
-
-host-ccache-archive:
-	$(call _archive_ccache,host,host_output)
-
-docker-host-ccache-archive:
-	docker run $(DOCKER_RUN_ARGS) $(DOCKER_TAG) \
-		make host-ccache-archive
 
 docker-sync-setup:
 	@./scripts/check-docker-sync
@@ -426,5 +245,8 @@ docker-aws-google-auth:
 
 show-startup-order:
 	@find . -name 'S*'|grep etc/init.d|sed 's@\(.*\)etc/init.d/\(.*\)@\2 - \1etc/init.d/\2@'|sort
+
+gen-variant-configs:
+	@./scripts/gen-variant-configs
 
 .PHONY: help
