@@ -11,7 +11,7 @@ f_upgrade_tool='select(.name=="piksi_upgrade_tool")'
 
 field() { fnum=$1; shift; echo "$@" | awk "{print \$$fnum}"; }
 
-gen_s3_pathes() {
+gen_s3_paths() {
 
   while read -r line; do
 
@@ -24,4 +24,4 @@ gen_s3_pathes() {
   done < <(jq -r "${q_artifacts}|${f_upgrade_tool}|$t_pub_artifacts" "$d")
 }
 
-gen_s3_pathes | uniq
+gen_s3_paths | uniq
