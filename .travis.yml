@@ -9,7 +9,9 @@ services:
 branches:
   only:
 #    - master
-    - /^v\d+\.\d+\.0-release$/
+#    - /^v\d+\.\d+\.0-release$/
+    - /^v\d+\.2\.0-release$/
+
 
 before_install:
   - eval "$(ssh-agent -s)"
