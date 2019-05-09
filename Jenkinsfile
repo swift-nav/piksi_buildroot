@@ -3,8 +3,9 @@
 // Use 'ci-jenkins@someref' to pull shared lib from a different branch/tag than the default.
 // Default is configured in Jenkins and should be from "stable" tag.
 
-//TODO: Remove the s3fix tag before merge to master
-@Library("ci-jenkins@s3fix") import com.swiftnav.ci.*
+// TODO: Change from stable-pbr to stable after everything works fine.
+// Meanwhile, the stable-pbr will allow us to quickly fix issues in the shared libs after this gets merged.
+@Library("ci-jenkins@stable-pbr") import com.swiftnav.ci.*
 
 String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
@@ -16,6 +17,8 @@ context.setRepo("piksi_buildroot")
 
 def builder = context.getBuilder()
 def logger = context.getLogger()
+def hitl = new SwiftHitl(context: context)
+hitl.update()
 
 pipeline {
     // Override agent in each stage to make sure we don't share containers among stages.
@@ -44,45 +47,6 @@ pipeline {
     stages {
         stage('Build') {
             parallel {
-                // This is a stage that can be used to quickly try some changes.
-                // It won't run if STAGE_INCLUDE is empty. To run it, set the STAGE_INCLUDE parameter
-                // to "s3-test".
-                stage('s3-test') {
-                    when {
-                        // Run only when specifically included via the STAGE_INCLUDE parameter.
-                        expression {
-                            context.isStageIncluded(name: 'S3-test', includeOnEmpty: false)
-                        }
-                    }
-                    agent {
-                        dockerfile {
-                            filename dockerFile
-                            args dockerMountArgs
-                        }
-                    }
-                    steps {
-                        stageStart()
-                        gitPrep()
-                        crlKeyAdd()
-
-                        // create a dummy file that we can save later
-                        sh("mkdir -p a/b/c && touch dummy_file.txt a/b/c/PiksiMulti_1.bin a/b/c/PiksiMulti_2.bin a/b/c/somefile.txt")
-                    }
-                    post {
-                        success {
-                            script {
-                                context.archivePatterns(
-                                        patterns: ['a/b/c/*.bin'],
-                                        addPath: 'dummy/addme'
-                                )
-                            }
-                        }
-                        always {
-                            cleanUp()
-                        }
-                    }
-                }
-
                 stage('Release') {
                     when {
                         expression {
@@ -140,21 +104,38 @@ pipeline {
                         crlKeyAdd()
 
                         script {
+                            sh('GENERATE_REQUIREMENTS=1 ./fetch_firmware.sh')
                             builder.make(target: "firmware")
                             builder.make(target: "image")
+                            if (context.isPrPush()) {
+                                createPrDescription(context: context)
+                            }
+                            context.archivePatterns(
+                                patterns: [
+                                    'buildroot/output/images/piksiv3_prod/PiksiMulti*',
+                                    'buildroot/output/images/piksiv3_prod/uImage*',
+                                    'buildroot/output/images/piksiv3_prod/boot.bin',
+                                ],
+                                addPath: 'v3/prod',
+                            )
+                            context.archivePatterns(
+                                patterns: [
+                                    'requirements.yaml',
+                                    'pr_description.yaml',
+                                ],
+                            )
+                            if (context.isPrPush()) {
+                                hitl.triggerForPr()
+                                context.archivePatterns(
+                                    patterns: [
+                                        'metrics.yaml',
+                                    ],
+                                )
+                            }
+                            hitl.addComments()
                         }
                     }
                     post {
-                        success {
-                            script {
-                                context.archivePatterns(
-                                        patterns: ['buildroot/output/images/piksiv3_prod/PiksiMulti*',
-                                                   'buildroot/output/images/piksiv3_prod/uImage*',
-                                                   'buildroot/output/images/piksiv3_prod/boot.bin'],
-                                        addPath: 'v3/prod'
-                                )
-                            }
-                        }
                         always {
                             cleanUp()
                         }
@@ -216,7 +197,7 @@ pipeline {
                             script {
                                 context.archivePatterns(
                                         patterns: ['buildroot/nano_output/images/sdcard.img'],
-                                        addPath: 'nano/evt0'
+                                        addPath: 'nano/evt1'
                                 )
                             }
                         }
@@ -247,7 +228,7 @@ pipeline {
                         gitPrep()
                         crlKeyAdd()
 
-                        script {                       
+                        script {
                             builder.make(target: "firmware")
                             builder.make(target: "image")
                             builder.make(target: "export-toolchain")
@@ -285,10 +266,11 @@ pipeline {
                         gitPrep()
                         crlKeyAdd()
 
-                        // Ensure that the docker tag in docker_version_tag is same as in Dockerfile.jenkins
                         script {
-                            String dockerVersionTag = readFile(file: 'scripts/docker_version_tag').trim()
-                            sh("""grep "FROM .*:${dockerVersionTag}" scripts/Dockerfile.jenkins""")
+                            // Ensure that the docker tag in docker_version_tag is same as in Dockerfile.jenkins
+                            // (no longer needed when switching to buildroot-base image pulled from docker-recipes)
+                            //String dockerVersionTag = readFile(file: 'scripts/docker_version_tag').trim()
+                            //sh("""grep "FROM .*:${dockerVersionTag}" scripts/Dockerfile.jenkins""")
                             builder.make(target: "clang-format")
                             sh('''
                                 | git --no-pager diff --name-only HEAD > /tmp/clang-format-diff
@@ -322,26 +304,6 @@ pipeline {
 }
 
 /**
- * Add the private key for accessing CRL repo.
- * Consider moving this off to the shared libs.
- * @return
- */
-def crlKeyAdd() {
-    withCredentials([string(credentialsId: 'github-crl-ssh-key-string', variable: 'GITHUB_CRL_KEY')]) {
-        sh("""/bin/bash -e
-            set +x
-            echo "${GITHUB_CRL_KEY}" > /tmp/github-crl-ssh-key
-            set -x
-            ssh-agent -a \${SSH_AUTH_SOCK}
-            chmod 0600 /tmp/github-crl-ssh-key
-            ssh-add /tmp/github-crl-ssh-key
-            ssh-add /home/jenkins/.ssh/id_rsa
-            ssh-add -l
-           """)
-    }
-}
-
-/**
  * Clean up some file generated with wrong permissions during the build.
  * This is needed so that a workspace clean is able to remove all files.
  * @return
@@ -359,4 +321,33 @@ def cleanUp() {
         patterns: [[pattern: 'buildroot/host_output/target/fake_persist', type: 'INCLUDE'],
                    [pattern: 'buildroot/host_output/target/persistent', type: 'INCLUDE'],
         ])
+}
+
+def createPrDescription(Map args=[:]) {
+    assert args.context
+    assert args.context.isPrPush()
+
+    def pr = new PullRequest(context: args.context)
+    pr.update()
+
+    writeFile(
+        file: "pr_description.yaml",
+        text: """
+            |---
+            |commit:
+            |  sha: ${pr.data.head.sha}
+            |  message: ${pr.data.title}
+            |  range: ${pr.data.base.sha}..${pr.data.head.sha}
+            |pr:
+            |  number: ${pr.getNumber()}
+            |  source_branch: ${pr.data.head.ref}
+            |  sha: ${pr.data.head.sha}
+            |  source_slug: ${pr.org}/${pr.repo}
+            |target:
+            |  branch: ${pr.data.base.ref}
+            |  slug: ${pr.org}/${pr.repo}
+            |test_result: 0
+            |tag:
+            |""".stripMargin()
+    )
 }
