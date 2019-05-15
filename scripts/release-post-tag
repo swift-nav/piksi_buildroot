@@ -81,10 +81,15 @@ update_external_artifacts() {
   repository=$(get_artifact_field "$x" "$y" s3_repository)
   object=$(get_artifact_field "$x" "$y" s3_object)
 
-  aws s3 cp "s3://${bucket}/${repository}/${version}/${object}" "$s3_temp"
-  digest=$(sha256sum "$s3_temp" | field 1)
-
-  update_artifact_field "$x" "$y" "sha256" "$digest"
+  if [[ -z "${NO_WRITE:-}" ]]; then
+    aws s3 cp "s3://${bucket}/${repository}/${version}/${object}" "$s3_temp"
+    digest=$(sha256sum "$s3_temp" | field 1)
+    update_artifact_field "$x" "$y" "sha256" "$digest"
+  else
+    # A fake digest for testing
+    digest=578dfeafe1c6aecd18daf4eee3063170bec0f6bed1059d3c5bb0b35cde472d96
+    update_artifact_field "$x" "$y" "sha256" "$digest"
+  fi
 }
 
 update_external_artifacts multi fpga_bitstream
