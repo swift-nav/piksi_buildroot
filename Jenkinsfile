@@ -456,6 +456,11 @@ def needSdkBuild(Map args=[:]) {
 
     assert args.context
 
+    def branchName = gitBranchName(context: args.context)
+    def isRelBranch = branchName ==~ /^v.*-release$/
+
+    args.context.logger.info("needSdkBuild: branchName=${branchName}, isRelBranch=${isRelBranch}")
+
     if (args.context.pipe.params.FORCE_SDK_BUILD) {
       args.context.logger.info("needSdkBuild: true; FORCE_SDK_BUILD")
       return true
@@ -465,11 +470,6 @@ def needSdkBuild(Map args=[:]) {
       args.context.logger.info("needSdkBuild: false; isPrPush")
       return false
     }
-
-    def branchName = gitBranchName(context: args.context)
-    def isRelBranch = branchName ==~ /^v.*-release$/
-
-    args.context.logger.info("needSdkBuild: ${isRelBranch}")
 
     if (!isRelBranch) {
 
@@ -490,8 +490,7 @@ def needTagArtifacts(Map args=[:]) {
 
     assert args.context
 
-    if (args.context.pipe.params.FORCE_TOOLCHAIN_BUILD != null && 
-        args.context.pipe.params.FORCE_TOOLCHAIN_BUILD != "") {
+    if (args.context.pipe.params.FORCE_TOOLCHAIN_BUILD) {
 
       args.context.logger.info("needTagArtifacts: true; FORCE_TOOLCHAIN_BUILD was set")
       return true
