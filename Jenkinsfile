@@ -424,34 +424,6 @@ def createPrDescription(Map args=[:]) {
     )
 }
 
-def gitBranchName(Map args=[:]) {
-
-    assert args.context
-
-    return args.context.pipe.sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
-}
-
-def prBranchName(Map args=[:]) {
-
-    assert args.context
-
-    def pr = new PullRequest(context: args.context)
-    pr.update()
-
-    return "${pr.data.head.ref}"
-}
-
-def sdkBranchName(Map args=[:]) {
-
-    assert args.context
-
-    if (args.context.isPrPush()) {
-      return prBranchName(context: args.context)
-    }
-
-    return gitBranchName(context: args.context)
-}
-
 def needSdkBuild(Map args=[:]) {
 
     assert args.context
@@ -477,9 +449,9 @@ def needSdkBuild(Map args=[:]) {
       return false
     }
 
-    if (!args.context.isTagPush()) {
+    if (!gitHeadHasTag(context: args.context)) {
 
-      args.context.logger.info("needSdkBuild: false; !isTagPush")
+      args.context.logger.info("needSdkBuild: false; !gitHeadHasTag")
       return false
     }
 
