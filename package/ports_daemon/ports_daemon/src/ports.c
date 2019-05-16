@@ -97,9 +97,13 @@ typedef struct port_config_s {
   pid_t adapter_pid; /* May be cleared by SIGCHLD handler */
   restart_type_t restart;
   bool first_start;
+  const int blacklist_len;
+  const char* const blacklist[10];
+  int mode_mapping[10]; /* maps from global mode list to port mode sublist */
+  int protocol_index_mapping[10]; /* maps from port protocol sublist to global protocol list */
 } port_config_t;
 
-static int mode_lookup(const char *mode_name, u8 *mode);
+static int mode_lookup(const char *mode_name, u8 *mode, const port_config_t *port_config);
 
 static char *get_fileio_opts(const port_config_t *port_config)
 {
@@ -107,7 +111,7 @@ static char *get_fileio_opts(const port_config_t *port_config)
 
   u8 mode_sbp = MODE_DISABLED;
 
-  int rc = mode_lookup(MODE_NAME_SBP, &mode_sbp);
+  int rc = mode_lookup(MODE_NAME_SBP, &mode_sbp, port_config);
   assert(rc == 0);
 
   if (port_config->mode == mode_sbp) {
@@ -197,6 +201,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "uart1",
@@ -208,6 +214,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "usb0",
@@ -219,6 +227,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = FIXED_SBP_USB_PORT_NAME,
@@ -231,6 +241,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "tcp_server0",
@@ -243,6 +255,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "tcp_server1",
@@ -255,6 +269,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "tcp_client0",
@@ -267,6 +283,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "tcp_client1",
@@ -279,6 +297,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "udp_server0",
@@ -291,6 +311,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "udp_server1",
@@ -303,6 +325,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "udp_client0",
@@ -315,6 +339,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "udp_client1",
@@ -327,6 +353,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "can0",
@@ -339,6 +367,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
   {
     .name = "can1",
@@ -351,6 +381,8 @@ static port_config_t port_configs[] = {
     .adapter_pid = PID_INVALID,
     .restart = DO_NOT_RESTART,
     .first_start = true,
+    .blacklist_len = 0,
+    .blacklist = {NULL},
   },
 };
 
@@ -401,7 +433,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
     return SETTINGS_WR_OK;
   }
 
-  int protocol_index = mode_to_protocol_index(port_config->mode);
+  int protocol_index = port_config->protocol_index_mapping[mode_to_protocol_index(port_config->mode)];
   const protocol_t *protocol = protocols_get(protocol_index);
   if (protocol == NULL) {
     return SETTINGS_WR_VALUE_REJECTED;
@@ -522,7 +554,7 @@ static int setting_udp_client_address_register(pk_settings_ctx_t *settings_ctx,
                               port_config);
 }
 
-static int mode_enum_names_get(const char ***mode_enum_names)
+static int mode_enum_names_get(const char ***mode_enum_names, port_config_t *port_config)
 {
   int protocols_count = protocols_count_get();
 
@@ -534,18 +566,33 @@ static int mode_enum_names_get(const char ***mode_enum_names)
 
   enum_names[MODE_DISABLED] = MODE_NAME_DISABLED;
 
-  for (int i = 0; i < protocols_count; i++) {
-    const protocol_t *protocol = protocols_get(i);
+  int protocols_used = 0;
+  for (int protocol_index = 0; protocol_index < protocols_count; protocol_index++) {
+    const protocol_t *protocol = protocols_get(protocol_index);
     assert(protocol != NULL);
-    enum_names[protocol_index_to_mode(i)] = protocol->setting_name;
+    enum_names[protocol_index_to_mode(protocols_used)] = protocol->setting_name;
+    bool blacklisted = false;
+    for (int x = 0; x < port_config->blacklist_len; x++) {
+      if (strcmp(port_config->blacklist[x], protocol->setting_name) == 0) {
+        piksi_log(LOG_DEBUG, "skipping blacklisted protocol - port: %s name: %s", port_config->blacklist[x], protocol->setting_name);
+        enum_names[protocol_index_to_mode(protocols_used)] = NULL;
+        blacklisted = true;
+      }
+    }
+
+    if (!blacklisted) {
+      port_config->mode_mapping[protocol_index_to_mode(protocol_index)] = protocol_index_to_mode(protocols_used);
+      port_config->protocol_index_mapping[protocols_used] = protocol_index;
+      protocols_used++;
+    }
   }
-  enum_names[protocol_index_to_mode(protocols_count)] = NULL;
+  enum_names[protocol_index_to_mode(protocols_used)] = NULL;
 
   *mode_enum_names = enum_names;
   return 0;
 }
 
-static int mode_lookup(const char *mode_name, u8 *mode)
+static int mode_lookup(const char *mode_name, u8 *mode, const port_config_t *port_config)
 {
   if (strcasecmp(mode_name, MODE_NAME_DISABLED) == 0) {
     *mode = MODE_DISABLED;
@@ -554,11 +601,12 @@ static int mode_lookup(const char *mode_name, u8 *mode)
 
   int protocols_count = protocols_count_get();
 
+  assert(port_config != NULL);
   for (int i = 0; i < protocols_count; i++) {
     const protocol_t *protocol = protocols_get(i);
     assert(protocol != NULL);
     if (strcasecmp(protocol->setting_name, mode_name) == 0) {
-      *mode = protocol_index_to_mode(i);
+      *mode = port_config->mode_mapping[protocol_index_to_mode(i)];
       return 0;
     }
   }
@@ -573,31 +621,28 @@ int ports_init(pk_settings_ctx_t *settings_ctx, bool can_enabled)
 
   /* Initialize default mode */
   u8 mode_default = MODE_DISABLED;
-  mode_lookup(MODE_NAME_DEFAULT, &mode_default);
-
-  /* Initialize port modes */
-  for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
-    port_config_t *port_config = &port_configs[i];
-
-    if (mode_lookup(port_config->mode_name_default, &port_config->mode) != 0) {
-      port_config->mode = mode_default;
-    }
-  }
-
-  /* Get mode enum names */
-  const char **mode_enum_names;
-  if (mode_enum_names_get(&mode_enum_names) != 0) {
-    piksi_log(LOG_ERR, "error setting up port modes");
-    return -1;
-  }
-
-  /* Register settings types */
-  settings_type_t settings_type_mode;
-  pk_settings_register_enum(settings_ctx, mode_enum_names, &settings_type_mode);
 
   /* Register settings */
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
     port_config_t *port_config = &port_configs[i];
+
+    /* Get mode enum names */
+    const char **mode_enum_names;
+    if (mode_enum_names_get(&mode_enum_names, port_config) != 0) {
+      piksi_log(LOG_ERR, "error setting up port modes");
+      return -1;
+    }
+
+    /* Initialize port mode */
+    mode_lookup(MODE_NAME_DEFAULT, &mode_default, port_config);
+
+    if (mode_lookup(port_config->mode_name_default, &port_config->mode, port_config) != 0) {
+      port_config->mode = mode_default;
+    }
+
+    /* Register settings types */
+    settings_type_t settings_type_mode;
+    pk_settings_register_enum(settings_ctx, mode_enum_names, &settings_type_mode);
 
     if (strcmp(port_config->name, FIXED_SBP_USB_PORT_NAME) == 0) {
       // skip settings registration for fixed SBP usb port
