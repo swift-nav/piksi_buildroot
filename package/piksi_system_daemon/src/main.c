@@ -61,7 +61,9 @@ static bool log_ping_activity = false;
 static const char const *ip_mode_enum_names[] = {"Static", "DHCP", NULL};
 enum { IP_CFG_STATIC, IP_CFG_DHCP };
 static u8 eth_ip_mode = IP_CFG_STATIC;
-static bool eth_locked;
+static const char const *interface_mode_enum_names[] = {"Config", "Active", NULL};
+enum { INTERFACE_MODE_ACTIVE, INTERFACE_MODE_CONFIG };
+static u8 interface_mode = INTERFACE_MODE_ACTIVE;
 static bool eth_settings_initialized = false;
 static char eth_ip_addr[16] = "192.168.0.222";
 static char eth_netmask[16] = "255.255.255.0";
@@ -88,7 +90,7 @@ static void eth_update_config(void)
 
 static settings_write_res_t eth_attempt_write(void)
 {
-  if (eth_settings_initialized && eth_locked) {
+  if (eth_settings_initialized && (interface_mode == INTERFACE_MODE_ACTIVE)) {
     sbp_log(LOG_WARNING, "Ethernet must be disabled to modify settings");
     return SETTINGS_WR_MODIFY_DISABLED;
   }
@@ -96,14 +98,14 @@ static settings_write_res_t eth_attempt_write(void)
   return SETTINGS_WR_OK;
 }
 
-static int eth_locked_notify(void *context)
+static int interface_mode_notify(void *context)
 {
   (void)context;
 
   /* Check if initialization is in process and this notify function was
    * triggered by read from persistent config file during boot. If this is the
    * case, other settings might not be ready yet. */
-  if (eth_settings_initialized && eth_locked) {
+  if (eth_settings_initialized && (interface_mode == INTERFACE_MODE_ACTIVE)) {
     eth_update_config();
   }
 
@@ -605,14 +607,16 @@ int main(void)
 
   settings_type_t settings_type_ip_mode;
   pk_settings_register_enum(settings_ctx, ip_mode_enum_names, &settings_type_ip_mode);
+  settings_type_t settings_type_interface_mode;
+  pk_settings_register_enum(settings_ctx, interface_mode_enum_names, &settings_type_interface_mode);
   pk_settings_register(settings_ctx,
                        "ethernet",
-                       "locked",
-                       &eth_locked,
-                       sizeof(eth_locked),
-                       SETTINGS_TYPE_BOOL,
-                       eth_locked_notify,
-                       &eth_locked);
+                       "mode",
+                       &interface_mode,
+                       sizeof(interface_mode),
+                       settings_type_interface_mode,
+                       interface_mode_notify,
+                       &interface_mode);
   pk_settings_register(settings_ctx,
                        "ethernet",
                        "ip_config_mode",
