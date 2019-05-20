@@ -91,7 +91,8 @@ static void eth_update_config(void)
 static settings_write_res_t eth_attempt_write(void)
 {
   if (eth_settings_initialized && (interface_mode == INTERFACE_MODE_ACTIVE)) {
-    sbp_log(LOG_WARNING, "Ethernet \"interface mode\" must be set to \"Config\" in order to modify settings");
+    sbp_log(LOG_WARNING,
+            "Ethernet \"interface mode\" must be set to \"Config\" in order to modify settings");
     return SETTINGS_WR_MODIFY_DISABLED;
   }
 
@@ -651,7 +652,8 @@ int main(void)
                        &eth_gateway);
 
   eth_settings_initialized = true;
-  interface_mode = INTERFACE_MODE_ACTIVE; // in case this value was saved to persistent - clear it out
+  interface_mode =
+    INTERFACE_MODE_ACTIVE; // in case this value was saved to persistent - clear it out
   eth_update_config();
 
   settings_type_t settings_type_time_source;
