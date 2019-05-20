@@ -611,7 +611,7 @@ int main(void)
   pk_settings_register_enum(settings_ctx, interface_mode_enum_names, &settings_type_interface_mode);
   pk_settings_register(settings_ctx,
                        "ethernet",
-                       "mode",
+                       "interface_mode",
                        &interface_mode,
                        sizeof(interface_mode),
                        settings_type_interface_mode,
@@ -651,6 +651,7 @@ int main(void)
                        &eth_gateway);
 
   eth_settings_initialized = true;
+  interface_mode = INTERFACE_MODE_ACTIVE; // in case this value was saved to persistent - clear it out
   eth_update_config();
 
   settings_type_t settings_type_time_source;
