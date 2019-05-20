@@ -61,6 +61,10 @@ static bool log_ping_activity = false;
 static const char const *ip_mode_enum_names[] = {"Static", "DHCP", NULL};
 enum { IP_CFG_STATIC, IP_CFG_DHCP };
 static u8 eth_ip_mode = IP_CFG_STATIC;
+static const char const *interface_mode_enum_names[] = {"Active", "Config", NULL};
+enum { INTERFACE_MODE_ACTIVE, INTERFACE_MODE_CONFIG };
+static u8 interface_mode = INTERFACE_MODE_ACTIVE;
+static bool eth_settings_initialized = false;
 static char eth_ip_addr[16] = "192.168.0.222";
 static char eth_netmask[16] = "255.255.255.0";
 static char eth_gateway[16] = "192.168.0.1";
@@ -84,11 +88,36 @@ static void eth_update_config(void)
   }
 }
 
+static settings_write_res_t eth_attempt_write(void)
+{
+  if (eth_settings_initialized && (interface_mode == INTERFACE_MODE_ACTIVE)) {
+    sbp_log(LOG_WARNING,
+            "Ethernet \"interface mode\" must be set to \"Config\" in order to modify settings");
+    return SETTINGS_WR_MODIFY_DISABLED;
+  }
+
+  return SETTINGS_WR_OK;
+}
+
+static int interface_mode_notify(void *context)
+{
+  (void)context;
+
+  /* Check if initialization is in process and this notify function was
+   * triggered by read from persistent config file during boot. If this is the
+   * case, other settings might not be ready yet. */
+  if (eth_settings_initialized && (interface_mode == INTERFACE_MODE_ACTIVE)) {
+    eth_update_config();
+  }
+
+  return SETTINGS_WR_OK;
+}
+
 static int eth_ip_mode_notify(void *context)
 {
   (void)context;
-  eth_update_config();
-  return SETTINGS_WR_OK;
+
+  return eth_attempt_write();
 }
 
 static int eth_ip_config_notify(void *context)
@@ -99,8 +128,7 @@ static int eth_ip_config_notify(void *context)
     return SETTINGS_WR_VALUE_REJECTED;
   }
 
-  eth_update_config();
-  return SETTINGS_WR_OK;
+  return eth_attempt_write();
 }
 
 static void sbp_network_req(u16 sender_id, u8 len, u8 msg_[], void *context)
@@ -580,6 +608,16 @@ int main(void)
 
   settings_type_t settings_type_ip_mode;
   pk_settings_register_enum(settings_ctx, ip_mode_enum_names, &settings_type_ip_mode);
+  settings_type_t settings_type_interface_mode;
+  pk_settings_register_enum(settings_ctx, interface_mode_enum_names, &settings_type_interface_mode);
+  pk_settings_register(settings_ctx,
+                       "ethernet",
+                       "interface_mode",
+                       &interface_mode,
+                       sizeof(interface_mode),
+                       settings_type_interface_mode,
+                       interface_mode_notify,
+                       &interface_mode);
   pk_settings_register(settings_ctx,
                        "ethernet",
                        "ip_config_mode",
@@ -612,6 +650,11 @@ int main(void)
                        SETTINGS_TYPE_STRING,
                        eth_ip_config_notify,
                        &eth_gateway);
+
+  eth_settings_initialized = true;
+  interface_mode =
+    INTERFACE_MODE_ACTIVE; // in case this value was saved to persistent - clear it out
+  eth_update_config();
 
   settings_type_t settings_type_time_source;
   pk_settings_register_enum(settings_ctx, system_time_sources, &settings_type_time_source);
