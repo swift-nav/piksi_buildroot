@@ -61,7 +61,7 @@ static bool log_ping_activity = false;
 static const char const *ip_mode_enum_names[] = {"Static", "DHCP", NULL};
 enum { IP_CFG_STATIC, IP_CFG_DHCP };
 static u8 eth_ip_mode = IP_CFG_STATIC;
-static const char const *interface_mode_enum_names[] = {"Config", "Active", NULL};
+static const char const *interface_mode_enum_names[] = {"Active", "Config", NULL};
 enum { INTERFACE_MODE_ACTIVE, INTERFACE_MODE_CONFIG };
 static u8 interface_mode = INTERFACE_MODE_ACTIVE;
 static bool eth_settings_initialized = false;
