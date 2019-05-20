@@ -91,7 +91,7 @@ static void eth_update_config(void)
 static settings_write_res_t eth_attempt_write(void)
 {
   if (eth_settings_initialized && (interface_mode == INTERFACE_MODE_ACTIVE)) {
-    sbp_log(LOG_WARNING, "Ethernet must be disabled to modify settings");
+    sbp_log(LOG_WARNING, "Ethernet \"interface mode\" must be set to \"Config\" in order to modify settings");
     return SETTINGS_WR_MODIFY_DISABLED;
   }
 
