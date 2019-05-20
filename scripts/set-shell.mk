@@ -26,6 +26,7 @@ PREREQUISITES := \
 	$(FOUND_NIX)$(FOUND_NO_NIX_SHELL)$(FOUND_NO_PIKSI_SHELL)$(FOUND_DISABLE_NIX)
 
 ifeq (ynnn,$(PREREQUISITES))
+$(info >>> *** Wrapping SHELL with Nix wrapper ***)
 SHELL        := $(CURDIR)/scripts/nixwrap.bash
 else
 SHELL        := $(shell which bash)

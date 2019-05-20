@@ -1,0 +1,12 @@
+diff -ur ca-certificates-20170717.old/mozilla/Makefile ca-certificates-20170717/mozilla/Makefile
+--- ca-certificates-20170717.old/mozilla/Makefile       2019-05-20 11:54:04.467446133 -0700
++++ ca-certificates-20170717/mozilla/Makefile   2019-05-20 11:48:45.679411454 -0700
+@@ -3,7 +3,7 @@
+ #
+
+ all:
+-       python certdata2pem.py
++       PATH=$(CURDIR)/../../../../../../scripts/wrappers/bin:$(PATH) python certdata2pem.py
+
+ clean:
+        -rm -f *.crt
