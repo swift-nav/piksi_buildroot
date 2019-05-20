@@ -75,6 +75,8 @@ let
   # understand this argument, it's added to the bash environement).
   profile = ''
 
+    if [[ -z "$VARIANT" ]]; then export VARIANT=internal; fi
+
     # buildFHSUserEnv seems to export NIX_CFLAGS_COMPILE and NIX_LDFLAGS_BEFORE
     #   but the cc-wrapper wants a var that includes a marker for the build
     #   triplet that it's wrapping:
@@ -83,9 +85,10 @@ let
     export NIX_x86_64_unknown_linux_gnu_LDFLAGS_BEFORE=$NIX_LDFLAGS_BEFORE 
 
     # Make sure buildroot Python loads dynamic modules from the right place
-    export LD_LIBRARY_PATH=$PWD/buildroot/output/host/usr/lib:/lib:/usr/lib
-    export PATH=$PWD/scripts/wrappers/bin:$PWD/buildroot/host_output/host/bin:$PWD/buildroot/output/host/bin:$PATH
-    export LD_LIBRARY_PATH=$PWD/buildroot/host_output/host/usr/lib:$LD_LIBRARY_PATH
+    export PATH=$PWD/scripts/wrappers/bin:$PWD/buildroot/$VARIANT/host_output/host/bin:$PWD/buildroot/output/$VARIANT/host/bin:$PATH
+
+    export LD_LIBRARY_PATH=$PWD/buildroot/output/$VARIANT/host/usr/lib:/lib:/usr/lib
+    export LD_LIBRARY_PATH=$PWD/buildroot/$VARIANT/host_output/host/usr/lib:$LD_LIBRARY_PATH
 
     # See note about hardeningDisable above
     export hardeningDisable=all
