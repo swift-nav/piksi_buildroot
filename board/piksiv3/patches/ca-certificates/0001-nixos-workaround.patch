@@ -1,0 +1,25 @@
+From 4f9678e397faf7c07372b7ad8c39401f35ed8e36 Mon Sep 17 00:00:00 2001
+From: Jason Mobarak <jason@swiftnav.com>
+Date: Mon, 20 May 2019 15:33:21 -0700
+Subject: [PATCH] nixos compat fix
+
+---
+ mozilla/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mozilla/Makefile b/mozilla/Makefile
+index 6f46118..8393753 100644
+--- a/mozilla/Makefile
++++ b/mozilla/Makefile
+@@ -3,7 +3,7 @@
+ #
+ 
+ all:
+-	python certdata2pem.py
++	PATH=$(CURDIR)/../../../../../../scripts/wrappers/bin:$(PATH) python certdata2pem.py
+ 
+ clean:
+ 	-rm -f *.crt
+-- 
+2.15.0
+
