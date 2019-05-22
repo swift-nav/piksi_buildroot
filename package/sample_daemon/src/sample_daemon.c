@@ -35,6 +35,7 @@
 #define PROGRAM_NAME "sample_daemon"
 
 static double offset = 0;
+static bool daemon_enabled = false;
 static bool enable_broadcast = false;
 static int broadcast_port = 56666;
 static char broadcast_hostname[256] = "255.255.255.255";
@@ -80,6 +81,8 @@ static void heartbeat_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
 
+  if (!daemon_enabled) return;
+
   piksi_log(LOG_DEBUG | LOG_SBP, "Got piksi heartbeat...");
 
   if (enable_broadcast) {
@@ -96,6 +99,9 @@ static void heartbeat_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 static void pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)context;
+
+  if (!daemon_enabled) return;
+
   msg_pos_llh_t *pos = (msg_pos_llh_t *)msg;
 
   double adjusted = pos->height - offset;
@@ -182,6 +188,15 @@ int main(int argc, char *argv[])
 
   /* Set up settings */
   pk_settings_ctx_t *settings_ctx = sbp_get_settings_ctx();
+
+  pk_settings_register(settings_ctx,
+                       "sample_daemon",
+                       "enabled",
+                       &daemon_enabled,
+                       sizeof(daemon_enabled),
+                       SETTINGS_TYPE_BOOL,
+                       notify_settings_changed,
+                       NULL);
 
   pk_settings_register(settings_ctx,
                        "sample_daemon",
