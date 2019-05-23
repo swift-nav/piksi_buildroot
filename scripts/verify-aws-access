@@ -10,11 +10,14 @@ import pbr_script_lib as PBR
 
 
 def check_s3_url(variant, s3_url):
-    if variant == 'sdk':
-        print(">>> *** AWS S3 \"NO SIGN REQUEST\" ***")
-        R().call('aws', 's3', 'cp', '--no-sign-request', '--dryrun', s3_url, 's3obj.test').check()
-    else:
+    try:
         R().call('aws', 's3', 'cp', '--dryrun', s3_url, 's3obj.test').check()
+    except PBR.RunnerError as ex:
+        if variant == 'sdk':
+            print(">>> *** AWS S3 \"NO SIGN REQUEST\" ***")
+            R().call('aws', 's3', 'cp', '--no-sign-request', '--dryrun', s3_url, 's3obj.test').check()
+        else:
+            raise ex
 
 
 def _main():
