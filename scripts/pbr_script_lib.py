@@ -31,6 +31,10 @@ PREFLIGHT_CONTEXT_FILE = '.preflight_context.pickle'
 _PREFLIGHT_CONTEXT = None
 
 
+class RunnerError(ValueError):
+    pass
+
+
 class Runner(object):
     """
     Helper object for running command pipelines.
@@ -69,7 +73,7 @@ class Runner(object):
         elif self._proc_args is not None:
             self._stdin_fp = self._make_proc(stdout=subprocess.PIPE).stdout
         else:
-            raise ValueError('Nothing staged for pipe()')
+            raise RunnerError('Nothing staged for pipe()')
         return self
 
     def call(self, *cmd):
@@ -112,7 +116,7 @@ class Runner(object):
         ret = proc.wait()
         if ret != 0:
             sys.stdout.write('\n')
-            raise ValueError(
+            raise RunnerError(
                 "Process signaled error (exit code {}), standard error:\n\n{}"
                 .format(ret, proc.stderr.read().decode('utf8')))
 

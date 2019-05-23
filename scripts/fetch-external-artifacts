@@ -15,12 +15,14 @@ os.chdir(PBR.find_dot_git())
 
 
 def s3_cp(variant, s3_url, local_path):
-    if variant == 'sdk':
-        print(">>> *** AWS S3 \"NO SIGN REQUEST\" ***")
-        R().call('aws', 's3', 'cp', '--no-sign-request', s3_url, local_path).check()
-    else:
+    try:
         R().call('aws', 's3', 'cp', s3_url, local_path).check()
-
+    except RunnerError as ex:
+        if variant == 'sdk':
+            print(">>> *** AWS S3 \"NO SIGN REQUEST\" ***")
+            R().call('aws', 's3', 'cp', '--no-sign-request', s3_url, local_path).check()
+        else:
+            raise ex
 
 def _main():
     if len(sys.argv) < 2:
