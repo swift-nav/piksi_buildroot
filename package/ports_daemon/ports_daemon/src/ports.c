@@ -98,8 +98,8 @@ typedef struct port_config_s {
   restart_type_t restart;
   bool first_start;
   const int blacklist_len;
-  const char* const blacklist[10];
-  int mode_mapping[10]; /* maps from global mode list to port mode sublist */
+  const char *const blacklist[10];
+  int mode_mapping[10];           /* maps from global mode list to port mode sublist */
   int protocol_index_mapping[10]; /* maps from port protocol sublist to global protocol list */
 } port_config_t;
 
@@ -433,7 +433,8 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
     return SETTINGS_WR_OK;
   }
 
-  int protocol_index = port_config->protocol_index_mapping[mode_to_protocol_index(port_config->mode)];
+  int protocol_index =
+    port_config->protocol_index_mapping[mode_to_protocol_index(port_config->mode)];
   const protocol_t *protocol = protocols_get(protocol_index);
   if (protocol == NULL) {
     return SETTINGS_WR_VALUE_REJECTED;
@@ -574,14 +575,18 @@ static int mode_enum_names_get(const char ***mode_enum_names, port_config_t *por
     bool blacklisted = false;
     for (int x = 0; x < port_config->blacklist_len; x++) {
       if (strcmp(port_config->blacklist[x], protocol->setting_name) == 0) {
-        piksi_log(LOG_DEBUG, "skipping blacklisted protocol - port: %s name: %s", port_config->blacklist[x], protocol->setting_name);
+        piksi_log(LOG_DEBUG,
+                  "skipping blacklisted protocol - port: %s name: %s",
+                  port_config->blacklist[x],
+                  protocol->setting_name);
         enum_names[protocol_index_to_mode(protocols_used)] = NULL;
         blacklisted = true;
       }
     }
 
     if (!blacklisted) {
-      port_config->mode_mapping[protocol_index_to_mode(protocol_index)] = protocol_index_to_mode(protocols_used);
+      port_config->mode_mapping[protocol_index_to_mode(protocol_index)] =
+        protocol_index_to_mode(protocols_used);
       port_config->protocol_index_mapping[protocols_used] = protocol_index;
       protocols_used++;
     }
