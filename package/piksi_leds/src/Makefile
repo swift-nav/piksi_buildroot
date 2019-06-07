@@ -7,7 +7,7 @@ SOURCES= \
 
 LIBS=-luv -lsbp -lpiksi -lpthread -lsettings
 
-CFLAGS=-std=gnu11
+CFLAGS=-std=gnu11 -ggdb3
 
 CROSS=
 

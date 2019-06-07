@@ -4,7 +4,7 @@ SOURCES= \
 	setting.c \
 	settings_sbp_cb.c \
 
-LIBS=-luv -lsbp -lpiksi -lsettings
+LIBS=-luv -lsbp -lpiksi -lsettings -ggdb3
 
 CFLAGS+=-std=gnu11 -I../include
 ARFLAGS=rcs	$(LTO_PLUGIN)
