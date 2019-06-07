@@ -9,6 +9,7 @@ SBP_RTCM3_BRIDGE_SITE = \
 	"${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_rtcm3_bridge/src"
 SBP_RTCM3_BRIDGE_SITE_METHOD = local
 SBP_RTCM3_BRIDGE_DEPENDENCIES = libuv libsbp libpiksi gnss_convertors libsettings
+SBP_RTCM3_BRIDGE_INSTALL_STAGING = YES
 
 define SBP_RTCM3_BRIDGE_USERS
 	br_rtcm3 -1 br_rtcm3 -1 * - - -

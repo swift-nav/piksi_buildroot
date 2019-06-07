@@ -9,6 +9,7 @@ SBP_SETTINGS_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/sbp_settings_daemon/sbp_settings_daemon"
 SBP_SETTINGS_DAEMON_SITE_METHOD = local
 SBP_SETTINGS_DAEMON_DEPENDENCIES = libuv libsbp libpiksi libsettings
+SBP_SETTINGS_DAEMON_INSTALL_STAGING = YES
 
 define SBP_SETTINGS_DAEMON_USERS
 	configd -1 fileio -1 * - - -

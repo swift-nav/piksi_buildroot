@@ -9,6 +9,7 @@ METRICS_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/metrics_daemon/metrics_daemon"
 METRICS_DAEMON_SITE_METHOD = local
 METRICS_DAEMON_DEPENDENCIES = json-c libuv libsbp libpiksi libsettings
+METRICS_DAEMON_INSTALL_STAGING = YES
 
 ifeq ($(BR2_BUILD_TESTS),y)
   METRICS_DAEMON_DEPENDENCIES += gtest valgrind

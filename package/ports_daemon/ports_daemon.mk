@@ -9,6 +9,7 @@ PORTS_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/ports_daemon"
 PORTS_DAEMON_SITE_METHOD = local
 PORTS_DAEMON_DEPENDENCIES = libuv libsbp libpiksi libsocketcan
+PORTS_DAEMON_INSTALL_STAGING = YES
 
 define PORTS_DAEMON_USERS
 	portsd -1 portsd -1 * - - -

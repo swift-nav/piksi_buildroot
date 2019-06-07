@@ -9,6 +9,7 @@ NTRIP_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/ntrip_daemon"
 NTRIP_DAEMON_SITE_METHOD = local
 NTRIP_DAEMON_DEPENDENCIES = libuv libsbp libpiksi libcurl libnetwork
+NTRIP_DAEMON_INSTALL_STAGING = YES
 
 define NTRIP_DAEMON_USERS
 	ntripd -1 ntripd -1 * - - -

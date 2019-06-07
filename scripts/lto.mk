@@ -2,6 +2,7 @@
 #   from gcc/ld based on the input (PWD) path.
 TARGET_CFLAGS       := $(TARGET_CFLAGS) -flto
 TARGET_LDFLAGS      := $(TARGET_LDFLAGS) -flto
+
 BR2_TARGET_CFLAGS   := $(BR2_TARGET_CFLAGS) -flto
 BR2_TARGET_LDFLAGS  := $(BR2_TARGET_LDFLAGS) -flto
 
