@@ -9,6 +9,7 @@ SKYLARK_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/skylark_daemon"
 SKYLARK_DAEMON_SITE_METHOD = local
 SKYLARK_DAEMON_DEPENDENCIES = libuv libsbp libpiksi libcurl libnetwork
+SKYLARK_DAEMON_INSTALL_STAGING = YES
 
 define SKYLARK_DAEMON_USERS
 	skylarkd -1 skylarkd -1 * - - -

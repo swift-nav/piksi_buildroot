@@ -9,6 +9,7 @@ NMEA_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/nmea_daemon/src"
 NMEA_DAEMON_SITE_METHOD = local
 NMEA_DAEMON_DEPENDENCIES = libuv libpiksi
+NMEA_DAEMON_INSTALL_STAGING = YES
 
 define NMEA_DAEMON_USERS
 	nmead -1 nmead -1 * - - -

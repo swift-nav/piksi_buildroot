@@ -4,7 +4,7 @@ SOURCES= \
 
 LIBS=-luv -lsbp -lpiksi -ldl -lsettings
 
-CFLAGS+=-std=gnu11
+CFLAGS+=-std=gnu11 -ggdb3
 ARFLAGS=rcs $(LTO_PLUGIN)
 
 CROSS=

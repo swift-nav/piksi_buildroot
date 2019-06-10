@@ -9,6 +9,7 @@ NETWORK_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/network_daemon"
 NETWORK_DAEMON_SITE_METHOD = local
 NETWORK_DAEMON_DEPENDENCIES = libuv libsbp libpiksi
+NETWORK_DAEMON_INSTALL_STAGING = YES
 
 define NETWORK_DAEMON_USERS
 	networkd -1 networkd -1 * - - -

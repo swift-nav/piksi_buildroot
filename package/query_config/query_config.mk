@@ -9,6 +9,7 @@ QUERY_CONFIG_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/query_config/src"
 QUERY_CONFIG_SITE_METHOD = local
 QUERY_CONFIG_DEPENDENCIES = libuv libsbp libpiksi
+QUERY_CONFIG_INSTALL_STAGING = YES
 
 define QUERY_CONFIG_BUILD_CMDS
     $(MAKE) CC=$(TARGET_CC) LD=$(TARGET_LD) -C $(@D) all

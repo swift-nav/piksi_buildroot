@@ -9,6 +9,7 @@ IMAGE_TABLE_TOOL_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/image_table_tool/src"
 IMAGE_TABLE_TOOL_SITE_METHOD = local
 IMAGE_TABLE_TOOL_DEPENDENCIES = uboot_custom zlib
+IMAGE_TABLE_TOOL_INSTALL_STAGING = YES
 
 IMAGE_TABLE_TOOL_UBOOT_DIR = \
 	$(shell find $(BUILD_DIR) -maxdepth 1 -type d -name uboot_custom-*)

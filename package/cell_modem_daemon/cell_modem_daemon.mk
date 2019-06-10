@@ -9,6 +9,7 @@ CELL_MODEM_DAEMON_SITE = \
   "${BR2_EXTERNAL_piksi_buildroot_PATH}/package/cell_modem_daemon"
 CELL_MODEM_DAEMON_SITE_METHOD = local
 CELL_MODEM_DAEMON_DEPENDENCIES = libuv libsbp libpiksi
+CELL_MODEM_DAEMON_INSTALL_STAGING = YES
 
 define CELL_MODEM_DAEMON_USERS
 	celld -1 celld -1 * - - -
