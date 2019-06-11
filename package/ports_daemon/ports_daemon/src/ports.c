@@ -99,8 +99,7 @@ typedef struct port_config_s {
   bool first_start;
   const int blacklist_len;
   const char *const blacklist[10];
-  int mode_mapping[10];           /* maps from global mode list to port mode sublist */
-  int protocol_index_mapping[10]; /* maps from port protocol sublist to global protocol list */
+  bool blacklisted_indices[10];
 } port_config_t;
 
 static int mode_lookup(const char *mode_name, u8 *mode, const port_config_t *port_config);
@@ -396,6 +395,33 @@ static u8 protocol_index_to_mode(int protocol_index)
   return protocol_index + 1;
 }
 
+static int blacklisted_mode_lookup(u8 mode, const port_config_t *port_config)
+{
+  assert(mode <= 10);
+  int mode_index = mode_to_protocol_index(mode);
+  assert(port_config->blacklisted_indices[mode_index] != 1);
+
+  int blacklisted_counter = 0;
+  for (int i = 0; i < mode_index; i++) {
+    if (port_config->blacklisted_indices[i] == 1) {
+      blacklisted_counter++;
+    }
+  }
+
+  return protocol_index_to_mode(mode_index - blacklisted_counter);
+}
+
+static int blacklisted_index_lookup(int index, const port_config_t *port_config)
+{
+  assert(index < 10);
+  for (int i = 0; i <= index; i++) {
+    if (port_config->blacklisted_indices[i] == 1) {
+      index++;
+    }
+  }
+  return index;
+}
+
 static int port_configure(port_config_t *port_config, bool updating_mode)
 {
   char cmd[1024];
@@ -433,8 +459,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
     return SETTINGS_WR_OK;
   }
 
-  int protocol_index =
-    port_config->protocol_index_mapping[mode_to_protocol_index(port_config->mode)];
+  int protocol_index = blacklisted_index_lookup(mode_to_protocol_index(port_config->mode), port_config);
   const protocol_t *protocol = protocols_get(protocol_index);
   if (protocol == NULL) {
     return SETTINGS_WR_VALUE_REJECTED;
@@ -579,15 +604,13 @@ static int mode_enum_names_get(const char ***mode_enum_names, port_config_t *por
                   "skipping blacklisted protocol - port: %s name: %s",
                   port_config->blacklist[x],
                   protocol->setting_name);
+        port_config->blacklisted_indices[x] = 1;
         enum_names[protocol_index_to_mode(protocols_used)] = NULL;
         blacklisted = true;
       }
     }
 
     if (!blacklisted) {
-      port_config->mode_mapping[protocol_index_to_mode(protocol_index)] =
-        protocol_index_to_mode(protocols_used);
-      port_config->protocol_index_mapping[protocols_used] = protocol_index;
       protocols_used++;
     }
   }
@@ -611,7 +634,7 @@ static int mode_lookup(const char *mode_name, u8 *mode, const port_config_t *por
     const protocol_t *protocol = protocols_get(i);
     assert(protocol != NULL);
     if (strcasecmp(protocol->setting_name, mode_name) == 0) {
-      *mode = port_config->mode_mapping[protocol_index_to_mode(i)];
+      *mode = blacklisted_mode_lookup(protocol_index_to_mode(i), port_config);
       return 0;
     }
   }
