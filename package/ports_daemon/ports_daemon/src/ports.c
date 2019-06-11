@@ -27,6 +27,9 @@
 #include "ports.h"
 #include "protocols.h"
 
+#define MAX_NUM_PROTOCOLS 10
+#define MAX_PROTOCOL_NAME_LEN 10
+
 #define MODE_NAME_SBP "SBP"
 
 #define MODE_NAME_DEFAULT MODE_NAME_SBP
@@ -98,8 +101,8 @@ typedef struct port_config_s {
   restart_type_t restart;
   bool first_start;
   const int blacklist_len;
-  const char *const blacklist[10];
-  bool blacklisted_indices[10];
+  const char *const blacklist[MAX_PROTOCOL_NAME_LEN];
+  bool blacklisted_indices[MAX_NUM_PROTOCOLS];
 } port_config_t;
 
 static int mode_lookup(const char *mode_name, u8 *mode, const port_config_t *port_config);
@@ -397,7 +400,7 @@ static u8 protocol_index_to_mode(int protocol_index)
 
 static int blacklisted_mode_lookup(u8 mode, const port_config_t *port_config)
 {
-  assert(mode <= 10);
+  assert(mode <= MAX_NUM_PROTOCOLS);
   int mode_index = mode_to_protocol_index(mode);
   assert(port_config->blacklisted_indices[mode_index] != 1);
 
@@ -413,7 +416,7 @@ static int blacklisted_mode_lookup(u8 mode, const port_config_t *port_config)
 
 static int blacklisted_index_lookup(int index, const port_config_t *port_config)
 {
-  assert(index < 10);
+  assert(index < MAX_NUM_PROTOCOLS);
   for (int i = 0; i <= index; i++) {
     if (port_config->blacklisted_indices[i] == 1) {
       index++;
