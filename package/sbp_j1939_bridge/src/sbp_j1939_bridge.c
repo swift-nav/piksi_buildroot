@@ -193,8 +193,7 @@ static int j19392sbp_decode_frame(const u8 *data, const size_t length, void *con
 
   switch (state->PGN) {
   case 61482: /* gyr_* info */
-  case 61485: /* acc_* info */
-    break;
+  case 61485: /* acc_* info */ break;
 
   default: break;
   }
@@ -280,20 +279,20 @@ int main(int argc, char *argv[])
   }
 
   j1939_pub = pk_endpoint_create(pk_endpoint_config()
-                .endpoint(J1939_PUB_ENDPOINT)
-                .identity(J1939_PUB_METRICS)
-                .type(PK_ENDPOINT_PUB)
-                .get());
+                                   .endpoint(J1939_PUB_ENDPOINT)
+                                   .identity(J1939_PUB_METRICS)
+                                   .type(PK_ENDPOINT_PUB)
+                                   .get());
   if (j1939_pub == NULL) {
     piksi_log(LOG_ERR, "error creating PUB socket");
     exit(cleanup(&j1939_sub, EXIT_FAILURE));
   }
 
   j1939_sub = pk_endpoint_create(pk_endpoint_config()
-                .endpoint(J1939_SUB_ENDPOINT)
-                .identity(J1939_SUB_METRICS)
-                .type(PK_ENDPOINT_SUB)
-                .get());
+                                   .endpoint(J1939_SUB_ENDPOINT)
+                                   .identity(J1939_SUB_METRICS)
+                                   .type(PK_ENDPOINT_SUB)
+                                   .get());
   if (j1939_sub == NULL) {
     piksi_log(LOG_ERR, "error creating SUB socket");
     exit(cleanup(&j1939_sub, EXIT_FAILURE));

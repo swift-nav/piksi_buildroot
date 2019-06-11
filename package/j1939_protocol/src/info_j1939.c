@@ -27,4 +27,3 @@ int port_adapter_opts_get(char *buf, size_t buf_size, const char *port_name)
                   "-p 'ipc:///var/run/sockets/j1939_external.sub'",
                   port_name);
 }
-
