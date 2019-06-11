@@ -605,9 +605,9 @@ static int mode_enum_names_get(const char ***mode_enum_names, port_config_t *por
       if (strcmp(port_config->blacklist[x], protocol->setting_name) == 0) {
         piksi_log(LOG_DEBUG,
                   "skipping blacklisted protocol - port: %s name: %s",
-                  port_config->blacklist[x],
+                  port_config->name,
                   protocol->setting_name);
-        port_config->blacklisted_indices[x] = 1;
+        port_config->blacklisted_indices[protocol_index] = 1;
         enum_names[protocol_index_to_mode(protocols_used)] = NULL;
         blacklisted = true;
       }
