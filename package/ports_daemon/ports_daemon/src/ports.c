@@ -462,7 +462,8 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
     return SETTINGS_WR_OK;
   }
 
-  int protocol_index = blacklisted_index_lookup(mode_to_protocol_index(port_config->mode), port_config);
+  int protocol_index =
+    blacklisted_index_lookup(mode_to_protocol_index(port_config->mode), port_config);
   const protocol_t *protocol = protocols_get(protocol_index);
   if (protocol == NULL) {
     return SETTINGS_WR_VALUE_REJECTED;
