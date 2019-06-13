@@ -27,6 +27,10 @@
 
 #include "endpoint_adapter.h"
 
+#define J1939_HEADER_LENGTH 4
+#define J1939_DATA_LENGTH 8
+#define J1939_FRAME_SIZE_MAX J1939_HEADER_LENGTH + J1939_DATA_LENGTH
+
 #define CAN_SLEEP_NS 1000000 /* 1 millisecond */
 
 #define READ 0
@@ -56,7 +60,7 @@ static void *can_read_thread_handler(void *arg)
   piksi_log(LOG_DEBUG, "CAN read thread starting...");
   read_thread_context_t *pctx = (read_thread_context_t *)arg;
 
-  u8 full_frame[12];
+  u8 full_frame[J1939_FRAME_SIZE_MAX];
   for (;;) {
 
     fd_set fds;
@@ -213,6 +217,7 @@ int can_loop(const char *can_name,
              const char *framer_in_name,
              const char *framer_out_name)
 {
+  // TODO: add an -J1939 option to endpoint_adapter / ports_daemon
   if (strncmp(framer_in_name, "j1939", 5) == 0) {
     is_j1939 = true;
   }

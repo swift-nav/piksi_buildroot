@@ -1,6 +1,6 @@
 TARGET=libj1939_protocol
 SOURCES=info_j1939.c framer_j1939.c
-CFLAGS+=-std=gnu11 -fPIC
+CFLAGS+=-std=gnu11 -fPIC -ggdb3
 ARFLAGS=rcs $(LTO_PLUGIN)
 LDFLAGS=-shared
 
