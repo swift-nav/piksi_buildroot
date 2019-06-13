@@ -640,7 +640,7 @@ static int mode_enum_names_get(const char ***mode_enum_names, port_config_t *por
   enum_names[MODE_DISABLED] = MODE_NAME_DISABLED;
 
   for (int mode = 1; mode < port_config->mode_map_len; mode++) {
-    const protocol_t *protocol = protocols_get(protocol_index(mode, port_config));
+    const protocol_t *protocol = protocols_get(mode_to_protocol_index(mode, port_config));
     assert(protocol != NULL);
     enum_names[mode] = protocol->setting_name;
   }
