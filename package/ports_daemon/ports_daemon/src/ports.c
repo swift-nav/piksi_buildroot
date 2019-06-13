@@ -28,6 +28,7 @@
 #include "protocols.h"
 
 #define MAX_NUM_PROTOCOLS 10
+#define MAX_NUM_MODES (MAX_NUM_PROTOCOLS + 1)
 #define MAX_PROTOCOL_NAME_LEN 10
 
 #define MODE_NAME_SBP "SBP"
@@ -39,6 +40,7 @@
 
 #define FIXED_SBP_USB_PORT_NAME "usb2"
 
+#define PROTOCOL_INDEX_INVALID -1
 // This is the default for most serial devices, we need to drop and flush
 //   data when we get to this point to avoid sending partial SBP packets.
 //   See https://elixir.bootlin.com/linux/v4.6/source/include/linux/serial.h#L29
@@ -101,8 +103,9 @@ typedef struct port_config_s {
   restart_type_t restart;
   bool first_start;
   const int blacklist_len;
-  const char *const blacklist[MAX_PROTOCOL_NAME_LEN];
-  bool blacklisted_indices[MAX_NUM_PROTOCOLS];
+  const char *const blacklist[MAX_NUM_PROTOCOLS];
+  u8 mode_map_len;
+  int mode_map[MAX_NUM_MODES];
 } port_config_t;
 
 static int mode_lookup(const char *mode_name, u8 *mode, const port_config_t *port_config);
@@ -205,6 +208,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "uart1",
@@ -218,6 +223,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "usb0",
@@ -231,6 +238,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = FIXED_SBP_USB_PORT_NAME,
@@ -245,6 +254,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "tcp_server0",
@@ -259,6 +270,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "tcp_server1",
@@ -273,6 +286,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "tcp_client0",
@@ -287,6 +302,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "tcp_client1",
@@ -301,6 +318,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "udp_server0",
@@ -315,6 +334,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "udp_server1",
@@ -329,6 +350,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "udp_client0",
@@ -343,6 +366,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "udp_client1",
@@ -357,6 +382,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "can0",
@@ -371,6 +398,8 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
   {
     .name = "can1",
@@ -385,44 +414,27 @@ static port_config_t port_configs[] = {
     .first_start = true,
     .blacklist_len = 0,
     .blacklist = {NULL},
+    .mode_map_len = 0,
+    .mode_map = {0},
   },
 };
 
-static int mode_to_protocol_index(u8 mode)
+static int mode_to_protocol_index(u8 mode, const port_config_t *port_config)
 {
-  return mode - 1;
+  assert(mode < port_config->mode_map_len);
+  return port_config->mode_map[mode];
 }
 
-static u8 protocol_index_to_mode(int protocol_index)
+static u8 protocol_index_to_mode(int protocol_index, const port_config_t *port_config)
 {
-  return protocol_index + 1;
-}
-
-static int blacklisted_mode_lookup(u8 mode, const port_config_t *port_config)
-{
-  assert(mode <= MAX_NUM_PROTOCOLS);
-  int mode_index = mode_to_protocol_index(mode);
-  assert(port_config->blacklisted_indices[mode_index] != 1);
-
-  int blacklisted_counter = 0;
-  for (int i = 0; i < mode_index; i++) {
-    if (port_config->blacklisted_indices[i] == 1) {
-      blacklisted_counter++;
+  assert(protocol_index < MAX_NUM_PROTOCOLS);
+  for (int mode = 0; mode < port_config->mode_map_len; mode++) {
+    if (port_config->mode_map[mode] == protocol_index) {
+      return mode;
     }
   }
 
-  return protocol_index_to_mode(mode_index - blacklisted_counter);
-}
-
-static int blacklisted_index_lookup(int index, const port_config_t *port_config)
-{
-  assert(index < MAX_NUM_PROTOCOLS);
-  for (int i = 0; i <= index; i++) {
-    if (port_config->blacklisted_indices[i] == 1) {
-      index++;
-    }
-  }
-  return index;
+  return MODE_DISABLED;
 }
 
 static int port_configure(port_config_t *port_config, bool updating_mode)
@@ -462,8 +474,7 @@ static int port_configure(port_config_t *port_config, bool updating_mode)
     return SETTINGS_WR_OK;
   }
 
-  int protocol_index =
-    blacklisted_index_lookup(mode_to_protocol_index(port_config->mode), port_config);
+  int protocol_index = mode_to_protocol_index(port_config->mode, port_config);
   const protocol_t *protocol = protocols_get(protocol_index);
   if (protocol == NULL) {
     return SETTINGS_WR_VALUE_REJECTED;
@@ -584,41 +595,54 @@ static int setting_udp_client_address_register(pk_settings_ctx_t *settings_ctx,
                               port_config);
 }
 
+static bool is_protocol_blacklisted(const protocol_t *protocol, port_config_t *port_config)
+{
+  for (int x = 0; x < port_config->blacklist_len; x++) {
+    if (strcmp(port_config->blacklist[x], protocol->setting_name) == 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static void port_mode_map_init(port_config_t *port_config)
+{
+  port_config->mode_map[port_config->mode_map_len++] = PROTOCOL_INDEX_INVALID;
+
+  int protocols_count = protocols_count_get();
+  assert(protocols_count < MAX_NUM_PROTOCOLS);
+
+  for (int protocol_index = 0; protocol_index < protocols_count; protocol_index++) {
+    const protocol_t *protocol = protocols_get(protocol_index);
+    assert(protocol != NULL);
+
+    if (is_protocol_blacklisted(protocol, port_config)) {
+      piksi_log(LOG_DEBUG,
+                "skipping blacklisted protocol - port: %s name: %s",
+                port_config->name,
+                protocol->setting_name);
+      continue;
+    }
+
+    port_config->mode_map[port_config->mode_map_len++] = protocol_index;
+  }
+}
+
 static int mode_enum_names_get(const char ***mode_enum_names, port_config_t *port_config)
 {
-  int protocols_count = protocols_count_get();
-
   const char **enum_names =
-    (const char **)malloc((1 + protocol_index_to_mode(protocols_count)) * sizeof(*enum_names));
+    (const char **)malloc((1 + port_config->mode_map_len) * sizeof(*enum_names));
   if (enum_names == NULL) {
     return -1;
   }
 
   enum_names[MODE_DISABLED] = MODE_NAME_DISABLED;
 
-  int protocols_used = 0;
-  for (int protocol_index = 0; protocol_index < protocols_count; protocol_index++) {
-    const protocol_t *protocol = protocols_get(protocol_index);
-    assert(protocol != NULL);
-    enum_names[protocol_index_to_mode(protocols_used)] = protocol->setting_name;
-    bool blacklisted = false;
-    for (int x = 0; x < port_config->blacklist_len; x++) {
-      if (strcmp(port_config->blacklist[x], protocol->setting_name) == 0) {
-        piksi_log(LOG_DEBUG,
-                  "skipping blacklisted protocol - port: %s name: %s",
-                  port_config->name,
-                  protocol->setting_name);
-        port_config->blacklisted_indices[protocol_index] = 1;
-        enum_names[protocol_index_to_mode(protocols_used)] = NULL;
-        blacklisted = true;
-      }
-    }
-
-    if (!blacklisted) {
-      protocols_used++;
-    }
+  for (int mode = 1; mode < port_config->mode_map_len; mode++) {
+    enum_names[mode] = protocols_get(mode_to_protocol_index(mode, port_config))->setting_name;
   }
-  enum_names[protocol_index_to_mode(protocols_used)] = NULL;
+  enum_names[port_config->mode_map_len] = NULL;
 
   *mode_enum_names = enum_names;
   return 0;
@@ -638,7 +662,7 @@ static int mode_lookup(const char *mode_name, u8 *mode, const port_config_t *por
     const protocol_t *protocol = protocols_get(i);
     assert(protocol != NULL);
     if (strcasecmp(protocol->setting_name, mode_name) == 0) {
-      *mode = blacklisted_mode_lookup(protocol_index_to_mode(i), port_config);
+      *mode = protocol_index_to_mode(i, port_config);
       return 0;
     }
   }
@@ -657,6 +681,9 @@ int ports_init(pk_settings_ctx_t *settings_ctx, bool can_enabled)
   /* Register settings */
   for (i = 0; i < sizeof(port_configs) / sizeof(port_configs[0]); i++) {
     port_config_t *port_config = &port_configs[i];
+
+    /* Initialize mode mapping */
+    port_mode_map_init(port_config);
 
     /* Get mode enum names */
     const char **mode_enum_names;
