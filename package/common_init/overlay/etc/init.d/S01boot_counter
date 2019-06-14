@@ -1,0 +1,13 @@
+#!bin/sh
+#
+# increment post uboot counter
+#
+
+source /etc/init.d/common.sh
+
+if fw_printenv pre_boot_counter; then
+  post_boot_counter=$(fw_printenv -n post_boot_counter);
+  fw_setenv post_boot_counter $((post_boot_counter+1))
+fi
+
+
