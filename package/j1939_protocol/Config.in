@@ -1,0 +1,2 @@
+config BR2_PACKAGE_J1939_PROTOCOL
+  bool "j1939_protocol"

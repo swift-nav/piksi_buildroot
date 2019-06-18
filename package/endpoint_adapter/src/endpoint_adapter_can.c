@@ -27,6 +27,10 @@
 
 #include "endpoint_adapter.h"
 
+#define J1939_HEADER_LENGTH 4
+#define J1939_DATA_LENGTH 8
+#define J1939_FRAME_SIZE_MAX J1939_HEADER_LENGTH + J1939_DATA_LENGTH
+
 #define CAN_SLEEP_NS 1000000 /* 1 millisecond */
 
 #define READ 0
@@ -35,16 +39,20 @@
 #define BUFFER_SIZE (4096)
 static uint8_t pipe_read_buffer[BUFFER_SIZE];
 
+static bool is_j1939 = false;
+
 static u32 can_filter;
 
 typedef struct {
   int can_read_fd;
   int read_pipe_fd;
+  const char *framer;
 } read_thread_context_t;
 
 typedef struct {
   int can_write_fd;
   int write_pipe_fd;
+  const char *framer;
 } write_thread_context_t;
 
 static void *can_read_thread_handler(void *arg)
@@ -52,6 +60,7 @@ static void *can_read_thread_handler(void *arg)
   piksi_log(LOG_DEBUG, "CAN read thread starting...");
   read_thread_context_t *pctx = (read_thread_context_t *)arg;
 
+  u8 full_frame[J1939_FRAME_SIZE_MAX];
   for (;;) {
 
     fd_set fds;
@@ -89,10 +98,21 @@ static void *can_read_thread_handler(void *arg)
         continue;
       }
 
-      if (write(pctx->read_pipe_fd, frame.data, frame.can_dlc) < 0) {
+      if (is_j1939) {
+        memcpy(full_frame, &frame.can_id, sizeof(frame.can_id));
+        memcpy(full_frame + sizeof(frame.can_id), frame.data, frame.can_dlc);
+        int num_written =
+          write(pctx->read_pipe_fd, full_frame, sizeof(frame.can_id) + frame.can_dlc);
+        if (num_written < 0) {
+          PK_LOG_ANNO(LOG_WARNING, "pipe write() failed: %s (%d)", strerror(errno), errno);
+          break;
+        }
+      } else {
+        if (write(pctx->read_pipe_fd, frame.data, frame.can_dlc) < 0) {
 
-        PK_LOG_ANNO(LOG_WARNING, "pipe write() failed: %s (%d)", strerror(errno), errno);
-        break;
+          PK_LOG_ANNO(LOG_WARNING, "pipe write() failed: %s (%d)", strerror(errno), errno);
+          break;
+        }
       }
     }
   }
@@ -192,8 +212,16 @@ static void *can_write_thread_handler(void *arg)
   return NULL;
 }
 
-int can_loop(const char *can_name, u32 can_filter_in)
+int can_loop(const char *can_name,
+             u32 can_filter_in,
+             const char *framer_in_name,
+             const char *framer_out_name)
 {
+  // TODO: add an -J1939 option to endpoint_adapter / ports_daemon
+  if (strncmp(framer_in_name, "j1939", 5) == 0) {
+    is_j1939 = true;
+  }
+
   while (1) {
     /* Open CAN socket */
     struct sockaddr_can addr;
@@ -209,7 +237,11 @@ int can_loop(const char *can_name, u32 can_filter_in)
 
     struct can_filter rfilter[1];
     rfilter[0].can_id = can_filter;
-    rfilter[0].can_mask = CAN_SFF_MASK;
+    if (is_j1939) {
+      rfilter[0].can_mask = 0;
+    } else {
+      rfilter[0].can_mask = CAN_SFF_MASK;
+    }
 
     if (setsockopt(socket_can, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter))) {
       piksi_log(LOG_ERR, "could not set filter for %s", can_name);
@@ -265,6 +297,7 @@ int can_loop(const char *can_name, u32 can_filter_in)
     read_thread_context_t read_thread_ctx = {
       .can_read_fd = socket_can,
       .read_pipe_fd = pipe_from_can[WRITE],
+      .framer = framer_in_name,
     };
 
     pthread_t read_thread;
@@ -273,6 +306,7 @@ int can_loop(const char *can_name, u32 can_filter_in)
     write_thread_context_t write_thread_ctx = {
       .can_write_fd = socket_can,
       .write_pipe_fd = pipe_to_can[READ],
+      .framer = framer_out_name,
     };
 
     pthread_t write_thread;
