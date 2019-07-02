@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include <gnss-converters/rtcm3_sbp.h>
+#include <gnss-converters/sbp_rtcm3.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings_client.h>
