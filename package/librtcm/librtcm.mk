@@ -5,7 +5,7 @@
 ################################################################################
 
 LIBRTCM_VERSION = v0.2.43
-LIBRTCM_SITE = git@github.com:swift-nav/librtcm.git
+LIBRTCM_SITE = https://github.com/swift-nav/librtcm
 LIBRTCM_SITE_METHOD = git
 LIBRTCM_GIT_SUBMODULES = YES
 LIBRTCM_SUBDIR = c
