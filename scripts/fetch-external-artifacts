@@ -46,6 +46,7 @@ def _main():
         if digest != ref_sha256:
             sys.stderr.write(
                 '>>> ERROR: digest did not match for remote artifact: {}\n'.format(s3_url))
+            sys.stderr.write('{}\n'.format(digest))
             sys.exit(1)
 
 if __name__ == '__main__':
