@@ -19,7 +19,7 @@ PIKSI_INS_PRE_INSTALL_TARGET_HOOKS += PIKSI_INS_PRE_INSTALL_WARNING
 ## The piksi_ins version is managed with piksi-releases
 include ${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/piksi_ins_version.mk
 
-PIKSI_INS_VERSION = $(PIKSI_RELEASES_INS_VERSION)
+PIKSI_INS_VERSION = anthony/use_cov_msg
 PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_GIT_SUBMODULES = YES
