@@ -652,9 +652,10 @@ int main(void)
                        &eth_gateway);
 
   eth_settings_initialized = true;
-  interface_mode =
-    INTERFACE_MODE_ACTIVE; // in case this value was saved to persistent - clear it out
-  eth_update_config();
+  if (interface_mode
+      == INTERFACE_MODE_ACTIVE) { // in case this value was saved to persistent as Config
+    eth_update_config();
+  }
 
   settings_type_t settings_type_time_source;
   pk_settings_register_enum(settings_ctx, system_time_sources, &settings_type_time_source);
