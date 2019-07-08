@@ -24,6 +24,10 @@ if [[ -z "${VARIANT:-}" ]]; then
   echo "ERROR: the variable 'VARIANT' cannot be empty"
 fi
 
+if [[ -z "${BUILD_DIR:-}" ]]; then
+  echo "ERROR: the variable 'BUILD_DIR' cannot be empty"
+fi
+
 SCRIPTS="${BR2_EXTERNAL_piksi_buildroot_PATH}/scripts"
 
 bold=$(tput rev 2>/dev/null || :)
@@ -40,10 +44,15 @@ FIRMWARE_DIR=$TARGET_DIR/lib/firmware
 UBOOT_MK_PATH="$BR2_EXTERNAL_piksi_buildroot_PATH/package/uboot_custom/uboot_custom.mk"
 
 UBOOT_VERSION_REGEX='UBOOT_CUSTOM_VERSION *= *'
-UBOOT_VERSION=$(grep "$UBOOT_VERSION_REGEX" $UBOOT_MK_PATH | sed "s/${UBOOT_VERSION_REGEX}\\(.*\\)/\\1/")
-echo ">>> Found UBOOT_CUSTOM_VERSION = $UBOOT_VERSION"
+UBOOT_VERSION=$(grep "$UBOOT_VERSION_REGEX" $UBOOT_MK_PATH | sed "s/${UBOOT_VERSION_REGEX}\\([^ ]*\\)/\\1/")
+echo ">>> Found UBOOT_CUSTOM_VERSION = '$UBOOT_VERSION'"
 
-UBOOT_BASE_DIR=$(find $BUILD_DIR -maxdepth 1 -type d -name "uboot_custom-${UBOOT_VERSION}")
+UBOOT_BASE_DIR=$(find "$BUILD_DIR" -maxdepth 1 -type d -name "uboot_custom-${UBOOT_VERSION}")
+
+if [[ -z "${UBOOT_BASE_DIR:-}" ]]; then
+  echo "ERROR: Could not find uboot directory in BUILD_DIR: $BUILD_DIR (UBOOT_BASE_DIR: '${UBOOT_BASE_DIR}')" >&2
+  exit 1
+fi
 
 SDK_FPGA_SHA1="${BR2_EXTERNAL_piksi_buildroot_PATH}/firmware/prod/piksi_sdk_fpga.sha1sum"
 
@@ -54,11 +63,6 @@ IMAGE_NAME=$("$SCRIPTS/get-variant-prop" "$VARIANT" image_name version=$FILE_GIT
 IMAGE_BIN_PATH=$OUTPUT_DIR/$IMAGE_NAME
 
 BUILD_TYPE_DETECTED=INTERNAL
-
-if [[ -z "${UBOOT_BASE_DIR:-}" ]]; then
-  echo "ERROR: Could not find uboot directory in BUILD_DIR: $BUILD_DIR" >&2
-  exit 1
-fi
 
 UBOOT_PROD_DIR=$UBOOT_BASE_DIR/build/${CFG}_prod
 UBOOT_FAILSAFE_DIR=$UBOOT_BASE_DIR/build/${CFG}_failsafe
