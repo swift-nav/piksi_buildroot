@@ -36,6 +36,9 @@
 #define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
 #define NO_TIME 0
 
+/* these are from fw private, consider moving to libpiksi */
+#define MSG_FORWARD_SENDER_ID (0u)
+
 /**
  * \brief Private context for the gnss obs health monitor
  */
@@ -59,6 +62,10 @@ static int sbp_msg_gps_time_cb(health_monitor_t *monitor,
   (void)monitor;
   (void)len;
   (void)ctx;
+
+  if (MSG_FORWARD_SENDER_ID == sender_id) {
+    return 1;
+  }
 
   const msg_gps_time_t *time = (msg_gps_time_t *)msg;
   const bool has_time = (time->flags & TIME_SOURCE_MASK) != NO_TIME;
@@ -110,3 +117,4 @@ void gnss_time_health_monitor_deinit(void)
     health_monitor_destroy(&gnss_time_monitor);
   }
 }
+
