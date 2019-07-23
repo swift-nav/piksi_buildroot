@@ -42,13 +42,6 @@
 static health_monitor_t *gnss_time_monitor;
 
 /**
- * \brief Private global data for gnss obs callbacks
- */
-static struct gnss_time_ctx_s {
-  u16 sbp_sender_id;
-} gnss_time_ctx = {.sbp_sender_id = 0};
-
-/**
  * \brief sbp_msg_ntrip_obs_callback - handler for obs sbp messages
  * \param monitor: health monitor associated with this callback
  * \param sender_id: message sender id
@@ -66,10 +59,6 @@ static int sbp_msg_gps_time_cb(health_monitor_t *monitor,
   (void)monitor;
   (void)len;
   (void)ctx;
-
-  if (gnss_time_ctx.sbp_sender_id != sender_id) {
-    return 1;
-  }
 
   const msg_gps_time_t *time = (msg_gps_time_t *)msg;
   const bool has_time = (time->flags & TIME_SOURCE_MASK) != NO_TIME;
@@ -100,8 +89,6 @@ int gnss_time_health_monitor_init(health_ctx_t *health_ctx)
   if (gnss_time_monitor == NULL) {
     return -1;
   }
-
-  gnss_time_ctx.sbp_sender_id = sbp_sender_id_get();
 
   if (health_monitor_init(gnss_time_monitor,
                           health_ctx,
