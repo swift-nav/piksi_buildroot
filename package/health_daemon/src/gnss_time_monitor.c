@@ -117,4 +117,3 @@ void gnss_time_health_monitor_deinit(void)
     health_monitor_destroy(&gnss_time_monitor);
   }
 }
-
