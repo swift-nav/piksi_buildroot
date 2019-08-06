@@ -25,7 +25,8 @@ typedef struct {
   an_packet_t *an_packet;
 } framer_anpp_state_t;
 
-static void framer_state_free_packet(framer_anpp_state_t *s) {
+static void framer_state_free_packet(framer_anpp_state_t *s)
+{
   if (s != NULL) {
     if (s->an_packet != NULL) {
       an_packet_free(&s->an_packet);
@@ -71,10 +72,8 @@ uint32_t framer_process(void *state,
   }
 
   an_decoder_t *an_decoder = &s->an_decoder;
-  uint32_t read_length = SWFT_MIN(
-                          SWFT_MIN(data_length, AN_MAXIMUM_PACKET_SIZE),
-                          an_decoder_size(an_decoder)
-                          );
+  uint32_t read_length =
+    SWFT_MIN(SWFT_MIN(data_length, AN_MAXIMUM_PACKET_SIZE), an_decoder_size(an_decoder));
   if (read_length == 0) {
     sbp_log(LOG_ERR, "ANPP Decoder ran out of room, clearing packet data");
     an_decoder_initialise(an_decoder);
