@@ -1,0 +1,14 @@
+#!/bin/sh
+
+name="endpoint_router_anpp"
+cmd="endpoint_router --name anpp -f /etc/endpoint_router/anpp_router.yml"
+dir="/"
+user="rt_anpp"
+priority="-19"
+
+setup_permissions()
+{
+  add_service_user $user
+}
+
+source /etc/init.d/template_runsv.inc.sh

@@ -1,0 +1,20 @@
+
+name: ANPP_ROUTER
+ports:
+  - name: ANPP_PORT_INTERNAL
+    metric: "anpp/internal"
+    pub_addr: "ipc:///var/run/sockets/anpp_internal.pub"
+    sub_addr: "ipc:///var/run/sockets/anpp_internal.sub"
+    forwarding_rules:
+      - dst_port: ANPP_PORT_EXTERNAL
+        filters:
+          - { action: ACCEPT }
+
+  - name: ANPP_PORT_EXTERNAL
+    metric: "anpp/external"
+    pub_addr: "ipc:///var/run/sockets/anpp_external.pub"
+    sub_addr: "ipc:///var/run/sockets/anpp_external.sub"
+    forwarding_rules:
+      - dst_port: ANPP_PORT_INTERNAL
+        filters:
+          - { action: ACCEPT }
