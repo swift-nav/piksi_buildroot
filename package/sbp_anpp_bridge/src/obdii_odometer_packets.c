@@ -114,14 +114,6 @@ int decode_device_information_packet(device_information_packet_t *device_informa
     return 1;
 }
 
-an_packet_t *encode_reset_packet()
-{
-  uint32_t verification = 0x21057A7E;
-  an_packet_t *an_packet = an_packet_allocate(4, packet_id_reset);
-  memcpy(&an_packet->data[0], &verification, sizeof(uint32_t));
-  return an_packet;
-}
-
 /* State packets */
 
 int decode_odometer_packet(odometer_packet_t *odometer_packet, an_packet_t *an_packet)

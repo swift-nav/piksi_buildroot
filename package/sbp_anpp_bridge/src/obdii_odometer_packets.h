@@ -105,7 +105,6 @@ an_packet_t *encode_boot_mode_packet(boot_mode_packet_t *boot_mode_packet);
 int decode_device_information_packet(device_information_packet_t *device_information_packet,
                                      an_packet_t *an_packet);
 an_packet_t *encode_restore_factory_settings_packet();
-an_packet_t *encode_reset_packet();
 int decode_odometer_packet(odometer_packet_t *odometer_packet, an_packet_t *an_packet);
 
 #ifdef __cplusplus

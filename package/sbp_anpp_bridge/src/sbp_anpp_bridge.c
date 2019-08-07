@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings_client.h>
@@ -53,9 +54,15 @@ bool anpp_debug = false;
 
 pk_endpoint_t *anpp_pub = NULL;
 
+static u32 get_time_ms(void)
+{
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  return (now.tv_sec * 1000 + now.tv_nsec / 1000000);
+}
+
 static void convert_anpp_odometer_to_sbp(odometer_packet_t *an_odo_packet, msg_odometry_t *odo_msg)
 {
-  time_t now = time(NULL);
   odo_msg->tow = (u32)get_time_ms();
   odo_msg->velocity = (s32)M_TO_MM(an_odo_packet->speed);
   odo_msg->flags = (u8)(SBP_MSG_ODOMETRY_FLAGS_SRC0 | SBP_MSG_ODOMETRY_FLAGS_SYSTIME);
@@ -65,7 +72,7 @@ static void send_sbp_odometry_msg(odometer_packet_t *an_odo_packet)
 {
   msg_odometry_t odo_msg;
   convert_anpp_odometer_to_sbp(an_odo_packet, &odo_msg);
-  sbp_send_message(SBP_MSG_ODOMETRY, sizeeof(odo_msg), &odo_msg, sbp_sender_id_get(), NULL);
+  sbp_message_send(SBP_MSG_ODOMETRY, sizeof(odo_msg), (u8 *)&odo_msg, sbp_sender_id_get(), NULL);
 }
 
 static int anpp2sbp_decode_frame(const u8 *data, const size_t length, void *context)
@@ -81,15 +88,16 @@ static int anpp2sbp_decode_frame(const u8 *data, const size_t length, void *cont
   }
 
   an_decoder_initialise(&an_decoder);
+  size_t read_length = length;
   if (length > AN_DECODE_BUFFER_SIZE) {
     PK_LOG_ANNO(LOG_ERR,
                 "ANPP Frame larger than max decode size (%ld bytes). Dropping data.",
                 (length - AN_DECODE_BUFFER_SIZE));
-    length = AN_DECODE_BUFFER_SIZE;
+    read_length = AN_DECODE_BUFFER_SIZE;
   }
 
-  memcpy(an_decoder_pointer(&an_decoder), data, length);
-  an_decoder_increment(&an_decoder, length);
+  memcpy(an_decoder_pointer(&an_decoder), data, read_length);
+  an_decoder_increment(&an_decoder, read_length);
 
   /* decode all the packets in the buffer */
   while ((an_packet = an_packet_decode(&an_decoder)) != NULL) {
@@ -105,7 +113,7 @@ static int anpp2sbp_decode_frame(const u8 *data, const size_t length, void *cont
           odometer_packet.speed,
           odometer_packet.distance_travelled,
           odometer_packet.flags.b.reverse_detection_supported);
-        send_sbp_odometry_msg(odometer_packet);
+        send_sbp_odometry_msg(&odometer_packet);
       }
     } else {
       printf("Packet ID %u of Length %u\n", an_packet->id, an_packet->length);

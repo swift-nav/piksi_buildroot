@@ -38,7 +38,7 @@
  * Initial value = 0xFFFF
  * Polynomial = x^16 + x^12 + x^5 + x^0
  */
-uint16_t calculate_crc16(const void *data, uint16_t length)
+static uint16_t calculate_crc16(const void *data, uint16_t length)
 {
   uint8_t *bytes = (uint8_t *)data;
   uint16_t crc = 0xFFFF, i;
@@ -51,7 +51,7 @@ uint16_t calculate_crc16(const void *data, uint16_t length)
 /*
  * Function to calculate a 4 byte LRC
  */
-uint8_t calculate_header_lrc(uint8_t *data)
+static uint8_t calculate_header_lrc(uint8_t *data)
 {
   return ((data[0] + data[1] + data[2] + data[3]) ^ 0xFF) + 1;
 }
