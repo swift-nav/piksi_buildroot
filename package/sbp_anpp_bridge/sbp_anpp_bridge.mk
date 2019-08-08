@@ -30,6 +30,8 @@ define SBP_ANPP_BRIDGE_INSTALL_TARGET_CMDS
        $(SBP_ANPP_BRIDGE_INSTALL_TARGET_CMDS_DEFAULT)
 endef
 
+ifeq ($(BR2_PACKAGE_SBP_ANPP_BRIDGE),y)
 BR2_ROOTFS_OVERLAY += "${SBP_ANPP_BRIDGE_SITE}/overlay"
+endif
 
 $(eval $(generic-package))

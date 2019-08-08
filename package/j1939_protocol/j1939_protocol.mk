@@ -28,6 +28,8 @@ define J1939_PROTOCOL_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/src/j1939_router.yml $(TARGET_DIR)/etc/endpoint_router
 endef
 
+ifeq ($(BR2_PACKAGE_J1939_PROTOCOL),y)
 BR2_ROOTFS_OVERLAY += "${J1939_PROTOCOL_SITE}/overlay"
+endif
 
 $(eval $(generic-package))

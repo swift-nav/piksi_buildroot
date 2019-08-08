@@ -28,6 +28,8 @@ define ANPP_PROTOCOL_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0755 $(@D)/src/anpp_router.yml $(TARGET_DIR)/etc/endpoint_router
 endef
 
+ifeq ($(BR2_PACKAGE_ANPP_PROTOCOL),y)
 BR2_ROOTFS_OVERLAY += "${ANPP_PROTOCOL_SITE}/overlay"
+endif
 
 $(eval $(generic-package))
