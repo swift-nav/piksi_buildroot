@@ -156,6 +156,10 @@ ports:
       - dst_port: SBP_PORT_EXTERNAL
         filters:
           - { action: ACCEPT }
+      - dst_port: SBP_PORT_NAV_DAEMON # This list sends only what Smoothpose needs at present.
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0x09] } # MSG_ODOMETRY **Smoothpose Change**
+          - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_CLIENT
     metric: "sbp/settings_client"
