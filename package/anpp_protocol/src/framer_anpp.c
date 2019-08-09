@@ -84,7 +84,6 @@ uint32_t framer_process(void *state,
   an_decoder_increment(an_decoder, read_length);
   s->an_packet = an_packet_decode(an_decoder); // save result for release
   if (s->an_packet != NULL) {
-    sbp_log(LOG_DEBUG, "ANPP Packet ID %u of Length %u\n", s->an_packet->id, s->an_packet->length);
     *frame = an_packet_pointer(s->an_packet);
     *frame_length = an_packet_size(s->an_packet);
     return read_length;
