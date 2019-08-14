@@ -19,9 +19,9 @@ PIKSI_INS_PRE_INSTALL_TARGET_HOOKS += PIKSI_INS_PRE_INSTALL_WARNING
 ## The piksi_ins version is managed with piksi-releases
 #include ${BR2_EXTERNAL_piksi_buildroot_PATH}/package/piksi_ins/piksi_ins_version.mk
 
-# https://github.com/swift-nav/pose_daemon_wrapper/commits/dzollo/stillness_dz as of 7/15/2019
+# https://github.com/swift-nav/pose_daemon_wrapper/commits/dzollo/stillness_dz as of 8/14/2019
 #
-PIKSI_INS_VERSION = 152cb1084ffe2e9e997266b8393d4e6338919b24
+PIKSI_INS_VERSION = e51329eb7f2a1334c51fe1e08983979c5fbf0765
 
 PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
