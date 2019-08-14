@@ -17,12 +17,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <limits.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings_client.h>
 #include <libpiksi/util.h>
 
 #include <libsbp/sbp.h>
+#include <libsbp/navigation.h>
 #include <libsbp/vehicle.h>
 
 #include <libsettings/settings.h>
@@ -50,29 +52,74 @@
 #define SBP_MSG_ODOMETRY_FLAGS_SRC2 (0x08u)
 #define SBP_MSG_ODOMETRY_FLAGS_SRC3 (0x0Cu)
 
+#define INVALID_TOW 0xffffffff
+#define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
+#define NO_TIME 0
+#define MS_IN_WEEK 7 * 24 * 60 * 60 * 1000
+
 bool anpp_debug = false;
-
+unsigned int last_gpstime_tow = INVALID_TOW;
+struct timespec last_gps_systime;
+int odo_time_offset_ms = 0;
 pk_endpoint_t *anpp_pub = NULL;
-
+/*
 static u32 get_time_ms(void)
 {
   struct timespec now;
   clock_gettime(CLOCK_MONOTONIC, &now);
   return (now.tv_sec * 1000 + now.tv_nsec / 1000000);
+}*/
+
+static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+{
+  (void)context;
+  (void)sender_id;
+  (void)len;
+  msg_gps_time_t *time = (msg_gps_time_t *)msg;
+
+  if ((time->flags & TIME_SOURCE_MASK) == NO_TIME) {
+    return;
+  }
+
+  clock_gettime(CLOCK_MONOTONIC, &last_gps_systime);
+  last_gpstime_tow = time->tow;
+}
+
+static int notify_time_offset_changed(void *context)
+{
+  (void)context;
+  return 0;
 }
 
 static void convert_anpp_odometer_to_sbp(odometer_packet_t *an_odo_packet, msg_odometry_t *odo_msg)
 {
-  odo_msg->tow = (u32)get_time_ms();
-  odo_msg->velocity = (s32)M_TO_MM(an_odo_packet->speed);
-  odo_msg->flags = (u8)(SBP_MSG_ODOMETRY_FLAGS_SRC0 | SBP_MSG_ODOMETRY_FLAGS_SYSTIME);
+  if (last_gpstime_tow != INVALID_TOW) {
+    double tow = last_gpstime_tow;
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    /* Add on elapsed time since gps_time_callback was received */
+    tow += (now.tv_sec * 1000.0 + now.tv_nsec / 1000000.0)
+           - (last_gps_systime.tv_sec * 1000.0 + last_gps_systime.tv_nsec / 1000000.0);
+    tow += odo_time_offset_ms;
+    if (tow > MS_IN_WEEK) {
+      tow -= MS_IN_WEEK;
+    }
+    if (tow < 0) {
+      tow += MS_IN_WEEK;
+    }
+    odo_msg->tow = (u32)tow;
+    odo_msg->velocity = (s32)M_TO_MM(an_odo_packet->speed);
+    odo_msg->flags = (u8)(SBP_MSG_ODOMETRY_FLAGS_SRC0 | SBP_MSG_ODOMETRY_FLAGS_SYSTIME);
+  }
 }
 
 static void send_sbp_odometry_msg(odometer_packet_t *an_odo_packet)
 {
   msg_odometry_t odo_msg;
   convert_anpp_odometer_to_sbp(an_odo_packet, &odo_msg);
-  sbp_message_send(SBP_MSG_ODOMETRY, sizeof(odo_msg), (u8 *)&odo_msg, sbp_sender_id_get(), NULL);
+  if (last_gpstime_tow != INVALID_TOW) {
+    sbp_message_send(SBP_MSG_ODOMETRY, sizeof(odo_msg), (u8 *)&odo_msg, sbp_sender_id_get(), NULL);
+  }
 }
 
 static int anpp2sbp_decode_frame(const u8 *data, const size_t length, void *context)
@@ -183,6 +230,7 @@ static int cleanup(pk_endpoint_t **anpp_ept_loc, int status);
 
 int main(int argc, char *argv[])
 {
+  pk_settings_ctx_t *settings_ctx = NULL;
   pk_loop_t *loop = NULL;
   pk_endpoint_t *anpp_sub = NULL;
 
@@ -228,6 +276,22 @@ int main(int argc, char *argv[])
     piksi_log(LOG_ERR, "error adding reader");
     exit(cleanup(&anpp_sub, EXIT_FAILURE));
   }
+
+  if (sbp_callback_register(SBP_MSG_GPS_TIME, gps_time_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting GPS TIME callback");
+    exit(cleanup(&anpp_sub, EXIT_FAILURE));
+  }
+
+  settings_ctx = sbp_get_settings_ctx();
+
+  pk_settings_register(settings_ctx,
+                       "ins",
+                       "odometry_time_offset_ms",
+                       &odo_time_offset_ms,
+                       sizeof(odo_time_offset_ms),
+                       SETTINGS_TYPE_INT,
+                       notify_time_offset_changed,
+                       NULL);
 
   sbp_run();
 
