@@ -36,17 +36,13 @@
 #define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
 #define NO_TIME 0
 
+/* these are from fw private, consider moving to libpiksi */
+#define MSG_FORWARD_SENDER_ID (0u)
+
 /**
  * \brief Private context for the gnss obs health monitor
  */
 static health_monitor_t *gnss_time_monitor;
-
-/**
- * \brief Private global data for gnss obs callbacks
- */
-static struct gnss_time_ctx_s {
-  u16 sbp_sender_id;
-} gnss_time_ctx = {.sbp_sender_id = 0};
 
 /**
  * \brief sbp_msg_ntrip_obs_callback - handler for obs sbp messages
@@ -67,7 +63,7 @@ static int sbp_msg_gps_time_cb(health_monitor_t *monitor,
   (void)len;
   (void)ctx;
 
-  if (gnss_time_ctx.sbp_sender_id != sender_id) {
+  if (MSG_FORWARD_SENDER_ID == sender_id) {
     return 1;
   }
 
@@ -100,8 +96,6 @@ int gnss_time_health_monitor_init(health_ctx_t *health_ctx)
   if (gnss_time_monitor == NULL) {
     return -1;
   }
-
-  gnss_time_ctx.sbp_sender_id = sbp_sender_id_get();
 
   if (health_monitor_init(gnss_time_monitor,
                           health_ctx,

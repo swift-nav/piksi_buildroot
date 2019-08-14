@@ -1,0 +1,14 @@
+#!/bin/sh
+
+name="sbp_anpp_bridge"
+cmd="sbp_anpp_bridge"
+dir="/"
+user="br_anpp"
+
+setup_permissions()
+{
+  add_service_user $user
+}
+
+source /etc/init.d/template_runsv.inc.sh
+

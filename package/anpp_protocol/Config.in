@@ -1,0 +1,3 @@
+config BR2_PACKAGE_ANPP_PROTOCOL
+  bool "anpp_protocol"
+  select BR2_PACKAGE_LIBPIKSI
