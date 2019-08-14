@@ -22,7 +22,7 @@ PIKSI_INS_PRE_INSTALL_TARGET_HOOKS += PIKSI_INS_PRE_INSTALL_WARNING
 # Use tip of "Stillness_dz_fixes" branch (PR 49) as of Aug 12 2019
 # Includes NHC, Stillness detection, odometry, and version 2.3 bug fixes
 # Will become master as testing continues
-PIKSI_INS_VERSION = ee85ef8ef51c51c81a9789566c33424e3b1463d5
+PIKSI_INS_VERSION = e51329eb7f2a1334c51fe1e08983979c5fbf0765
 PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
 PIKSI_INS_GIT_SUBMODULES = YES
