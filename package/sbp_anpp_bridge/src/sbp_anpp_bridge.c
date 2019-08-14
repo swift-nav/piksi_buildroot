@@ -61,13 +61,6 @@ unsigned int last_gpstime_tow = INVALID_TOW;
 struct timespec last_gps_systime;
 int odo_time_offset_ms = 0;
 pk_endpoint_t *anpp_pub = NULL;
-/*
-static u32 get_time_ms(void)
-{
-  struct timespec now;
-  clock_gettime(CLOCK_MONOTONIC, &now);
-  return (now.tv_sec * 1000 + now.tv_nsec / 1000000);
-}*/
 
 static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
