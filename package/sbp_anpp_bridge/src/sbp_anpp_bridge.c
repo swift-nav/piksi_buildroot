@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <limits.h>
 
 #include <libpiksi/logging.h>
 #include <libpiksi/settings_client.h>
