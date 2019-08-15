@@ -21,7 +21,7 @@ PIKSI_INS_PRE_INSTALL_TARGET_HOOKS += PIKSI_INS_PRE_INSTALL_WARNING
 
 # https://github.com/swift-nav/pose_daemon_wrapper/commits/dzollo/stillness_dz as of 8/14/2019
 #
-PIKSI_INS_VERSION = e51329eb7f2a1334c51fe1e08983979c5fbf0765
+PIKSI_INS_VERSION = 49c9fc055fd1a071f9527884c1f126c0efb8bfea
 
 PIKSI_INS_SITE = git@github.com:swift-nav/pose_daemon_wrapper.git
 PIKSI_INS_SITE_METHOD = git
