@@ -43,6 +43,8 @@ def _main():
         print('>>> Downloading: {}'.format(s3_url))
         s3_cp(target_variant, s3_url, local_path)
         digest = PBR.sha256digest(local_path)
+        print(digest)
+        print(ref_sha256)
         if digest != ref_sha256:
             sys.stderr.write(
                 '>>> ERROR: digest did not match for remote artifact: {}\n'.format(s3_url))
