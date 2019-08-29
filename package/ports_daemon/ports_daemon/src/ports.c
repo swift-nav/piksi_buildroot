@@ -150,7 +150,7 @@ static int opts_get_tcp_client(char *buf,
                                const port_config_t *port_config)
 {
   const char *address = opts_data->tcp_client_data.address;
-  return snprintf(buf, buf_size, "--name %s --tcp-c %s", port_config->name, address);
+  return snprintf(buf, buf_size, "--name %s --tcp-c %s%s", port_config->name, address, get_fileio_opts(port_config));
 }
 
 static int opts_get_udp_server(char *buf,
