@@ -50,7 +50,7 @@ BUILD_VOLUME_ARGS = \
   -v $(DOCKER_BUILD_VOLUME):/piksi_buildroot/buildroot
 
 RUN_VOLUME_ARGS = \
-  -v $(CURDIR)/buildroot/output_$(VARIANT)/images:/piksi_buildroot/buildroot/output_$(VARIANT)/images
+  -v $(CURDIR)/buildroot/output/$(VARIANT)/images:/piksi_buildroot/buildroot/output/$(VARIANT)/images
 
 else
 

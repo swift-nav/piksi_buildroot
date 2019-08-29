@@ -282,7 +282,7 @@ static int ota_version_check(const char *offered)
   }
 
   piksi_log(LOG_INFO, "Current version: %s", current);
-  piksi_log(LOG_INFO, "Offered version: %s", current);
+  piksi_log(LOG_INFO, "Offered version: %s", offered);
 
   int ret = ota_dev_version_check(&offered_parsed, &current_parsed);
 

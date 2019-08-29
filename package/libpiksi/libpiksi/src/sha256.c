@@ -34,6 +34,15 @@ int sha256sum_file(const char *filename, char *sha, size_t sha_size)
 
 int sha256sum_cmp(const char *a, const char *b)
 {
-  assert(strlen(a) == (SHA256SUM_LEN - 1) && strlen(b) == (SHA256SUM_LEN - 1));
+  if (strlen(a) != (SHA256SUM_LEN - 1) || strlen(b) != (SHA256SUM_LEN - 1)) {
+    piksi_log(LOG_ERR,
+              "sha256sum_cmp error: strlen(%s) = %d, strlen(%s) = %d",
+              a,
+              strlen(a),
+              b,
+              strlen(b));
+    return -1;
+  }
+
   return strncmp(a, b, SHA256SUM_LEN);
 }
