@@ -83,11 +83,11 @@ void ota_settings(pk_settings_ctx_t *ctx)
 {
   pk_settings_register(ctx,
                        "system",
-                       "ota_enabled",
-                       &ota_enabled,
-                       sizeof(ota_enabled),
-                       SETTINGS_TYPE_BOOL,
-                       ota_notify_enable,
+                       "ota_url",
+                       &ota_url,
+                       sizeof(ota_url),
+                       SETTINGS_TYPE_STRING,
+                       ota_notify_generic,
                        NULL);
 
   pk_settings_register(ctx,
@@ -101,10 +101,10 @@ void ota_settings(pk_settings_ctx_t *ctx)
 
   pk_settings_register(ctx,
                        "system",
-                       "ota_url",
-                       &ota_url,
-                       sizeof(ota_url),
-                       SETTINGS_TYPE_STRING,
-                       ota_notify_generic,
+                       "ota_enabled",
+                       &ota_enabled,
+                       sizeof(ota_enabled),
+                       SETTINGS_TYPE_BOOL,
+                       ota_notify_enable,
                        NULL);
 }

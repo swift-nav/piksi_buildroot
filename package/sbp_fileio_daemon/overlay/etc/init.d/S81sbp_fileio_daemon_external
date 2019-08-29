@@ -25,6 +25,12 @@ cmd="sbp_fileio_daemon \
 --pub-s ipc:///var/run/sockets/fileio/tcp_server1.pub \
 --sub-s ipc:///var/run/sockets/fileio/tcp_server1.sub \
 \
+--pub-s ipc:///var/run/sockets/fileio/tcp_client0.pub \
+--sub-s ipc:///var/run/sockets/fileio/tcp_client0.sub \
+\
+--pub-s ipc:///var/run/sockets/fileio/tcp_client1.pub \
+--sub-s ipc:///var/run/sockets/fileio/tcp_client1.sub \
+\
 --pub-s ipc:///var/run/sockets/fileio/usb0.pub \
 --sub-s ipc:///var/run/sockets/fileio/usb0.sub \
 \
