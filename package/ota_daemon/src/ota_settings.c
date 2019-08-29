@@ -90,7 +90,7 @@ void ota_settings(pk_settings_ctx_t *ctx)
                        ota_notify_generic,
                        NULL);
 
- pk_settings_register(ctx,
+  pk_settings_register(ctx,
                        "system",
                        "ota_debug",
                        &ota_debug,
