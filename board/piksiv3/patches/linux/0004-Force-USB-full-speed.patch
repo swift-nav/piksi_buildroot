@@ -1,0 +1,27 @@
+From d5172acddb1991f781283eeb9e0651535cdd4d03 Mon Sep 17 00:00:00 2001
+From: denniszollo <dzollo@swift-nav.com>
+Date: Wed, 18 Jul 2018 18:02:55 +0000
+Subject: [PATCH] Force USB full speed
+
+---
+ drivers/usb/chipidea/core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/chipidea/core.c b/drivers/usb/chipidea/core.c
+index 69426e644d17..b27f33caec2b 100644
+--- a/drivers/usb/chipidea/core.c
++++ b/drivers/usb/chipidea/core.c
+@@ -683,8 +683,8 @@ static int ci_get_platdata(struct device *dev,
+ 			return ret;
+ 	}
+ 
+-	if (usb_get_maximum_speed(dev) == USB_SPEED_FULL)
+-		platdata->flags |= CI_HDRC_FORCE_FULLSPEED;
++    /* Force USB full speed to work around potential hardware bugs */
++    platdata->flags |= CI_HDRC_FORCE_FULLSPEED;
+ 
+ 	of_property_read_u32(dev->of_node, "phy-clkgate-delay-us",
+ 				     &platdata->phy_clkgate_delay_us);
+-- 
+2.11.0
+
