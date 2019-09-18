@@ -24,19 +24,19 @@ artifact_sets:
     name: multi
     artifacts:
     - name: fpga_bitstream
-      version: v2.3.0-develop-2019091616
+      version: v2.3.0-develop-2019091818
       s3_bucket: swiftnav-artifacts
       s3_repository: piksi_fpga
       s3_object: piksi_prod_fpga.bit
       local_path: firmware/prod/piksi_fpga.bit
-      sha256: 98b86ee88a1e032f5b8bd4af33cde2f6151a3e52eabb0e77c160f03e37607961
+      sha256: 82ed19aac71f5e032bcde7b14ff35f6b0217414ea7217d2579caf1d2c6c07403
     - name: rtos_elf
-      version: v2.3.0-develop-2019091616
+      version: v2.3.0-develop-2019091818
       s3_bucket: swiftnav-artifacts
       s3_repository: piksi_firmware_private
       s3_object: v3/piksi_firmware_v3_prod.stripped.elf
       local_path: firmware/prod/piksi_firmware.elf
-      sha256: 6d8d0dba2a5fd8efab65ded407d9c950147595bed0a472368a94b5b38adcdd53
+      sha256: 37650f0d5b6ee5fdca694a4df9200581ccca0edcdce8acfb1a4414dfd0dc3878
     - name: piksi_upgrade_tool
       version: v2.2.6
       s3_bucket: swiftnav-artifacts
@@ -48,19 +48,19 @@ artifact_sets:
     name: internal
     artifacts:
     - name: rtos_elf
-      version: v2.3.0-develop-2019091616
+      version: v2.3.0-develop-2019091818
       s3_bucket: swiftnav-artifacts
       s3_repository: piksi_firmware_private
       s3_object: v3/piksi_firmware_v3_prod.stripped.elf
       local_path: firmware/prod/piksi_firmware.elf
-      sha256: 6d8d0dba2a5fd8efab65ded407d9c950147595bed0a472368a94b5b38adcdd53
+      sha256: 37650f0d5b6ee5fdca694a4df9200581ccca0edcdce8acfb1a4414dfd0dc3878
     - name: fpga_bitstream
-      version: v2.3.0-develop-2019091616
+      version: v2.3.0-develop-2019091818
       s3_bucket: swiftnav-artifacts
       s3_repository: piksi_fpga
       s3_object: piksi_prod_fpga.bit
       local_path: firmware/prod/piksi_fpga.bit
-      sha256: 98b86ee88a1e032f5b8bd4af33cde2f6151a3e52eabb0e77c160f03e37607961
+      sha256: 82ed19aac71f5e032bcde7b14ff35f6b0217414ea7217d2579caf1d2c6c07403
     - name: piksi_upgrade_tool
       version: v2.2.6
       s3_bucket: swiftnav-artifacts
@@ -79,19 +79,19 @@ artifact_sets:
     name: sdk
     artifacts:
     - name: rtos_elf
-      version: v2.3.0-develop-2019091616
+      version: v2.3.0-develop-2019091818
       s3_bucket: swiftnav-artifacts
       s3_repository: piksi_firmware_private
       s3_object: v3/piksi_firmware_v3_prod.stripped.elf
       local_path: firmware/prod/piksi_firmware.elf
-      sha256: 6d8d0dba2a5fd8efab65ded407d9c950147595bed0a472368a94b5b38adcdd53
+      sha256: 37650f0d5b6ee5fdca694a4df9200581ccca0edcdce8acfb1a4414dfd0dc3878
     - name: fpga_bitstream
-      version: v2.3.0-develop-2019091616
+      version: v2.3.0-develop-2019091818
       s3_bucket: swiftnav-artifacts
       s3_repository: piksi_fpga
       s3_object: piksi_sdk_fpga.bit
       local_path: firmware/prod/piksi_fpga.bit
-      sha256: 10b1f291e8d534b31befd8435a45a5e4b0f60a0701ae700a6d86a02fb09e748a
+      sha256: 7f872ddb07878fdbd7547813fbb1e6df252b56adcc36f665f006d60f1ae1af5f
     - name: piksi_upgrade_tool
       version: v2.2.6
       s3_bucket: swiftnav-releases
