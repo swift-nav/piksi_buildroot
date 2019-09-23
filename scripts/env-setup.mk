@@ -10,7 +10,7 @@ endif
 VARIANT_OUTPUT := $(shell ./scripts/get-variant-prop $(VARIANT) output)
 VARIANT_CONFIG := $(shell basename $(shell ./scripts/get-variant-prop $(VARIANT) config_output))
 
-ifneq ($(VARIANT),host)
+ifneq  ($(VARIANT),host)
 
 CCACHE_DIR = $(CURDIR)/buildroot/ccache
 
@@ -18,6 +18,11 @@ ifneq ($(CCACHE_READONLY),)
 CCACHE_RO_VAR = CCACHE_READONLY=$(CCACHE_READONLY)
 endif
 
+endif# ($(VARIANT),host)
+
+ifneq ($(wildcard .env.mk),)
+$(info >>> Including environment file .env.mk)
+include .env.mk
 endif
 
 BUILD_ENV_ARGS = \

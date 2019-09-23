@@ -12,3 +12,5 @@ build/
 .docker-compose.yml
 .check-docker-sync
 .mypy_cache
+.env.mk
+.ssh_unix_socket.log
