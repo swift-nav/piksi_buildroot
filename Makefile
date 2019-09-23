@@ -84,9 +84,9 @@ _print_db:
 docker-build-image:
 	docker build --no-cache --force-rm \
 		--build-arg VERSION_TAG=$(shell cat scripts/docker_version_tag) \
-		--build-arg USER=$(SANITIZED_USER) \
-		--build-arg UID=$(UID) \
-		--build-arg GID=$(GID) \
+		--build-arg USER=$(PBR_BUILD_USER_NAME) \
+		--build-arg UID=$(PBR_BUILD_USER_UID) \
+		--build-arg GID=$(PBR_BUILD_USER_GID) \
 		--tag $(DOCKER_TAG) -f scripts/Dockerfile .
 
 docker-populate-volume:
@@ -94,6 +94,21 @@ docker-populate-volume:
 		git submodule update --init --recursive
 
 docker-setup: docker-build-image docker-populate-volume
+
+docker-cmd-%:
+	@docker $* $(ARGS)
+
+docker-start-ssh-auth-sock:
+	$(info >>> Starting SSH auth sock forwarding to $(DOCKER_HOST)...)
+	@screen -d -m -S pbr_ssh_auth_sock -- sh -c "./scripts/ssh_unix_socket $(DOCKER_HOST) 2>&1 | tee .ssh_unix_socket.log"
+	@sleep 0.5
+	@tail -20 .ssh_unix_socket.log
+
+docker-stop-ssh-auth-sock:
+	$(info >>> Stopping SSH auth sock forwarding to $(DOCKER_HOST)...)
+	@screen -S pbr_ssh_auth_sock -X quit
+
+docker-restart-ssh-auth-sock: docker-stop-ssh-auth docker-start-ssh-auth-sock
 
 docker-rebuild-changed:
 	docker run \
@@ -208,7 +223,7 @@ docker-ccache-archive:
 
 docker-sync-setup:
 	@./scripts/check-docker-sync
-	@./scripts/gen-docker-sync $(DOCKER_BUILD_VOLUME) $(UID) $(DOCKER_HOST)
+	@./scripts/gen-docker-sync $(DOCKER_BUILD_VOLUME) $(PBR_BUILD_USER_UID) $(DOCKER_HOST)
 	@docker volume create --name=$(DOCKER_BUILD_VOLUME)-sync
 	@echo "Done, run: make docker-sync-start"
 

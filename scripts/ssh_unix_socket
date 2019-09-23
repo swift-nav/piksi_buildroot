@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+set -x
+
+if [[ $# -lt 1 ]]; then
+  echo "ERROR: $0 <hostname>"
+  exit 1
+fi
+
+if [[ -z "${PBR_BUILD_USER_NAME:-}" ]]; then
+  echo ">>> Using $USER for PBR_BUILD_USER_NAME"
+  PBR_BUILD_USER_NAME=$USER
+fi
+
+target_hostname=$1
+shift
+
+# Extract <host> from tcp://<host>:PORT if this is from a DOCKER_HOST var
+if echo "$target_hostname" | grep -q '^tcp://'; then
+  target_hostname=${target_hostname#tcp://}
+  target_hostname=${target_hostname%:[0-9]*}
+fi
+
+prefix=ssh_auth_sock_$((RANDOM))
+
+input_fifo=/tmp/${prefix}_input.fifo
+output_fifo=/tmp/${prefix}_output.fifo
+
+ssh_pid_file=/tmp/${prefix}_ssh.pid
+socat_pid_file=/tmp/${prefix}_socat.pid
+
+remote_auth_sock="\$HOME/.pbr_ssh_auth_sock"
+
+input_fifo_fd=10
+output_fifo_fd=11
+
+timeout=10
+buffer_size=64
+backlog=100
+
+## The `max-children=1` is important here, otherwise socat gets into
+##   a situation where it will pretty frequently get a broken pipe
+##   error (EPIPE) when a client connects.
+socat_unix_listen_ops="backlog=$backlog,fork,forever,max-children=1"
+
+cleanup()
+{
+  eval "exec $input_fifo_fd<&-"
+  eval "exec $output_fifo_fd<&-"
+
+  rm $input_fifo
+  rm $output_fifo
+
+  socat_pid=$(cat "${socat_pid_file}")
+  ssh_pid=$(cat "${ssh_pid_file}")
+
+  kill "$socat_pid" &>/dev/null || :
+  kill "$ssh_pid" &>/dev/null || :
+
+  rm $socat_pid_file
+  rm $ssh_pid_file
+
+  ssh "$PBR_BUILD_USER_NAME@$target_hostname" -- \
+    sh -c "'ps auxwww|grep socat|grep $remote_auth_sock|awk \'{print \$2}\'|xargs kill'"
+
+  wait "$socat_pid" "$ssh_pid"
+}
+
+trap 'cleanup' EXIT
+
+rm -f $input_fifo
+rm -f $output_fifo
+
+mkfifo $input_fifo 
+mkfifo $output_fifo 
+
+eval "exec $input_fifo_fd<>$input_fifo"
+eval "exec $output_fifo_fd<>$output_fifo"
+
+socat -t $timeout -d -d -b $buffer_size \
+  UNIX-CONNECT:"$SSH_AUTH_SOCK" STDIO \
+  >$output_fifo <$input_fifo &
+
+echo $! >"${socat_pid_file}"
+
+ssh "$PBR_BUILD_USER_NAME@$target_hostname" rm -rf "$remote_auth_sock"
+
+ssh "$PBR_BUILD_USER_NAME@$target_hostname" socat -t $timeout -b $buffer_size -d -d \
+    "UNIX-LISTEN:$remote_auth_sock,$socat_unix_listen_ops" \
+    STDIO >$input_fifo <$output_fifo &
+
+echo $! >"${ssh_pid_file}"
+
+wait "$(cat $socat_pid_file)" "$(cat $ssh_pid_file)"
