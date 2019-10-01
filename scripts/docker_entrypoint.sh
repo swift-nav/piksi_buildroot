@@ -49,17 +49,11 @@ sudo find /root -type f -exec chmod g+rw {} \;
 [ -d "/piksi_buildroot/buildroot" ] && \
   sudo chown "$USER:$GID" "/piksi_buildroot/buildroot"
 
-[ -d "/piksi_buildroot/buildroot/output" ] && \
-  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/output"
+[ -d "/piksi_buildroot/buildroot/output/$VARIANT" ] && \
+  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/output/$VARIANT"
 
-[ -d "/piksi_buildroot/buildroot/output/images" ] && \
-  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/output/images"
-
-[ -d "/piksi_buildroot/buildroot/nano_output" ] && \
-  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/nano_output"
-
-[ -d "/piksi_buildroot/buildroot/nano_output/images" ] && \
-  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/nano_output/images"
+[ -d "/piksi_buildroot/buildroot/output/$VARIANT/images" ] && \
+  sudo chown "$USER:$GID" "/piksi_buildroot/buildroot/output/$VARIANT/images"
 
 sudo --preserve-env --user="$USER" PATH="$PATH" --shell -- "$@"
 err_code=$?
