@@ -2,7 +2,7 @@
 
 // Use 'ci-jenkins@someref' to pull shared lib from a different branch/tag than the default.
 // Default is configured in Jenkins and should be from "stable" tag.
-@Library("ci-jenkins@stable") import com.swiftnav.ci.*
+@Library("ci-jenkins@jbangelo/STAR-816-move-pfwp-to-jenkins") import com.swiftnav.ci.*
 
 String dockerFile = "scripts/Dockerfile.jenkins"
 String dockerMountArgs = "-v /mnt/efs/refrepo:/mnt/efs/refrepo -v /mnt/efs/buildroot:/mnt/efs/buildroot"
@@ -140,6 +140,8 @@ pipeline {
                     }
                     environment {
                         VARIANT = "internal"
+                        HITL_API_BUILD_TYPE = "buildroot_pull_request"
+                        HITL_VIEWER_BUILD_TYPE = "buildroot_pr"
                     }
                     steps {
                         stageStart()
@@ -183,7 +185,7 @@ pipeline {
                                 hitl.triggerForPr() // this generates metrics.yaml
                                 context.archivePatterns(
                                     patterns: [
-                                        'metrics.yaml',
+                                        'ci-jenkins/metrics.yaml',
                                     ],
                                 )
 
