@@ -185,7 +185,7 @@ pipeline {
                                 hitl.triggerForPr() // this generates metrics.yaml
                                 context.archivePatterns(
                                     patterns: [
-                                        'ci-jenkins/metrics.yaml',
+                                        'metrics.yaml',
                                     ],
                                 )
 
