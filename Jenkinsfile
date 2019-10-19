@@ -170,12 +170,17 @@ pipeline {
                                 addPath: 'v3/prod',
                             )
 
+                            sh('./scripts/gen-requirements-yaml internal')
+                            context.archivePatterns(
+                                patterns: [
+                                    'requirements.yaml',
+                                ],
+                            )
+
                             if (context.isPrPush()) {
-                                sh('./scripts/gen-requirements-yaml internal')
                                 createPrDescription(context: context)
                                 context.archivePatterns(
                                     patterns: [
-                                        'requirements.yaml',
                                         'pr_description.yaml',
                                     ],
                                 )
