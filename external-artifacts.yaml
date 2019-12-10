@@ -31,7 +31,7 @@ artifact_sets:
       local_path: firmware/prod/piksi_fpga.bit
       sha256: bf73c57be56a58f6036163c919eeaea87835de808c7a74d885527f8706c9148d
     - name: rtos_elf
-      version: v2.3.0-develop-2019120701-12-g75bfff80 
+      version: v2.3.0-develop-2019120701-12-g75bfff80
       s3_bucket: swiftnav-artifacts-pull-requests
       s3_repository: piksi_firmware_private
       s3_object: v3/piksi_firmware_v3_prod.stripped.elf
@@ -48,7 +48,7 @@ artifact_sets:
     name: internal
     artifacts:
     - name: rtos_elf
-      version: v2.3.0-develop-2019120701-12-g75bfff80 
+      version: v2.3.0-develop-2019120701-12-g75bfff80
       s3_bucket: swiftnav-artifacts-pull-requests
       s3_repository: piksi_firmware_private
       s3_object: v3/piksi_firmware_v3_prod.stripped.elf
