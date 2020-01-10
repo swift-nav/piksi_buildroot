@@ -444,6 +444,19 @@ static void hardware_info_settings_setup(pk_settings_ctx_t *settings_ctx)
              != 0) {
     piksi_log(LOG_WARNING, "Failed to register product_id in system_info");
   }
+
+  char build_variant[STR_BUFFER_SIZE] = {0};
+  if (file_read_string("/etc/build_variant", build_variant, STR_BUFFER_SIZE) != 0) {
+    piksi_log(LOG_WARNING, "Failed to get build_variant for system_info registration");
+  } else if (pk_settings_register_readonly(settings_ctx,
+                                           "system_info",
+                                           "build_variant",
+                                           build_variant,
+                                           strlen(build_variant) + 1,
+                                           SETTINGS_TYPE_STRING)
+             != 0) {
+    piksi_log(LOG_WARNING, "Failed to register build_variant in system_info");
+  }
 }
 
 static void reset_callback(u16 sender_id, u8 len, u8 msg_[], void *context)
