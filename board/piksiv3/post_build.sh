@@ -6,10 +6,16 @@ if [ -z "$HW_CONFIG" ]; then
   exit 1
 fi
 
+if [ -z "$VARIANT" ]; then
+  echo "ERROR: VARIANT is not set"
+  exit 1
+fi
+
 echo "Installing firmware images for hardware configuration: $HW_CONFIG"
 
 ROOTFS=$1
 FIRMWARE_DIR_ROOTFS=$ROOTFS/lib/firmware
+ETC_DIR_ROOTFS=$ROOTFS/etc
 FIRMWARE_DIR=${BR2_EXTERNAL_piksi_buildroot_PATH}/firmware
 
 VERSION_DIR=$ROOTFS/uimage_ver
@@ -19,6 +25,8 @@ GIT_STRING=$($get_git_string_script)
 TIMESTAMP=$(date +%s)
 echo -n $GIT_STRING > $VERSION_DIR/name
 echo -n $TIMESTAMP > $VERSION_DIR/timestamp
+
+echo -n $VARIANT >$ETC_DIR_ROOTFS/build_variant
 
 # Create firmware directory in the rootfs
 mkdir -p $FIRMWARE_DIR_ROOTFS
