@@ -26,8 +26,8 @@ HITL_VIEWER_BUILD_TYPE = "buildroot_pr"
 
 # HITL scenarios to kick off, and # of runs for each scenario.
 SCENARIOS = (
-    ("live-roof-650-townsend", 1),
-    ("live-roof-650-townsend-dropouts-zero-baseline", 1),
+    ("live-roof-1368-park-ave", 1),
+    ("live-roof-1368-park-ave-dropouts-zero-baseline", 1),
 )
 
 try:
