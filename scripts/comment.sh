@@ -28,7 +28,7 @@ BUILD_PATH="$REPO/$BUILD_VERSION"
 
 BUILD_SOURCE="pull-request"
 
-SCENARIO="live-roof-650-townsend-post"
+SCENARIO="live-roof-1368-park-ave-post"
 STATUS_HITL_CONTEXT="hitl/pass-fail"
 
 if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
