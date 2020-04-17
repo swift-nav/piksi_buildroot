@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# shellcheck disable=SC1091,SC2169,SC2039
+
+export name="shutdown_logger"         # required by template_command.inc.sh
+
+export log_tag=$name                 # required by logging.sh
+source /etc/init.d/logging.sh
+
+start() {
+  :
+}
+
+stop() {
+  logi --sbp "System Shutdown..."
+}
+
+source /etc/init.d/template_command.inc.sh

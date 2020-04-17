@@ -1,0 +1,7 @@
+#!/bin/sh
+
+/etc/init.d/S01poweroff_logger stop
+
+# We use -f to force immediate reboot.  Orderly shutdown sometimes fails
+# when unloading remoteproc drivers.
+poweroff -f
