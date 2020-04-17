@@ -1,0 +1,12 @@
+#!/bin/sh
+echo "Disabling automount" | sbp_log --info
+echo >/var/run/automount_disabled
+echo "Stopping standalone logging service" | sbp_log --info  
+sudo /etc/init.d/S83standalone_file_logger stop
+echo "Stopping copy sys logs service" | sbp_log --info  
+sudo /etc/init.d/S98copy_sys_logs stop
+echo "Unmounting USB" | sbp_log --info
+sudo umount /media/sda1;
+echo "Unmounting sd card" | sbp_log --info
+sudo umount /media/mmcblk0p1
+echo "It is now safe to shut off your Piksi!" | sbp_log --info
