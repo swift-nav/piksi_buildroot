@@ -91,30 +91,33 @@ migrate_storage()
   for dev in $(list_partitions "$mountname"); do
     devname="${dev:2}"
     if needs_migration "$devname"; then
-
+      logw --sbp "Deteted that device '${devname}' should be migrated to ${new_fs_type}..."
+      logw --sbp "Storage media migration is entirely disabled for this build."
+      
+      # --- HACK Disabling all migration related things ---
       # Stop services that use the sdcard
-      /etc/init.d/S83standalone_file_logger stop
-      /etc/init.d/S98copy_sys_logs stop
+      #/etc/init.d/S83standalone_file_logger stop
+      #/etc/init.d/S98copy_sys_logs stop
 
       # Disable automount...
-      echo >/var/run/automount_disabled
+      #echo >/var/run/automount_disabled
 
-      mountpoint=$(lsblk -o MOUNTPOINT "/dev/$devname" | tail -n -1)
+      #mountpoint=$(lsblk -o MOUNTPOINT "/dev/$devname" | tail -n -1)
 
-      [[ -z "$mountpoint" ]] || umount "$mountpoint" || {
-        logw --sbp "Failed to migrate '${devname}' to ${new_fs_type}..."
-        return 1; 
-      }
+      #[[ -z "$mountpoint" ]] || umount "$mountpoint" || {
+      #  logw --sbp "Failed to migrate '${devname}' to ${new_fs_type}..."
+      #  return 1; 
+      #}
 
-      new_fs_type=$(fetch_new_fs_type "$devname")
-      logw --sbp "Migrating '$devname' to $new_fs_type..."
+      #new_fs_type=$(fetch_new_fs_type "$devname")
+      #logw --sbp "Migrating '$devname' to $new_fs_type..."
 
-      format_with_fs_type "$devname" "$new_fs_type" || return 1
+      #format_with_fs_type "$devname" "$new_fs_type" || return 1
 
-      logi  "Done migrating '${devname}' to ${new_fs_type}..."
+      #logi  "Done migrating '${devname}' to ${new_fs_type}..."
 
-      set_reboot_after_migrate
-      set_stop_wait_for_mount
+      #set_reboot_after_migrate
+      #set_stop_wait_for_mount
     fi
   done
 }
