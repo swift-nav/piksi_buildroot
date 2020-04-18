@@ -232,7 +232,7 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
 
     size_t count = snprintf(umount,
                             sizeof(umount),
-                            "umount_all; sbp_cmd_resp --sequence %u --status $?",
+                            "sudo umount_all; sbp_cmd_resp --sequence %u --status $?",
                             msg->sequence);
 
     assert(count < sizeof(umount));
