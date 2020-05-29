@@ -31,12 +31,12 @@ artifact_sets:
       local_path: firmware/prod/piksi_fpga.bit
       sha256: bf73c57be56a58f6036163c919eeaea87835de808c7a74d885527f8706c9148d
     - name: rtos_elf
-      version: v2.3.0-develop-2019101417
-      s3_bucket: swiftnav-artifacts
+      version: v2.3.0-develop-2020052122-3-gd867aada
+      s3_bucket: swiftnav-artifacts-pull-requests
       s3_repository: piksi_firmware_private
       s3_object: v3/piksi_firmware_v3_prod.stripped.elf
       local_path: firmware/prod/piksi_firmware.elf
-      sha256: b39844834f88f89ed0b5e6bf975023704f2949c3996f29e168d10e28d2725027
+      sha256: 18745a500200632d98c2812ac00f4ed61ad3066dec8d0be4c4ac358f63ecba31
     - name: piksi_upgrade_tool
       version: v2.2.6
       s3_bucket: swiftnav-artifacts
@@ -48,12 +48,12 @@ artifact_sets:
     name: internal
     artifacts:
     - name: rtos_elf
-      version: v2.3.0-develop-2019101417
-      s3_bucket: swiftnav-artifacts
+      version: v2.3.0-develop-2020052122-3-gd867aada
+      s3_bucket: swiftnav-artifacts-pull-requests
       s3_repository: piksi_firmware_private
       s3_object: v3/piksi_firmware_v3_prod.stripped.elf
       local_path: firmware/prod/piksi_firmware.elf
-      sha256: b39844834f88f89ed0b5e6bf975023704f2949c3996f29e168d10e28d2725027
+      sha256: 18745a500200632d98c2812ac00f4ed61ad3066dec8d0be4c4ac358f63ecba31
     - name: fpga_bitstream
       version: v2.3.0-develop-2019101417
       s3_bucket: swiftnav-artifacts
@@ -79,12 +79,12 @@ artifact_sets:
     name: sdk
     artifacts:
     - name: rtos_elf
-      version: v2.3.0-develop-2019101417
-      s3_bucket: swiftnav-artifacts
+      version: v2.3.0-develop-2020052122-3-gd867aada
+      s3_bucket: swiftnav-artifacts-pull-requests
       s3_repository: piksi_firmware_private
       s3_object: v3/piksi_firmware_v3_prod.stripped.elf
       local_path: firmware/prod/piksi_firmware.elf
-      sha256: b39844834f88f89ed0b5e6bf975023704f2949c3996f29e168d10e28d2725027
+      sha256: 18745a500200632d98c2812ac00f4ed61ad3066dec8d0be4c4ac358f63ecba31
     - name: fpga_bitstream
       version: v2.3.0-develop-2019101417
       s3_bucket: swiftnav-artifacts
