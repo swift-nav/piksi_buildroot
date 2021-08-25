@@ -6,8 +6,6 @@ RUN echo "deb http://httpredir.debian.org/debian stretch-backports main non-free
 RUN apt-get update
 
 RUN apt-get --no-install-recommends -y --force-yes install python-dev python-setuptools python-pip && \
-    apt-get -y --force-yes purge python-pip && \
-    easy_install pip  && \
     pip install --upgrade pip && \ 
     pip install --upgrade setuptools && \ 
     pip install --upgrade aws-google-auth
@@ -17,8 +15,8 @@ RUN \
       build-essential \
       wget
 
-ENV CMAKE_VER2=3.10
-ENV CMAKE_VER3=${CMAKE_VER2}.3
+ENV CMAKE_VER2=3.13
+ENV CMAKE_VER3=${CMAKE_VER2}.5
 
 ENV CMAKE_URL=https://cmake.org/files/v${CMAKE_VER2}/cmake-${CMAKE_VER3}-Linux-x86_64.tar.gz
 
