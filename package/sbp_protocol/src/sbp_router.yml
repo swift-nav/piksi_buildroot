@@ -64,6 +64,16 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x97, 0x00] } # MSG_SV_AZ_EL
           - { action: ACCEPT, prefix: [0x55, 0x61, 0x00] } # MSG_MEASUREMENT_STATE
           - { action: REJECT }
+      - dst_port: SBP_PORT_CAN
+        filters:
+          - { action: ACCEPT, prefix: [0x55, 0x41, 0x00] } # Publish: SBP_MSG_TRACKING_STATE
+          - { action: ACCEPT, prefix: [0x55, 0x03, 0x01] } # Publish: SBP_MSG_UTC_TIME
+          - { action: ACCEPT, prefix: [0x55, 0x08, 0x02] } # Publish: SBP_MSG_DOPS
+          - { action: ACCEPT, prefix: [0x55, 0x0A, 0x02] } # Publish: SBP_MSG_POS_LLH
+          - { action: ACCEPT, prefix: [0x55, 0x0E, 0x02] } # Publish: SBP_MSG_VEL_NED
+          - { action: ACCEPT, prefix: [0x55, 0x0F, 0x02] } # Publish: SBP_MSG_BASELINE_HEADING
+          - { action: ACCEPT, prefix: [0x55, 0xFF, 0xFF] } # Publish: SBP_MSG_HEARTBEAT
+          - { action: REJECT }
 
   - name: SBP_PORT_SETTINGS_DAEMON
     metric: "sbp/settings_daemon"
@@ -245,3 +255,7 @@ ports:
           - { action: ACCEPT, prefix: [0x55, 0x06, 0x7F] } # MSG_LINUX_PROCESS_FD_COUNT
           - { action: ACCEPT, prefix: [0x55, 0x07, 0x7F] } # MSG_LINUX_PROCESS_FD_SUMMARY
           - { action: REJECT }
+
+  - name: SBP_PORT_CAN
+    pub_addr: "@tcp://127.0.0.1:43090"
+    sub_addr: "@tcp://127.0.0.1:43091"

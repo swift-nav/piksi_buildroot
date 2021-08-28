@@ -1,0 +1,2 @@
+config BR2_PACKAGE_LIBNMEA2000
+	bool "libnmea2000"
