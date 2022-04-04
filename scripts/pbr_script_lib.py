@@ -98,8 +98,8 @@ class Runner(object):
         Run a pipeline and check that it's successful.
         """
         proc = self._make_proc(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        ret = proc.wait()
-        return (ret, proc.stdout.read().decode('utf8'), proc.stderr.read().decode('utf8'))
+        (stdout, stderr) = proc.communicate()
+        return (proc.returncode, stdout.decode('utf8'), stderr.decode('utf8'))
 
     def check(self, stdout=None):
         """
