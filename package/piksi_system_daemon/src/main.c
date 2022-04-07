@@ -171,7 +171,8 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
 
   if (strcmp(msg->command, "upgrade_tool upgrade.image_set.bin") != 0
       && strcmp(msg->command, "spawn_nc") != 0 && strcmp(msg->command, "stream_logs") != 0
-      && strcmp(msg->command, "dump_syslog") != 0) {
+      && strcmp(msg->command, "dump_syslog") != 0 && strcmp(msg->command, "umount_all") != 0
+      && strcmp(msg->command, "halt") != 0 ) {
     msg_command_resp_t resp = {
       .sequence = msg->sequence,
       .code = (u32)-1,
@@ -221,6 +222,36 @@ static void sbp_command(u16 sender_id, u8 len, u8 msg_[], void *context)
 
     assert(count < sizeof(dump_syslog));
     (void)system(dump_syslog);
+
+    return;
+  }
+  
+  if (strcmp(msg->command, "umount_all") == 0) {
+
+    char umount[1024];
+
+    size_t count = snprintf(umount,
+                            sizeof(umount),
+                            "sudo umount_all; sbp_cmd_resp --sequence %u --status $?",
+                            msg->sequence);
+
+    assert(count < sizeof(umount));
+    (void)system(umount);
+
+    return;
+  }
+  
+  if (strcmp(msg->command, "halt") == 0) {
+
+    char halt[1024];
+
+    size_t count = snprintf(halt,
+                            sizeof(halt),
+                            "sudo /etc/init.d/do_poweroff; sbp_cmd_resp --sequence %u --status $?",
+                            msg->sequence);
+
+    assert(count < sizeof(halt));
+    (void)system(halt);
 
     return;
   }
