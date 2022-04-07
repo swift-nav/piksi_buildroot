@@ -27,7 +27,11 @@ config:
 pre-flight-checks:
 	@./scripts/run-preflight-checks $(VARIANT)
 
-image: pre-flight-checks external-artifacts config
+dump-env:
+	@echo '>>>' Dumping environment variables...
+	@env
+
+image: dump-env pre-flight-checks external-artifacts config
 	$(BUILD_ENV_ARGS) \
 		$(MAKE) -C buildroot O=$(VARIANT_OUTPUT) VARIANT=$(VARIANT) V=$(V)
 
