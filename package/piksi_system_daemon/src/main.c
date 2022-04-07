@@ -49,6 +49,7 @@ static double network_polling_frequency = 0.1;
 static double network_polling_retry_frequency = 1;
 static char network_polling_addresses[1024] = "8.8.8.8";
 static bool log_ping_activity = false;
+static bool heading_forward = false;
 
 #define RUNIT_SERVICE_DIR "/var/run/piksi_system_daemon/sv"
 /*#define DEBUG_PIKSI_SYSTEM_DAEMON*/
@@ -589,6 +590,49 @@ static int network_polling_notify(void *context)
   return SETTINGS_WR_OK;
 }
 
+static int heading_forward_notify(void *context)
+{
+  (void)context;
+
+  /* clang-format off */
+  static runit_config_t cfg = (runit_config_t) {
+    .service_dir    = RUNIT_SERVICE_DIR,
+    .service_name   = "heading_forwarder",
+    .command_line   = "heading_forwarder",
+    .custom_down    = NULL,
+    .finish_command = NULL,
+    .restart        = true,
+  };
+  /* clang-format on */
+
+  runit_stat_t stat = stat_runit_service(&cfg);
+
+  switch (stat) {
+  case RUNIT_UNKNOWN:
+  case RUNIT_NO_STAT:
+  case RUNIT_NO_PID:
+  case RUNIT_DOWN: {
+    if (heading_forward == true) {
+      if (start_runit_service(&cfg) != 0) {
+        return SETTINGS_WR_SERVICE_FAILED;
+      }
+    }
+  } break;
+
+  case RUNIT_RUNNING:
+  case RUNIT_RUNNING_OTHER:
+  default: {
+    if (heading_forward == false) {
+      if (stop_runit_service(&cfg) != 0) {
+        return SETTINGS_WR_SERVICE_FAILED;
+      }
+    }
+  }
+  }
+
+  return SETTINGS_WR_OK;
+}
+
 int main(void)
 {
   logging_init(PROGRAM_NAME);
@@ -711,6 +755,14 @@ int main(void)
                        sizeof(log_ping_activity),
                        SETTINGS_TYPE_BOOL,
                        network_polling_notify,
+                       NULL);
+  pk_settings_register(settings_ctx,
+                       "system",
+                       "heading_forwarding",
+                       &heading_forward,
+                       sizeof(heading_forward),
+                       SETTINGS_TYPE_BOOL,
+                       heading_forward_notify,
                        NULL);
 
   sbp_rx_callback_register(sbp_pubsub_rx_ctx_get(pubsub_ctx),
